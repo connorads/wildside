@@ -11559,10 +11559,7 @@ impl NativeRuntime {
             hud_life_icon_vram_page_loc_4586: Some(self.hud_life_icon_vram_page_loc_4586),
             hud_dma_events_sub_44dc: self.hud_dma_events_sub_44dc.clone(),
             hud_raster_upload_timings_sub_44dc: self.hud_raster_upload_timings_sub_44dc.clone(),
-            mode_level_vblank_work_before_sub_e12: self
-                .mode_level_work_before_hud_sub_44dc
-                .as_ref()
-                .map(|_| self.mode_level_vblank_work_before_sub_e12()),
+            mode_level_vblank_work_before_sub_e12: self.mode_level_vblank_work_before_sub_e12,
             mode_level_work_before_hud_sub_44dc: self.mode_level_work_before_hud_sub_44dc.clone(),
             mode_level_work_after_hud_sub_44dc: self.mode_level_work_after_hud_sub_44dc.clone(),
             mode_level_tail_work_loc_892: self.mode_level_tail_work_loc_892,

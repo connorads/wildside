@@ -1491,6 +1491,7 @@ impl NativeRuntime {
         block_list: Option<&terrain::BlockList>,
         deferred_ceiling_clears: &mut Vec<DeferredCeilingClear>,
         block_bounces: &mut Vec<BlockBounceAnim>,
+        pending_fg_update_cell_queue_sub_1596: &mut Vec<(u16, u16, terrain::Cell)>,
         block_col: u16,
         block_row: u16,
     ) -> Option<terrain::PrizeContent> {
@@ -1522,6 +1523,14 @@ impl NativeRuntime {
         let copied_skin = grid
             .erase_cell_at_loc_11542(headbutt_worker.block_col, headbutt_worker.block_row)
             .skin;
+        let queued_cell = terrain::Cell::from_be_bytes(0, copied_skin);
+        // ASM sub_1007A (kid.asm:21369-21375) queues the restored terrain
+        // word before replacing its live layout high byte with `$6F`.
+        pending_fg_update_cell_queue_sub_1596.push((
+            headbutt_worker.block_col,
+            headbutt_worker.block_row,
+            queued_cell,
+        ));
         grid.set_raw_word_at(
             headbutt_worker.block_col,
             headbutt_worker.block_row,
@@ -3423,6 +3432,7 @@ impl NativeRuntime {
         self.block_bounces.clear();
         self.prize_block_spawn_flashes.clear();
         self.hidden_block_fg_update_workers.clear();
+        self.pending_fg_update_cell_queue_sub_1596.clear();
         self.block_destroy_effects.clear();
         self.floating_items.clear();
     }
@@ -6660,12 +6670,14 @@ mod tests {
         };
         let mut deferred_ceiling_clears = Vec::new();
         let mut block_bounces = Vec::new();
+        let mut foreground_cell_queue = Vec::new();
 
         let content = NativeRuntime::start_prize_block_wobble_sub_1007A(
             &mut grid,
             Some(&block_list),
             &mut deferred_ceiling_clears,
             &mut block_bounces,
+            &mut foreground_cell_queue,
             1,
             0,
         );
@@ -6696,6 +6708,11 @@ mod tests {
         );
         assert_eq!(block_bounces.len(), 1);
         assert_eq!(
+            foreground_cell_queue,
+            vec![(1, 0, terrain::Cell::from_be_bytes(0, 0))],
+            "ASM sub_1007A queues the restored terrain word before writing `$6Fxx`",
+        );
+        assert_eq!(
             block_bounces[0].prize_content,
             Some(terrain::PrizeContent::Berzerker)
         );
@@ -6713,12 +6730,14 @@ mod tests {
         };
         let mut deferred_ceiling_clears = Vec::new();
         let mut block_bounces = Vec::new();
+        let mut foreground_cell_queue = Vec::new();
 
         let content = NativeRuntime::start_prize_block_wobble_sub_1007A(
             &mut grid,
             Some(&block_list),
             &mut deferred_ceiling_clears,
             &mut block_bounces,
+            &mut foreground_cell_queue,
             0,
             0,
         );

@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-30 handoff (#409 foreground-cell source ledger)
+
+- Oracle frame 990 executes one visible-theme `sub_1596` record at cell
+  `(4,36)`; DMA and both FIFO queues are idle at `loc_7D6` and `sub_E12`.
+- The prize-block `sub_1007A` producer now persists that record through the
+  runtime queue. The 123-instruction / 1,278-cycle visitor replaces frame
+  990's synthetic 440-cycle ownership value.
+- Full route pixels remain 37,518 exact / 241 divergent / 2,457 changed with
+  zero authoritative gameplay or RNG differences.
+- NEXT: retain returned recurrence seeds in the streaming runner, then measure
+  the shared Diamond and life-icon HUD clusters.
+
 ## 2026-07-30 handoff (#409 initial HUD source ledger)
 
 - Selected-PC rows now expose DMA active, remaining words, FIFO depth, and

@@ -8007,6 +8007,11 @@ impl NativeRuntime {
             top_tile_row as u16,
             row_count,
         );
+        self.pending_fg_update_cell_queue_sub_1596.extend(
+            updates
+                .iter()
+                .map(|update| (update.col, update.row, update.cell)),
+        );
         self.hidden_block_fg_update_workers.extend(updates);
 
         let adjacent_column = if self.helmet.eyeclops_beam_x_direction == 0 {
@@ -8028,6 +8033,11 @@ impl NativeRuntime {
                 adjacent_column as u16,
                 top_tile_row as u16,
                 row_count,
+            );
+            self.pending_fg_update_cell_queue_sub_1596.extend(
+                updates
+                    .iter()
+                    .map(|update| (update.col, update.row, update.cell)),
             );
             self.hidden_block_fg_update_workers.extend(updates);
         }

@@ -4810,7 +4810,8 @@ mod tests {
             palette_dma_sub_970: true,
             scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
             foreground_custom_queue_entries_sub_1596: 0,
-            foreground_cell_queue_entries_sub_1596: 0,
+            foreground_cell_queue_sub_1596:
+                wildside_core::ModeLevelForegroundCellQueueWorkSub1596::EMPTY,
             paused_sub_6874: false,
             hud_path_sub_bdc0:
                 wildside_core::ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
@@ -4856,7 +4857,8 @@ mod tests {
             palette_dma_sub_970: true,
             scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
             foreground_custom_queue_entries_sub_1596: 0,
-            foreground_cell_queue_entries_sub_1596: 0,
+            foreground_cell_queue_sub_1596:
+                wildside_core::ModeLevelForegroundCellQueueWorkSub1596::EMPTY,
             paused_sub_6874: false,
             hud_path_sub_bdc0:
                 wildside_core::ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
@@ -4907,7 +4909,8 @@ mod tests {
             palette_dma_sub_970: true,
             scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
             foreground_custom_queue_entries_sub_1596: 0,
-            foreground_cell_queue_entries_sub_1596: 0,
+            foreground_cell_queue_sub_1596:
+                wildside_core::ModeLevelForegroundCellQueueWorkSub1596::EMPTY,
             paused_sub_6874: false,
             hud_path_sub_bdc0:
                 wildside_core::ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,

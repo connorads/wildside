@@ -112,16 +112,18 @@ pub use mode_level_timing::{
     GemsStopMusicElapsedBusWindow, GemsStopMusicElapsedTiming, GemsStopMusicTiming,
     GenesisMclkCount, LoadInGamePlatformArtSourceWorkload,
     LoadInGamePlatformInitialisationSourceWorkload, LoadInGameTimerBonusPath, M68kCycleCount,
-    M68kExternalWaitEvent, M68kRefreshAdvance, M68kRefreshPhase, ModeLevelHudBuildPath,
-    ModeLevelPendingHardwareOwnershipAfterLoc7d6, ModeLevelPostHudPhaseAdvance,
-    ModeLevelScrollTransferPath, ModeLevelTailAdvanceLoc892, ModeLevelTailBackgroundWorkLoc3038A,
-    ModeLevelTailCameraStripeSub30194, ModeLevelTailInputsLoc892, ModeLevelTailPaletteWorkSub14C0,
-    ModeLevelTailPieceRefreshSub307D8, ModeLevelTailPieceRowsSub30744,
-    ModeLevelTailShiftDataAdvanceLoc30452, ModeLevelTailShiftDataSlotLoc30452,
-    ModeLevelTailShiftDataStateLoc30452, ModeLevelTailShiftLayersWork, ModeLevelTailStateLoc892,
-    ModeLevelTailWorkLoc892, ModeLevelVblankArbitrationBeforeSubE12,
-    ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership, ModeLevelVblankWorkBeforeSubE12,
-    ReadJoypadControl, WaitForVintArbitration, WaitForVintInterruptSample, WaitForVintResumePath,
+    M68kExternalWaitEvent, M68kRefreshAdvance, M68kRefreshPhase,
+    ModeLevelForegroundCellQueuePathSub1596, ModeLevelForegroundCellQueueWorkSub1596,
+    ModeLevelHudBuildPath, ModeLevelPendingHardwareOwnershipAfterLoc7d6,
+    ModeLevelPostHudPhaseAdvance, ModeLevelScrollTransferPath, ModeLevelTailAdvanceLoc892,
+    ModeLevelTailBackgroundWorkLoc3038A, ModeLevelTailCameraStripeSub30194,
+    ModeLevelTailInputsLoc892, ModeLevelTailPaletteWorkSub14C0, ModeLevelTailPieceRefreshSub307D8,
+    ModeLevelTailPieceRowsSub30744, ModeLevelTailShiftDataAdvanceLoc30452,
+    ModeLevelTailShiftDataSlotLoc30452, ModeLevelTailShiftDataStateLoc30452,
+    ModeLevelTailShiftLayersWork, ModeLevelTailStateLoc892, ModeLevelTailWorkLoc892,
+    ModeLevelVblankArbitrationBeforeSubE12, ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership,
+    ModeLevelVblankWorkBeforeSubE12, ReadJoypadControl, WaitForVintArbitration,
+    WaitForVintInterruptSample, WaitForVintResumePath,
     block_debris_sprites_advance_with_scheduler_sub_2a4c, block_debris_sprites_raw_cycles_sub_2a4c,
     damage_flash_wait_cycles_loc_bc44, demo_exit_wait_cycles_loc_119e0,
     diamond_power_compile_sprites_advance_with_scheduler_sub_3f798,
@@ -514,6 +516,9 @@ pub struct NativeRuntime {
     /// ASM sub_E446 hidden-block reveal workers queued by EyeClops beam strip
     /// scans, one `$12C`-frame worker plus foreground-cell upload per reveal.
     pub(crate) hidden_block_fg_update_workers: Vec<terrain::HiddenBlockColumnUpdateSubE446>,
+    /// One-shot `FGPlane_UpdateQueueCell` records emitted with sub_E446
+    /// reveals and consumed by the following Mode_Level `sub_1596` pass.
+    pending_fg_update_cell_queue_sub_1596: Vec<(u16, u16, terrain::Cell)>,
     /// Block destruction fragment effects.
     block_destroy_effects: Vec<BlockDestroyEffect>,
     /// ASM sub_2A4C falling block debris scratch workers.
@@ -691,6 +696,9 @@ pub struct NativeRuntime {
     hud_raster_upload_timings_sub_44dc: Vec<HudRasterUploadTimingSub44DC>,
     /// One-shot hardware boundary for the next live `Execute_Objects sub_E12`.
     mode_level_raster_seed_sub_e12: Option<vdp::ModeLevelRasterSeedSubE12>,
+    /// Source workload consumed by the current Mode_Level VBlank prefix and
+    /// suffix, retained after one-shot producer queues are drained.
+    mode_level_vblank_work_before_sub_e12: Option<ModeLevelVblankWorkBeforeSubE12>,
     /// Classified CPU/beam boundary at ASM `sub_44DC` entry.
     mode_level_cpu_raster_cursor_sub_44dc: Option<vdp::ModeLevelCpuRasterCursor>,
     /// Source-derived raw CPU work for the classified live `sub_44DC` path.
@@ -1521,6 +1529,7 @@ impl NativeRuntime {
             prize_block_spawn_flashes: Vec::new(),
             kid_projectile_hit_sparks: Vec::new(),
             hidden_block_fg_update_workers: Vec::new(),
+            pending_fg_update_cell_queue_sub_1596: Vec::new(),
             block_destroy_effects: Vec::new(),
             block_debris_swarms: Vec::new(),
             block_debris_sprite_pieces_sub_2a4c: Vec::new(),
@@ -1580,6 +1589,7 @@ impl NativeRuntime {
             hud_dma_events_sub_44dc: Vec::new(),
             hud_raster_upload_timings_sub_44dc: Vec::new(),
             mode_level_raster_seed_sub_e12: None,
+            mode_level_vblank_work_before_sub_e12: None,
             mode_level_cpu_raster_cursor_sub_44dc: None,
             mode_level_hud_raw_cycles_sub_44dc: None,
             mode_level_work_before_hud_sub_44dc: None,
@@ -1945,7 +1955,38 @@ impl NativeRuntime {
         self.seed_mode_level_raster_vint_assertion(assertion, sample, work, arbitration)
     }
 
-    fn mode_level_vblank_work_before_sub_e12(&self) -> ModeLevelVblankWorkBeforeSubE12 {
+    fn mode_level_vblank_work_before_sub_e12(&mut self) -> ModeLevelVblankWorkBeforeSubE12 {
+        let (camera_x_pixels, camera_y_pixels) =
+            self.opening_slice.as_ref().map_or((0, 0), |slice| {
+                (
+                    (slice.camera.x_pos >> 16) as u16,
+                    (slice.camera.y_pos >> 16) as u16,
+                )
+            });
+        let cell_paths = self
+            .pending_fg_update_cell_queue_sub_1596
+            .iter()
+            .map(|&(col, row, cell)| {
+                if crate::level::fg_update_queue_cell_vram_word_loc_1614(
+                    col,
+                    row,
+                    camera_x_pixels,
+                    camera_y_pixels,
+                )
+                .is_none()
+                {
+                    ModeLevelForegroundCellQueuePathSub1596::Culled
+                } else if (cell.to_word() as i16).is_negative() {
+                    ModeLevelForegroundCellQueuePathSub1596::VisibleBlock
+                } else {
+                    ModeLevelForegroundCellQueuePathSub1596::VisibleTheme
+                }
+            })
+            .collect::<Vec<_>>();
+        self.pending_fg_update_cell_queue_sub_1596.clear();
+        let foreground_cell_queue_sub_1596 =
+            ModeLevelForegroundCellQueueWorkSub1596::from_paths(&cell_paths)
+                .expect("ROM foreground cell queue holds fewer than 128 records");
         ModeLevelVblankWorkBeforeSubE12 {
             // ASM Mode_Level $7C8..sub_E12: dynamic-art dimensions cross the
             // render asset boundary and are completed by the execution shell.
@@ -1955,7 +1996,7 @@ impl NativeRuntime {
                 .unwrap_or(!self.palette_dma_suppressed_f890),
             scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
             foreground_custom_queue_entries_sub_1596: 0,
-            foreground_cell_queue_entries_sub_1596: 0,
+            foreground_cell_queue_sub_1596,
             paused_sub_6874: false,
             hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
         }
@@ -3631,6 +3672,7 @@ impl NativeRuntime {
         self.hud_dma_events_sub_44dc.clear();
         self.hud_raster_upload_timings_sub_44dc.clear();
         self.mode_level_cpu_raster_cursor_sub_44dc = None;
+        self.mode_level_vblank_work_before_sub_e12 = None;
         self.mode_level_hud_raw_cycles_sub_44dc = None;
         self.mode_level_work_before_hud_sub_44dc = None;
         self.mode_level_work_after_hud_sub_44dc = None;
@@ -4106,6 +4148,7 @@ impl NativeRuntime {
                 self.mode_level_work_before_hud_sub_44dc =
                     Some(self.observe_mode_level_work_before_hud_sub_44dc());
                 let vblank_work = self.mode_level_vblank_work_before_sub_e12();
+                self.mode_level_vblank_work_before_sub_e12 = Some(vblank_work);
                 if let Some(seed) = scheduler(vblank_work) {
                     self.mode_level_raster_seed_sub_e12 = Some(seed);
                 }
@@ -5953,6 +5996,7 @@ impl NativeRuntime {
                                     block_list,
                                     &mut self.block_state.deferred_ceiling_clears,
                                     &mut self.block_bounces,
+                                    &mut self.pending_fg_update_cell_queue_sub_1596,
                                     red_stealth_impact.block_col,
                                     red_stealth_impact.block_row,
                                 );
@@ -6091,6 +6135,7 @@ impl NativeRuntime {
                                     block_list,
                                     &mut self.block_state.deferred_ceiling_clears,
                                     &mut self.block_bounces,
+                                    &mut self.pending_fg_update_cell_queue_sub_1596,
                                     probe.cell_x,
                                     probe.cell_y,
                                 );
@@ -6479,6 +6524,16 @@ impl NativeRuntime {
         if let Some(prize_clear) = slice.ceiling_prize_clear
             && let Some((content, _, _)) = slice.prize_block_hit
         {
+            if let Some(grid) = &self.block_grid {
+                let queued_cell = grid.erase_cell_at_loc_11542(prize_clear.col, prize_clear.row);
+                // ASM sub_1007A (kid.asm:21369-21375) queues the restored
+                // terrain word before replacing the live cell with `$6Fxx`.
+                self.pending_fg_update_cell_queue_sub_1596.push((
+                    prize_clear.col,
+                    prize_clear.row,
+                    queued_cell,
+                ));
+            }
             self.block_state
                 .deferred_ceiling_clears
                 .push(DeferredCeilingClear {

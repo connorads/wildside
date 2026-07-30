@@ -28,7 +28,7 @@ fn published_natural_vblank_work() -> ModeLevelVblankWorkBeforeSubE12 {
         palette_dma_sub_970: true,
         scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
         foreground_custom_queue_entries_sub_1596: 0,
-        foreground_cell_queue_entries_sub_1596: 0,
+        foreground_cell_queue_sub_1596: ModeLevelForegroundCellQueueWorkSub1596::EMPTY,
         paused_sub_6874: false,
         hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
     }
@@ -211,6 +211,45 @@ fn published_tas_frame_1697_execution_shell_callback_drives_life_fifo_timing() {
             first_commit_pixel: 380,
         }]),
         "ASM sub_44DC loc_4586 consumes the shell-owned seed in the same frame",
+    );
+}
+
+#[test]
+fn published_tas_frame_990_classifies_prize_block_cell_queue_sub_1596() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut frame_990_work = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(991) {
+        if frame_index == 990 {
+            assert_eq!(
+                runtime.pending_fg_update_cell_queue_sub_1596,
+                vec![(4, 0x24, terrain::Cell::from_be_bytes(0, 4))],
+                "ASM sub_1007A queues the level 0x1B prize cell until the next Mode_Level VBlank",
+            );
+            runtime.step_frame_with_mode_level_raster_scheduler(
+                FrameInput::from_mask(mask),
+                &mut |work| {
+                    frame_990_work = Some(work);
+                    None
+                },
+            );
+        } else {
+            runtime.step_frame(FrameInput::from_mask(mask));
+        }
+    }
+
+    let work = frame_990_work.expect("published frame 990 executes Mode_Level");
+    assert_eq!(
+        work.foreground_cell_queue_sub_1596.path(0),
+        Some(ModeLevelForegroundCellQueuePathSub1596::VisibleTheme),
+        "ASM sub_1007A queues the restored theme cell consumed at loc_1614",
+    );
+    assert_eq!(
+        work.foreground_cell_queue_sub_1596.path(1),
+        None,
+        "published frame 990 has exactly one foreground cell record",
     );
 }
 

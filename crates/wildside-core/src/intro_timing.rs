@@ -247,8 +247,11 @@ pub fn visit_mode_level_vblank_suffix_after_scroll_dma(
     work: crate::ModeLevelVblankWorkBeforeSubE12,
     mut visit: impl FnMut(u32),
 ) -> Option<IntroSourceTiming> {
+    let single_visible_theme_cell = work.foreground_cell_queue_sub_1596.path(0)
+        == Some(crate::ModeLevelForegroundCellQueuePathSub1596::VisibleTheme)
+        && work.foreground_cell_queue_sub_1596.path(1).is_none();
     if work.foreground_custom_queue_entries_sub_1596 != 0
-        || work.foreground_cell_queue_entries_sub_1596 != 0
+        || (!work.foreground_cell_queue_sub_1596.is_empty() && !single_visible_theme_cell)
         || work.paused_sub_6874
         || !matches!(
             work.hud_path_sub_bdc0,
@@ -275,6 +278,29 @@ pub fn visit_mode_level_vblank_suffix_after_scroll_dma(
                 .expect("Mode_Level VBlank suffix source timing fits u32"),
         );
     };
+
+    if single_visible_theme_cell
+        && work.hud_path_sub_bdc0 == crate::ModeLevelHudBuildPath::LocBe20DirectStableCounters
+    {
+        // ASM sub_1596 loc_15D2 -> loc_1614, published TAS frame 990: one
+        // in-window non-block cell uses Addr_ThemeMappings, reaches
+        // loc_1680, then the stable HUD path returns at `sub_E12`.
+        const SINGLE_VISIBLE_THEME_CELL_STABLE_SUFFIX: &[u8] = &[
+            18, 8, 16, 8, 4, 12, 4, 8, 8, 12, 10, 8, 8, 4, 16, 16, 12, 8, 12, 4, 12, 12, 16, 12,
+            12, 14, 4, 8, 12, 14, 4, 8, 4, 8, 8, 4, 8, 4, 8, 4, 8, 4, 8, 4, 4, 8, 22, 8, 4, 8, 8,
+            8, 8, 8, 8, 12, 26, 8, 8, 8, 26, 8, 8, 10, 4, 16, 24, 24, 16, 18, 12, 8, 16, 18, 10,
+            12, 16, 12, 8, 12, 12, 12, 12, 4, 14, 12, 8, 12, 10, 8, 4, 8, 4, 4, 10, 8, 12, 8, 12,
+            8, 4, 8, 10, 12, 16, 12, 12, 12, 12, 16, 10, 12, 10, 12, 8, 10, 12, 10, 12, 12, 10, 16,
+            18,
+        ];
+        for &cycles in SINGLE_VISIBLE_THEME_CELL_STABLE_SUFFIX {
+            emit(u32::from(cycles));
+        }
+        return Some(timing);
+    }
+    if single_visible_theme_cell {
+        return None;
+    }
 
     if work.hud_path_sub_bdc0 == crate::ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates {
         // ASM Mode_Level $7D6 -> sub_E12, including sub_1596, sub_6874,
@@ -3033,7 +3059,7 @@ mod tests {
             palette_dma_sub_970: true,
             scroll_path: crate::ModeLevelScrollTransferPath::NormalLoc300ba,
             foreground_custom_queue_entries_sub_1596: 0,
-            foreground_cell_queue_entries_sub_1596: 0,
+            foreground_cell_queue_sub_1596: crate::ModeLevelForegroundCellQueueWorkSub1596::EMPTY,
             paused_sub_6874: false,
             hud_path_sub_bdc0: crate::ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
         };
@@ -3059,6 +3085,51 @@ mod tests {
             visit_mode_level_vblank_suffix_after_scroll_dma(unsupported, |_| {}),
             None,
             "unclassified gameplay foreground queue work remains fail-closed",
+        );
+    }
+
+    #[test]
+    fn mode_level_vblank_suffix_visits_frame_990_visible_theme_cell_queue() {
+        // ASM sub_1596 loc_15D2 -> loc_1614, published TAS frame 990.
+        let cell_queue = crate::ModeLevelForegroundCellQueueWorkSub1596::from_paths(&[
+            crate::ModeLevelForegroundCellQueuePathSub1596::VisibleTheme,
+        ])
+        .expect("one foreground cell fits the ROM queue");
+        let work = crate::ModeLevelVblankWorkBeforeSubE12 {
+            dynamic_art_tiles_loc_ad4: Some([16, 4, 0, 0, 0, 0]),
+            palette_dma_sub_970: true,
+            scroll_path: crate::ModeLevelScrollTransferPath::NormalLoc300ba,
+            foreground_custom_queue_entries_sub_1596: 0,
+            foreground_cell_queue_sub_1596: cell_queue,
+            paused_sub_6874: false,
+            hud_path_sub_bdc0: crate::ModeLevelHudBuildPath::LocBe20DirectStableCounters,
+        };
+        let timing = visit_mode_level_vblank_suffix_after_scroll_dma(work, |_| {})
+            .expect("single visible theme-cell suffix");
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 123,
+                raw_cycles: M68kCycleCount::from_raw(1_278),
+            },
+            "bounded all-PC oracle journal from loc_7D6 to sub_E12",
+        );
+
+        let unsupported = crate::ModeLevelForegroundCellQueueWorkSub1596::from_paths(&[
+            crate::ModeLevelForegroundCellQueuePathSub1596::VisibleBlock,
+        ])
+        .expect("one foreground cell fits the ROM queue");
+        assert_eq!(
+            visit_mode_level_vblank_suffix_after_scroll_dma(
+                crate::ModeLevelVblankWorkBeforeSubE12 {
+                    foreground_cell_queue_sub_1596: unsupported,
+                    ..work
+                },
+                |_| {},
+            ),
+            None,
+            "unvisited cell branches remain fail-closed",
         );
     }
 

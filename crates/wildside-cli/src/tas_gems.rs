@@ -8852,13 +8852,6 @@ impl GemsSignatureProbe {
             // ASM loc_7D6 -> sub_E12, published TAS frame 972: the oracle
             // Z80 wait counter rises 784267..784344 across the suffix.
             ModeLevelPendingHardwareOwnershipAfterLoc7d6::from_raw_cycles(77)
-        } else if self.power_on_frame == 990 {
-            // ASM loc_7D6 -> sub_E12, published TAS frame 990: selected PCs
-            // span 126714269..126715567 with flat Z80 wait ownership. The
-            // existing 844-cycle source visitor crosses seven 2-cycle ROM
-            // refresh slots, leaving 440 cycles owned by the preceding
-            // loc_30104 H-scroll DMA completion rather than CPU source work.
-            ModeLevelPendingHardwareOwnershipAfterLoc7d6::from_raw_cycles(440)
         } else {
             ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE
         };
@@ -22207,7 +22200,8 @@ mod tests {
                     palette_dma_sub_970: false,
                     scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
                     foreground_custom_queue_entries_sub_1596: 0,
-                    foreground_cell_queue_entries_sub_1596: 0,
+                    foreground_cell_queue_sub_1596:
+                        wildside_core::ModeLevelForegroundCellQueueWorkSub1596::EMPTY,
                     paused_sub_6874: false,
                     hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
                 },

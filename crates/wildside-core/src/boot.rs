@@ -6298,6 +6298,7 @@ impl NativeRuntime {
         self.prize_block_worker_tails.clear();
         self.prize_block_spawn_flashes.clear();
         self.hidden_block_fg_update_workers.clear();
+        self.pending_fg_update_cell_queue_sub_1596.clear();
         self.block_destroy_effects.clear();
         self.block_debris_swarms.clear();
         self.block_debris_sprite_pieces_sub_2a4c.clear();

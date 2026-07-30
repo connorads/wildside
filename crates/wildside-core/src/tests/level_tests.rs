@@ -5713,11 +5713,13 @@ mod chunk_02 {
                 let mut grid = base_grid.clone();
                 let mut deferred_ceiling_clears = Vec::new();
                 let mut block_bounces = Vec::new();
+                let mut foreground_cell_queue = Vec::new();
                 let content = NativeRuntime::start_prize_block_wobble_sub_1007A(
                     &mut grid,
                     Some(&block_list),
                     &mut deferred_ceiling_clears,
                     &mut block_bounces,
+                    &mut foreground_cell_queue,
                     prize.col,
                     prize.row,
                 );
@@ -5838,11 +5840,13 @@ mod chunk_02 {
                 .clone();
             let mut deferred_ceiling_clears = Vec::new();
             let mut block_bounces = Vec::new();
+            let mut foreground_cell_queue = Vec::new();
             let content = NativeRuntime::start_prize_block_wobble_sub_1007A(
                 &mut grid,
                 Some(block_list),
                 &mut deferred_ceiling_clears,
                 &mut block_bounces,
+                &mut foreground_cell_queue,
                 col,
                 row,
             );

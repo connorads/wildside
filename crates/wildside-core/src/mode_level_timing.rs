@@ -1159,9 +1159,71 @@ pub struct ModeLevelVblankWorkBeforeSubE12 {
     pub palette_dma_sub_970: bool,
     pub scroll_path: ModeLevelScrollTransferPath,
     pub foreground_custom_queue_entries_sub_1596: u16,
-    pub foreground_cell_queue_entries_sub_1596: u16,
+    pub foreground_cell_queue_sub_1596: ModeLevelForegroundCellQueueWorkSub1596,
     pub paused_sub_6874: bool,
     pub hud_path_sub_bdc0: ModeLevelHudBuildPath,
+}
+
+/// Ordered ASM `sub_1596` branch taken by one foreground cell-queue record.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelForegroundCellQueuePathSub1596 {
+    VisibleTheme,
+    VisibleBlock,
+    Culled,
+}
+
+/// Compact ordered foreground cell-queue workload consumed before `sub_E12`.
+///
+/// `FGPlane_UpdateQueueCell` has room for fewer than 128 six-byte records.
+/// Two bits per record retain branch order without putting a heap-owned trace
+/// value on every native frame. Construction fails closed beyond that bound.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelForegroundCellQueueWorkSub1596 {
+    packed_paths: [u64; 4],
+    len: u8,
+}
+
+impl ModeLevelForegroundCellQueueWorkSub1596 {
+    pub const EMPTY: Self = Self {
+        packed_paths: [0; 4],
+        len: 0,
+    };
+
+    pub fn from_paths(paths: &[ModeLevelForegroundCellQueuePathSub1596]) -> Option<Self> {
+        if paths.len() > 128 {
+            return None;
+        }
+        let mut packed_paths = [0_u64; 4];
+        for (index, path) in paths.iter().copied().enumerate() {
+            let encoded = match path {
+                ModeLevelForegroundCellQueuePathSub1596::VisibleTheme => 0_u64,
+                ModeLevelForegroundCellQueuePathSub1596::VisibleBlock => 1,
+                ModeLevelForegroundCellQueuePathSub1596::Culled => 2,
+            };
+            packed_paths[index / 32] |= encoded << ((index % 32) * 2);
+        }
+        Some(Self {
+            packed_paths,
+            len: paths.len() as u8,
+        })
+    }
+
+    pub const fn is_empty(self) -> bool {
+        self.len == 0
+    }
+
+    pub fn path(self, index: usize) -> Option<ModeLevelForegroundCellQueuePathSub1596> {
+        if index >= usize::from(self.len) {
+            return None;
+        }
+        match (self.packed_paths[index / 32] >> ((index % 32) * 2)) & 3 {
+            0 => Some(ModeLevelForegroundCellQueuePathSub1596::VisibleTheme),
+            1 => Some(ModeLevelForegroundCellQueuePathSub1596::VisibleBlock),
+            2 => Some(ModeLevelForegroundCellQueuePathSub1596::Culled),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -2087,7 +2149,7 @@ pub fn mode_level_vblank_source_cycles_before_sub_e12(
     };
     if work.scroll_path != ModeLevelScrollTransferPath::NormalLoc300ba
         || work.foreground_custom_queue_entries_sub_1596 != 0
-        || work.foreground_cell_queue_entries_sub_1596 != 0
+        || !work.foreground_cell_queue_sub_1596.is_empty()
         || work.paused_sub_6874
     {
         return None;
@@ -6713,7 +6775,7 @@ mod tests {
             palette_dma_sub_970: true,
             scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
             foreground_custom_queue_entries_sub_1596: 0,
-            foreground_cell_queue_entries_sub_1596: 0,
+            foreground_cell_queue_sub_1596: ModeLevelForegroundCellQueueWorkSub1596::EMPTY,
             paused_sub_6874: false,
             hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
         }

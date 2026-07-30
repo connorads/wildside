@@ -23484,3 +23484,21 @@ identical seeds and complete GEMS checkpoints with zero pending wait; returned
 beam and engine master time agree exactly. No route index or oracle correction
 enters the transition. Remaining activation inputs are the first live-gameplay
 bootstrap and the H-scroll DMA ownership pending at `loc_7D6`.
+
+Progress 2026-07-30 for #409: frame 990's remaining 440-cycle ownership
+aggregate is source-classified. The selected-PC journal spans 123
+instructions / 1,278 raw cycles plus 20 general wait cycles from `loc_7D6` to
+`sub_E12`; DMA is inactive and both FIFO counters are zero at each boundary.
+`FGUpdateQueueCell_NextSlot=$FFFF47AC` identifies one six-byte record:
+`(x=4,y=36,word=$0010)`. It is visible within camera bounds and takes the
+theme-cell branch at `loc_1614`. ASM `sub_1007A` queues that restored terrain
+word before writing `$6Fxx`; native's ordinary ceiling-headbutt and alternate
+form prize paths now preserve the corresponding typed record until the next
+Mode_Level VBlank. The scheduler consumes a compact ordered path ledger and
+fails closed for unsupported block-cell mixes. The exact source visitor
+replaces the frame-specific 440-cycle pending-ownership value. Cache-backed
+frame-990 classification, `verify-slice-fast`, and `verify-tas-full` pass.
+The complete pixel result is unchanged at 37,518 exact / 241 divergent /
+2,457 changed, with zero authoritative gameplay or RNG differences. NEXT:
+retain the recurrence's returned seeds in the streaming runner and measure
+the shared Diamond/life-icon clusters.
