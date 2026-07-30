@@ -3035,19 +3035,38 @@ pub fn prize_object_cycles_sub_e12(
     let callback_cycles = match callback {
         ModeLevelPrizeObjectExecutionSubE12::FloatingPrize { index } => {
             let work = execute.floating_prize_paths.get(usize::from(index))?;
-            match work.fall_path_loc_103b2? {
+            let is_helmet = matches!(
+                work.content,
+                crate::terrain::PrizeContent::Skycutter
+                    | crate::terrain::PrizeContent::Cyclone
+                    | crate::terrain::PrizeContent::RedStealth
+                    | crate::terrain::PrizeContent::Eyeclops
+                    | crate::terrain::PrizeContent::Juggernaut
+                    | crate::terrain::PrizeContent::IronKnight
+                    | crate::terrain::PrizeContent::Berzerker
+                    | crate::terrain::PrizeContent::Maniaxe
+                    | crate::terrain::PrizeContent::Micromax
+            );
+            match (is_helmet, work.fall_path_loc_103b2?) {
+                // ASM PrizeHelmetCyclone_Init loc_104AE -> sub_10C38. Oracle
+                // selected-PC frames 1041/1042 measure 606/634 raw cycles
+                // between loc_E1E reads, leaving 226/254 after the shell.
+                (true, ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallSameRow) => 226,
+                (true, ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallAdvanceRow) => 254,
+                // After sub_10C38 clears bit $10, frame 1043 takes the direct
+                // terrain-check path: 630 raw cycles between loc_E1E reads.
+                (true, ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallSameRow) => 250,
+                (true, ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallAdvanceRow) => 278,
                 // ASM loc_103B2 -> loc_103DE -> loc_10404 -> loc_10396.
-                ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallSameRow => 232,
+                (false, ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallSameRow) => 232,
                 // The lower-cell Level_Layout probe adds 78 cycles.
-                ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallSameRow => 308,
+                (false, ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallSameRow) => 308,
                 // ASM loc_103DA skips gravity and rejoins the bottom/collision
                 // checks at loc_10404.
-                ModeLevelFloatingPrizeFallPathLoc103B2::BlockedCurrentRow => 190,
+                (false, ModeLevelFloatingPrizeFallPathLoc103B2::BlockedCurrentRow) => 190,
                 // Row-advance and blocked-grace costs need independent source
                 // probes before they can enter the cycle scheduler.
-                ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallAdvanceRow
-                | ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallAdvanceRow
-                | ModeLevelFloatingPrizeFallPathLoc103B2::BlockedGraceProbe => return None,
+                _ => return None,
             }
         }
         ModeLevelPrizeObjectExecutionSubE12::Player => return None,
@@ -5130,6 +5149,12 @@ fn visit_gfx_objects_collision_kid_f86e_instructions_sub_1b76(
                 16, 12, 4, 12, 8, 12, 8, 12, 18, 8, 12, 8, 8, 8, 8, 12, 4, 8, 12, 4, 8, 12, 12, 8,
                 4, 10, 8, 8, 10,
             ],
+            // ASM loc_1B94 -> loc_1BE6 -> loc_1BC0: reject on the bottom
+            // edge, then read the zero terminator.
+            ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedBottomEdgeBeforeKidTopLoc1be6 => &[
+                16, 12, 4, 12, 8, 12, 8, 12, 18, 8, 12, 8, 8, 8, 8, 12, 4, 8, 12, 4, 8, 12, 12, 8,
+                4, 8, 12, 4, 10, 8, 8, 10,
+            ],
         };
         for &cycles in instruction_cycles {
             visit(cycles)?;
@@ -5307,6 +5332,15 @@ fn gfx_animation_branch_sub_113e(
             // signed-backstep dispatch.
             looping_diamond_gfx_animation_branch_sub_113e(allocation_age)
         }
+        ModeLevelGfxMoveAnimateNodeWorkSub1444::FloatingHelmet { allocation_age } => {
+            // ASM stru_106D0..stru_10700: one duration-1 frame followed by
+            // the loc_11AC signed-backstep command.
+            Some(if allocation_age == 0 {
+                GfxAnimationBranchSub113E::DispatchNormal
+            } else {
+                GfxAnimationBranchSub113E::DispatchBackThenNormal
+            })
+        }
     }
 }
 
@@ -5327,9 +5361,17 @@ fn visit_gfx_objects_move_and_animate_instructions_sub_1444(
     // ASM Mode_Level loc_816 BSR and sub_1444 through the first loc_144E.
     visit_all(&[18, 12, 8, 8])?;
     for &node in nodes {
-        // ASM loc_144E live successor, GfxObject_Move sub_1120, and the
-        // GfxObject_Animate sub_113E call.
-        visit_all(&[16, 8, 4, 18, 12, 8, 12, 10, 16, 18])?;
+        // ASM loc_144E live successor and GfxObject_Move sub_1120.
+        visit_all(&[16, 8, 4, 18])?;
+        if matches!(
+            node,
+            ModeLevelGfxMoveAnimateNodeWorkSub1444::FloatingHelmet { .. }
+        ) {
+            visit_all(&[12, 8, 12, 8, 16, 20, 16, 20, 16])?;
+        } else {
+            visit_all(&[12, 8, 12, 10, 16])?;
+        }
+        visit_all(&[18])?;
         match gfx_animation_branch_sub_113e(node)? {
             GfxAnimationBranchSub113E::Inactive => {
                 visit_all(&[12, 12, 12, 12, 10, 12, 16])?;
@@ -5357,9 +5399,14 @@ fn visit_gfx_objects_move_and_animate_instructions_sub_1444(
                     4, 8, 4, 4, 26, 16, 4, 8, 12, 8, 12, 18, 10, 16, 16, 10, 16, 10, 12, 16,
                 ])?;
             }
-            // The target frontier never reaches the loc_1182 stop dispatch;
-            // keep that mutable flag transition unclassified.
-            GfxAnimationBranchSub113E::DispatchStop => return None,
+            GfxAnimationBranchSub113E::DispatchStop => {
+                // ASM GfxObject_Animate loc_1158 -> off_1176 -> loc_1182:
+                // dispatch the zero terminator, latch the stopped flag, clear
+                // animation ownership, seed timer one, and return to sub_1444.
+                visit_all(&[
+                    12, 12, 12, 12, 8, 16, 16, 8, 4, 8, 4, 4, 26, 16, 12, 12, 16, 12, 16,
+                ])?;
+            }
         }
         // ASM loc_145E loops to loc_144E.
         visit_all(&[10])?;
@@ -7436,6 +7483,21 @@ mod tests {
                 );
             }
         }
+
+        let stopped_wobble = ModeLevelGfxMoveAnimateWorkSub1444::Classified {
+            nodes: vec![
+                ModeLevelGfxMoveAnimateNodeWorkSub1444::StationaryUnanimated,
+                ModeLevelGfxMoveAnimateNodeWorkSub1444::StationaryUnanimated,
+                ModeLevelGfxMoveAnimateNodeWorkSub1444::StationaryUnanimated,
+                ModeLevelGfxMoveAnimateNodeWorkSub1444::StationaryUnanimated,
+                ModeLevelGfxMoveAnimateNodeWorkSub1444::PrizeWobble { allocation_age: 24 },
+            ],
+        };
+        assert_eq!(
+            gfx_objects_move_and_animate_raw_cycles_sub_1444(&stopped_wobble),
+            Some(M68kCycleCount::from_raw(1_300)),
+            "ASM sub_1444 -> GfxObject_Animate loc_1158 -> loc_1182 frame-1013 stop dispatch",
+        );
     }
 
     #[test]

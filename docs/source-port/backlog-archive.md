@@ -23534,3 +23534,19 @@ The 1,800-frame pixel slice remains 1,797 exact / 3 divergent; the full result
 remains 37,518 exact / 241 divergent / 2,457 changed. NEXT: classify frame
 1014 as a behaviour boundary, not an index step, while fixing the shared FIFO
 access model.
+
+Progress 2026-07-30 for #409: the prize-block transition is source-typed as a
+whole lifecycle through the floating Cyclone rise. `GfxObject_Animate
+sub_113E` now includes the `loc_1182` animation-stop instruction stream.
+`PrizeHelmetCyclone_Init -> sub_10C38` is distinct from the diamond fall
+routine: selected-PC `loc_E1E` journals measure 606/634 raw cycles for the
+grace same-row/advance paths and 630 raw cycles for the direct same-row path.
+The one-frame `stru_106E8` animation runs through moving `sub_1120`; the
+Cyclone mapping selects collision rows `unk_314EE` (`-6,12,-12,12`), and the
+frame-1042 journal rejects above Kid at `loc_1BE6`. The checked recurrence now
+reports the rejecting HUD, post-HUD, tail, WaitForVint, VBlank-prefix, or
+VBlank-suffix domain instead of erasing it into `None`. A route ratchet
+requires 135 consecutive seeds from frame 923 through frame 1057. Frame 1058
+fails closed at the separate Cyclone pickup/overlap response. Pixel totals
+remain 37,518 exact / 241 divergent / 2,457 changed. NEXT: type the collection
+response and its mutable collision writeback, then remeasure pixels.

@@ -2037,6 +2037,32 @@ pub struct ModeLevelFrameRecurrenceWork<'a> {
     pub pending_ownership_after_loc_7d6: ModeLevelPendingHardwareOwnershipAfterLoc7d6,
 }
 
+/// Source domain that rejected one gameplay-frame recurrence.
+#[cfg(feature = "audio")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModeLevelFrameRecurrenceFailure {
+    HudSchedule,
+    PostHud,
+    Tail,
+    WaitForVint,
+    VblankPrefix,
+    VblankSuffix,
+}
+
+#[cfg(feature = "audio")]
+impl ModeLevelFrameRecurrenceFailure {
+    pub const fn description(self) -> &'static str {
+        match self {
+            Self::HudSchedule => "HUD schedule is unclassified",
+            Self::PostHud => "post-HUD source path is unclassified",
+            Self::Tail => "Mode_Level tail source path is unclassified",
+            Self::WaitForVint => "WaitForVint recurrence failed",
+            Self::VblankPrefix => "VBlank prefix source path is unclassified",
+            Self::VblankSuffix => "VBlank suffix source path is unclassified",
+        }
+    }
+}
+
 /// Carry an already-aligned gameplay CPU/VDP/GEMS timeline across one frame.
 ///
 /// ASM `sub_44DC -> loc_810 -> loc_892 -> WaitForVint $93E -> Mode_Level
@@ -2049,6 +2075,16 @@ pub fn apply_gems_mode_level_frame_recurrence_to_sub_e12(
     entry_sub_44dc: ModeLevelCpuRasterCursor,
     work: ModeLevelFrameRecurrenceWork<'_>,
 ) -> Option<ModeLevelRasterSeedSubE12> {
+    apply_gems_mode_level_frame_recurrence_to_sub_e12_checked(audio, entry_sub_44dc, work).ok()
+}
+
+/// Checked form of [`apply_gems_mode_level_frame_recurrence_to_sub_e12`].
+#[cfg(feature = "audio")]
+pub fn apply_gems_mode_level_frame_recurrence_to_sub_e12_checked(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry_sub_44dc: ModeLevelCpuRasterCursor,
+    work: ModeLevelFrameRecurrenceWork<'_>,
+) -> Result<ModeLevelRasterSeedSubE12, ModeLevelFrameRecurrenceFailure> {
     let post_hud_entry = match work.hud_events_sub_44dc {
         [] => {
             apply_gems_no_upload_schedule_sub_44dc(audio, entry_sub_44dc, work.hud_events_sub_44dc)
@@ -2069,8 +2105,10 @@ pub fn apply_gems_mode_level_frame_recurrence_to_sub_e12(
             apply_gems_flag_schedule_sub_44dc(audio, entry_sub_44dc, work.hud_events_sub_44dc)
         }
         _ => None,
-    }?;
-    let loc_892 = apply_gems_mode_level_post_hud_to_loc_892(audio, post_hud_entry, work.post_hud)?;
+    }
+    .ok_or(ModeLevelFrameRecurrenceFailure::HudSchedule)?;
+    let loc_892 = apply_gems_mode_level_post_hud_to_loc_892(audio, post_hud_entry, work.post_hud)
+        .ok_or(ModeLevelFrameRecurrenceFailure::PostHud)?;
     let wait_for_vint = apply_gems_mode_level_tail_to_wait_for_vint(
         audio,
         LoadInGameCpuRasterCursor {
@@ -2078,18 +2116,22 @@ pub fn apply_gems_mode_level_frame_recurrence_to_sub_e12(
             refresh_phase: loc_892.refresh_phase,
         },
         work.tail_loc_892,
-    )?;
-    let mode_level =
-        apply_gems_mode_level_wait_for_vint_to_mode_level(audio, wait_for_vint.cursor)?.cursor;
+    )
+    .ok_or(ModeLevelFrameRecurrenceFailure::Tail)?;
+    let mode_level = apply_gems_mode_level_wait_for_vint_to_mode_level(audio, wait_for_vint.cursor)
+        .ok_or(ModeLevelFrameRecurrenceFailure::WaitForVint)?
+        .cursor;
     let prefix =
-        apply_gems_mode_level_vblank_prefix_to_scroll_dma(audio, mode_level, work.next_vblank)?;
+        apply_gems_mode_level_vblank_prefix_to_scroll_dma(audio, mode_level, work.next_vblank)
+            .ok_or(ModeLevelFrameRecurrenceFailure::VblankPrefix)?;
     let suffix = apply_gems_mode_level_vblank_suffix_after_scroll_dma(
         audio,
         prefix.cursor,
         work.next_vblank,
         work.pending_ownership_after_loc_7d6,
-    )?;
-    Some(ModeLevelRasterSeedSubE12 {
+    )
+    .ok_or(ModeLevelFrameRecurrenceFailure::VblankSuffix)?;
+    Ok(ModeLevelRasterSeedSubE12 {
         beam: suffix.cursor.beam,
         refresh_phase: suffix.cursor.refresh_phase,
     })

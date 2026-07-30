@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-30 handoff (#409 floating Cyclone lifecycle)
+
+- The correction-free owner now defends frame 923 through 1057; frame 1058
+  fails closed at Cyclone pickup/overlap.
+- `sub_113E`, `PrizeHelmetCyclone_Init`, `sub_10C38`, and `sub_1B76` type the
+  animation stop, floating rise, exact source costs, sprite, and collision box.
+- Checked recurrence failures identify the rejecting hardware phase.
+- Full pixels remain 37,518 exact / 241 divergent / 2,457 changed.
+- NEXT: model Cyclone collection and mutable collision response as one
+  lifecycle boundary, then remeasure the full pixel route.
+
 ## 2026-07-30 handoff (#409 downward streaming recurrence)
 
 - The persistent CPU/GEMS/VDP owner remains live from frame 923 through 1013;

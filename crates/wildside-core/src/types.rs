@@ -2484,6 +2484,8 @@ pub enum ModeLevelGfxCollisionKidNodeWorkSub1B76 {
     UnflippedRightEdgeBeforeKidLeftLoc1bd0,
     /// ASM `loc_1BDE`: unflipped box top edge is beyond Kid's bottom edge.
     UnflippedTopEdgeBeyondKidBottomLoc1bde,
+    /// ASM `loc_1BE6`: unflipped box bottom edge is before Kid's top edge.
+    UnflippedBottomEdgeBeforeKidTopLoc1be6,
 }
 
 /// Per-node work for the kind-4 chain behind sentinel `$FFFFF86E`.
@@ -2516,6 +2518,11 @@ pub enum ModeLevelGfxMoveAnimateNodeWorkSub1444 {
         allocation_age: u16,
     },
     FloatingDiamond {
+        allocation_age: u16,
+    },
+    /// Helmet prize initialised by `sub_10CB0` with movement enabled and a
+    /// one-frame looping animation.
+    FloatingHelmet {
         allocation_age: u16,
     },
 }

@@ -9896,11 +9896,17 @@ impl PublishedTasRasterTimeline {
                 next_vblank: work,
                 pending_ownership_after_loc_7d6: ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
             };
-            wildside_frame::apply_gems_mode_level_frame_recurrence_to_sub_e12(
+            match wildside_frame::apply_gems_mode_level_frame_recurrence_to_sub_e12_checked(
                 &mut self.probe.engine,
                 previous_sub_44dc,
                 recurrence,
-            )
+            ) {
+                Ok(seed) => Some(seed),
+                Err(failure) => {
+                    self.failure = Some((frame_index, failure.description()));
+                    None
+                }
+            }
         } else {
             if frame_index != GEMS_MODELLED_ROUTE_FRAMES {
                 self.failure = Some((frame_index, "missed defended frame-923 bootstrap"));
@@ -9916,7 +9922,9 @@ impl PublishedTasRasterTimeline {
             self.current_seed_sub_e12 = Some(seed);
             Some(seed)
         } else {
-            self.failure = Some((frame_index, "typed frame recurrence failed closed"));
+            if self.failure.is_none() {
+                self.failure = Some((frame_index, "typed frame recurrence failed closed"));
+            }
             self.finished = true;
             None
         }
@@ -9983,13 +9991,13 @@ impl PublishedTasRasterTimeline {
     }
 
     pub(crate) fn verify_coverage(&self) -> Result<()> {
-        const REQUIRED_SCHEDULED_FRAMES_THROUGH_1013: usize = 91;
-        if self.scheduled_frames < REQUIRED_SCHEDULED_FRAMES_THROUGH_1013 {
+        const REQUIRED_SCHEDULED_FRAMES_THROUGH_1057: usize = 135;
+        if self.scheduled_frames < REQUIRED_SCHEDULED_FRAMES_THROUGH_1057 {
             if let Some((frame, reason)) = self.failure {
                 anyhow::bail!("published TAS raster timeline failed at frame {frame}: {reason}");
             }
             anyhow::bail!(
-                "published TAS raster timeline scheduled only {} frames; expected at least {REQUIRED_SCHEDULED_FRAMES_THROUGH_1013}",
+                "published TAS raster timeline scheduled only {} frames; expected at least {REQUIRED_SCHEDULED_FRAMES_THROUGH_1057}",
                 self.scheduled_frames,
             );
         }

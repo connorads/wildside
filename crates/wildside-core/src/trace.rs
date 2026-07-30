@@ -12,6 +12,21 @@ const KID_OBJECT_SUPPORT_VERTICAL_WINDOW_PX: i32 = 48;
 const KID_OBJECT_SUPPORT_HORIZONTAL_WINDOW_PX: i32 = 96;
 const KID_OBJECT_SUPPORT_CANDIDATE_LIMIT: usize = 4;
 
+fn is_helmet_prize(content: terrain::PrizeContent) -> bool {
+    matches!(
+        content,
+        terrain::PrizeContent::Skycutter
+            | terrain::PrizeContent::Cyclone
+            | terrain::PrizeContent::RedStealth
+            | terrain::PrizeContent::Eyeclops
+            | terrain::PrizeContent::Juggernaut
+            | terrain::PrizeContent::IronKnight
+            | terrain::PrizeContent::Berzerker
+            | terrain::PrizeContent::Maniaxe
+            | terrain::PrizeContent::Micromax
+    )
+}
+
 fn airborne_visual_mapping_path_sub_b270(
     y_velocity: i32,
     jump_threshold: i32,
@@ -128,6 +143,36 @@ fn floating_diamond_gfx_collision_kid_work_sub_1b76(
     }
 }
 
+fn floating_cyclone_gfx_collision_kid_work_sub_1b76(
+    item: &FloatingItem,
+    kid_hitbox: ObjectBoundsPx,
+) -> Option<ModeLevelGfxCollisionKidNodeWorkSub1B76> {
+    if item.content != terrain::PrizeContent::Cyclone {
+        return None;
+    }
+
+    let x_px = i32::try_from(item.x_pos >> 16).ok()?;
+    let y_px = i32::try_from(item.y_pos >> 16).ok()?;
+    // ASM PrizeHelmetCyclone_Init -> LnkTo_unk_BACEC selects CollisionSize
+    // `unk_314EE`: left=-6,width=12,top=-12,height=12. Frame 1042's selected
+    // PC journal reaches loc_1BE6 with d5=592.
+    let left = x_px.checked_sub(6)?;
+    let right = left.checked_add(12)?;
+    let top = y_px.checked_sub(12)?;
+    let bottom = top.checked_add(12)?;
+    if left > kid_hitbox.right {
+        Some(ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedLeftEdgeBeyondKidRightLoc1bc8)
+    } else if right < kid_hitbox.left {
+        Some(ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedRightEdgeBeforeKidLeftLoc1bd0)
+    } else if top > kid_hitbox.bottom {
+        Some(ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedTopEdgeBeyondKidBottomLoc1bde)
+    } else if bottom < kid_hitbox.top {
+        Some(ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedBottomEdgeBeforeKidTopLoc1be6)
+    } else {
+        None
+    }
+}
+
 fn mode_level_gfx_collision_kid_f86e_work_sub_1b76(
     runtime: &NativeRuntime,
     linked_gfx_object_count: u16,
@@ -169,7 +214,9 @@ fn mode_level_gfx_collision_kid_f86e_work_sub_1b76(
     ));
     let kid_hitbox = runtime.player_collision_bounds(player);
     for item in live_floating_items {
-        let Some(node) = floating_diamond_gfx_collision_kid_work_sub_1b76(item, kid_hitbox) else {
+        let Some(node) = floating_diamond_gfx_collision_kid_work_sub_1b76(item, kid_hitbox)
+            .or_else(|| floating_cyclone_gfx_collision_kid_work_sub_1b76(item, kid_hitbox))
+        else {
             return ModeLevelGfxCollisionKidListWorkSub1B76::Unclassified;
         };
         nodes.push(node);
@@ -238,12 +285,17 @@ fn mode_level_gfx_move_animate_work_sub_1444(
     for item in runtime.floating_items.iter().filter(|item| !item.collected) {
         // ASM PrizeDiamond_Init loc_10396 swaps to blinking stru_10D80 at
         // `$C8`; its zero-frame sprite entries need a separate typed script.
-        if item.content != terrain::PrizeContent::Diamond || item.remaining <= 0x00C8 {
+        let allocation_age =
+            NativeRuntime::floating_item_lifetime(item.content).saturating_sub(item.remaining);
+        nodes.push(if item.content == terrain::PrizeContent::Diamond {
+            if item.remaining <= 0x00C8 {
+                return ModeLevelGfxMoveAnimateWorkSub1444::Unclassified;
+            }
+            ModeLevelGfxMoveAnimateNodeWorkSub1444::FloatingDiamond { allocation_age }
+        } else if is_helmet_prize(item.content) {
+            ModeLevelGfxMoveAnimateNodeWorkSub1444::FloatingHelmet { allocation_age }
+        } else {
             return ModeLevelGfxMoveAnimateWorkSub1444::Unclassified;
-        }
-        nodes.push(ModeLevelGfxMoveAnimateNodeWorkSub1444::FloatingDiamond {
-            allocation_age: NativeRuntime::floating_item_lifetime(item.content)
-                .saturating_sub(item.remaining),
         });
     }
 
@@ -488,7 +540,9 @@ fn mode_level_gfx_sprite_work_sub_1492(
     for item in runtime.floating_items.iter().filter(|item| !item.collected) {
         // ASM PrizeDiamond_Init loc_10396 changes to blinking mappings at
         // `$C8`; their zero-frame entries need a separate typed source path.
-        if item.content != terrain::PrizeContent::Diamond || item.remaining <= 0x00C8 {
+        if (item.content == terrain::PrizeContent::Diamond && item.remaining <= 0x00C8)
+            || (item.content != terrain::PrizeContent::Diamond && !is_helmet_prize(item.content))
+        {
             return ModeLevelGfxSpriteWorkSub1492::Unclassified;
         }
         nodes.push(ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingle16x16Normal);
