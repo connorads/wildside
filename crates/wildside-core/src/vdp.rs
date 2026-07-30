@@ -4834,6 +4834,27 @@ pub fn transform_sub_8e0_entry_to_wait_for_vint_poll_cursor_with_scheduler(
     })
 }
 
+/// Co-schedule ASM `sub_8E0 $8FA` from the palette return through the
+/// `j_Transfer_ScrollDataToVRAM` call boundary at `loc_8FE`.
+pub fn transform_sub_8e0_palette_return_to_scroll_call_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| {
+            // ASM $8FA: move.b #4,($FFFFFAD6).w. The following JSR belongs
+            // to the scroll-DMA primitive entered by the caller.
+            visit(16);
+            Some(crate::intro_timing::IntroSourceTiming {
+                instruction_count: 1,
+                raw_cycles: M68kCycleCount::from_raw(16),
+            })
+        },
+        &mut advance_hardware,
+    )
+}
+
 /// Co-schedule the first title `Execute_Objects` dispatch into `sub_1B8F4`.
 pub fn title_execute_objects_to_intro_controller_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,

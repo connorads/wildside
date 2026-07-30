@@ -2079,6 +2079,54 @@ pub fn apply_gems_transform_sub_8e0_entry_to_wait_for_vint_poll(
     )
 }
 
+/// Source work for one direct-repeat ASM `Kid_Transform sub_8E0` pass.
+#[cfg(feature = "audio")]
+#[derive(Debug, Clone)]
+pub struct TransformSub8E0RepeatWork {
+    pub pre_vint: wildside_core::TransformRasterWorkSub8E0,
+    pub vblank: ModeLevelVblankWorkBeforeSubE12,
+}
+
+/// Clock one complete direct-repeat `Kid_Transform sub_8E0` pass from its
+/// entry through the next `sub_8E0` call boundary.
+#[cfg(feature = "audio")]
+pub fn apply_gems_transform_sub_8e0_repeat_pass(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    work: &TransformSub8E0RepeatWork,
+) -> Option<TitleIntroSourceAdvance> {
+    let poll =
+        apply_gems_transform_sub_8e0_entry_to_wait_for_vint_poll(audio, entry, &work.pre_vint)?;
+    let wait = apply_gems_title_wait_for_vint_to_subroutine_return(audio, poll)?;
+    let sprite = apply_gems_mode_level_sprite_and_kid_to_vram(
+        audio,
+        wait.cursor,
+        work.vblank.dynamic_art_tiles_loc_ad4?,
+    )?;
+    let palette = wildside_core::vdp::mode_level_palette_to_vram_cursor_with_scheduler(
+        sprite.cursor,
+        work.vblank.palette_dma_sub_970,
+        |event| Some(apply_gems_title_memory_dma_hardware_event(audio, event)),
+    )?;
+    let scroll_call =
+        wildside_core::vdp::transform_sub_8e0_palette_return_to_scroll_call_cursor_with_scheduler(
+            palette.cursor,
+            |cycles, vdp_owns_bus, source_instruction| {
+                Some(apply_gems_title_source_hardware_interval(
+                    audio,
+                    cycles,
+                    vdp_owns_bus,
+                    source_instruction,
+                ))
+            },
+        )?;
+    let scroll = wildside_core::vdp::mode_level_scroll_data_to_vram_cursor_with_scheduler(
+        scroll_call.cursor,
+        |event| Some(apply_gems_title_memory_dma_hardware_event(audio, event)),
+    )?;
+    apply_gems_transform_sub_8e0_repeat_suffix_after_scroll_dma(audio, scroll.cursor, work.vblank)
+}
+
 /// Source-classified work needed to carry one aligned gameplay hardware
 /// timeline from `sub_44DC` to the following frame's `sub_E12` boundary.
 #[cfg(feature = "audio")]
