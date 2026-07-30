@@ -1947,6 +1947,9 @@ pub enum ModeLevelAirborneHorizontalPath {
     /// ASM `loc_B0FE -> loc_B118`: positive velocity subtracts `$400` and
     /// remains non-negative.
     NeutralPositiveBrake,
+    /// ASM `loc_B0FE -> loc_B118`: zero velocity remains zero after the
+    /// subtract-and-clamp path.
+    NeutralStationary,
     Unclassified {
         x_velocity_before: i32,
         x_velocity_after: i32,

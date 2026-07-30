@@ -9983,11 +9983,15 @@ impl PublishedTasRasterTimeline {
     }
 
     pub(crate) fn verify_coverage(&self) -> Result<()> {
-        if self.scheduled_frames == 0 {
+        const REQUIRED_SCHEDULED_FRAMES_THROUGH_1013: usize = 91;
+        if self.scheduled_frames < REQUIRED_SCHEDULED_FRAMES_THROUGH_1013 {
             if let Some((frame, reason)) = self.failure {
                 anyhow::bail!("published TAS raster timeline failed at frame {frame}: {reason}");
             }
-            anyhow::bail!("published TAS raster timeline never reached its defended bootstrap");
+            anyhow::bail!(
+                "published TAS raster timeline scheduled only {} frames; expected at least {REQUIRED_SCHEDULED_FRAMES_THROUGH_1013}",
+                self.scheduled_frames,
+            );
         }
         Ok(())
     }

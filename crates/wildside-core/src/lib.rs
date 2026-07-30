@@ -1832,14 +1832,19 @@ impl NativeRuntime {
         let previous_y_tile = (previous_camera_y_pos as i16) >> 3;
         let x_tile = camera_x_pos >> 3;
         let y_tile = (camera_y_pos as i16) >> 3;
-        // ASM sub_30194 loc_301CE: gather the live 21-cell row only for the
-        // upward, unsplit horizontal path. The pure timing core classifies
-        // ordinary, priority, and block mapping branches.
+        // ASM sub_30194 loc_301CE: gather the live 21-cell row for either
+        // unsplit vertical path. Downward motion uses d6+$1C before the
+        // shared row decoder; the pure timing core classifies its mappings.
         let camera_stripe_cells_sub_30194 = self.block_grid.as_ref().and_then(|grid| {
-            let row = u16::try_from(y_tile >> 1).ok()?;
+            let source_y_tile = if y_tile > previous_y_tile {
+                y_tile.checked_add(0x001C)?
+            } else {
+                y_tile
+            };
+            let row = u16::try_from(source_y_tile >> 1).ok()?;
             let first_column = x_tile >> 1;
             (previous_x_tile == x_tile
-                && y_tile < previous_y_tile
+                && y_tile != previous_y_tile
                 && ((first_column & 0x001F) < 0x000C)
                 && first_column.checked_add(20)? < grid.width_cells
                 && row < grid.height_cells)

@@ -3650,7 +3650,7 @@ fn advance_mode_level_tail_camera_source_instruction(
 
 /// Co-schedule the first gameplay ASM `loc_892 -> sub_30194` camera stripe.
 ///
-/// The source visitor accepts the published route's 21-cell upward stripe:
+/// The source visitor accepts the published route's 21-cell vertical stripes:
 /// either 20 ordinary `loc_30354` cells plus one `loc_3037C` block cell, or
 /// 21 ordinary cells. Each `MOVE.L` enqueues two VDP words before FIFO-full
 /// retry ticks and asynchronous hardware waits drain at that boundary.
@@ -3693,13 +3693,28 @@ pub fn mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
         });
     }
 
-    let crate::ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
-        ordinary_theme_cells,
-        priority_theme_cells,
-        block_cells,
-    } = work
-    else {
-        return None;
+    let (moving_down, ordinary_theme_cells, priority_theme_cells, block_cells) = match work {
+        crate::ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
+            ordinary_theme_cells,
+            priority_theme_cells,
+            block_cells,
+        } => (
+            false,
+            ordinary_theme_cells,
+            priority_theme_cells,
+            block_cells,
+        ),
+        crate::ModeLevelTailCameraStripeSub30194::DownwardHorizontalNoWrap {
+            ordinary_theme_cells,
+            priority_theme_cells,
+            block_cells,
+        } => (
+            true,
+            ordinary_theme_cells,
+            priority_theme_cells,
+            block_cells,
+        ),
+        _ => return None,
     };
     if priority_theme_cells != 0
         || ordinary_theme_cells.checked_add(block_cells) != Some(21)
@@ -3726,11 +3741,25 @@ pub fn mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
 
     // ASM loc_892 JSR, j_sub_30194 JMP, and sub_30194 through the
     // `sub_3034A` call and prologue.
-    const PRELUDE: [u8; 49] = [
-        20, 10, 12, 12, 12, 12, 12, 8, 12, 12, 4, 4, 12, 16, 12, 10, 4, 8, 8, 8, 8, 4, 14, 4, 8, 8,
-        8, 8, 8, 8, 4, 4, 10, 4, 8, 20, 4, 4, 4, 8, 4, 8, 8, 16, 12, 4, 18, 8, 12,
+    const PRELUDE_BEFORE_DIRECTION: [u8; 15] =
+        [20, 10, 12, 12, 12, 12, 12, 8, 12, 12, 4, 4, 12, 16, 12];
+    const PRELUDE_AFTER_DIRECTION: [u8; 33] = [
+        4, 8, 8, 8, 8, 4, 14, 4, 8, 8, 8, 8, 8, 8, 4, 4, 10, 4, 8, 20, 4, 4, 4, 8, 4, 8, 8, 16, 12,
+        4, 18, 8, 12,
     ];
-    for cycles in PRELUDE {
+    for cycles in PRELUDE_BEFORE_DIRECTION {
+        advance(u32::from(cycles), 0)?;
+    }
+    if moving_down {
+        // ASM loc_301C2: untaken BLT, ADDI #$1C, level-height CMP, and
+        // untaken BCC before joining loc_301CE.
+        for cycles in [8_u8, 8, 12, 8] {
+            advance(u32::from(cycles), 0)?;
+        }
+    } else {
+        advance(10, 0)?;
+    }
+    for cycles in PRELUDE_AFTER_DIRECTION {
         advance(u32::from(cycles), 0)?;
     }
 
@@ -3763,7 +3792,6 @@ pub fn mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
     for cycles in EPILOGUE {
         advance(u32::from(cycles), 0)?;
     }
-
     Some(ModeLevelTailCameraStripeAdvance {
         cursor: LoadInGameCpuRasterCursor {
             beam: fifo.beam,
@@ -3835,12 +3863,16 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     {
         return None;
     }
-    let linear_piece_refresh = match work.piece_refresh_sub_307d8 {
-        crate::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged => false,
+    let (linear_piece_refresh, piece_refresh_moving_down) = match work.piece_refresh_sub_307d8 {
+        crate::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged => (false, false),
         crate::ModeLevelTailPieceRefreshSub307D8::LinearNoWrap {
             width_subtractions: 0,
             copied_words: 41,
-        } => true,
+        } => (true, false),
+        crate::ModeLevelTailPieceRefreshSub307D8::DownwardLinearNoWrap {
+            width_subtractions: 0,
+            copied_words: 41,
+        } => (true, true),
         _ => return None,
     };
 
@@ -3977,11 +4009,14 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     // ASM loc_303B0 BSR and sub_307D8's common row-selection prefix.
     advance(18, 0)?;
     if linear_piece_refresh {
-        // ASM sub_307D8 -> loc_3081A: selected-PC tracing pins the upward
-        // zero-width-subtraction branch and its exact instruction quanta.
-        advance_all!(&[
-            12, 20, 20, 12, 14, 4, 4, 4, 18, 12, 12, 16, 12, 12, 4, 12, 10,
-        ]);
+        // ASM sub_307D8 -> loc_3081A: selected-PC tracing pins both row
+        // directions. Downward motion takes the untaken BGT and ADDI #$1C.
+        advance_all!(&[12, 20, 20, 12, 14, 4, 4, 4, 18, 12, 12, 16, 12, 12, 4, 12]);
+        if piece_refresh_moving_down {
+            advance_all!(&[8, 8]);
+        } else {
+            advance(10, 0)?;
+        }
         advance_all!(&[4, 4, 14, 8, 12, 8, 14, 12, 4, 6, 10]);
         advance_all!(&[4, 12, 14, 8, 12, 8, 4, 4, 8, 6, 10]);
         advance_all!(&[4, 4, 4, 8, 8, 8, 10]);
@@ -9947,6 +9982,35 @@ mod tests {
     }
 
     #[test]
+    fn downward_camera_stripe_classifies_frame_1004_source_path() {
+        let entry_cycles = M68kCycleCount::from_raw(128_542_286);
+        let advance = mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(entry_cycles),
+                refresh_phase: M68kRefreshPhase::new(8).expect("frame-1004 loc_892 phase"),
+            },
+            crate::ModeLevelTailCameraStripeSub30194::DownwardHorizontalNoWrap {
+                ordinary_theme_cells: 21,
+                priority_theme_cells: 0,
+                block_cells: 0,
+            },
+            |_, _, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("ASM sub_30194 frame-1004 downward branch is source-scheduled");
+
+        assert_eq!(advance.raw_cycles, M68kCycleCount::from_raw(2_350));
+        // TODO(fidelity): #409 - the generic active-display FIFO table adds
+        // one 18-cycle retry quantum versus oracle loc_898. Keep the source
+        // path typed without using that local correction as the persistent
+        // route clock; it fails closed at frame 1014.
+        assert_eq!(advance.fifo_halted_ticks, M68kCycleCount::from_raw(398));
+        assert_eq!(
+            advance.cursor.refresh_phase,
+            M68kRefreshPhase::new(40).expect("frame-1004 loc_898 phase"),
+        );
+    }
+
+    #[test]
     fn first_gameplay_background_pass_matches_frame_902_instruction_trace() {
         let entry_cycles = M68kCycleCount::from_raw(115_488_465);
         let work = crate::ModeLevelTailBackgroundWorkLoc3038A {
@@ -9988,6 +10052,48 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(50).expect("oracle loc_89E phase"),
             },
             "ASM loc_89E follows 8,956 raw + 142 refresh cycles",
+        );
+    }
+
+    #[test]
+    fn downward_background_refresh_matches_frame_1004_fifo_trace() {
+        let work = crate::ModeLevelTailBackgroundWorkLoc3038A {
+            special_effect_4: false,
+            game_mode_zero: false,
+            background_upload_busy_fb49: false,
+            background_format_nonzero: false,
+            shift_data_slots_loc_30452: [crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged; 19],
+            shift_layers: crate::ModeLevelTailShiftLayersWork::NormalAlignedNoRipple {
+                full_rows: 28,
+            },
+            piece_rows_sub_30744: crate::ModeLevelTailPieceRowsSub30744 {
+                entries_before_sentinel: 29,
+                rendered_nonnegative_entries: 0,
+            },
+            piece_refresh_sub_307d8:
+                crate::ModeLevelTailPieceRefreshSub307D8::DownwardLinearNoWrap {
+                    width_subtractions: 0,
+                    copied_words: 41,
+                },
+        };
+        let advance = mode_level_tail_background_cursor_loc_3038a_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(128_545_030)),
+                refresh_phase: M68kRefreshPhase::new(40).expect("frame-1004 loc_898 phase"),
+            },
+            &work,
+            |_, _, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("ASM loc_3038A frame-1004 downward refresh is source-scheduled");
+
+        assert_eq!(advance.raw_cycles, M68kCycleCount::from_raw(10_998));
+        assert_eq!(
+            advance.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(128_556_414)),
+                refresh_phase: M68kRefreshPhase::new(46).expect("frame-1004 loc_89E phase"),
+            },
+            "ASM loc_898 -> sub_307D8 loc_3081A/loc_308A6 -> loc_89E",
         );
     }
 

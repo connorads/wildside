@@ -23518,3 +23518,19 @@ The complete pixel result is unchanged at 37,518 exact / 241 divergent /
 2,457 changed, with zero authoritative gameplay or RNG differences. NEXT:
 retain the recurrence's returned seeds in the streaming runner and measure
 the shared Diamond/life-icon clusters.
+
+Progress 2026-07-30 for #409: the persistent owner crosses the downward
+plane-streaming and landing transition without a frame correction. ASM
+`sub_30194` and `sub_307D8` classify the frame-1004 downward foreground and
+background rows; selected-PC boundaries pin `loc_892`, `loc_898`, and
+`loc_89E`. The generic active-display FIFO table retains one 18-cycle retry
+surplus at `loc_898`; crediting a local completion reaches that boundary but
+fails the persistent recurrence at frame 1014, so the calibration is rejected.
+Carrying FIFO residency between phase-local schedulers also fails at frame
+1014 and is rejected. The frame-1005 neutral stationary landing path is
+source-typed. A route coverage ratchet requires 91 consecutive seeds from
+frame 923 through frame 1013; the next schedule fails closed at frame 1014.
+The 1,800-frame pixel slice remains 1,797 exact / 3 divergent; the full result
+remains 37,518 exact / 241 divergent / 2,457 changed. NEXT: classify frame
+1014 as a behaviour boundary, not an index step, while fixing the shared FIFO
+access model.

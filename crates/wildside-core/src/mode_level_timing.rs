@@ -1306,6 +1306,13 @@ pub enum ModeLevelTailCameraStripeSub30194 {
         priority_theme_cells: u8,
         block_cells: u8,
     },
+    /// ASM loc_301B4 -> loc_301CE -> sub_3034A: downward, unsplit
+    /// 21-longword row upload.
+    DownwardHorizontalNoWrap {
+        ordinary_theme_cells: u8,
+        priority_theme_cells: u8,
+        block_cells: u8,
+    },
     /// One or both axes use another streaming shape.
     StreamingOther,
 }
@@ -1327,14 +1334,15 @@ pub fn mode_level_tail_camera_stripe_work_sub_30194(
         return ModeLevelTailCameraStripeSub30194::BothTileAxesUnchanged;
     }
 
-    // ASM loc_301CE/loc_301FE: an upward-only row at plane columns 0..11
-    // emits one unsplit 21-longword sub_3034A pass. Other axis and wrap
-    // combinations remain explicitly unclassified.
+    // ASM loc_301CE/loc_301FE: a vertical-only row at plane columns 0..11
+    // emits one unsplit 21-longword sub_3034A pass. The imperative shell
+    // supplies the current row while moving up and the d6+$1C row while
+    // moving down. Other axis and wrap combinations remain unclassified.
     let plane_cell_column = (x_tile >> 1) & 0x001F;
     let Some(cells) = horizontal_cells.filter(|cells| cells.len() == 21) else {
         return ModeLevelTailCameraStripeSub30194::StreamingOther;
     };
-    if previous_x_tile != x_tile || y_tile >= previous_y_tile || plane_cell_column >= 0x000C {
+    if previous_x_tile != x_tile || y_tile == previous_y_tile || plane_cell_column >= 0x000C {
         return ModeLevelTailCameraStripeSub30194::StreamingOther;
     }
 
@@ -1351,10 +1359,19 @@ pub fn mode_level_tail_camera_stripe_work_sub_30194(
         }
     }
 
-    ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
-        ordinary_theme_cells,
-        priority_theme_cells,
-        block_cells,
+    let work = (ordinary_theme_cells, priority_theme_cells, block_cells);
+    if y_tile < previous_y_tile {
+        ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
+            ordinary_theme_cells: work.0,
+            priority_theme_cells: work.1,
+            block_cells: work.2,
+        }
+    } else {
+        ModeLevelTailCameraStripeSub30194::DownwardHorizontalNoWrap {
+            ordinary_theme_cells: work.0,
+            priority_theme_cells: work.1,
+            block_cells: work.2,
+        }
     }
 }
 
@@ -1387,8 +1404,20 @@ pub fn mode_level_tail_camera_stripe_raw_cycles_sub_30194(
             // jump stub, routine, and return cost 2,312 raw cycles.
             Some(M68kCycleCount::from_raw(2_312))
         }
+        ModeLevelTailCameraStripeSub30194::DownwardHorizontalNoWrap {
+            ordinary_theme_cells: 21,
+            priority_theme_cells: 0,
+            block_cells: 0,
+        } => {
+            // ASM sub_30194 loc_301B4 -> loc_301CE -> sub_3034A: frame 1004
+            // takes the same 21 ordinary cells as frame 895's upward pass.
+            // The complete frame-1004 selected-PC path is 2,350 raw cycles;
+            // FIFO retry cycles remain owned by the ordered VDP scheduler.
+            Some(M68kCycleCount::from_raw(2_350))
+        }
         ModeLevelTailCameraStripeSub30194::StreamingOther => None,
-        ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap { .. } => None,
+        ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap { .. }
+        | ModeLevelTailCameraStripeSub30194::DownwardHorizontalNoWrap { .. } => None,
     }
 }
 
@@ -1842,6 +1871,12 @@ pub enum ModeLevelTailPieceRefreshSub307D8 {
         width_subtractions: u16,
         copied_words: u8,
     },
+    /// ASM loc_3080E -> loc_3081A -> loc_308A6: downward row with neither
+    /// source nor Plane-B wrap.
+    DownwardLinearNoWrap {
+        width_subtractions: u16,
+        copied_words: u8,
+    },
     StreamingOther,
 }
 
@@ -1852,12 +1887,19 @@ fn mode_level_tail_piece_refresh_work_sub_307d8(
     bgscroll_profile: &[u8],
     horiz_scroll_words: &[u16; 19],
 ) -> ModeLevelTailPieceRefreshSub307D8 {
-    // ASM sub_307D8 only uses the current row directly while scrolling up.
-    // Downward rows add $1C and remain a separate streaming shape.
-    if cached_camera_row <= current_camera_row || current_camera_row < 0 || background_width == 0 {
+    if current_camera_row < 0 || background_width == 0 {
         return ModeLevelTailPieceRefreshSub307D8::StreamingOther;
     }
-    let Some(&selector) = bgscroll_profile.get(current_camera_row as usize) else {
+    let moving_down = cached_camera_row < current_camera_row;
+    let source_row = if moving_down {
+        current_camera_row.wrapping_add(0x001C)
+    } else {
+        current_camera_row
+    };
+    let Ok(source_row) = usize::try_from(source_row) else {
+        return ModeLevelTailPieceRefreshSub307D8::StreamingOther;
+    };
+    let Some(&selector) = bgscroll_profile.get(source_row) else {
         return ModeLevelTailPieceRefreshSub307D8::StreamingOther;
     };
     if selector == 0xFF || !selector.is_multiple_of(8) {
@@ -1882,6 +1924,11 @@ fn mode_level_tail_piece_refresh_work_sub_307d8(
     let plane_wraps = plane_column.wrapping_add(0x0028) > 0x003F;
     if source_wraps || plane_wraps {
         ModeLevelTailPieceRefreshSub307D8::StreamingOther
+    } else if moving_down {
+        ModeLevelTailPieceRefreshSub307D8::DownwardLinearNoWrap {
+            width_subtractions,
+            copied_words: 41,
+        }
     } else {
         ModeLevelTailPieceRefreshSub307D8::LinearNoWrap {
             width_subtractions,
@@ -1907,8 +1954,18 @@ pub fn mode_level_tail_piece_refresh_raw_cycles_sub_307d8(
             // until their complete path is fixed by an oracle trace.
             Some(M68kCycleCount::from_raw(2_360))
         }
+        ModeLevelTailPieceRefreshSub307D8::DownwardLinearNoWrap {
+            width_subtractions: 0,
+            copied_words: 41,
+        } => {
+            // ASM sub_307D8 loc_3080E -> loc_3081A: frame 1004's untaken
+            // BGT plus ADDI #$1C adds six raw cycles to the existing 2,360
+            // no-wrap copy. VDP FIFO retries and its VINT stay external.
+            Some(M68kCycleCount::from_raw(2_366))
+        }
         ModeLevelTailPieceRefreshSub307D8::StreamingOther => None,
-        ModeLevelTailPieceRefreshSub307D8::LinearNoWrap { .. } => None,
+        ModeLevelTailPieceRefreshSub307D8::LinearNoWrap { .. }
+        | ModeLevelTailPieceRefreshSub307D8::DownwardLinearNoWrap { .. } => None,
     }
 }
 
@@ -2425,6 +2482,31 @@ pub fn player_callback_cycles_loc_a73a(
         return None;
     };
     let gfx_scan = execute.player_gfx_terrain_scan?;
+    if matches!(
+        path,
+        crate::ModeLevelNormalPhysicsPath {
+            horizontal: ModeLevelAirborneHorizontalPath::NeutralStationary,
+            vertical: ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0,
+            y_velocity_after: 262_144,
+            gfx_object_collision_clear: true,
+            vertical_collision: ModeLevelVerticalCollisionPath::Landing,
+            wall_collision: ModeLevelWallCollisionPath::Clear,
+            airborne_action: ModeLevelAirborneActionPath::NoButtons,
+            cyclone_visual_steps: None,
+            ceiling_scan_sub_914a: None,
+        }
+    ) && gfx_scan.bounds.left_col == gfx_scan.bounds.right_col
+        && gfx_scan.bounds.top_row == 39
+        && gfx_scan.bounds.bottom_row == 41
+        && gfx_scan.tile_iterations == 3
+        && gfx_scan.first_collision == Some(ModeLevelKidGfxTerrainCollision::Solid)
+    {
+        // ASM loc_A73A -> sub_B084 loc_B0FE -> sub_B168 loc_B1E0 ->
+        // sub_A4EE -> sub_902A -> loc_A8F6/loc_A912/loc_A94E -> sub_78E8
+        // -> loc_75D4. Frame 1005's consecutive loc_E1E rows span 5,158
+        // source cycles including the shared 426-cycle dispatch shell.
+        return Some(M68kCycleCount::from_raw(4_732));
+    }
     if matches!(
         path,
         crate::ModeLevelNormalPhysicsPath {

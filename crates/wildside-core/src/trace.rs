@@ -1387,6 +1387,9 @@ fn mode_level_airborne_horizontal_path(
         -0x0400 if x_velocity_before > 0 && x_velocity_after >= 0 => {
             ModeLevelAirborneHorizontalPath::NeutralPositiveBrake
         }
+        0 if x_velocity_before == 0 && x_velocity_after == 0 => {
+            ModeLevelAirborneHorizontalPath::NeutralStationary
+        }
         _ => ModeLevelAirborneHorizontalPath::Unclassified {
             x_velocity_before,
             x_velocity_after,

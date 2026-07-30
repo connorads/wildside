@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-30 handoff (#409 downward streaming recurrence)
+
+- The persistent CPU/GEMS/VDP owner remains live from frame 923 through 1013;
+  the next schedule fails closed at frame 1014.
+- Frame 1004's downward `sub_30194` stripe and `sub_307D8` row refresh plus
+  frame 1005's neutral landing path are source-typed.
+- A local fix for the remaining 18-cycle `loc_898` FIFO surplus and cross-phase
+  FIFO carry both fail at frame 1014 and are rejected.
+- Full pixels remain 37,518 exact / 241 divergent / 2,457 changed.
+- NEXT: classify frame 1014 as a behaviour boundary, not an index step, while
+  fixing the shared FIFO access model.
+
 ## 2026-07-30 handoff (#409 persistent raster timeline)
 
 - `ScriptRunner` now carries each correction-free Mode_Level raster recurrence
