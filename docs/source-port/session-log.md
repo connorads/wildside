@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-30 handoff (#409 stateless VBlank bound rejected)
+
+- A zero-wait typed VBlank-prefix bound worsened full pixels to 37,483 exact /
+  276 divergent / 2,723 changed and raised life-icon debt from 71 to 99 frames.
+- The experiment is removed. A stateless renderer bound cannot substitute for
+  the persistent hardware owner.
+- The typed recurrence pieces already exist in core/frame. Extract their
+  correction-free composition from the GEMS probe as a fail-closed production
+  API; keep bootstrap and all frame-index oracle corrections outside it.
+
 ## 2026-07-30 handoff (#409 full instruction ledger)
 
 - Oracle PC tracing now accepts inclusive even ranges and starts only at the

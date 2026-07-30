@@ -23405,3 +23405,17 @@ H40 42:1294. The visibly equivalent 42:380 FIFO commit remains exact, while
 the formerly failing internal-cursor assertion is now green. The distinct
 wall-cling PlaySound path retains its prior aggregate characterisation; it
 does not execute sub_FACE and is deliberately excluded from this fix.
+
+Rejected 2026-07-30 for #409: replacing the renderer's coarse HUD VBlank
+ownership floor with the exact typed VBlank prefix under zero optional GEMS
+wait did not provide a valid conservative bound. The full published route
+worsened from 37,511 exact / 248 divergent / 2,471 changed pixels to 37,483 /
+276 / 2,723; life-icon mismatches increased from 71 to 99 frames while the
+170-frame Diamond cluster was unchanged. This disproves a stateless natural
+prefix as the renderer fallback, even though memory DMA resets refresh phase.
+The experiment and adjusted unit expectations are removed. The correction-free
+production unit must instead carry the complete `sub_44DC -> loc_892 ->
+WaitForVint -> next sub_E12` recurrence. All constituent typed schedulers
+already exist; their only end-to-end composition currently lives in the GEMS
+probe beside frame-index corrections, so extraction must keep bootstrap and
+oracle corrections outside the production recurrence.
