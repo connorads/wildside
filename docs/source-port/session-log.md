@@ -15,8 +15,12 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   29,708 instruction cycles + 476 pending waits = the exact 30,184 interval.
 - Native's typed raw components also total 29,708. Aggregate refresh plus six
   separately applied sound-bus accesses reaches phase 66 instead of 64.
-- NEXT: encode instruction boundaries by typed callback/source path, then run
-  the resulting persistent owner through the in-step scheduler callback.
+- Component comparison isolated the error to Kid's ceiling-prize callback:
+  one 142-cycle `sub_FACE` DIVU was treated as if it could enqueue refresh
+  twice. Its single-instruction boundary plus the existing GEMS scheduler now
+  closes the full pre-HUD interval at exact phase 64 / H40 42:1294.
+- NEXT: run this exact pre-HUD clock from a persistent execution-shell owner
+  through the in-step callback, then measure both remaining HUD clusters.
 
 ## 2026-07-30 handoff (#409 execution-shell boundary)
 

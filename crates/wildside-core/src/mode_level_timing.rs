@@ -3104,12 +3104,247 @@ pub fn execute_objects_external_waits_sub_e12(
         .collect()
 }
 
+fn append_rom_advance(total: &mut M68kRefreshAdvance, raw: M68kCycleCount) -> Option<()> {
+    let advance = total.phase_after.advance_rom(raw);
+    total.elapsed = M68kCycleCount(total.elapsed.get().checked_add(advance.elapsed.get())?);
+    total.phase_after = advance.phase_after;
+    total.refresh_events = total.refresh_events.checked_add(advance.refresh_events)?;
+    Some(())
+}
+
+fn append_rom_instruction(total: &mut M68kRefreshAdvance, raw: M68kCycleCount) -> Option<()> {
+    let phase_after_raw = u32::from(total.phase_after.get()).checked_add(raw.get())?;
+    let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+    total.phase_after = M68kRefreshPhase::new(
+        u8::try_from((phase_after_raw + refresh_wait) % 128)
+            .expect("instruction refresh phase remains below 128"),
+    )?;
+    total.elapsed = M68kCycleCount(
+        total
+            .elapsed
+            .get()
+            .checked_add(raw.get())?
+            .checked_add(refresh_wait)?,
+    );
+    total.refresh_events = total
+        .refresh_events
+        .checked_add(u32::from(refresh_wait != 0))?;
+    Some(())
+}
+
+fn append_execute_component(
+    total: &mut M68kRefreshAdvance,
+    raw_offset: &mut u32,
+    raw: M68kCycleCount,
+) -> Option<()> {
+    append_rom_advance(total, raw)?;
+    *raw_offset = raw_offset.checked_add(raw.get())?;
+    Some(())
+}
+
+/// Advance one runnable Kid callback containing ASM `PlaySound sub_E1510`.
+///
+/// The surrounding player path is source-typed but not instruction-visited.
+/// Its two long ROM spans are safe at their real call boundary; the shared
+/// GEMS transaction must use its existing instruction scheduler because six
+/// direct Z80-RAM accesses and refresh are interleaved inside `sub_E151C`.
+fn player_callback_with_play_sound_advance_sub_e12(
+    phase_before: M68kRefreshPhase,
+    raw_total: M68kCycleCount,
+    direct_wait_offsets: &[M68kExternalWaitEvent],
+) -> Option<M68kRefreshAdvance> {
+    const FIRST_DIRECT_WAIT_AFTER_WRAPPER_ENTRY: u32 = 238;
+    const GET_XY_DIVU_BEFORE_WRAPPER_ENTRY: u32 = 420;
+    const GET_XY_DIVU_RAW: u32 = 142;
+    const PLAY_SOUND_WRAPPER_RAW: u32 = 586;
+    const PLAY_SOUND_CORE_RAW: u32 = 504;
+    const DIRECT_WAIT_OFFSETS: [u32; 6] = [238, 298, 324, 344, 408, 428];
+
+    if direct_wait_offsets.len() != DIRECT_WAIT_OFFSETS.len()
+        || direct_wait_offsets
+            .iter()
+            .any(|event| event.cycles != M68kCycleCount::from_raw(1))
+    {
+        return None;
+    }
+    let wrapper_offset = direct_wait_offsets[0]
+        .raw_offset
+        .get()
+        .checked_sub(FIRST_DIRECT_WAIT_AFTER_WRAPPER_ENTRY)?;
+    if !direct_wait_offsets
+        .iter()
+        .zip(DIRECT_WAIT_OFFSETS)
+        .all(|(event, expected)| event.raw_offset.get() == wrapper_offset + expected)
+    {
+        return None;
+    }
+    let suffix_raw = raw_total
+        .get()
+        .checked_sub(wrapper_offset)?
+        .checked_sub(PLAY_SOUND_WRAPPER_RAW)?;
+    let divu_offset = wrapper_offset.checked_sub(GET_XY_DIVU_BEFORE_WRAPPER_ENTRY)?;
+    let between_divu_and_wrapper = wrapper_offset
+        .checked_sub(divu_offset)?
+        .checked_sub(GET_XY_DIVU_RAW)?;
+
+    let mut total = M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(0),
+        phase_after: phase_before,
+        refresh_events: 0,
+    };
+    append_rom_advance(&mut total, M68kCycleCount::from_raw(divu_offset))?;
+    // ASM Get_XY_From_LevelLayoutAddress sub_FACE: DIVU is one 142-cycle
+    // instruction. jgenesis can enqueue one refresh wait at its completion;
+    // aggregate recurrence incorrectly invents a second wait inside it.
+    append_rom_instruction(&mut total, M68kCycleCount::from_raw(GET_XY_DIVU_RAW))?;
+    append_rom_advance(
+        &mut total,
+        M68kCycleCount::from_raw(between_divu_and_wrapper),
+    )?;
+    // ASM PlaySound $E1510..sub_E151C and its register-save wrapper.
+    for raw in [12, 12, 18] {
+        append_rom_advance(&mut total, M68kCycleCount::from_raw(raw))?;
+    }
+    let command = gems_queue_command_advance_with_scheduler(
+        GemsQueueCommandPath::StartOrStopSequenceSubE151c,
+        total.phase_after,
+        |_, _| Some(M68kCycleCount::from_raw(0)),
+        |_| {},
+    )?;
+    let command_refresh_cycles = command
+        .elapsed
+        .get()
+        .checked_sub(PLAY_SOUND_CORE_RAW)?
+        .checked_sub(DIRECT_WAIT_OFFSETS.len() as u32)?;
+    if command_refresh_cycles % 2 != 0 {
+        return None;
+    }
+    total.elapsed = M68kCycleCount(total.elapsed.get().checked_add(command.elapsed.get())?);
+    total.phase_after = command.phase_after;
+    total.refresh_events = total
+        .refresh_events
+        .checked_add(command_refresh_cycles / 2)?;
+    for raw in [12, 12, 16] {
+        append_rom_advance(&mut total, M68kCycleCount::from_raw(raw))?;
+    }
+    append_rom_advance(&mut total, M68kCycleCount::from_raw(suffix_raw))?;
+    Some(total)
+}
+
 /// Execute the raw pass through the Genesis refresh recurrence and typed
 /// external waits.
 pub fn execute_objects_elapsed_cycles_sub_e12(
     execute: &ModeLevelExecuteObjectsWork,
     phase_before: M68kRefreshPhase,
 ) -> Option<M68kRefreshAdvance> {
+    if !is_first_level_start_execute_objects_sub_e12(execute) {
+        let raw_total = execute_objects_raw_cycles_sub_e12(execute)?;
+        let waits = execute_objects_external_waits_sub_e12(execute)?;
+        if !waits.is_empty() && execute.player_prize_wobble_list_work_loc_1002e.is_none() {
+            // The wall-cling PlaySound path does not call sub_FACE. Retain its
+            // existing aggregate characterisation until that distinct source
+            // prefix has an instruction boundary of its own.
+            let raw = phase_before.advance_rom(raw_total);
+            let mut elapsed = raw.elapsed.get();
+            let mut phase = raw.phase_after;
+            for event in waits {
+                let wait = phase.advance_external_wait(event.cycles);
+                elapsed = elapsed.checked_add(wait.elapsed.get())?;
+                phase = wait.phase_after;
+            }
+            return Some(M68kRefreshAdvance {
+                elapsed: M68kCycleCount(elapsed),
+                phase_after: phase,
+                refresh_events: raw.refresh_events,
+            });
+        }
+        let mut total = M68kRefreshAdvance {
+            elapsed: M68kCycleCount::from_raw(0),
+            phase_after: phase_before,
+            refresh_events: 0,
+        };
+        let mut raw_offset = 0_u32;
+        let mut consumed_waits = 0_usize;
+
+        append_execute_component(
+            &mut total,
+            &mut raw_offset,
+            execute_objects_setup_cycles_sub_e12(execute.rng_offset_before_sub_e12?)?,
+        )?;
+        // ASM loc_E1E walks selector-linked order. The fixed input worker is
+        // the first ordinary callback, before prizes and Kid.
+        append_execute_component(
+            &mut total,
+            &mut raw_offset,
+            input_worker_cycles_loc_7452(execute.input_worker_loc_7452?),
+        )?;
+        for callback in execute.prize_object_execution_order_sub_e12.as_ref()? {
+            if *callback == ModeLevelPrizeObjectExecutionSubE12::Player {
+                let raw = M68kCycleCount(
+                    player_callback_cycles_sub_e12(execute)?
+                        .get()
+                        .checked_add(426)?,
+                );
+                let player_end = raw_offset.checked_add(raw.get())?;
+                let player_waits = waits
+                    .iter()
+                    .filter(|event| {
+                        let offset = event.raw_offset.get();
+                        offset >= raw_offset && offset < player_end
+                    })
+                    .map(|event| M68kExternalWaitEvent {
+                        raw_offset: M68kCycleCount::from_raw(event.raw_offset.get() - raw_offset),
+                        cycles: event.cycles,
+                    })
+                    .collect::<Vec<_>>();
+                if player_waits.is_empty() {
+                    append_execute_component(&mut total, &mut raw_offset, raw)?;
+                } else {
+                    let advance = player_callback_with_play_sound_advance_sub_e12(
+                        total.phase_after,
+                        raw,
+                        &player_waits,
+                    )?;
+                    total.elapsed =
+                        M68kCycleCount(total.elapsed.get().checked_add(advance.elapsed.get())?);
+                    total.phase_after = advance.phase_after;
+                    total.refresh_events =
+                        total.refresh_events.checked_add(advance.refresh_events)?;
+                    raw_offset = player_end;
+                    consumed_waits = consumed_waits.checked_add(player_waits.len())?;
+                }
+            } else {
+                append_execute_component(
+                    &mut total,
+                    &mut raw_offset,
+                    prize_object_cycles_sub_e12(execute, *callback)?,
+                )?;
+            }
+        }
+        append_execute_component(
+            &mut total,
+            &mut raw_offset,
+            damage_flash_wait_cycles_loc_bc44(execute.damage_flash_wait_loc_bc44?)?,
+        )?;
+        if let Some(palette) = execute.palette_fade_worker_sub_73d0 {
+            append_execute_component(
+                &mut total,
+                &mut raw_offset,
+                palette_fade_worker_cycles_sub_73d0(palette),
+            )?;
+        }
+        append_execute_component(
+            &mut total,
+            &mut raw_offset,
+            demo_exit_wait_cycles_loc_119e0(execute.demo_exit_wait_loc_119e0?)?,
+        )?;
+        append_execute_component(&mut total, &mut raw_offset, M68kCycleCount::from_raw(54))?;
+        if raw_offset != raw_total.get() || consumed_waits != waits.len() {
+            return None;
+        }
+        return Some(total);
+    }
+
     let raw_total = execute_objects_raw_cycles_sub_e12(execute)?.get();
     let events = execute_objects_external_waits_sub_e12(execute)?;
     let raw = phase_before.advance_rom(M68kCycleCount(raw_total));
@@ -6352,6 +6587,30 @@ mod tests {
                 GemsQueueCommandControl::WriteQueueBytes,
                 GemsQueueCommandControl::ReleaseQueueBus,
             ]
+        );
+    }
+
+    #[test]
+    fn player_ceiling_prize_sound_schedules_divu_and_gems_accesses_once() {
+        let waits = [4424, 4484, 4510, 4530, 4594, 4614].map(|raw_offset| M68kExternalWaitEvent {
+            raw_offset: M68kCycleCount::from_raw(raw_offset),
+            cycles: M68kCycleCount::from_raw(1),
+        });
+        let advance = player_callback_with_play_sound_advance_sub_e12(
+            M68kRefreshPhase::new(2).expect("frame-1697 player entry phase"),
+            M68kCycleCount::from_raw(9_908),
+            &waits,
+        )
+        .expect("ASM sub_FACE -> PlaySound sub_E1510 player callback");
+
+        assert_eq!(
+            advance,
+            M68kRefreshAdvance {
+                elapsed: M68kCycleCount::from_raw(10_068),
+                phase_after: M68kRefreshPhase::new(86).expect("frame-1697 next loc_E1E phase"),
+                refresh_events: 77,
+            },
+            "ASM sub_FACE DIVU is one instruction; sub_E151C interleaves six direct Z80-RAM accesses",
         );
     }
 

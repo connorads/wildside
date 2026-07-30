@@ -23388,3 +23388,20 @@ refresh recurrence plus six separately positioned sound-bus accesses reaches
 30,186/phase 66. The remaining work is now bounded: reproduce the dynamic
 instruction boundaries from the source-typed callbacks, preserving direct
 access waits exactly once, then use that clock through the production port.
+
+Fixed 2026-07-30 for #409: the 2,458-row trace reduced to two shared source
+boundaries rather than a recorded instruction table. Every typed component
+outside the Kid callback reaches its oracle phase under the existing
+component recurrence. Inside the ceiling-prize callback, ASM
+`Get_XY_From_LevelLayoutAddress sub_FACE` executes one 142-cycle `DIVU`;
+aggregate recurrence incorrectly allowed two refresh enqueues inside that one
+instruction. The callback then enters `PlaySound sub_E1510`, whose existing
+instruction scheduler owns the six direct Z80-RAM accesses. Native now
+advances the real selector order (input worker before prizes/Kid), schedules
+the single DIVU, reuses the GEMS transaction clock, and advances the suffix.
+The player callback closes at the oracle's 10,068 elapsed cycles / phase 86;
+the complete frame-1697 `sub_E12 -> sub_44DC` cursor is exact at phase 64,
+H40 42:1294. The visibly equivalent 42:380 FIFO commit remains exact, while
+the formerly failing internal-cursor assertion is now green. The distinct
+wall-cling PlaySound path retains its prior aggregate characterisation; it
+does not execute sub_FACE and is deliberately excluded from this fix.
