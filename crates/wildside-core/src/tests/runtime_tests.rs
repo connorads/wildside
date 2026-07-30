@@ -7371,6 +7371,32 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_demo_1_dragon_gfx_animation_starts_after_slot_link_loc_1040() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(2_618) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 2_615..=2_617) {
+                let phase = trace
+                    .active_enemy_details
+                    .iter()
+                    .find(|enemy| enemy.layout_index == Some(2))
+                    .and_then(|enemy| enemy.sprite_animation_phase);
+                samples.push((frame_index, phase));
+            }
+        }
+
+        assert_eq!(
+            samples,
+            vec![(2_615, Some(0)), (2_616, Some(0)), (2_617, Some(1))],
+            "ASM Dragon_Init loc_3CD46 links the GfxObject before Init_Animation loc_1040 can advance stru_3CC5E; oracle keeps LnkTo_unk_C7596 through frame 2616 and selects LnkTo_unk_C759E on frame 2617",
+        );
+    }
+
+    #[test]
     fn published_tas_demo_2_final_transform_callback_reaches_stru_3cc5e_phase_10() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

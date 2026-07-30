@@ -3943,7 +3943,11 @@ fn activate_enemies_with_rng_inner(
                 } else {
                     head_y
                 },
-                dragon_descent_index: 0,
+                dragon_descent_index: if matches!(family, EnemyFamily::DragonWalking) {
+                    dragon_walking_spawn_animation_seed_loc_3cd46(hit_points)
+                } else {
+                    0
+                },
                 dragon_descent_frames: 0,
                 ninja_state: NinjaState::Stealth,
                 hand_state: HandState::Walking,
@@ -8294,6 +8298,13 @@ fn dragon_walking_sprite_animation_phase_stru_3cc5e(elapsed: u8, hit_points: u8)
 fn dragon_walking_recording_settle_animation_seed_stru_3cc5e(hit_points: u8) -> u8 {
     dragon_walking_animation_cycle_ticks(hit_points)
         - DRAGON_WALKING_RECORDING_SETTLE_ANIMATION_LEAD_TICKS
+}
+
+fn dragon_walking_spawn_animation_seed_loc_3cd46(hit_points: u8) -> u8 {
+    // ASM Dragon_Init loc_3CD46 links the new GfxObject before Init_Animation
+    // loc_1040 begins `stru_3CC5E`. Native's combined admission pass performs
+    // its Gfx tick immediately, so seed the preceding tick to present phase 0.
+    dragon_walking_animation_cycle_ticks(hit_points) - 1
 }
 pub(crate) fn spawn_shared_walker_state(family: EnemyFamily) -> i16 {
     match family {

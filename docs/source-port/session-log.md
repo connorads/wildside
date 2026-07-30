@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-30 handoff (#406 walking-Dragon Gfx admission)
+
+- Oracle phase-3 capture corrected the frame-2617 diagnosis: the visible SAT
+  still uses `$560` / local tile `$060`; native had already selected `$564`.
+- Native's collapsed admission pass ticked the Dragon Gfx animation before
+  the ROM's newly linked slot could run `Init_Animation loc_1040`. Seeding the
+  preceding tick preserves the independent linked-Gfx clock and fixes all
+  seven repeated demo entries.
+- Full pixels improve to 37,518 exact / 241 divergent / 2,457 changed. Only
+  the Diamond and life-icon HUD timing clusters remain.
+- NEXT: source the correction-free gameplay recurrence bootstrap and residual
+  `loc_30104 -> loc_7D6` ownership, then retain it in the streaming runner.
+
 ## 2026-07-30 handoff (#409 correction-free frame recurrence)
 
 - A production frame recurrence now carries an aligned machine from

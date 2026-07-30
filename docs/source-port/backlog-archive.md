@@ -4905,6 +4905,28 @@ with a source-proven row-history difference.
 
 ### #406
 
+2026-07-30 walking-Dragon admission correction: unrestricted oracle phase-3
+capture at frame 2617 shows sprite id 12 at raw `(444,337)`, mapping base
+`$35B` (`$2FB+$060`), while native provenance selected local tile `$075` from
+the next `$564` frame. Native and oracle gameplay positions remain exact.
+The hidden native Gfx animation cursor exposed the cause: the pre-step frame
+2616 was already phase 1, while oracle `oracle_gfx_sprite_order_loc_14a4`
+keeps `$560` through frame 2616 and advances to `$564` on frame 2617. Native's
+collapsed enemy admission pass ticked every active Dragon immediately, before
+the ROM's `Dragon_Init loc_3CD46`-linked Gfx slot could begin
+`Init_Animation loc_1040`. New Dragons now seed the preceding animation tick,
+so the existing independent `GfxObject_Animate loc_113E` pass presents phase
+0 on admission without coupling animation to Object execution or Samurai
+Haze. Cache-backed regressions pin frames 2615..2617 and the later Demo 2
+Dragon boundaries. All seven repeated frames
+2617/6988/13210/21848/24585/32786/37601 become exact. Full TAS pixels improve
+37,511 -> 37,518 exact, 248 -> 241 divergent, and 2,471 -> 2,457 changed.
+A generic final-visible-line SAT-buffer experiment was rejected before the
+fix: it regressed to 37,384 exact / 375 divergent / 3,503 changed, chiefly by
+altering otherwise-correct bottom-line sprites. Do not retry global line-223
+duplication or clipping; the phase-3 observation identified this object's
+wrong mapping boundary, not a renderer-wide raster rule.
+
 2026-07-29 bottom-right tail correction: oracle VDP pixel samples at frame
 2617 report no sprite contribution at `(318..319,223)`; the visible colours
 come from Plane A word `$0000`, whose pattern zero was overwritten by
