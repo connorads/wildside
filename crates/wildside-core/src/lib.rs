@@ -3661,12 +3661,14 @@ impl NativeRuntime {
         self.step_frame_with_mode_level_raster_scheduler(input, &mut |_| None)
     }
 
-    /// Advance one native frame while allowing the execution shell to supply
-    /// the hardware cursor at ASM `Mode_Level loc_7D6 -> sub_E12`.
+    /// Advance one native frame while allowing the execution shell to advance
+    /// the live gameplay raster owner.
     ///
     /// Core classifies the live ROM source path first. The callback completes
     /// asset-bound inputs and advances its persistent CPU/VDP/GEMS timeline;
-    /// the returned seed is consumed by the existing `sub_44DC` schedulers.
+    /// During ordinary `Mode_Level`, the returned seed is consumed by the
+    /// existing `sub_44DC` schedulers. Synchronous `Kid_Transform sub_8E0`
+    /// VBlanks invoke the callback as a heartbeat and ignore that seed.
     pub fn step_frame_with_mode_level_raster_scheduler(
         &mut self,
         input: FrameInput,
@@ -4148,29 +4150,25 @@ impl NativeRuntime {
                 && !self.paused
                 && self.pending_pause_restart_round.is_none()
                 && !pause_last_life_exit_frame
-                && self.progression.form_change_flash_frames <= 1
                 && (matches!(self.boot_state, BootState::InGame)
                     || (self.demo_gameplay_active() && self.opening_slice.is_some()))
                 && !debug_level_entry_object_pass
             {
-                self.mode_level_work_before_hud_sub_44dc =
-                    Some(self.observe_mode_level_work_before_hud_sub_44dc());
                 let vblank_work = self.mode_level_vblank_work_before_sub_e12();
                 self.mode_level_vblank_work_before_sub_e12 = Some(vblank_work);
                 if let Some(seed) = scheduler(vblank_work) {
                     self.mode_level_raster_seed_sub_e12 = Some(seed);
                 }
-                // ASM Execute_Objects loc_E12 (kid.asm:1636) calls
-                // Get_RandomNumber_long before walking any object coroutine.
-                // Load_DemoPlay -> Load_InGame can still be blocked inside
-                // Kid_Transform's j_sub_8E0 VBlank loop before Mode_Level owns
-                // the outer frame. The final cleanup count has already left
-                // that loop and cleared Currently_transforming at loc_7E90,
-                // so resume the outer object pass when the count reaches one.
-                // Otherwise keep this ahead of refresh_active_roster, which
-                // performs the native enemy object pass and may itself consume
-                // RNG bytes.
-                let _ = self.rom_random.next_long();
+                if self.progression.form_change_flash_frames <= 1 {
+                    self.mode_level_work_before_hud_sub_44dc =
+                        Some(self.observe_mode_level_work_before_hud_sub_44dc());
+                    // ASM Execute_Objects loc_E12 (kid.asm:1636) calls
+                    // Get_RandomNumber_long before walking any object coroutine.
+                    // Kid_Transform's sub_8E0 loop owns intervening VBlanks;
+                    // the final cleanup count resumes this suspended object
+                    // pass when the count reaches one.
+                    let _ = self.rom_random.next_long();
+                }
             }
             // ASM Mode_Level loc_7F4 builds the HUD before Execute_Objects.
             // Preserve the count encoded into this frame's Sprite_Table;

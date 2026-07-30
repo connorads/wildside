@@ -2079,12 +2079,13 @@ pub fn apply_gems_transform_sub_8e0_entry_to_wait_for_vint_poll(
     )
 }
 
-/// Source work for one direct-repeat ASM `Kid_Transform sub_8E0` pass.
+/// Source work for one ASM `Kid_Transform sub_8E0` pass.
 #[cfg(feature = "audio")]
 #[derive(Debug, Clone)]
-pub struct TransformSub8E0RepeatWork {
+pub struct TransformSub8E0PassWork {
     pub pre_vint: wildside_core::TransformRasterWorkSub8E0,
     pub vblank: ModeLevelVblankWorkBeforeSubE12,
+    pub resume: wildside_core::TransformRasterResume,
 }
 
 /// Clock the classified Cyclone pickup from `Execute_Objects sub_E12`
@@ -2112,13 +2113,13 @@ pub fn apply_gems_cyclone_pickup_transform_entry(
     )
 }
 
-/// Clock one complete direct-repeat `Kid_Transform sub_8E0` pass from its
-/// entry through the next `sub_8E0` call boundary.
+/// Clock one complete `Kid_Transform sub_8E0` pass from its entry through the
+/// next `sub_8E0` call boundary.
 #[cfg(feature = "audio")]
-pub fn apply_gems_transform_sub_8e0_repeat_pass(
+pub fn apply_gems_transform_sub_8e0_pass(
     audio: &mut GemsMasterClockTimingEngine,
     entry: LoadInGameCpuRasterCursor,
-    work: &TransformSub8E0RepeatWork,
+    work: &TransformSub8E0PassWork,
 ) -> Option<TitleIntroSourceAdvance> {
     let poll =
         apply_gems_transform_sub_8e0_entry_to_wait_for_vint_poll(audio, entry, &work.pre_vint)?;
@@ -2149,7 +2150,29 @@ pub fn apply_gems_transform_sub_8e0_repeat_pass(
         scroll_call.cursor,
         |event| Some(apply_gems_title_memory_dma_hardware_event(audio, event)),
     )?;
-    apply_gems_transform_sub_8e0_repeat_suffix_after_scroll_dma(audio, scroll.cursor, work.vblank)
+    match work.resume {
+        wildside_core::TransformRasterResume::RepeatDescriptor => {
+            apply_gems_transform_sub_8e0_repeat_suffix_after_scroll_dma(
+                audio,
+                scroll.cursor,
+                work.vblank,
+            )
+        }
+        wildside_core::TransformRasterResume::AdvanceDescriptor { .. } => wildside_core::vdp::transform_sub_8e0_descriptor_suffix_after_scroll_dma_cursor_with_scheduler(
+            scroll.cursor,
+            work.vblank,
+            work.resume,
+            |cycles, vdp_owns_bus, source_instruction| {
+                Some(apply_gems_title_source_hardware_interval(
+                    audio,
+                    cycles,
+                    vdp_owns_bus,
+                    source_instruction,
+                ))
+            },
+        ),
+        wildside_core::TransformRasterResume::FinishLoc7e14 => None,
+    }
 }
 
 /// Source-classified work needed to carry one aligned gameplay hardware

@@ -676,11 +676,12 @@ impl ScriptRunner {
     }
 
     /// Replay a scenario while allowing an execution shell to advance the
-    /// persistent hardware timeline at each live `Mode_Level` VBlank.
+    /// persistent hardware timeline at each live gameplay VBlank.
     ///
-    /// The scheduler runs inside the frame before `sub_E12`; the visitor sees
-    /// the resulting post-step trace and the same pre-step render latch as
-    /// [`Self::try_for_each_frame`].
+    /// The scheduler runs before the active raster owner: `sub_E12` during
+    /// ordinary `Mode_Level`, or the next synchronous `sub_8E0` pass during
+    /// `Kid_Transform`. The visitor sees the resulting post-step trace and
+    /// the same pre-step render latch as [`Self::try_for_each_frame`].
     pub fn try_for_each_frame_with_raster_scheduler<E, S, F>(
         self,
         script: &[u8],

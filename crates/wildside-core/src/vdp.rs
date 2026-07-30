@@ -4816,6 +4816,25 @@ pub fn transform_sub_8e0_repeat_suffix_after_scroll_dma_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule the first Cyclone helmet-art descriptor transition after the
+/// H-scroll DMA through the next `sub_8E0` call instruction.
+pub fn transform_sub_8e0_descriptor_suffix_after_scroll_dma_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    work: crate::ModeLevelVblankWorkBeforeSubE12,
+    resume: crate::TransformRasterResume,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| {
+            crate::intro_timing::visit_transform_sub_8e0_descriptor_suffix_after_scroll_dma(
+                work, resume, visit,
+            )
+        },
+        &mut advance_hardware,
+    )
+}
+
 /// Co-schedule ASM `sub_8E0` entry through the first blocking
 /// `WaitForVint $93E` poll.
 pub fn transform_sub_8e0_entry_to_wait_for_vint_poll_cursor_with_scheduler(

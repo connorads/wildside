@@ -409,6 +409,73 @@ pub fn visit_transform_sub_8e0_repeat_suffix_after_scroll_dma(
     })
 }
 
+/// Visit a Cyclone descriptor transition after the H-scroll DMA through the
+/// next `sub_8E0` call.
+pub fn visit_transform_sub_8e0_descriptor_suffix_after_scroll_dma(
+    work: crate::ModeLevelVblankWorkBeforeSubE12,
+    resume: crate::TransformRasterResume,
+    mut visit: impl FnMut(u32),
+) -> Option<IntroSourceTiming> {
+    if work.foreground_custom_queue_entries_sub_1596 != 0
+        || !work.foreground_cell_queue_sub_1596.is_empty()
+        || work.paused_sub_6874
+        || work.hud_path_sub_bdc0 != crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters
+    {
+        return None;
+    }
+
+    // Oracle published frames 1074..1114 selected-PC ledgers. After the common
+    // loc_8FE/HUD tail, loc_7D22 exhausts DBF and loc_7D44 dispatches the next
+    // descriptor handler before re-entering sub_8E0.
+    const HELMET_ART_CYCLES: &[u8] = &[
+        18, 8, 16, 8, 4, 12, 4, 8, 8, 12, 10, 8, 8, 4, 16, 16, 12, 8, 10, 24, 24, 16, 18, 10, 12,
+        16, 12, 8, 12, 12, 12, 10, 12, 16, 12, 10, 12, 10, 12, 8, 10, 12, 10, 12, 12, 10, 16, 16,
+        16, 124, 14, 10, 8, 12, 4, 22, 4, 8, 18, 8, 16, 16, 16, 12, 12, 18, 12, 4, 12, 18, 12, 12,
+        4, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10,
+        12, 10, 12, 10, 12, 10, 12, 14, 12, 16, 16, 120, 18, 10,
+    ];
+    const KID_ART_CYCLES: &[u8] = &[
+        18, 8, 16, 8, 4, 12, 4, 8, 8, 12, 10, 8, 8, 4, 16, 16, 12, 8, 10, 24, 24, 16, 18, 10, 12,
+        16, 12, 8, 12, 12, 12, 10, 12, 16, 12, 10, 12, 10, 12, 8, 10, 12, 10, 12, 12, 10, 16, 16,
+        16, 124, 14, 10, 8, 12, 4, 22, 4, 8, 18, 8, 16, 4, 16, 16, 12, 10, 12, 4, 18, 12, 4, 12,
+        18, 12, 12, 4, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12,
+        10, 12, 10, 12, 14, 12, 16, 18, 12, 12, 4, 14, 12, 18, 12, 12, 12, 12, 12, 16, 16, 120, 18,
+        10,
+    ];
+    const HELMET_DEFAULT_CYCLES: &[u8] = &[
+        18, 8, 16, 8, 4, 12, 4, 8, 8, 12, 10, 8, 8, 4, 16, 16, 12, 8, 10, 24, 24, 16, 18, 10, 12,
+        16, 12, 8, 12, 12, 12, 10, 12, 16, 12, 10, 12, 10, 12, 8, 10, 12, 10, 12, 12, 10, 16, 16,
+        16, 124, 14, 10, 8, 12, 4, 22, 4, 8, 18, 8, 16, 16, 16, 12, 4, 8, 8, 16, 12, 18, 12, 4, 12,
+        18, 12, 12, 4, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12,
+        10, 12, 10, 12, 14, 12, 16, 16, 120, 18, 10,
+    ];
+    let cycles = match resume {
+        crate::TransformRasterResume::AdvanceDescriptor {
+            handler: crate::TransformHandler::HelmetArt,
+            ..
+        } => HELMET_ART_CYCLES,
+        crate::TransformRasterResume::AdvanceDescriptor {
+            handler: crate::TransformHandler::KidWithSpark { spark: false },
+            ..
+        } => KID_ART_CYCLES,
+        crate::TransformRasterResume::AdvanceDescriptor {
+            handler: crate::TransformHandler::HelmetDefault,
+            ..
+        } => HELMET_DEFAULT_CYCLES,
+        _ => return None,
+    };
+    let mut raw_cycles = 0_u32;
+    for &cycles in cycles {
+        let cycles = u32::from(cycles);
+        visit(cycles);
+        raw_cycles += cycles;
+    }
+    Some(IntroSourceTiming {
+        instruction_count: cycles.len() as u32,
+        raw_cycles: M68kCycleCount::from_raw(raw_cycles),
+    })
+}
+
 /// Visit the classified Cyclone-prize `Execute_Objects sub_E12` path through
 /// the first `Kid_Transform sub_8E0` call.
 ///
@@ -3209,6 +3276,69 @@ mod tests {
             None,
             "unclassified transform queue work remains fail-closed",
         );
+    }
+
+    #[test]
+    fn transform_first_helmet_art_suffix_retains_descriptor_transition_boundaries() {
+        let work = crate::ModeLevelVblankWorkBeforeSubE12 {
+            dynamic_art_tiles_loc_ad4: Some([12, 0, 0, 0, 0, 0]),
+            palette_dma_sub_970: true,
+            scroll_path: crate::ModeLevelScrollTransferPath::NormalLoc300ba,
+            foreground_custom_queue_entries_sub_1596: 0,
+            foreground_cell_queue_sub_1596: crate::ModeLevelForegroundCellQueueWorkSub1596::EMPTY,
+            paused_sub_6874: false,
+            hud_path_sub_bdc0: crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters,
+        };
+        let resume = crate::TransformRasterResume::AdvanceDescriptor {
+            descriptor_index: 1,
+            handler: crate::TransformHandler::HelmetArt,
+        };
+        let mut cycles = Vec::new();
+        let timing =
+            visit_transform_sub_8e0_descriptor_suffix_after_scroll_dma(work, resume, |cycle| {
+                cycles.push(cycle);
+            })
+            .expect("published Cyclone first helmet-art transition suffix");
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 109,
+                raw_cycles: M68kCycleCount::from_raw(1_504),
+            },
+            "ASM loc_8FE -> loc_7D44 helmet-art descriptor -> next sub_8E0",
+        );
+        assert_eq!(&cycles[..3], &[18, 8, 16]);
+        assert_eq!(&cycles[cycles.len() - 4..], &[16, 120, 18, 10]);
+
+        for (resume, expected) in [
+            (
+                crate::TransformRasterResume::AdvanceDescriptor {
+                    descriptor_index: 2,
+                    handler: crate::TransformHandler::KidWithSpark { spark: false },
+                },
+                IntroSourceTiming {
+                    instruction_count: 119,
+                    raw_cycles: M68kCycleCount::from_raw(1_622),
+                },
+            ),
+            (
+                crate::TransformRasterResume::AdvanceDescriptor {
+                    descriptor_index: 7,
+                    handler: crate::TransformHandler::HelmetDefault,
+                },
+                IntroSourceTiming {
+                    instruction_count: 107,
+                    raw_cycles: M68kCycleCount::from_raw(1_474),
+                },
+            ),
+        ] {
+            assert_eq!(
+                visit_transform_sub_8e0_descriptor_suffix_after_scroll_dma(work, resume, |_| {},),
+                Some(expected),
+                "ASM loc_7D44 dispatches by descriptor handler",
+            );
+        }
     }
 
     #[test]

@@ -394,6 +394,31 @@ fn published_tas_frame_1706_sub_e12_seed_drives_diamond_dma_raster_timing() {
 }
 
 #[test]
+fn published_tas_transform_vblanks_keep_raster_scheduler_live() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut scheduled = Vec::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_061) {
+        runtime.step_frame_with_mode_level_raster_scheduler(
+            FrameInput::from_mask(mask),
+            &mut |_| {
+                scheduled.push(frame_index);
+                None
+            },
+        );
+    }
+
+    assert!(
+        [1_058, 1_059, 1_060]
+            .into_iter()
+            .all(|frame| scheduled.contains(&frame)),
+        "ASM Kid_Transform sub_8E0 owns VBlank but must not silence the persistent raster scheduler",
+    );
+}
+
+#[test]
 fn published_tas_frame_1706_unseeded_work_bounds_earliest_diamond_commit() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;

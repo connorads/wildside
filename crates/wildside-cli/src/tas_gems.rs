@@ -28,6 +28,7 @@ use wildside_core::{
 use wildside_data::AssetManifest;
 use wildside_frame::{
     NativeAudioDirector, NativeAudioSink, TimedGemsStopMusicCursor, TimedGemsTitleLoc700Cursor,
+    TransformSub8E0PassWork, apply_gems_cyclone_pickup_transform_entry,
     apply_gems_decompress_to_ram_decoder_with_checkpoint_loc_143ea,
     apply_gems_decompress_to_ram_transfer_loc_1440a,
     apply_gems_decompress_to_ram_transfer_with_checkpoint_loc_1440a,
@@ -90,7 +91,8 @@ use wildside_frame::{
     apply_gems_title_text_delay_fade_execute_objects,
     apply_gems_title_text_object_allocation_to_fade, apply_gems_title_third_execute_objects,
     apply_gems_title_wait_for_vint_to_mode_standard,
-    apply_gems_title_wait_for_vint_to_subroutine_return, apply_timed_gems_queue_command, gems_bgm,
+    apply_gems_title_wait_for_vint_to_subroutine_return, apply_gems_transform_sub_8e0_pass,
+    apply_timed_gems_queue_command, gems_bgm,
 };
 #[cfg(test)]
 use wildside_frame::{
@@ -9838,6 +9840,7 @@ pub(crate) struct PublishedTasRasterTimeline {
     previous_sub_44dc: Option<wildside_core::vdp::ModeLevelCpuRasterCursor>,
     previous_trace: Option<NativeTraceFrame>,
     current_seed_sub_e12: Option<wildside_core::vdp::ModeLevelRasterSeedSubE12>,
+    transform_entry_sub_8e0: Option<wildside_core::vdp::LoadInGameCpuRasterCursor>,
     active: bool,
     finished: bool,
     scheduled_frames: usize,
@@ -9854,6 +9857,7 @@ impl PublishedTasRasterTimeline {
             previous_sub_44dc: None,
             previous_trace: None,
             current_seed_sub_e12: None,
+            transform_entry_sub_8e0: None,
             active: false,
             finished: false,
             scheduled_frames: 0,
@@ -9885,6 +9889,55 @@ impl PublishedTasRasterTimeline {
             false,
         );
         self.dynamic_art_queue.consumed_mode_level_frames += 1;
+
+        if let (Some(previous), Some(entry)) = (
+            self.previous_trace.as_ref(),
+            self.transform_entry_sub_8e0.take(),
+        ) && previous.form_change_flash_frames > 1
+        {
+            let Some(resume) = wildside_core::transform_raster_resume_after_sub_8e0(
+                previous.transform_source_helmet_id_loc_7ca6?,
+                previous.current_helmet_id,
+                previous.form_change_flash_frames,
+            ) else {
+                self.failure = Some((frame_index, "transform raster resume is not classified"));
+                self.finished = true;
+                self.active = false;
+                return None;
+            };
+            work.dynamic_art_tiles_loc_ad4 = Some([12, 0, 0, 0, 0, 0]);
+            let pass = TransformSub8E0PassWork {
+                pre_vint: wildside_core::TransformRasterWorkSub8E0 {
+                    murder_wall_active_sub_5e02: false,
+                    gfx_sprite_work_sub_1492:
+                        wildside_core::ModeLevelGfxSpriteWorkSub1492::Classified {
+                            nodes: vec![
+                                wildside_core::ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear,
+                                wildside_core::ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt20x32Flipped,
+                                wildside_core::ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
+                                wildside_core::ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
+                            ],
+                        },
+                    platform_work_sub_2444: wildside_core::ModeLevelPlatformWork {
+                        frozen_fa64: false,
+                        active_object_count: 0,
+                    },
+                },
+                vblank: work,
+                resume,
+            };
+            let Some(next) =
+                apply_gems_transform_sub_8e0_pass(&mut self.probe.engine, entry, &pass)
+            else {
+                self.failure = Some((frame_index, "typed transform repeat pass failed"));
+                self.finished = true;
+                self.active = false;
+                return None;
+            };
+            self.transform_entry_sub_8e0 = Some(next.cursor);
+            self.scheduled_frames += 1;
+            return None;
+        }
 
         let seed = if self.active {
             let previous = self.previous_trace.as_ref()?;
@@ -9952,6 +10005,47 @@ impl PublishedTasRasterTimeline {
             self.probe
                 .sample_power_on_frame_rendered_with_mode_level_work(mode_level_work);
         } else if self.active {
+            if trace.form_change_flash_frames == 73 {
+                let (Some(seed), Some(pre_hud)) = (
+                    self.current_seed_sub_e12.take(),
+                    trace.mode_level_work_before_hud_sub_44dc.as_ref(),
+                ) else {
+                    self.failure =
+                        Some((frame_index, "Cyclone transform entry lacks sub_E12 work"));
+                    self.finished = true;
+                    self.active = false;
+                    return;
+                };
+                let Some(entry_work) =
+                    wildside_core::cyclone_pickup_transform_entry_sub_e12(&pre_hud.execute_objects)
+                else {
+                    self.failure = Some((
+                        frame_index,
+                        "Cyclone pickup callback topology is unclassified",
+                    ));
+                    self.finished = true;
+                    self.active = false;
+                    return;
+                };
+                let Some(entry) = apply_gems_cyclone_pickup_transform_entry(
+                    &mut self.probe.engine,
+                    seed,
+                    entry_work,
+                ) else {
+                    self.failure = Some((frame_index, "Cyclone pickup transform entry failed"));
+                    self.finished = true;
+                    self.active = false;
+                    return;
+                };
+                self.transform_entry_sub_8e0 = Some(entry);
+                self.previous_trace = Some(trace.clone());
+                self.dynamic_art_queue.pending_tile_lengths = [12, 0, 0, 0, 0, 0];
+                return;
+            }
+            if trace.form_change_flash_frames > 1 && self.transform_entry_sub_8e0.is_some() {
+                self.previous_trace = Some(trace.clone());
+                return;
+            }
             let (Some(seed), Some(pre_hud)) = (
                 self.current_seed_sub_e12.take(),
                 trace.mode_level_work_before_hud_sub_44dc.as_ref(),
@@ -9991,13 +10085,13 @@ impl PublishedTasRasterTimeline {
     }
 
     pub(crate) fn verify_coverage(&self) -> Result<()> {
-        const REQUIRED_SCHEDULED_FRAMES_THROUGH_1058: usize = 136;
-        if self.scheduled_frames < REQUIRED_SCHEDULED_FRAMES_THROUGH_1058 {
+        const REQUIRED_SCHEDULED_FRAMES_THROUGH_1120: usize = 197;
+        if self.scheduled_frames < REQUIRED_SCHEDULED_FRAMES_THROUGH_1120 {
             if let Some((frame, reason)) = self.failure {
                 anyhow::bail!("published TAS raster timeline failed at frame {frame}: {reason}");
             }
             anyhow::bail!(
-                "published TAS raster timeline scheduled only {} frames; expected at least {REQUIRED_SCHEDULED_FRAMES_THROUGH_1058}",
+                "published TAS raster timeline scheduled only {} frames; expected at least {REQUIRED_SCHEDULED_FRAMES_THROUGH_1120}",
                 self.scheduled_frames,
             );
         }
