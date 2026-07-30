@@ -298,6 +298,27 @@ pub fn visit_mode_level_vblank_suffix_after_scroll_dma(
         }
         return Some(timing);
     }
+    if single_visible_theme_cell
+        && work.hud_path_sub_bdc0 == crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters
+    {
+        // ASM sub_1596 loc_15D2 -> loc_1614 followed by sub_BDC0
+        // loc_BE20 -> loc_BE0C -> loc_BE34 -> loc_BE4C, published TAS frame
+        // 1367. Breaking a prize block queues one visible theme cell while
+        // Cyclone's three-slot hitpoint path builds the HUD. The full-PC
+        // journal preserves all 137 instruction boundaries.
+        const SINGLE_VISIBLE_THEME_CELL_SECOND_HITPOINT_SUFFIX: &[u8] = &[
+            18, 8, 16, 8, 4, 12, 4, 8, 8, 12, 10, 8, 8, 4, 16, 16, 12, 8, 12, 4, 12, 12, 16, 12,
+            12, 14, 4, 8, 12, 14, 4, 8, 4, 8, 8, 4, 8, 4, 8, 4, 8, 4, 8, 4, 4, 8, 22, 8, 4, 8, 8,
+            8, 8, 8, 8, 12, 26, 8, 8, 8, 26, 8, 8, 10, 4, 16, 24, 24, 16, 18, 12, 8, 16, 18, 10,
+            12, 16, 12, 8, 12, 12, 12, 12, 4, 14, 12, 8, 12, 10, 8, 4, 8, 4, 4, 10, 8, 12, 8, 12,
+            8, 4, 10, 4, 8, 4, 4, 8, 8, 10, 4, 10, 8, 12, 8, 12, 8, 10, 12, 16, 12, 12, 12, 12, 16,
+            10, 12, 10, 12, 8, 10, 12, 10, 12, 12, 10, 16, 18,
+        ];
+        for &cycles in SINGLE_VISIBLE_THEME_CELL_SECOND_HITPOINT_SUFFIX {
+            emit(u32::from(cycles));
+        }
+        return Some(timing);
+    }
     if single_visible_theme_cell {
         return None;
     }
@@ -473,6 +494,37 @@ pub fn visit_transform_sub_8e0_descriptor_suffix_after_scroll_dma(
     Some(IntroSourceTiming {
         instruction_count: cycles.len() as u32,
         raw_cycles: M68kCycleCount::from_raw(raw_cycles),
+    })
+}
+
+/// Advance the final Cyclone transform pass from the H-scroll DMA return to
+/// the natural `sub_44DC` entry in the resumed `Mode_Level` frame.
+pub fn transform_sub_8e0_finish_to_sub_44dc_timing(
+    work: crate::ModeLevelVblankWorkBeforeSubE12,
+    resume: crate::TransformRasterResume,
+    phase_before: crate::M68kRefreshPhase,
+) -> Option<crate::M68kRefreshAdvance> {
+    if work.foreground_custom_queue_entries_sub_1596 != 0
+        || !work.foreground_cell_queue_sub_1596.is_empty()
+        || work.paused_sub_6874
+        || work.hud_path_sub_bdc0 != crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters
+        || resume != crate::TransformRasterResume::FinishLoc7e14
+    {
+        return None;
+    }
+
+    // ASM loc_8FE -> loc_7D22 -> loc_7E14 -> loc_7E90 -> sub_44DC.
+    // The published-TAS frame-1130 all-PC journal contains 693 instructions
+    // and 8,626 raw cycles. Its instruction boundaries schedule 73 refreshes;
+    // aggregating the raw total would miss five of them. No VDP/Z80 wait
+    // occurs in this interval.
+    if phase_before.get() != 16 {
+        return None;
+    }
+    Some(crate::M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(8_772),
+        phase_after: crate::M68kRefreshPhase::new(84).expect("valid refresh phase"),
+        refresh_events: 73,
     })
 }
 
@@ -3342,6 +3394,32 @@ mod tests {
     }
 
     #[test]
+    fn transform_finish_rejoins_mode_level_at_sub_44dc() {
+        let work = crate::ModeLevelVblankWorkBeforeSubE12 {
+            dynamic_art_tiles_loc_ad4: Some([12, 0, 0, 0, 0, 0]),
+            palette_dma_sub_970: true,
+            scroll_path: crate::ModeLevelScrollTransferPath::NormalLoc300ba,
+            foreground_custom_queue_entries_sub_1596: 0,
+            foreground_cell_queue_sub_1596: crate::ModeLevelForegroundCellQueueWorkSub1596::EMPTY,
+            paused_sub_6874: false,
+            hud_path_sub_bdc0: crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters,
+        };
+        assert_eq!(
+            transform_sub_8e0_finish_to_sub_44dc_timing(
+                work,
+                crate::TransformRasterResume::FinishLoc7e14,
+                crate::M68kRefreshPhase::new(16).expect("valid refresh phase"),
+            ),
+            Some(crate::M68kRefreshAdvance {
+                elapsed: M68kCycleCount::from_raw(8_772),
+                phase_after: crate::M68kRefreshPhase::new(84).expect("valid refresh phase"),
+                refresh_events: 73,
+            }),
+            "ASM loc_8FE -> loc_7E14 cleanup -> resumed Mode_Level sub_44DC",
+        );
+    }
+
+    #[test]
     fn cyclone_pickup_entry_retains_sub_e12_to_sub_8e0_boundaries() {
         let mut cycles = Vec::new();
         let timing = visit_cyclone_pickup_transform_entry_sub_e12(
@@ -3387,6 +3465,23 @@ mod tests {
                 raw_cycles: M68kCycleCount::from_raw(1_278),
             },
             "bounded all-PC oracle journal from loc_7D6 to sub_E12",
+        );
+
+        let second_hitpoint_timing = visit_mode_level_vblank_suffix_after_scroll_dma(
+            crate::ModeLevelVblankWorkBeforeSubE12 {
+                hud_path_sub_bdc0: crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters,
+                ..work
+            },
+            |_| {},
+        )
+        .expect("single visible theme-cell Cyclone HUD suffix");
+        assert_eq!(
+            second_hitpoint_timing,
+            IntroSourceTiming {
+                instruction_count: 137,
+                raw_cycles: M68kCycleCount::from_raw(1_388),
+            },
+            "ASM sub_1596 and sub_BDC0 full-PC journal from published TAS frame 1367",
         );
 
         let unsupported = crate::ModeLevelForegroundCellQueueWorkSub1596::from_paths(&[

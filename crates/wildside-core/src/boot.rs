@@ -5830,7 +5830,7 @@ impl NativeRuntime {
 
     /// ASM `ReadJoypad loc_C22` (kid.asm): classify the stored demo counter
     /// before its increment and the following `Demo_Keypress_Ptr` branch.
-    fn demo_read_joypad_work_loc_c22(
+    pub(crate) fn demo_read_joypad_work_loc_c22(
         frame_counter: u16,
         use_demo_2: bool,
     ) -> ModeLevelDemoReadJoypadWorkLocC22 {

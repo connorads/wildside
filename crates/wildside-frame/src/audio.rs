@@ -2088,6 +2088,14 @@ pub struct TransformSub8E0PassWork {
     pub resume: wildside_core::TransformRasterResume,
 }
 
+/// Natural continuation after one complete `Kid_Transform sub_8E0` pass.
+#[cfg(feature = "audio")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransformSub8E0PassAdvance {
+    NextSub8E0(TitleIntroSourceAdvance),
+    FinishSub44DC(ModeLevelCpuRasterCursor),
+}
+
 /// Clock the classified Cyclone pickup from `Execute_Objects sub_E12`
 /// through the first `Kid_Transform sub_8E0` entry.
 #[cfg(feature = "audio")]
@@ -2120,7 +2128,7 @@ pub fn apply_gems_transform_sub_8e0_pass(
     audio: &mut GemsMasterClockTimingEngine,
     entry: LoadInGameCpuRasterCursor,
     work: &TransformSub8E0PassWork,
-) -> Option<TitleIntroSourceAdvance> {
+) -> Option<TransformSub8E0PassAdvance> {
     let poll =
         apply_gems_transform_sub_8e0_entry_to_wait_for_vint_poll(audio, entry, &work.pre_vint)?;
     let wait = apply_gems_title_wait_for_vint_to_subroutine_return(audio, poll)?;
@@ -2157,21 +2165,45 @@ pub fn apply_gems_transform_sub_8e0_pass(
                 scroll.cursor,
                 work.vblank,
             )
+            .map(TransformSub8E0PassAdvance::NextSub8E0)
         }
-        wildside_core::TransformRasterResume::AdvanceDescriptor { .. } => wildside_core::vdp::transform_sub_8e0_descriptor_suffix_after_scroll_dma_cursor_with_scheduler(
-            scroll.cursor,
-            work.vblank,
-            work.resume,
-            |cycles, vdp_owns_bus, source_instruction| {
-                Some(apply_gems_title_source_hardware_interval(
-                    audio,
-                    cycles,
-                    vdp_owns_bus,
-                    source_instruction,
-                ))
-            },
-        ),
-        wildside_core::TransformRasterResume::FinishLoc7e14 => None,
+        wildside_core::TransformRasterResume::AdvanceDescriptor { .. } => {
+            wildside_core::vdp::transform_sub_8e0_descriptor_suffix_after_scroll_dma_cursor_with_scheduler(
+                scroll.cursor,
+                work.vblank,
+                work.resume,
+                |cycles, vdp_owns_bus, source_instruction| {
+                    Some(apply_gems_title_source_hardware_interval(
+                        audio,
+                        cycles,
+                        vdp_owns_bus,
+                        source_instruction,
+                    ))
+                },
+            )
+            .map(TransformSub8E0PassAdvance::NextSub8E0)
+        }
+        wildside_core::TransformRasterResume::FinishLoc7e14 => {
+            if audio.pending_m68k_wait_cycles() != 0 {
+                return None;
+            }
+            let timing = wildside_core::intro_timing::transform_sub_8e0_finish_to_sub_44dc_timing(
+                work.vblank,
+                work.resume,
+                scroll.cursor.refresh_phase,
+            )?;
+            audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                u64::from(timing.elapsed.get()) * 7,
+                false,
+            );
+            let _ = audio.take_pending_m68k_wait_cycles();
+            Some(TransformSub8E0PassAdvance::FinishSub44DC(
+                ModeLevelCpuRasterCursor {
+                    beam: scroll.cursor.beam.advance_m68k_cycles(timing.elapsed),
+                    refresh_phase: timing.phase_after,
+                },
+            ))
+        }
     }
 }
 
