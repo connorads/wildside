@@ -13,6 +13,24 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+Progress 2026-07-30: a bounded all-PC oracle journal rejects the earlier
+`loc_30104` ownership interpretation at the first gameplay suffix. At both
+`loc_7D6` and `sub_E12`, jgenesis reports memory DMA inactive, zero remaining
+DMA words, an empty VDP FIFO, and no pending FIFO writes. The complete
+`loc_7D6 -> sub_E12` path executes 127 instructions / 1,350 raw cycles; the
+general wait counter rises by 20 and the Z80 wait counter stays flat. The
+native visitor had only 90 instructions / 954 raw cycles because its initial
+HUD path omitted 396 cycles around the life/diamond counter updates and both
+`calc_display_number` calls. Restoring the ASM sequence lets the frame-902
+probe use `ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE` and preserves
+the correction-free persistent clock through frame 995. The selected-PC
+manifest now exports DMA active, remaining words, FIFO depth, and pending FIFO
+writes so future ownership claims are state-backed. This supersedes the
+frame-902 DMA-residue interpretation; frame 990's separate 440-cycle aggregate
+still needs the same state audit before removal. NEXT: derive the first live
+recurrence bootstrap from the corrected source path and distinguish CPU
+refresh phase from the selected-PC cycle counter.
+
 Progress 2026-07-29: the `loc_7D6` suffix boundary now accepts
 `ModeLevelPendingHardwareOwnershipAfterLoc7d6`, not a generic 68k cycle count.
 The type separates ownership already pending after the final H-scroll DMA from

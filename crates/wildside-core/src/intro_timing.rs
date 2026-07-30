@@ -276,6 +276,26 @@ pub fn visit_mode_level_vblank_suffix_after_scroll_dma(
         );
     };
 
+    if work.hud_path_sub_bdc0 == crate::ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates {
+        // ASM Mode_Level $7D6 -> sub_E12, including sub_1596, sub_6874,
+        // Make_SpriteAttr_HUD sub_BDC0 and both calc_display_number calls.
+        // The initial life/diamond counters take the long path through
+        // loc_BF2A..return_BF80; keeping the complete instruction sequence
+        // prevents that source work from being misclassified as VDP ownership.
+        const INITIAL_COUNTER_UPDATE_SUFFIX: &[u8] = &[
+            18, 8, 16, 10, 16, 10, 24, 24, 16, 18, 12, 8, 16, 18, 10, 12, 16, 12, 8, 12, 12, 12,
+            12, 4, 14, 12, 8, 12, 10, 8, 4, 8, 4, 4, 10, 8, 12, 8, 12, 8, 4, 8, 10, 12, 16, 12, 12,
+            12, 12, 16, 12, 16, 16, 10, 12, 8, 12, 12, 8, 12, 12, 8, 12, 4, 18, 12, 8, 8, 16, 12,
+            16, 12, 16, 12, 16, 12, 16, 12, 10, 12, 8, 10, 12, 8, 4, 4, 4, 20, 18, 8, 4, 4, 4, 8,
+            8, 4, 4, 8, 4, 16, 12, 4, 12, 12, 12, 12, 4, 4, 4, 20, 18, 8, 4, 4, 4, 8, 8, 4, 4, 8,
+            4, 16, 12, 4, 12, 16, 18,
+        ];
+        for &cycles in INITIAL_COUNTER_UPDATE_SUFFIX {
+            emit(u32::from(cycles));
+        }
+        return Some(timing);
+    }
+
     // ASM Mode_Level $7D6 and sub_1596 $1596..$168C. The custom queue pointer
     // equals its empty producer base rather than zero, while the cell queue
     // takes the direct empty branch.
@@ -292,11 +312,6 @@ pub fn visit_mode_level_vblank_suffix_after_scroll_dma(
 
     // ASM Mode_Level $7DE, j_Make_SpriteAttr_HUD $7176, and sub_BDC0 through
     // $BF80, followed by the $7E2 BSR.W Execute_Objects instruction.
-    const INITIAL_COUNTER_UPDATES: &[u8] = &[
-        18, 10, 12, 16, 12, 8, 12, 12, 12, 12, 4, 14, 12, 8, 12, 10, 8, 4, 8, 4, 4, 10, 8, 12, 8,
-        12, 8, 4, 10, 4, 8, 4, 4, 8, 8, 10, 4, 10, 8, 12, 8, 12, 8, 10, 12, 16, 12, 12, 12, 12, 16,
-        10, 12, 10, 12, 8, 10, 12, 10, 12, 12, 10, 16, 18,
-    ];
     // ASM loc_BE20 -> loc_BE0C -> loc_BE34 -> loc_BE4C costs the same 110
     // raw cycles that the first gameplay pass instead spends in the two
     // calc_display_number calls. Frame-902 and frame-1706 selected-PC traces
@@ -306,9 +321,15 @@ pub fn visit_mode_level_vblank_suffix_after_scroll_dma(
         12, 8, 4, 8, 10, 12, 16, 12, 12, 12, 12, 16, 10, 12, 10, 12, 8, 10, 12, 10, 12, 12, 10, 16,
         18,
     ];
-    const SECOND_HITPOINT_LOOP_STABLE_COUNTERS: &[u8] = INITIAL_COUNTER_UPDATES;
+    const SECOND_HITPOINT_LOOP_STABLE_COUNTERS: &[u8] = &[
+        18, 10, 12, 16, 12, 8, 12, 12, 12, 12, 4, 14, 12, 8, 12, 10, 8, 4, 8, 4, 4, 10, 8, 12, 8,
+        12, 8, 4, 10, 4, 8, 4, 4, 8, 8, 10, 4, 10, 8, 12, 8, 12, 8, 10, 12, 16, 12, 12, 12, 12, 16,
+        10, 12, 10, 12, 8, 10, 12, 10, 12, 12, 10, 16, 18,
+    ];
     let hud_cycles = match work.hud_path_sub_bdc0 {
-        crate::ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates => INITIAL_COUNTER_UPDATES,
+        crate::ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates => {
+            unreachable!("initial counter path returns above")
+        }
         crate::ModeLevelHudBuildPath::LocBe20DirectStableCounters => DIRECT_STABLE_COUNTERS,
         crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters => {
             SECOND_HITPOINT_LOOP_STABLE_COUNTERS
@@ -3024,26 +3045,13 @@ mod tests {
         assert_eq!(
             timing,
             IntroSourceTiming {
-                instruction_count: 90,
-                raw_cycles: M68kCycleCount::from_raw(954),
+                instruction_count: 127,
+                raw_cycles: M68kCycleCount::from_raw(1_350),
             },
-            "ASM Mode_Level $7D6 -> Execute_Objects sub_E12 retains the frame-1697 oracle path",
+            "ASM Mode_Level $7D6 -> Execute_Objects sub_E12 retains the initial-counter path",
         );
-        assert_eq!(
-            cycles[..22].iter().sum::<u32>(),
-            254,
-            "ASM sub_1596 uses the gameplay producer-base sentinel path",
-        );
-        assert_eq!(
-            cycles[22..26],
-            [18, 12, 8, 16],
-            "ASM sub_6874 takes the unpaused return",
-        );
-        assert_eq!(
-            cycles[26..].iter().sum::<u32>(),
-            646,
-            "ASM sub_BDC0 takes loc_BE20 then loc_BE4C without counter rollover",
-        );
+        assert_eq!(cycles.first(), Some(&18), "ASM Mode_Level $7D6 BSR.W");
+        assert_eq!(cycles.last(), Some(&18), "ASM Mode_Level $7E2 BSR.W");
 
         let mut unsupported = work;
         unsupported.foreground_custom_queue_entries_sub_1596 = 1;

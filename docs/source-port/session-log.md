@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-30 handoff (#409 initial HUD source ledger)
+
+- Selected-PC rows now expose DMA active, remaining words, FIFO depth, and
+  pending FIFO writes at the exact instruction boundary.
+- Frame 902 has no DMA/FIFO ownership at `loc_7D6`; its complete suffix is
+  127 instructions / 1,350 raw cycles plus 20 hardware-wait cycles.
+- Restoring 396 omitted HUD/counter cycles removes the synthetic 402-cycle
+  ownership seed and keeps the persistent regression exact through frame 995.
+- NEXT: bootstrap the corrected suffix in the live recurrence and apply the
+  same state-backed audit to frame 990 before retaining seeds in the runner.
+
 ## 2026-07-30 handoff (#406 walking-Dragon Gfx admission)
 
 - Oracle phase-3 capture corrected the frame-2617 diagnosis: the visible SAT

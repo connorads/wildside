@@ -292,6 +292,15 @@ pub struct OracleM68kPcTraceRow {
     /// instructions. This includes VDP, refresh and bus-arbitration waits.
     #[serde(default)]
     pub m68k_wait_cpu_cycles_total: u64,
+    /// VDP memory-DMA state at this exact instruction boundary.
+    #[serde(default)]
+    pub vdp_dma_active: bool,
+    #[serde(default)]
+    pub vdp_dma_words_remaining: u16,
+    #[serde(default)]
+    pub vdp_fifo_depth: u8,
+    #[serde(default)]
+    pub vdp_pending_fifo_writes: u16,
     pub scanline: u16,
     pub pixel: u16,
     pub data_registers: [u32; 8],
@@ -1433,6 +1442,28 @@ fn patch_jgenesis_m68k_pc_trace(jgenesis_dir: &Path) -> Result<()> {
         fs::write(&api_rs, &api)
             .with_context(|| format!("failed to update patched {}", api_rs.display()))?;
     }
+    if !api.contains("vdp_dma_words_remaining") {
+        api = replace_jgenesis_source(
+            &api,
+            "    pub m68k_wait_cpu_cycles_total: u64,\n",
+            "    pub m68k_wait_cpu_cycles_total: u64,\n    pub vdp_dma_active: bool,\n    pub vdp_dma_words_remaining: u16,\n    pub vdp_fifo_depth: u8,\n    pub vdp_pending_fifo_writes: u16,\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "            let z80_68k_wait_cpu_cycles_total = bus.cycles.wildside_z80_68k_wait_cpu_cycles_total;\n            let m68k_cycles_for_instruction = self.m68k.execute_instruction(&mut bus);\n",
+            "            let z80_68k_wait_cpu_cycles_total = bus.cycles.wildside_z80_68k_wait_cpu_cycles_total;\n            let (vdp_dma_active, vdp_dma_words_remaining, vdp_fifo_depth, vdp_pending_fifo_writes) = bus.vdp.wildside_dma_state();\n            let m68k_cycles_for_instruction = self.m68k.execute_instruction(&mut bus);\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "                m68k_wait_cpu_cycles_total: self.wildside_m68k_wait_cpu_cycles_total,\n                scanline,\n",
+            "                m68k_wait_cpu_cycles_total: self.wildside_m68k_wait_cpu_cycles_total,\n                vdp_dma_active,\n                vdp_dma_words_remaining,\n                vdp_fifo_depth,\n                vdp_pending_fifo_writes,\n                scanline,\n",
+            &api_rs,
+        )?;
+        fs::write(&api_rs, &api)
+            .with_context(|| format!("failed to update patched {}", api_rs.display()))?;
+    }
 
     let vdp_rs = jgenesis_dir.join("backend/genesis-core/src/vdp.rs");
     let mut vdp = fs::read_to_string(&vdp_rs)
@@ -1446,6 +1477,16 @@ fn patch_jgenesis_m68k_pc_trace(jgenesis_dir: &Path) -> Result<()> {
         )?;
         fs::write(&vdp_rs, &vdp)
             .with_context(|| format!("failed to write patched {}", vdp_rs.display()))?;
+    }
+    if !vdp.contains("wildside_dma_state") {
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "    pub fn wildside_beam_position(&self) -> (u16, u16) {\n        (self.state.scanline, self.state.pixel)\n    }\n",
+            "    pub fn wildside_beam_position(&self) -> (u16, u16) {\n        (self.state.scanline, self.state.pixel)\n    }\n\n    pub fn wildside_dma_state(&self) -> (bool, u16, u8, u16) {\n        (\n            self.control_port.dma_active,\n            self.registers.dma_length,\n            self.fifo.len() as u8,\n            self.pending_fifo_writes.len() as u16,\n        )\n    }\n",
+            &vdp_rs,
+        )?;
+        fs::write(&vdp_rs, &vdp)
+            .with_context(|| format!("failed to update patched {}", vdp_rs.display()))?;
     }
 
     let debug_rs = jgenesis_dir.join("backend/genesis-core/src/api/debug.rs");
@@ -2189,6 +2230,10 @@ mod tests {
                 && HELPER_TEMPLATE.contains(
                     "m68k_refresh_counter_before_instruction: hit.m68k_refresh_counter_before_instruction"
                 )
+                && HELPER_TEMPLATE.contains("vdp_dma_active: hit.vdp_dma_active")
+                && HELPER_TEMPLATE.contains(
+                    "vdp_dma_words_remaining: hit.vdp_dma_words_remaining"
+                )
                 && HELPER_TEMPLATE.contains("address_registers: hit.address_registers"),
             "selected-PC tracing must accept bounded ranges, start at the retained window, and separate instruction work from waits"
         );
@@ -2246,6 +2291,9 @@ mod tests {
         assert_eq!(manifest.m68k_pc_trace[0].m68k_cycles_for_instruction, 16);
         assert_eq!(manifest.m68k_pc_trace[0].z80_68k_wait_cpu_cycles_total, 825);
         assert_eq!(manifest.m68k_pc_trace[0].m68k_wait_cpu_cycles_total, 0);
+        assert!(!manifest.m68k_pc_trace[0].vdp_dma_active);
+        assert_eq!(manifest.m68k_pc_trace[0].vdp_dma_words_remaining, 0);
+        assert_eq!(manifest.m68k_pc_trace[0].vdp_fifo_depth, 0);
         assert_eq!(manifest.m68k_pc_trace[0].scanline, 224);
         assert_eq!(manifest.m68k_pc_trace[0].address_registers[5], 13);
         let checkpoint = manifest.m68k_pc_trace[0]

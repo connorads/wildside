@@ -4477,11 +4477,11 @@ impl GemsSignatureProbe {
                             .expect("first gameplay loc_7D6 phase"),
                     },
                     mode_level_work.vblank_before_sub_e12,
-                    // Oracle PC trace: loc_7D6 enters with VDP ownership and
-                    // pending waits clear. The first-gameplay prefix remains
-                    // TODO above; after the complete sub_1596 source path,
-                    // its measured arbitration residue is 402 cycles.
-                    ModeLevelPendingHardwareOwnershipAfterLoc7d6::from_raw_cycles(402),
+                    // Oracle selected-PC DMA state is idle and both FIFO
+                    // queues are empty at loc_7D6. The complete 1,350-cycle
+                    // source visitor reaches sub_E12 without an injected
+                    // hardware-ownership remainder.
+                    ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 )
                 .expect("first gameplay VBlank suffix reaches sub_E12");
                 assert_eq!(self.engine.master_clock(), 115_449_413 * 7);

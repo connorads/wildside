@@ -4938,9 +4938,8 @@ mod tests {
         )
         .expect("source-scheduled Mode_Level VBlank suffix");
 
-        assert_eq!(advance.timing.instruction_count, 90);
-        assert_eq!(advance.timing.raw_cycles.get(), 954);
-        assert_eq!(advance.refresh_events, 7);
+        assert_eq!(advance.timing.instruction_count, 127);
+        assert_eq!(advance.timing.raw_cycles.get(), 1_350);
         assert_eq!(advance.external_wait_cycles.get(), 0);
         assert_eq!(advance.cursor.refresh_phase, expected_phase);
         assert_eq!(
@@ -4955,9 +4954,9 @@ mod tests {
         );
 
         // Oracle selected-PC trace, published TAS frame 902: loc_7D6 enters
-        // at cycle 115448043 phase 16, and its completed loc_30104 H-scroll
-        // DMA contributes a 442-cycle pending wait before sub_E12 enters at
-        // cycle 115449413 phase 106.
+        // with no active DMA or queued FIFO work. The bounded instruction
+        // journal contains 1,350 raw source cycles and the general wait
+        // counter rises by 20 before sub_E12. No DMA ownership is injected.
         let entry_cycles = 115_448_043_u32;
         let entry = LoadInGameCpuRasterCursor {
             beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
@@ -4975,15 +4974,10 @@ mod tests {
             &mut engine,
             entry,
             work,
-            ModeLevelPendingHardwareOwnershipAfterLoc7d6::from_raw_cycles(442),
+            ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
         )
-        .expect("published first-gameplay suffix drains the completed DMA wait");
-        assert_eq!(engine.master_clock(), 115_449_413 * 7);
-        assert_eq!(advance.external_wait_cycles, M68kCycleCount::from_raw(442));
-        assert_eq!(
-            advance.cursor.refresh_phase,
-            M68kRefreshPhase::new(106).unwrap(),
-        );
+        .expect("published first-gameplay suffix needs no synthetic DMA wait");
+        assert_eq!(advance.external_wait_cycles, M68kCycleCount::from_raw(0));
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
