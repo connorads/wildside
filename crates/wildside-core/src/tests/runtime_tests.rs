@@ -419,6 +419,46 @@ fn published_tas_transform_vblanks_keep_raster_scheduler_live() {
 }
 
 #[test]
+fn published_tas_transform_cleanup_resumes_mode_level_hud_loc_7e90_80c() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut observed = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_132) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_130 {
+            observed = Some((
+                trace.form_change_flash_frames,
+                trace.mode_level_work_after_hud_sub_44dc.is_some(),
+                trace.mode_level_tail_work_loc_892.is_some(),
+                trace
+                    .mode_level_work_after_hud_sub_44dc
+                    .as_ref()
+                    .and_then(crate::mode_level_post_hud_raw_cycles_to_loc_892)
+                    .is_some(),
+            ));
+        }
+        if frame_index == 1_131 {
+            assert!(
+                trace
+                    .mode_level_work_after_hud_sub_44dc
+                    .as_ref()
+                    .and_then(crate::mode_level_post_hud_raw_cycles_to_loc_892)
+                    .is_some(),
+                "ASM loc_80C reaches the typed ReadJoypad and post-HUD tail after transform exit",
+            );
+        }
+    }
+
+    assert_eq!(
+        observed,
+        Some((1, true, true, true)),
+        "ASM Kid_Transform loc_7E90 returns to Mode_Level loc_80C, so the cleanup frame runs sub_44DC and the ordinary tail",
+    );
+}
+
+#[test]
 fn published_tas_frame_1706_unseeded_work_bounds_earliest_diamond_commit() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;
@@ -1311,9 +1351,13 @@ fn published_tas_frame_902_derives_first_gameplay_mode_tail_work() {
     assert_eq!(
         work.camera_stripe_sub_30194,
         ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
-            ordinary_theme_cells: 20,
-            priority_theme_cells: 0,
-            block_cells: 1,
+            cells: std::array::from_fn(|index| {
+                if index == 4 {
+                    crate::mode_level_timing::ModeLevelTailCameraCellMappingSub30194::Block
+                } else {
+                    crate::mode_level_timing::ModeLevelTailCameraCellMappingSub30194::OrdinaryTheme
+                }
+            }),
         },
         "ASM sub_30194 loc_30354/loc_3037C: oracle frame 902 uploads 20 ordinary cells and one block cell",
     );
