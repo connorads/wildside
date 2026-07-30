@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-30 handoff (#409 transform resume taxonomy)
+
+- `transform_raster_resume_after_sub_8e0` derives each return from the ported
+  transform table and live countdown.
+- Cyclone reduces to 62 DBF repeats, nine descriptor advances, and one finish
+  edge across its 72 oracle-observed raster passes.
+- NEXT: compose the repeated `sub_8E0` body from existing timing primitives
+  and carry one hardware cursor through the whole synchronous owner.
+
 ## 2026-07-30 handoff (#409 Cyclone transform owner bound)
 
 - Oracle selected-PC evidence proves 72 consecutive `sub_8E0` calls on

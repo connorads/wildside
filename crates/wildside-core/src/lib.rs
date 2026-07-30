@@ -194,8 +194,8 @@ use std::sync::Arc;
 pub(crate) use trace::opening_level_one_object_counts;
 pub use transform_presentation::{
     IRON_KNIGHT_TRANSFORM_TABLE_STRU_7FF8, PresentedTransformPhase, TransformDescriptor,
-    TransformHandler, TransformTableSource, ported_forward_transform_passes,
-    presented_transform_phase,
+    TransformHandler, TransformRasterResume, TransformTableSource, ported_forward_transform_passes,
+    presented_transform_phase, transform_raster_resume_after_sub_8e0,
 };
 pub use types::*;
 pub use weather::{

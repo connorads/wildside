@@ -55,6 +55,22 @@ pub struct PresentedTransformPhase {
     pub finished: bool,
 }
 
+/// Control-flow edge after one synchronous `sub_8E0` transform pass.
+///
+/// ASM `loc_7CBE/loc_7D22` restores the saved registers and executes `dbf`.
+/// A non-final pass branches directly back to `sub_8E0`; the last pass of a
+/// descriptor runs the next `off_7D34` handler; the final descriptor reaches
+/// `loc_7E14` and `loc_7E90`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransformRasterResume {
+    RepeatDescriptor,
+    AdvanceDescriptor {
+        descriptor_index: usize,
+        handler: TransformHandler,
+    },
+    FinishLoc7e14,
+}
+
 const HELMET_THE_KID: u16 = 0;
 const HELMET_CYCLONE: u16 = 2;
 const HELMET_IRON_KNIGHT: u16 = 6;
@@ -208,6 +224,38 @@ pub fn ported_forward_transform_passes(new_helmet_id: u16) -> Option<u32> {
         .map(|table| table.iter().map(|d| u32::from(d.pass_count)).sum())
 }
 
+/// Classify the source edge taken after the displayed transform pass.
+///
+/// `frames_remaining` names the pass entering `sub_8E0`, using the same
+/// countdown convention as [`presented_transform_phase`]. The cleanup-only
+/// value (`1`) has no `sub_8E0` call and therefore returns `None`.
+pub fn transform_raster_resume_after_sub_8e0(
+    old_helmet_id: u16,
+    new_helmet_id: u16,
+    frames_remaining: u8,
+) -> Option<TransformRasterResume> {
+    let current = presented_transform_phase(old_helmet_id, new_helmet_id, frames_remaining)?;
+    if current.finished {
+        return None;
+    }
+    let next = presented_transform_phase(
+        old_helmet_id,
+        new_helmet_id,
+        frames_remaining.checked_sub(1)?,
+    )?;
+    if next.finished {
+        return Some(TransformRasterResume::FinishLoc7e14);
+    }
+    if next.descriptor_index == current.descriptor_index {
+        Some(TransformRasterResume::RepeatDescriptor)
+    } else {
+        Some(TransformRasterResume::AdvanceDescriptor {
+            descriptor_index: next.descriptor_index,
+            handler: next.handler,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,6 +318,42 @@ mod tests {
         assert_eq!(default.descriptor_index, 7);
         assert_eq!(default.handler, TransformHandler::HelmetDefault);
         assert_eq!(default.palette_helmet_id, HELMET_CYCLONE);
+    }
+
+    #[test]
+    fn cyclone_raster_resume_edges_cover_the_whole_loc_7d22_loop() {
+        // ASM Kid_Transform stru_7F30 -> loc_7D0A/loc_7D22: 72 sub_8E0
+        // calls comprise 62 DBF repeats, nine descriptor transitions, and
+        // one final edge to loc_7E14. Oracle published frames 1058..1129
+        // independently expose those 72 calls.
+        let resumes = (2..=73)
+            .rev()
+            .map(|remaining| {
+                transform_raster_resume_after_sub_8e0(0, HELMET_CYCLONE, remaining)
+                    .expect("every displayed Cyclone pass has a resume edge")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(resumes.len(), 72);
+        assert_eq!(
+            resumes
+                .iter()
+                .filter(|resume| matches!(resume, TransformRasterResume::RepeatDescriptor))
+                .count(),
+            62,
+        );
+        assert_eq!(
+            resumes
+                .iter()
+                .filter(|resume| matches!(resume, TransformRasterResume::AdvanceDescriptor { .. }))
+                .count(),
+            9,
+        );
+        assert_eq!(resumes.last(), Some(&TransformRasterResume::FinishLoc7e14));
+        assert_eq!(
+            transform_raster_resume_after_sub_8e0(0, HELMET_CYCLONE, 1),
+            None,
+            "loc_7E90 cleanup is not another sub_8E0 pass",
+        );
     }
 
     /// ASM stru_7FF8 (kid.asm) restated independently: run-length shape,

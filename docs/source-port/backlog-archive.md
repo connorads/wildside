@@ -23575,3 +23575,12 @@ owner with a source-defined loop bound, not 72 independent frame cases.
 NEXT: compose its repeated body from the existing typed `sub_5E02`, sprite,
 platform, VINT, sprite/palette DMA, scroll, `sub_1596`, and HUD primitives;
 then type the frame-1130 cleanup and object-pass continuation.
+
+Progress 2026-07-30 for #409: the ported `off_7EE2` table model now exposes
+the post-`sub_8E0` source edge directly. Cyclone's 72 calls reduce to 62
+`loc_7D22` DBF repeats, nine advances that execute the next `off_7D34`
+descriptor handler, and one final edge to `loc_7E14`; countdown 1 is cleanup
+only and cannot masquerade as another raster pass. A regression derives all
+counts from `stru_7F30`, independently matching the bounded oracle call span.
+NEXT: schedule the shared `sub_8E0` body once per classified edge and retain
+the same hardware cursor across the complete table walk.
