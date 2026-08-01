@@ -1397,9 +1397,11 @@ pub(crate) struct ActiveEnemy {
     pub(crate) scorpion_sting_frames: u8,
     /// Scorpion.asm loc_3DE6C: cached Kid x_pos word stored in `a2` from `d3`.
     pub(crate) scorpion_cached_kid_x_word: u16,
-    /// ASM UFO.asm `$4E(a5)`; for Tornado, `$46(a5)` gates loc_3592E X-term doubling.
+    /// ASM UFO.asm `$4E(a5)`; for Tornado, `$46(a5)` gates loc_3592E doubling
+    /// of both AXES' accelerations (d0/d2), mirroring UFO's loc_34E10.
     pub(crate) flight_double_acceleration: bool,
-    /// ASM UFO.asm `$4F(a5)`; for Tornado, `$47(a5)` gates loc_3593A Y-term doubling.
+    /// ASM UFO.asm `$4F(a5)`; for Tornado, `$47(a5)` gates loc_3593A doubling
+    /// of both AXES' target speeds (d1/d3), mirroring UFO's loc_34E1C.
     pub(crate) flight_double_terminal_speed: bool,
     /// Walk speed override from tracking callback ($50(a5)). When non-zero, step_pacer
     /// uses this instead of pacer_walk_speed(). Set by Scorpion tracking (Scorpion.asm loc_3DD7E).
@@ -5246,45 +5248,31 @@ fn swap_words_i32(value: i32) -> i32 {
 pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
     // ASM Tornado.asm loc_359F2 -> loc_35A02 / unk_35A0C: use the current
     // 16-byte motion-script entry, advance the script pointer, and wrap when
-    // the following longword sentinel equals 1.
+    // the following longword sentinel equals 1. loc_35A02 tails into the
+    // shared UFO.asm loc_35444 loader, then loc_3592E/loc_3593A scale the
+    // result exactly like UFO's loc_34E10/loc_34E1C: `$46(a5)` doubles the
+    // two ACCELERATIONS (d0/d2) and `$47(a5)` doubles the two TARGET SPEEDS
+    // (d1/d3) — the split is accel-vs-target, not X-axis-vs-Y-axis.
     let index = usize::from(enemy.dragon_script_cmd) % TORNADO_PATTERN_SCRIPT.len();
     let pattern = TORNADO_PATTERN_SCRIPT[index];
     enemy.dragon_script_cmd = ((index + 1) % TORNADO_PATTERN_SCRIPT.len()) as u8;
-    let target_x_velocity = if enemy.flight_double_acceleration {
-        // ASM Tornado.asm loc_3592E: non-zero `$46(a5)` doubles `d0` and `d2`,
-        // the X target speed and X acceleration loaded from the script entry.
-        pattern.target_x_velocity.saturating_mul(2)
-    } else {
-        pattern.target_x_velocity
-    };
-    let target_y_velocity = if enemy.flight_double_terminal_speed {
-        // ASM Tornado.asm loc_3593A: non-zero `$47(a5)` doubles `d1` and `d3`,
-        // the Y target speed and Y acceleration loaded from the script entry.
-        pattern.target_y_velocity.saturating_mul(2)
-    } else {
-        pattern.target_y_velocity
-    };
-    let x_acceleration =
-        acceleration_for_target(enemy.x_velocity, target_x_velocity, pattern.x_acceleration);
-    let y_acceleration =
-        acceleration_for_target(enemy.y_velocity, target_y_velocity, pattern.y_acceleration);
-    enemy.target_x_velocity = target_x_velocity;
-    enemy.target_y_velocity = target_y_velocity;
-    enemy.x_acceleration = if enemy.flight_double_acceleration {
-        x_acceleration.saturating_mul(2)
-    } else {
-        x_acceleration
-    };
-    enemy.y_acceleration = if enemy.flight_double_terminal_speed {
-        y_acceleration.saturating_mul(2)
-    } else {
-        y_acceleration
-    };
-    enemy.facing = if target_x_velocity < 0 {
-        Direction::Left
-    } else {
-        Direction::Right
-    };
+    let (motion, facing) = ufo_motion_from_script_loc_35444(
+        UfoMotionCommand {
+            x_acceleration: pattern.x_acceleration,
+            target_x_velocity: pattern.target_x_velocity,
+            y_acceleration: pattern.y_acceleration,
+            target_y_velocity: pattern.target_y_velocity,
+        },
+        enemy.x_velocity,
+        enemy.y_velocity,
+        enemy.flight_double_acceleration,
+        enemy.flight_double_terminal_speed,
+    );
+    enemy.target_x_velocity = motion.target_x_velocity;
+    enemy.target_y_velocity = motion.target_y_velocity;
+    enemy.x_acceleration = motion.x_acceleration;
+    enemy.y_acceleration = motion.y_acceleration;
+    enemy.facing = facing;
 }
 
 /// Sphere bounces off walls/floors/ceilings with gravity.
