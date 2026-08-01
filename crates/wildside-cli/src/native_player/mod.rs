@@ -2952,17 +2952,67 @@ mod tests {
         )
     }
 
-    fn sprite_tiles(command: &DrawCommand) -> &[SpriteTile] {
+    /// Payload shared by the two sprite draw commands: position, tile sheet,
+    /// palette, and the per-tile placement list.
+    struct SpriteCommandParts<'a> {
+        x: i32,
+        y: i32,
+        tile_sheet: &'a TileSheet,
+        palette: &'a Palette,
+        tiles: &'a [SpriteTile],
+    }
+
+    /// Read the sprite payload out of either sprite draw command.
+    ///
+    /// `Sprite_Table` draws emit [`DrawCommand::SatSprite`] so the rasteriser
+    /// applies the VDP's first-opaque-pixel arbitration across them; scene-local
+    /// fixtures and non-SAT paths still emit [`DrawCommand::Sprite`]. Both carry
+    /// the same payload, and assertions about what is drawn care about the
+    /// payload rather than which arbitration path the renderer takes, so they
+    /// go through this accessor instead of naming one variant.
+    fn sprite_command_parts(command: &DrawCommand) -> Option<SpriteCommandParts<'_>> {
         match command {
-            DrawCommand::Sprite { tiles, .. } => tiles,
-            other => panic!("expected sprite draw command, got {other:?}"),
+            DrawCommand::Sprite {
+                x,
+                y,
+                tile_sheet,
+                palette,
+                tiles,
+            }
+            | DrawCommand::SatSprite {
+                x,
+                y,
+                tile_sheet,
+                palette,
+                tiles,
+            } => Some(SpriteCommandParts {
+                x: *x,
+                y: *y,
+                tile_sheet,
+                palette,
+                tiles,
+            }),
+            _ => None,
+        }
+    }
+
+    /// First pixel of a tile sheet's first tile, the signature test fixtures use
+    /// to identify which art a sprite command drew.
+    fn sprite_sheet_signature(tile_sheet: &TileSheet) -> Option<u8> {
+        tile_sheet.tiles.first().map(|tile| tile.pixels[0])
+    }
+
+    fn sprite_tiles(command: &DrawCommand) -> &[SpriteTile] {
+        match sprite_command_parts(command) {
+            Some(parts) => parts.tiles,
+            None => panic!("expected sprite draw command, got {command:?}"),
         }
     }
 
     fn sprite_palette(command: &DrawCommand) -> &Palette {
-        match command {
-            DrawCommand::Sprite { palette, .. } => palette,
-            other => panic!("expected sprite draw command, got {other:?}"),
+        match sprite_command_parts(command) {
+            Some(parts) => parts.palette,
+            None => panic!("expected sprite draw command, got {command:?}"),
         }
     }
 
@@ -3027,7 +3077,7 @@ mod tests {
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         let projectile_sprite = scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { tiles, .. }
+            DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. }
                 if tiles
                     .first()
                     .is_some_and(|tile| tile.tile.tile_index == 0x004) =>
@@ -3082,7 +3132,12 @@ mod tests {
         let scene = build_ingame_scene(&trace, false, None);
 
         let shooter_sprite = scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { x, y, tiles, .. } if *x == 32 && *y == 20 => Some(tiles),
+            DrawCommand::Sprite { x, y, tiles, .. }
+            | DrawCommand::SatSprite { x, y, tiles, .. }
+                if *x == 32 && *y == 20 =>
+            {
+                Some(tiles)
+            }
             _ => None,
         });
         let tiles =
@@ -3145,7 +3200,7 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, .. }
+                    DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. }
                         if tile_sheet.tiles[0].pixels[0] == 90
                 )
             }),
@@ -3201,7 +3256,7 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, .. }
+                    DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. }
                         if tile_sheet.tiles[0].pixels[0] == 92
                 )
             }),
@@ -3254,6 +3309,7 @@ mod tests {
             let scene = build_scene(&trace, false, Some(&visuals), runtime.block_grid());
             let Some(signature) = scene.commands.iter().find_map(|command| match command {
                 DrawCommand::Sprite { tile_sheet, .. }
+                | DrawCommand::SatSprite { tile_sheet, .. }
                     if tile_sheet
                         .tiles
                         .first()
@@ -3641,6 +3697,13 @@ mod tests {
                 tile_sheet,
                 tiles,
                 ..
+            }
+            | DrawCommand::SatSprite {
+                x,
+                y,
+                tile_sheet,
+                tiles,
+                ..
             } if *x == 32 && *y == 20 => Some((tile_sheet, tiles)),
             _ => None,
         });
@@ -3847,7 +3910,7 @@ mod tests {
             runtime.block_grid(),
         );
         let shooter_sprite = scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { tiles, .. }
+            DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. }
                 if tiles
                     .iter()
                     .any(|tile| tile.tile.tile_index == 0x076 && tile.tile.flip_x) =>
@@ -3947,7 +4010,7 @@ mod tests {
                 runtime.block_grid(),
             );
             saw_spike_sprite |= scene.commands.iter().any(|command| match command {
-                DrawCommand::Sprite { tiles, .. } => tiles
+                DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. } => tiles
                     .iter()
                     .any(|tile| tile.tile.tile_index == 0x076 && tile.tile.flip_x),
                 _ => false,
@@ -4005,7 +4068,12 @@ mod tests {
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         let bullet_sprite = scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { x, y, tiles, .. } if *x == 23 && *y == 19 => Some(tiles),
+            DrawCommand::Sprite { x, y, tiles, .. }
+            | DrawCommand::SatSprite { x, y, tiles, .. }
+                if *x == 23 && *y == 19 =>
+            {
+                Some(tiles)
+            }
             _ => None,
         });
         let tiles = bullet_sprite
@@ -4055,6 +4123,7 @@ mod tests {
 
         let lightning_sprite = scene.commands.iter().find_map(|command| match command {
             DrawCommand::Sprite { x, y, tiles, .. }
+            | DrawCommand::SatSprite { x, y, tiles, .. }
                 if tiles.len() == 6
                     && tiles
                         .first()
@@ -4112,7 +4181,7 @@ mod tests {
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         let glob_tiles = scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { tiles, .. }
+            DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. }
                 if tiles.iter().any(|tile| tile.tile.tile_index == 0x0BC) =>
             {
                 Some(tiles)
@@ -4159,7 +4228,7 @@ mod tests {
         assert!(
             scene.commands.iter().any(|command| matches!(
                 command,
-                DrawCommand::Sprite { tiles, .. }
+                DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. }
                     if tiles.iter().any(|tile| tile.tile.tile_index == 0x0C1)
             )),
             "ASM Tar_Monster.asm loc_325E6 should render burst fragments from ROM tile `unk_C782E` ($0C1)",
@@ -4223,7 +4292,7 @@ mod tests {
             .iter()
             .enumerate()
             .find_map(|(index, command)| match command {
-                DrawCommand::Sprite { x, y, tiles, .. }
+                DrawCommand::Sprite { x, y, tiles, .. } | DrawCommand::SatSprite { x, y, tiles, .. }
                     if tiles.len() == 2
                         && matches!(tiles[0].tile.tile_index, 0x038 | 0x03A) =>
                 {
@@ -4314,7 +4383,10 @@ mod tests {
             let scene = build_scene(&trace, false, Some(&visuals), None);
 
             let impact_sprite = scene.commands.iter().find_map(|command| match command {
-                DrawCommand::Sprite { x, y, tiles, .. } if *x == expected_x && *y == expected_y => {
+                DrawCommand::Sprite { x, y, tiles, .. }
+                | DrawCommand::SatSprite { x, y, tiles, .. }
+                    if *x == expected_x && *y == expected_y =>
+                {
                     Some(tiles)
                 }
                 _ => None,
@@ -4359,7 +4431,10 @@ mod tests {
             let scene = build_scene(&trace, false, Some(&visuals), None);
 
             let shot_sprite = scene.commands.iter().find_map(|command| match command {
-                DrawCommand::Sprite { x, y, tiles, .. } if *x == expected_x && *y == expected_y => {
+                DrawCommand::Sprite { x, y, tiles, .. }
+                | DrawCommand::SatSprite { x, y, tiles, .. }
+                    if *x == expected_x && *y == expected_y =>
+                {
                     Some(tiles)
                 }
                 _ => None,
@@ -4441,7 +4516,12 @@ mod tests {
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         let trail_sprite = scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { x, y, tiles, .. } if *x == 25 && *y == 16 => Some(tiles),
+            DrawCommand::Sprite { x, y, tiles, .. }
+            | DrawCommand::SatSprite { x, y, tiles, .. }
+                if *x == 25 && *y == 16 =>
+            {
+                Some(tiles)
+            }
             _ => None,
         });
         let tiles = trail_sprite.expect("ASM loc_3A63C should render the trail as a ROM sprite");
@@ -4478,7 +4558,12 @@ mod tests {
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         let breath_sprite = scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { x, y, tiles, .. } if *x == 21 && *y == 5 => Some(tiles),
+            DrawCommand::Sprite { x, y, tiles, .. }
+            | DrawCommand::SatSprite { x, y, tiles, .. }
+                if *x == 21 && *y == 5 =>
+            {
+                Some(tiles)
+            }
             _ => None,
         });
         let tiles = breath_sprite
@@ -4549,6 +4634,7 @@ mod tests {
 
             let fire_sprite = scene.commands.iter().find_map(|command| match command {
                 DrawCommand::Sprite { x, y, tiles, .. }
+                | DrawCommand::SatSprite { x, y, tiles, .. }
                     if tiles
                         .first()
                         .is_some_and(|tile| tile.tile.tile_index == tile_index) =>
@@ -4639,7 +4725,7 @@ mod tests {
             .find(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tiles, .. } if tiles[0].tile.tile_index == 0x028
+                    DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. } if tiles[0].tile.tile_index == 0x028
                 )
             })
             .expect("ASM Dragon.asm loc_3D02A left breath child should draw the ROM frame");
@@ -4649,7 +4735,7 @@ mod tests {
             .find(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tiles, .. } if tiles[0].tile.tile_index == 0x028
+                    DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. } if tiles[0].tile.tile_index == 0x028
                 )
             })
             .expect("ASM Dragon.asm loc_3D02A right breath child should draw the ROM frame");
@@ -4707,7 +4793,9 @@ mod tests {
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         let drop_sprite = scene.commands.iter().find(|command| match command {
-            DrawCommand::Sprite { x, y, .. } => *x == 30 && *y == 23,
+            DrawCommand::Sprite { x, y, .. } | DrawCommand::SatSprite { x, y, .. } => {
+                *x == 30 && *y == 23
+            }
             _ => false,
         });
         let drop_sprite =
@@ -4751,7 +4839,11 @@ mod tests {
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         let crawler_sprite = scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { tiles, .. } if tiles[0].tile.tile_index == 0x08D => Some(tiles),
+            DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. }
+                if tiles[0].tile.tile_index == 0x08D =>
+            {
+                Some(tiles)
+            }
             _ => None,
         });
         let tiles =
@@ -4762,7 +4854,7 @@ mod tests {
         );
         assert!(
             scene.commands.iter().all(|command| {
-                !matches!(command, DrawCommand::Sprite { tiles, .. } if tiles[0].tile.tile_index == 0x0B9)
+                !matches!(command, DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. } if tiles[0].tile.tile_index == 0x0B9)
             }),
             "moving surface crawlers should not reuse the tiny off_33520 pool/surface frame",
         );
@@ -4791,7 +4883,11 @@ mod tests {
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         let crawler_sprite = scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { tiles, .. } if tiles[0].tile.tile_index == 0x0BD => Some(tiles),
+            DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. }
+                if tiles[0].tile.tile_index == 0x0BD =>
+            {
+                Some(tiles)
+            }
             _ => None,
         });
         let tiles =
@@ -4825,7 +4921,11 @@ mod tests {
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         let finish_sprite = scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { tiles, .. } if tiles[0].tile.tile_index == 0x0C5 => Some(tiles),
+            DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. }
+                if tiles[0].tile.tile_index == 0x0C5 =>
+            {
+                Some(tiles)
+            }
             _ => None,
         });
         let tiles = finish_sprite.expect(
@@ -4837,7 +4937,7 @@ mod tests {
         );
         assert!(
             scene.commands.iter().all(|command| {
-                !matches!(command, DrawCommand::Sprite { tiles, .. } if tiles[0].tile.tile_index == 0x0C1)
+                !matches!(command, DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. } if tiles[0].tile.tile_index == 0x0C1)
             }),
             "the original crawler finish must not reuse Tar_Monster.asm loc_325E6's tiny `$0C1` burst fragment",
         );
@@ -4883,7 +4983,7 @@ mod tests {
             scene.commands.iter().all(|command| {
                 !matches!(
                     command,
-                    DrawCommand::Sprite { palette, tiles, .. }
+                    DrawCommand::Sprite { palette, tiles, .. } | DrawCommand::SatSprite { palette, tiles, .. }
                         if **palette == drips_palette
                             && tiles
                                 .iter()
@@ -5359,7 +5459,11 @@ mod tests {
             .commands
             .iter()
             .filter_map(|command| match command {
-                DrawCommand::Sprite { tiles, .. } if !tiles.is_empty() => Some(tiles),
+                DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. }
+                    if !tiles.is_empty() =>
+                {
+                    Some(tiles)
+                }
                 _ => None,
             })
             .collect::<Vec<_>>();
@@ -5427,6 +5531,12 @@ mod tests {
                     y: sprite_y,
                     tile_sheet,
                     ..
+                }
+                | DrawCommand::SatSprite {
+                    x,
+                    y: sprite_y,
+                    tile_sheet,
+                    ..
                 } if *x >= 0 && *sprite_y == y => tile_sheet
                     .tiles
                     .first()
@@ -5487,6 +5597,7 @@ mod tests {
             .iter()
             .find_map(|command| match command {
                 DrawCommand::Sprite { x, y, tiles, .. }
+                | DrawCommand::SatSprite { x, y, tiles, .. }
                     if *x == 172 && *y == 193 && !tiles.is_empty() =>
                 {
                     Some(tiles[0].tile.tile_index)
@@ -5522,6 +5633,9 @@ mod tests {
             .iter()
             .filter_map(|command| match command {
                 DrawCommand::Sprite {
+                    x, y, tile_sheet, ..
+                }
+                | DrawCommand::SatSprite {
                     x, y, tile_sheet, ..
                 } if *y == 201 && matches!(*x, 260 | 272 | 287) => tile_sheet
                     .tiles
@@ -5567,7 +5681,7 @@ mod tests {
         assert!(
             early.commands.iter().any(|command| matches!(
                 command,
-                DrawCommand::Sprite { x, y, tile_sheet, .. }
+                DrawCommand::Sprite { x, y, tile_sheet, .. } | DrawCommand::SatSprite { x, y, tile_sheet, .. }
                     if *y == 148 && *x < 0 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 128)
             )),
             "ASM loc_D734 falls through after the eighth fade tick, so Object_EOL_Text loc_C5A2 should start EOL text rows off-screen left before their +8px/frame fly-in",
@@ -5575,7 +5689,7 @@ mod tests {
         assert!(
             early.commands.iter().any(|command| matches!(
                 command,
-                DrawCommand::Sprite { x, y, tile_sheet, .. }
+                DrawCommand::Sprite { x, y, tile_sheet, .. } | DrawCommand::SatSprite { x, y, tile_sheet, .. }
                     if *y == 145 && *x == 420 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
             )),
             "ASM loc_C070 displays the pre-frame sprite table: Object_EOL_Number loc_C48C has already advanced 14 ticks when the first native-visible row frame is rendered",
@@ -5583,7 +5697,7 @@ mod tests {
         assert!(
             early.commands.iter().any(|command| matches!(
                 command,
-                DrawCommand::Sprite { x, y, tile_sheet, .. }
+                DrawCommand::Sprite { x, y, tile_sheet, .. } | DrawCommand::SatSprite { x, y, tile_sheet, .. }
                     if *y == 193 && *x == 60 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
             )),
             "ASM loc_C070 displays the pre-frame sprite table: Object_EOL_Number loc_C48C leaves the CONTINUES number 14 ticks into its +8px fly-in on the first native-visible row frame",
@@ -5594,7 +5708,7 @@ mod tests {
         assert!(
             settled.commands.iter().any(|command| matches!(
                 command,
-                DrawCommand::Sprite { x, y, tile_sheet, .. }
+                DrawCommand::Sprite { x, y, tile_sheet, .. } | DrawCommand::SatSprite { x, y, tile_sheet, .. }
                     if *y == 148 && *x == 64 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 128)
             )),
             "ASM loc_D4CE increments d6 before TIME/BONUS, so after loc_C5A2 the time label should rest at x=$40",
@@ -5602,7 +5716,7 @@ mod tests {
         assert!(
             settled.commands.iter().any(|command| matches!(
                 command,
-                DrawCommand::Sprite { x, y, tile_sheet, .. }
+                DrawCommand::Sprite { x, y, tile_sheet, .. } | DrawCommand::SatSprite { x, y, tile_sheet, .. }
                     if *y == 145 && *x == 244 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
             )),
             "ASM loc_C070 displays the pre-frame sprite table: Object_EOL_Number loc_C48C reaches its settled x one rendered frame earlier than the post-frame row counter suggests",
@@ -8074,7 +8188,7 @@ mod tests {
             scene.commands.iter().all(|command| {
                 !matches!(
                     command,
-                    DrawCommand::Sprite { x, y, .. } if *x == 100 && *y == 120
+                    DrawCommand::Sprite { x, y, .. } | DrawCommand::SatSprite { x, y, .. } if *x == 100 && *y == 120
                 )
             }),
             "#322: effect-only enemy art with no frames should be skipped instead of indexing frames[0]"
@@ -8137,7 +8251,7 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { x, y, tiles, .. }
+                    DrawCommand::Sprite { x, y, tiles, .. } | DrawCommand::SatSprite { x, y, tiles, .. }
                         if *x >= 80 && *x <= 140 && *y >= 40 && *y <= 100 && !tiles.is_empty()
                 )
             }),
@@ -8663,6 +8777,13 @@ mod tests {
                 tile_sheet,
                 tiles,
                 ..
+            }
+            | DrawCommand::SatSprite {
+                x: 16,
+                y: 0,
+                tile_sheet,
+                tiles,
+                ..
             } if tile_sheet.tiles.len() == 0x200 => Some(tiles),
             _ => None,
         }) else {
@@ -8684,6 +8805,12 @@ mod tests {
                     tile_sheet,
                     tiles,
                     ..
+                } | DrawCommand::SatSprite {
+                    x: 16,
+                    y: 0,
+                    tile_sheet,
+                    tiles,
+                    ..
                 } if tile_sheet.tiles.len() == 0x200
                     && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x00D)
             )),
@@ -8693,6 +8820,12 @@ mod tests {
             !scene.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite {
+                    x: 16,
+                    y: 0,
+                    tile_sheet,
+                    tiles,
+                    ..
+                } | DrawCommand::SatSprite {
                     x: 16,
                     y: 0,
                     tile_sheet,
@@ -8712,6 +8845,12 @@ mod tests {
                     tile_sheet,
                     tiles,
                     ..
+                } | DrawCommand::SatSprite {
+                    x: 16,
+                    y: 0,
+                    tile_sheet,
+                    tiles,
+                    ..
                 } if tile_sheet.tiles.len() == 0x200
                     && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x1C5)
             )),
@@ -8721,6 +8860,12 @@ mod tests {
             !scene.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite {
+                    x: 16,
+                    y: 0,
+                    tile_sheet,
+                    tiles,
+                    ..
+                } | DrawCommand::SatSprite {
                     x: 16,
                     y: 0,
                     tile_sheet,
@@ -8798,6 +8943,13 @@ mod tests {
                 tile_sheet,
                 tiles,
                 ..
+            }
+            | DrawCommand::SatSprite {
+                x: 16,
+                y: -6,
+                tile_sheet,
+                tiles,
+                ..
             } if tile_sheet.tiles.len() == 0x200 => Some(tiles),
             _ => None,
         }) else {
@@ -8839,6 +8991,13 @@ mod tests {
 
         let Some(copied_wobble_tiles) = scene.commands.iter().find_map(|command| match command {
             DrawCommand::Sprite {
+                x: 16,
+                y: 0,
+                tile_sheet,
+                tiles,
+                ..
+            }
+            | DrawCommand::SatSprite {
                 x: 16,
                 y: 0,
                 tile_sheet,
@@ -8894,6 +9053,13 @@ mod tests {
 
         let Some(copied_wobble_tiles) = scene.commands.iter().find_map(|command| match command {
             DrawCommand::Sprite {
+                x: 16,
+                y: 0,
+                tile_sheet,
+                tiles,
+                ..
+            }
+            | DrawCommand::SatSprite {
                 x: 16,
                 y: 0,
                 tile_sheet,
@@ -8981,6 +9147,11 @@ mod tests {
                         y,
                         tile_sheet,
                         ..
+                    } | DrawCommand::SatSprite {
+                        x,
+                        y,
+                        tile_sheet,
+                        ..
                     } if *x == draw_x
                         && *y == draw_y
                         && tile_sheet.tiles.len() == visuals.block_tiles.tiles.len()
@@ -9016,10 +9187,11 @@ mod tests {
         let scene = build_scene(&render_trace, false, Some(&visuals), Some(&grid));
 
         assert!(
-            scene
-                .commands
-                .iter()
-                .any(|command| matches!(command, DrawCommand::Sprite { x: 64, y: 87, .. })),
+            scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Sprite { x: 64, y: 87, .. }
+                    | DrawCommand::SatSprite { x: 64, y: 87, .. }
+            )),
             "ASM sub_1007A prize wobble at level cell (4,36) should draw over the prior Camera_Y_pos latch, not vanish while the `$6Fxx` cell is live"
         );
         let sample_pixels = (64usize..80)
@@ -9064,6 +9236,13 @@ mod tests {
 
         let Some(shifting_tiles) = scene.commands.iter().find_map(|command| match command {
             DrawCommand::Sprite {
+                x: 16,
+                y: 14,
+                tile_sheet,
+                tiles,
+                ..
+            }
+            | DrawCommand::SatSprite {
                 x: 16,
                 y: 14,
                 tile_sheet,
@@ -9474,7 +9653,7 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, tiles, .. }
+                    DrawCommand::Sprite { tile_sheet, tiles, .. } | DrawCommand::SatSprite { tile_sheet, tiles, .. }
                         if tile_sheet.tiles.len() == visuals.hud.digits.tiles.len()
                             && tiles.iter().any(|tile| tile.tile.tile_index == 1)
                 )
@@ -9509,7 +9688,7 @@ mod tests {
             .filter(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, tiles, .. }
+                    DrawCommand::Sprite { tile_sheet, tiles, .. } | DrawCommand::SatSprite { tile_sheet, tiles, .. }
                         if tile_sheet.tiles.len() == visuals.hud.diamond_tiles.tiles.len()
                             && tiles.iter().any(|tile| tile.tile.tile_index == 3)
                 )
@@ -9549,7 +9728,7 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, .. }
+                    DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. }
                         if tile_sheet.tiles.len() == visuals.hud.diamond_tiles.tiles.len()
                             && tile_sheet.tiles.iter().any(|tile| tile.pixels == [17; 64])
                 )
@@ -9570,7 +9749,7 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, .. }
+                    DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. }
                         if tile_sheet.tiles.len() == visuals.hud.diamond_tiles.tiles.len()
                             && tile_sheet.tiles.iter().any(|tile| tile.pixels == [16; 64])
                 )
@@ -9604,7 +9783,7 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, .. }
+                    DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. }
                         if tile_sheet.tiles.len() == visuals.hud.diamond_tiles.tiles.len()
                             && tile_sheet.tiles.iter().any(|tile| tile.pixels == [18; 64])
                 )
@@ -9631,7 +9810,7 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, .. }
+                    DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. }
                         if tile_sheet.tiles.iter().any(|tile| tile.pixels == [16; 64])
                 )
             }),
@@ -9658,7 +9837,7 @@ mod tests {
             !scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { x, y, tile_sheet, tiles, .. }
+                    DrawCommand::Sprite { x, y, tile_sheet, tiles, .. } | DrawCommand::SatSprite { x, y, tile_sheet, tiles, .. }
                         if *x == 114
                             && *y == 151
                             && tile_sheet.tiles.len() == visuals.hud.diamond_tiles.tiles.len()
@@ -9692,7 +9871,7 @@ mod tests {
                 scene.commands.iter().any(|command| {
                     matches!(
                         command,
-                        DrawCommand::Sprite { tile_sheet, .. }
+                        DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. }
                             if tile_sheet.tiles.iter().any(|tile| tile.pixels == [tile_pattern; 64])
                     )
                 }),
@@ -9742,7 +9921,7 @@ mod tests {
                 scene.commands.iter().any(|command| {
                     matches!(
                         command,
-                        DrawCommand::Sprite { tile_sheet, .. }
+                        DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. }
                             if tile_sheet.tiles.iter().any(|tile| tile.pixels == [tile_pattern; 64])
                     )
                 }),
@@ -10755,7 +10934,7 @@ mod tests {
             .filter(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, tiles, .. }
+                    DrawCommand::Sprite { tile_sheet, tiles, .. } | DrawCommand::SatSprite { tile_sheet, tiles, .. }
                         if tile_sheet.tiles.len() == 0x90 && tiles.len() == 9
                 )
             })
@@ -10823,7 +11002,7 @@ mod tests {
             .position(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, tiles, .. }
+                    DrawCommand::Sprite { tile_sheet, tiles, .. } | DrawCommand::SatSprite { tile_sheet, tiles, .. }
                         if tile_sheet.tiles.len() == 0x90
                             && tiles.iter().any(|tile| tile.tile.priority)
                 )
@@ -10972,7 +11151,7 @@ mod tests {
         let visible_wall_effect = scene.commands.iter().any(|command| {
             matches!(
                 command,
-                DrawCommand::Sprite { tiles, .. } if tiles.len() == 9
+                DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. } if tiles.len() == 9
             ) || matches!(command, DrawCommand::Rect { colour, .. } if *colour == [200, 30, 10])
         });
         assert!(
@@ -11029,7 +11208,7 @@ mod tests {
             .filter(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0xC0
+                    DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0xC0
                 )
             })
             .count();
@@ -11084,7 +11263,7 @@ mod tests {
             !scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0xC0
+                    DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0xC0
                 ) || matches!(command, DrawCommand::Rect { colour, .. } if *colour == [255, 120, 20])
             }),
             "ASM loc_14874 should cull off-window full-height rows without falling back to the legacy lava column"
@@ -11131,6 +11310,9 @@ mod tests {
             .iter()
             .flat_map(|command| match command {
                 DrawCommand::Sprite {
+                    tile_sheet, tiles, ..
+                }
+                | DrawCommand::SatSprite {
                     tile_sheet, tiles, ..
                 } if tile_sheet.tiles.len() == 0xC0 => {
                     tiles.iter().map(|tile| tile.tile.tile_index).collect()
@@ -11191,7 +11373,7 @@ mod tests {
             .filter(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0xC0
+                    DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0xC0
                 )
             })
             .count();
@@ -11246,7 +11428,7 @@ mod tests {
             !scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0xC0
+                    DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0xC0
                 ) || matches!(command, DrawCommand::Rect { colour, .. } if *colour == [255, 120, 20])
             }),
             "ASM loc_147D6 should cull off-window loc_147BA script rows without falling back to the legacy lava column"
@@ -11299,7 +11481,7 @@ mod tests {
             .find(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0xC0
+                    DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0xC0
                 )
             })
             .expect("ASM loc_14BE8 lava geyser sprite");
@@ -11360,12 +11542,13 @@ mod tests {
             .find(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0x60
+                    DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0x60
                 )
             })
             .expect("ASM sub_61CA loc_63C4/loc_6462 storm sprite");
         match weather_sprite {
-            DrawCommand::Sprite { x, y, tiles, .. } => {
+            DrawCommand::Sprite { x, y, tiles, .. }
+            | DrawCommand::SatSprite { x, y, tiles, .. } => {
                 assert_eq!((*x, *y), (0x011F, 0x0008));
                 assert_eq!(tiles.len(), 1);
                 assert_eq!(tiles[0].tile.tile_index, 0x004D);
@@ -11429,7 +11612,8 @@ mod tests {
             .commands
             .iter()
             .find(|command| match command {
-                DrawCommand::Sprite { tile_sheet, .. } => {
+                DrawCommand::Sprite { tile_sheet, .. }
+                | DrawCommand::SatSprite { tile_sheet, .. } => {
                     tile_sheet.tiles.len() == 0x20
                         && tile_sheet
                             .tiles
@@ -11440,7 +11624,8 @@ mod tests {
             })
             .expect("ASM Init_SpecialEffect_Storm loc_14D8A shared art for sub_61CA sprite");
         match weather_sprite {
-            DrawCommand::Sprite { x, y, tiles, .. } => {
+            DrawCommand::Sprite { x, y, tiles, .. }
+            | DrawCommand::SatSprite { x, y, tiles, .. } => {
                 assert_eq!((*x, *y), (0x011F, 0x0008));
                 assert_eq!(tiles.len(), 1);
                 assert_eq!(
@@ -12630,7 +12815,7 @@ mod tests {
                 scene.commands.iter().any(|command| {
                     matches!(
                         command,
-                        DrawCommand::Sprite { x: 26, y: 16, tile_sheet, .. }
+                        DrawCommand::Sprite { x: 26, y: 16, tile_sheet, .. } | DrawCommand::SatSprite { x: 26, y: 16, tile_sheet, .. }
                             if tile_sheet.tiles.len() == 120
                     )
                 }),
@@ -12640,7 +12825,7 @@ mod tests {
                 scene.commands.iter().any(|command| {
                     matches!(
                         command,
-                        DrawCommand::Sprite { x: 24, y: 48, tile_sheet, .. }
+                        DrawCommand::Sprite { x: 24, y: 48, tile_sheet, .. } | DrawCommand::SatSprite { x: 24, y: 48, tile_sheet, .. }
                             if tile_sheet.tiles.len() == 4
                     )
                 }),
@@ -12655,7 +12840,7 @@ mod tests {
             !scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { x: 24, y: 48, tile_sheet, .. }
+                    DrawCommand::Sprite { x: 24, y: 48, tile_sheet, .. } | DrawCommand::SatSprite { x: 24, y: 48, tile_sheet, .. }
                         if tile_sheet.tiles.len() == 4
                 )
             }),
@@ -12701,7 +12886,7 @@ mod tests {
                 scene.commands.iter().any(|command| {
                     matches!(
                         command,
-                        DrawCommand::Sprite { tile_sheet, tiles, .. }
+                        DrawCommand::Sprite { tile_sheet, tiles, .. } | DrawCommand::SatSprite { tile_sheet, tiles, .. }
                             if tile_sheet.tiles.len() == 120
                                 && tiles.iter().all(|tile| tile.tile.priority)
                     )
@@ -12712,7 +12897,7 @@ mod tests {
                 scene.commands.iter().any(|command| {
                     matches!(
                         command,
-                        DrawCommand::Sprite { tile_sheet, tiles, .. }
+                        DrawCommand::Sprite { tile_sheet, tiles, .. } | DrawCommand::SatSprite { tile_sheet, tiles, .. }
                             if tile_sheet.tiles.len() == 4
                                 && tiles.iter().all(|tile| tile.tile.priority)
                     )
@@ -12732,7 +12917,7 @@ mod tests {
             !scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 4
+                    DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. } if tile_sheet.tiles.len() == 4
                 )
             }),
             "ASM loc_C0B6 deletes non-Kid flag gfx slots at the oracle-rendered cleanup boundary"
@@ -12816,7 +13001,12 @@ mod tests {
         let player_sprite = handoff_scene
             .commands
             .iter()
-            .find(|command| matches!(command, DrawCommand::Sprite { .. }))
+            .find(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { .. } | DrawCommand::SatSprite { .. }
+                )
+            })
             .expect("player layer should render Kid during the loc_C070 hand-off");
         assert!(
             sprite_tiles(player_sprite)
@@ -12830,7 +13020,12 @@ mod tests {
         let later_player_sprite = later_scene
             .commands
             .iter()
-            .find(|command| matches!(command, DrawCommand::Sprite { .. }))
+            .find(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { .. } | DrawCommand::SatSprite { .. }
+                )
+            })
             .expect("player layer should still render Kid before the EOL hologram is visible");
         assert!(
             sprite_tiles(later_player_sprite)
@@ -13085,7 +13280,7 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { y, tile_sheet, tiles, .. }
+                    DrawCommand::Sprite { y, tile_sheet, tiles, .. } | DrawCommand::SatSprite { y, tile_sheet, tiles, .. }
                         if *y < 48
                             && tile_sheet.tiles.len() >= 16
                             && tiles.len() == 4
@@ -13121,7 +13316,12 @@ mod tests {
         let sprite_count = scene
             .commands
             .iter()
-            .filter(|command| matches!(command, DrawCommand::Sprite { .. }))
+            .filter(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { .. } | DrawCommand::SatSprite { .. }
+                )
+            })
             .count();
         assert_eq!(sprite_count, 3, "boss body + two eye sprites should render");
         assert!(
@@ -13159,7 +13359,7 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { x, y, tiles, .. }
+                    DrawCommand::Sprite { x, y, tiles, .. } | DrawCommand::SatSprite { x, y, tiles, .. }
                         if *x == 8 && *y == 12 && tiles.len() == 9
                 ) || matches!(
                     command,
@@ -13566,7 +13766,7 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { y, tile_sheet, tiles, .. }
+                    DrawCommand::Sprite { y, tile_sheet, tiles, .. } | DrawCommand::SatSprite { y, tile_sheet, tiles, .. }
                         if *y < 48
                             && tile_sheet.tiles.len() >= 16
                             && tiles.len() == 4
@@ -13619,14 +13819,14 @@ mod tests {
         let has_continues_label = scene.commands.iter().any(|command| {
             matches!(
                 command,
-                DrawCommand::Sprite { tiles, .. }
+                DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. }
                     if tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x008)
             )
         });
         let has_continue_count_digit = scene.commands.iter().any(|command| {
             matches!(
                 command,
-                DrawCommand::Sprite { tiles, .. }
+                DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. }
                     if tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x0CE)
             )
         });
@@ -13845,7 +14045,7 @@ mod tests {
         let remaining_sprite_x = commands
             .iter()
             .filter_map(|command| match command {
-                DrawCommand::Sprite { x, .. } => Some(*x),
+                DrawCommand::Sprite { x, .. } | DrawCommand::SatSprite { x, .. } => Some(*x),
                 _ => None,
             })
             .collect::<Vec<_>>();
@@ -13894,7 +14094,7 @@ mod tests {
             .commands
             .iter()
             .filter_map(|command| match command {
-                DrawCommand::Sprite { x, tiles, .. }
+                DrawCommand::Sprite { x, tiles, .. } | DrawCommand::SatSprite { x, tiles, .. }
                     if tiles
                         .first()
                         .is_some_and(|tile| tile.tile.tile_index == 0x008) =>
@@ -13915,7 +14115,7 @@ mod tests {
             .commands
             .iter()
             .filter_map(|command| match command {
-                DrawCommand::Sprite { x, tiles, .. }
+                DrawCommand::Sprite { x, tiles, .. } | DrawCommand::SatSprite { x, tiles, .. }
                     if tiles
                         .first()
                         .is_some_and(|tile| tile.tile.tile_index == 0x008) =>
@@ -13936,7 +14136,7 @@ mod tests {
             .commands
             .iter()
             .filter_map(|command| match command {
-                DrawCommand::Sprite { x, tiles, .. }
+                DrawCommand::Sprite { x, tiles, .. } | DrawCommand::SatSprite { x, tiles, .. }
                     if tiles
                         .first()
                         .is_some_and(|tile| tile.tile.tile_index == 0x008) =>
@@ -13957,7 +14157,7 @@ mod tests {
             .commands
             .iter()
             .filter_map(|command| match command {
-                DrawCommand::Sprite { x, tiles, .. }
+                DrawCommand::Sprite { x, tiles, .. } | DrawCommand::SatSprite { x, tiles, .. }
                     if tiles
                         .first()
                         .is_some_and(|tile| tile.tile.tile_index == 0x0CE) =>
@@ -13986,14 +14186,14 @@ mod tests {
         let has_game = scene.commands.iter().any(|command| {
             matches!(
                 command,
-                DrawCommand::Sprite { tiles, .. }
+                DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. }
                     if tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x031)
             )
         });
         let has_over = scene.commands.iter().any(|command| {
             matches!(
                 command,
-                DrawCommand::Sprite { tiles, .. }
+                DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. }
                     if tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x049)
             )
         });
@@ -14072,6 +14272,13 @@ mod tests {
 
         let flash = scene.commands.iter().find_map(|command| match command {
             DrawCommand::Sprite {
+                x,
+                y,
+                tile_sheet,
+                tiles,
+                ..
+            }
+            | DrawCommand::SatSprite {
                 x,
                 y,
                 tile_sheet,
@@ -16925,8 +17132,20 @@ mod tests {
                     y: body_y,
                     tiles: body_tiles,
                     ..
+                }
+                | DrawCommand::SatSprite {
+                    x: body_x,
+                    y: body_y,
+                    tiles: body_tiles,
+                    ..
                 },
                 DrawCommand::Sprite {
+                    x: turret_x,
+                    y: turret_y,
+                    tiles: turret_tiles,
+                    ..
+                }
+                | DrawCommand::SatSprite {
                     x: turret_x,
                     y: turret_y,
                     tiles: turret_tiles,
@@ -17021,8 +17240,18 @@ mod tests {
                     x: body_x,
                     y: body_y,
                     ..
+                }
+                | DrawCommand::SatSprite {
+                    x: body_x,
+                    y: body_y,
+                    ..
                 },
                 DrawCommand::Sprite {
+                    x: turret_x,
+                    y: turret_y,
+                    ..
+                }
+                | DrawCommand::SatSprite {
                     x: turret_x,
                     y: turret_y,
                     ..
@@ -17366,8 +17595,9 @@ mod tests {
         );
         match commands.as_slice() {
             [
-                DrawCommand::Sprite { y: body_y, .. },
-                DrawCommand::Sprite { y: turret_y, .. },
+                DrawCommand::Sprite { y: body_y, .. } | DrawCommand::SatSprite { y: body_y, .. },
+                DrawCommand::Sprite { y: turret_y, .. }
+                | DrawCommand::SatSprite { y: turret_y, .. },
             ] => assert_eq!(
                 *body_y - *turret_y,
                 20,
@@ -17415,8 +17645,20 @@ mod tests {
                     y: body_y,
                     tiles: body_tiles,
                     ..
+                }
+                | DrawCommand::SatSprite {
+                    x: body_x,
+                    y: body_y,
+                    tiles: body_tiles,
+                    ..
                 },
                 DrawCommand::Sprite {
+                    x: turret_x,
+                    y: turret_y,
+                    tiles: turret_tiles,
+                    ..
+                }
+                | DrawCommand::SatSprite {
                     x: turret_x,
                     y: turret_y,
                     tiles: turret_tiles,
@@ -17451,10 +17693,10 @@ mod tests {
         let scene = build_ingame_scene(&trace, false, None);
 
         assert!(scene.commands.iter().any(|command| {
-            matches!(command, DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 120)
+            matches!(command, DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. } if tile_sheet.tiles.len() == 120)
         }));
         assert!(scene.commands.iter().any(|command| {
-            matches!(command, DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 4)
+            matches!(command, DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. } if tile_sheet.tiles.len() == 4)
         }));
     }
 
@@ -17814,18 +18056,11 @@ mod tests {
     }
 
     fn player_sprite_palette(scene: &Scene) -> Option<&Palette> {
-        scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite {
-                tile_sheet,
-                palette,
-                ..
-            } => tile_sheet
-                .tiles
-                .first()
-                .map(|tile| tile.pixels[0])
+        scene.commands.iter().find_map(|command| {
+            let parts = sprite_command_parts(command)?;
+            sprite_sheet_signature(parts.tile_sheet)
                 .filter(|signature| is_player_test_signature(*signature))
-                .map(|_| palette.as_ref()),
-            _ => None,
+                .map(|_| parts.palette)
         })
     }
 
@@ -17834,28 +18069,20 @@ mod tests {
     }
 
     fn player_sprite_signature(scene: &Scene) -> Option<u8> {
-        scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { tile_sheet, .. } => tile_sheet
-                .tiles
-                .first()
-                .map(|tile| tile.pixels[0])
-                .filter(|signature| is_player_test_signature(*signature)),
-            _ => None,
+        scene.commands.iter().find_map(|command| {
+            let parts = sprite_command_parts(command)?;
+            sprite_sheet_signature(parts.tile_sheet)
+                .filter(|signature| is_player_test_signature(*signature))
         })
     }
 
     fn player_sprite_first_flip_x(scene: &Scene) -> Option<bool> {
-        scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite {
-                tiles, tile_sheet, ..
-            } if tile_sheet
-                .tiles
-                .first()
-                .is_some_and(|tile| is_player_test_signature(tile.pixels[0])) =>
-            {
-                tiles.first().map(|tile| tile.tile.flip_x)
+        scene.commands.iter().find_map(|command| {
+            let parts = sprite_command_parts(command)?;
+            if !sprite_sheet_signature(parts.tile_sheet).is_some_and(is_player_test_signature) {
+                return None;
             }
-            _ => None,
+            parts.tiles.first().map(|tile| tile.tile.flip_x)
         })
     }
 
@@ -18222,58 +18449,46 @@ mod tests {
     }
 
     fn sprite_position(scene: &Scene, signature: u8) -> Option<(i32, i32)> {
-        scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite {
-                x, y, tile_sheet, ..
-            } if tile_sheet
-                .tiles
-                .first()
-                .is_some_and(|tile| tile.pixels[0] == signature) =>
-            {
-                Some((*x, *y))
-            }
-            _ => None,
-        })
+        sprite_signature_positions(scene, signature).next()
     }
 
     fn sprite_positions(scene: &Scene, signature: u8) -> Vec<(i32, i32)> {
-        let mut positions = scene
-            .commands
-            .iter()
-            .filter_map(|command| match command {
-                DrawCommand::Sprite {
-                    x, y, tile_sheet, ..
-                } if tile_sheet
-                    .tiles
-                    .first()
-                    .is_some_and(|tile| tile.pixels[0] == signature) =>
-                {
-                    Some((*x, *y))
-                }
-                _ => None,
-            })
-            .collect::<Vec<_>>();
+        let mut positions = sprite_signature_positions(scene, signature).collect::<Vec<_>>();
         positions.sort_unstable();
         positions
     }
 
-    fn has_sprite_signature(scene: &Scene, signature: u8) -> bool {
-        scene.commands.iter().any(|command| match command {
-            DrawCommand::Sprite {
-                tile_sheet, tiles, ..
-            } => {
-                tiles.iter().any(|sprite_tile| {
-                    tile_sheet
-                        .tiles
-                        .get(usize::from(sprite_tile.tile.tile_index))
-                        .is_some_and(|tile| tile.pixels[0] == signature)
-                }) || tile_sheet
-                    .tiles
-                    .first()
-                    .is_some_and(|tile| tile.pixels[0] == signature)
-            }
-            _ => false,
+    fn sprite_signature_positions(
+        scene: &Scene,
+        signature: u8,
+    ) -> impl Iterator<Item = (i32, i32)> + '_ {
+        scene.commands.iter().filter_map(move |command| {
+            let parts = sprite_command_parts(command)?;
+            (sprite_sheet_signature(parts.tile_sheet) == Some(signature))
+                .then_some((parts.x, parts.y))
         })
+    }
+
+    fn has_sprite_signature(scene: &Scene, signature: u8) -> bool {
+        scene
+            .commands
+            .iter()
+            .any(|command| sprite_command_has_signature(command, signature))
+    }
+
+    /// A sprite command draws `signature` if any placed tile resolves to it, or
+    /// if the sheet's first tile carries it (fixtures that only stamp the sheet).
+    fn sprite_command_has_signature(command: &DrawCommand, signature: u8) -> bool {
+        let Some(parts) = sprite_command_parts(command) else {
+            return false;
+        };
+        parts.tiles.iter().any(|sprite_tile| {
+            parts
+                .tile_sheet
+                .tiles
+                .get(usize::from(sprite_tile.tile.tile_index))
+                .is_some_and(|tile| tile.pixels[0] == signature)
+        }) || sprite_sheet_signature(parts.tile_sheet) == Some(signature)
     }
 
     fn has_command_signature(command: &DrawCommand, signature: u8) -> bool {
@@ -18284,18 +18499,8 @@ mod tests {
                 .tiles
                 .get(usize::from(tile.tile_index))
                 .is_some_and(|resolved| resolved.pixels[0] == signature),
-            DrawCommand::Sprite {
-                tile_sheet, tiles, ..
-            } => {
-                tiles.iter().any(|sprite_tile| {
-                    tile_sheet
-                        .tiles
-                        .get(usize::from(sprite_tile.tile.tile_index))
-                        .is_some_and(|resolved| resolved.pixels[0] == signature)
-                }) || tile_sheet
-                    .tiles
-                    .first()
-                    .is_some_and(|resolved| resolved.pixels[0] == signature)
+            DrawCommand::Sprite { .. } | DrawCommand::SatSprite { .. } => {
+                sprite_command_has_signature(command, signature)
             }
             _ => false,
         }
@@ -18787,17 +18992,19 @@ mod tests {
             .find(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, .. }
+                    DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. }
                         if tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 84)
                 )
             })
             .expect("ASM Tank.asm loc_3B480 keeps stru_3B29A visible before deletion");
 
         match tank_death_command {
-            DrawCommand::Sprite { tile_sheet, .. } => assert_eq!(
-                tile_sheet.tiles[0].pixels[0], 84,
-                "ASM Tank.asm loc_3B480 should render the first stru_3B29A body frame instead of disappearing on the fatal hit frame"
-            ),
+            DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. } => {
+                assert_eq!(
+                    tile_sheet.tiles[0].pixels[0], 84,
+                    "ASM Tank.asm loc_3B480 should render the first stru_3B29A body frame instead of disappearing on the fatal hit frame"
+                );
+            }
             other => panic!("expected Tank death sprite command, got {other:?}"),
         }
 
@@ -18809,17 +19016,19 @@ mod tests {
             .find(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, .. }
+                    DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. }
                         if tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 87)
                 )
             })
             .expect("ASM Tank_Shooting.asm loc_3B6E6 keeps stru_3B518 visible before deletion");
 
         match tank_shooting_death_command {
-            DrawCommand::Sprite { tile_sheet, .. } => assert_eq!(
-                tile_sheet.tiles[0].pixels[0], 87,
-                "ASM Tank_Shooting.asm loc_3B6E6 should render the final stru_3B518 body frame instead of disappearing on the fatal hit frame"
-            ),
+            DrawCommand::Sprite { tile_sheet, .. } | DrawCommand::SatSprite { tile_sheet, .. } => {
+                assert_eq!(
+                    tile_sheet.tiles[0].pixels[0], 87,
+                    "ASM Tank_Shooting.asm loc_3B6E6 should render the final stru_3B518 body frame instead of disappearing on the fatal hit frame"
+                );
+            }
             other => panic!("expected Tank_Shooting death sprite command, got {other:?}"),
         }
     }
@@ -19614,6 +19823,7 @@ mod tests {
 
         let death_sprite = scene.commands.iter().find_map(|command| match command {
             DrawCommand::Sprite { x, y, tiles, .. }
+            | DrawCommand::SatSprite { x, y, tiles, .. }
                 if *x == 32 && *y == 24 && tiles[0].tile.tile_index == 0x000 =>
             {
                 Some(tiles)
@@ -20790,7 +21000,7 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { x, y, tile_sheet, tiles, .. }
+                    DrawCommand::Sprite { x, y, tile_sheet, tiles, .. } | DrawCommand::SatSprite { x, y, tile_sheet, tiles, .. }
                         if *x == 0x1A1 - 128
                             && *y == 0x8D - 128
                             && tile_sheet.tiles.iter().any(|tile| tile.pixels == [101; 64])
@@ -20803,7 +21013,7 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { x, y, tile_sheet, tiles, .. }
+                    DrawCommand::Sprite { x, y, tile_sheet, tiles, .. } | DrawCommand::SatSprite { x, y, tile_sheet, tiles, .. }
                         if *x == 0x1A0 - 128
                             && *y == 0xA2 - 128
                             && tile_sheet.tiles.len() >= 16
@@ -20826,6 +21036,13 @@ mod tests {
         let diamond_page_sample = |scene: &Scene| {
             scene.commands.iter().find_map(|command| match command {
                 DrawCommand::Sprite {
+                    x,
+                    y,
+                    tile_sheet,
+                    tiles,
+                    ..
+                }
+                | DrawCommand::SatSprite {
                     x,
                     y,
                     tile_sheet,
@@ -20871,6 +21088,13 @@ mod tests {
                     tile_sheet,
                     tiles,
                     ..
+                }
+                | DrawCommand::SatSprite {
+                    x,
+                    y,
+                    tile_sheet,
+                    tiles,
+                    ..
                 } if *x == 0x1A0 - 128
                     && *y == 0xA2 - 128
                     && tiles.first().is_some_and(|tile| tile.tile.tile_index == 8) =>
@@ -20909,6 +21133,13 @@ mod tests {
                     tile_sheet,
                     tiles,
                     ..
+                }
+                | DrawCommand::SatSprite {
+                    x,
+                    y,
+                    tile_sheet,
+                    tiles,
+                    ..
                 } if *x == 0x1A0 - 128
                     && *y == 0xA2 - 128
                     && tiles.first().is_some_and(|tile| tile.tile.tile_index == 8) =>
@@ -20934,6 +21165,7 @@ mod tests {
 
         let ankh_tile = scene.commands.iter().find_map(|command| match command {
             DrawCommand::Sprite { x, y, tiles, .. }
+            | DrawCommand::SatSprite { x, y, tiles, .. }
                 if *x == 0x1A1 - 128 && *y == 0x8D - 128 && tiles.len() == 4 =>
             {
                 tiles.first().map(|tile| tile.tile.tile_index)
@@ -20953,6 +21185,7 @@ mod tests {
         let ankh_tile = |scene: &Scene| {
             scene.commands.iter().find_map(|command| match command {
                 DrawCommand::Sprite { x, y, tiles, .. }
+                | DrawCommand::SatSprite { x, y, tiles, .. }
                     if *x == 0x1A1 - 128 && *y == 0x8D - 128 && tiles.len() == 4 =>
                 {
                     tiles.first().map(|tile| tile.tile.tile_index)
@@ -20985,6 +21218,7 @@ mod tests {
         let ankh_tile = |scene: &Scene| {
             scene.commands.iter().find_map(|command| match command {
                 DrawCommand::Sprite { x, y, tiles, .. }
+                | DrawCommand::SatSprite { x, y, tiles, .. }
                     if *x == 0x1A1 - 128 && *y == 0x8D - 128 && tiles.len() == 4 =>
                 {
                     tiles.first().map(|tile| tile.tile.tile_index)
