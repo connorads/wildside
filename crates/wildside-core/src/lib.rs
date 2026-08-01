@@ -1856,14 +1856,19 @@ impl NativeRuntime {
                         .collect::<Vec<_>>()
                 })
         });
-        // ASM sub_30194 loc_3023C/loc_30262: rightward motion selects the
-        // newly exposed tile column at d7+$28. The unsplit plane window uses
-        // 15 consecutive block rows through sub_302F6.
+        // ASM sub_30194 loc_3023C/loc_30262: horizontal motion selects the
+        // newly exposed tile column. Rightward uses d7+$28; leftward uses d7.
+        // The unsplit plane window uses 15 consecutive block rows through
+        // sub_302F6.
         let camera_column_cells_sub_30194 = self.block_grid.as_ref().and_then(|grid| {
-            let source_x_tile = x_tile.checked_add(0x0028)?;
+            let source_x_tile = if previous_x_tile < x_tile {
+                x_tile.checked_add(0x0028)?
+            } else {
+                x_tile
+            };
             let column = source_x_tile >> 1;
             let first_row = u16::try_from((y_tile & !1) >> 1).ok()?;
-            (previous_x_tile < x_tile
+            (previous_x_tile != x_tile
                 && column < grid.width_cells
                 && first_row.checked_add(14)? < grid.height_cells)
                 .then(|| {

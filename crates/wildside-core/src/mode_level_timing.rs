@@ -1389,6 +1389,10 @@ pub enum ModeLevelTailCameraStripeSub30194 {
     RightwardVerticalNoWrap {
         cells: [ModeLevelTailCameraCellMappingSub30194; 15],
     },
+    /// ASM `loc_3023C -> loc_30262 -> sub_302F6`: leftward 15-cell column.
+    LeftwardVerticalNoWrap {
+        cells: [ModeLevelTailCameraCellMappingSub30194; 15],
+    },
     /// ASM `loc_301CE -> sub_3034A`, then `loc_30262 -> sub_302F6`: an
     /// upward row followed by a rightward column, optionally split at the
     /// plane boundary.
@@ -1474,6 +1478,12 @@ pub fn mode_level_tail_camera_stripe_work_sub_30194(
             return ModeLevelTailCameraStripeSub30194::StreamingOther;
         };
         return ModeLevelTailCameraStripeSub30194::RightwardVerticalNoWrap { cells: paths };
+    }
+    if previous_y_tile == y_tile && previous_x_tile > x_tile {
+        let Some(paths) = vertical_cells.and_then(classify_cells::<15>) else {
+            return ModeLevelTailCameraStripeSub30194::StreamingOther;
+        };
+        return ModeLevelTailCameraStripeSub30194::LeftwardVerticalNoWrap { cells: paths };
     }
 
     // ASM loc_301CE/loc_301FE: a vertical-only row at plane columns 0..11
@@ -1584,6 +1594,24 @@ pub fn mode_level_tail_camera_stripe_raw_cycles_sub_30194(
             ))
         }
         ModeLevelTailCameraStripeSub30194::RightwardVerticalNoWrap { .. } => None,
+        ModeLevelTailCameraStripeSub30194::LeftwardVerticalNoWrap { cells }
+            if cells
+                .iter()
+                .all(|cell| *cell != ModeLevelTailCameraCellMappingSub30194::PriorityTheme) =>
+        {
+            let block_cells = cells
+                .iter()
+                .filter(|cell| **cell == ModeLevelTailCameraCellMappingSub30194::Block)
+                .count();
+            // ASM loc_3023C (kid.asm:33819) takes `blt.s loc_30262` (10)
+            // instead of the rightward `blt` untaken + `addi.w #$28,d6` +
+            // `cmp.w (Level_width_tiles).w,d6` + `bcc.w` untaken (8+8+12+12),
+            // 30 cycles below the equivalent rightward column path.
+            Some(M68kCycleCount::from_raw(
+                2_150 - 12 * u32::try_from(block_cells).ok()?,
+            ))
+        }
+        ModeLevelTailCameraStripeSub30194::LeftwardVerticalNoWrap { .. } => None,
         ModeLevelTailCameraStripeSub30194::UpwardHorizontalRightwardVertical {
             row_cells,
             column_cells,

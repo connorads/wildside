@@ -3910,7 +3910,15 @@ pub fn mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
         });
     }
 
-    if let crate::ModeLevelTailCameraStripeSub30194::RightwardVerticalNoWrap { cells } = work {
+    if let Some((cells, leftward)) = match work {
+        crate::ModeLevelTailCameraStripeSub30194::RightwardVerticalNoWrap { cells } => {
+            Some((cells, false))
+        }
+        crate::ModeLevelTailCameraStripeSub30194::LeftwardVerticalNoWrap { cells } => {
+            Some((cells, true))
+        }
+        _ => None,
+    } {
         use crate::mode_level_timing::ModeLevelTailCameraCellMappingSub30194 as Mapping;
         if cells.contains(&Mapping::PriorityTheme) {
             return None;
@@ -3941,8 +3949,23 @@ pub fn mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
             8, 8, 8, 4, 8, 14, 8, 8, 4, 8, 8, 8, 8, 4, 4, 10, 4, 8, 8, 20, 4, 8, 4, 4, 8, 4, 8, 16,
             16, 12, 12, 4, 18, 8, 8,
         ];
-        for cycles in PRELUDE {
-            advance(u32::from(cycles), 0)?;
+        if leftward {
+            // ASM loc_3023C (kid.asm:33819): leftward takes `blt.s loc_30262`
+            // (10 cycles) instead of the rightward fall-through at PRELUDE
+            // indices 18-21 (`blt.s` untaken 8, `addi.w #$28,d6` 8,
+            // `cmp.w (Level_width_tiles).w,d6` 12, `bcc.w` untaken 12), so the
+            // leftward prelude is 30 raw cycles below the rightward journal.
+            for &cycles in &PRELUDE[..18] {
+                advance(u32::from(cycles), 0)?;
+            }
+            advance(10, 0)?;
+            for &cycles in &PRELUDE[22..] {
+                advance(u32::from(cycles), 0)?;
+            }
+        } else {
+            for cycles in PRELUDE {
+                advance(u32::from(cycles), 0)?;
+            }
         }
 
         // ASM sub_302F6 loc_302FE: each ordinary cell emits two VDP words.
