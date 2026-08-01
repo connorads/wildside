@@ -64,6 +64,8 @@ Use sources in this order:
 
 The 68k disassembly at `.cache/upstream/kid-chameleon-disasm/` is the **ultimate source of truth** for all gameplay behaviour.
 
+That standing is itself gated, not assumed: `mise run verify-disasm-fidelity` assembles the pinned checkout with the AS toolchain and byte-compares the result against the reference ROM. Run it after any change to the checkout, the split step, or the ROM.
+
 - **Read the ASM before writing native code.** Find the routine in `kid.asm` or `code/*.asm`, read 50-100 lines around the label, and understand what the ROM does before implementing anything.
 - **Cite the ASM label in every code comment.** Example: `// ASM loc_3CD70: cmp.w x_pos(a4),d4; blt.s skip; st x_direction(a3)`. This prevents future misreadings and makes the implementation auditable.
 - **Name symbols descriptively; keep the address in the doc-comment, not the identifier.** For NEW symbols use a descriptive identifier and record the ASM address (`loc_XXXX`/`sub_XXXX` + `.asm` file) in a one-line doc-comment only — e.g. `/// ASM sub_37ABC (kid.asm): Heady-Metal body-piece offsets`. Do not bake the address into the name, and never use the double-address `_SUB_xxxx_..._LOC_yyyy` form. This matches mature decomps (zeldaret/OoT, pret). No mass-rename of the existing address-bearing identifiers (churn + traceability risk); strip an address suffix only opportunistically when you are already editing that symbol, moving the address into the doc-comment.
@@ -119,6 +121,7 @@ mise run bootstrap-upstream
 mise run bootstrap-references
 mise run oracle-setup
 mise run extract-assets
+mise run verify-disasm-fidelity  # gate: the disassembly must assemble byte-identical to the ROM
 cargo run -p wildside-cli -- inspect-level --level 00
 cargo run -p wildside-cli -- inspect-enemy --enemy 01
 cargo run -p wildside-cli -- compare-native-oracle --scenario boot-title-start-level1
@@ -243,6 +246,12 @@ diff composites, and per-layer diagnostics.
 6. Run `mise run verify-slice-fast` for mechanical regression check
 
 ## Validation methodology
+
+### Disassembly fidelity (is the source of truth actually the ROM?)
+- `mise run verify-disasm-fidelity` (`scripts/verify_disasm_fidelity.py`) assembles `.cache/upstream/kid-chameleon-disasm` with the AS toolchain and byte-compares `kid_built.bin` against the reference ROM. Any differing byte fails the task
+- On a mismatch it re-assembles with `-g map` and attributes every differing region to its nearest preceding ASM label and source line, so offsets point at source rather than at raw addresses
+- No known-mismatch allowlist exists. The pinned upstream commit assembles bit-perfect, so a diff means a real regression: stale `split.py` chunks, a locally patched checkout, or a non-canonical ROM
+- ~2s warm, ~12s cold (clones and builds AS into `.cache/tooling`). On-demand rather than a `verify-slice-fast` dep, because it needs the ROM plus a bootstrapped checkout
 
 ### Oracle comparison (correctness)
 - jgenesis emulator as ground truth for game state

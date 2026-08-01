@@ -173,6 +173,15 @@ run = "cargo run -p wildside-cli -- extract-assets"
 [tasks.reference-build]
 run = "cargo run -p wildside-cli -- reference-build"
 
+# #448: "the disassembly is truth" as a gate rather than an assumption. Assembles
+# the pinned upstream disassembly with the AS toolchain and byte-compares the
+# result against the reference ROM, naming the nearest ASM label and source line
+# for any mismatching region. Not a verify-slice-fast dep: it needs the ROM plus
+# a bootstrapped checkout, so it stays an on-demand gate (~2s warm).
+[tasks.verify-disasm-fidelity]
+run = "python3 scripts/verify_disasm_fidelity.py"
+description = "Fail unless the upstream disassembly assembles byte-identical to the reference ROM"
+
 [tasks.dump-level-layout]
 run = "sh -c 'cargo run -p wildside-cli -- dump-level-layout --level \"${1:-00}\"' --"
 

@@ -137,6 +137,7 @@ When reimplementing a game formula (physics, damage, spawn rates), use the OpenM
 
 Once the active TAS frontier is closed, keep the verification lanes separate:
 
+- `verify-disasm-fidelity` answers "is the disassembly we cite still an exact description of the shipped ROM?" It assembles the pinned checkout with the AS toolchain and byte-compares `kid_built.bin` against the reference ROM, naming the nearest ASM label and source line for any differing region. This is the base of the evidence ladder: every ASM citation in the port assumes it, and nothing else in the lane split checks it
 - `sweep --tier state` answers "do the 69 BCD levels still avoid blocking authoritative diffs under the idle oracle harness?"
 - `release-gate --target 1p-playable` answers "do native gameplay smoke, focused gameplay regressions, and the 69-level native gameplay sweep stay green together?"
 - `release-gate --target 1p-accurate` answers "do boot/title, gameplay compare, the bounded source-port visual ratchet, ROM-emulator VDP checks, audio-oracle, and state-sweep all stay green together?"
