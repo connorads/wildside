@@ -10090,6 +10090,13 @@ impl PublishedTasRasterTimeline {
                 .is_none()
                 {
                     "Execute_Objects source path is unclassified"
+                } else if wildside_core::execute_objects_elapsed_cycles_sub_e12(
+                    &pre_hud.execute_objects,
+                    seed.refresh_phase,
+                )
+                .is_none()
+                {
+                    "Execute_Objects elapsed schedule is unclassified"
                 } else if wildside_core::post_execute_raw_cycles_before_sub_44dc(pre_hud).is_none()
                 {
                     "post-Execute source path is unclassified"
@@ -10110,7 +10117,20 @@ impl PublishedTasRasterTimeline {
     }
 
     pub(crate) fn verify_coverage(&self) -> Result<()> {
-        const REQUIRED_SCHEDULED_FRAMES_THROUGH_1731: usize = 807;
+        // Correction 2026-08-01 (#409, ADR 0002): the committed 807 was never
+        // met — the landed tree's timeline failed at frame 1400 (477
+        // scheduled), and the tree that claimed frame 1661 had deleted the
+        // raw/elapsed refresh cross-check that arbitrates the claim. With the
+        // guard restored and the frame-1410 override retired, the proven
+        // boundary is frame 1657 (736 scheduled); frame 1658's constants fail
+        // the refresh recurrence. Downward-only from here per ADR 0002.
+        const REQUIRED_SCHEDULED_FRAMES_THROUGH_1731: usize = 736;
+        // Always report the measured coverage so ratchet updates are taken
+        // from a printed number, never re-derived by forcing a failure.
+        eprintln!(
+            "published TAS raster timeline scheduled {} frames (ratchet {REQUIRED_SCHEDULED_FRAMES_THROUGH_1731}); first failure: {:?}",
+            self.scheduled_frames, self.failure,
+        );
         if self.scheduled_frames < REQUIRED_SCHEDULED_FRAMES_THROUGH_1731 {
             if let Some((frame, reason)) = self.failure {
                 anyhow::bail!("published TAS raster timeline failed at frame {frame}: {reason}");
@@ -14919,6 +14939,561 @@ mod tests {
 
         assert!(report.go, "first divergence: {:?}", report.first_divergence);
         assert_eq!(report.frames_compared, 40);
+    }
+
+    #[test]
+    fn published_tas_frames_1440_to_1661_remain_source_scheduled() {
+        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let manifest_path = repo_root
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        if !manifest_path.exists() {
+            return;
+        }
+        let scenario_path = repo_root.join("tests/data/tas/any-percent-published/scenario.json");
+        let manifest = wildside_data::load_manifest(&manifest_path).expect("cached manifest");
+        let scenario: crate::scenarios::DynamicScenario =
+            serde_json::from_slice(&std::fs::read(scenario_path).expect("published TAS scenario"))
+                .expect("published TAS JSON");
+        let trace = crate::scenarios::run_native_dynamic_scenario(
+            manifest.clone(),
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("published native trace");
+        let frame_1440_execute = &trace[1440]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("Diamond terminal pre-HUD ledger")
+            .execute_objects;
+        // ASM Increase_Diamonds `dbf` (`move.w #$1F,d2`) runs 32 resumed
+        // passes after the init pass, so the last flight observation is an
+        // ordinary resumed iteration and the terminal deleting pass lands on
+        // the following frame.
+        assert_eq!(
+            frame_1440_execute.collected_diamond_workers,
+            [wildside_core::ModeLevelCollectedDiamondWorkerPhase::Resumed { remaining: 1 }]
+        );
+        let frame_1441_execute = &trace[1441]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("Diamond terminal pre-HUD ledger")
+            .execute_objects;
+        assert_eq!(
+            frame_1441_execute.collected_diamond_workers,
+            [wildside_core::ModeLevelCollectedDiamondWorkerPhase::Terminal]
+        );
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1441_execute).is_some(),
+            "ASM Increase_Diamonds loc_FEFE terminal fall-through remains source-scheduled",
+        );
+        assert!(
+            wildside_core::post_execute_raw_cycles_before_sub_44dc(
+                trace[1484]
+                    .mode_level_work_before_hud_sub_44dc
+                    .as_ref()
+                    .expect("frame 1484 pre-HUD ledger"),
+            )
+            .is_some(),
+            "ASM sub_F096 frame-1484 right-and-down cache advance remains source-scheduled",
+        );
+        let frame_1495_execute = &trace[1495]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("second Diamond initial pre-HUD ledger")
+            .execute_objects;
+        assert_eq!(frame_1495_execute.linked_non_transient_object_count, 3);
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1495_execute).is_some(),
+            "ASM sub_1007A -> PrizeDiamond_Init keeps the replacement slot source-scheduled",
+        );
+        let frame_1515_execute = &trace[1515]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("falling Diamond pre-HUD ledger")
+            .execute_objects;
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1515_execute).is_some(),
+            "ASM loc_103DE row advance keeps the falling Diamond source-scheduled",
+        );
+        let frame_1519_execute = &trace[1519]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("Cyclone landing pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1519_execute.executed_player_path,
+            Some(wildside_core::ModeLevelPlayerExecutionPath::NormalPhysics(
+                wildside_core::ModeLevelNormalPhysicsPath {
+                    vertical: wildside_core::ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
+                    vertical_collision: wildside_core::ModeLevelVerticalCollisionPath::Landing,
+                    ..
+                }
+            ))
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1519_execute).is_some(),
+            "ASM Cyclone landing remains source-scheduled",
+        );
+        assert!(matches!(
+            trace[1519]
+                .mode_level_tail_work_loc_892
+                .as_ref()
+                .expect("frame 1519 tail ledger")
+                .background_loc_3038a
+                .piece_refresh_sub_307d8,
+            wildside_core::ModeLevelTailPieceRefreshSub307D8::DownwardPlaneWrapOnly {
+                width_subtractions: 0,
+                copied_words: 41,
+                second_segment_words: 6,
+            }
+        ));
+        let frame_1520_execute = &trace[1520]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("grounded Cyclone coast pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1520_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::GroundedCoastLoc8bf0 {
+                form: wildside_core::PlayerForm::Cyclone,
+                x_velocity_before: 57_344,
+                x_velocity_after: 47_104,
+                ground_scan_cells_sub_b43a_8600,
+            }) if ground_scan_cells_sub_b43a_8600 == &[
+                wildside_core::ModeLevelGroundScanCellSubB43A8600 {
+                    collision: wildside_core::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                    block: wildside_core::ModeLevelGroundScanBlockSubB43A8600::Other,
+                },
+            ]
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1520_execute).is_some(),
+            "ASM loc_8BF0 grounded Cyclone coast remains source-scheduled",
+        );
+        let frame_1521_execute = &trace[1521]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("second grounded Cyclone coast pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1521_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::GroundedCoastLoc8bf0 {
+                form: wildside_core::PlayerForm::Cyclone,
+                x_velocity_before: 47_104,
+                x_velocity_after: 36_864,
+                ground_scan_cells_sub_b43a_8600,
+            }) if ground_scan_cells_sub_b43a_8600.len() == 2
+                && ground_scan_cells_sub_b43a_8600.iter().all(|cell| *cell
+                    == wildside_core::ModeLevelGroundScanCellSubB43A8600 {
+                        collision: wildside_core::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                        block: wildside_core::ModeLevelGroundScanBlockSubB43A8600::Other,
+                    })
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1521_execute).is_some(),
+            "ASM loc_8BF0 two-scan grounded Cyclone coast remains source-scheduled",
+        );
+        let frame_1525_execute = &trace[1525]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("Cyclone coast clamp pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1525_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::GroundedCoastLoc8bf0 {
+                form: wildside_core::PlayerForm::Cyclone,
+                x_velocity_before: 6_144,
+                x_velocity_after: 0,
+                ground_scan_cells_sub_b43a_8600,
+            }) if ground_scan_cells_sub_b43a_8600.len() == 2
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1525_execute).is_some(),
+            "ASM loc_8BF0 Cyclone coast clamp remains source-scheduled",
+        );
+        let frame_1526_execute = &trace[1526]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("stationary Cyclone pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1526_execute.executed_player_path,
+            Some(
+                wildside_core::ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 {
+                    form: wildside_core::PlayerForm::Cyclone,
+                }
+            )
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1526_execute).is_some(),
+            "ASM loc_7606 stationary Cyclone remains source-scheduled",
+        );
+        let frame_1529_execute = &trace[1529]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("Cyclone right-walk start pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1529_execute.executed_player_path.as_ref(),
+            Some(
+                wildside_core::ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
+                    form: wildside_core::PlayerForm::Cyclone,
+                    ground_scan_cells_sub_b43a_8600,
+                }
+            ) if ground_scan_cells_sub_b43a_8600.len() == 2
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1529_execute).is_some(),
+            "ASM loc_779C Cyclone right-walk start remains source-scheduled",
+        );
+        let frame_1530_execute = &trace[1530]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("Cyclone right-walk continuation pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1530_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+                form: wildside_core::PlayerForm::Cyclone,
+                x_velocity_before: 4_096,
+                x_velocity_after: 8_192,
+                ground_scan_cells_sub_b43a_8600,
+            }) if ground_scan_cells_sub_b43a_8600.len() == 2
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1530_execute).is_some(),
+            "ASM loc_8BF0 low-speed Cyclone acceleration remains source-scheduled",
+        );
+        let frame_1549_execute = &trace[1549]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("one-scan Cyclone right-walk continuation pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1549_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+                form: wildside_core::PlayerForm::Cyclone,
+                x_velocity_before: 81_920,
+                x_velocity_after: 86_016,
+                ground_scan_cells_sub_b43a_8600,
+            }) if ground_scan_cells_sub_b43a_8600.len() == 1
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1549_execute).is_some(),
+            "ASM loc_8BF0 one-scan Cyclone acceleration remains source-scheduled",
+        );
+        let frame_1561_execute = &trace[1561]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("capped Cyclone right-walk pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1561_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+                form: wildside_core::PlayerForm::Cyclone,
+                x_velocity_before: 131_072,
+                x_velocity_after: 131_072,
+                ground_scan_cells_sub_b43a_8600,
+            }) if ground_scan_cells_sub_b43a_8600.len() == 2
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1561_execute).is_some(),
+            "ASM loc_8BF0 capped Cyclone walk remains source-scheduled",
+        );
+        let frame_1577_execute = &trace[1577]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("second Cyclone coast clamp pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1577_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::GroundedCoastLoc8bf0 {
+                form: wildside_core::PlayerForm::Cyclone,
+                x_velocity_before: 8_192,
+                x_velocity_after: 0,
+                ground_scan_cells_sub_b43a_8600,
+            }) if ground_scan_cells_sub_b43a_8600.len() == 2
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1577_execute).is_some(),
+            "ASM loc_8BF0 Cyclone coast clamp class remains source-scheduled",
+        );
+        let frame_1601_execute = &trace[1601]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("stationary Cyclone jump launch pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1601_execute.executed_player_path,
+            Some(
+                wildside_core::ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 {
+                    form: wildside_core::PlayerForm::Cyclone,
+                    x_velocity_before: 0,
+                    x_velocity_after: 0,
+                    y_velocity_after: -270_336,
+                }
+            )
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1601_execute).is_some(),
+            "ASM loc_A426 stationary Cyclone launch remains source-scheduled",
+        );
+        let frame_1602_execute = &trace[1602]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("stationary Cyclone ascent pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1602_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::NormalPhysics(
+                wildside_core::ModeLevelNormalPhysicsPath {
+                    horizontal: wildside_core::ModeLevelAirborneHorizontalPath::NeutralStationary,
+                    vertical: wildside_core::ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+                    y_velocity_after: -262_144,
+                    ..
+                }
+            ))
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1602_execute).is_some(),
+            "ASM sub_B084/sub_B168 stationary Cyclone ascent remains source-scheduled",
+        );
+        let frame_1605_execute = &trace[1605]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("stationary Cyclone ordinary-gravity ascent pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1605_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::NormalPhysics(
+                wildside_core::ModeLevelNormalPhysicsPath {
+                    horizontal: wildside_core::ModeLevelAirborneHorizontalPath::NeutralStationary,
+                    vertical: wildside_core::ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0,
+                    y_velocity_after: -229_376,
+                    ceiling_scan_sub_914a: Some(_),
+                    ..
+                }
+            ))
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1605_execute).is_some(),
+            "ASM sub_B084/sub_B168 ordinary-gravity Cyclone ascent remains source-scheduled",
+        );
+        assert!(matches!(
+            trace[1609]
+                .mode_level_tail_work_loc_892
+                .as_ref()
+                .expect("frame 1609 tail ledger")
+                .background_loc_3038a
+                .piece_refresh_sub_307d8,
+            wildside_core::ModeLevelTailPieceRefreshSub307D8::UpwardPlaneWrapOnly {
+                width_subtractions: 0,
+                copied_words: 41,
+                second_segment_words: 6,
+            }
+        ));
+        let frame_1645_execute = &trace[1645]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("left-accelerating flying Cyclone pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1645_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::NormalPhysics(
+                wildside_core::ModeLevelNormalPhysicsPath {
+                    horizontal:
+                        wildside_core::ModeLevelAirborneHorizontalPath::LeftHeldAcceleration,
+                    vertical: wildside_core::ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
+                    ..
+                }
+            ))
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1645_execute).is_some(),
+            "ASM sub_B084 left-accelerating Cyclone flight remains source-scheduled",
+        );
+        let frame_1649_execute = &trace[1649]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("Cyclone prize-block ceiling hit pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1649_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::NormalPhysics(
+                wildside_core::ModeLevelNormalPhysicsPath {
+                    horizontal: wildside_core::ModeLevelAirborneHorizontalPath::LeftHeldAcceleration,
+                    vertical: wildside_core::ModeLevelAirborneVerticalPath::CycloneFlyingCPress { .. },
+                    vertical_collision: wildside_core::ModeLevelVerticalCollisionPath::Ceiling,
+                    ceiling_scan_sub_914a: Some(scan),
+                    ..
+                }
+            )) if scan.visits.len() == 2
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1649_execute).is_some(),
+            "ASM sub_914A Cyclone prize-block ceiling hit remains source-scheduled",
+        );
+        let frame_1650_execute = &trace[1650]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("continued Cyclone prize-block ceiling hit pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1650_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::NormalPhysics(
+                wildside_core::ModeLevelNormalPhysicsPath {
+                    horizontal:
+                        wildside_core::ModeLevelAirborneHorizontalPath::LeftHeldAcceleration,
+                    vertical: wildside_core::ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
+                    vertical_collision: wildside_core::ModeLevelVerticalCollisionPath::Ceiling,
+                    ..
+                }
+            ))
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1650_execute).is_some(),
+            "ASM sub_914A repeated Cyclone prize-block ceiling hit remains source-scheduled",
+        );
+        let frame_1653_tail = trace[1653]
+            .mode_level_tail_work_loc_892
+            .as_ref()
+            .expect("leftward-scroll tail ledger");
+        assert!(
+            frame_1653_tail
+                .background_loc_3038a
+                .shift_data_slots_loc_30452
+                .contains(&wildside_core::ModeLevelTailShiftDataSlotLoc30452::OldGreaterThanNew)
+        );
+        assert!(
+            wildside_core::mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(frame_1653_tail)
+                .is_some()
+        );
+        let frame_1654_execute = &trace[1654]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("single-cell Cyclone ceiling hit pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1654_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::NormalPhysics(
+                wildside_core::ModeLevelNormalPhysicsPath {
+                    horizontal: wildside_core::ModeLevelAirborneHorizontalPath::LeftHeldAcceleration,
+                    vertical_collision: wildside_core::ModeLevelVerticalCollisionPath::Ceiling,
+                    ceiling_scan_sub_914a: Some(scan),
+                    ..
+                }
+            )) if scan.visits.len() == 1
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1654_execute).is_some(),
+            "ASM sub_914A single-solid Cyclone ceiling hit remains source-scheduled",
+        );
+        let frame_1655_execute = &trace[1655]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("active prize-block Cyclone ceiling hit pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1655_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::NormalPhysics(
+                wildside_core::ModeLevelNormalPhysicsPath {
+                    horizontal: wildside_core::ModeLevelAirborneHorizontalPath::LeftHeldAcceleration,
+                    vertical_collision: wildside_core::ModeLevelVerticalCollisionPath::Ceiling,
+                    ceiling_scan_sub_914a: Some(scan),
+                    ..
+                }
+            )) if scan.visits.len() == 2 && scan.visits[0].block_type == Some(1)
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1655_execute).is_some(),
+            "ASM sub_914A active prize-block Cyclone ceiling hit remains source-scheduled",
+        );
+        let frame_1657_execute = &trace[1657]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("C-thrust active prize-block ceiling hit pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1657_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::NormalPhysics(
+                wildside_core::ModeLevelNormalPhysicsPath {
+                    vertical: wildside_core::ModeLevelAirborneVerticalPath::CycloneFlyingCPress { .. },
+                    vertical_collision: wildside_core::ModeLevelVerticalCollisionPath::Ceiling,
+                    ceiling_scan_sub_914a: Some(scan),
+                    ..
+                }
+            )) if scan.visits.len() == 2 && scan.visits[0].block_type == Some(1)
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1657_execute).is_some(),
+            "ASM sub_B168/sub_914A C-thrust prize-block ceiling hit remains source-scheduled",
+        );
+        assert!(matches!(
+            trace[1657]
+                .mode_level_tail_work_loc_892
+                .as_ref()
+                .expect("frame 1657 tail ledger")
+                .camera_stripe_sub_30194,
+            wildside_core::ModeLevelTailCameraStripeSub30194::LeftwardVerticalNoWrap { .. }
+        ));
+        let frame_1659_execute = &trace[1659]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("two-solid Cyclone ceiling hit pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1659_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::NormalPhysics(
+                wildside_core::ModeLevelNormalPhysicsPath {
+                    vertical_collision: wildside_core::ModeLevelVerticalCollisionPath::Ceiling,
+                    ceiling_scan_sub_914a: Some(scan),
+                    ..
+                }
+            )) if scan.visits.len() == 2 && scan.visits.iter().all(|visit| !visit.has_block)
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1659_execute).is_some(),
+            "ASM sub_914A two-solid Cyclone ceiling hit remains source-scheduled",
+        );
+        let frame_1660_execute = &trace[1660]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("left-cap Cyclone ceiling hit pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1660_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::NormalPhysics(
+                wildside_core::ModeLevelNormalPhysicsPath {
+                    horizontal: wildside_core::ModeLevelAirborneHorizontalPath::LeftHeldCapBleed,
+                    vertical_collision: wildside_core::ModeLevelVerticalCollisionPath::Ceiling,
+                    ..
+                }
+            ))
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1660_execute).is_some(),
+            "ASM sub_B084 left-cap Cyclone ceiling hit remains source-scheduled",
+        );
+        let frame_1661_execute = &trace[1661]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("wrapped-visual Cyclone ceiling hit pre-HUD ledger")
+            .execute_objects;
+        assert!(matches!(
+            frame_1661_execute.executed_player_path.as_ref(),
+            Some(wildside_core::ModeLevelPlayerExecutionPath::NormalPhysics(
+                wildside_core::ModeLevelNormalPhysicsPath {
+                    horizontal: wildside_core::ModeLevelAirborneHorizontalPath::LeftHeldCapBleed,
+                    cyclone_visual_steps: Some(steps),
+                    ceiling_scan_sub_914a: Some(scan),
+                    ..
+                }
+            )) if steps.len() == 2 && steps[0].wrapped && scan.visits.len() == 1
+        ));
+        assert!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(frame_1661_execute).is_some(),
+            "ASM sub_B270 wrapped Cyclone visual update remains source-scheduled",
+        );
     }
 
     #[test]

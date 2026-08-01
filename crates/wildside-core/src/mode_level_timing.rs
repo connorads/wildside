@@ -2668,6 +2668,222 @@ pub fn execute_objects_setup_cycles_sub_e12(rng_offset_before: u16) -> Option<M6
 pub fn player_callback_cycles_loc_a73a(
     execute: &ModeLevelExecuteObjectsWork,
 ) -> Option<M68kCycleCount> {
+    if matches!(
+        execute.executed_player_path.as_ref(),
+        Some(ModeLevelPlayerExecutionPath::NormalPhysics(
+            crate::ModeLevelNormalPhysicsPath {
+                horizontal: ModeLevelAirborneHorizontalPath::LeftHeldAcceleration,
+                vertical: ModeLevelAirborneVerticalPath::CycloneFlyingCPress { .. }
+                    | ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
+                gfx_object_collision_clear: true,
+                vertical_collision: ModeLevelVerticalCollisionPath::Ceiling,
+                wall_collision: ModeLevelWallCollisionPath::Clear,
+                airborne_action: ModeLevelAirborneActionPath::NoButtons,
+                ceiling_scan_sub_914a: Some(scan),
+                ..
+            }
+        )) if scan.visits.len() == 2
+            && scan.first_hit_col == scan.visits.first().map(|visit| visit.col)
+            && scan.visits[0].collision == crate::ModeLevelCeilingScanCollision::Solid
+            && !scan.visits[0].has_block
+            && scan.visits[1].collision == crate::ModeLevelCeilingScanCollision::Solid
+            && scan.visits[1].has_block
+            && scan.visits[1].block_type == Some(1)
+    ) && execute.prize_block_wobble_workers_sub_1007a == 1
+    {
+        // ASM sub_B084 -> sub_B168 -> sub_914A loc_9188 -> loc_91AC ->
+        // j_loc_1002E, published TAS frames 1649-1650. The player loc_E1E span is
+        // 6,026 elapsed cycles with 94 refresh-wait cycles, leaving 5,506
+        // after the shared Execute_Objects shell.
+        return Some(M68kCycleCount::from_raw(5_506));
+    }
+    if matches!(
+        execute.executed_player_path.as_ref(),
+        Some(ModeLevelPlayerExecutionPath::NormalPhysics(
+            crate::ModeLevelNormalPhysicsPath {
+                horizontal: ModeLevelAirborneHorizontalPath::LeftHeldAcceleration,
+                vertical: ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
+                gfx_object_collision_clear: true,
+                vertical_collision: ModeLevelVerticalCollisionPath::Ceiling,
+                wall_collision: ModeLevelWallCollisionPath::Clear,
+                airborne_action: ModeLevelAirborneActionPath::NoButtons,
+                ceiling_scan_sub_914a: Some(scan),
+                ..
+            }
+        )) if matches!(
+            scan.visits.as_slice(),
+            [crate::ModeLevelCeilingScanVisitSub9188 {
+                collision: crate::ModeLevelCeilingScanCollision::Solid,
+                has_block: false,
+                ..
+            }]
+        ) && scan.first_hit_col == scan.visits.first().map(|visit| visit.col)
+    ) {
+        // ASM sub_914A loc_9188 returns on one unflagged solid ceiling cell,
+        // published TAS frame 1654. Its player loc_E1E span is 6,936 elapsed
+        // cycles; removing 556 refresh/GEMS waits, 462 Z80-bus waits, and the
+        // 426-cycle scheduler shell leaves 5,492 raw callback cycles.
+        return Some(M68kCycleCount::from_raw(5_492));
+    }
+    if matches!(
+        execute.executed_player_path.as_ref(),
+        Some(ModeLevelPlayerExecutionPath::NormalPhysics(
+            crate::ModeLevelNormalPhysicsPath {
+                horizontal: ModeLevelAirborneHorizontalPath::LeftHeldAcceleration,
+                vertical: ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
+                gfx_object_collision_clear: true,
+                vertical_collision: ModeLevelVerticalCollisionPath::Ceiling,
+                wall_collision: ModeLevelWallCollisionPath::Clear,
+                airborne_action: ModeLevelAirborneActionPath::NoButtons,
+                ceiling_scan_sub_914a: Some(scan),
+                ..
+            }
+        )) if matches!(
+            scan.visits.as_slice(),
+            [
+                crate::ModeLevelCeilingScanVisitSub9188 {
+                    collision: crate::ModeLevelCeilingScanCollision::Solid,
+                    has_block: true,
+                    block_type: Some(1),
+                    ..
+                },
+                crate::ModeLevelCeilingScanVisitSub9188 {
+                    collision: crate::ModeLevelCeilingScanCollision::Solid,
+                    has_block: false,
+                    ..
+                }
+            ]
+        ) && scan.first_hit_col == scan.visits.first().map(|visit| visit.col)
+    ) && execute.prize_block_wobble_workers_sub_1007a == 1
+    {
+        // ASM sub_914A loc_9188 revisits the active type-1 prize block before
+        // the neighbouring unflagged solid, published TAS frame 1655. The
+        // player loc_E1E span is 6,054 elapsed cycles with 94 refresh-wait
+        // cycles, leaving 5,534 after the shared scheduler shell.
+        return Some(M68kCycleCount::from_raw(5_534));
+    }
+    if matches!(
+        execute.executed_player_path.as_ref(),
+        Some(ModeLevelPlayerExecutionPath::NormalPhysics(
+            crate::ModeLevelNormalPhysicsPath {
+                horizontal: ModeLevelAirborneHorizontalPath::LeftHeldAcceleration,
+                vertical: ModeLevelAirborneVerticalPath::CycloneFlyingCPress { .. },
+                gfx_object_collision_clear: true,
+                vertical_collision: ModeLevelVerticalCollisionPath::Ceiling,
+                wall_collision: ModeLevelWallCollisionPath::Clear,
+                airborne_action: ModeLevelAirborneActionPath::NoButtons,
+                ceiling_scan_sub_914a: Some(scan),
+                ..
+            }
+        )) if matches!(
+            scan.visits.as_slice(),
+            [
+                crate::ModeLevelCeilingScanVisitSub9188 {
+                    collision: crate::ModeLevelCeilingScanCollision::Solid,
+                    has_block: true,
+                    block_type: Some(1),
+                    ..
+                },
+                crate::ModeLevelCeilingScanVisitSub9188 {
+                    collision: crate::ModeLevelCeilingScanCollision::Solid,
+                    has_block: false,
+                    ..
+                }
+            ]
+        ) && scan.first_hit_col == scan.visits.first().map(|visit| visit.col)
+    ) && execute.prize_block_wobble_workers_sub_1007a == 1
+    {
+        // ASM sub_B168 loc_B214's consumed-C path precedes the same two-cell
+        // active-prize ceiling scan on published frame 1657. Removing 336
+        // refresh/GEMS waits, 242 Z80-bus waits, and the 426-cycle shell from
+        // the 6,306-cycle loc_E1E span leaves 5,302 raw callback cycles.
+        return Some(M68kCycleCount::from_raw(5_302));
+    }
+    if matches!(
+        execute.executed_player_path.as_ref(),
+        Some(ModeLevelPlayerExecutionPath::NormalPhysics(
+            crate::ModeLevelNormalPhysicsPath {
+                horizontal: ModeLevelAirborneHorizontalPath::LeftHeldAcceleration,
+                vertical: ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
+                gfx_object_collision_clear: true,
+                vertical_collision: ModeLevelVerticalCollisionPath::Ceiling,
+                wall_collision: ModeLevelWallCollisionPath::Clear,
+                airborne_action: ModeLevelAirborneActionPath::NoButtons,
+                ceiling_scan_sub_914a: Some(scan),
+                ..
+            }
+        )) if matches!(
+            scan.visits.as_slice(),
+            [
+                crate::ModeLevelCeilingScanVisitSub9188 {
+                    collision: crate::ModeLevelCeilingScanCollision::Solid,
+                    has_block: false,
+                    ..
+                },
+                crate::ModeLevelCeilingScanVisitSub9188 {
+                    collision: crate::ModeLevelCeilingScanCollision::Solid,
+                    has_block: false,
+                    ..
+                }
+            ]
+        ) && scan.first_hit_col == scan.visits.first().map(|visit| visit.col)
+    ) {
+        // ASM sub_914A loc_9188 visits two unflagged solid ceiling cells on
+        // published frame 1659. Removing 112 refresh/GEMS waits, 22 Z80-bus
+        // waits, and the 426-cycle shell from the 5,992-cycle loc_E1E span
+        // leaves 5,432 raw callback cycles.
+        return Some(M68kCycleCount::from_raw(5_432));
+    }
+    if matches!(
+        execute.executed_player_path.as_ref(),
+        Some(ModeLevelPlayerExecutionPath::NormalPhysics(
+            crate::ModeLevelNormalPhysicsPath {
+                horizontal: ModeLevelAirborneHorizontalPath::LeftHeldCapBleed,
+                vertical: ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
+                vertical_collision: ModeLevelVerticalCollisionPath::Ceiling,
+                ceiling_scan_sub_914a: Some(scan),
+                ..
+            }
+        )) if scan.visits.len() == 2
+            && scan.visits.iter().all(|visit| {
+                visit.collision == crate::ModeLevelCeilingScanCollision::Solid
+                    && !visit.has_block
+            })
+    ) {
+        // ASM sub_B084's left cap rejection precedes the two-solid sub_914A
+        // scan on published frame 1660. The 6,004-cycle loc_E1E span has 92
+        // refresh-wait cycles, leaving 5,486 after the shared shell.
+        return Some(M68kCycleCount::from_raw(5_486));
+    }
+    if matches!(
+        execute.executed_player_path.as_ref(),
+        Some(ModeLevelPlayerExecutionPath::NormalPhysics(
+            crate::ModeLevelNormalPhysicsPath {
+                horizontal: ModeLevelAirborneHorizontalPath::LeftHeldCapBleed,
+                vertical: ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
+                vertical_collision: ModeLevelVerticalCollisionPath::Ceiling,
+                cyclone_visual_steps: Some(steps),
+                ceiling_scan_sub_914a: Some(scan),
+                ..
+            }
+        )) if steps.len() == 2
+            && steps.first().is_some_and(|step| step.wrapped)
+            && matches!(
+                scan.visits.as_slice(),
+                [crate::ModeLevelCeilingScanVisitSub9188 {
+                    collision: crate::ModeLevelCeilingScanCollision::Solid,
+                    has_block: false,
+                    ..
+                }]
+            )
+    ) {
+        // ASM sub_B084's left cap rejection, two-step Cyclone visual update,
+        // and one-cell sub_914A ceiling scan run on published frame 1661.
+        // Consecutive loc_E1E rows span 6,546 cycles; removing 124 refresh
+        // waits, 22 Z80-bank waits, and the shared 426-cycle shell leaves
+        // 5,974 raw callback cycles.
+        return Some(M68kCycleCount::from_raw(5_974));
+    }
     if let Some(ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 {
         form: crate::PlayerForm::TheKid,
         side: crate::Direction::Right,
@@ -3041,6 +3257,15 @@ pub fn player_callback_cycles_loc_a73a(
             ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
         ) => -12,
         (
+            ModeLevelAirborneHorizontalPath::LeftHeldAcceleration,
+            ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
+        ) => {
+            // ASM sub_B084 loc_B09E -> loc_B0B6 and sub_B168 loc_B214,
+            // published TAS frame 1645. Six clear Gfx visits and one visual
+            // wrap leave this branch 94 cycles above the shared spine.
+            94
+        }
+        (
             ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
             ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
         ) => {
@@ -3100,6 +3325,25 @@ pub fn player_callback_cycles_loc_a73a(
             // spine, three 81-cycle clear Gfx visits, and one 412-cycle clear
             // ceiling visit leaves this branch 17 cycles below the base.
             -17
+        }
+        (
+            ModeLevelAirborneHorizontalPath::NeutralStationary,
+            ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+        ) => {
+            // ASM sub_B084 loc_B0FE -> loc_B118 and sub_B168 loc_B1E8,
+            // stationary Cyclone ascent on published frame 1602. Its six
+            // clear Gfx visits leave the callback 118 cycles below the shared
+            // natural-route spine.
+            -118
+        }
+        (
+            ModeLevelAirborneHorizontalPath::NeutralStationary,
+            ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0,
+        ) => {
+            // ASM sub_B084 loc_B0FE -> loc_B118 and sub_B168 loc_B1E0.
+            // Published frame 1605 confirms the ordinary-gravity branch is
+            // eight cycles above the held-jump stationary path.
+            -110
         }
         _ => return None,
     };
@@ -3166,6 +3410,18 @@ pub fn player_callback_cycles_loc_a73a(
 
     match (&path.vertical_collision, &path.ceiling_scan_sub_914a) {
         (ModeLevelVerticalCollisionPath::Clear, None) => {}
+        (ModeLevelVerticalCollisionPath::Landing, None)
+            if matches!(
+                path.vertical,
+                ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. }
+            ) =>
+        {
+            // ASM sub_902A -> loc_A8F6/loc_A912/loc_A94E -> sub_78E8 ->
+            // loc_75D4. Frame 1519's consecutive loc_E1E rows span 5,954
+            // elapsed cycles with 92 refresh-wait cycles, fixing the landing
+            // continuation at 850 raw cycles beyond the shared callback.
+            cycles += 850;
+        }
         (ModeLevelVerticalCollisionPath::Clear, Some(scan))
             if scan.return_path == ModeLevelCeilingScanReturn::Clear
                 && scan.first_hit_col.is_none()
@@ -9538,6 +9794,99 @@ mod tests {
             ),
             None,
             "frame-895 oracle trace records 386+146 VDP waits and a VINT inside sub_307D8, so refresh-only composition must reject it",
+        );
+    }
+
+    #[test]
+    fn camera_stripe_leftward_column_takes_blt_loc_3023c_30_cycles_below_rightward() {
+        // ASM loc_3023C (kid.asm:33819): leftward takes `blt.s loc_30262`
+        // (10) where rightward falls through `blt` untaken + `addi.w
+        // #$28,d6` + `cmp.w (Level_width_tiles).w,d6` + `bcc.w` untaken
+        // (8+8+12+12 = 40), so the leftward column is 30 raw cycles cheaper
+        // for the same cell mappings.
+        let mut cells = [ModeLevelTailCameraCellMappingSub30194::OrdinaryTheme; 15];
+        cells[3] = ModeLevelTailCameraCellMappingSub30194::Block;
+        let rightward = mode_level_tail_camera_stripe_raw_cycles_sub_30194(
+            ModeLevelTailCameraStripeSub30194::RightwardVerticalNoWrap { cells },
+        )
+        .expect("rightward column closed form");
+        let leftward = mode_level_tail_camera_stripe_raw_cycles_sub_30194(
+            ModeLevelTailCameraStripeSub30194::LeftwardVerticalNoWrap { cells },
+        )
+        .expect("leftward column closed form");
+        assert_eq!(rightward.get() - leftward.get(), 30);
+        assert_eq!(leftward, M68kCycleCount::from_raw(2_150 - 12));
+    }
+
+    #[test]
+    fn piece_refresh_plane_wrap_loc_308de_adds_56_cycles_over_the_linear_spine() {
+        // ASM sub_307D8 loc_308DE (kid.asm:34737): the plane-wrap branch
+        // replaces the linear `tst/bne/moveq` tail with the taken `bne.s`,
+        // the five-instruction segment seed, the same 41 writes split across
+        // two destinations, and the inter-segment control-port rewrite. The
+        // +56 delta is direction-independent, so the linear up/down split
+        // (BGT + ADDI #$1C = 6) is preserved by the wrap arms.
+        let linear_up = mode_level_tail_piece_refresh_raw_cycles_sub_307d8(
+            ModeLevelTailPieceRefreshSub307D8::LinearNoWrap {
+                width_subtractions: 0,
+                copied_words: 41,
+            },
+        )
+        .expect("upward linear closed form");
+        let linear_down = mode_level_tail_piece_refresh_raw_cycles_sub_307d8(
+            ModeLevelTailPieceRefreshSub307D8::DownwardLinearNoWrap {
+                width_subtractions: 0,
+                copied_words: 41,
+            },
+        )
+        .expect("downward linear closed form");
+        let wrap_up = mode_level_tail_piece_refresh_raw_cycles_sub_307d8(
+            ModeLevelTailPieceRefreshSub307D8::UpwardPlaneWrapOnly {
+                width_subtractions: 0,
+                copied_words: 41,
+                second_segment_words: 6,
+            },
+        )
+        .expect("upward plane-wrap closed form");
+        let wrap_down = mode_level_tail_piece_refresh_raw_cycles_sub_307d8(
+            ModeLevelTailPieceRefreshSub307D8::DownwardPlaneWrapOnly {
+                width_subtractions: 0,
+                copied_words: 41,
+                second_segment_words: 6,
+            },
+        )
+        .expect("downward plane-wrap closed form");
+        assert_eq!(wrap_up.get() - linear_up.get(), 56);
+        assert_eq!(wrap_down.get() - linear_down.get(), 56);
+        assert_eq!(linear_down.get() - linear_up.get(), 6);
+        assert_eq!(wrap_down.get() - wrap_up.get(), 6);
+    }
+
+    #[test]
+    fn collected_diamond_worker_phases_match_their_e1e_journals() {
+        // ASM PrizeDiamondCollected_Init first pass: 546 elapsed = 538 raw +
+        // four refreshes.
+        assert_eq!(
+            collected_diamond_worker_cycles_sub_e12(
+                crate::ModeLevelCollectedDiamondWorkerPhase::Initial,
+            ),
+            M68kCycleCount::from_raw(538),
+        );
+        // ASM Increase_Diamonds loc_FEFE resumed pass: 548 elapsed from phase
+        // 96 to phase 4 pins 540 raw (380 shell + 160 loc_FEFE).
+        assert_eq!(
+            collected_diamond_worker_cycles_sub_e12(
+                crate::ModeLevelCollectedDiamondWorkerPhase::Resumed { remaining: 17 },
+            ),
+            M68kCycleCount::from_raw(540),
+        );
+        // ASM Increase_Diamonds terminal DBF fall-through: 1,400 elapsed from
+        // phase 96 to 88 pins 1,378 raw.
+        assert_eq!(
+            collected_diamond_worker_cycles_sub_e12(
+                crate::ModeLevelCollectedDiamondWorkerPhase::Terminal,
+            ),
+            M68kCycleCount::from_raw(1_378),
         );
     }
 
