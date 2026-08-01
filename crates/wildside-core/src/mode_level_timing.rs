@@ -3966,31 +3966,16 @@ pub fn execute_objects_raw_cycles_sub_e12(
 }
 
 fn block_worker_raw_cycles_sub_10eda(execute: &ModeLevelExecuteObjectsWork) -> Option<u32> {
-    if execute.block_debris_workers_sub_292e != 0 {
-        if execute.block_destroy_workers_sub_10eda.is_empty() {
-            return Some(0);
-        }
-        if execute.block_destroy_workers_sub_10eda
-            == [crate::ModeLevelBlockDestroyWorkerSub10EDA::Hibernate]
-            && execute.block_debris_workers_sub_292e == 2
-        {
-            // ASM sub_10EDA and sub_292E, published TAS frame 1366. The new
-            // destroy worker resumes at loc_10F2A for a 72-cycle hibernate;
-            // the two existing debris scratch slots are not callbacks.
-            return Some(72);
-        }
-        if execute.block_destroy_workers_sub_10eda
-            == [crate::ModeLevelBlockDestroyWorkerSub10EDA::HibernateThenDebrisInitial]
-            && execute.block_debris_workers_sub_292e == 2
-        {
-            // ASM sub_10EDA loc_10F38 -> sub_292E, published TAS frame 1367.
-            // Existing debris scratch slots do not affect this callback.
-            return Some(2_454);
-        }
-        return (execute.block_destroy_workers_sub_10eda.len() == 1
-            && execute.block_debris_workers_sub_292e == 1)
-            .then_some(2_278);
-    }
+    // ASM sub_292E (kid.asm:4881-4945) never scans the debris scratch array:
+    // it writes at the `$FFFFFA9C` cursor and blindly advances `+$52`, and
+    // debris slots are not Object_RAM callbacks, so the live-swarm count
+    // cannot alter any destroy-worker cost. The per-worker constants below
+    // are therefore debris-independent by instruction sequence, not merely
+    // by measurement (frames 1348/1349/1366/1367 corroborate).
+    // TODO(fidelity): the sub_292E body still varies with the `d6` direction
+    // dispatch (42..80 cycles) and the every-6th-allocation cursor rewind
+    // (+14); the 2,382 first-pass constant bakes in one observed shape. Type
+    // those inputs if a frame ever disagrees by exactly those deltas.
     let mut cycles = 0_u32;
     for worker in &execute.block_destroy_workers_sub_10eda {
         cycles = cycles.checked_add(match worker {
@@ -4359,45 +4344,11 @@ pub fn execute_objects_elapsed_cycles_sub_e12(
                 )?;
             }
         }
-        if execute.block_debris_workers_sub_292e != 0 {
-            if execute.block_destroy_workers_sub_10eda.is_empty() {
-                // Debris scratch slots are compiled later by sub_2A4C and
-                // do not own an Execute_Objects callback.
-            } else if execute.block_destroy_workers_sub_10eda
-                == [crate::ModeLevelBlockDestroyWorkerSub10EDA::Hibernate]
-                && execute.block_debris_workers_sub_292e == 2
-            {
-                append_execute_component(
-                    &mut total,
-                    &mut raw_offset,
-                    M68kCycleCount::from_raw(72),
-                )?;
-            } else if execute.block_destroy_workers_sub_10eda
-                == [crate::ModeLevelBlockDestroyWorkerSub10EDA::HibernateThenDebrisInitial]
-                && execute.block_debris_workers_sub_292e == 2
-            {
-                append_execute_component(
-                    &mut total,
-                    &mut raw_offset,
-                    M68kCycleCount::from_raw(72),
-                )?;
-                append_execute_component(
-                    &mut total,
-                    &mut raw_offset,
-                    M68kCycleCount::from_raw(2_382),
-                )?;
-            } else if execute.block_destroy_workers_sub_10eda.len() != 1
-                || execute.block_debris_workers_sub_292e != 1
-            {
-                return None;
-            } else {
-                append_execute_component(
-                    &mut total,
-                    &mut raw_offset,
-                    M68kCycleCount::from_raw(2_278),
-                )?;
-            }
-        } else {
+        {
+            // Debris scratch slots are compiled later by sub_2A4C and do not
+            // own an Execute_Objects callback; sub_292E never scans them, so
+            // the destroy-worker components are debris-independent (see
+            // block_worker_raw_cycles_sub_10eda).
             for worker in &execute.block_destroy_workers_sub_10eda {
                 match worker {
                     crate::ModeLevelBlockDestroyWorkerSub10EDA::Hibernate => {
