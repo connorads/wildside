@@ -20443,8 +20443,25 @@ mod chunk_03 {
         );
     }
 
+    /// ASM Dragon.asm loc_3CDFC seeds `$48(a5)=9` (half-width) and `$4A(a5)=$10`
+    /// (height); ASM Lion.asm loc_3E566 calls `sub_36A58` against the CURRENT
+    /// `x_pos(a3)`, before the `$50(a5)` step is subtracted. `sub_36A58`
+    /// (kid.asm) derives the scanned column span as:
+    ///
+    /// ```text
+    /// move.w x_pos(a3),d0      ; d0 = d1 = 40   (x_pos 40<<16, whole pixels)
+    /// sub.w  $48(a5),d0        ; d0 = 40 - 9      = 31 -> lsr.w #4 -> column 1
+    /// add.w  $48(a5),d1        ; d1 = 40 + 9      = 49
+    /// subq.w #1,d1             ; d1 = 40 + 9 - 1  = 48 -> lsr.w #4 -> column 3
+    /// move.w d1,d3 / sub.w d0,d3  ; d3 = 3 - 1 = 2 -> dbf scans columns 1,2,3
+    /// ```
+    ///
+    /// So the ROM's support scan covers columns 1..=3 of row `272>>4 = 17`, and
+    /// its right edge is column 3. Native's edge probes sit at `x - 9 = 31`
+    /// (column 1) and `x + 9 = 49` (column 3), so they trace the same columns
+    /// as the ROM span.
     #[test]
-    fn dragon_walking_snapshot_reports_shared_walker_debug_fields() {
+    fn dragon_walking_trace_export_reports_shared_walker_debug_fields() {
         let grid = grid_with_platform(17, 0, 4);
         let mut enemy = test_enemy(EnemyFamily::DragonWalking, 40 << 16, 272 << 16, 2);
         enemy.on_ground = true;
@@ -20509,8 +20526,8 @@ mod chunk_03 {
                 .debug_fields
                 .get("shared_walker_probe_right_floor")
                 .map(String::as_str),
-            Some("ground=1/y=272/cell=2,17"),
-            "ASM Dragon.asm loc_3E566 shared support tracing should report the right floor probe so ledge handoffs can be traced",
+            Some("ground=1/y=272/cell=3,17"),
+            "ASM Dragon.asm loc_3E566 -> sub_36A58 puts the right edge of the `$48(a5)=9` support scan at `x + 9 - 1 = 48`, i.e. column 3 (see the derivation above the test), so the right floor probe should trace column 3",
         );
         assert_eq!(
             snapshot
