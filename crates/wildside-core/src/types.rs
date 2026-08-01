@@ -1980,6 +1980,9 @@ pub struct ModeLevelCeilingScanSub914A {
 pub enum ModeLevelAirborneHorizontalPath {
     /// ASM `loc_B0E2 -> loc_B118`.
     RightHeldAcceleration,
+    /// ASM `loc_B09E -> loc_B0B6 -> loc_B118`: left applies the helmet's
+    /// ordinary airborne acceleration.
+    LeftHeldAcceleration,
     /// ASM `loc_B09E -> loc_B0B6 -> loc_B0E2`: Run multiplies the right-held
     /// acceleration by 1.5.
     RightHeldRunAcceleration,
@@ -1989,6 +1992,9 @@ pub enum ModeLevelAirborneHorizontalPath {
     /// ASM `loc_B0E2 -> loc_B118`: right remains held above the helmet's
     /// maximum speed, so the failed acceleration is replaced by `$100` drag.
     RightHeldCapBleed,
+    /// ASM `loc_B09E -> loc_B118`: left remains held beyond the negative
+    /// speed cap, so the rejected acceleration is replaced by `$100` drag.
+    LeftHeldCapBleed,
     /// ASM `loc_B0FE -> loc_B10E -> loc_B118`.
     NeutralNegativeBrake,
     /// ASM `loc_B0FE -> loc_B118`: positive velocity subtracts `$400` and
@@ -2182,6 +2188,14 @@ pub enum ModeLevelPlayerExecutionPath {
     /// A non-Kid helmet resumes its left-facing grounded walk at ASM
     /// `loc_8BF0`.
     GroundedLeftWalkContinueLoc8bf0 {
+        form: PlayerForm,
+        x_velocity_before: i32,
+        x_velocity_after: i32,
+        ground_scan_cells_sub_b43a_8600: Vec<ModeLevelGroundScanCellSubB43A8600>,
+    },
+    /// A grounded helmet resumes at ASM `loc_8BF0` with no held direction
+    /// and applies its form-specific coasting drag before the support scans.
+    GroundedCoastLoc8bf0 {
         form: PlayerForm,
         x_velocity_before: i32,
         x_velocity_after: i32,

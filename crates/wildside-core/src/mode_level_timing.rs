@@ -3348,6 +3348,79 @@ pub fn player_callback_cycles_sub_e12(
     execute: &ModeLevelExecuteObjectsWork,
 ) -> Option<M68kCycleCount> {
     match execute.executed_player_path.as_ref()? {
+        ModeLevelPlayerExecutionPath::GroundedCoastLoc8bf0 {
+            form: crate::PlayerForm::Cyclone,
+            x_velocity_before,
+            x_velocity_after,
+            ground_scan_cells_sub_b43a_8600,
+        } if x_velocity_after.wrapping_sub(*x_velocity_before) == -0x2800
+            && matches!(
+                ground_scan_cells_sub_b43a_8600.as_slice(),
+                [crate::ModeLevelGroundScanCellSubB43A8600 {
+                    collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                    block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
+                }]
+            ) =>
+        {
+            // ASM loc_8BF0 grounded Cyclone coast, published frame 1520.
+            // Consecutive loc_E1E rows span 4,548 elapsed cycles with 70
+            // refresh-wait cycles, leaving 4,052 after the shared shell.
+            Some(M68kCycleCount::from_raw(4_052))
+        }
+        ModeLevelPlayerExecutionPath::GroundedCoastLoc8bf0 {
+            form: crate::PlayerForm::Cyclone,
+            x_velocity_before,
+            x_velocity_after,
+            ground_scan_cells_sub_b43a_8600,
+        } if x_velocity_after.wrapping_sub(*x_velocity_before) == -0x2800
+            && matches!(
+                ground_scan_cells_sub_b43a_8600.as_slice(),
+                [
+                    crate::ModeLevelGroundScanCellSubB43A8600 {
+                        collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                        block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
+                    },
+                    crate::ModeLevelGroundScanCellSubB43A8600 {
+                        collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                        block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
+                    }
+                ]
+            ) =>
+        {
+            // ASM loc_8BF0 grounded Cyclone coast with two sub_B43A support
+            // scans, published frame 1521. The player loc_E1E span is 4,132
+            // elapsed cycles with 64 refresh-wait cycles, leaving 3,642 after
+            // the shared Execute_Objects shell.
+            Some(M68kCycleCount::from_raw(3_642))
+        }
+        ModeLevelPlayerExecutionPath::GroundedCoastLoc8bf0 {
+            form: crate::PlayerForm::Cyclone,
+            x_velocity_before,
+            x_velocity_after: 0,
+            ground_scan_cells_sub_b43a_8600,
+        } if *x_velocity_before > 0
+            && *x_velocity_before <= 0x2800
+            && matches!(
+                ground_scan_cells_sub_b43a_8600.as_slice(),
+                [
+                    crate::ModeLevelGroundScanCellSubB43A8600 {
+                        collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                        block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
+                    },
+                    crate::ModeLevelGroundScanCellSubB43A8600 {
+                        collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                        block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
+                    }
+                ]
+            ) =>
+        {
+            // ASM loc_8BF0 clamps the final Cyclone coast step to zero before
+            // two sub_B43A support scans. Published frames 1525 and 1577 span
+            // 4,410 elapsed cycles with 68 refresh-wait cycles, leaving 3,916
+            // after the shared Execute_Objects shell.
+            Some(M68kCycleCount::from_raw(3_916))
+        }
+        ModeLevelPlayerExecutionPath::GroundedCoastLoc8bf0 { .. } => None,
         ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 {
             form: crate::PlayerForm::TheKid,
         } => {
@@ -3357,6 +3430,15 @@ pub fn player_callback_cycles_sub_e12(
             // shell contribute 268 + 158 cycles, leaving 2,198 here.
             Some(M68kCycleCount::from_raw(2_198))
         }
+        ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 {
+            form: crate::PlayerForm::Cyclone,
+        } => {
+            // ASM loc_7606 -> loc_78C6 for Cyclone. Published frame 1526's
+            // player loc_E1E span is 2,712 elapsed cycles with 42 refresh-wait
+            // cycles, leaving 2,244 after the shared scheduler shell.
+            Some(M68kCycleCount::from_raw(2_244))
+        }
+        ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 { .. } => None,
         ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
             form: crate::PlayerForm::TheKid,
             ground_scan_cells_sub_b43a_8600,
@@ -3395,6 +3477,29 @@ pub fn player_callback_cycles_sub_e12(
                 _ => None,
             }
         }
+        ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
+            form: crate::PlayerForm::Cyclone,
+            ground_scan_cells_sub_b43a_8600,
+        } if matches!(
+            ground_scan_cells_sub_b43a_8600.as_slice(),
+            [
+                crate::ModeLevelGroundScanCellSubB43A8600 {
+                    collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                    block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
+                },
+                crate::ModeLevelGroundScanCellSubB43A8600 {
+                    collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                    block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
+                }
+            ]
+        ) =>
+        {
+            // ASM loc_779C -> loc_7820 starts Cyclone's right walk with two
+            // support scans. Published frame 1529 spans 5,022 elapsed cycles
+            // with 78 refresh-wait cycles, leaving 4,518 after the shared
+            // Execute_Objects shell.
+            Some(M68kCycleCount::from_raw(4_518))
+        }
         ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
             form: crate::PlayerForm::Cyclone,
             x_velocity_before,
@@ -3414,6 +3519,77 @@ pub fn player_callback_cycles_sub_e12(
             // 1179. The one-cell support span measures 4,528 cycles between
             // loc_E1E rows, leaving 4,102 after the shared shell.
             Some(M68kCycleCount::from_raw(4_102))
+        }
+        ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+            form: crate::PlayerForm::Cyclone,
+            x_velocity_before,
+            x_velocity_after,
+            ground_scan_cells_sub_b43a_8600,
+        } if x_velocity_after.wrapping_sub(*x_velocity_before) == 0x1000
+            && matches!(
+                ground_scan_cells_sub_b43a_8600.as_slice(),
+                [
+                    crate::ModeLevelGroundScanCellSubB43A8600 {
+                        collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                        block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
+                    },
+                    crate::ModeLevelGroundScanCellSubB43A8600 {
+                        collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                        block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
+                    }
+                ]
+            ) =>
+        {
+            // ASM loc_8BF0 continues Cyclone's low-speed right acceleration
+            // through two support scans. Published frame 1530 spans 4,218
+            // elapsed cycles with 66 refresh-wait cycles, leaving 3,726 after
+            // the shared Execute_Objects shell.
+            Some(M68kCycleCount::from_raw(3_726))
+        }
+        ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+            form: crate::PlayerForm::Cyclone,
+            x_velocity_before,
+            x_velocity_after,
+            ground_scan_cells_sub_b43a_8600,
+        } if x_velocity_after.wrapping_sub(*x_velocity_before) == 0x1000
+            && matches!(
+                ground_scan_cells_sub_b43a_8600.as_slice(),
+                [crate::ModeLevelGroundScanCellSubB43A8600 {
+                    collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                    block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
+                }]
+            ) =>
+        {
+            // ASM loc_8BF0 continues Cyclone's low-speed right acceleration
+            // through one support scan. Published frame 1549 spans 3,996
+            // elapsed cycles with 62 refresh-wait cycles, leaving 3,508 after
+            // the shared Execute_Objects shell.
+            Some(M68kCycleCount::from_raw(3_508))
+        }
+        ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+            form: crate::PlayerForm::Cyclone,
+            x_velocity_before: 0x0002_0000,
+            x_velocity_after: 0x0002_0000,
+            ground_scan_cells_sub_b43a_8600,
+        } if matches!(
+            ground_scan_cells_sub_b43a_8600.as_slice(),
+            [
+                crate::ModeLevelGroundScanCellSubB43A8600 {
+                    collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                    block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
+                },
+                crate::ModeLevelGroundScanCellSubB43A8600 {
+                    collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                    block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
+                }
+            ]
+        ) =>
+        {
+            // ASM loc_8BF0 retains Cyclone's capped right-walk speed through
+            // two support scans. Published frame 1561 spans 4,232 elapsed
+            // cycles with 66 refresh-wait cycles, leaving 3,740 after the
+            // shared Execute_Objects shell.
+            Some(M68kCycleCount::from_raw(3_740))
         }
         ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
             form: crate::PlayerForm::Cyclone,
@@ -3625,6 +3801,18 @@ pub fn player_callback_cycles_sub_e12(
             Some(M68kCycleCount::from_raw(3_822))
         }
         ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 {
+            form: crate::PlayerForm::Cyclone,
+            x_velocity_before: 0,
+            x_velocity_after: 0,
+            y_velocity_after: -270_336,
+        } => {
+            // ASM loc_8C70 -> loc_A426 -> sub_A432 -> loc_A75A, stationary
+            // Cyclone launch on published frame 1601. The player loc_E1E span
+            // is 4,284 elapsed cycles with 72 refresh-wait cycles, leaving
+            // 3,786 after the shared Execute_Objects shell.
+            Some(M68kCycleCount::from_raw(3_786))
+        }
+        ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 {
             form: crate::PlayerForm::TheKid,
             x_velocity_before: 0x0000_3800,
             x_velocity_after: 0x0000_2A00,
@@ -3679,7 +3867,6 @@ pub fn player_callback_cycles_sub_e12(
             player_callback_cycles_loc_a73a(execute)
         }
         ModeLevelPlayerExecutionPath::LevelStartActivationLoc7508 { .. }
-        | ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 { .. }
         | ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c { .. }
         | ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 { .. }
         | ModeLevelPlayerExecutionPath::GroundedLeftWalkStartLoc779c { .. }

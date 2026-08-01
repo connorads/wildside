@@ -1496,10 +1496,14 @@ fn mode_level_airborne_horizontal_path(
     // $400 brake to a negative neutral velocity at loc_B10E.
     match x_velocity_after.wrapping_sub(x_velocity_before) {
         0x2B00 => ModeLevelAirborneHorizontalPath::RightHeldAcceleration,
+        -0x2B00 => ModeLevelAirborneHorizontalPath::LeftHeldAcceleration,
         0x4080 => ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
         -0x4080 => ModeLevelAirborneHorizontalPath::LeftHeldRunAcceleration,
         -0x0100 if x_velocity_before > 0 && x_velocity_after > 0 => {
             ModeLevelAirborneHorizontalPath::RightHeldCapBleed
+        }
+        0x0100 if x_velocity_before < 0 && x_velocity_after < 0 => {
+            ModeLevelAirborneHorizontalPath::LeftHeldCapBleed
         }
         0x0400 if x_velocity_before < 0 && x_velocity_after <= 0 => {
             ModeLevelAirborneHorizontalPath::NeutralNegativeBrake
@@ -10832,8 +10836,10 @@ impl NativeRuntime {
         let action = self.last_kid_frame_kid_flip_branch_probe;
         let grounded_stationary = self.last_kid_frame_motion_branch
             == KidFrameMotionBranch::NormalPhysics
-            && self.progression.current_form == PlayerForm::TheKid
             && self.active_platform_standing_on.is_none()
+            && self
+                .last_kid_frame_kid_flip_follow_on_probe
+                .is_some_and(|follow_on| follow_on.stages.after_press_away.x_velocity == 0)
             && self.current_player_state().is_some_and(|player| {
                 player.on_ground && player.x_velocity == 0 && player.y_velocity == 0
             })
@@ -10851,7 +10857,7 @@ impl NativeRuntime {
                 })
             && action.is_some_and(|action| !action.b_pressed && !action.c_pressed);
         if grounded_stationary {
-            // ASM loc_7606..loc_78C6 (kid.asm:7716-7967): standing The Kid
+            // ASM loc_7606..loc_78C6 (kid.asm:7716-7967): a standing form
             // with no controller action and no platform clears both
             // velocities, probes support through sub_B43A, refreshes the
             // standing sprite in sub_78E8, and returns to loc_75D4.
@@ -10861,10 +10867,17 @@ impl NativeRuntime {
         }
         let grounded_right_walk_start = self.last_kid_frame_motion_branch
             == KidFrameMotionBranch::NormalPhysics
-            && self.progression.current_form == PlayerForm::TheKid
             && self.active_platform_standing_on.is_none()
             && self.current_player_state().is_some_and(|player| {
-                player.on_ground && player.x_velocity == 0x0000_1C00 && player.y_velocity == 0
+                player.on_ground
+                    && player.y_velocity == 0
+                    // ASM unk_9C0A speed table (physics.rs NORMAL_KID): the
+                    // route's Kid walk starts land on the 0x1C00 step and its
+                    // Cyclone walk starts on the 0x1000 `walk_accel` step.
+                    && matches!(
+                        (self.progression.current_form, player.x_velocity),
+                        (PlayerForm::TheKid, 0x0000_1C00) | (PlayerForm::Cyclone, 0x0000_1000)
+                    )
             })
             && self
                 .last_kid_frame_grounded_release_probe
@@ -11190,6 +11203,36 @@ impl NativeRuntime {
                 ground_scan_cells_sub_b43a_8600: self.observe_ground_scan_cells_sub_b43a_8600(),
             };
         }
+        let grounded_coast = self.last_kid_frame_motion_branch
+            == KidFrameMotionBranch::NormalPhysics
+            && self.active_platform_standing_on.is_none()
+            && self.current_player_state().is_some_and(|player| {
+                player.on_ground && player.x_velocity == x_velocity_after && player.y_velocity == 0
+            })
+            && self
+                .last_kid_frame_grounded_release_probe
+                .is_some_and(|probe| {
+                    probe.on_ground_before
+                        && probe.held_direction.is_none()
+                        && !probe.down_held
+                        && !probe.jump_pressed
+                        && probe.jump_buffer_frames == 0
+                        && probe.velocity_branch == KidGroundedReleaseVelocityBranch::GroundedHold
+                        && probe.support_col.is_some()
+                        && !probe.release_triggered
+                })
+            && (x_velocity_before.signum() == x_velocity_after.signum() || x_velocity_after == 0)
+            && x_velocity_after.abs() < x_velocity_before.abs()
+            && !action.b_pressed
+            && !action.c_pressed;
+        if grounded_coast {
+            return ModeLevelPlayerExecutionPath::GroundedCoastLoc8bf0 {
+                form: self.progression.current_form,
+                x_velocity_before,
+                x_velocity_after,
+                ground_scan_cells_sub_b43a_8600: self.observe_ground_scan_cells_sub_b43a_8600(),
+            };
+        }
         if self.last_kid_frame_motion_branch != KidFrameMotionBranch::NormalPhysics {
             return ModeLevelPlayerExecutionPath::Unclassified;
         }
@@ -11213,12 +11256,15 @@ impl NativeRuntime {
             // `$4000` gravity step before the shared cap at loc_B1EE.
             ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0
         } else if self.progression.current_form == PlayerForm::Cyclone
-            && self.helmet.cyclone_flying
+            && stages.cyclone_acceleration_before_sub_b168.is_some()
             && !action.c_pressed
         {
             // ASM sub_B168 loc_B214 (kid.asm:14091-14126): no consumed C edge
             // takes loc_B23A, stores the acceleration at loc_B246, clamps the
             // resulting velocity, then falls through into sub_B270.
+            // The stage probe is the direct witness that the loc_B214 flight
+            // path ran this frame; the cached `helmet.cyclone_flying` flag can
+            // lag it across the launch/landing edges, so it is not consulted.
             ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress {
                 acceleration_after: self.helmet.cyclone_y_accel,
                 y_velocity_after: stages.after_jump_gravity.y_velocity,
@@ -11229,7 +11275,6 @@ impl NativeRuntime {
                     }),
             }
         } else if self.progression.current_form == PlayerForm::Cyclone
-            && self.helmet.cyclone_flying
             && action.c_pressed
             && stages.cyclone_acceleration_before_sub_b168.is_some()
         {
