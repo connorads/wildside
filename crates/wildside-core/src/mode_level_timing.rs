@@ -4765,6 +4765,21 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         )?;
 
     let shooter_scan = match (shooter.cached_col_matches, shooter.cached_row_matches) {
+        // ASM sub_F096 runs the column path through loc_F0D8/loc_F106, then
+        // falls through loc_F186 into the row path. Compose the independently
+        // pinned right-column and downward-row costs when both caches advance.
+        (false, false)
+            if shooter.cached_col_before < shooter.kid_block_col
+                && shooter.cached_row_before < shooter.kid_block_row
+                && shooter.kid_block_col >= 3
+                && shooter.kid_block_col.checked_add(3)?
+                    < i16::try_from(shooter.level_width_blocks).ok()?
+                && shooter.kid_block_row.checked_add(2)?
+                    < i16::try_from(shooter.level_height_blocks).ok()?
+                && shooter.new_shooter_slots_registered == 0 =>
+        {
+            658 + 538
+        }
         // ASM sub_F096 loc_F09E -> loc_F0D8/loc_F106 -> loc_F186 ->
         // loc_F1A8/loc_F1DE: the pull-up moves Kid one block right and one
         // block up, so both entering layout strips are scanned. Frame 957's
@@ -7887,6 +7902,20 @@ mod tests {
             post_execute_raw_cycles_before_sub_44dc(&ledger),
             Some(M68kCycleCount::from_raw(3_276)),
             "ASM loc_F0D8/loc_F106 frame-939 rightward scan adds 658 raw cycles",
+        );
+
+        let shooter = ledger
+            .post_execute
+            .shooter_scan_sub_f096
+            .as_mut()
+            .expect("typed shooter scan");
+        shooter.cached_row_matches = false;
+        shooter.cached_row_before = 7;
+        shooter.kid_block_row = 8;
+        assert_eq!(
+            post_execute_raw_cycles_before_sub_44dc(&ledger),
+            Some(M68kCycleCount::from_raw(3_814)),
+            "ASM sub_F096 composes loc_F0D8's right-column scan with loc_F186's downward-row scan",
         );
 
         ledger
