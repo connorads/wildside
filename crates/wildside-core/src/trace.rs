@@ -129,6 +129,7 @@ fn floating_diamond_gfx_collision_kid_work_sub_1b76(
     let left = x_px.checked_sub(5)?;
     let right = left.checked_add(10)?;
     let top = y_px.checked_sub(10)?;
+    let bottom = top.checked_add(10)?;
 
     if left > kid_hitbox.right {
         Some(ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedLeftEdgeBeyondKidRightLoc1bc8)
@@ -136,11 +137,31 @@ fn floating_diamond_gfx_collision_kid_work_sub_1b76(
         Some(ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedRightEdgeBeforeKidLeftLoc1bd0)
     } else if top > kid_hitbox.bottom {
         Some(ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedTopEdgeBeyondKidBottomLoc1bde)
+    } else if bottom < kid_hitbox.top {
+        Some(ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedBottomEdgeBeforeKidTopLoc1be6)
     } else {
-        // Bottom-edge rejection and every overlap response path need more
-        // typed state than the published frontier currently exercises.
-        None
+        // ASM GfxObjects_CollisionKid_Collide (kid.asm:3377-3380): once every
+        // edge rejection fails, `cmpi.w #4,8(a2)` sends kind-4 objects to
+        // loc_1D5A unconditionally, and the floating prize Diamond is kind 4,
+        // so the overlap outcome has exactly one response path here.
+        Some(ModeLevelGfxCollisionKidNodeWorkSub1B76::PrizeOverlapLoc1d5a)
     }
+}
+
+fn floating_item_is_linked_for_post_hud(runtime: &NativeRuntime, item: &FloatingItem) -> bool {
+    !item.collected
+        || (item.content == terrain::PrizeContent::Diamond
+            && !runtime.pending_prize_diamond_awards.is_empty()
+            && runtime
+                .mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .is_some_and(|ledger| {
+                    ledger
+                        .execute_objects
+                        .floating_prize_paths
+                        .iter()
+                        .any(|work| work.content == terrain::PrizeContent::Diamond)
+                }))
 }
 
 fn floating_cyclone_gfx_collision_kid_work_sub_1b76(
@@ -183,7 +204,7 @@ fn mode_level_gfx_collision_kid_f86e_work_sub_1b76(
     let live_floating_items = runtime
         .floating_items
         .iter()
-        .filter(|item| !item.collected)
+        .filter(|item| floating_item_is_linked_for_post_hud(runtime, item))
         .collect::<Vec<_>>();
     let inert_workers = runtime
         .block_bounces
@@ -289,7 +310,11 @@ fn mode_level_gfx_move_animate_work_sub_1444(
             allocation_age: prize_flash_allocation_age(flash.remaining),
         }
     }));
-    for item in runtime.floating_items.iter().filter(|item| !item.collected) {
+    for item in runtime
+        .floating_items
+        .iter()
+        .filter(|item| floating_item_is_linked_for_post_hud(runtime, item))
+    {
         // ASM PrizeDiamond_Init loc_10396 swaps to blinking stru_10D80 at
         // `$C8`; its zero-frame sprite entries need a separate typed script.
         let allocation_age =
@@ -550,7 +575,11 @@ fn mode_level_gfx_sprite_work_sub_1492(
             },
         );
     }
-    for item in runtime.floating_items.iter().filter(|item| !item.collected) {
+    for item in runtime
+        .floating_items
+        .iter()
+        .filter(|item| floating_item_is_linked_for_post_hud(runtime, item))
+    {
         // ASM PrizeDiamond_Init loc_10396 changes to blinking mappings at
         // `$C8`; their zero-frame entries need a separate typed source path.
         if (item.content == terrain::PrizeContent::Diamond && item.remaining <= 0x00C8)
@@ -1178,6 +1207,17 @@ fn prize_object_execution_order_sub_e12(
         order.push(ModeLevelPrizeObjectExecutionSubE12::PlayerSpawnedBlockDestroyInitialSub10EDA);
     }
     order.extend(equal_workers.into_iter().map(|(_, _, _, work)| work));
+    order.extend(
+        execute
+            .collected_diamond_workers
+            .iter()
+            .enumerate()
+            .map(
+                |(index, _)| ModeLevelPrizeObjectExecutionSubE12::CollectedDiamond {
+                    index: index as u16,
+                },
+            ),
+    );
     Some(order)
 }
 
@@ -2688,6 +2728,7 @@ mod tests {
                     prize_block_worker_tails_sub_1007a: 1,
                     prize_block_flash_workers_loc_102b8: 1,
                     floating_prize_workers: 1,
+                    collected_diamond_workers: Vec::new(),
                     active_enemy_workers: 0,
                     active_platform_workers: 0,
                     palette_rotation_worker_loc_11f96: 0,
@@ -2939,6 +2980,7 @@ mod tests {
             prize_block_worker_tails_sub_1007a: 1,
             prize_block_flash_workers_loc_102b8: flash_remaining.len() as u16,
             floating_prize_workers: floating_remaining.len() as u16,
+            collected_diamond_workers: Vec::new(),
             rubber_block_skin_workers_sub_10de4: 0,
             active_enemy_workers: 0,
             active_platform_workers: 0,
@@ -10215,6 +10257,10 @@ impl NativeRuntime {
         let prize_block_worker_tails_sub_1007a =
             self.count_visible_prize_block_worker_tails() as u16;
         let prize_block_flash_workers_loc_102b8 = self.prize_block_spawn_flashes.len() as u16;
+        // Collected Diamonds are modelled by `collected_diamond_workers`
+        // below, never here: `prize_object_execution_order_sub_e12` demands
+        // `floating_prize_workers == floating_prize_paths.len()`, and
+        // `floating_prize_paths` only carries uncollected items.
         let floating_prize_workers = self
             .floating_items
             .iter()
@@ -10287,7 +10333,60 @@ impl NativeRuntime {
                 delete_list_work: None,
             })
             .collect();
-        let floating_prize_paths = self
+        // A collected Diamond stays in `floating_items` for exactly one
+        // pre-HUD observation (collection frame + 1), and the award queue is
+        // pushed in the same collection call, so `collected` implies a
+        // non-empty award queue while the item is still present. That single
+        // frame is ASM PrizeDiamondCollected_Init's first pass.
+        let source_collected_diamond_initial_count = self
+            .floating_items
+            .iter()
+            .filter(|item| {
+                item.collected
+                    && item.content == terrain::PrizeContent::Diamond
+                    && !self.pending_prize_diamond_awards.is_empty()
+            })
+            .count();
+        let mut collected_diamond_workers = self
+            .pending_prize_diamond_hud_flights
+            .iter()
+            .map(
+                |flight| crate::ModeLevelCollectedDiamondWorkerPhase::Resumed {
+                    remaining: flight.remaining_delay,
+                },
+            )
+            .collect::<Vec<_>>();
+        // Flights push in collection order, so the entries created by this
+        // frame's still-present collected items are the newest ones.
+        let resumed_flight_count = collected_diamond_workers
+            .len()
+            .saturating_sub(source_collected_diamond_initial_count);
+        for phase in collected_diamond_workers
+            .iter_mut()
+            .skip(resumed_flight_count)
+        {
+            *phase = crate::ModeLevelCollectedDiamondWorkerPhase::Initial;
+        }
+        for _ in collected_diamond_workers.len()..source_collected_diamond_initial_count {
+            collected_diamond_workers.push(crate::ModeLevelCollectedDiamondWorkerPhase::Initial);
+        }
+        if collected_diamond_workers.is_empty()
+            && self.level_prize_collected
+            // Exactly one count step: `level_prize_collected` stays set for
+            // the rest of the level once any prize resolves, and the
+            // immediate `collect_diamond` path (ten-diamond prize) raises the
+            // count by more than one, so both would otherwise synthesise a
+            // phantom terminal worker here.
+            && self.progression.diamond_count == self.hud_diamond_count_loc_bdc0.wrapping_add(1)
+        {
+            // ASM Increase_Diamonds is entering its terminal DBF fall-through
+            // this frame: the delayed award applied after the previous HUD
+            // latch, so `Number_Diamonds` leads the cached HUD count by one
+            // at this pre-HUD boundary while the `$6000` worker is still
+            // linked for its deleting pass.
+            collected_diamond_workers.push(crate::ModeLevelCollectedDiamondWorkerPhase::Terminal);
+        }
+        let floating_prize_paths: Vec<ModeLevelFloatingPrizeWork> = self
             .floating_items
             .iter()
             .filter(|item| !item.collected)
@@ -10343,6 +10442,7 @@ impl NativeRuntime {
                 prize_block_worker_tails_sub_1007a,
                 prize_block_flash_workers_loc_102b8,
                 floating_prize_workers,
+                collected_diamond_workers,
                 rubber_block_skin_workers_sub_10de4,
                 active_enemy_workers,
                 active_platform_workers,
@@ -10424,8 +10524,31 @@ impl NativeRuntime {
     pub(crate) fn observe_mode_level_work_after_hud_sub_44dc(&self) -> ModeLevelPostHudWorkLedger {
         let camera = self.current_camera_state();
         let active_objects = self.active_objects();
-        let (_, linked_gfx_object_count) =
+        let (_, native_linked_gfx_object_count) =
             self.object_counts_from_roster(&active_objects, camera.x_pos, camera.y_pos);
+        let entry_has_floating_diamond = self
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .is_some_and(|ledger| {
+                ledger
+                    .execute_objects
+                    .floating_prize_paths
+                    .iter()
+                    .any(|work| work.content == terrain::PrizeContent::Diamond)
+            });
+        // DEVIATION: native keeps a collected Diamond's gfx allocation linked
+        // for one frame longer than ROM's PrizeDiamond_Init tail deletion, so
+        // the observed count is corrected down to the source count here (the
+        // pre-HUD twin at `observe_mode_level_work_before_hud_sub_44dc` makes
+        // the mirror-image correction).
+        let collected_diamond_count = if entry_has_floating_diamond {
+            0
+        } else {
+            u16::try_from(self.pending_prize_diamond_awards.len())
+                .expect("ROM collected Diamond count fits u16")
+        };
+        let linked_gfx_object_count =
+            native_linked_gfx_object_count.saturating_sub(collected_diamond_count);
         let active_platform_object_count = active_objects
             .iter()
             .filter(|object| matches!(object.kind, NativeObjectKind::Platform { .. }))
@@ -11238,10 +11361,37 @@ impl NativeRuntime {
                         })
                         .count()
                 });
+        let deleted_diamond_tail_overlap_count = self
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .map_or(0, |ledger| {
+                ledger
+                    .execute_objects
+                    .prize_block_tail_paths_sub_1066
+                    .iter()
+                    .filter(|tail| {
+                        tail.content == Some(terrain::PrizeContent::Diamond)
+                            && matches!(
+                                tail.state,
+                                ModeLevelPrizeBlockTailState::DeletedWorkerOverlap { .. }
+                            )
+                    })
+                    .count()
+            });
         let entry_floating_prize_count = self
             .mode_level_work_before_hud_sub_44dc
             .as_ref()
             .map_or(0, |ledger| ledger.execute_objects.floating_prize_workers);
+        let entry_has_floating_diamond = self
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .is_some_and(|ledger| {
+                ledger
+                    .execute_objects
+                    .floating_prize_paths
+                    .iter()
+                    .any(|work| work.content == terrain::PrizeContent::Diamond)
+            });
         let current_floating_prize_paths = self
             .floating_items
             .iter()
@@ -11351,6 +11501,49 @@ impl NativeRuntime {
             ledger.execute_objects.prize_block_worker_tails_sub_1007a =
                 u16::try_from(ledger.execute_objects.prize_block_tail_paths_sub_1066.len())
                     .expect("ROM prize-tail count fits u16");
+            let deleted_diamond_tail_overlap_count =
+                u16::try_from(deleted_diamond_tail_overlap_count)
+                    .expect("ROM deleted Diamond-tail overlap count fits u16");
+            let replacement_smash_allocation =
+                u16::from(player_spawned_smash_worker && materialised_entry_floating_prize);
+            // Count the live-award workers from the ledger's own vector, not
+            // from `pending_prize_diamond_awards` re-read here: this block
+            // runs after `step_pending_prize_diamond_awards`, which empties
+            // the queue on the award frame, while the ledger (and the roster
+            // count's matching addition) observed the pre-step queue. The
+            // hud-lag Terminal worker never had a matching addition, so it is
+            // excluded.
+            let collected_diamond_count = if entry_has_floating_diamond {
+                0
+            } else {
+                u16::try_from(
+                    ledger
+                        .execute_objects
+                        .collected_diamond_workers
+                        .iter()
+                        .filter(|phase| {
+                            !matches!(phase, crate::ModeLevelCollectedDiamondWorkerPhase::Terminal)
+                        })
+                        .count(),
+                )
+                .expect("ROM collected Diamond count fits u16")
+            };
+            // ASM PrizeDiamond_Init loc_10396 deletes the old tail before a
+            // later Block_LoadSmashBits sub_10E86 allocation can reuse the
+            // linked lists. Native retains the collected Diamond worker for
+            // one extra frame, so expose the source count to the scheduler.
+            ledger.execute_objects.linked_object_count = ledger
+                .execute_objects
+                .linked_object_count
+                .saturating_sub(deleted_diamond_tail_overlap_count)
+                .saturating_sub(collected_diamond_count)
+                .saturating_add(replacement_smash_allocation);
+            ledger.execute_objects.linked_gfx_object_count = ledger
+                .execute_objects
+                .linked_gfx_object_count
+                .saturating_sub(deleted_diamond_tail_overlap_count)
+                .saturating_sub(collected_diamond_count)
+                .saturating_add(replacement_smash_allocation);
             if materialised_entry_floating_prize {
                 let initial_index = current_floating_prize_paths
                     .len()

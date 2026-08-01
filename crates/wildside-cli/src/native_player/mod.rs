@@ -20638,7 +20638,7 @@ mod tests {
     }
 
     #[test]
-    fn published_tas_frame_1730_unclassified_prize_paths_reject_diamond_lower_bound_loc_4626() {
+    fn published_tas_frame_1730_complete_prize_roster_bounds_diamond_commit_loc_4626() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
@@ -20680,8 +20680,16 @@ mod tests {
             command,
         );
         assert_eq!(
-            timing, None,
-            "ASM loc_103B2 row-advance costs remain unclassified; the complete floating-prize roster must keep the frame-1730 Diamond bound fail-closed",
+            timing,
+            Some(wildside_core::vdp::H40FifoCommitPosition {
+                scanline: 19,
+                pixel: 220,
+            }),
+            "ASM loc_103B2/loc_103F4 row-advance costs are typed, so the \
+             complete floating-prize roster computes an earliest-commit lower \
+             bound of H40 19:220 for the frame-1730 Diamond DMA — below the \
+             oracle's actual 20:380 start (a valid bound; the residue is the \
+             un-modelled VBlank VDP-ownership term, ADR 0002)",
         );
     }
 

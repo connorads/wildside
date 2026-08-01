@@ -1855,14 +1855,44 @@ pub struct ModeLevelFloatingPrizeWork {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModeLevelPrizeObjectExecutionSubE12 {
-    FloatingPrize { index: u16 },
-    FloatingPrizeInitialSub102F8 { index: u16 },
+    FloatingPrize {
+        index: u16,
+    },
+    FloatingPrizeInitialSub102F8 {
+        index: u16,
+    },
     Player,
     PlayerSpawnedInitialSub1007A,
     PlayerSpawnedBlockDestroyInitialSub10EDA,
-    FlashLoc102B8 { index: u16 },
-    WobbleSub1007A { index: u16 },
-    TailSub1007A { index: u16 },
+    FlashLoc102B8 {
+        index: u16,
+    },
+    WobbleSub1007A {
+        index: u16,
+    },
+    TailSub1007A {
+        index: u16,
+    },
+    /// ASM PrizeDiamondCollected_Init / Increase_Diamonds (`kid.asm`).
+    CollectedDiamond {
+        index: u16,
+    },
+}
+
+/// One collected-Diamond `$6000` worker's position in its ASM
+/// `PrizeDiamondCollected_Init` -> `Increase_Diamonds` lifecycle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelCollectedDiamondWorkerPhase {
+    /// First `Execute_Objects` pass: `PrizeDiamondCollected_Init` through
+    /// the first `Increase_Diamonds` hibernate.
+    Initial,
+    /// A resumed HUD-flight iteration inside `Increase_Diamonds loc_FEFE`,
+    /// carrying the flight's remaining delay frames.
+    Resumed { remaining: u8 },
+    /// The terminal `Increase_Diamonds` DBF fall-through that increments
+    /// `Number_Diamonds` and deletes both Object/GfxObject slots.
+    Terminal,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -2279,6 +2309,9 @@ pub struct ModeLevelExecuteObjectsWork {
     pub prize_block_worker_tails_sub_1007a: u16,
     pub prize_block_flash_workers_loc_102b8: u16,
     pub floating_prize_workers: u16,
+    /// Live selector-$6000 PrizeDiamondCollected_Init workers.
+    #[serde(default)]
+    pub collected_diamond_workers: Vec<ModeLevelCollectedDiamondWorkerPhase>,
     pub rubber_block_skin_workers_sub_10de4: u16,
     pub active_enemy_workers: u16,
     pub active_platform_workers: u16,

@@ -3713,14 +3713,15 @@ fn is_first_level_start_execute_objects_sub_e12(execute: &ModeLevelExecuteObject
 ///
 /// `None` preserves branch uncertainty. VDP bus stalls are deliberately
 /// excluded and belong to the raster scheduler.
+// ASM loc_E1E -> loc_E3E -> callback costs 224 cycles on the runnable
+// path. A one-frame hibernate at sub_E76 costs another 158 raw cycles before
+// the next loc_E1E.
+const RUNNABLE_HIBERNATE_SHELL_CYCLES: u32 = 380;
+
 pub fn prize_object_cycles_sub_e12(
     execute: &ModeLevelExecuteObjectsWork,
     callback: ModeLevelPrizeObjectExecutionSubE12,
 ) -> Option<M68kCycleCount> {
-    // ASM loc_E1E -> loc_E3E -> callback costs 224 cycles on the runnable
-    // path. A one-frame hibernate at sub_E76 costs another 158 raw cycles before
-    // the next loc_E1E.
-    const RUNNABLE_HIBERNATE_SHELL_CYCLES: u32 = 380;
     const RUNNABLE_DISPATCH_CYCLES: u32 = 222;
 
     let callback_cycles = match callback {
@@ -3750,13 +3751,17 @@ pub fn prize_object_cycles_sub_e12(
                 (true, ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallAdvanceRow) => 278,
                 // ASM loc_103B2 -> loc_103DE -> loc_10404 -> loc_10396.
                 (false, ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallSameRow) => 232,
+                // ASM loc_103F4 takes the changed-row branch through BCLR and
+                // advances a2 by Level_width_tiles before rejoining loc_10402.
+                (false, ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallAdvanceRow) => 260,
                 // The lower-cell Level_Layout probe adds 78 cycles.
                 (false, ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallSameRow) => 308,
+                (false, ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallAdvanceRow) => 336,
                 // ASM loc_103DA skips gravity and rejoins the bottom/collision
                 // checks at loc_10404.
                 (false, ModeLevelFloatingPrizeFallPathLoc103B2::BlockedCurrentRow) => 190,
-                // Row-advance and blocked-grace costs need independent source
-                // probes before they can enter the cycle scheduler.
+                // Blocked-grace costs need an independent source probe before
+                // they can enter the cycle scheduler.
                 _ => return None,
             }
         }
@@ -3822,10 +3827,49 @@ pub fn prize_object_cycles_sub_e12(
                 | ModeLevelPrizeBlockTailState::UnclassifiedAnimationWait { .. } => return None,
             }
         }
+        ModeLevelPrizeObjectExecutionSubE12::CollectedDiamond { index } => {
+            return Some(collected_diamond_worker_cycles_sub_e12(
+                *execute.collected_diamond_workers.get(usize::from(index))?,
+            ));
+        }
     };
     Some(M68kCycleCount(
         RUNNABLE_HIBERNATE_SHELL_CYCLES + callback_cycles,
     ))
+}
+
+/// Complete `Execute_Objects` visit cost for one collected-Diamond `$6000`
+/// worker pass (ASM `PrizeDiamondCollected_Init` / `Increase_Diamonds`).
+pub fn collected_diamond_worker_cycles_sub_e12(
+    phase: crate::ModeLevelCollectedDiamondWorkerPhase,
+) -> M68kCycleCount {
+    match phase {
+        crate::ModeLevelCollectedDiamondWorkerPhase::Initial => {
+            // ASM PrizeDiamondCollected_Init through the first
+            // Increase_Diamonds hibernate. The frame-1409 complete E1E
+            // journal measures 546 elapsed = 538 raw + four refreshes;
+            // `$19(a3)` suppresses the duplicate PlaySound path.
+            M68kCycleCount::from_raw(538)
+        }
+        crate::ModeLevelCollectedDiamondWorkerPhase::Resumed { .. } => {
+            // ASM Increase_Diamonds loc_FEFE: each resumed iteration updates
+            // the cached HUD arc, writes world coordinates, DBFs, then
+            // hibernates. Frame-1410 E1E journal: 548 elapsed from phase 96
+            // to phase 4 is 540 raw plus four refreshes (phase 96 + 548
+            // wraps to 4 mod 128, so the elapsed span pins raw at 540). The
+            // shared runnable/hibernate shell is 380 raw; loc_FEFE plus the
+            // short-jump trampoline and JSR contribute the remaining 160.
+            M68kCycleCount::from_raw(RUNNABLE_HIBERNATE_SHELL_CYCLES + 160)
+        }
+        crate::ModeLevelCollectedDiamondWorkerPhase::Terminal => {
+            // ASM Increase_Diamonds terminal DBF fall-through increments
+            // Number_Diamonds and deletes both Object/GfxObject slots.
+            // Terminal-frame E1E rows measure 1,400 elapsed from phase 96 to
+            // 88: 1,378 raw plus eleven refresh events. Diamond count 1
+            // skips both power-available PlaySound branches.
+            M68kCycleCount::from_raw(1_378)
+        }
+    }
 }
 
 /// Complete raw CPU cost of the source-typed natural `Execute_Objects` pass.
@@ -3857,7 +3901,24 @@ pub fn execute_objects_raw_cycles_sub_e12(
         return Some(M68kCycleCount(cycles));
     }
 
-    if execute.linked_non_transient_object_count != 4
+    let terminal_collected_diamond = execute.linked_non_transient_object_count == 5
+        && execute.collected_diamond_workers
+            == [crate::ModeLevelCollectedDiamondWorkerPhase::Terminal];
+    let materialised_diamond_replaces_tail = execute.linked_non_transient_object_count == 3
+        && execute
+            .prize_object_execution_order_sub_e12
+            .as_deref()
+            .is_some_and(|order| {
+                order.iter().any(|callback| {
+                    matches!(
+                        callback,
+                        ModeLevelPrizeObjectExecutionSubE12::FloatingPrizeInitialSub102F8 { .. }
+                    )
+                })
+            });
+    if (execute.linked_non_transient_object_count != 4
+        && !terminal_collected_diamond
+        && !materialised_diamond_replaces_tail)
         || execute.rubber_block_skin_workers_sub_10de4 != 0
         || execute.active_enemy_workers != 0
         || execute.active_platform_workers != 0
@@ -7443,6 +7504,7 @@ mod tests {
             prize_block_worker_tails_sub_1007a: 0,
             prize_block_flash_workers_loc_102b8: 0,
             floating_prize_workers: 0,
+            collected_diamond_workers: Vec::new(),
             rubber_block_skin_workers_sub_10de4: 0,
             active_enemy_workers: 0,
             active_platform_workers: 0,
