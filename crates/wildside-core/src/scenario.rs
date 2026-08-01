@@ -338,30 +338,17 @@ impl NativeRuntime {
     }
 
     pub fn settle_recording_oracle_warp_live_window(&mut self, level_id: LevelId) {
-        // ASM loc_1AE2E/loc_74E0 feed recording oracles through the helper's
-        // `_settled_recording_oracle` branch. Level 0 comes straight through
-        // the title-card gate and waits 60 stable live frames; Level 1 still
-        // reaches the ROM's level-skip resume tail that native `boot_to_level`
-        // shortcuts. Oracle settle tracing ends Level 1 at RNG offset $FFCB;
-        // the first scenario frame then advances to $FFCF via Drips loc_3340E.
-        let debug_lifecycle_completed = self.recording_oracle_debug_lifecycle_completed;
-        if debug_lifecycle_completed {
-            // ASM loc_1AE2E -> loc_6E2 -> Load_InGame rebuilds the enemy
-            // status table immediately before the target's first Mode_Level
-            // pass. The typed debug title lifecycle has already created and
-            // aged target objects through that same shell, so preserve those
-            // live objects while rebuilding status/loading state.
-            self.killed_enemies.clear();
-            self.enemy_status_words.fill(0);
-            self.enemy_loading_initial_pass_complete = false;
-        }
-        if level_id == LevelId(0)
-            || (!debug_lifecycle_completed
-                && oracle_warp_primes_respawn_settle_enemy_loading(level_id))
-        {
-            self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
-        }
-        self.prime_recording_warp_sprite_animation_clocks();
+        self.settle_recording_oracle_warp_live_window_with_target_frames(level_id, None);
+    }
+
+    /// Today's hand-tuned window model: the per-level table plus family-keyed
+    /// adjustments. Must be evaluated AFTER the respawn-settle enemy loading
+    /// prime — the family adjustment reads the freshly activated roster.
+    fn resolve_recording_oracle_warp_live_frames_hand_model(
+        &self,
+        level_id: LevelId,
+        debug_lifecycle_completed: bool,
+    ) -> usize {
         // ASM loc_74E0 enters the target Mode_Level object schedule while the
         // recording helper is still inside its fixed title wait. Nearby
         // Drillers spawn 63 object passes before target_live step zero, so
@@ -391,9 +378,55 @@ impl NativeRuntime {
         // the hidden level-skip shell. Drips.asm loc_3340E/loc_33424 exposes
         // seven fewer passes than native's generic stable target window;
         // derive that correction from the active family, not the level ID.
-        let target_live_frames =
-            recording_oracle_warp_target_live_frames(level_id, debug_lifecycle_completed)
-                .saturating_add_signed(enemy_level_skip_adjustment);
+        recording_oracle_warp_target_live_frames(level_id, debug_lifecycle_completed)
+            .saturating_add_signed(enemy_level_skip_adjustment)
+    }
+
+    /// #442: the hidden live window every settled-warp caller runs. All five
+    /// harness callers route through here; `target_live_frames_override`
+    /// exists so a measured (oracle-settle-census) window can replace the
+    /// hand-tuned model below without touching callers. The measured swap is
+    /// STOPPED until native reproduces the shell's RNG content — the census
+    /// measured the window at exactly 60 on 0x30/0x50/0x60/0x61 while frame-0
+    /// probes show the RNG ring content diverging, so the fudge the table
+    /// compensates for lives in shell content, not window length (archive
+    /// #442, 2026-08-01).
+    fn settle_recording_oracle_warp_live_window_with_target_frames(
+        &mut self,
+        level_id: LevelId,
+        target_live_frames_override: Option<usize>,
+    ) {
+        // ASM loc_1AE2E/loc_74E0 feed recording oracles through the helper's
+        // `_settled_recording_oracle` branch. Level 0 comes straight through
+        // the title-card gate and waits 60 stable live frames; Level 1 still
+        // reaches the ROM's level-skip resume tail that native `boot_to_level`
+        // shortcuts. Oracle settle tracing ends Level 1 at RNG offset $FFCB;
+        // the first scenario frame then advances to $FFCF via Drips loc_3340E.
+        let debug_lifecycle_completed = self.recording_oracle_debug_lifecycle_completed;
+        if debug_lifecycle_completed {
+            // ASM loc_1AE2E -> loc_6E2 -> Load_InGame rebuilds the enemy
+            // status table immediately before the target's first Mode_Level
+            // pass. The typed debug title lifecycle has already created and
+            // aged target objects through that same shell, so preserve those
+            // live objects while rebuilding status/loading state.
+            self.killed_enemies.clear();
+            self.enemy_status_words.fill(0);
+            self.enemy_loading_initial_pass_complete = false;
+        }
+        if level_id == LevelId(0)
+            || (!debug_lifecycle_completed
+                && oracle_warp_primes_respawn_settle_enemy_loading(level_id))
+        {
+            self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
+        }
+        self.prime_recording_warp_sprite_animation_clocks();
+        let target_live_frames = match target_live_frames_override {
+            Some(frames) => frames,
+            None => self.resolve_recording_oracle_warp_live_frames_hand_model(
+                level_id,
+                debug_lifecycle_completed,
+            ),
+        };
         self.settle_target_level_live_window(level_id, target_live_frames);
         // ASM Init_SpriteAttr_HUD loc_BDC0 seeds Time_SubSeconds to 1. The
         // level-skip tail is level-dependent: #289 Level 0x07 watches reach
