@@ -1272,7 +1272,7 @@ mod tests {
     }
 
     #[test]
-    fn tank_active_snapshot_exposes_turret_child_from_loc_3b372() {
+    fn tank_active_trace_export_exposes_turret_child_from_loc_3b372() {
         let tank = ActiveEnemy {
             segment_index: 0,
             layout_index: 1,
@@ -1379,7 +1379,7 @@ mod tests {
     }
 
     #[test]
-    fn tank_hurt_snapshot_uses_recoiled_child_offset_from_loc_3b49a() {
+    fn tank_hurt_trace_export_uses_recoiled_child_offset_from_loc_3b49a() {
         let mut tank = ActiveEnemy {
             segment_index: 0,
             layout_index: 9,

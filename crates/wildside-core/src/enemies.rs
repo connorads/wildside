@@ -10407,7 +10407,7 @@ mod tests {
     }
 
     #[test]
-    fn goat_snapshot_hides_grounded_shared_walker_patrol_speed_loc_3cc52() {
+    fn goat_trace_export_hides_grounded_shared_walker_patrol_speed_loc_3cc52() {
         let mut enemy = ActiveEnemy {
             family: EnemyFamily::Goat,
             hit_points: 5,
@@ -10435,7 +10435,7 @@ mod tests {
     }
 
     #[test]
-    fn hand_snapshot_exports_live_render_phase_loc_327f2_328e0_32906() {
+    fn hand_trace_export_exports_live_render_phase_loc_327f2_328e0_32906() {
         let mut enemy = ActiveEnemy {
             family: EnemyFamily::Hand,
             hit_points: 1,
@@ -11367,7 +11367,7 @@ mod tests {
     }
 
     #[test]
-    fn drips_snapshot_exposes_controller_wait_loc_3340e() {
+    fn drips_trace_export_exposes_controller_wait_loc_3340e() {
         let mut drips = mini_hopping_skull_test_enemy();
         drips.family = EnemyFamily::Drips;
         drips.wait_timer = 0x0040;

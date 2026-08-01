@@ -563,7 +563,7 @@ mod tests {
     }
 
     #[test]
-    fn scorpion_active_snapshot_exposes_tail_child_from_loc_3dc86() {
+    fn scorpion_active_trace_export_exposes_tail_child_from_loc_3dc86() {
         let scorpion = ActiveEnemy {
             family: EnemyFamily::Scorpion,
             x_pos: 0x0120_8000,

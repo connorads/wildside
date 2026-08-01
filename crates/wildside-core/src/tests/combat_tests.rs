@@ -14974,7 +14974,7 @@ mod chunk_03 {
     }
 
     #[test]
-    fn multi_head_boss_snapshot_reports_death_script_phase_loc_39ebe_39f7a() {
+    fn multi_head_boss_trace_export_reports_death_script_phase_loc_39ebe_39f7a() {
         let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0040_0000, 1);
         boss.boss_head_index = 0;
         boss.hit_points = 0;
@@ -15544,7 +15544,7 @@ mod chunk_03 {
     }
 
     #[test]
-    fn multi_head_boss_snapshot_reports_eye_parent_animation_words_loc_3893e_389d6() {
+    fn multi_head_boss_trace_export_reports_eye_parent_animation_words_loc_3893e_389d6() {
         let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0200_0000, 0x0100_0000, 1);
         boss.boss_head_index = 0;
         boss.boss_eye_orbit_workers =
@@ -15626,7 +15626,7 @@ mod chunk_03 {
     }
 
     #[test]
-    fn fire_demon_snapshot_reports_palette_helper_phase_loc_3a4c2() {
+    fn fire_demon_trace_export_reports_palette_helper_phase_loc_3a4c2() {
         let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0080_0000, 0x0040_0000, 1);
         demon.heady_metal_palette_phase_counter = 3;
         demon.heady_metal_palette_word_5e = 0;
@@ -20523,7 +20523,7 @@ mod chunk_03 {
     }
 
     #[test]
-    fn lion_snapshot_reports_postfire_timing_debug_fields_loc_3e078_3e0f4_3e11e() {
+    fn lion_trace_export_reports_postfire_timing_debug_fields_loc_3e078_3e0f4_3e11e() {
         let mut enemy = test_enemy(EnemyFamily::Lion, 529 << 16, 704 << 16, 2);
         enemy.lion_state = LionState::PostFire;
         enemy.wait_timer = 18;
@@ -20552,7 +20552,7 @@ mod chunk_03 {
     }
 
     #[test]
-    fn ufo_snapshot_reports_linked_object_x_debug_field_loc_3531a() {
+    fn ufo_trace_export_reports_linked_object_x_debug_field_loc_3531a() {
         let mut enemy = test_enemy(EnemyFamily::UFO, 0x0120_8000, 0x0080_4000, 2);
         enemy.facing = Direction::Left;
 
@@ -20579,7 +20579,7 @@ mod chunk_03 {
     }
 
     #[test]
-    fn mini_hopping_skull_snapshot_reports_air_sprite_debug_field_loc_3ea88() {
+    fn mini_hopping_skull_trace_export_reports_air_sprite_debug_field_loc_3ea88() {
         let mut enemy = test_enemy(EnemyFamily::MiniHoppingSkull, 0x0120_0000, 0x0080_0000, 2);
         enemy.on_ground = false;
         enemy.y_velocity = -1;

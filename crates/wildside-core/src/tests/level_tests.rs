@@ -15544,7 +15544,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// the live score display before the row can advance.
     #[test]
     #[allow(non_snake_case)]
-    fn loc_D770_eol_score_counter_snapshot_replays_visible_drain_state() {
+    fn loc_D770_eol_score_counter_trace_export_replays_visible_drain_state() {
         let start = crate::level::eol_score_counter_snapshot_loc_D770(1_000, &[100, 80], 0);
         assert_eq!(start.score, 1_000);
         assert_eq!(&start.remaining_amounts[..start.amount_count], &[100, 80]);

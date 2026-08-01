@@ -347,7 +347,7 @@ mod tests {
     }
 
     #[test]
-    fn sphere_snapshot_exposes_unwritten_current_hp_loc_35ef2() {
+    fn sphere_trace_export_exposes_unwritten_current_hp_loc_35ef2() {
         let mut enemy = sphere_test_enemy();
         enemy.hit_points = 2;
 

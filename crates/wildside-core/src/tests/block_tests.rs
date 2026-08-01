@@ -1066,7 +1066,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn enemy_snapshots_include_layout_identity_and_motion_fields() {
+    fn enemy_trace_exports_include_layout_identity_and_motion_fields() {
         let mut runtime = NativeRuntime::new(manifest_with_nearby_skull());
         runtime.set_block_grid(grid_with_floor_at_row(17));
         start_level(&mut runtime);
@@ -16518,7 +16518,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn active_platform_snapshot_carries_loader_offset_words_loc_286e() {
+    fn active_platform_trace_export_carries_loader_offset_words_loc_286e() {
         let mut platform = make_test_platform(0, 0, 2, 1);
         platform.layout_index = Some(3);
 
@@ -17894,7 +17894,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn platform_loader_slot_model_snapshots_follow_reused_slot_chain_loc_257e() {
+    fn platform_loader_slot_model_trace_exports_follow_reused_slot_chain_loc_257e() {
         let active_window = ActivationWindow {
             x_min: 320,
             x_max: 320,
@@ -17963,7 +17963,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn platform_loader_state_snapshots_follow_reused_slot_chain_loc_257e() {
+    fn platform_loader_state_trace_exports_follow_reused_slot_chain_loc_257e() {
         let active_window = ActivationWindow {
             x_min: 320,
             x_max: 320,
@@ -18216,7 +18216,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn platform_loader_snapshot_keeps_loaded_special_slot_out_of_range_loc_2850() {
+    fn platform_loader_trace_export_keeps_loaded_special_slot_out_of_range_loc_2850() {
         let inactive_window = ActivationWindow {
             x_min: 640,
             x_max: 640,
@@ -18326,7 +18326,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn active_platform_snapshot_exposes_loader_offset_words_loc_286e() {
+    fn active_platform_trace_export_exposes_loader_offset_words_loc_286e() {
         let window = ActivationWindow {
             x_min: 320,
             x_max: 320,
