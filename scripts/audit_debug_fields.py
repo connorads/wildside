@@ -92,6 +92,7 @@ def refresh_candidate_maturity(
 
 
 def main() -> int:
+    update = "--update" in sys.argv[1:]
     registry = load_jsonish(REGISTRY_PATH)
     defaults = registry.get("defaults", {})
     warn_after = int(defaults.get("warn_after_commits", 2))
@@ -143,9 +144,19 @@ def main() -> int:
             problems.append(f"registry candidate promotion references unknown key: {key}")
 
     if refresh_candidate_maturity(registry, registered, emitted, warn_after, fail_after):
-        REGISTRY_PATH.write_text(
-            json.dumps(registry, indent=2) + "\n", encoding="utf-8"
-        )
+        if update:
+            REGISTRY_PATH.write_text(
+                json.dumps(registry, indent=2) + "\n", encoding="utf-8"
+            )
+        else:
+            # A check must never mutate a tracked doc: under hk's git stash a
+            # mid-commit write leaves unstaged drift. Fail closed and name the
+            # fix instead (same check/--update split as the ratchet scripts).
+            problems.append(
+                "candidate maturity fields are stale; run "
+                "`python3 scripts/audit_debug_fields.py --update` and stage "
+                "docs/source-port/debug-field-registry.yaml"
+            )
 
     print("Debug Field Audit")
     print(f"  emitted keys: {len(emitted)}")

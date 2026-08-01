@@ -54,7 +54,7 @@ TESTS_BLOCK_RE = re.compile(r"^tests:\n(?P<body>(?:[ \t]*-[ \t].*\n?)*)", re.MUL
 BASELINE_ITEM_RE = re.compile(r"^[ \t]*-[ \t]+(?P<id>\S+)\s*$", re.MULTILINE)
 
 
-def current_failures() -> set[str]:
+def current_failures() -> set[str] | None:
     """Run the `wildside-cli` suite and parse the final `failures:` summary block.
 
     libtest emits `failures:` twice: first before the per-test stdout dumps, then
@@ -65,6 +65,12 @@ def current_failures() -> set[str]:
 
     `wildside-cli` builds exactly one test binary (`unittests src/main.rs`), so
     there is a single `test result:` line and the parse is unambiguous.
+
+    Returns `None` when the suite DID NOT RUN — compile error, harness abort,
+    signal, or any output without a `test result:` line. A run that did not
+    happen must never be read as "zero failures": with the hk `fix` step
+    running `--update` on every commit, that misread would silently wipe the
+    baseline to empty and pass.
     """
     proc = subprocess.run(
         ["cargo", "test", "-p", "wildside-cli", "--no-fail-fast"],
@@ -72,8 +78,24 @@ def current_failures() -> set[str]:
         capture_output=True,
         text=True,
     )
+    # libtest exits 0 on success and 101 on test failures; anything else is a
+    # build/harness problem, i.e. the suite did not run.
+    if proc.returncode not in (0, 101):
+        return None
     # cargo prints test output to stdout; captured-output ordering is preserved.
     lines = proc.stdout.splitlines()
+    if not any(line.startswith("test result:") for line in lines):
+        return None
+    result_lines = sum(1 for line in lines if line.startswith("test result:"))
+    if result_lines != 1:
+        # A second test target would make this parser read only the last
+        # target's failures; refuse rather than under-count.
+        print(
+            f"error: expected exactly one `test result:` line, saw {result_lines}; "
+            "the single-binary parse assumption no longer holds",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
     last_header = None
     for index, line in enumerate(lines):
         if line == "failures:":
@@ -123,6 +145,14 @@ def main(argv: list[str]) -> int:
         return 0
 
     current = current_failures()
+    if current is None:
+        print(
+            "error: the wildside-cli suite did not run (compile error, harness "
+            "abort, or missing `test result:` line); refusing to compare or "
+            "shrink the baseline against a run that did not happen",
+            file=sys.stderr,
+        )
+        return 1
     baseline = read_baseline()
 
     new_failures = current - baseline
