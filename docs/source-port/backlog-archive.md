@@ -13,6 +13,39 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+Progress 2026-08-01: the recurrence's Cyclone segment work (coast, walk, jump,
+stationary ascent, left acceleration/cap bleed, upward Plane-B wrap refresh,
+leftward camera stripes, recurring `sub_914A` ceiling/prize scans, and the
+collected-Diamond worker lifecycle) lands in corrected form after a full
+review of the uncommitted tree. Corrections against that tree's own numbers:
+the leftward camera prelude is −30 vs rightward per ASM loc_3023C
+(`blt.s` taken replaces `blt`+`addi`+`cmp`+`bcc` untaken; both prior models,
+−22 cursor and −14 closed form, were wrong and mutually inconsistent); the
+plane-wrap closed forms are composed as linear + 56 (the pasted 2,663/2,717
+"raw" values had subtracted refresh but not FIFO stalls from measured spans);
+destroy-worker costs are debris-independent by instruction sequence (ASM
+sub_292E never scans the scratch array — the landed uncited `2_278` constant
+is underivable from any instruction path and is retired, as are the WIP's
+frame-1410 two-file override and `debris==4 → 2_550` special case); the
+Diamond worker is a typed Initial/Resumed{remaining}/Terminal lifecycle with
+the terminal pass on collection+33 per the Increase_Diamonds `dbf #$1F` (the
+WIP's 1440-terminal attribution was off by one), and the resumed pass is 540
+raw (the phase arithmetic 96+548 ≡ 4 mod 128 pins it; the WIP's 158 constant
+contradicted its own journal comment). The raw/elapsed refresh cross-check in
+`apply_gems_mode_level_pre_hud_to_sub_44dc` — which the WIP tree had deleted,
+and which is the guard that catches every error class above — is retained.
+
+Correction 2026-08-01: the committed claim "recurrence advances from frame 995
+through published frame 1450" (Progress 2026-07-30 below) was not true as
+committed: with the fail-closed debris arms the timeline failed at frame 1400
+with 477 scheduled frames, and no frame between 1400 and 1450 carries cited
+evidence in `mode_level_timing.rs`. The `REQUIRED_SCHEDULED_FRAMES_THROUGH_1731
+= 807` ratchet was therefore never met. With this session's corrections the
+proven boundary is frame 1657 / 736 scheduled frames — frame 1658 fails the
+restored refresh recurrence (its whole-shape constants do not cross-check),
+and per ADR 0002 the lane is frozen there: the ratchet is set to the proven
+736 and is downward-only evidence, not a frontier to advance.
+
 Progress 2026-07-30: the correction-free persistent raster recurrence advances
 from frame 995 through published frame 1450 without a route-index timing case.
 The composed owner now covers all Cyclone transform edges, the frame-1130
@@ -441,6 +474,17 @@ gfx = exactly the 2 roster Goats visible in oracle PNGs, native draws neither;
 number_objects equal, so live slots match but two enemies never enter a drawn
 state.
 
+Correction 2026-08-01 (campaign audit): 0x60 is a timing divergence, not a
+missed contact — the asymmetry REVERSES at idle_tail (native
+just_received_damage=true, lives 2 i.e. native died; oracle false, lives 3).
+The decisive hit lands inside the unobserved pre-settle window; a settle-time
+probe cannot see the cause (native holds just_received_damage for exactly 66
+frames, matching ROM loc_BC54..loc_BC6E 11×(2+4)). Phase half moves to #442;
+0x38/0x63 count halves to #449. The contact funnel itself was audited
+(combat.rs resolve_frame_hazards → classify_enemy_contact_relation, ASM
+loc_1C42/1C76/1C94/1CB8) and carries no family fudges — no shared contact
+defect exists.
+
 ### #420
 
 Driller (0x55/0x68, 19 blockers — largest cluster). 0x55 (Driller-only roster
@@ -466,6 +510,14 @@ moving from the spawn row (HP 1→0), native Kid frozen/undamaged; Scorpions sit
 on the spawn row at 136,95 (Kid start 32,80). #331's fixed candidate covered
 the RockTank wall-turn, not these levels.
 
+Correction 2026-08-01 (campaign audit): "native Kid untouched" is factually
+wrong — TheKid.max_hitpoints() == 2, so native HP 1 means native already took
+one hit, with just_received_damage=false placing that hit >66 frames before
+settle, i.e. inside the pre-settle hidden window (#442). Oracle took a second
+hit (0x61 mid-fall, frac y 0x71f000). 0x61 also inherits the level-wide
+Driller +63 live-window fudge tuned for #385/#387, which re-ages its
+Scorpions. Count half (0x62 native +1 object) to #449.
+
 ### #422
 
 UFO beam workers (0x30/0x48, 7 blockers). 0x30 (high): oracle Kid hit by the
@@ -476,6 +528,14 @@ object/-1 gfx; archive #290 already pinned this frontier ("oracle also owns
 four UFO parents plus live `Enemy0F_UFOBeam_Init` children while native owns
 no/fewer beam children"); residual Drips child-lifecycle divergence noted there
 keeps this medium.
+
+Correction 2026-08-01 (campaign audit): at 0x30 native Kid is NOT intact —
+HP 1 of 2 means one hit landed pre-settle. The beam draw is RNG-gated
+(Enemy0F_UFO_1SecLoop draws one byte per UFO per second, UFO.asm:67-71), so an
+age or RNG-stream offset moves the beam; note the sweep never compares RNG
+(include_rng is always false in SweepStateComparisonOptions), so the report's
+`rng: 0` is not evidence of RNG parity. Phase half to #442; 0x48 count half to
+#449.
 
 ### #423
 
@@ -530,6 +590,152 @@ counts all match. Roster Tornado x5; diff PNG shows one tornado at a divergent
 position/phase. Native `tornado.rs` RNG/pattern flight (ASM `loc_35908`, UFO
 `unk_35344` patterns) is timing-sensitive; small drift makes native miss idle
 Kid. No open row owned this symptom.
+
+Correction 2026-08-01 (campaign audit): root cause is ASM-proven, not drift.
+`Enemy18_Tornado_Init` calls `bsr.w loc_35326` (Tornado.asm:16-40), which
+draws Get_RandomNumber_byte, computes `(rng ^ x_pos.low) & $F`, and selects
+the first motion record from `unk_35344` (UFO.asm:638-650) — NOT from the
+`unk_35A0C` script. Native never calls it for Tornado: `step_tornado_with_rng`
+takes `_rng` unused (tornado.rs:207-210) and always starts at
+`TORNADO_PATTERN_SCRIPT[0]`. The picker already exists as
+`ufo_motion_picker_loc_35326` (ufo.rs:390). Consequences: every tornado starts
+on the wrong motion record, and the level RNG ring is short one byte per
+tornado (0x50 = 5 draws), desynchronising every other RNG consumer on the
+level. Also: "positions and counts match" refers to Kid/camera only — the
+state tier compares no per-enemy positions (sweep/mod.rs:1459-1770).
+
+### #442
+
+Opened 2026-08-01 (campaign audit). The sweep's settle checkpoints observe the
+aftermath of an unobserved pre-comparison "hidden live window": the oracle
+waits for `target_level_is_live` stable for 60 frames inside a 900-frame
+budget (its true in-level age = hidden loc_74E0 tail + 60,
+emulator-determined), while native's model of that window is a hand-tuned
+table — `RECORDING_SETTLED_WARP_LIVE_FRAMES = 60` (scenario.rs:11), per-level
+tails for 7 levels only (scenario.rs:90-140, every other level assumes
+tail = 0), and family-keyed adjustments (scenario.rs:154-168: Driller +63,
+multi-head boss +60, Drips −7) applied level-wide, so 0x61 (Scorpion) and
+0x47 (SpinningTwins) inherit Driller-tuned re-aging. Native enters comparison
+systematically younger; across run 1783914264's authoritative count diffs the
+direction bias is oracle-more 36 : native-more 5 (excluding non-comparable
+cases) — eleven independent family bugs do not produce a one-directional
+bias. ~41 of 71 clustered blockers (0x60, 0x61, 0x62, 0x30, 0x55 phase
+halves) fit. Harness gap: sweep comparisons never emit RNG
+(SweepStateComparisonOptions include_rng=false, sweep/mod.rs:1453-1457), so
+per-cluster `rng: 0` is not evidence. #430 (0x52, empty roster, kid_y_vel
+sign-flipped at settle) is the cleanest isolated witness of the phase offset.
+Attack order: measure first (frame-0 probes 0x50/0x60/0x61/0x30 with
+`--include-rng`), then derive the hidden tail from the oracle's own settle
+trace (`capture_settle_trace_row` exists, oracle_helper_main.rs.txt:3416+)
+and delete the family fudges.
+
+### #443
+
+Opened 2026-08-01 (campaign audit). `scripts/failing_test_ratchet.py:69-82`
+never inspects `proc.returncode`; `current_failures()` returns an empty set
+whenever stdout lacks a `failures:` header — including compile errors,
+harness aborts, and signals. The hk step runs `--update` with
+`check_first = false` on every commit touching `crates/**/*.rs` and stages
+the baseline, so one broken build prints "failing-test ratchet lowered:
+53 -> 0", rewrites the baseline to empty, and passes. Secondary hazard: the
+parser assumes a single test binary — adding any file under
+`crates/wildside-cli/tests/` makes it read only the last target's failures.
+
+### #444
+
+Opened 2026-08-01 (campaign audit). `--skip` is a substring filter;
+`--skip snapshot` excludes 24 tests of which only 3 are insta snapshots — the
+other 21 are ordinary trace-export regression tests in exactly the P1 enemy
+families (goat_snapshot_hides_grounded..., scorpion_active_snapshot...,
+ufo_snapshot..., tank_active/hurt_snapshot..., lion_snapshot...,
+hand_snapshot..., drips_snapshot..., fire_demon_snapshot...,
+multi_head_boss_snapshot..., platform_loader_*_snapshot*,
+sphere_snapshot..., mini_hopping_skull_snapshot...,
+dragon_walking_snapshot..., active_platform_snapshot...,
+enemy_snapshots_include_layout_identity_and_motion_fields,
+loc_D770_eol_score_counter_snapshot...). With `--skip demo_` (171) and
+`--skip published_tas` (195), 306 core tests are name-pattern-excluded with
+no ratchet.
+
+### #445
+
+Opened 2026-08-01 (campaign audit). Per-crate gate coverage: core 7375 gated
+minus 306 skips; cli 1346 with only `gameplay_regression_*` (17) gated; frame
+209, render 82, data 165, md 147, rom 12, web 10 — no gate, no CI. ≈24% of
+the workspace's tests are dark; `wildside-frame` (where the SatSprite change
+that broke 37 CLI tests landed) is the least-gated crate.
+
+Measured 2026-08-01: the six crates are NOT green, so the wiring must wait or
+ride a per-crate named-set ratchet (generalise `failing_test_ratchet.py`).
+Failures: frame 1 (`select_player_frame_uses_accumulator_for_ground_slope_and_walk_poses`),
+render 21 (the whole `load_*_visuals` asset-backed family +
+`enemy_visual_specs_include_rom_waited_death_frames` — likely one shared
+bundle/fixture cause, possibly the v10 bundle like #417's inspect failure),
+data 1 (`canonical_rom_extractor_matches_native_runtime_pack_byte_for_byte`),
+md 1 (`sprite_line_scan_keeps_a_zeroed_loc_b42_terminator_offscreen`),
+web 3 (session catalogue/extractor boundary), rom 0 (green).
+
+### #446
+
+Opened 2026-08-01 (campaign audit). (a) `scripts/audit_debug_fields.py:145-147`
+writes `docs/source-port/debug-field-registry.yaml` from inside a check dep of
+verify-slice-fast; under hk's `stash = "git"` a check that mutates a tracked
+doc leaves unstaged drift mid-commit. Split into check/`--update` with an
+explicit stage, like dead-code/failing-test/oracle-injection. Also inert
+promotion pressure: 92 exploratory / 4 candidate / 0 ever promoted; staleness
+only checked for candidates, and all 4 carry indefinite exemptions.
+(b) Gate vacuity: nothing proves the TAS/pixel gate can fail (OpenRCT2 #11228:
+a replay gate that dry-ran for months); add a deliberate-perturbation test.
+
+### #447
+
+Opened 2026-08-01 (campaign audit). `crates/wildside-md` pins `r68k-emu` to a
+git rev; no conformance evidence exists for it, yet every timing claim sits on
+top of it. SingleStepTests/680x0 (Tom Harte lineage) and SingleStepTests/m68000
+(MAME-derived; all tests except TAS and TRAPV verified good; extra re/we cycle
+types) give per-opcode initial→final state plus bus-transaction sequences.
+Plan: download into `.cache/references/`, drive r68k per vector, compare
+registers/CCR/memory first, then bus cycles; report as a ratcheted partial
+pass. A state-level pass with bus-level failures quantifies how much
+oracle-injection debt is CPU-core imprecision; a state-level failure on an
+opcode Kid uses is a root cause for a whole divergence class.
+
+### #448
+
+Opened 2026-08-01 (campaign audit). Nothing verifies the disassembly
+reassembles to the cartridge: the build scripts exist upstream
+(build.sh/chkbitperfect.bat) but no repo gate runs them. AS is already built
+in `.cache/tooling`. `verify-disasm-fidelity`: assemble, diff against
+`kid.bin` byte-for-byte; green converts the ASM-first rule's premise into a
+gate, a mismatch localises a region where the disassembly is a guess (worth a
+`// UNVERIFIED:` at any native code citing it).
+
+### #449
+
+Opened 2026-08-01 (campaign audit). Native derives object/gfx counts from the
+roster on a 1:1 assumption plus two hand-grown exception lists
+(trace.rs:15641-15729 object-only workers; trace.rs:15786+ gfx workers).
+Unrepresentable: Scorpion linked tail/stinger gfx child (loc_3DC86),
+SpinningTwins dual-gfx init (Enemy14), Driller tread/drill children
+(loc_3BD74), dormant gfx-less MiniHoppingSkull slots (loc_3E9D0). Owns the
+~25 static-count blockers (0x38 4, 0x63 2, 0x48 4, 0x44 2, 0x65 2, 0x47 4,
+0x68 3, plus the count halves of 0x60/0x61/0x55). Discriminant from #442's
+phase class: identical delta at level_settle AND idle_tail, MAE≈0, no
+Kid-state diff. One architectural change — per-family child object/gfx slot
+counts on roster entries — retires #424/#425 and these halves together.
+
+### #450
+
+Opened 2026-08-01 (found by the #444 rename sweep). When
+`dragon_walking_snapshot_reports_shared_walker_debug_fields`
+(combat_tests.rs:20507) runs at all, it fails:
+`left: Some("ground=1/y=272/cell=3,17")` vs expected
+`Some("ground=1/y=272/cell=2,17")` — native's shared-walker right floor probe
+(ASM Dragon.asm loc_3E566) lands one cell column right of the pinned value.
+The test was darkened by `--skip snapshot` (substring filter) since at least
+the SatSprite era, so the divergence's introduction commit is unknown. Left
+excluded (not renamed) until a verdict: either the pinned `2,17` was wrong
+(re-pin from ASM+oracle) or a walker probe regression slipped in unmasked.
 
 ### #428
 

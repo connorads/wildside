@@ -7,6 +7,31 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-01 handoff (quality campaign: #409 corrected + frozen, gates hardened)
+
+- Reviewed and landed the uncommitted Cyclone-segment recurrence work in
+  corrected form: leftward camera −30 per ASM loc_3023C, plane-wrap = linear
+  +56, debris-independent destroy-worker costs (sub_292E never scans the
+  scratch array; uncited 2_278 retired), typed collected-Diamond
+  Initial/Resumed/Terminal lifecycle with terminal at collection+33, and the
+  raw/elapsed refresh cross-check retained (the WIP had deleted it).
+- Corrected the record: the committed "through frame 1450" claim failed at
+  1400 (477 scheduled) as landed; the proven boundary is now frame 1657 /
+  736 scheduled, ratchet set to 736, lane FROZEN per new ADR 0002
+  (recurrence = downward-only witness; residue authority = census-scoped
+  frame-local reconstruction + a raster-span-replay measurement).
+- Backlog surgery: corrected wrong prose in #419/#421/#422/#427 (native Kid
+  was NOT untouched; settle probes cannot see the pre-window cause), opened
+  #442-#450 (hidden-window model, ratchet silent-wipe, snapshot-skip rename,
+  ungated crates, gate self-checks, cpu vectors, disasm fidelity, count
+  model, dragon walker regression).
+- Gate hardening landed: failing-test ratchet refuses runs that did not
+  happen; audit-debug-fields split check/--update; SatSprite accessor fixes
+  27 grandfathered CLI tests (baseline 53 → 26); 20 darkened trace-export
+  tests renamed into the gate (one genuine regression found, #450).
+- NEXT: take `mise run project-status`'s top item — the #442 frame-0
+  measurement probes, then #427 Tornado loc_35326 init.
+
 ## 2026-07-30 handoff (#409 recurrence through frame 1450)
 
 - The correction-free persistent raster recurrence reaches published frame
