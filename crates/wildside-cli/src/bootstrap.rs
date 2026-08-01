@@ -473,6 +473,19 @@ pub(crate) fn build_reference_rom(repo_root: &Path, upstream_dir: &Path) -> Resu
 
 pub(crate) fn ensure_native_asl_tools(repo_root: &Path) -> Result<NativeAslTools> {
     let source_dir = repo_root.join(".cache/tooling/asl-releases");
+    let built_asl = source_dir.join("asl");
+    let built_p2bin = source_dir.join("p2bin");
+    if built_asl.is_file() && built_p2bin.is_file() {
+        // Warm cache: both binaries are present, so skip the network entirely.
+        // Without this a repeat run pays a fetch it does not need, and the
+        // toolchain is pinned by the checkout below rather than by freshness.
+        return Ok(NativeAslTools {
+            root: source_dir,
+            asl: built_asl,
+            p2bin: built_p2bin,
+        });
+    }
+
     if !source_dir.exists() {
         let parent = source_dir
             .parent()
@@ -490,15 +503,24 @@ pub(crate) fn ensure_native_asl_tools(repo_root: &Path) -> Result<NativeAslTools
         )?;
     }
 
+    // Fetch into FETCH_HEAD and check out detached: `upstream:upstream` refuses
+    // once the local `upstream` branch is checked out ("refusing to fetch into
+    // branch"), which made a resumed bootstrap fail forever. `--force` is safe
+    // and wanted here: the only tracked file this ever edits is Makefile.def,
+    // rewritten immediately below, and .cache is regenerable state.
     run_command(
         Command::new("git")
             .arg("fetch")
             .arg("origin")
-            .arg("upstream:upstream"),
+            .arg("upstream"),
         Some(&source_dir),
     )?;
     run_command(
-        Command::new("git").arg("checkout").arg("upstream"),
+        Command::new("git")
+            .arg("checkout")
+            .arg("--detach")
+            .arg("--force")
+            .arg("FETCH_HEAD"),
         Some(&source_dir),
     )?;
 
@@ -512,20 +534,40 @@ pub(crate) fn ensure_native_asl_tools(repo_root: &Path) -> Result<NativeAslTools
     fs::write(source_dir.join("Makefile.def"), makefile)
         .with_context(|| format!("failed to write {}/Makefile.def", source_dir.display()))?;
 
-    let asl = source_dir.join("asl");
-    let p2bin = source_dir.join("p2bin");
-    if !asl.is_file() || !p2bin.is_file() {
-        run_command(Command::new("make").arg("-j4"), Some(&source_dir))?;
-    }
+    run_command(Command::new("make").arg("-j4"), Some(&source_dir))?;
 
     Ok(NativeAslTools {
         root: source_dir,
-        asl,
-        p2bin,
+        asl: built_asl,
+        p2bin: built_p2bin,
     })
 }
 
+/// Variables git exports to a hook, which must not reach a child `git`.
+///
+/// The pre-commit gate runs bootstrap and oracle work, and both drive `git`
+/// inside `.cache` checkouts. Inherited, they point that `git` at the outer
+/// repository's index and object store, so a checkout of a cache repo's commit
+/// fails ("unable to read tree", or promisor fetches of unrelated objects).
+/// Every command spawned here is cache-local, so scrubbing is unconditional.
+const INHERITED_GIT_ENV: [&str; 6] = [
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_PREFIX",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+];
+
+/// Drop any git-hook environment the parent process was handed.
+pub(crate) fn scrub_inherited_git_env(command: &mut Command) {
+    for name in INHERITED_GIT_ENV {
+        command.env_remove(name);
+    }
+}
+
 pub(crate) fn capture_stdout(command: &mut Command) -> Result<Vec<u8>> {
+    scrub_inherited_git_env(command);
     let output = command.stderr(Stdio::inherit()).output().with_context(|| {
         format!(
             "failed to execute {}",
@@ -546,6 +588,7 @@ pub(crate) fn run_command(command: &mut Command, cwd: Option<&Path>) -> Result<(
         command.current_dir(cwd);
     }
 
+    scrub_inherited_git_env(command);
     command.stdin(Stdio::null());
     command.stdout(Stdio::inherit());
     command.stderr(Stdio::inherit());
@@ -666,12 +709,15 @@ mod tests {
         verify_rom(path).expect("test ROM should verify")
     }
 
+    /// Drive git in a scratch repo, immune to a hook's git environment.
+    ///
+    /// The pre-commit gate runs this suite, so without the scrub these helpers
+    /// operate on the outer repository's index instead of the temp one.
     fn run_git(args: &[&str], cwd: &Path) {
-        let status = Command::new("git")
-            .args(args)
-            .current_dir(cwd)
-            .status()
-            .expect("git should run");
+        let mut command = Command::new("git");
+        command.args(args).current_dir(cwd);
+        scrub_inherited_git_env(&mut command);
+        let status = command.status().expect("git should run");
         assert!(status.success(), "git {args:?} failed in {}", cwd.display());
     }
 
@@ -700,13 +746,14 @@ mod tests {
 
         let source_dir = repo_root.join(".cache/tooling/asl-releases");
         fs::create_dir_all(source_dir.parent().expect("source parent")).expect("tooling parent");
-        let status = Command::new("git")
+        let mut clone = Command::new("git");
+        clone
             .arg("clone")
             .arg(&remote_work)
             .arg(&source_dir)
-            .current_dir(repo_root)
-            .status()
-            .expect("git clone should run");
+            .current_dir(repo_root);
+        scrub_inherited_git_env(&mut clone);
+        let status = clone.status().expect("git clone should run");
         assert!(status.success(), "git clone failed");
 
         fs::write(source_dir.join("Makefile"), makefile).expect("Makefile");
@@ -1080,6 +1127,49 @@ mod tests {
 
         assert_eq!(fs::read(&tools.asl).expect("asl"), b"tool");
         assert_eq!(fs::read(&tools.p2bin).expect("p2bin"), b"tool");
+    }
+
+    #[test]
+    fn ensure_native_asl_tools_rebuilds_after_the_upstream_ref_is_already_checked_out() {
+        // Regression: the bootstrap used to fetch `upstream:upstream`, which git
+        // refuses once that branch is checked out, so any resumed bootstrap of a
+        // half-built toolchain failed forever ("refusing to fetch into branch").
+        let temp = TempDir::new().expect("tempdir");
+        setup_local_asl_checkout(
+            temp.path(),
+            "all:\n\tprintf asl > asl\n\tprintf p2bin > p2bin\n",
+            &[],
+        );
+        let source_dir = temp.path().join(".cache/tooling/asl-releases");
+        run_git(
+            &["checkout", "-b", "upstream", "--track", "origin/upstream"],
+            &source_dir,
+        );
+
+        ensure_native_asl_tools(temp.path()).expect("first bootstrap");
+        fs::remove_file(source_dir.join("p2bin")).expect("drop one binary");
+        let tools = ensure_native_asl_tools(temp.path()).expect("resumed bootstrap");
+
+        assert!(tools.p2bin.is_file());
+    }
+
+    #[test]
+    fn command_helpers_drop_inherited_git_hook_environment() {
+        // Regression: run from a git hook, cache-local `git` calls inherited the
+        // outer repo's GIT_INDEX_FILE/GIT_DIR and failed to check out a cache
+        // repo's own commit. The scrub runs last, so it wins over an explicit
+        // `.env` too; nothing here ever wants to pass git's hook variables on.
+        for name in INHERITED_GIT_ENV {
+            let stdout = capture_stdout(
+                Command::new("sh")
+                    .arg("-c")
+                    .arg(format!("printf %s \"${{{name}-unset}}\""))
+                    .env(name, "/leaked/from/hook"),
+            )
+            .expect("probe command should pass");
+
+            assert_eq!(stdout, b"unset", "{name} leaked into the child");
+        }
     }
 
     #[test]

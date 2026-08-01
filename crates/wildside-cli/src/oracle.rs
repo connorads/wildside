@@ -1236,7 +1236,12 @@ fn patch_jgenesis_gems_stimulus_capture(jgenesis_dir: &Path) -> Result<()> {
         fs::write(&api_rs, &api)
             .with_context(|| format!("failed to write patched {}", api_rs.display()))?;
     }
-    if !api.contains("pub m68k_wait_cpu_cycles") {
+    // Match the whole field, not a prefix: `patch_jgenesis_m68k_pc_trace` runs
+    // first and adds `pub m68k_wait_cpu_cycles_total`, which a prefix test reads
+    // as "already patched". A cache built in one step then skipped this edit and
+    // left genesis-core uncompilable (debug.rs constructs the field the struct
+    // never gained), so a fresh clone could not build the oracle helper at all.
+    if !api.contains("pub m68k_wait_cpu_cycles: u32") {
         api = replace_jgenesis_source(
             &api,
             "    pub ym2612_mclk_counter: u64,\n    pub z80_halt: bool,\n",
@@ -1794,6 +1799,7 @@ fn capture_stdout(command: &mut Command, cwd: Option<&Path>) -> Result<Vec<u8>> 
     if let Some(cwd) = cwd {
         command.current_dir(cwd);
     }
+    crate::bootstrap::scrub_inherited_git_env(command);
     let output = command
         .stdin(Stdio::null())
         .stderr(Stdio::inherit())
@@ -1817,6 +1823,7 @@ fn run_command(command: &mut Command, cwd: Option<&Path>) -> Result<()> {
     if let Some(cwd) = cwd {
         command.current_dir(cwd);
     }
+    crate::bootstrap::scrub_inherited_git_env(command);
     let status = command
         .stdin(Stdio::null())
         .stdout(Stdio::inherit())
