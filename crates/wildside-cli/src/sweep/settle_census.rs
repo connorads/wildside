@@ -278,14 +278,55 @@ fn measure_level(
     })
 }
 
+/// Serialise a census as the checked-in shell table
+/// (`crates/wildside-cli/data/oracle-settle-shell.yaml`). The staleness unit
+/// test pins `helper_cache_version` to the live helper, so a helper edit goes
+/// red in the gate until the table is re-measured.
+pub(crate) fn write_shell_table(census: &OracleSettleCensus, path: &Path) -> Result<()> {
+    let header = "\
+# Oracle settle-shell table (#442 S3b): the MEASURED hidden live window per
+# level, plus the frame-0 RNG/state witness the oracle exposes at scenario
+# start. Reference data for the shell-content investigation — the measured
+# swap into the native resolver is stopped until native reproduces the
+# shell's RNG content (archive #442).
+# Regenerate after any oracle-helper edit:
+#   cargo run --release -p wildside-cli -- oracle-settle-census \\
+#     --shell-table crates/wildside-cli/data/oracle-settle-shell.yaml
+";
+    let body = serde_yaml::to_string(census).context("failed to serialise shell table")?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+    }
+    fs::write(path, format!("{header}{body}"))
+        .with_context(|| format!("failed to write {}", path.display()))?;
+    println!("wrote {}", path.display());
+    Ok(())
+}
+
 /// Imperative shell: run the helper per level (parallel, cache-bypassing),
-/// derive rows in-process, and write the census artefact.
+/// derive rows in-process, and write the census artefact. `from_json` skips
+/// the oracle runs and reloads a previous census artefact (e.g. to reformat
+/// it as the checked-in shell table).
 pub(crate) fn run_oracle_settle_census(
     repo_root: &Path,
     rom_path: &Path,
     levels: &[u8],
     output: Option<&Path>,
+    from_json: Option<&Path>,
+    shell_table: Option<&Path>,
 ) -> Result<()> {
+    if let Some(json_path) = from_json {
+        let census: OracleSettleCensus = serde_json::from_str(
+            &fs::read_to_string(json_path)
+                .with_context(|| format!("failed to read {}", json_path.display()))?,
+        )
+        .with_context(|| format!("failed to parse {}", json_path.display()))?;
+        if let Some(table_path) = shell_table {
+            write_shell_table(&census, table_path)?;
+        }
+        return Ok(());
+    }
     let rom_bytes = fs::read(rom_path)
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
     let env = ensure_oracles(repo_root)?;
@@ -360,12 +401,39 @@ pub(crate) fn run_oracle_settle_census(
     fs::write(&output_path, serde_json::to_vec_pretty(&census)?)
         .with_context(|| format!("failed to write {}", output_path.display()))?;
     println!("\nwrote {}", output_path.display());
+    if let Some(table_path) = shell_table {
+        write_shell_table(&census, table_path)?;
+    }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #442 S3b staleness guard: the checked-in shell table records which
+    /// oracle-helper build measured it. Any helper edit changes
+    /// `jgenesis_helper_cache_version()`, so this goes red until the table is
+    /// re-measured — the census can never silently describe a stale shell.
+    #[test]
+    fn checked_in_shell_table_matches_the_live_helper_and_derivation() {
+        let table = include_str!("../../data/oracle-settle-shell.yaml");
+        let census: OracleSettleCensus =
+            serde_yaml::from_str(table).expect("shell table must parse as the census schema");
+        assert_eq!(
+            census.helper_cache_version,
+            jgenesis_helper_cache_version(),
+            "oracle helper changed since the shell table was measured — re-run \
+             `cargo run --release -p wildside-cli -- oracle-settle-census \
+             --shell-table crates/wildside-cli/data/oracle-settle-shell.yaml`"
+        );
+        assert_eq!(census.derivation_version, SETTLE_CENSUS_DERIVATION_VERSION);
+        assert_eq!(census.levels.len(), 69, "one row per valid BCD level id");
+        assert!(
+            census.levels.iter().all(|level| level.measurable),
+            "the 2026-08-01 census measured every level; a new unmeasurable row needs investigation"
+        );
+    }
 
     fn row(phase: &'static str, step: usize, live: bool, paused: bool) -> OracleSettleTraceRow {
         OracleSettleTraceRow {

@@ -685,6 +685,26 @@ native's debug title-card lifecycle RNG draws vs the ROM's loc_74E0 shell
 enemy phase). Do NOT curve-fit per-level windows; fix the shell content
 model, then re-run the probes.
 
+2026-08-01 S3a+S3b. S3a: all five settled-warp callers now route through one
+resolver (`resolve_recording_oracle_warp_live_frames_hand_model`) with an
+override entry point; proven behaviour-preserving by identical per-level
+state diffs across full sweeps 1785590842/1785591563. S3b: full census run
+1785591828 measured ALL 69 valid levels (zero unmeasurable, including 0x41):
+68 levels measure native window exactly 60 (the helper minimum) and level
+0x00 measures 129 on the `title_target_live` path with one liveness flap.
+Checked in as `crates/wildside-cli/data/oracle-settle-shell.yaml` with a
+staleness unit test pinning `helper_cache_version` to
+`jgenesis_helper_cache_version()` (helper edits go red until re-measured).
+Consequence: every hand tail in `recording_oracle_warp_target_live_frames`
+(0x01=65, 0x06=+0x18, 0x08=102, 0x1B=112, 0x3E=107, 0x46=55, 0x64=62) and
+all three family fudges model window LENGTH the oracle does not have — they
+absorb shell-content differences. S3c (delete them + swap to measured 60)
+remains STOPPED on the RNG-content gate; deleting the tails without fixing
+shell content would re-break the levels those tails were tuned on. Next
+lane: model the shell CONTENT (title-wait controller RNG draws + pre-live
+enemy scheduling) in native's `begin_debug_level_entry_loc_74e0` lifecycle,
+compare against the YAML's frame-0 witnesses, then delete the tails.
+
 ### #443
 
 Opened 2026-08-01 (campaign audit). `scripts/failing_test_ratchet.py:69-82`

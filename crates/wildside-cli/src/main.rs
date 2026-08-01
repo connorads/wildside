@@ -998,6 +998,14 @@ enum Commands {
         /// Output JSON path (default: .cache/audit/oracle-settle-census.json)
         #[arg(long)]
         output: Option<PathBuf>,
+        /// Skip the oracle runs and reload a previous census JSON artefact
+        /// (pair with --shell-table to reformat it as the checked-in table)
+        #[arg(long)]
+        from_json: Option<PathBuf>,
+        /// Also write the checked-in YAML shell table (provenance header +
+        /// staleness-guarded schema) to this path
+        #[arg(long)]
+        shell_table: Option<PathBuf>,
     },
     /// Cluster the classified GEMS outcome corpus from
     /// `verify-tas --compare-gems --gems-mismatch-report` by classification,
@@ -2614,11 +2622,20 @@ fn main() -> Result<()> {
             rom,
             levels,
             output,
+            from_json,
+            shell_table,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let level_ids = sweep::parse_level_range(&levels)?;
-            sweep::run_oracle_settle_census(&repo_root, &rom_path, &level_ids, output.as_deref())?;
+            sweep::run_oracle_settle_census(
+                &repo_root,
+                &rom_path,
+                &level_ids,
+                output.as_deref(),
+                from_json.as_deref(),
+                shell_table.as_deref(),
+            )?;
         }
         Commands::ReleaseGate {
             rom,
