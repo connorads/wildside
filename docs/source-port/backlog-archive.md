@@ -629,6 +629,62 @@ Attack order: measure first (frame-0 probes 0x50/0x60/0x61/0x30 with
 trace (`capture_settle_trace_row` exists, oracle_helper_main.rs.txt:3416+)
 and delete the family fudges.
 
+2026-08-01 Step-1 measurement (settle census + frame-0 probes). New
+`oracle-settle-census` subcommand (mise `oracle-settle-census`) re-runs the
+helper's settled-warp bootstrap per level with `--capture-settle-trace` and
+derives the shell length in-process: `shell_frames_to_frame0 =
+last_target_live_step + count(paused live rows)`, `native_target_live_frames =
+shell + 1` (helper captures each row BEFORE the liveness test and breaks
+without ticking; native steps T−1 in `settle_target_level_live_window`). No
+helper edit, so the oracle cache key is untouched. New opt-in `sweep
+--include-rng` flag threads `SweepStateComparisonOptions::include_rng` from
+the CLI (opt-in only: `DivergenceCategory::Rng` blocks, default-on would move
+the 1p-accurate gate).
+
+Census result on the probe levels (artefact
+`.cache/audit/oracle-settle-census-probe.json`): 0x30/0x50/0x60/0x61 ALL
+measure shell 59 → native window 60, first_live_step 0, no flaps, no pauses —
+the oracle's live window is exactly the helper minimum and equals native's
+default `RECORDING_SETTLED_WARP_LIVE_FRAMES`. The hand-tuned family tails
+(+63 Driller that 0x61 inherits, +60 boss, −7 Drips) therefore mis-model
+window LENGTH; whatever they compensated for lives in shell CONTENT.
+
+Frame-0 probes (`verify-tas --frame-start 0 --frame-end 61
+--checkpoint-interval 1 --include-rng --frontier-kind enemy`, scenarios
+`.cache/debug/settle-probes/settle_probe_{30,50,60,61}.json`):
+
+- 0x30: kid/camera/objects (5/5) agree exactly at frame 0; oracle Kid HP 1
+  with `just_received_damage=true` (hit landed INSIDE the shell — confirms
+  #422's pre-settle-hit reading); RNG offset native $FFFF vs oracle $FFF3,
+  ring bytes differ (byte[43] $78 vs $5E).
+- 0x50: kid/camera/objects (4/5) agree; oracle Kid HP 1, damage latch set
+  (same pre-settle hit shape); RNG native $FFFE vs oracle $FFC9 AND ring
+  contents fully diverged; the lone Tornado (obj $18) differs in position,
+  facing (native Left vs oracle Right) and phase at frame 0 (#427's init bug
+  plus shell aging).
+- 0x60: closest of the four (63 authoritative diffs): Kid HP 2 both,
+  kid/camera/objects (8/8) agree; all four Goats present in the same order
+  with equal hp/lives-index but x offset ~13px (shell aging); RNG native
+  $FFFE vs oracle $FFEF, ring differs.
+- 0x61: native (running today's inherited +63 fudge) reaches frame 0 with
+  7/8 objects vs oracle 8/10 and two dead Scorpions the oracle doesn't have;
+  RNG OFFSET matches ($FFE7 both — coincidence of 55-byte phase) but ring
+  CONTENT differs (byte[0] $07 vs $F8), proving offset-only comparison is
+  insufficient.
+
+S3c gate verdict: FAIL → STOP the swap. The gate required ≥3 of 4 levels to
+reach frame-0 agreement on rng_offset + full ring + number_objects +
+kid/camera at the measured length. kid/camera + counts agree on 3 of 4, but
+the RNG ring content agrees on 0 of 4. Since the measured window length
+equals what native already runs (60) on all four, the divergence source is
+the shell's CONTENT — the title-wait/skip phase draws RNG differently
+(different draw counts AND different mix) and ages enemies differently than
+native's `begin_debug_level_entry_loc_74e0` lifecycle. Next suspect per plan:
+native's debug title-card lifecycle RNG draws vs the ROM's loc_74E0 shell
+(title-wait consumes 2 controller RNG words/frame; enemy AI draws differ with
+enemy phase). Do NOT curve-fit per-level windows; fix the shell content
+model, then re-run the probes.
+
 ### #443
 
 Opened 2026-08-01 (campaign audit). `scripts/failing_test_ratchet.py:69-82`

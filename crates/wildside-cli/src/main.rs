@@ -951,6 +951,11 @@ enum Commands {
         /// Record first per-frame authoritative CRC mismatch per level in report.json.
         #[arg(long, default_value_t = false)]
         checksum: bool,
+        /// Also compare RNG offset/ring at each checkpoint (#442). Opt-in:
+        /// RNG diffs are blocking, so enabling this by default would move the
+        /// 1p-accurate gate.
+        #[arg(long, default_value_t = false)]
+        include_rng: bool,
         /// Capture golden state snapshots (no oracle needed).
         #[arg(long, default_value_t = false)]
         golden_capture: bool,
@@ -977,6 +982,22 @@ enum Commands {
         /// Skip the ROM/asset roster join (field histogram only, no ROM needed)
         #[arg(long, default_value_t = false)]
         no_roster: bool,
+    },
+    /// Measure the oracle helper's hidden settled-warp shell per level (#442):
+    /// re-run the settled-warp bootstrap with the settle trace captured and
+    /// derive how many emulator frames run between the helper's first
+    /// target-level poll and scenario frame 0, plus a frame-0 RNG/state
+    /// witness. Cache-bypassing and helper-edit-free, so the oracle cache is
+    /// untouched. Writes .cache/audit/oracle-settle-census.json.
+    OracleSettleCensus {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        /// Level range: "0-104", "0,5,10", or "0-10"
+        #[arg(long, default_value = "0-104")]
+        levels: String,
+        /// Output JSON path (default: .cache/audit/oracle-settle-census.json)
+        #[arg(long)]
+        output: Option<PathBuf>,
     },
     /// Cluster the classified GEMS outcome corpus from
     /// `verify-tas --compare-gems --gems-mismatch-report` by classification,
@@ -2478,6 +2499,7 @@ fn main() -> Result<()> {
             warm_cache_only,
             max_failures,
             checksum,
+            include_rng,
             golden_capture,
             golden_diff,
         } => {
@@ -2495,6 +2517,7 @@ fn main() -> Result<()> {
                     warm_cache_only,
                     max_failures,
                     checksum,
+                    include_rng,
                 };
                 sweep::run_sweep_with_options(
                     &repo_root, &rom_path, &manifest, &level_ids, tier, &options,
@@ -2586,6 +2609,16 @@ fn main() -> Result<()> {
                 run.as_deref(),
                 output.as_deref(),
             )?;
+        }
+        Commands::OracleSettleCensus {
+            rom,
+            levels,
+            output,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let level_ids = sweep::parse_level_range(&levels)?;
+            sweep::run_oracle_settle_census(&repo_root, &rom_path, &level_ids, output.as_deref())?;
         }
         Commands::ReleaseGate {
             rom,

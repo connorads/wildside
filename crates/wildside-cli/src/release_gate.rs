@@ -496,6 +496,9 @@ fn run_one_player_accurate_gate(
             warm_cache_only: false,
             max_failures,
             checksum: false,
+            // RNG comparison stays out of the release gate: opt-in via the
+            // sweep CLI only (#442).
+            include_rng: false,
         },
     ) {
         Ok(sweep_report) => {

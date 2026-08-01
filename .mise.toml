@@ -184,6 +184,10 @@ description = "Sweep all 105 levels for native vs oracle parity"
 run = "cargo run --release -p wildside-cli -- sweep-census"
 description = "Classify sweep-blocking diffs by enemy family (writes .cache/audit/sweep-census.json)"
 
+[tasks.oracle-settle-census]
+run = "cargo run --release -p wildside-cli -- oracle-settle-census"
+description = "Measure the oracle settled-warp hidden shell per level (#442; writes .cache/audit/oracle-settle-census.json)"
+
 [tasks.gems-census]
 run = "cargo run --release -p wildside-cli -- gems-census"
 description = "Cluster the GEMS mismatch corpus by shape (#434; writes .cache/audit/gems-census.json)"

@@ -2,6 +2,7 @@ mod census;
 mod frames;
 mod gameplay;
 mod release_gate;
+mod settle_census;
 
 pub(crate) use census::run_sweep_census;
 pub(crate) use frames::{
@@ -10,6 +11,7 @@ pub(crate) use frames::{
 };
 pub(crate) use gameplay::run_gameplay_sweep;
 pub(crate) use release_gate::ReleaseGateFocusSummary;
+pub(crate) use settle_census::run_oracle_settle_census;
 
 // Re-export submodule items needed by tests in this module
 #[cfg(test)]
@@ -274,6 +276,10 @@ pub(crate) struct SweepOptions {
     pub(crate) max_failures: usize,
     /// Record the first per-frame authoritative CRC mismatch for each level.
     pub(crate) checksum: bool,
+    /// Also compare RNG offset/ring at each checkpoint (#442). Opt-in only:
+    /// `DivergenceCategory::Rng` blocks via `has_blocking_divergences`, so
+    /// defaulting this on would move the `1p-accurate` gate.
+    pub(crate) include_rng: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -633,6 +639,7 @@ pub(crate) fn run_sweep_with_options(
                 level_id,
                 tier,
                 options.checksum,
+                options.include_rng,
             );
             let (r, failed) = finalise_level_result(level_id, tier, result);
             print_level_result(&r);
@@ -666,6 +673,7 @@ pub(crate) fn run_sweep_with_options(
                     level_id,
                     tier,
                     options.checksum,
+                    options.include_rng,
                 );
                 (level_id, result)
             })
@@ -865,6 +873,7 @@ fn sweep_single_level(
     level_id: u8,
     requested_tier: SweepTier,
     checksum: bool,
+    include_rng: bool,
 ) -> Result<LevelSweepResult> {
     let scenario = idle_sweep_scenario_for_tier(level_id, requested_tier);
     sweep_single_scenario(
@@ -879,6 +888,7 @@ fn sweep_single_level(
         SweepSingleScenarioOptions {
             requested_tier,
             checksum,
+            include_rng,
             native_run: idle_sweep_native_run_options(requested_tier),
         },
     )
@@ -899,6 +909,7 @@ fn idle_sweep_native_run_options(_requested_tier: SweepTier) -> NativeDynamicRun
 struct SweepSingleScenarioOptions {
     requested_tier: SweepTier,
     checksum: bool,
+    include_rng: bool,
     native_run: NativeDynamicRunOptions,
 }
 
@@ -916,6 +927,7 @@ fn sweep_single_scenario(
     let SweepSingleScenarioOptions {
         requested_tier,
         checksum,
+        include_rng,
         native_run,
     } = options;
     let level_dir = run_dir.join(format!("levels/{level_id:02x}"));
@@ -984,7 +996,15 @@ fn sweep_single_scenario(
         .flatten();
 
     // Compare states
-    let mut state_diffs = compare_sweep_states(&native_states, &oracle.states);
+    let mut state_diffs = compare_sweep_states_for_frontier_with_options(
+        &native_states,
+        &oracle.states,
+        FrontierKind::Gameplay,
+        SweepStateComparisonOptions {
+            include_rng,
+            ..SweepStateComparisonOptions::default()
+        },
+    );
     // Build set of checkpoint labels where the native player died during idle
     // but the oracle survived. Detected by: (a) native HP=0, or (b) native
     // lives decreased between checkpoints (died and respawned before capture).
@@ -1120,6 +1140,7 @@ pub(crate) fn run_source_port_visual_release_probe(
         SweepSingleScenarioOptions {
             requested_tier: SweepTier::Full,
             checksum: false,
+            include_rng: false,
             native_run: NativeDynamicRunOptions {
                 // `release_visual_level_00_early_scenario` explicitly uses
                 // the recording-oracle settle path. Keep native on that same
