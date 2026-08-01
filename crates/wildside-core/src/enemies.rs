@@ -4043,9 +4043,30 @@ fn activate_enemies_with_rng_inner(
                 enemy.on_ground = false;
             }
             if matches!(family, EnemyFamily::Tornado) {
-                // ASM Tornado.asm seeds a movement pattern before entering the
-                // per-frame loop, so activate the first script entry here.
-                reload_tornado_pattern_script(&mut enemy);
+                // ASM Tornado.asm Enemy18_Tornado_Init: `lea unk_35A0C(pc),a0`
+                // only primes the loc_359F2 script pointer at entry 0; the
+                // first motion vector comes from `bsr.w loc_35326` — an RNG
+                // pick from the UFO table unk_35344 — with the loc_3592E
+                // doubling tail, so one RNG byte is consumed per tornado at
+                // spawn and the script cursor stays at entry 0 until the
+                // first `$44(a5)` timer expiry.
+                let (motion, tornado_facing) = ufo_motion_picker_loc_35326(
+                    rng.next_byte(),
+                    head_x,
+                    enemy.x_velocity,
+                    enemy.y_velocity,
+                    enemy.flight_double_acceleration,
+                    enemy.flight_double_terminal_speed,
+                );
+                enemy.x_acceleration = motion.x_acceleration;
+                enemy.target_x_velocity = motion.target_x_velocity;
+                enemy.y_acceleration = motion.y_acceleration;
+                enemy.target_y_velocity = motion.target_y_velocity;
+                enemy.facing = tornado_facing;
+                debug_assert_eq!(
+                    enemy.dragon_script_cmd, 0,
+                    "loc_359F2's unk_35A0C cursor must still point at entry 0 after init"
+                );
             }
             if matches!(family, EnemyFamily::Dragon) {
                 // ASM Dragon_Flying.asm Enemy0C_Dragon_flying_Init enters
@@ -10939,6 +10960,96 @@ mod tests {
         assert_eq!(
             dragon.hit_points, 3,
             "ASM Dragon.asm loc_3CDB8 stores enemy_level+1 in current_hp(a3), so raw level 2 spawns a 3 HP walking dragon"
+        );
+    }
+
+    #[test]
+    fn tornado_init_uses_loc_35326_motion_picker_and_one_rng_byte_per_spawn() {
+        // ASM Tornado.asm Enemy18_Tornado_Init: `bsr.w loc_35326` draws one
+        // Get_RandomNumber_byte per tornado and picks the first motion vector
+        // from UFO.asm unk_35344 (via loc_35444), NOT from the unk_35A0C
+        // script; the loc_359F2 cursor stays at entry 0 until the first
+        // `$44(a5)` timer expiry.
+        let tornado_object = |x: u16| wildside_data::EnemyLayoutObject {
+            object_type: 0x18,
+            flags: 0xFF,
+            hit_points_plus_one: 0,
+            x,
+            y: 144,
+        };
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![0x0018, 0xFFFF, 0xFFFF],
+            unknown_word: 0x7D00,
+            header_byte: 0x80,
+            object_count: 2,
+            objects: vec![tornado_object(200), tornado_object(320)],
+            segments: vec![wildside_data::EnemyLayoutSegment {
+                lower_bound: 0,
+                upper_bound: 0x7D00,
+                enemy_type_slots: vec![0x0018, 0xFFFF, 0xFFFF],
+                object_batch_flags: 0x80,
+                object_count: 2,
+                objects: vec![tornado_object(200), tornado_object(320)],
+            }],
+        };
+        let window = ActivationWindow {
+            x_min: 0,
+            x_max: 640,
+            y_min: 0,
+            y_max: 480,
+        };
+        let mut control = RomRandomState::default();
+        let first_byte = control.next_byte();
+        let _second_byte = control.next_byte();
+        let mut active = Vec::new();
+        let mut rng = RomRandomState::default();
+
+        activate_enemies_with_rng(
+            &mut active,
+            &layout,
+            window,
+            0,
+            0,
+            physics::LevelBounds {
+                width_pixels: 4096,
+                height_pixels: 512,
+            },
+            0,
+            0,
+            0,
+            false,
+            &std::collections::HashSet::new(),
+            &mut rng,
+        );
+
+        assert_eq!(active.len(), 2, "both tornados activate inside the window");
+        assert_eq!(
+            rng, control,
+            "Enemy18_Tornado_Init consumes exactly one RNG byte per tornado (loc_35326)"
+        );
+        let (expected, expected_facing) = ufo_motion_picker_loc_35326(
+            first_byte,
+            spawn_x_pos(EnemyFamily::Tornado, 200),
+            spawn_x_velocity(EnemyFamily::Tornado, 0),
+            spawn_y_velocity(EnemyFamily::Tornado, 0),
+            false,
+            false,
+        );
+        let first = &active[0];
+        assert_eq!(first.family, EnemyFamily::Tornado);
+        assert_eq!(first.x_acceleration, expected.x_acceleration);
+        assert_eq!(first.target_x_velocity, expected.target_x_velocity);
+        assert_eq!(first.y_acceleration, expected.y_acceleration);
+        assert_eq!(first.target_y_velocity, expected.target_y_velocity);
+        assert_eq!(
+            first.facing, expected_facing,
+            "ASM UFO.asm loc_35444 sets x_direction from the picked X target's sign"
+        );
+        assert_eq!(
+            first.dragon_script_cmd, 0,
+            "ASM Tornado.asm loc_359F2 consumes unk_35A0C entry 0 only at the first timer expiry"
         );
     }
 
