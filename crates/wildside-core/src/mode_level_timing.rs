@@ -2128,6 +2128,20 @@ pub enum ModeLevelTailPieceRefreshSub307D8 {
         width_subtractions: u16,
         copied_words: u8,
     },
+    /// ASM loc_308DE: downward row whose source stays linear while Plane B
+    /// wraps at its 64-cell boundary.
+    DownwardPlaneWrapOnly {
+        width_subtractions: u16,
+        copied_words: u8,
+        second_segment_words: u8,
+    },
+    /// ASM loc_308DE: upward row whose source stays linear while Plane B
+    /// wraps at its 64-cell boundary.
+    UpwardPlaneWrapOnly {
+        width_subtractions: u16,
+        copied_words: u8,
+        second_segment_words: u8,
+    },
     StreamingOther,
 }
 
@@ -2173,7 +2187,23 @@ fn mode_level_tail_piece_refresh_work_sub_307d8(
     let source_wraps = background_width <= reduced_column.wrapping_add(0x0028);
     let plane_column = (scroll_word >> 3) & 0x003F;
     let plane_wraps = plane_column.wrapping_add(0x0028) > 0x003F;
-    if source_wraps || plane_wraps {
+    if !source_wraps && plane_wraps {
+        let second_segment_words =
+            u8::try_from(plane_column.wrapping_add(0x0028).wrapping_sub(0x003F)).unwrap_or(0);
+        if moving_down {
+            ModeLevelTailPieceRefreshSub307D8::DownwardPlaneWrapOnly {
+                width_subtractions,
+                copied_words: 41,
+                second_segment_words,
+            }
+        } else {
+            ModeLevelTailPieceRefreshSub307D8::UpwardPlaneWrapOnly {
+                width_subtractions,
+                copied_words: 41,
+                second_segment_words,
+            }
+        }
+    } else if source_wraps || plane_wraps {
         ModeLevelTailPieceRefreshSub307D8::StreamingOther
     } else if moving_down {
         ModeLevelTailPieceRefreshSub307D8::DownwardLinearNoWrap {
@@ -2214,9 +2244,34 @@ pub fn mode_level_tail_piece_refresh_raw_cycles_sub_307d8(
             // no-wrap copy. VDP FIFO retries and its VINT stay external.
             Some(M68kCycleCount::from_raw(2_366))
         }
+        ModeLevelTailPieceRefreshSub307D8::DownwardPlaneWrapOnly {
+            width_subtractions: 0,
+            copied_words: 41,
+            second_segment_words: 1..=40,
+        } => {
+            // ASM sub_307D8 -> loc_308DE (kid.asm:34737): the wrap branch
+            // replaces the linear tail's `tst/bne/moveq` + 41-write loop with
+            // the `bne.s loc_308DE` taken path, the five-instruction segment
+            // seed, the same 41 writes split across two destinations, and the
+            // inter-segment control-port rewrite: +56 raw over the downward
+            // linear spine, direction-independent. VDP FIFO retries and its
+            // VINT stay external, exactly as in the linear arms.
+            Some(M68kCycleCount::from_raw(2_366 + 56))
+        }
+        ModeLevelTailPieceRefreshSub307D8::UpwardPlaneWrapOnly {
+            width_subtractions: 0,
+            copied_words: 41,
+            second_segment_words: 1..=40,
+        } => {
+            // ASM sub_307D8 -> loc_308DE (kid.asm:34737): the same +56 wrap
+            // restructure composed over the upward linear spine.
+            Some(M68kCycleCount::from_raw(2_360 + 56))
+        }
         ModeLevelTailPieceRefreshSub307D8::StreamingOther => None,
         ModeLevelTailPieceRefreshSub307D8::LinearNoWrap { .. }
-        | ModeLevelTailPieceRefreshSub307D8::DownwardLinearNoWrap { .. } => None,
+        | ModeLevelTailPieceRefreshSub307D8::DownwardLinearNoWrap { .. }
+        | ModeLevelTailPieceRefreshSub307D8::DownwardPlaneWrapOnly { .. }
+        | ModeLevelTailPieceRefreshSub307D8::UpwardPlaneWrapOnly { .. } => None,
     }
 }
 

@@ -4184,6 +4184,10 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
         matches!(*slot, crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged)
             || matches!(
                 *slot,
+                crate::ModeLevelTailShiftDataSlotLoc30452::OldGreaterThanNew
+            )
+            || matches!(
+                *slot,
                 crate::ModeLevelTailShiftDataSlotLoc30452::OldLessThanNew { .. }
             )
     });
@@ -4203,18 +4207,29 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     {
         return None;
     }
-    let (linear_piece_refresh, piece_refresh_moving_down) = match work.piece_refresh_sub_307d8 {
-        crate::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged => (false, false),
-        crate::ModeLevelTailPieceRefreshSub307D8::LinearNoWrap {
-            width_subtractions: 0,
-            copied_words: 41,
-        } => (true, false),
-        crate::ModeLevelTailPieceRefreshSub307D8::DownwardLinearNoWrap {
-            width_subtractions: 0,
-            copied_words: 41,
-        } => (true, true),
-        _ => return None,
-    };
+    let (linear_piece_refresh, piece_refresh_moving_down, plane_wrap_second_segment_words) =
+        match work.piece_refresh_sub_307d8 {
+            crate::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged => (false, false, None),
+            crate::ModeLevelTailPieceRefreshSub307D8::LinearNoWrap {
+                width_subtractions: 0,
+                copied_words: 41,
+            } => (true, false, None),
+            crate::ModeLevelTailPieceRefreshSub307D8::DownwardLinearNoWrap {
+                width_subtractions: 0,
+                copied_words: 41,
+            } => (true, true, None),
+            crate::ModeLevelTailPieceRefreshSub307D8::DownwardPlaneWrapOnly {
+                width_subtractions: 0,
+                copied_words: 41,
+                second_segment_words: second_segment_words @ 1..=40,
+            } => (true, true, Some(second_segment_words)),
+            crate::ModeLevelTailPieceRefreshSub307D8::UpwardPlaneWrapOnly {
+                width_subtractions: 0,
+                copied_words: 41,
+                second_segment_words: second_segment_words @ 1..=40,
+            } => (true, false, Some(second_segment_words)),
+            _ => return None,
+        };
 
     let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
     let mut phase = entry.refresh_phase;
@@ -4253,8 +4268,9 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     // frame 925's first time layer advances right without wrapping against
     // Background_width. Selected-PC boundaries fix this at 260 raw cycles.
     for slot_index in 0..2 {
+        let slot = work.shift_data_slots_loc_30452[slot_index];
         if let crate::ModeLevelTailShiftDataSlotLoc30452::OldLessThanNew { width_subtractions } =
-            work.shift_data_slots_loc_30452[slot_index]
+            slot
         {
             advance_all!(&[
                 12, 8, 4, 4, 12, 4, 12, 12, 12, 12, 4, 8, 18, 8, 12, 12, 8, 4
@@ -4266,6 +4282,14 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
             }
             advance_all!(&[4, 10, 8, 8, 4, 12, 16, 10]);
             advance_all!(&[8, 4]);
+            advance(if slot_index == 1 { 14 } else { 10 }, 0)?;
+        } else if slot == crate::ModeLevelTailShiftDataSlotLoc30452::OldGreaterThanNew {
+            // ASM loc_30452 -> sub_304B4 loc_304D8 -> loc_304CA: the old
+            // coarse scroll value exceeds the new one, so BGT selects the
+            // no-$28 source-column path before the common reduction tail.
+            advance_all!(&[12, 8, 4, 4, 12, 4, 12, 12, 12, 12, 4, 8, 18]);
+            advance_all!(&[10, 12, 12, 4, 4, 10, 8, 8, 4, 12, 16]);
+            advance_all!(&[10, 8, 4]);
             advance(if slot_index == 1 { 14 } else { 10 }, 0)?;
         } else {
             for (instruction_index, &cycles) in FIRST_UNCHANGED_SLOT.iter().enumerate() {
@@ -4281,14 +4305,21 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     // loc_304C2 no-wrap branch before rejoining loc_304A8.
     const SCROLL_UNCHANGED_SLOT: [u8; 11] = [4, 12, 12, 12, 4, 10, 12, 8, 4, 8, 10];
     for slot_index in 0..17 {
+        let slot = work.shift_data_slots_loc_30452[slot_index + 2];
         if let crate::ModeLevelTailShiftDataSlotLoc30452::OldLessThanNew { width_subtractions } =
-            work.shift_data_slots_loc_30452[slot_index + 2]
+            slot
         {
             advance_all!(&[4, 12, 12, 12, 4, 8, 18, 8, 12, 12, 8, 4]);
             for _ in 0..width_subtractions {
                 advance_all!(&[4, 8, 4, 10]);
             }
             advance_all!(&[4, 10, 8, 8, 4, 8, 16, 10, 8, 4, 8]);
+            advance(if slot_index == 16 { 14 } else { 10 }, 0)?;
+        } else if slot == crate::ModeLevelTailShiftDataSlotLoc30452::OldGreaterThanNew {
+            // ASM loc_3048C -> sub_304B4 loc_304D8 -> loc_304CA.
+            advance_all!(&[4, 12, 12, 12, 4, 8, 18]);
+            advance_all!(&[10, 12, 12, 4, 4, 10, 8, 8, 4, 12, 16]);
+            advance_all!(&[10, 8, 4, 8]);
             advance(if slot_index == 16 { 14 } else { 10 }, 0)?;
         } else {
             for (instruction_index, &cycles) in SCROLL_UNCHANGED_SLOT.iter().enumerate() {
@@ -4385,18 +4416,53 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
         advance_all!(&[4, 4, 14, 8, 12, 8, 14, 12, 4, 6, 10]);
         advance_all!(&[4, 12, 14, 8, 12, 8, 4, 4, 8, 6, 10]);
         advance_all!(&[4, 4, 4, 8, 8, 8, 10]);
-        advance_all!(&[8, 4, 20, 8, 8, 4, 8, 12, 4, 8, 4, 8, 4]);
+        advance_all!(&[8, 4, 20, 8, 8, 4, 8, 12]);
 
-        // ASM loc_308A6: d4=$28 makes this an inclusive 41-word VDP-data
-        // stream. The FIFO scheduler owns every retry tick.
-        for word in 0..41 {
-            advance(4, 0)?;
-            advance(8, 0)?;
-            advance(4, 0)?;
-            advance(18, 1)?;
-            advance(if word == 40 { 14 } else { 10 }, 0)?;
+        if let Some(second_segment_words) = plane_wrap_second_segment_words {
+            // ASM loc_30884 -> loc_308DE: source stays linear while Plane B
+            // wraps. Split the same 41 writes across two VDP destinations.
+            advance_all!(&[4, 8, 4, 10, 4, 4, 4, 4, 4]);
+            let first_segment_words = 41_u8.checked_sub(second_segment_words)?;
+            for word in 0..first_segment_words {
+                advance_all!(&[4, 8, 4]);
+                advance(18, 1)?;
+                advance(
+                    if word + 1 == first_segment_words {
+                        14
+                    } else {
+                        10
+                    },
+                    0,
+                )?;
+            }
+            advance_all!(&[8, 12, 4, 10]);
+            for word in 0..second_segment_words {
+                advance_all!(&[4, 8, 4]);
+                advance(18, 1)?;
+                advance(
+                    if word + 1 == second_segment_words {
+                        14
+                    } else {
+                        10
+                    },
+                    0,
+                )?;
+            }
+            advance(16, 0)?;
+        } else {
+            advance_all!(&[4, 8, 4, 8, 4]);
+
+            // ASM loc_308A6: d4=$28 makes this an inclusive 41-word VDP-data
+            // stream. The FIFO scheduler owns every retry tick.
+            for word in 0..41 {
+                advance(4, 0)?;
+                advance(8, 0)?;
+                advance(4, 0)?;
+                advance(18, 1)?;
+                advance(if word == 40 { 14 } else { 10 }, 0)?;
+            }
+            advance(16, 0)?;
         }
-        advance(16, 0)?;
     } else {
         // ASM sub_307D8 loc_30810 -> return_308B4: cached row unchanged.
         advance_all!(&[
