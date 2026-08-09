@@ -7,6 +7,40 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-09 handoff (enemy sweep clusters + cheap verification gates)
+
+- Measurement first (#442 step 1): new `oracle-settle-census` subcommand
+  measures the hidden settled-warp shell per level from the oracle's own
+  settle trace (no helper edit, cache intact); opt-in `sweep --include-rng`.
+  Census: ALL 69 levels measurable, 68 measure the window at exactly 60,
+  0x00 at 129 — every hand tail/family fudge models length the oracle does
+  not have. Frame-0 probes (0x30/0x50/0x60/0x61): kid/camera/counts agree on
+  3 of 4 while RNG ring CONTENT diverges on all four -> S3c swap STOPPED per
+  its gate; shell CONTENT is the next lane. S3a resolver refactor proven
+  byte-identical; S3b shell table checked in with a helper-version staleness
+  test.
+- Enemy fixes: #427 Tornado init draws loc_35326 (RNG byte per spawn, cursor
+  stays at entry 0) + $46/$47 doubling re-split accel-vs-target; #449
+  per-family child-slot model (Robot/Tank/Scorpion pair collapse,
+  SpinningTwins +1 / Driller +2 gfx children, dormant loc_3E9D0 skulls
+  object-only) -> 0x44/0x63/0x65 PASS, 0x62/0x68 shrink; #423 Ninja walk
+  speed was 2-3x too fast (misread init branches; oracle-witnessed $8000 for
+  HP 2) -> 0x56 PASS, secondary 0x31 residual opened as #451. #426's
+  loc_32AFE attribution DISPROVEN (ROM never loads Hand #2 in the shell);
+  re-scoped to shell enemy-loading content. Sweep totals across the session:
+  127 -> 116 blocking, 49 -> 52 passing, zero unattributed regressions.
+- Riders landed: #448 `verify-disasm-fidelity` — the disassembly reassembles
+  BIT-PERFECT, the ASM-first premise is now a gate; #450 dragon-probe verdict
+  (pin was wrong; re-derived from sub_36A58, renamed into the gate); #447
+  `verify-cpu-vectors` — 1.32M SingleStepTests vectors, 98% arithmetic pass,
+  named r68k defects incl. the constant-MULU cycle model (quantifies #406's
+  disagreement) and BCD register errors, ratcheted baseline. Companion fix:
+  hook-exported GIT_DIR reaching cache-repo git commands corrupted the shared
+  repo (`core.bare=true`) — root-caused and scrubbed in bootstrap/oracle
+  helpers.
+
+---
+
 ## 2026-08-01 handoff (quality campaign: #409 corrected + frozen, gates hardened)
 
 - Reviewed and landed the uncommitted Cyclone-segment recurrence work in

@@ -646,6 +646,20 @@ tornado (0x50 = 5 draws), desynchronising every other RNG consumer on the
 level. Also: "positions and counts match" refers to Kid/camera only — the
 state tier compares no per-enemy positions (sweep/mod.rs:1459-1770).
 
+Closed [x] 2026-08-09. Fix landed in two commits: init now calls the shared
+`ufo_motion_picker_loc_35326` (one `Get_RandomNumber_byte` per tornado at
+spawn; the `lea unk_35A0C(pc),a0` in Enemy18_Tornado_Init only primes the
+loc_359F2 script pointer, so the cursor stays at entry 0 until the first
+`$44(a5)` expiry — native previously seeded from the wrong table AND
+advanced the cursor), and `reload_tornado_pattern_script` was rewritten on
+`ufo_motion_from_script_loc_35444`, fixing the `$46/$47` doubling to the
+accel-vs-target split (`$46` doubles d0/d2, `$47` doubles d1/d3 — the same
+loc_34E10/loc_34E1C shape as UFO, not per-axis). Frame-0 probe after the
+fix: tornado facing matches oracle (Right) and the spawn RNG draw is
+present. 0x50's state-tier diffs are unchanged (2x number_hitpoints — the
+#442 pre-settle Kid hit) and the level cannot pass until that shell content
+is modelled; full sweep showed no regressions.
+
 ### #442
 
 Opened 2026-08-01 (campaign audit). The sweep's settle checkpoints observe the
@@ -832,6 +846,29 @@ pass. A state-level pass with bus-level failures quantifies how much
 oracle-injection debt is CPU-core imprecision; a state-level failure on an
 opcode Kid uses is a root cause for a whole divergence class.
 
+Closed [x] 2026-08-09 (rider). Landed: `bootstrap-cpu-vectors` (pinned
+shallow clones), `verify-cpu-vectors` subcommand + harness
+(`crates/wildside-cli/src/cpu_vectors/`), a downward-only named ratchet
+(`scripts/cpu_vector_ratchet.py` + `docs/source-port/cpu-vector-baseline.yaml`,
+251 rows, refuses to shrink on runs that did not happen), and
+`docs/source-port/cpu-core-conformance.md`. r68k IS drivable per-instruction
+(public registers, `execute1()`, pluggable AddressBus); the one scoped gap
+is no prefetch queue (queue words written into memory at pc; conflicts
+counted: zero). Measured over all 1,317,560 vectors: arithmetic verdict
+98.16% (680x0) / 97.27% (m68000); exception-dispatch 8.6%/13.8%; cycles
+82.8%/78.8%. Named defects (both sets agree): BCD destination-register
+errors (SBCD/NBCD/ABCD — Kid uses BCD for score/HUD), DIVS/DIVU overflow
+leaves dest untouched, group-0 exception stack frames wrong (SSW/PC),
+process-aborting unwraps on odd-SP RTS (a live crash path), no trace bit,
+and CONSTANT MULU/MULS/DIVU/DIVS cycle models (MULU flat 54 vs hardware
+38+2xpopcount, verified 1,221/1,221 — the quantified form of #406's
+r68k-vs-jgenesis MULU disagreement). Set-vs-set findings: 680x0's ASR
+expects C/X clear for shift>=size (r68k+M68000UM side with m68000,
+exonerating 3,736 apparent defects — worth filing upstream); ADDQ/SUBQ-to-An
+cycle rows differ 6 vs 8 (r68k sides with m68000/Table 8-5). Deferred: BCD
+root-cause, Bcc residue, STOP PC, CHK/LINK/MOVEfromSR axis, upstream ASR
+issue. The ratchet is on-demand (600MB/~4min), not in verify-slice-fast.
+
 ### #448
 
 Opened 2026-08-01 (campaign audit). Nothing verifies the disassembly
@@ -841,6 +878,23 @@ in `.cache/tooling`. `verify-disasm-fidelity`: assemble, diff against
 `kid.bin` byte-for-byte; green converts the ASM-first rule's premise into a
 gate, a mismatch localises a region where the disassembly is a guess (worth a
 `// UNVERIFIED:` at any native code citing it).
+
+Closed [x] 2026-08-09 (rider). `verify-disasm-fidelity` (mise task ->
+`scripts/verify_disasm_fidelity.py`, 8 unit tests) assembles the pinned
+disassembly with the AS toolchain (built from source into `.cache/tooling`
+when absent) and byte-diffs against the reference ROM: BIT-PERFECT —
+1,048,576 bytes match, rebuilt SHA-1 equals the reference. Red path proven
+by deliberate corruption (3 regions localised to `AddrTbl_BlockTypes+0xC`,
+`loc_3CD70`/Dragon.asm:28, `GEMS_Sounddriver_End+0x5`). Runtime ~1.9s warm,
+~12s cold. Upstream quirks: build.sh ships Linux ELF binaries and exits 1
+on success (never a build oracle); p2bin's overlap warnings are captured;
+AS `-g map` (20x cost) is paid only on mismatch. Companion fix landed as
+`fix(cli): make the reference and oracle bootstraps re-runnable`
+(scrub_inherited_git_env — a hook-exported GIT_DIR/GIT_INDEX_FILE reaching
+cache-repo git commands was re-initialising the SHARED repo from a foreign
+cwd, the root cause of this session's repeated `core.bare=true` corruption;
+plus the upstream-fetch and jgenesis `m68k_wait_cpu_cycles` prefix-collision
+patch bugs that made fresh worktrees unbuildable).
 
 ### #449
 
@@ -888,6 +942,18 @@ The test was darkened by `--skip snapshot` (substring filter) since at least
 the SatSprite era, so the divergence's introduction commit is unknown. Left
 excluded (not renamed) until a verdict: either the pinned `2,17` was wrong
 (re-pin from ASM+oracle) or a walker probe regression slipped in unmasked.
+
+Closed [x] 2026-08-09 (rider verdict). The pin was wrong, not native:
+Dragon.asm loc_3CDFC seeds half-width 9, and loc_3E566 scans via sub_36A58
+against the CURRENT x_pos (40), so the right edge is 40+9-1=48 -> column 3;
+the stale `2,17` pin came from the pre-960352273 era (next-X 39 with generic
+half-width 8 -> 47 -> column 2), and `--skip snapshot` hid the mismatch
+until #444. Re-pinned with the derivation in the test comment, renamed
+`dragon_walking_snapshot_...` -> `dragon_walking_trace_export_...`; verified
+running and passing inside the gated core suite. No native code change, so
+no sweep/TAS impact. Cosmetic nit recorded: the trace's right probe sits at
+x+half_width while the ROM's inclusive edge is x+half_width-1 — same column
+here, can differ when x = 7 (mod 16).
 
 ### #428
 
@@ -21889,6 +21955,10 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 450 | [x] | P2 | enemy | Verdict: the pin was wrong, not native. ASM sub_36A58 derives the loc_3E566 right floor span as columns 1-3 for the fixture (40+9-1=48 -> col 3); the stale `2,17` pin predates commit 960352273's ROM scan width. Re-pinned with the derivation, renamed `_snapshot_` -> `_trace_export_`. | Test runs and passes inside the gated core suite. See archive #450. |
+| 448 | [x] | P2 | verification | `verify-disasm-fidelity` mise task assembles the pinned disassembly with AS and byte-diffs against the reference ROM, naming the nearest label/source line per mismatching region. Result: BIT-PERFECT (1,048,576 bytes; SHA-1 match) — the ASM-first rule's premise is now a gate. | Task green in ~2s warm / 12s cold; red path verified with deliberate corruption (3 regions localised to labels). See archive #448. |
+| 447 | [x] | P2 | verification | `verify-cpu-vectors` drives the pinned r68k core through all 1,317,560 SingleStepTests vectors (680x0 + m68000): 98.2%/97.3% arithmetic pass; defects named (BCD registers, DIVS/DIVU overflow, exception frames, odd-SP panics, no trace bit, constant MULU/DIV cycle models — the quantified #406 disagreement). Downward-only ratchet baseline (251 rows). | `mise run verify-cpu-vectors` + ratchet green; set-vs-set ASR/CHK/LINK/ADDQ-cycle disagreements recorded as findings. See archive #447. |
+| 427 | [x] | P1 | enemy | Tornado init now draws its first motion vector from loc_35326 (UFO table unk_35344, one RNG byte per tornado, cursor stays at unk_35A0C entry 0) and the $46/$47 doubling follows the accel-vs-target split shared with UFO loc_34E10/loc_34E1C. | Frame-0 probe: facing/RNG-draw match oracle; 0x50's residual 2 hp diffs are the #442 pre-settle Kid hit, not Tornado. See archive #427. |
 | 423 | [x] | P1 | enemy | Ninja walk speed misread Enemy11_Ninja_Init: HP 2 walked at $18000 instead of $8000 (HP 3 $10000, HP 4+ $18000 — the Driller loc_3BD6C/loc_3BD74 accumulation shape). At 2-3x speed native Ninjas converged on idle Kid at 0x56 and killed him. | 0x56 passes the state sweep (run 1786271326); oracle frame-0 probe walks the HP-2 Ninja at $8000/frame. Secondary 0x31 residual opened as #451. See archive #423. |
 | 449 | [x] | P2 | enemy | Per-family child-slot model (`EnemyFamily::child_slots`): Robot/Tank/TankShooting/Scorpion pairs collapse to one Object slot, Archer/TarMonster/SpinningTwins/Driller gfx-only children derived from the same table, dormant loc_3E9D0 skulls counted object-only. | Full sweep 1786270123: 0x44/0x63/0x65 pass, 0x62/0x68 shrink, zero regressions (127 -> 119 blocking). Residual count diffs attributed to #442 shell content / #422 beam. See archive #449. |
 | 424 | [x] | P2 | enemy | MiniHoppingSkull dormant proximity controllers (`loc_3E9D0` Object-only slots) counted natively via the #449 dormant-worker model. | 0x44 and 0x65 pass the state sweep (run 1786270123). See archive #424. |
