@@ -4440,6 +4440,163 @@ mod tests {
         );
     }
 
+    fn shared_object_pair_snapshot(object_type: u8, y_pos: u32) -> NativeObjectSnapshot {
+        NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type },
+            x_pos: 0x008E_0000,
+            y_pos,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Left),
+            on_ground: None,
+            hit_points: Some(2),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            contact_phase: None,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            sprite_animation_phase: None,
+            wait_timer: None,
+            debug_fields: BTreeMap::new(),
+        }
+    }
+
+    #[test]
+    fn scorpion_body_and_tail_share_object_but_keep_both_gfx_slots_enemy13_init() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0x61);
+        let baseline = runtime.object_counts_from_roster(&[], 0, 0);
+        let scorpion_pair = [
+            shared_object_pair_snapshot(0x13, 0x0340_0000),
+            shared_object_pair_snapshot(0x13, 0x0338_0000),
+        ];
+
+        assert_eq!(
+            runtime.object_counts_from_roster(&scorpion_pair, 0, 0),
+            (baseline.0 + 1, baseline.1 + 2),
+            "ASM Scorpion.asm Enemy13 init allocates the tail with j_Allocate_GfxObjectSlot_a1: body and tail share one Object_RAM coroutine but remain two linked GfxObject slots",
+        );
+    }
+
+    #[test]
+    fn robot_body_and_head_share_object_but_keep_both_gfx_slots_enemy03_init() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0x22);
+        let baseline = runtime.object_counts_from_roster(&[], 0, 0);
+        let robot_pair = [
+            shared_object_pair_snapshot(0x03, 0x0340_0000),
+            shared_object_pair_snapshot(0x03, 0x0330_0000),
+        ];
+
+        assert_eq!(
+            runtime.object_counts_from_roster(&robot_pair, 0, 0),
+            (baseline.0 + 1, baseline.1 + 2),
+            "ASM Robot.asm Enemy03 init allocates the linked head with j_Allocate_GfxObjectSlot_a1 at `$3A(a5)`: body and head share one Object_RAM coroutine but remain two GfxObject slots",
+        );
+    }
+
+    #[test]
+    fn spinning_twins_parent_counts_as_object_and_two_gfx_workers_enemy14_init() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0x63);
+        let baseline = runtime.object_counts_from_roster(&[], 0, 0);
+        let mut twins = drips_test_enemy(0, 0);
+        twins.family = EnemyFamily::SpinningTwins;
+        let snapshot = twins.snapshot();
+        runtime.active_enemies.push(twins);
+
+        assert_eq!(
+            runtime.object_counts_from_roster(&[snapshot], 0, 0),
+            (baseline.0 + 1, baseline.1 + 2),
+            "ASM Spinning_Twins.asm Enemy14_SpinningTwins_Init allocates the second twin with j_Allocate_GfxObjectSlot_a1 (`$3A(a5)`, stru_3B802): one Object_RAM coroutine, two GfxObject slots",
+        );
+    }
+
+    #[test]
+    fn driller_parent_counts_as_object_and_three_gfx_workers_enemy1a_init() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0x68);
+        let baseline = runtime.object_counts_from_roster(&[], 0, 0);
+        let mut driller = drips_test_enemy(0, 0);
+        driller.family = EnemyFamily::Driller;
+        let snapshot = driller.snapshot();
+        runtime.active_enemies.push(driller);
+
+        assert_eq!(
+            runtime.object_counts_from_roster(&[snapshot], 0, 0),
+            (baseline.0 + 1, baseline.1 + 3),
+            "ASM Driller.asm Enemy1A init allocates TWO side drills with j_Allocate_GfxObjectSlot_a1 (`$3A(a5)` and `$3E(a5)`, both stru_3BCBC): one Object_RAM coroutine, three GfxObject slots",
+        );
+    }
+
+    #[test]
+    fn dormant_mini_hopping_skull_counts_as_object_only_worker_loc_3e9d0() {
+        let mut manifest = minimal_manifest();
+        let skull_object = wildside_data::EnemyLayoutObject {
+            object_type: 0x1C,
+            flags: 0xFF,
+            hit_points_plus_one: 0,
+            x: 400,
+            y: 144,
+        };
+        manifest.levels.push(wildside_data::LevelRecord {
+            level_id: 0x44,
+            title_text_id: None,
+            display_name: None,
+            title_card: None,
+            resource_paths: Vec::new(),
+            resources: wildside_data::LevelResources::default(),
+            header_metadata: None,
+            enemy_layout_metadata: Some(wildside_data::EnemyLayout {
+                axis_uses_y_position: false,
+                unknown_prefix: 0,
+                enemy_type_slots: vec![0x001C, 0xFFFF, 0xFFFF],
+                unknown_word: 0x7D00,
+                header_byte: 0x80,
+                object_count: 1,
+                objects: vec![skull_object.clone()],
+                segments: Vec::new(),
+            }),
+            bgscroll_metadata: None,
+            platform_metadata: None,
+            background_layout_alias: None,
+        });
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0x44);
+        // Kid 300px left of the layout point: inside the activation window,
+        // outside loc_3E9D0's X [-$50,$50] proximity gate.
+        runtime.set_player_probe_position(100, 144);
+        let dormant = runtime.gameplay_transient_object_only_worker_count(0, 0);
+
+        // ASM Mini_Hopping_Skull.asm Enemy1C_MiniHoppingSkull_Init: the
+        // loader allocates the Object_RAM coroutine on window entry; the
+        // loc_3E9D0 hibernate holds it object-only (no gfx, no
+        // Number_of_Enemy) until Kid comes within X [-$50,$50] / Y [0,$A0].
+        assert_eq!(
+            dormant, 1,
+            "a window-resident skull failing the loc_3E9D0 proximity gate owns one hidden Object_RAM slot",
+        );
+
+        // Kid stood on the layout point passes the gate: the skull would be
+        // activated (or already active), so no dormant worker remains.
+        runtime.opening_slice = None;
+        runtime.set_player_probe_position(400, 144);
+        assert_eq!(
+            runtime.gameplay_transient_object_only_worker_count(0, 0),
+            0,
+            "inside the loc_3E9D0 gate the controller proceeds to Load_GfxObjectSlot and leaves the dormant pool",
+        );
+    }
+
     #[test]
     fn dragon_walking_breath_counts_as_object_and_gfx_child_loc_3d02a() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
@@ -15633,14 +15790,15 @@ impl NativeRuntime {
         } else {
             0
         };
-        // ASM Tank.asm loc_3B372 allocates the mouth/turret child through
-        // j_Allocate_GfxObjectSlot_a1 — a GFX slot that never increments
-        // Number_Objects. The native roster intentionally exports body and
-        // turret as separate snapshots for entity-position parity, so the
-        // object COUNT must collapse each tank pair back to its single ROM
-        // object slot (issue-271 jugg40: oracle Number_Objects stays 5 with
-        // one tank object while the native roster carries two 0x0A entries).
-        let tank_turret_child_entries = active_objects
+        // ASM Tank.asm loc_3B372 / Robot.asm / Scorpion.asm allocate their
+        // linked child through j_Allocate_GfxObjectSlot_a1 — a GFX slot that
+        // never increments Number_Objects (`EnemyFamily::child_slots`). The
+        // native roster intentionally exports body and child as separate
+        // snapshots for entity-position parity, so the object COUNT must
+        // collapse each exported pair back to its single ROM object slot
+        // (issue-271 jugg40 pinned the Tank shape; #449 generalises it to
+        // every `exports_child_attachment_snapshot` family).
+        let shared_object_child_entries = active_objects
             .windows(2)
             .filter(|pair| {
                 matches!(
@@ -15648,7 +15806,7 @@ impl NativeRuntime {
                     (
                         NativeObjectKind::Enemy { object_type: a },
                         NativeObjectKind::Enemy { object_type: b },
-                    ) if (*a == 0x0A || *a == 0x0B) && a == b
+                    ) if a == b && crate::enemies::enemy_object_type_pair_shares_object_slot(*a)
                 ) && pair[0].layout_index == pair[1].layout_index
             })
             .count() as u16;
@@ -15669,7 +15827,7 @@ impl NativeRuntime {
             .saturating_sub(platform_slot_entries)
             .saturating_add(transient_gfx_workers);
         let roster_object_count = roster_gfx_count
-            .saturating_sub(tank_turret_child_entries)
+            .saturating_sub(shared_object_child_entries)
             .saturating_add(special_platform_object_workers);
         if let Some(counts) = opening_level_one_object_counts(
             self.current_level,
@@ -15735,10 +15893,13 @@ impl NativeRuntime {
                     && projectile.animation_elapsed_frames == 1
             })
             .count() as u16;
+        let dormant_mini_hopping_skull_workers =
+            self.dormant_mini_hopping_skull_worker_count_loc_3e9d0(camera_x_pos, camera_y_pos);
         // ASM Dragon_Flying.asm loc_34BAC follows the same Object_RAM child
         // pattern for descent fire; native models it as a projectile but ROM
         // Number_Objects includes the child worker.
         drips_parent_workers
+            .saturating_add(dormant_mini_hopping_skull_workers)
             // ASM Fire_Demon.asm loc_3A414 allocates loc_3A48E through
             // j_Allocate_ObjectSlot only while the global Fire_Demon byte is
             // zero. Every live demon shares that one palette coroutine, which
@@ -15750,6 +15911,55 @@ impl NativeRuntime {
             // ASM Tar_Monster.asm loc_324F8 allocates five Object slots;
             // their loc_325E6 callbacks load GfxObjects one scheduler pass later.
             .saturating_add(tar_monster_burst_object_init_workers)
+    }
+
+    /// ASM Mini_Hopping_Skull.asm Enemy1C_MiniHoppingSkull_Init: the enemy
+    /// loader allocates the Object_RAM coroutine as soon as the layout point
+    /// enters the activation window, but loc_3E9D0 hibernates — object-only,
+    /// no gfx slot, no Number_of_Enemy increment — until Kid is within
+    /// X [-$50,$50] and Y [0,$A0] of the layout point. Native defers the
+    /// whole activation until that proximity gate passes
+    /// (`mini_hopping_skull_spawn_gate_loc_3e9d0` in the activation loop), so
+    /// the dormant controllers the ROM already owns must be counted here
+    /// (#424/#449: 0x44 idled at -5 objects with gfx equal, 0x65 at -1).
+    fn dormant_mini_hopping_skull_worker_count_loc_3e9d0(
+        &self,
+        camera_x_pos: u32,
+        camera_y_pos: u32,
+    ) -> u16 {
+        let Some(player) = self.current_player_state() else {
+            return 0;
+        };
+        let Some(layout) = self.enemy_layout(self.current_level) else {
+            return 0;
+        };
+        let window = crate::enemies::ActivationWindow::from_camera(CameraState {
+            x_pos: camera_x_pos,
+            y_pos: camera_y_pos,
+        });
+        let view =
+            crate::enemies::enemy_layout_view(layout, camera_x_pos >> 16, camera_y_pos >> 16);
+        view.objects
+            .iter()
+            .enumerate()
+            .filter(|(index, object)| {
+                let object_x = u32::from(object.x);
+                let object_y = u32::from(object.y);
+                window.contains(object_x, object_y)
+                    && EnemyFamily::from_layout_object(view.enemy_type_slots, object)
+                        == EnemyFamily::MiniHoppingSkull
+                    && !crate::enemies::mini_hopping_skull_spawn_gate_loc_3e9d0(
+                        object_x,
+                        object_y,
+                        player.x_pos,
+                        player.y_pos,
+                    )
+                    && !self.active_enemies.iter().any(|enemy| {
+                        enemy.segment_index == view.segment_index && enemy.layout_index == *index
+                    })
+                    && !self.killed_enemies.contains(&(view.segment_index, *index))
+            })
+            .count() as u16
     }
 
     fn hidden_drips_parent_worker_count_enemy16_drip_init(
@@ -15984,15 +16194,16 @@ impl NativeRuntime {
         camera_x_pos: u32,
         camera_y_pos: u32,
     ) -> u16 {
-        // ASM Archer.asm Enemy07_Archer_Init loc_33FDA calls loc_32188 to
-        // allocate the held-arrow child GFX slot, then stores the link in
-        // `$36(a5)`/`$3A(a5)`. It increments Number_GfxObjects without
-        // allocating another Object_RAM worker.
-        let archer_held_arrow_workers = self
+        // #449: per-family gfx-only children the roster never exports,
+        // derived from `EnemyFamily::unexported_gfx_child_slots` — the
+        // Archer held arrow (loc_33FDA -> loc_32188), the Tar Monster spliced
+        // child (loc_32200), the SpinningTwins twin (Enemy14 init), and the
+        // Driller's two side drills (Enemy1A init).
+        let family_linked_gfx_workers: u16 = self
             .active_enemies
             .iter()
-            .filter(|enemy| enemy.family == EnemyFamily::Archer)
-            .count() as u16;
+            .map(|enemy| enemy.family.unexported_gfx_child_slots())
+            .sum();
         let dragon_flying_descent_fire_gfx_workers = self
             .projectiles
             .iter()
@@ -16001,11 +16212,6 @@ impl NativeRuntime {
         let hidden_drips_gfx_workers = self
             .hidden_drips_parent_worker_count_enemy16_drip_init(camera_x_pos, camera_y_pos)
             .saturating_mul(3);
-        let tar_monster_linked_gfx_workers = self
-            .active_enemies
-            .iter()
-            .filter(|enemy| enemy.family == EnemyFamily::TarMonster)
-            .count() as u16;
         // ASM Dragon_Flying.asm loc_348A0 allocates the child Object slot;
         // loc_34BAC then calls Load_GfxObjectSlot before loc_32146 links its
         // collision source. Native counts the Object side in
@@ -16016,14 +16222,9 @@ impl NativeRuntime {
         // and preallocates a1/a2 through j_Allocate_GfxObjectSlot_a1. Native
         // suppresses all three hidden snapshots and adds their one Object side
         // separately, so retain all three slots in the Gfx-only projection.
-        // ASM Tar_Monster.asm loc_321E4 loads the parent's a3 GfxObject, then
-        // loc_32200 calls loc_32188 to splice a second Gfx-only child into the
-        // same Object lifecycle. Native collapses the pair into one enemy
-        // snapshot, so restore the linked child while its parent remains live.
-        archer_held_arrow_workers
+        family_linked_gfx_workers
             .saturating_add(dragon_flying_descent_fire_gfx_workers)
             .saturating_add(hidden_drips_gfx_workers)
-            .saturating_add(tar_monster_linked_gfx_workers)
     }
 
     fn visible_prize_block_worker_tails(&self) -> Vec<&PrizeBlockWorkerTail> {

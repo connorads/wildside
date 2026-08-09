@@ -562,6 +562,13 @@ other field diverges, divergent object off-screen. Native
 wait (archive #315 `loc_3EA88..loc_3F146` compression, #229 prior count
 mismatches).
 
+2026-08-09: closed [x] by the #449 dormant-worker model
+(`dormant_mini_hopping_skull_worker_count_loc_3e9d0`): layout skulls inside
+the activation window that fail the loc_3E9D0 proximity gate count as
+object-only workers, matching Enemy1C_MiniHoppingSkull_Init (object slot
+allocated on window entry; `Load_GfxObjectSlot` + `Number_of_Enemy` only
+after the gate). 0x44 and 0x65 pass the state sweep in run 1786270123.
+
 ### #425
 
 SpinningTwins leading spawn (0x47, 4 blockers). Oracle owns exactly one extra
@@ -799,6 +806,26 @@ SpinningTwins dual-gfx init (Enemy14), Driller tread/drill children
 phase class: identical delta at level_settle AND idle_tail, MAE≈0, no
 Kid-state diff. One architectural change — per-family child object/gfx slot
 counts on roster entries — retires #424/#425 and these halves together.
+
+Closed [x] 2026-08-09. Landed as `EnemyFamily::child_slots()` (the static
+per-family Object/GfxObject shape, ASM-cited per init routine) plus three
+derivations in the count model: (a) the Tank pair-collapse generalised to
+every `exports_child_attachment_snapshot` family (Robot 0x03, Tank 0x0A,
+TankShooting 0x0B, Scorpion 0x13 — each allocates its child through
+`j_Allocate_GfxObjectSlot_a1`, so the exported snapshot pair shares one
+Object slot); (b) `unexported_gfx_child_slots` replaces the Archer/TarMonster
+gfx-only hand list and adds SpinningTwins (+1 twin, Enemy14 init) and
+Driller (+2 side drills, Enemy1A init); (c) dormant MiniHoppingSkull
+controllers counted object-only (see #424). Unit tests pin the model to the
+attachment-exporting set and the per-family gfx totals; count templates
+extended for Scorpion/Robot pairs and SpinningTwins/Driller parents. Full
+sweep 1786270123 vs 1785591563: 0x44, 0x63, 0x65 flip to PASS; 0x62 4->3 and
+0x68 3->2 blocking; no level regresses (127 -> 119 blocking total).
+Residuals attributed: 0x68 remaining -2 obj/-2 gfx = two Drillers the oracle
+spawned in its settle shell (#442 shape); 0x61/0x62 remaining diffs are the
+pre-settle Kid hit (#442); 0x48 -1/-1 is the RNG-gated UFO beam pair (#422);
+0x38/0x47/0x22 sit on broken-looking oracle warp shells (counts 4/6),
+pre-session regressions tracked via #425's updated Verify.
 
 ### #450
 
@@ -21813,6 +21840,8 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 449 | [x] | P2 | enemy | Per-family child-slot model (`EnemyFamily::child_slots`): Robot/Tank/TankShooting/Scorpion pairs collapse to one Object slot, Archer/TarMonster/SpinningTwins/Driller gfx-only children derived from the same table, dormant loc_3E9D0 skulls counted object-only. | Full sweep 1786270123: 0x44/0x63/0x65 pass, 0x62/0x68 shrink, zero regressions (127 -> 119 blocking). Residual count diffs attributed to #442 shell content / #422 beam. See archive #449. |
+| 424 | [x] | P2 | enemy | MiniHoppingSkull dormant proximity controllers (`loc_3E9D0` Object-only slots) counted natively via the #449 dormant-worker model. | 0x44 and 0x65 pass the state sweep (run 1786270123). See archive #424. |
 | 438 | [x] | P2 | audio | Native director posts the ROM's StopMusic driver reloads: cold-boot GameProgram/Load_SegaScreen timer edges, Load_IntroSequence1 loader instant (cue deferred to intro elapsed 33), loc_C0A reboot re-entry; the parity probe splits each reload's wipe and GETPTRS repost across the frame boundary so consecutive reloads stay ring-visible. | Command parity 419→403 mismatches, first 16→812, exact 40→54; boot `0B` stream 16/32/70/140 + starts 70/171 all exact. Residue (reboot `Load_SegaScreen` `0B` 36097, flagpole pairs→#440) in archive #438. |
 | 437 | [x] | P2 | audio | Bounded-span timing replay: `oracle-probe --gems-stimulus-frames` captures the oracle's 68k→Z80 stimulus stream; `gems-span-replay` seeds a fresh engine at the frame-869 reinit and replays 34,135 stimuli over frames 870-2500. | Measured: first strict divergence frame 871 = z80_pc off by one instruction, 2-mclk phase offset, identical RAM/bank/wait/status; shapes bounded, non-compounding; skew-16 sensitivity unchanged. Report `.cache/audit/gems-span-replay-870-2500.json`; discriminator follow-up #441. See archive #437. |
 | 436 | [x] | P2 | audio | GEMS replay seam probe: `GemsStimulus` record buffer inside `GemsMasterClockTimingEngine` (outermost-public-entry rule, no call-site wrapping); `gems-replay-probe` records the frozen span and replays a fresh engine. | GO: 923/923 frames bit-identical full checkpoints from 34,091,643 recorded stimuli; frozen witness bit-identical before/after the seam (verify-tas-full ×2). See archive #436. |

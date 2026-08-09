@@ -1058,6 +1058,17 @@ pub(crate) struct ActivationWindow {
     pub(crate) y_max: u32,
 }
 
+/// ROM Object_RAM / GfxObject allocation shape for one live layout object of
+/// a family, parent included (#449). Source: each family's init routine —
+/// `j_Load_GfxObjectSlot` loads the parent gfx slot; every
+/// `j_Allocate_GfxObjectSlot_a1` adds a gfx-only child that never increments
+/// `Number_Objects`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FamilyChildSlots {
+    pub(crate) object_slots: u16,
+    pub(crate) gfx_slots: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EnemyFamily {
     Diamond,
@@ -3183,6 +3194,137 @@ impl EnemyFamily {
         }
     }
 
+    /// ROM allocation shape for ONE live layout object of this family:
+    /// Object_RAM slots and GfxObject slots, parent included (#449). Only
+    /// STATIC shapes live here — state-dependent lifecycles (Drips' hidden
+    /// controller, boss skewers, projectile children) stay in the runtime
+    /// transient-worker counts.
+    pub(crate) fn child_slots(self) -> FamilyChildSlots {
+        let (object_slots, gfx_slots) = match self {
+            // ASM Robot.asm Enemy03 init: j_Load_GfxObjectSlot plus one
+            // j_Allocate_GfxObjectSlot_a1 head child at `$3A(a5)`.
+            Self::Robot => (1, 2),
+            // ASM Tank.asm loc_3B372 / Tank_Shooting.asm loc_3B5FA: the
+            // mouth/turret child is a gfx-only slot at `$3A(a5)`.
+            Self::Tank | Self::TankShooting => (1, 2),
+            // ASM Scorpion.asm Enemy13 init: tail gfx child via
+            // j_Allocate_GfxObjectSlot_a1.
+            Self::Scorpion => (1, 2),
+            // ASM Spinning_Twins.asm Enemy14_SpinningTwins_Init: the second
+            // twin is one j_Allocate_GfxObjectSlot_a1 child at `$3A(a5)`
+            // running `stru_3B802`.
+            Self::SpinningTwins => (1, 2),
+            // ASM Driller.asm Enemy1A init: TWO j_Allocate_GfxObjectSlot_a1
+            // side drills (`$3A(a5)` and `$3E(a5)`, both `stru_3BCBC`).
+            Self::Driller => (1, 3),
+            // ASM Archer.asm Enemy07_Archer_Init loc_33FDA -> loc_32188:
+            // the held-arrow child gfx slot linked at `$36/$3A(a5)`.
+            Self::Archer => (1, 2),
+            // ASM Tar_Monster.asm loc_321E4/loc_32200: loc_32188 splices a
+            // second gfx-only child into the same Object lifecycle.
+            Self::TarMonster => (1, 2),
+            _ => (1, 1),
+        };
+        FamilyChildSlots {
+            object_slots,
+            gfx_slots,
+        }
+    }
+
+    /// Families whose native roster exports the linked child as a second
+    /// `NativeObjectSnapshot` (see `child_attachment_snapshot`). The ROM
+    /// child owns only a GfxObject slot, so the object COUNT must collapse
+    /// each exported pair back to its single Object_RAM slot.
+    pub(crate) fn exports_child_attachment_snapshot(self) -> bool {
+        matches!(
+            self,
+            Self::Robot | Self::Tank | Self::TankShooting | Self::Scorpion
+        )
+    }
+
+    /// Linked gfx children the native roster does NOT export as snapshots:
+    /// the family's ROM gfx slots minus its exported roster entries. These
+    /// are pure Number_GfxObjects workers (#449).
+    pub(crate) fn unexported_gfx_child_slots(self) -> u16 {
+        let exported_entries = 1 + u16::from(self.exports_child_attachment_snapshot());
+        self.child_slots()
+            .gfx_slots
+            .saturating_sub(exported_entries)
+    }
+}
+
+/// Object types whose adjacent same-layout roster snapshot pairs share one
+/// ROM Object_RAM slot: the `exports_child_attachment_snapshot` families by
+/// their `object_type()` (a unit test pins the two in lock-step).
+pub(crate) fn enemy_object_type_pair_shares_object_slot(object_type: u8) -> bool {
+    matches!(object_type, 0x03 | 0x0A | 0x0B | 0x13)
+}
+
+#[cfg(test)]
+mod family_child_slot_tests {
+    use super::*;
+
+    #[test]
+    fn pair_collapse_set_matches_the_attachment_exporting_families() {
+        let attachment_families = [
+            EnemyFamily::Robot,
+            EnemyFamily::Tank,
+            EnemyFamily::TankShooting,
+            EnemyFamily::Scorpion,
+        ];
+        for family in attachment_families {
+            assert!(family.exports_child_attachment_snapshot(), "{family:?}");
+            assert!(
+                enemy_object_type_pair_shares_object_slot(family.object_type()),
+                "{family:?} exports an attachment snapshot, so its roster pairs must collapse"
+            );
+            assert_eq!(
+                family.child_slots(),
+                FamilyChildSlots {
+                    object_slots: 1,
+                    gfx_slots: 2
+                },
+                "{family:?}"
+            );
+            assert_eq!(family.unexported_gfx_child_slots(), 0, "{family:?}");
+        }
+        for family in [
+            EnemyFamily::Goat,
+            EnemyFamily::UFO,
+            EnemyFamily::Tornado,
+            EnemyFamily::SpinningTwins,
+            EnemyFamily::Driller,
+            EnemyFamily::Archer,
+            EnemyFamily::TarMonster,
+        ] {
+            assert!(!family.exports_child_attachment_snapshot(), "{family:?}");
+            assert!(
+                !enemy_object_type_pair_shares_object_slot(family.object_type()),
+                "{family:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn gfx_only_child_slots_follow_the_family_init_allocations() {
+        // ASM Spinning_Twins.asm init: one Allocate_GfxObjectSlot_a1 twin.
+        assert_eq!(EnemyFamily::SpinningTwins.unexported_gfx_child_slots(), 1);
+        // ASM Driller.asm init: two Allocate_GfxObjectSlot_a1 side drills.
+        assert_eq!(EnemyFamily::Driller.unexported_gfx_child_slots(), 2);
+        // ASM Archer.asm loc_33FDA -> loc_32188 held arrow.
+        assert_eq!(EnemyFamily::Archer.unexported_gfx_child_slots(), 1);
+        // ASM Tar_Monster.asm loc_32200 spliced gfx child.
+        assert_eq!(EnemyFamily::TarMonster.unexported_gfx_child_slots(), 1);
+        // 1:1 families own no hidden gfx children.
+        assert_eq!(EnemyFamily::Goat.unexported_gfx_child_slots(), 0);
+        assert_eq!(
+            EnemyFamily::MiniHoppingSkull.unexported_gfx_child_slots(),
+            0
+        );
+    }
+}
+
+impl EnemyFamily {
     #[cfg(test)]
     fn snapshot(
         self,
@@ -6756,7 +6898,7 @@ fn mini_hopping_skull_should_remain_active(
         && relative_y <= bottom_margin
 }
 
-fn mini_hopping_skull_spawn_gate_loc_3e9d0(
+pub(crate) fn mini_hopping_skull_spawn_gate_loc_3e9d0(
     object_x_px: u32,
     object_y_px: u32,
     player_x_pos: u32,
