@@ -259,6 +259,12 @@ diff composites, and per-layer diagnostics.
 - Sweep: 105 levels x idle scenario, state-level checkpoint comparison
 - Position tolerance: 6px. No field-level advisory masking (`ADVISORY_FIELDS` is empty); non-comparable oracle checkpoints classify as `oracle_limitation` with cited evidence.
 
+### 68000 core conformance (the layer under the oracle)
+- `mise run bootstrap-cpu-vectors` then `mise run verify-cpu-vectors` replays the SingleStepTests 680x0 + m68000 vector sets (1.3M single-instruction vectors) through the pinned `r68k-emu` core; `mise run verify-cpu-vectors-ratchet` is the downward-only gate (baseline `docs/source-port/cpu-vector-baseline.yaml`, provenance-pinned)
+- Measured result, defects, and the limits of the measurement: `docs/source-port/cpu-core-conformance.md`. Headline: ~98% arithmetic-exact, but BCD/`DIV` results, exception stack frames, and `MUL`/`DIV` cycle counts are wrong, and r68k panics rather than raising some address errors
+- Not in `verify-slice-fast`: 600 MB of vectors and minutes per run, so it is a periodic gate like `sweep`
+- A green arithmetic verdict removes the CPU core as a suspect for state divergence; it proves nothing about Kid Chameleon behaviour
+
 ### Pixel-perfect frame comparison (visual correctness)
 - 320x224 fixed-palette pixel art; exact pixel matching is appropriate (no perceptual metrics needed)
 - Use `image` crate for byte-by-byte RGBA comparison
