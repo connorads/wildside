@@ -197,6 +197,10 @@ description = "Sweep all 105 levels for native vs oracle parity"
 run = "cargo run --release -p wildside-cli -- verify-cpu-vectors"
 description = "#447: replay all 1.3M SingleStepTests 68000 vectors through the pinned r68k core (state verdict first, cycles/bus second)"
 
+[tasks.verify-cpu-vectors-ratchet]
+run = "python3 scripts/cpu_vector_ratchet.py"
+description = "#447 meter: fail if any opcode file fails more 68000 vectors than the reviewed baseline (downward-only ratchet)"
+
 [tasks.sweep-census]
 run = "cargo run --release -p wildside-cli -- sweep-census"
 description = "Classify sweep-blocking diffs by enemy family (writes .cache/audit/sweep-census.json)"
