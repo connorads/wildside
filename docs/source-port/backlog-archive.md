@@ -548,6 +548,21 @@ plausible source of the extra fatal hit. Archive: hitpoints de-masking
 (backlog-archive.md:13506) surfaced exactly this class; #315 holds prior Ninja
 cadence/contact/i-frame work.
 
+Closed [x] 2026-08-09. Root cause: native's
+`ninja_walk_speed_override_loc_3d59a_and_3d5aa` misread Enemy11_Ninja_Init's
+branch structure and walked every Ninja 2-3x too fast (HP 2 at $18000
+instead of $8000; HP 4+ at $24000 instead of $18000). The ASM is the same
+accumulation shape as Driller.asm loc_3BD6C/loc_3BD74: `cmpi.w #3,d7;
+blt.s loc_3D5AA` gives HP 2 one `+$8000`, `beq.s loc_3D59A` gives HP 3 two,
+HP 4+ seeds `$8000` before both adds. Oracle witness: the 0x56 frame-0
+settle probe walks the HP-2 Ninja at exactly `$8000`/frame while native
+stepped `$18000`. At 2-3x speed the native Ninjas converged on idle Kid and
+killed him — the whole 0x56 failure shape. After the fix 0x56 passes the
+state sweep (run 1786271326). Full-sweep delta: 0x56 5->0; one secondary
+divergence unmasked at 0x31 (native loses Ninja layout #5 by idle_tail while
+the oracle's patrols on) — opened as #451, not a reason to revert an
+ASM+oracle-proven speed.
+
 ### #424
 
 MiniHoppingSkull dormant controllers (0x44/0x65, 4 blockers).
@@ -588,6 +603,26 @@ one object + one gfx). ASM `loc_32AFE` floor-scan feeds `loc_32AA2`
 `j_Delete_CurrentObject` when a Hand has no ground; native models it via
 `HandTerrainScanLoc32AFE` (hand.rs edge/wall detection) — a scan mismatch keeps
 one Hand alive that oracle deletes.
+
+2026-08-09 dead end — the loc_32AFE attribution is DISPROVEN. Frame-0 probe
+(settle_probe_59, enemy frontier): native enters frame 0 with Hands layout
+#0 (296,95) AND #2 (312,191); the oracle enters with #0 only, and its
+settle trace shows number_objects=4 throughout the whole `target_live`
+window — the ROM NEVER LOADED Hand #2, so no in-level deletion happened.
+The scan cannot be the mechanism anyway: (a) ROM Level_Layout RAM (fresh
+`dump-level-layout --level 59`) has $4000 ground words (0xE102) across row
+12 cols 14-22 under Hand #2, so loc_32AFE finds ground; (b) loc_32AA2 runs
+a death ANIMATION over many frames — a pre-frame-0 deletion would still be
+visible as an object in the early settle rows. Correlation found but not
+yet mechanised: the two in-window Hands differ ONLY in layout entry byte 1
+(flags 0x00 loaded vs 0x01 never loaded; #3/#4 also 0x01 but out of
+window), yet Manage_EnemyLoading (kid.asm:37957-38100) never reads byte 1
+and its x/y window ([-$80,$1C0]x[-$80,$160] from camera 0,0) contains both
+hands. Rejected hypotheses: loc_32AFE scan mismatch (ground exists);
+loc_36900 visible-inner suppression (would suppress #0 too). Next: trace
+the shell's enemy-loading passes (EnemyStatus_Table + Addr_EnemyLayout
+segment cursor) — the divergence is hidden-shell loading content (#442
+family), possibly a camera-keyed H1 sub-list native's parser flattens.
 
 ### #427
 
@@ -711,6 +746,20 @@ shell content would re-break the levels those tails were tuned on. Next
 lane: model the shell CONTENT (title-wait controller RNG draws + pre-live
 enemy scheduling) in native's `begin_debug_level_entry_loc_74e0` lifecycle,
 compare against the YAML's frame-0 witnesses, then delete the tails.
+
+### #451
+
+Opened 2026-08-09 (unmasked by the #423 Ninja speed fix). At 0x31 (roster
+Hand x12, Ninja x4, Scorpion x5) the corrected walk speed exposes a Ninja
+lifecycle divergence: native's Ninja layout #5 is entirely absent from the
+enemy-frontier roster by frame 250, while the oracle's is alive and
+patrolling (Right at ~x0x189 f250, turns Left by f350, hp 2). Sweep run
+1786271326: 0x31 regressed 0 -> 2 blocking, idle_tail only (-1 object,
+-1 gfx native); level_settle is clean, so the loss happens mid-idle. At the
+old doubled speed the native Ninja happened to still be alive/in-roster at
+the tail. Suspects: native despawn-on-window-exit vs ROM retention for
+jumping Ninjas, or a ledge/pit death at the true speed. Probe frames 60-250
+to find the exact loss frame before reading Ninja.asm's lifecycle branches.
 
 ### #443
 
@@ -21840,6 +21889,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 423 | [x] | P1 | enemy | Ninja walk speed misread Enemy11_Ninja_Init: HP 2 walked at $18000 instead of $8000 (HP 3 $10000, HP 4+ $18000 — the Driller loc_3BD6C/loc_3BD74 accumulation shape). At 2-3x speed native Ninjas converged on idle Kid at 0x56 and killed him. | 0x56 passes the state sweep (run 1786271326); oracle frame-0 probe walks the HP-2 Ninja at $8000/frame. Secondary 0x31 residual opened as #451. See archive #423. |
 | 449 | [x] | P2 | enemy | Per-family child-slot model (`EnemyFamily::child_slots`): Robot/Tank/TankShooting/Scorpion pairs collapse to one Object slot, Archer/TarMonster/SpinningTwins/Driller gfx-only children derived from the same table, dormant loc_3E9D0 skulls counted object-only. | Full sweep 1786270123: 0x44/0x63/0x65 pass, 0x62/0x68 shrink, zero regressions (127 -> 119 blocking). Residual count diffs attributed to #442 shell content / #422 beam. See archive #449. |
 | 424 | [x] | P2 | enemy | MiniHoppingSkull dormant proximity controllers (`loc_3E9D0` Object-only slots) counted natively via the #449 dormant-worker model. | 0x44 and 0x65 pass the state sweep (run 1786270123). See archive #424. |
 | 438 | [x] | P2 | audio | Native director posts the ROM's StopMusic driver reloads: cold-boot GameProgram/Load_SegaScreen timer edges, Load_IntroSequence1 loader instant (cue deferred to intro elapsed 33), loc_C0A reboot re-entry; the parity probe splits each reload's wipe and GETPTRS repost across the frame boundary so consecutive reloads stay ring-visible. | Command parity 419→403 mismatches, first 16→812, exact 40→54; boot `0B` stream 16/32/70/140 + starts 70/171 all exact. Residue (reboot `Load_SegaScreen` `0B` 36097, flagpole pairs→#440) in archive #438. |

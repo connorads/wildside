@@ -135,17 +135,17 @@ pub(crate) const MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E: u16 = 0x8
 pub(crate) const MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92: u16 = 0x4000;
 pub(crate) const MINI_SKULL_SLOPE_WAIT_TIMER_FLAG_LOC_3EB00: u16 = 0x2000;
 
-/// ASM Enemy11_Ninja_Init `loc_3D59A`/`loc_3D5AA` final speed arithmetic in `$50/$5E(a5)`:
-/// - `current_hp < 3`: one unconditional `loc_3D5AA` fallthrough path (`+$8000` ×2).
-/// - `current_hp == 3`: `loc_3D59A` then `loc_3D5AA` (`+$8000` ×2).
-/// - `current_hp > 3`: base `+$8000` + both branch adds (`+$8000` ×3), so net 3×.
-///   This is the native selection used by `step_pacer` speed resolution.
+/// ASM Enemy11_Ninja_Init `loc_3D59A`/`loc_3D5AA` speed accumulation in
+/// `$50/$5E(a5)` — the same branch shape as Driller.asm loc_3BD6C/loc_3BD74:
+/// `cmpi.w #3,d7; blt.s loc_3D5AA` sends HP 2 past BOTH adds to the single
+/// final `+$8000`; `beq.s loc_3D59A` gives HP 3 the middle and final adds
+/// (`$10000`); HP 4+ falls through the `move.l #$8000,$50(a5)` seed before
+/// both adds (`$18000`). Oracle witness: the 0x56 settle probe walks the
+/// HP-2 Ninja at `$8000`/frame (#423).
 pub(crate) fn ninja_walk_speed_override_loc_3d59a_and_3d5aa(current_hp: u8) -> i32 {
-    if current_hp > 3 {
-        0x0002_4000
-    } else {
-        0x0001_8000
-    }
+    let seed = if current_hp > 3 { 0x0000_8000 } else { 0 };
+    let middle_add = if current_hp >= 3 { 0x0000_8000 } else { 0 };
+    seed + middle_add + 0x0000_8000
 }
 
 /// Canonical collision-ID values shared by every enemy family.
@@ -11309,8 +11309,8 @@ mod tests {
         );
         assert_eq!(
             pacer_walk_speed(ninja.family, ninja.hit_points),
-            0x0001_8000,
-            "ASM Ninja.asm loc_3D59A/loc_3D5AA keep HP 3 on the fallthrough speed tier"
+            0x0001_0000,
+            "ASM Ninja.asm `beq.s loc_3D59A`: HP 3 accumulates the middle and final `$8000` adds"
         );
     }
 

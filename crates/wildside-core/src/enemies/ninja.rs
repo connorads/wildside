@@ -1539,38 +1539,43 @@ mod tests {
         assert!(low_hp.status_flag_13);
         assert_eq!(low_hp.object_meta, 0x0011);
         assert_eq!(low_hp.priority, 0);
-        assert_eq!(low_hp.walk_speed_override, 0x0001_8000);
+        // ASM `cmpi.w #3,d7; blt.s loc_3D5AA`: HP 2 skips both upper adds and
+        // takes only the final `+$8000`. Oracle witness: 0x56 settle probe,
+        // HP-2 Ninja x_pos steps `-$8000`/frame.
+        assert_eq!(low_hp.walk_speed_override, 0x0000_8000);
 
         let mid_hp = ninja_init_state_loc_3d554(1);
         assert_eq!(mid_hp.current_hp, 3);
-        assert_eq!(mid_hp.walk_speed_override, 0x0001_8000);
+        // ASM `beq.s loc_3D59A`: HP 3 takes the middle and final adds.
+        assert_eq!(mid_hp.walk_speed_override, 0x0001_0000);
     }
 
     #[test]
     fn ninja_init_speed_follows_loc_3d59a_branch() {
-        // ASM loc_3D59A path is taken when `current_hp > 3` after the init
-        // compare against `#3`; this yields `$18000 + $8000`.
+        // ASM: HP > 3 falls through the `move.l #$8000,$50(a5)` seed, then
+        // loc_3D59A and loc_3D5AA each add `$8000` — three adds total.
         assert_eq!(
             ninja_walk_speed_override_loc_3d59a_and_3d5aa(4),
-            0x0002_4000
+            0x0001_8000
         );
         assert_eq!(
             ninja_walk_speed_override_loc_3d59a_and_3d5aa(5),
-            0x0002_4000
+            0x0001_8000
         );
     }
 
     #[test]
     fn ninja_init_speed_follows_loc_3d5aa_fallthrough() {
-        // ASM loc_3D5AA is the fallthrough path when `current_hp <= 3`
-        // (either directly for `<3` or after loc_3D59A for `==3`).
+        // ASM `cmpi.w #3,d7`: `blt.s loc_3D5AA` (HP 2, one add) versus
+        // `beq.s loc_3D59A` (HP 3, two adds) — the same accumulation shape
+        // Driller.asm loc_3BD6C/loc_3BD74 uses.
         assert_eq!(
             ninja_walk_speed_override_loc_3d59a_and_3d5aa(2),
-            0x0001_8000
+            0x0000_8000
         );
         assert_eq!(
             ninja_walk_speed_override_loc_3d59a_and_3d5aa(3),
-            0x0001_8000
+            0x0001_0000
         );
     }
 
