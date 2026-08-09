@@ -11,6 +11,7 @@ mod capture;
 mod case;
 mod cheats;
 mod compare;
+mod cpu_vectors;
 mod diff;
 mod gems_census;
 mod gems_ring;
@@ -714,6 +715,26 @@ enum Commands {
     BootstrapReferences {
         #[arg(long, value_enum)]
         only: Option<ReferenceName>,
+    },
+    /// Shallow-clone the two SingleStepTests 68000 vector repositories into
+    /// .cache/references (#447). ~600 MB, so deliberately not part of
+    /// bootstrap-references; a re-run at the pinned SHA costs no network.
+    BootstrapCpuVectors,
+    /// Validate the pinned r68k-emu 68000 core against the SingleStepTests
+    /// vectors (#447). Primary verdict is final state (registers, stack
+    /// pointers, PC, SR, memory); cycle counts and the data-bus sequence are
+    /// reported as a secondary, informational tier.
+    VerifyCpuVectors {
+        /// Restrict to one published set (default: both).
+        #[arg(long, value_enum)]
+        set: Option<cpu_vectors::vector::CpuVectorSet>,
+        /// Keep only the first N vectors of each opcode file. A prefix, not a
+        /// random sample, so a capped run stays reproducible.
+        #[arg(long)]
+        per_file_limit: Option<usize>,
+        /// Print the machine-readable report to stdout instead of the summary.
+        #[arg(long, default_value_t = false)]
+        json: bool,
     },
     OracleSetup,
     ExtractAssets {
@@ -2251,6 +2272,33 @@ fn main() -> Result<()> {
             let reference_root = resolve_reference_root(&repo_root);
             let references = bootstrap_references(&reference_root, only)?;
             print_bootstrapped_references(&reference_root, &references);
+        }
+        Commands::BootstrapCpuVectors => {
+            let repo_root = current_dir()?;
+            let reference_root = resolve_reference_root(&repo_root);
+            let references = bootstrap_cpu_vector_repos(&reference_root)?;
+            print_bootstrapped_references(&reference_root, &references);
+        }
+        Commands::VerifyCpuVectors {
+            set,
+            per_file_limit,
+            json,
+        } => {
+            let repo_root = current_dir()?;
+            let reference_root = resolve_reference_root(&repo_root);
+            let sets = set.map_or_else(
+                || cpu_vectors::vector::CpuVectorSet::ALL.to_vec(),
+                |set| vec![set],
+            );
+            cpu_vectors::ensure_vectors_present(&reference_root, &sets)?;
+            let report = cpu_vectors::verify_cpu_vectors(&reference_root, &sets, per_file_limit)?;
+            let path = cpu_vectors::write_report(&repo_root, &report)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+            } else {
+                print!("{}", cpu_vectors::format_report(&report));
+                println!("report: {}", path.display());
+            }
         }
         Commands::OracleSetup => {
             let repo_root = current_dir()?;

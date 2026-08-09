@@ -11,6 +11,13 @@ mod vdp;
 
 #[cfg(feature = "audio")]
 pub use runtime::*;
+
+/// The 68000 core every timing claim rests on, re-exported so tooling can drive
+/// it directly without a second copy of the git pin (#447). The pin lives in
+/// this crate's `Cargo.toml` alone; `verify-cpu-vectors` validates *this* rev.
+#[cfg(feature = "audio")]
+pub use r68k_emu;
+
 pub use vdp::{
     FrameBuffer, VdpPixelLayerSample, VdpPixelSample, VdpRasterFrame, VdpRasterVramWordWrite,
     VdpSnapshot, render_vdp_into, sample_vdp_pixel,

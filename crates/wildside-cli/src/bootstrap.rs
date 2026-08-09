@@ -25,6 +25,10 @@ pub(crate) const GEMS_REFERENCE_URL: &str = "https://github.com/realmonster/GEMS
 pub(crate) const GEMS_REFERENCE_COMMIT: &str = "a09a734532231fb8a1170e55f018d8511329562e";
 pub(crate) const GEMSPLAY_REFERENCE_URL: &str = "https://github.com/ValleyBell/GEMSPlay";
 pub(crate) const GEMSPLAY_REFERENCE_COMMIT: &str = "8b2e490942e9e8c0cc8d6f9132f15c5b8507a5db";
+pub(crate) const HARTE_VECTORS_URL: &str = "https://github.com/SingleStepTests/680x0";
+pub(crate) const HARTE_VECTORS_COMMIT: &str = "e0d5ece9670205cc84a0101081837deb446f86a3";
+pub(crate) const MAME_VECTORS_URL: &str = "https://github.com/SingleStepTests/m68000";
+pub(crate) const MAME_VECTORS_COMMIT: &str = "64b253116a3de04aaac4346c43680960dc9b67e5";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub(crate) enum ReferenceName {
@@ -170,6 +174,131 @@ pub(crate) fn bootstrap_pinned_repo(dir: &Path, url: &str, commit: &str) -> Resu
         Some(dir),
     )?;
     Ok(())
+}
+
+/// The two SingleStepTests 68000 vector repositories (#447): per-opcode
+/// single-instruction vectors giving full state before and after, plus bus
+/// transactions, used to validate the pinned `r68k-emu` core.
+pub(crate) fn cpu_vector_repos() -> &'static [ReferenceRepo] {
+    const HARTE: ReferenceRepo = ReferenceRepo {
+        name: "singlesteptests-680x0",
+        dir_name: "singlesteptests-680x0",
+        url: HARTE_VECTORS_URL,
+        commit: HARTE_VECTORS_COMMIT,
+        purpose: "Tom Harte lineage 68000 per-opcode state + bus-cycle vectors",
+    };
+    const MAME: ReferenceRepo = ReferenceRepo {
+        name: "singlesteptests-m68000",
+        dir_name: "singlesteptests-m68000",
+        url: MAME_VECTORS_URL,
+        commit: MAME_VECTORS_COMMIT,
+        purpose: "MAME-microcode-derived 68000 vectors; adds STOP, LINE A/F, re/we cycles",
+    };
+    const ALL: &[ReferenceRepo] = &[HARTE, MAME];
+    ALL
+}
+
+/// Fetch both vector repositories into `reference_root`.
+///
+/// Kept out of `bootstrap-references` deliberately: these are ~600 MB of
+/// generated test data used by one verification task, not reading references
+/// every session needs. Shallow (`--depth 1`) for the same reason — the pinned
+/// SHA is fetched directly, so the pin survives without the history.
+pub(crate) fn bootstrap_cpu_vector_repos(
+    reference_root: &Path,
+) -> Result<Vec<BootstrappedReference>> {
+    fs::create_dir_all(reference_root)
+        .with_context(|| format!("failed to create {}", reference_root.display()))?;
+
+    let mut references = Vec::new();
+    for reference in cpu_vector_repos() {
+        let path = reference_root.join(reference.dir_name);
+        bootstrap_shallow_pinned_repo(&path, reference.url, reference.commit)?;
+        references.push(BootstrappedReference {
+            name: reference.name,
+            path,
+            commit: reference.commit,
+            purpose: reference.purpose,
+        });
+    }
+    Ok(references)
+}
+
+/// Shallow clone `url` into `dir` and detach at `commit`.
+///
+/// Returns early when `dir` is already detached at `commit`, so a re-run costs
+/// no network. Unlike [`bootstrap_pinned_repo`] this never runs `git fetch
+/// --all`: that would deepen the clone back to full history.
+pub(crate) fn bootstrap_shallow_pinned_repo(dir: &Path, url: &str, commit: &str) -> Result<()> {
+    if head_commit(dir).as_deref() == Some(commit) {
+        return Ok(());
+    }
+
+    if !dir.exists() {
+        let parent = dir
+            .parent()
+            .ok_or_else(|| anyhow!("vector directory has no parent: {}", dir.display()))?;
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+        run_command(
+            Command::new("git")
+                .arg("clone")
+                .arg("--depth")
+                .arg("1")
+                .arg("--single-branch")
+                .arg(url)
+                .arg(dir),
+            None,
+        )?;
+    }
+
+    // GitHub serves reachable SHAs directly, so a pinned checkout stays shallow.
+    run_command(
+        Command::new("git")
+            .arg("fetch")
+            .arg("--depth")
+            .arg("1")
+            .arg("origin")
+            .arg(commit),
+        Some(dir),
+    )?;
+    run_command(
+        Command::new("git")
+            .arg("checkout")
+            .arg("--detach")
+            .arg(commit),
+        Some(dir),
+    )?;
+    Ok(())
+}
+
+/// `dir`'s own checked-out commit, or `None` when `dir` is not a git checkout.
+///
+/// The git directory is named explicitly rather than inherited from the working
+/// directory. These checkouts live under `.cache/`, which is inside *this*
+/// repository's work tree, so a plain `rev-parse` in a not-yet-cloned directory
+/// would confidently report wildside's own HEAD as the vector-set commit.
+pub(crate) fn head_commit(dir: &Path) -> Option<String> {
+    let mut command = Command::new("git");
+    scrub_inherited_git_env(&mut command);
+    let output = command
+        .arg("--git-dir")
+        .arg(dir.join(".git"))
+        .arg("rev-parse")
+        .arg("HEAD")
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let commit = String::from_utf8(output.stdout).ok()?.trim().to_owned();
+    if commit.is_empty() {
+        None
+    } else {
+        Some(commit)
+    }
 }
 
 pub(crate) fn prepare_generated_assets(
@@ -924,11 +1053,58 @@ mod tests {
             .expect_err("pinned repo bootstrap should fail before git"),
             bootstrap_references(&file_child_path(&temp), Some(ReferenceName::M68k))
                 .expect_err("reference bootstrap should fail before git"),
+            bootstrap_shallow_pinned_repo(
+                &file_child_path(&temp),
+                "https://example.invalid/repo.git",
+                "abc",
+            )
+            .expect_err("shallow repo bootstrap should fail before git"),
+            bootstrap_cpu_vector_repos(&file_child_path(&temp))
+                .expect_err("cpu vector bootstrap should fail before git"),
         ] {
             assert!(
                 error.to_string().contains("failed to create"),
                 "unexpected error: {error:#}"
             );
+        }
+    }
+
+    /// The vector checkouts live under `.cache/`, inside this repository's work
+    /// tree. A `rev-parse` that inherited the working directory would report
+    /// wildside's own HEAD for a directory that was never cloned, silently
+    /// stamping the wrong provenance onto a conformance baseline.
+    #[test]
+    fn head_commit_ignores_the_enclosing_repository() {
+        let temp = TempDir::new().expect("tempdir");
+        assert_eq!(head_commit(temp.path()), None);
+        assert_eq!(head_commit(&temp.path().join("never-cloned")), None);
+
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .expect("workspace root");
+        let inside = repo_root.join("crates");
+        assert!(inside.is_dir(), "expected {} to exist", inside.display());
+        assert_eq!(
+            head_commit(&inside),
+            None,
+            "a plain directory inside the repo must not report the repo's HEAD"
+        );
+    }
+
+    #[test]
+    fn cpu_vector_repos_pin_both_published_sets() {
+        let repos = cpu_vector_repos();
+        assert_eq!(repos.len(), 2);
+        for repo in repos {
+            assert_eq!(
+                repo.commit.len(),
+                40,
+                "{} must pin a full SHA, got {:?}",
+                repo.name,
+                repo.commit
+            );
+            assert!(repo.url.starts_with("https://github.com/SingleStepTests/"));
         }
     }
 

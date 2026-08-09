@@ -164,6 +164,10 @@ run = "cargo run -p wildside-cli -- bootstrap-upstream"
 [tasks.bootstrap-references]
 run = "cargo run -p wildside-cli -- bootstrap-references"
 
+[tasks.bootstrap-cpu-vectors]
+run = "cargo run -p wildside-cli -- bootstrap-cpu-vectors"
+description = "Shallow-clone the SingleStepTests 680x0 + m68000 68000 vector sets (~600 MB) into .cache/references"
+
 [tasks.oracle-setup]
 run = "cargo run -p wildside-cli -- oracle-setup"
 
@@ -188,6 +192,10 @@ run = "sh -c 'cargo run -p wildside-cli -- dump-level-layout --level \"${1:-00}\
 [tasks.sweep]
 run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- sweep"
 description = "Sweep all 105 levels for native vs oracle parity"
+
+[tasks.verify-cpu-vectors]
+run = "cargo run --release -p wildside-cli -- verify-cpu-vectors"
+description = "#447: replay all 1.3M SingleStepTests 68000 vectors through the pinned r68k core (state verdict first, cycles/bus second)"
 
 [tasks.sweep-census]
 run = "cargo run --release -p wildside-cli -- sweep-census"

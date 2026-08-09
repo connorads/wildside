@@ -17,6 +17,9 @@ clap.workspace = true
 hound.workspace = true
 image.workspace = true
 crc32fast.workspace = true
+# The SingleStepTests 680x0 set ships gzipped JSON (#447). Already in the tree
+# via `zip`, so this is a direct use of a vendored crate, not a new dependency.
+flate2 = "1.1"
 wildside-core = { path = "../wildside-core" }
 wildside-data = { path = "../wildside-data" }
 wildside-frame = { path = "../wildside-frame", features = ["audio"] }
