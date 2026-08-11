@@ -490,6 +490,14 @@ depends = ["web-package"]
 run = "scripts/verify_web_local.sh"
 description = "Manual local Worker + Playwright journeys (requires canonical ROM and installed Playwright Chromium)"
 
+[tasks.raster-span-replay]
+run = "python3 scripts/raster_span_replay.py --census .cache/audit/hud-timing-census.json --output .cache/audit/raster-span-replay.json"
+description = "Replay the bounded HUD CPU/raster census as measurement evidence (ADR 0002; never a CI gate)"
+
+[tasks.hud-timing-census]
+run = "python3 scripts/hud_timing_census.py --mismatch-report .cache/tas-verify/any-percent-published/mismatch-report.json --manifest .cache/oracle-probe/oracle/manifest.json --output .cache/audit/hud-timing-census.json"
+description = "Census Diamond and life-icon raster timings from a bounded oracle-probe manifest"
+
 [tasks.web-serve]
 depends = ["web-package"]
 run = "wrangler dev"

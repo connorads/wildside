@@ -48,6 +48,18 @@ const HUD_REGIONS: &[NamedRegion] = &[
         },
     },
     NamedRegion {
+        // ASM Init_SpriteAttr_HUD unk_1427C: sprite_attr $1A1,$8D,1,1,$8231.
+        // Mega Drive sprite coordinates include the 128-pixel hardware bias;
+        // size 1,1 is a 16x16 sprite.
+        name: "hud_life_icon",
+        bbox: BBox {
+            min_x: 289,
+            min_y: 13,
+            max_x: 304,
+            max_y: 28,
+        },
+    },
+    NamedRegion {
         name: "hud_diamond",
         bbox: BBox {
             min_x: 288,
@@ -784,6 +796,10 @@ mod tests {
         assert_eq!(match_region(&bbox(20, 18, 30, 22)), Some("timer_digits"));
         assert_eq!(match_region(&bbox(288, 34, 299, 45)), Some("hud_diamond"));
         assert_eq!(match_region(&bbox(290, 40, 295, 44)), Some("hud_diamond"));
+        assert_eq!(
+            match_region(&bbox(289, 13, 293, 17)),
+            Some("hud_life_icon")
+        );
         // Overlapping but not contained, and fully outside.
         assert_eq!(match_region(&bbox(15, 16, 41, 23)), None);
         assert_eq!(match_region(&bbox(288, 34, 300, 45)), None);
