@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Replay bounded HUD raster spans from the census' measured CPU timeline.
 
-This is an ADR 0002 measurement tool, never a CI oracle. It proves that the
+This is an ADR 0002 measurement tool, never a CI oracle. It tests whether the
 captured cumulative 68000 cycle span reproduces the captured H40 beam and
 classifies the asynchronous wait surface that a native frame-local scheduler
 must own. It does not emit values consumed by the game or pixel verifier.

@@ -13,6 +13,27 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+Investigation 2026-08-11: completed ADR 0002's scoped measurement and rejected
+a dedicated frame-local exact-reconstruction lane. `hud-timing-census` now
+selects both residual regions by default and filters the oracle manifest by
+their exact ASM VRAM destinations: life icon `$4620..$469F` (`loc_4586`) and
+Diamond `$DD40..$DF3F` (`loc_4626`). Fresh published-route evidence covers all
+241 divergent frames: Diamond has 137/170 frames with zero Z80 waits across
+both `$7C8 -> sub_E12 -> sub_44DC` intervals; life icon has 67/71; combined
+204/241. The deterministic bounded witnesses are frame 1730 (first wait-free
+Diamond, first commit H40 20:380), frame 1736 (first asynchronous-wait Diamond,
+1,122 Z80 wait cycles from `sub_E12` to `sub_44DC`, first commit 19:380), and
+frame 7698 (worst life icon, 15 changed pixels, first commit 18:156).
+`raster-span-replay` is measurement-only and consumes no runtime oracle data.
+Its cycle-only `$7C8 -> sub_E12` replay misses all 241 observed cursors. The
+wait-free witnesses alone retain residuals of 6 mclk at frame 1730 and 880 mclk
+at frame 7698, disproving the proposed inference that zero measured Z80 wait
+makes the frame-local cursor exact. Frame 1730 additionally retains the known
+untyped `loc_103B2` callbacks; frame 1736 demonstrates the asynchronous branch.
+NO-GO: do not promote #409. Exact closure still needs the frozen persistent
+clock, new typed ownership beyond the bounded scope, or forbidden fitted/oracle
+corrections. Keep 241 frames / 2,391 pixels authoritative and ratcheted.
+
 Progress 2026-08-01: the recurrence's Cyclone segment work (coast, walk, jump,
 stationary ascent, left acceleration/cap bleed, upward Plane-B wrap refresh,
 leftward camera stripes, recurring `sub_914A` ceiling/prize scans, and the

@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-11 handoff (#409 scoped raster measurement)
+
+- Extended `hud-timing-census` to both residual HUD clusters and exact ASM
+  VRAM ranges. Fresh route census covers 241/241 divergent frames: 204 have
+  zero Z80 wait in both measured intervals (Diamond 137/170, life 67/71).
+- Added measurement-only `raster-span-replay`. Bounded witnesses: frame 1730
+  first wait-free Diamond, frame 1736 first asynchronous-wait Diamond, frame
+  7698 worst life icon (15 pixels).
+- Spike verdict NO-GO. Cycle-only frame-local replay misses every observed
+  `sub_E12` cursor; even wait-free witnesses retain 6/880-mclk residuals, and
+  frame 1730 still crosses untyped `loc_103B2`. #409 remains frozen at frame
+  1657 / 736 scheduled; 241 frames / 2,391 pixels remain unmasked debt.
+
 ## 2026-08-09 handoff (enemy sweep clusters + cheap verification gates)
 
 - Measurement first (#442 step 1): new `oracle-settle-census` subcommand

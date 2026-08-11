@@ -8,8 +8,8 @@ Scope: #406 (persistent CPU/VDP/GEMS timing), #409 (raster recurrence), the
 ## Context
 
 The whole remaining visual debt on the published route is two HUD icon boxes:
-HUD Diamond (170 frames / 1,717 px, route span 1730..35,929) and the life icon
-(71 frames / 740 px, span 3066..33,862) — 2,457 px total, 9.1×10⁻⁷ of route
+HUD Diamond (170 frames / 1,651 px, route span 1730..35,929) and the life icon
+(71 frames / 740 px, span 3066..33,862) - 2,391 px total, 8.9×10⁻⁷ of route
 pixels, already measured, clustered, and ratcheted by `tas-pixel-baseline`.
 
 The lane that pursues them is the persistent raster recurrence (#409): a
@@ -93,3 +93,24 @@ Apply the #416 precedent to the visual lane.
 - Revisit if a production consumer for the persistent seed appears (e.g. a
   raster-accurate renderer path in the playable build), which would change the
   payoff surface this decision is priced against.
+
+## Scoped-measurement outcome
+
+The 2026-08-11 bounded spike completed both decision actions without promoting
+a new implementation lane. The census now covers both clusters by default:
+204/241 frames have zero Z80 wait in both measured intervals (Diamond 137/170;
+life icon 67/71). `raster-span-replay` selected the three declared witnesses:
+first wait-free Diamond frame 1730, first asynchronous-wait Diamond frame 1736,
+and worst life-icon frame 7698 (15 changed pixels).
+
+The result is NO-GO for frame-local exact reconstruction under this ADR's
+constraints. Replaying the cumulative 68000 span from `$7C8` does not recover
+the observed `sub_E12` H40 cursor on any of the 241 frames. The two wait-free
+witnesses still differ by 6 mclk (1730) and 880 mclk (7698), so zero Z80 waits
+does not prove that scheduler/VDP phase is absent. Frame 1730 also reaches the
+already-recorded untyped `loc_103B2` row-advance callbacks, while frame 1736
+adds 1,122 asynchronous Z80-wait cycles before `sub_44DC`. Closing those gaps
+would require the persistent clock, new source-typed ownership work, or an
+oracle-derived correction. The first remains frozen and the other two violate
+the spike's promotion rules. The 241 frames and 2,391 pixels therefore remain
+authoritative, unmasked, downward-ratcheted debt.
