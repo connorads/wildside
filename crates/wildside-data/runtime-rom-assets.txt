@@ -178,6 +178,7 @@
 0a3920 000180 ingame/artunc_kid/kid_flip_7.bin
 0a3b6c 000180 ingame/artunc_kid/kid_jumping_1.bin
 0a3cf2 000180 ingame/artunc_kid/kid_jumping_2.bin
+0a534c 000180 ingame/artunc_kid/kid_skid.bin
 0a4204 0001e0 ingame/artunc_kid/kid_slope_1.bin
 0a2864 000180 ingame/artunc_kid/kid_slope_10.bin
 0a29ea 000180 ingame/artunc_kid/kid_slope_11.bin

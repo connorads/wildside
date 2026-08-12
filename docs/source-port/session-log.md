@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-12 handoff (#452 browser runtime asset contract)
+
+- Closed #452. Added `kid_skid.bin` to the browser catalogue and exact ROM
+  recipe, then refreshed the runtime manifest. The render fixture also needed
+  two airborne frames hidden behind the skid-first error.
+- Reviewed and resolved the pre-existing catalogue drift: removed 44
+  unrequested level-layout JSON sidecars and added requested
+  `level-layout/59.json`. Extracted and native runtime bundles are now
+  byte-identical.
+- `mise run verify-web-fast` and `mise run verify-slice-fast` pass. Next: #453
+  ranking, then #454 and the session-1 documentation riders.
+
 ## 2026-08-12 handoff (planning: 7-session prioritised plan)
 
 - Planning session, no code. A six-lane parallel exploration plus a maintainer

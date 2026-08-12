@@ -1486,6 +1486,11 @@ mod tests {
             )?;
             write_file(
                 root.path(),
+                "ingame/artunc_kid/kid_skid.bin",
+                &vec![0x28; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
                 "ingame/artunc_kid/kid_walk_1.bin",
                 &vec![0x22; 32 * 12],
             )?;
@@ -1587,6 +1592,11 @@ mod tests {
             )?;
             write_file(
                 root.path(),
+                "ingame/artunc_kid/iron_knight_jumping_3.bin",
+                &vec![0x4D; 32 * 20],
+            )?;
+            write_file(
+                root.path(),
                 "ingame/artunc_kid/iron_knight_climbing_1.bin",
                 &vec![0x4E; 32 * 24],
             )?;
@@ -1643,6 +1653,11 @@ mod tests {
                     "ingame/artunc_kid/juggernaut_bottom_jumping_1.bin",
                     18,
                     0x59,
+                ),
+                (
+                    "ingame/artunc_kid/juggernaut_bottom_jumping_2.bin",
+                    18,
+                    0x5C,
                 ),
                 (
                     "ingame/artunc_kid/juggernaut_bottom_jumping_3.bin",
@@ -1933,6 +1948,7 @@ mod tests {
                         "ingame/palette_kid/Red_Stealth_Transformation.bin",
                     ),
                     asset_file(root.path(), "ingame/artunc_kid/kid.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_skid.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_walk_1.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_walk_2.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_walk_3.bin"),
@@ -1958,6 +1974,7 @@ mod tests {
                     asset_file(root.path(), "ingame/artunc_kid/iron_knight_walk_6.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/iron_knight_jumping_1.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/iron_knight_jumping_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_jumping_3.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/iron_knight_climbing_1.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/iron_knight_climbing_2.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/iron_knight_climbing_3.bin"),
@@ -2015,6 +2032,10 @@ mod tests {
                     asset_file(
                         root.path(),
                         "ingame/artunc_kid/juggernaut_bottom_jumping_1.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_bottom_jumping_2.bin",
                     ),
                     asset_file(
                         root.path(),

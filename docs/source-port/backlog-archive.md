@@ -814,6 +814,22 @@ recipe (`runtime-manifest.json`, last regenerated d02e44c71) against the
 catalogue, and the two already disagree by 615 bytes; review that drift
 before any `WILDSIDE_UPDATE_RUNTIME_EXTRACTOR=1` regeneration.
 
+Resolved 2026-08-12. Added `kid_skid.bin` to the observable browser runtime
+catalogue and the exact ROM extraction recipe (`0x0A534C`, `0x180` bytes).
+The render `TestBundle` now supplies and registers the skid frame plus two
+other required airborne frames that the missing skid had hidden behind the
+first-error return: `iron_knight_jumping_3.bin` and
+`juggernaut_bottom_jumping_2.bin` were absent from the fixture, while the
+regenerated runtime manifest also records the already-catalogued Berzerker,
+Cyclone, Iron Knight, Juggernaut, and Micromax airborne aliases. Reviewed the
+615-byte extractor drift before regeneration: it was stale manifest metadata,
+not a ROM mismatch. The observable catalogue update removed 44 unrequested
+level-layout JSON sidecars and added the requested `level-layout/59.json`.
+Verification: focused Kid visual load regression green; browser attract boot
+and all 125 valid logical level slots green; ROM extractor and native runtime
+bundle byte-identical; `mise run verify-web-fast` and
+`mise run verify-slice-fast` green.
+
 ### #453
 
 Opened 2026-08-12 (planning session). `load_top_open_items`
@@ -22016,6 +22032,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 452 | [x] | P1 | testing/web | Restored the browser runtime asset contract: `kid_skid.bin` is catalogued and ROM-extractable, required airborne aliases are present in the render fixture/manifest, and the observable level-sidecar catalogue is current. | `verify-web-fast` and `verify-slice-fast` green; extractor/native runtime bundles byte-identical. See archive #452. |
 | 450 | [x] | P2 | enemy | Verdict: the pin was wrong, not native. ASM sub_36A58 derives the loc_3E566 right floor span as columns 1-3 for the fixture (40+9-1=48 -> col 3); the stale `2,17` pin predates commit 960352273's ROM scan width. Re-pinned with the derivation, renamed `_snapshot_` -> `_trace_export_`. | Test runs and passes inside the gated core suite. See archive #450. |
 | 448 | [x] | P2 | verification | `verify-disasm-fidelity` mise task assembles the pinned disassembly with AS and byte-diffs against the reference ROM, naming the nearest label/source line per mismatching region. Result: BIT-PERFECT (1,048,576 bytes; SHA-1 match) — the ASM-first rule's premise is now a gate. | Task green in ~2s warm / 12s cold; red path verified with deliberate corruption (3 regions localised to labels). See archive #448. |
 | 447 | [x] | P2 | verification | `verify-cpu-vectors` drives the pinned r68k core through all 1,317,560 SingleStepTests vectors (680x0 + m68000): 98.2%/97.3% arithmetic pass; defects named (BCD registers, DIVS/DIVU overflow, exception frames, odd-SP panics, no trace bit, constant MULU/DIV cycle models — the quantified #406 disagreement). Downward-only ratchet baseline (251 rows). | `mise run verify-cpu-vectors` + ratchet green; set-vs-set ASR/CHK/LINK/ADDQ-cycle disagreements recorded as findings. See archive #447. |
