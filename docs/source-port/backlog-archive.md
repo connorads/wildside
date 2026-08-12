@@ -796,6 +796,46 @@ the tail. Suspects: native despawn-on-window-exit vs ROM retention for
 jumping Ninjas, or a ledge/pit death at the true speed. Probe frames 60-250
 to find the exact loss frame before reading Ninja.asm's lifecycle branches.
 
+### #452
+
+Opened 2026-08-12 (planning session). d4bf16a53 "fix(render): draw Kid
+backward-motion skid" (2026-07-28) added a required player frame
+`artunc_kid/kid_skid.bin` to the render bundle contract
+(crates/wildside-render/src/bundle.rs:2356) but updated neither the render
+`TestBundle` fixture (crates/wildside-render/src/lib.rs ~L1484-1539: writes
+kid/walk/jumping/death/flip, no skid) nor the shipped browser catalogue
+`crates/wildside-data/runtime-assets.txt` (zero `kid_skid` lines). Measured
+2026-08-12: 20 wildside-render + 2 wildside-web failures, all carrying
+`missing Kid sprite asset ingame/artunc_kid/kid_skid.bin`; the two web
+failures are the attract-boot catalogue tests, so the shipped browser
+bundle genuinely cannot boot attract mode — a production bug, not test rot.
+Fix caveat: the packed-bundle byte-contract tests compare the extractor
+recipe (`runtime-manifest.json`, last regenerated d02e44c71) against the
+catalogue, and the two already disagree by 615 bytes; review that drift
+before any `WILDSIDE_UPDATE_RUNTIME_EXTRACTOR=1` regeneration.
+
+### #453
+
+Opened 2026-08-12 (planning session). `load_top_open_items`
+(crates/wildside-cli/src/project_status.rs:301) sorts priority-rank then
+ascending id and truncates to 5, and `classify_backlog_focus` routes #442
+(system `verification`) out of the playability lane, so the selector's top
+lane is the frozen `[~]` rows #406/#409 plus low-id P1s while the strongest
+actionable lane (#442) never appears anywhere in the output. Until fixed,
+the NOW plan overrides the selector's ordering.
+
+### #454
+
+Opened 2026-08-12 (planning session). The awaiting-human lane holds 78
+rows; playtest sessions are expensive to assemble because rows are ordered
+by id, not by route. Maintainer decision (interview 2026-08-12): a
+committed, hand-curated checklist doc first
+(`docs/source-port/playtest-early-route.md`) grouping the boot + levels
+0x00-0x08 + audio-device `[?]` rows by level with their Check sentences and
+a report-back template; a generator mise task only if the lane churns
+enough to make hand-regeneration annoying. Early-route batch chosen ahead
+of the warp battery because it clears all three P0s (#210/#370/#374).
+
 ### #443
 
 Opened 2026-08-01 (campaign audit). `scripts/failing_test_ratchet.py:69-82`

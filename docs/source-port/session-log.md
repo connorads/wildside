@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-12 handoff (planning: 7-session prioritised plan)
+
+- Planning session, no code. A six-lane parallel exploration plus a maintainer
+  interview settled a 7-session plan; the NOW block now carries it. Verified
+  findings behind the plan: `verify-web-fast` is RED on main (`kid_skid`
+  required by render bundle.rs:2356 but absent from `runtime-assets.txt` and
+  the render fixture — regression from d4bf16a53); the failing-test baseline
+  is already 26 (NOW said 53); the enforced pixel ratchet is 2,391 while
+  ADR 0002 and NOW cited 2,457; `project-status` sorts priority-then-ascending-id
+  so frozen #406/#409 rank top and #442 never surfaces; rows #419/#420 still
+  cite closed #449.
+- Plan: S1 hygiene + red gate (#452 kid_skid, #453 project-status ranking,
+  #454 early-route playtest checklist, ADR 0002 correction rider); S2 Crypt
+  trio bisect-then-classify (#419's 0x38 arm, #425, #433 — bisect the 0x38/0x47
+  4→12 regression before any classification); S3-S6 #442 shell CONTENT as the
+  centre of gravity; S7 gate debt (#443, #445 green-first + per-crate ratchet,
+  #417 verdicts).
+- Deliberately deferred: #406/#409 instrumentation (traced manifest waits;
+  `hud-timing-census`/`raster-span-replay` stay broken/aspirational), #408/#413
+  pixel witnesses (state-noise until #442 lands), warp-battery checklist.
+- New rows #452-#454; NOW's stale numbers corrected in place (2,391 px,
+  baseline 26).
+
 ## 2026-08-11 handoff (#409 scoped raster measurement)
 
 - Extended `hud-timing-census` to both residual HUD clusters and exact ASM
