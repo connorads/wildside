@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-12 handoff (#442 shell-content boundary dead end)
+
+- Level 0x30 confirms shell content, not length: native frame 0 is HP 2/RNG
+  $FFFF/UFO y $4DD8; oracle is HP 1/RNG $FFF3/UFO y $4E98.
+- Rejected earlier shared gameplay entry and isolated Kid-prefix models. The
+  former lands the hit but over-ages UFO/RNG; the latter does not land the hit
+  and still consumes 43 bytes. Intermediate boundaries cross the UFO cadence.
+- Next: capture oracle per-title-wait object dispatch and RNG deltas at steps
+  68-75, including the actual Kid damage source. Do not tune the boundary.
+
 ## 2026-08-12 handoff (Crypt leftover-warp classification #425/#433)
 
 - Closed #425 and #433; removed #419's 0x38 arm. ASM Load_InGame resolves

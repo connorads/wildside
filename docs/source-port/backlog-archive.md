@@ -796,6 +796,21 @@ lane: model the shell CONTENT (title-wait controller RNG draws + pre-live
 enemy scheduling) in native's `begin_debug_level_entry_loc_74e0` lifecycle,
 compare against the YAML's frame-0 witnesses, then delete the tails.
 
+2026-08-12 dead end - rejected the tempting "start hidden Mode_Level three
+frames earlier" fix. Level 0x30's original frame 0 is native HP 2/RNG $FFFF/UFO
+($28,$4DD8), oracle HP 1/RNG $FFF3/UFO ($28,$4E98). Moving the shared live
+boundary from elapsed 71 to 68 makes the hit land, but over-ages the UFO to
+($2A,$5E30) and advances native RNG to $FFD4. Running three isolated
+`refresh_opening_slice` prefixes while holding enemy AI also fails to land the
+hit and reaches the same $FFD4: that helper includes nested player/controller
+effects and is not an `Execute_Objects` prefix. Intermediate boundaries 69/70
+also miss the hit and cross the UFO's RNG-heavy one-second loop ($FFD0/$FFCC).
+Level 0x48's existing exact shell regression stays green throughout, so a
+global title-wait boundary change is disproven. Next investigation must capture
+the oracle's per-title-wait object dispatch/RNG deltas around steps 68-75 and
+identify which object actually damages Kid; do not infer the schedule from the
+12-byte net offset.
+
 ### #451
 
 Opened 2026-08-09 (unmasked by the #423 Ninja speed fix). At 0x31 (roster
