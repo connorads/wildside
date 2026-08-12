@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-12 handoff (#453 actionable project-status ranking)
+
+- Closed #453. Within a priority, `project-status` now places actionable open
+  rows before in-progress and explicit `Reopen only` risks; deferred rows stay
+  visible when the lane has room.
+- The live five-item playability lane is #419, #420, #421, #422, #442 instead
+  of frozen/reopen-only #406, #409, and #413 burying #442. All 16 selector
+  tests and `mise run verify-slice-fast` pass.
+- Next: #454, then the session-1 ADR/citation riders.
+
 ## 2026-08-12 handoff (#452 browser runtime asset contract)
 
 - Closed #452. Added `kid_skid.bin` to the browser catalogue and exact ROM

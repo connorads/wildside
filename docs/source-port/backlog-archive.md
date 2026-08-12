@@ -840,6 +840,15 @@ lane is the frozen `[~]` rows #406/#409 plus low-id P1s while the strongest
 actionable lane (#442) never appears anywhere in the output. Until fixed,
 the NOW plan overrides the selector's ordering.
 
+Resolved 2026-08-12. `load_top_open_items` retains priority as the first key,
+then ranks actionable `[ ]` rows before `[~]` work and rows whose verification
+explicitly says `Reopen only`; issue id remains the stable final key. Deferred
+risks remain visible when fewer actionable rows fill the limit. The regression
+uses the real #406/#409/#413/#419-#422/#442 shape and proves the five-item
+playability lane is #419, #420, #421, #422, #442. All 16 project-status tests,
+the live `mise run project-status` output, and `mise run verify-slice-fast`
+pass.
+
 ### #454
 
 Opened 2026-08-12 (planning session). The awaiting-human lane holds 78
@@ -22032,6 +22041,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 453 | [x] | P1 | infra | `project-status` ranks same-priority actionable rows above in-progress and explicit `Reopen only` risks, while retaining deferred rows when space remains. | Live top playability lane includes #442; 16 project-status tests and `verify-slice-fast` pass. See archive #453. |
 | 452 | [x] | P1 | testing/web | Restored the browser runtime asset contract: `kid_skid.bin` is catalogued and ROM-extractable, required airborne aliases are present in the render fixture/manifest, and the observable level-sidecar catalogue is current. | `verify-web-fast` and `verify-slice-fast` green; extractor/native runtime bundles byte-identical. See archive #452. |
 | 450 | [x] | P2 | enemy | Verdict: the pin was wrong, not native. ASM sub_36A58 derives the loc_3E566 right floor span as columns 1-3 for the fixture (40+9-1=48 -> col 3); the stale `2,17` pin predates commit 960352273's ROM scan width. Re-pinned with the derivation, renamed `_snapshot_` -> `_trace_export_`. | Test runs and passes inside the gated core suite. See archive #450. |
 | 448 | [x] | P2 | verification | `verify-disasm-fidelity` mise task assembles the pinned disassembly with AS and byte-diffs against the reference ROM, naming the nearest label/source line per mismatching region. Result: BIT-PERFECT (1,048,576 bytes; SHA-1 match) — the ASM-first rule's premise is now a gate. | Task green in ~2s warm / 12s cold; red path verified with deliberate corruption (3 regions localised to labels). See archive #448. |

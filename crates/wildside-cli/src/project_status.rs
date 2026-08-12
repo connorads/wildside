@@ -260,13 +260,17 @@ fn backlog_row_has_root_cause(summary: &str, verify: &str) -> bool {
     text.contains("root cause identified") || text.contains("root-caused")
 }
 
+fn open_item_actionability_rank(status: &str, verify: &str) -> u8 {
+    u8::from(status == "[~]" || verify.to_ascii_lowercase().starts_with("reopen only"))
+}
+
 fn load_top_open_items(
     repo_root: &Path,
     limit: usize,
     focus: BacklogFocus,
 ) -> Result<Vec<BacklogItem>> {
     let contents = read_live_lanes(repo_root)?;
-    let mut items = Vec::new();
+    let mut ranked_items = Vec::new();
     for line in contents.lines() {
         if !line.starts_with('|') {
             continue;
@@ -291,20 +295,29 @@ fn load_top_open_items(
         if classify_backlog_focus(system, summary) != focus {
             continue;
         }
-        items.push(BacklogItem {
-            id: columns[0].to_owned(),
-            priority: priority.to_owned(),
-            system: system.to_owned(),
-            summary: summary.to_owned(),
-        });
+        let actionability_rank =
+            open_item_actionability_rank(status, columns.get(5).copied().unwrap_or_default());
+        ranked_items.push((
+            actionability_rank,
+            BacklogItem {
+                id: columns[0].to_owned(),
+                priority: priority.to_owned(),
+                system: system.to_owned(),
+                summary: summary.to_owned(),
+            },
+        ));
     }
-    items.sort_by(|left, right| {
+    ranked_items.sort_by(|(left_status, left), (right_status, right)| {
         priority_rank(&left.priority)
             .cmp(&priority_rank(&right.priority))
+            .then_with(|| left_status.cmp(right_status))
             .then_with(|| left.id.cmp(&right.id))
     });
-    items.truncate(limit);
-    Ok(items)
+    Ok(ranked_items
+        .into_iter()
+        .take(limit)
+        .map(|(_, item)| item)
+        .collect())
 }
 
 fn load_ready_to_implement_items(repo_root: &Path, limit: usize) -> Result<Vec<BacklogItem>> {
@@ -531,6 +544,38 @@ mod tests {
             load_top_open_items(temp_dir.path(), 5, BacklogFocus::VisualParity).expect("items");
         assert_eq!(visual_items.len(), 1);
         assert_eq!(visual_items[0].id, "005");
+    }
+
+    #[test]
+    fn open_risks_rank_actionable_rows_before_in_progress_frozen_rows() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        fs::create_dir_all(temp_dir.path().join("docs/source-port")).expect("docs dir");
+        fs::write(
+            temp_dir.path().join("docs/source-port/backlog.md"),
+            "\
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+| 406 | [~] | P1 | rendering | FROZEN timing lane | hold |
+| 409 | [~] | P1 | rendering | FROZEN pixel lane | hold |
+| 413 | [ ] | P1 | rendering | disproven visual theory | Reopen only with new evidence |
+| 419 | [ ] | P1 | enemy | goat divergence | probe |
+| 420 | [ ] | P1 | enemy | driller divergence | probe |
+| 421 | [ ] | P1 | enemy | scorpion divergence | probe |
+| 422 | [ ] | P1 | enemy | ufo divergence | probe |
+| 442 | [ ] | P1 | verification | shell content diverges | model content |
+",
+        )
+        .expect("backlog");
+
+        let items =
+            load_top_open_items(temp_dir.path(), 5, BacklogFocus::Playability).expect("items");
+        assert_eq!(
+            items
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["419", "420", "421", "422", "442"]
+        );
     }
 
     #[test]
