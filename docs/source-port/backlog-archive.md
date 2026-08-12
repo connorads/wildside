@@ -861,6 +861,13 @@ a report-back template; a generator mise task only if the lane churns
 enough to make hand-regeneration annoying. Early-route batch chosen ahead
 of the warp battery because it clears all three P0s (#210/#370/#374).
 
+Resolved 2026-08-12. Added `playtest-early-route.md`, ordered by boot, levels
+0x00-0x08, the named-level P0 smoke pass, and audio-device checks. It contains
+the exact current Check text for all 27 `[?]` rows on those target surfaces,
+plus #374, and a one-line PASS/FAIL report template requiring commit, route,
+and observation. A set comparison against the awaiting-human table proves no
+eligible row is missing or added. `backlog-lint` and `verify-slice-fast` pass.
+
 ### #443
 
 Opened 2026-08-01 (campaign audit). `scripts/failing_test_ratchet.py:69-82`
@@ -22041,6 +22048,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 454 | [x] | P1 | verification | Added a route-grouped early playtest checklist for boot, 0x00-0x08, named P0 smoke, and audio-device candidates with exact current checks and a report template. | Checklist ids equal the eligible awaiting-human set plus #374; `backlog-lint` and `verify-slice-fast` pass. See archive #454. |
 | 453 | [x] | P1 | infra | `project-status` ranks same-priority actionable rows above in-progress and explicit `Reopen only` risks, while retaining deferred rows when space remains. | Live top playability lane includes #442; 16 project-status tests and `verify-slice-fast` pass. See archive #453. |
 | 452 | [x] | P1 | testing/web | Restored the browser runtime asset contract: `kid_skid.bin` is catalogued and ROM-extractable, required airborne aliases are present in the render fixture/manifest, and the observable level-sidecar catalogue is current. | `verify-web-fast` and `verify-slice-fast` green; extractor/native runtime bundles byte-identical. See archive #452. |
 | 450 | [x] | P2 | enemy | Verdict: the pin was wrong, not native. ASM sub_36A58 derives the loc_3E566 right floor span as columns 1-3 for the fixture (40+9-1=48 -> col 3); the stale `2,17` pin predates commit 960352273's ROM scan width. Re-pinned with the derivation, renamed `_snapshot_` -> `_trace_export_`. | Test runs and passes inside the gated core suite. See archive #450. |

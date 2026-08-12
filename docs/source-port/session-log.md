@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-12 handoff (#454 early-route playtest checklist)
+
+- Closed #454 with `playtest-early-route.md`: exact checks for all 27 current
+  `[?]` rows targeted at boot, 0x00-0x08, or audio-device, plus named P0 #374,
+  grouped into one practical route and a compact report-back format.
+- Completed the session-1 riders: ADR 0002 now states the enforced 2,391-pixel
+  debt, and #419/#420 describe #449 as landed evidence rather than an open fix.
+- Set comparison, `backlog-lint`, and `verify-slice-fast` pass. Next: session 2,
+  bisect the pre-campaign 0x38/0x47 4→12 Crypt regression.
+
 ## 2026-08-12 handoff (#453 actionable project-status ranking)
 
 - Closed #453. Within a priority, `project-status` now places actionable open

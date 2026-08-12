@@ -25,7 +25,7 @@ with shape novelty per frame rising, not falling.
 Two facts sharpen the cost/value call ADR 0001 deferred:
 
 - **Eleven recurrence sessions bought zero pixels.** Every handoff in that run
-  repeats "Full pixels remain 37,518 exact / 241 divergent / 2,457 changed".
+  recorded no pixel reduction during the recurrence work.
 - **The payoff surface is one verification projection.** The recurrence is
   consumed only by the `verify-tas` pixel pass (`tas_pixels.rs`);
   `native_player` and `wildside-web` step the runtime with `|_| None`
@@ -50,7 +50,7 @@ Apply the #416 precedent to the visual lane.
    the scheduled-frame count (a lower count blocks; a higher one is a
    deliberate, reviewed update), and `tas-pixel-baseline` continues to ratchet
    pixels. Nothing is reclassified or masked: the residue stays scoped as
-   **HUD-icon DMA-entry-phase debt, 2,457 px, ratcheted**.
+   **HUD-icon DMA-entry-phase debt, 2,391 px, ratcheted**.
 2. **Authority for the residue moves to frame-local measurement:**
    - (a) *Census-scoped frame-local exact reconstruction.* The route-wide
      census proved 137 of the 170 Diamond frames have no Z80 wait in either
