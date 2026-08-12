@@ -506,6 +506,11 @@ frames, matching ROM loc_BC54..loc_BC6E 11×(2+4)). Phase half moves to #442;
 loc_1C42/1C76/1C94/1CB8) and carries no family fudges — no shared contact
 defect exists.
 
+2026-08-12: removed the 0x38 arm from Goat ownership. It is one of three
+non-comparable leftover debug warps; see #425/#433. Focused sweep 1786567508
+classifies its 12 fields as oracle limitations and marks both checkpoints
+UNVERIFIED. #419 remains open only for the authoritative 0x60 timing divergence.
+
 ### #420
 
 Driller (0x55/0x68, 19 blockers — largest cluster). 0x55 (Driller-only roster
@@ -615,6 +620,15 @@ so neither fits. No on-screen enemy (MAE 0.1); nearest layout object is the
 SpinningTwins at x=744. Native fails to allocate the leading off-screen
 SpinningTwins into a live slot. (0x47 is also #329's aliased-warp level, but
 that row is foreground-render, distinct from these object counts.)
+
+Closed [x] 2026-08-12. The SpinningTwins attribution was a false inference
+from a non-comparable leftover warp. ASM Load_InGame (kid.asm:23633-23642)
+indexes MapHeader_Index through MapOrder_Index; logical 0x47 selects resource
+0x42, whose incomplete leftover level data makes the direct oracle warp consume
+adjacent RAM that a clean native asset bundle cannot represent. The identical
+0x38/0x41/0x47 12-field shape confirms one shell class, not three gameplay
+bugs. Focused sweep 1786567508: 12 oracle limitations, zero blockers, both
+checkpoints masked and the level explicitly UNVERIFIED.
 
 ### #426
 
@@ -1132,6 +1146,13 @@ downstream of comparing an unentered native level against oracle-played
 garbage. Needs an evidence-backed sweep classification (`oracle_limitation`
 with citation, or a decision to load the level) rather than 12 standing
 authoritative blockers that verify nothing.
+
+Closed [x] 2026-08-12 with the same explicit leftover-warp classifier as
+0x38/0x47. MapOrder_Index maps logical 0x41 to incomplete resource 0x41;
+Load_InGame then reads the missing/incoherent level payload through ROM/RAM
+adjacency. Focused sweep 1786567508 reports 12 oracle limitations, zero
+blockers, and two masked checkpoints, so the level remains UNVERIFIED rather
+than becoming false fidelity evidence.
 
 ### #434
 
@@ -22048,6 +22069,8 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 433 | [x] | P2 | verification | Classify leftover debug warp 0x41 as non-comparable: Load_InGame selects incomplete resource 0x41 and the oracle consumes adjacent RAM unavailable to the clean native bundle. | Focused sweep 1786567508: 12 oracle limitations, zero blockers, both checkpoints UNVERIFIED. See archive #433. |
+| 425 | [x] | P2 | enemy | Reject the SpinningTwins attribution: 0x47 maps to incomplete leftover resource 0x42, producing the same non-comparable 12-field shell as 0x38/0x41. | Focused sweep 1786567508: 12 oracle limitations, zero blockers, both checkpoints UNVERIFIED. See archive #425. |
 | 454 | [x] | P1 | verification | Added a route-grouped early playtest checklist for boot, 0x00-0x08, named P0 smoke, and audio-device candidates with exact current checks and a report template. | Checklist ids equal the eligible awaiting-human set plus #374; `backlog-lint` and `verify-slice-fast` pass. See archive #454. |
 | 453 | [x] | P1 | infra | `project-status` ranks same-priority actionable rows above in-progress and explicit `Reopen only` risks, while retaining deferred rows when space remains. | Live top playability lane includes #442; 16 project-status tests and `verify-slice-fast` pass. See archive #453. |
 | 452 | [x] | P1 | testing/web | Restored the browser runtime asset contract: `kid_skid.bin` is catalogued and ROM-extractable, required airborne aliases are present in the render fixture/manifest, and the observable level-sidecar catalogue is current. | `verify-web-fast` and `verify-slice-fast` green; extractor/native runtime bundles byte-identical. See archive #452. |

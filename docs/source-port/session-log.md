@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-12 handoff (Crypt leftover-warp classification #425/#433)
+
+- Closed #425 and #433; removed #419's 0x38 arm. ASM Load_InGame resolves
+  0x38/0x41/0x47 through MapOrder_Index to incomplete leftover resources, so
+  direct oracle warps consume adjacent RAM that a clean native bundle cannot
+  represent.
+- The apparent 4->12 regression was cache drift, not a Git change: the exact
+  July 13 tree reproduces 12 fields against today's clean bundle. Focused sweep
+  1786567508 reports 36 oracle limitations, zero blockers, and all three levels
+  UNVERIFIED.
+- Next: #442 shell CONTENT, starting with its cheapest frame-0 RNG/enemy-aging
+  witnesses. Do not treat these leftover aliases as fidelity passes.
+
 ## 2026-08-12 handoff (#454 early-route playtest checklist)
 
 - Closed #454 with `playtest-early-route.md`: exact checks for all 27 current

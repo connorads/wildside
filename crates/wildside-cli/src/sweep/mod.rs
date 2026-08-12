@@ -201,7 +201,7 @@ impl LevelSweepResult {
 }
 
 /// A level reads as `passed` yet verifies nothing when every checkpoint was
-/// masked (oracle never reached gameplay). Issue #26: count these separately
+/// masked (oracle produced no comparable gameplay state). Issue #26: count these separately
 /// so a green sweep is not mistaken for proven fidelity.
 fn level_is_unverified(r: &LevelSweepResult) -> bool {
     r.passed && r.all_checkpoints_masked()
@@ -235,7 +235,7 @@ pub(crate) struct SweepReport {
     pub(crate) kid_core_hash: Option<String>,
     pub(crate) levels: Vec<LevelSweepResult>,
     pub(crate) passed: usize,
-    /// Subset of `passed` where the oracle never reached gameplay at any
+    /// Subset of `passed` where the oracle produced no comparable gameplay
     /// checkpoint, so the "pass" verified nothing. Issue #26.
     #[serde(default)]
     pub(crate) unverified: usize,
@@ -814,12 +814,12 @@ pub(crate) fn run_sweep_with_options(
     println!(
         "\nsweep complete: {passed} passed, {failed} failed, {errors} errors{divergence_summary}"
     );
-    // Issue #26: "passed" includes levels where the oracle never reached
-    // gameplay, so every diff was masked and nothing real was compared. Report
+    // Issue #26: "passed" includes levels where the oracle produced no
+    // comparable state, so every diff was masked and nothing real was compared. Report
     // genuine coverage separately — a fully-masked level is UNVERIFIED.
     println!(
         "verified: {verified}/{passed} passed levels have >=1 real (non-masked) checkpoint; \
-         {unverified} UNVERIFIED (every checkpoint masked — oracle never reached gameplay)"
+         {unverified} UNVERIFIED (every checkpoint masked - no comparable oracle state)"
     );
     if !report.field_summary.is_empty() {
         let summary = report
@@ -1026,7 +1026,8 @@ fn sweep_single_scenario(
         .states
         .iter()
         .filter(|s| {
-            s.game_paused
+            oracle_warp_uses_non_comparable_leftover_level_data(level_id)
+                || s.game_paused
                 || s.game_mode == 0x0008
                 || scenario
                     .warp_to_level
@@ -1165,6 +1166,16 @@ fn idle_sweep_scenario_for_tier(level_id: u8, requested_tier: SweepTier) -> Dyna
         scenario.settle_oracle_warp = true;
         scenario
     }
+}
+
+fn oracle_warp_uses_non_comparable_leftover_level_data(level_id: u8) -> bool {
+    // ASM Load_InGame (kid.asm:23633-23642) indexes MapHeader_Index through
+    // MapOrder_Index. These unused logical IDs select incomplete leftover map
+    // resources: 0x38 -> 0x48, 0x41 -> 0x41, and 0x47 -> 0x42. The direct
+    // oracle warp therefore runs whatever adjacent RAM the missing/incoherent
+    // level data leaves behind. A clean native bundle cannot represent that as
+    // a level, so its state is not a gameplay-fidelity comparison.
+    matches!(level_id, 0x38 | 0x41 | 0x47)
 }
 
 fn reclassify_state_diffs(
@@ -6818,6 +6829,21 @@ mod tests {
         };
 
         assert!(!is_oracle_limitation_only(&result));
+    }
+
+    #[test]
+    fn leftover_debug_warps_with_no_comparable_level_data_are_oracle_limitations() {
+        for level_id in [0x38, 0x41, 0x47] {
+            assert!(oracle_warp_uses_non_comparable_leftover_level_data(
+                level_id
+            ));
+        }
+
+        for level_id in [0x37, 0x39, 0x40, 0x42, 0x46, 0x48] {
+            assert!(!oracle_warp_uses_non_comparable_leftover_level_data(
+                level_id
+            ));
+        }
     }
 
     #[test]
