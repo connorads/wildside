@@ -8047,22 +8047,51 @@ pub(crate) fn step_pacer(
 
     if matches!(enemy.family, EnemyFamily::Goat) {
         let kid_x_px = player_x_pos.map(|px| (px >> 16) as i16);
-        let crossed_boundary = {
-            let next_x = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
-            let next_x_px = (next_x >> 16) as i32;
-            let pixel_delta = if enemy.x_velocity >= 0 {
-                next_x_px - current_x_px
-            } else {
-                current_x_px - next_x_px
-            };
-            let tile_remainder = if enemy.x_velocity >= 0 {
-                (-(current_x_px + probe_half_width)) & 0xF
-            } else {
-                (current_x_px - probe_half_width) & 0xF
-            };
-            pixel_delta > 0 && tile_remainder < pixel_delta
-        };
-        if !crossed_boundary && let Some(kid_x_px) = kid_x_px {
+        let crossed_boundary = pixel_delta > 0 && tile_remainder < pixel_delta;
+        if crossed_boundary {
+            // ASM Lion.asm loc_3E3B2/loc_3E566 boundary dispatch (#419): a
+            // grounded step whose leading edge crosses the next 16px boundary
+            // routes through `btst #1,d7` / `tst.w d5` / `lsl.w #3,d4;
+            // cmp.w $48(a5),d4` before loc_3E406. Only the arm with the
+            // following-lead floor bit set, no solid visited in the floor-row
+            // scan, and a wide-enough scanned span snaps the body to the
+            // boundary and enters the falling loop (loc_3E682/loc_3E79E).
+            if scan.flags_d7 & 0b010 != 0
+                && scan.floor_row_mask_d5 == 0
+                && i32::from(scan.column_span_d3) * 8 >= probe_half_width
+            {
+                let snap_x = if moving_right {
+                    current_x_px + tile_remainder
+                } else {
+                    current_x_px - tile_remainder
+                };
+                enemy.x_pos = (snap_x as u32) << 16;
+                enemy.y_pos = enemy.y_pos.wrapping_add(1 << 16);
+                enemy.on_ground = false;
+                step_shared_walker_falling_loc_3c288(enemy, grid);
+                return;
+            }
+            if !matches!(
+                lion_charge_terrain_gate_loc_3e406(scan.flags_d7 & 0b001 != 0, true),
+                LionLoc3E406Branch::ContinueTo3E434
+            ) {
+                // ASM loc_3E406/loc_3E5BA Goat wall hold (#419/#457): re-arm
+                // `$42(a3)` = $FF88, restore the walk step from `$5E(a5)`, and
+                // hibernate grounded WITHOUT committing the step or turning —
+                // the sub-pixel fraction survives. Oracle 0x60 idle: li=1
+                // pinned at 631.5 and li=2 at 630.5 against the level's right
+                // edge (sub_36972 loc_369BC preloads d7 bits 0+1), li=3 at
+                // 583.5 against an interior wall, `$42` = $FF88 every frame.
+                enemy.shared_walker_state = GOAT_CHARGE_COOLDOWN_LOC_3E48E;
+                enemy.walk_speed_override = 0;
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+                return;
+            }
+            // ASM loc_3E406 `btst #0,d7; beq.s loc_3E434`: a bit0-clear
+            // crossing still runs the charge controller and commits the step.
+        }
+        if let Some(kid_x_px) = kid_x_px {
             match goat_charge_controller_loc_3e434(
                 enemy.shared_walker_state,
                 current_x_px as i16,
@@ -8141,28 +8170,13 @@ pub(crate) fn step_pacer(
     let moving_right = enemy.x_velocity >= 0;
 
     // Wall probe: reverse if we hit a wall.
+    // ASM Lion.asm loc_3E3B2/loc_3E566 (#419): the Goat-lineage walker never
+    // reaches a post-commit wall overlap — the loc_3E406/loc_3E5BA hold above
+    // intercepts the boundary crossing before the step commits (the `cmp.w
+    // d1,d3` remainder math keeps the leading edge at most touching the
+    // boundary), and a body already inside solid is the d7-bit-2 terrain kill.
     let wall = terrain::probe_wall(grid, cx, cy, probe_half_width, probe_height, moving_right);
-    if wall.hit && !turns_at_cliffs {
-        // ASM Lion.asm loc_3E3B2 wall-crossing branch (#419): snap the body
-        // to the boundary and enter the falling loop (loc_3E682). With floor
-        // directly below, loc_3E732 re-lands next frame into loc_3E392 —
-        // the wall-adjacent land/fall cycle that holds the 0x60 Goat frozen
-        // at x=583.5 (oracle run 1786640409). No direction reverse here.
-        let wall_fp = (wall.wall_x_px as u32) << 16;
-        let edge_fp = (probe_half_width as u32) << 16;
-        if moving_right {
-            if enemy.x_pos + edge_fp > wall_fp {
-                enemy.x_pos = wall_fp.saturating_sub(edge_fp);
-            }
-        } else if enemy.x_pos < wall_fp + edge_fp {
-            enemy.x_pos = wall_fp + edge_fp;
-        }
-        enemy.x_velocity = 0;
-        enemy.y_velocity = 0;
-        enemy.on_ground = false;
-        return;
-    }
-    if wall.hit {
+    if wall.hit && turns_at_cliffs {
         // ASM loc_3C026 (rightward walkers) / loc_3C0D2 (leftward walkers):
         // clr.l x_vel(a3); clr.l y_vel(a3); st/sf x_direction(a3) — stop
         // and face the opposite direction after wall collision. The ASM also

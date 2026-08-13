@@ -692,13 +692,15 @@ mod tests {
         );
     }
 
-    /// #419: the 0x60 Goat li=3 must survive its shell journey — walk the
-    /// y=192 floor at full cadence, fall off the ledge (Lion.asm loc_3E3B2
-    /// walkers have no cliff turn), land through loc_3E732 facing Right, and
-    /// freeze against the wall via the loc_3E682 land/fall cycle — reaching
-    /// frame 0 alive at the oracle's x=0x02478000 (run 1786640409). The old
-    /// spurious cliff-turn oscillation halved its walk speed and landed it
-    /// in the hurt tile at x=588, dead.
+    /// #419/#457: the 0x60 Goat li=3 must survive its shell journey — walk
+    /// the y=192 floor at full cadence, fall off the ledge (Lion.asm
+    /// loc_3E3B2 walkers have no cliff turn), land through loc_3E732 facing
+    /// Right, and park against the wall via the grounded loc_3E406 hold
+    /// (`$42(a3)` re-armed to $FF88, the crossing step never committed) —
+    /// reaching frame 0 alive at the oracle's exact x=0x02478000, fraction
+    /// included (`$42`=$FF88 constant from frame 0 in the oracle probe). The
+    /// old spurious cliff-turn oscillation halved its walk speed and landed
+    /// it in the hurt tile at x=588, dead.
     #[test]
     fn gameplay_regression_goat_survives_shell_ledge_fall_loc_3e3b2() {
         use wildside_core::{LevelId, NativeRuntime};
@@ -720,15 +722,12 @@ mod tests {
             Some(4),
             "Goat li=3 must reach frame 0 alive (oracle hp 4)"
         );
-        // TODO(fidelity): the oracle holds the pre-snap fraction (0x02478000,
-        // 583.5) in its wall-adjacent hold state; native's loc_3E682 land/fall
-        // cycle snaps to the pixel (583.0). Half a pixel, within the sweep's
-        // authoritative tolerance; the exact hold state is future work.
-        assert!(
-            (0x0247_0000..=0x0247_8000).contains(&goat3.x_pos),
-            "Goat li=3 must freeze at the oracle's wall-adjacent landing x \
-             (oracle 0x02478000, native {:#010x})",
-            goat3.x_pos
+        // ASM Lion.asm loc_3E406 (#457): the grounded wall hold never commits
+        // the crossing step, so the pre-boundary fraction survives — 583.5
+        // exactly, not a 583.0 pixel snap.
+        assert_eq!(
+            goat3.x_pos, 0x0247_8000,
+            "Goat li=3 must hold at the oracle's exact wall-adjacent x"
         );
         // ASM Manage_EnemyLoading loc_3691E (#419): a freshly allocated enemy
         // runs its family Init on the NEXT object pass (the init ends in the

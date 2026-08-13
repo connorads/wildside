@@ -235,6 +235,12 @@ pub struct GroundedWalkerTerrainScan {
     pub floor_class_d6: i16,
     /// The ROM's `d3` column-span counter; DBF scans this plus one cells.
     pub column_span_d3: u16,
+    /// The ROM's `d5` after the following-row class scan: the bit-`$4000` OR
+    /// of the cells visited *after* the entry cell (the entry cell is read
+    /// into `d0` only), masked by the loc_36A36/loc_36A4A early exits. The
+    /// Lion.asm loc_3E3B2/loc_3E566 boundary dispatch tests this word to pick
+    /// the boundary snap-and-fall arm over loc_3E406/loc_3E5BA.
+    pub floor_row_mask_d5: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2182,42 +2188,49 @@ fn horizontal_collision_scan_right_hitbox_row_mask_loc_36BC2(
 }
 
 #[allow(non_snake_case)]
-fn horizontal_collision_scan_following_row_class_loc_36A10(words: &[u16]) -> i16 {
+fn horizontal_collision_scan_following_row_class_loc_36A10(words: &[u16]) -> (i16, u16) {
     // ASM loc_36A10 (kid.asm:38183): after the body rectangle scan, inspect the
     // following row from left to right. If the first cell already carries bit
     // `$4000`, stay on the “all blocked until proven otherwise” path and leave
-    // `d6=0` only when every scanned word keeps bit `$4000` set.
+    // `d6=0` only when every scanned word keeps bit `$4000` set. The entry cell
+    // goes to `d0` only; every later cell is OR'd into `d5` before the exit
+    // masks it with `$4000`, so `d5` reports whether any *visited* later cell
+    // is solid — the loc_36A36/loc_36A4A exits stop visiting early.
     if words.is_empty() {
-        return -1;
+        return (-1, 0);
     }
 
+    let mut mask_d5 = 0u16;
     if words[0] & 0x4000 != 0 {
-        for &word in words {
+        for &word in &words[1..] {
             // ASM loc_36A20 (kid.asm:38193): once the entry word is blocked,
             // keep advancing with `move.w (a1)+,d0`; the first later word that
             // clears bit `$4000` flips the mixed-row result to `d6=1`.
+            mask_d5 |= word;
             if word & 0x4000 == 0 {
                 // ASM loc_36A36 (kid.asm:38206): both mixed-row scans converge
                 // here and tag the following row as mixed by returning `d6=1`.
-                return 1;
+                return (1, mask_d5 & 0x4000);
             }
         }
         // ASM loc_36A2A (kid.asm:38199): when the inclusive `dbf d3,loc_36A20`
         // scan finds no clear cell, the routine preserves the blocked-row class
         // by returning with `d6=0`.
-        0
-    } else if words.iter().any(|word| {
-        // ASM loc_36A40 (kid.asm:38213): when the entry word is clear, keep
-        // advancing with `move.w (a1)+,d0` until a later cell sets bit
-        // `$4000`, then branch to the shared mixed-row exit at `loc_36A36`.
-        word & 0x4000 != 0
-    }) {
-        1
+        (0, mask_d5 & 0x4000)
     } else {
+        for &word in &words[1..] {
+            // ASM loc_36A40 (kid.asm:38213): when the entry word is clear, keep
+            // advancing with `move.w (a1)+,d0` until a later cell sets bit
+            // `$4000`, then branch to the shared mixed-row exit at `loc_36A36`.
+            mask_d5 |= word;
+            if word & 0x4000 != 0 {
+                return (1, mask_d5 & 0x4000);
+            }
+        }
         // ASM loc_36A4A (kid.asm:38219): if the clear-entry scan reaches the
         // inclusive `dbf d3,loc_36A40` tail without ever seeing bit `$4000`,
         // the routine marks the following row as fully clear with `d6=-1`.
-        -1
+        (-1, mask_d5 & 0x4000)
     }
 }
 
@@ -2256,44 +2269,49 @@ fn horizontal_collision_scan_left_lead_column_mask_loc_36AAE(
 }
 
 #[allow(non_snake_case)]
-fn horizontal_collision_scan_left_following_row_class_loc_36AF0(words: &[u16]) -> i16 {
+fn horizontal_collision_scan_left_following_row_class_loc_36AF0(words: &[u16]) -> (i16, u16) {
     // ASM loc_36AF0 (kid.asm:38306): after the leftward body scan, retarget
     // `a1` to the rightmost word of the following row and seed `d6=0`. The
     // first `move.w (a1),d0` decides whether the reverse scan starts on the
-    // blocked-entry path or the clear-entry path.
+    // blocked-entry path or the clear-entry path. As on the right side, the
+    // entry cell is read into `d0` only; the pre-decrement loops OR every
+    // later (leftward) cell into `d5` until their early exits.
     if words.is_empty() {
-        return -1;
+        return (-1, 0);
     }
 
+    let mut mask_d5 = 0u16;
     let rightmost_word = *words.last().expect("checked empty slice above");
     if rightmost_word & 0x4000 != 0 {
-        for &word in words.iter().rev() {
+        for &word in words.iter().rev().skip(1) {
             // ASM loc_36B04 (kid.asm:38318): the blocked-entry path then walks
             // right-to-left with `move.w -(a1),d0`, so the first earlier word
             // that clears bit `$4000` flips the row class to mixed.
+            mask_d5 |= word;
             if word & 0x4000 == 0 {
                 // ASM loc_36B1A (kid.asm:38331): the mixed-row exit loads
                 // `d6=1` before returning.
-                return 1;
+                return (1, mask_d5 & 0x4000);
             }
         }
         // ASM loc_36B0E (kid.asm:38324): if the inclusive reverse `dbf`
         // finishes without finding a clear word, the routine falls through the
         // shared epilogue and preserves the seeded `d6=0`.
-        0
+        (0, mask_d5 & 0x4000)
     } else {
-        for &word in words.iter().rev() {
+        for &word in words.iter().rev().skip(1) {
             // ASM loc_36B24 (kid.asm:38338): the clear-entry path pre-decrements
             // across the following row until an earlier word sets bit `$4000`,
             // then branches to the shared mixed-row exit at `loc_36B1A`.
+            mask_d5 |= word;
             if word & 0x4000 != 0 {
-                return 1;
+                return (1, mask_d5 & 0x4000);
             }
         }
         // ASM loc_36B2E (kid.asm:38344): once the clear-entry reverse scan
         // exhausts the inclusive `dbf d3,loc_36B24` loop without finding bit
         // `$4000`, it loads `d6=-1` for a fully clear following row.
-        -1
+        (-1, mask_d5 & 0x4000)
     }
 }
 
@@ -2420,10 +2438,13 @@ pub fn grounded_walker_scan_right_sub_36972(
     }
 
     let floor_words = grounded_walker_following_row_words(grid, left_col, right_col, following_row);
+    let (floor_class_d6, floor_row_mask_d5) =
+        horizontal_collision_scan_following_row_class_loc_36A10(&floor_words);
     GroundedWalkerTerrainScan {
         flags_d7,
-        floor_class_d6: horizontal_collision_scan_following_row_class_loc_36A10(&floor_words),
+        floor_class_d6,
         column_span_d3,
+        floor_row_mask_d5,
     }
 }
 
@@ -2480,10 +2501,13 @@ pub fn grounded_walker_scan_left_sub_36A58(
     }
 
     let floor_words = grounded_walker_following_row_words(grid, left_col, right_col, following_row);
+    let (floor_class_d6, floor_row_mask_d5) =
+        horizontal_collision_scan_left_following_row_class_loc_36AF0(&floor_words);
     GroundedWalkerTerrainScan {
         flags_d7,
-        floor_class_d6: horizontal_collision_scan_left_following_row_class_loc_36AF0(&floor_words),
+        floor_class_d6,
         column_span_d3,
+        floor_row_mask_d5,
     }
 }
 
@@ -5772,7 +5796,7 @@ mod tests {
     {
         assert_eq!(
             horizontal_collision_scan_following_row_class_loc_36A10(&[0x4000, 0x5000, 0x6000]),
-            0,
+            (0, 0x4000),
             "ASM loc_36A10 should stay on the blocking path and leave `d6=0` when every scanned word in the following row keeps bit `$4000` set",
         );
     }
@@ -5782,7 +5806,7 @@ mod tests {
      {
         assert_eq!(
             horizontal_collision_scan_following_row_class_loc_36A10(&[0x4000]),
-            0,
+            (0, 0),
             "ASM loc_36A2A should return with `d6=0` when the first blocked word is also the last scanned word, so the inclusive `dbf` loop never finds a clear `$4000` bit to flip the row class",
         );
     }
@@ -5792,7 +5816,7 @@ mod tests {
      {
         assert_eq!(
             horizontal_collision_scan_following_row_class_loc_36A10(&[0x4000, 0x0000]),
-            1,
+            (1, 0),
             "ASM loc_36A36 should return `d6=1` once the blocked-entry scan finds a later word with bit `$4000` clear",
         );
     }
@@ -5801,7 +5825,7 @@ mod tests {
     fn horizontal_collision_scan_following_row_class_loc_36a20_sets_d6_for_mixed_rows() {
         assert_eq!(
             horizontal_collision_scan_following_row_class_loc_36A10(&[0x4000, 0x0000, 0x6000]),
-            1,
+            (1, 0),
             "ASM loc_36A20 should keep scanning after the blocked entry word and return `d6=1` once a later word in the same row clears bit `$4000`",
         );
     }
@@ -5811,7 +5835,7 @@ mod tests {
      {
         assert_eq!(
             horizontal_collision_scan_following_row_class_loc_36A10(&[0x0000, 0x0000, 0x4000]),
-            1,
+            (1, 0x4000),
             "ASM loc_36A40 should keep scanning after a clear entry word and reach the shared mixed-row exit once a later word sets bit `$4000`",
         );
     }
@@ -5821,7 +5845,7 @@ mod tests {
      {
         assert_eq!(
             horizontal_collision_scan_following_row_class_loc_36A10(&[0x0000, 0x0000, 0x0000]),
-            -1,
+            (-1, 0),
             "ASM loc_36A4A should return `d6=-1` when the clear-entry path finishes its inclusive `dbf` scan without finding any later `$4000` word",
         );
     }
@@ -5831,7 +5855,7 @@ mod tests {
     {
         assert_eq!(
             horizontal_collision_scan_following_row_class_loc_36A10(&[]),
-            -1,
+            (-1, 0),
             "ASM loc_36A10 has no following-row words to classify in this native helper case, so the row must stay in the clear `d6=-1` class instead of becoming mixed",
         );
     }
@@ -5870,7 +5894,7 @@ mod tests {
     {
         assert_eq!(
             horizontal_collision_scan_left_following_row_class_loc_36AF0(&[0x4000, 0x0000]),
-            1,
+            (1, 0x4000),
             "ASM loc_36AF0 should inspect the rightmost following-row word first, so a clear right edge with a blocked word farther left must take the clear-entry path and return `d6=1`",
         );
     }
@@ -5880,7 +5904,7 @@ mod tests {
      {
         assert_eq!(
             horizontal_collision_scan_left_following_row_class_loc_36AF0(&[0x0000, 0x5000]),
-            1,
+            (1, 0),
             "ASM loc_36B04 should keep pre-decrementing across the following row after a blocked right-edge entry, and the first earlier clear word must flip the result to `d6=1`",
         );
     }
@@ -5889,7 +5913,7 @@ mod tests {
     fn horizontal_collision_scan_left_following_row_class_loc_36b1a_marks_mixed_rows() {
         assert_eq!(
             horizontal_collision_scan_left_following_row_class_loc_36AF0(&[0x0000, 0x4000]),
-            1,
+            (1, 0),
             "ASM loc_36B1A should return `d6=1` when either reverse scan sees both `$4000`-blocked and clear words in the following row",
         );
     }
@@ -5900,7 +5924,7 @@ mod tests {
             horizontal_collision_scan_left_following_row_class_loc_36AF0(
                 &[0x4000, 0x0000, 0x0000,]
             ),
-            1,
+            (1, 0x4000),
             "ASM loc_36B24 should keep pre-decrementing from a clear right edge until an earlier `$4000` word branches to the mixed-row `d6=1` exit",
         );
     }
@@ -5910,7 +5934,7 @@ mod tests {
      {
         assert_eq!(
             horizontal_collision_scan_left_following_row_class_loc_36AF0(&[0x0000, 0x0000]),
-            -1,
+            (-1, 0),
             "ASM loc_36B2E should return `d6=-1` when the reverse clear-entry scan reaches the inclusive `dbf` tail without finding bit `$4000`",
         );
     }
@@ -5920,7 +5944,7 @@ mod tests {
      {
         assert_eq!(
             horizontal_collision_scan_left_following_row_class_loc_36AF0(&[]),
-            -1,
+            (-1, 0),
             "ASM loc_36AF0 reverse following-row classification has no words to scan in this native helper case, so it must preserve the clear `d6=-1` class",
         );
     }
@@ -5930,7 +5954,7 @@ mod tests {
      {
         assert_eq!(
             horizontal_collision_scan_left_following_row_class_loc_36AF0(&[0x4000, 0x5000, 0x6000]),
-            0,
+            (0, 0x4000),
             "ASM loc_36B0E should preserve the seeded `d6=0` when the blocked-entry reverse scan reaches the shared `dbf` epilogue without finding any earlier word that clears bit `$4000`",
         );
     }
@@ -5986,6 +6010,7 @@ mod tests {
                 flags_d7: 0b111,
                 floor_class_d6: 0,
                 column_span_d3: 0,
+                floor_row_mask_d5: 0,
             },
             "ASM sub_36972 should preserve lead-column, following-lead, body-hit, and following-row classifications as separate d7/d6 outputs",
         );

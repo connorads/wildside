@@ -4910,8 +4910,11 @@ mod chunk_04 {
     }
 
     #[test]
-    fn goat_reverses_at_wall() {
-        // Floor at row 13 across full width, wall at col 2 blocking leftward path.
+    fn goat_holds_at_wall_without_turning_loc_3e5ba() {
+        // ASM Lion.asm loc_3E566 -> loc_3E5BA (#419): the Goat's grounded wall
+        // reaction holds in place with `$42(a3)` re-armed to $FF88; only
+        // loc_3E642 (non-$10 lineage) turns. Floor at row 13 across full
+        // width, wall at col 2 blocking the leftward path.
         let mut solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 13)).collect();
         for row in 10..13 {
             solid.push((2, row));
@@ -4925,8 +4928,21 @@ mod chunk_04 {
         }
         assert_eq!(
             enemy.facing,
-            Direction::Right,
-            "goat should reverse on hitting wall"
+            Direction::Left,
+            "ASM loc_3E5BA holds the Goat facing the wall; it never turns",
+        );
+        assert_eq!(
+            enemy.x_pos,
+            57 << 16,
+            "ASM loc_3E5BA never commits the crossing step; the goat rests at the boundary",
+        );
+        assert!(
+            enemy.on_ground,
+            "ASM loc_3E5BA exits grounded via loc_3E556"
+        );
+        assert_eq!(
+            enemy.shared_walker_state, -0x0078,
+            "ASM loc_3E5BA re-arms `$42(a3)` = $FF88 every held frame",
         );
     }
 

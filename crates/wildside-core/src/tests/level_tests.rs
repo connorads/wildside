@@ -26707,6 +26707,131 @@ mod chunk_10 {
         );
     }
 
+    /// ASM Lion.asm loc_3E3B2 -> loc_3E406 with sub_36972 loc_369BC (#419):
+    /// the level's right edge preloads d7 bits 0+1, so a Goat whose leading
+    /// edge crosses into the out-of-bounds column holds in place — `$42` is
+    /// re-armed to $FF88, the walk speed is restored from `$5E(a5)`, the step
+    /// is never committed (fraction preserved), and the facing never flips.
+    /// Oracle witness: 0x60 idle, li=1 pinned at 0x02778000 from frame 73 with
+    /// `$42`=$FF88 constant (charge 1 -> $FF88 at the boundary).
+    #[test]
+    fn goat_right_level_edge_crossing_holds_in_place_loc_3e406() {
+        let solid: Vec<(u16, u16)> = (0..40).map(|col| (col, 6)).collect();
+        let grid = grid_with_solid_cells(40, 15, &solid);
+        let mut enemy = make_pacer(EnemyFamily::Goat, 4, 631, 96);
+        enemy.facing = Direction::Right;
+        enemy.x_pos = 0x0277_8000;
+        enemy.shared_walker_state = 1;
+        enemy.walk_speed_override = goat_charge_step_loc_3e4ce(enemy.hit_points);
+
+        for _ in 0..10 {
+            step_pacer(&mut enemy, Some(&grid), Some(0x0260_0000));
+        }
+
+        assert_eq!(
+            enemy.x_pos, 0x0277_8000,
+            "ASM loc_3E406: the goat wall hold never commits the crossing step",
+        );
+        assert!(
+            enemy.on_ground,
+            "ASM loc_3E406 exits via loc_3E3A2 grounded"
+        );
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM loc_3E406 keeps x_direction; only loc_3E48E/tracking turn",
+        );
+        assert_eq!(
+            enemy.shared_walker_state, -0x0078,
+            "ASM loc_3E406 re-arms `$42(a3)` = $FF88 every held frame",
+        );
+        assert_eq!(
+            enemy.walk_speed_override, 0,
+            "ASM loc_3E406 restores the walk step from `$5E(a5)`",
+        );
+        assert_eq!(enemy.x_velocity, 0);
+    }
+
+    /// ASM Lion.asm loc_3E3B2 -> loc_3E406 (#419/#457): an interior wall
+    /// column ahead (d7 bit 0 from the body-row scan) holds the Goat with its
+    /// sub-pixel fraction intact. Oracle witness: 0x60 li=3 rests at
+    /// 0x02478000 (583.5) with `$42`=$FF88 from frame 0 — the ROM hold keeps
+    /// the pre-boundary fraction, unlike a land/fall snap to 583.0.
+    #[test]
+    fn goat_interior_wall_hold_preserves_subpixel_fraction_loc_3e406() {
+        let mut solid: Vec<(u16, u16)> = (0..40).map(|col| (col, 14)).collect();
+        solid.push((37, 13)); // wall at the body row
+        solid.push((37, 14)); // wall continues through the floor row
+        let grid = grid_with_solid_cells(40, 15, &solid);
+        let mut enemy = make_pacer(EnemyFamily::Goat, 4, 583, 224);
+        enemy.facing = Direction::Right;
+        enemy.x_pos = 0x0247_8000;
+        enemy.shared_walker_state = -0x0078;
+
+        for _ in 0..10 {
+            step_pacer(&mut enemy, Some(&grid), Some(0x0260_0000));
+        }
+
+        assert_eq!(
+            enemy.x_pos, 0x0247_8000,
+            "ASM loc_3E406 holds the exact pre-boundary position, fraction included",
+        );
+        assert!(enemy.on_ground);
+        assert_eq!(enemy.facing, Direction::Right);
+        assert_eq!(enemy.shared_walker_state, -0x0078);
+    }
+
+    /// ASM Lion.asm loc_3E406 `btst #0,d7; beq.s loc_3E434` (#419): a
+    /// boundary crossing with the wall bit clear (open cliff ahead) still
+    /// runs the charge controller — the cooldown ticks — and commits the walk
+    /// step (loc_3E4C6). The goat walks over the edge and falls on a later
+    /// scan (`tst.w d6; bmi loc_3E682`), it does not stop or turn.
+    #[test]
+    fn goat_bit0_clear_crossing_ticks_cooldown_and_commits_loc_3e434() {
+        let solid: Vec<(u16, u16)> = (0..40).map(|col| (col, 6)).collect();
+        let grid = grid_with_solid_cells(60, 15, &solid);
+        let mut enemy = make_pacer(EnemyFamily::Goat, 4, 631, 96);
+        enemy.facing = Direction::Right;
+        enemy.x_pos = 0x0277_8000;
+        enemy.shared_walker_state = -0x0078;
+
+        step_pacer(&mut enemy, Some(&grid), Some(0x0100_0000));
+
+        assert_eq!(
+            enemy.shared_walker_state, -0x0077,
+            "ASM loc_3E434 `addi.w #1,$42(a3)` runs on bit0-clear crossings",
+        );
+        assert_eq!(
+            enemy.x_pos, 0x0279_0000,
+            "ASM loc_3E4C6 commits the crossing step when no wall bit is set",
+        );
+    }
+
+    /// ASM Lion.asm loc_3E566 -> loc_3E5BA with sub_36A58 loc_36A9E (#419):
+    /// the left-walker mirror of the Goat wall hold — the level's left edge
+    /// preloads d7 bits 0+1 and the goat holds facing Left.
+    #[test]
+    fn goat_left_level_edge_crossing_holds_in_place_loc_3e5ba() {
+        let solid: Vec<(u16, u16)> = (0..40).map(|col| (col, 6)).collect();
+        let grid = grid_with_solid_cells(40, 15, &solid);
+        let mut enemy = make_pacer(EnemyFamily::Goat, 4, 9, 96);
+        enemy.facing = Direction::Left;
+        enemy.x_pos = 0x0009_8000;
+        enemy.shared_walker_state = -0x0078;
+
+        for _ in 0..10 {
+            step_pacer(&mut enemy, Some(&grid), Some(0x0100_0000));
+        }
+
+        assert_eq!(
+            enemy.x_pos, 0x0009_8000,
+            "ASM loc_3E5BA: the left-facing goat wall hold never commits the step",
+        );
+        assert!(enemy.on_ground);
+        assert_eq!(enemy.facing, Direction::Left);
+        assert_eq!(enemy.shared_walker_state, -0x0078);
+    }
+
     #[test]
     fn loc_3c0d2_rightward_wall_turn_reverses_in_place_not_extra_advance() {
         // ASM loc_3C04E (kid.asm:43529-43542): once the predicted step crosses the
