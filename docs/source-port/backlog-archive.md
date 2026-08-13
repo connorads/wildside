@@ -561,6 +561,58 @@ seven, turns for the kid.asm eight), then model the Goat wall-stand;
 regression = frame-0 roster (li=3 alive at 583.5) + witness gate + full
 sweep, watching Scorpion/Ninja/Lion levels for cross-family cliff effects.
 
+2026-08-13 implementation (da867bd7f + 8a085619f). Probes first: the frozen
+oracle coroutine pointer (0x3E3A6) plus register evolution identified the
+landing tail — loc_3E732 restores the walk step, seeds `$42=$FF88`, and
+exits through loc_3E392 which faces the walker RIGHT unconditionally; the
+freeze is the wall-adjacent land/fall cycle (crossing-with-wall snaps and
+re-enters loc_3E682; floor below re-lands next frame). Probe B disproved
+the Kid-side hurt-tile suspicion: the 0x60 settle hit is the GOAT CHARGE —
+loc_3E434's controller starts a charge when the Kid is within ±$60px
+horizontally on a non-crossing grounded step (loc_3E450), at the `$4C`
+charge word in the step's high word (HP4: $18000 -> $38000, the oracle's
+observed 3.5px/f), aborting past ±$70px (loc_3E476 -> loc_3E48E) into the
+-120 cooldown counted back up per step. The `$42 == $A` guard is the
+"never charges" marker (Ninja init writes it).
+
+Landed: the library split with the fall staged GOAT-ONLY. A full seven-
+family flip was measured and rolled back: it fixed 0x31 and improved 0x61
+but regressed 0x45/0x56, because the spurious cliff-turn had been masking
+the unmodelled family companions (Ninja loc_3D92A stealth cadence and
+loc_3D9A4 jump) — that staging debt is #456. Final state (canonical sweep
+1786652191, zero regressions): 0x60 level_settle CLEAN (was 4 blocking)
+with the Goat alive wall-adjacent at 583.0 vs oracle 583.5 (the subpixel
+hold is #457); 70 total blocking from 74. Row residue: 0x60 idle_tail (6
+blocking) — native Kid takes the charge hit late and is knocked into the
+pit (~frame 300, dies) where the oracle recovers at spawn; plus a +1.5px
+walker phase lead on all shell walkers. verify-tas-full byte-identical;
+core suite green; CLI failures identical to the 26-test baseline; frame-0
+RNG witnesses unchanged.
+
+### #456
+
+Opened 2026-08-13 (#419 staging). The measured walker partition says six
+more families (Lion, Orca, Armadillo, Scorpion, Ninja, walking Dragon)
+belong on the Lion.asm cliff-fall walker, but each rides companion
+behaviours the cliff-turn approximation currently masks. Evidence from the
+full-flip experiment (rolled back in 8a085619f): 0x31 PASSES under the
+fall (its #451 Ninja despawn was the cliff-turn) and 0x61 improves 5 -> 3
+(Scorpion), while 0x45 loses a Ninja into a pit and 0x56's oracle Ninja
+reaches and hits Kid natively unmatched — the Ninja needs loc_3D92A's
+stealth cadence and the loc_3D9A4 timer jump modelled first. Per family:
+model the companions, flip the gate, prove the family's levels with zero
+sweep regressions.
+
+### #457
+
+Opened 2026-08-13 (#419 residue). Native's Goat wall freeze emerges from
+the loc_3E682 land/fall cycle whose grounded wall-crossing snap clears the
+subpixel word (`add.w d3,d0; swap; clr.w`), resting at 583.0 on 0x60; the
+oracle holds the pre-snap 583.5 — its last x write is a plain walk store
+and the hold state never rewrites x. Half a pixel, within the sweep's
+authoritative tolerance; the shell regression test pins the range
+0x02470000..=0x02478000 until the exact hold state is modelled.
+
 ### #420
 
 Driller (0x55/0x68, 19 blockers — largest cluster). 0x55 (Driller-only roster

@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-13 handoff (#419 Goat walker model landed, staged Goat-only)
+
+- Probes first: the frozen oracle coroutine pointer identified the landing
+  tail (loc_3E732 -> loc_3E392: face Right, restore step, -120 cooldown)
+  and the wall-adjacent land/fall freeze; probe B disproved the Kid-side
+  hurt-tile suspicion — the 0x60 settle hit is the Goat CHARGE
+  (loc_3E434/loc_3E450/loc_3E476: ±$60px x-only trigger, $4C-high-word
+  speed, ±$70px abort, -120 cooldown; `$42 == $A` = never-charges marker).
+- Landed (da867bd7f + 8a085619f): the two-library split with the Lion.asm
+  fall staged GOAT-ONLY. The full seven-family flip was measured and
+  rolled back: it fixed 0x31 and improved 0x61 but regressed 0x45/0x56 —
+  the cliff-turn had been masking unmodelled Ninja companions (loc_3D92A
+  cadence, loc_3D9A4 jump); that staging debt is #456, per family with a
+  zero-regression bar.
+- Canonical sweep `1786652191`: 55/69 pass, 70 blocking (from 74), the
+  only per-level change is 0x60's improvement (level_settle clean, Goat
+  alive wall-adjacent) — ZERO regressions. verify-slice-fast,
+  verify-tas-full (byte-identical baselines), core suite, witness gate,
+  and the CLI baseline all green.
+- #419 stays open for 0x60's idle_tail residue (charge-hit
+  timing/knockback; +1.5px walker phase lead); the Goat hold subpixel is
+  explicit as #457.
+
 ## 2026-08-13 handoff (#419 root cause: the two-walker-library mis-collapse)
 
 - Post-#442 probe session at 0x60. First divergence isolated frame-by-frame
