@@ -884,6 +884,57 @@ levels 0x30/0x60; raw rows in each level dir's settle-trace.json):
   one-directional oracle-more count bias. 0x30=75 loads slower, giving its
   slight over-age + the 12-byte RNG delta.
 
+Resolved 2026-08-13 (the boundary swap). The model landed in two commits:
+
+- Boundary: `debug_level_entry_load_complete_step_loc_74e0` (generated from
+  the shell table) replaces the fixed elapsed-71/72 gates; mapping
+  `boundary = load_complete - 1`, locked by two independent anchors (0x48's
+  legacy exactness at 71 = 72 - 1, and live-tick counting reproducing 0x30's
+  exact +12-byte RNG delta). The residual window is the helper minimum; the
+  0x01/0x06/0x08/0x1B/0x3E/0x46/0x64 tails and the Driller +63 /
+  multi-head-boss +60 / Drips -7 family adjustments are deleted.
+- Witness gate: native frame-0 state vs the YAML's measured RNG offset +
+  full 55-byte ring + counts. Probe levels 0x30/0x48/0x50/0x60/0x61 are
+  RNG-EXACT (the 2026-08-01 S3c gate had 0 of 4 rings matching); the
+  full-coverage run is 49/65 comparable levels fully exact. The 16 residues
+  are enemy-content divergences owned by open rows: #422 beam-child
+  undercount (0x30/0x48 — the only probe residue, pinned in the gate),
+  #426's Hand layout #2 (0x59, +1 native object at frame 0), plus small
+  per-family shell RNG draws (0x05/0x07/0x18/0x19/0x21/0x22/0x29/0x33/
+  0x36/0x46/0x51/0x55/0x68) now cleanly visible.
+- Murder wall: the swap exposed that native's hidden pass ran enemies only;
+  the ROM's live shell runs the wall worker (sub_7196 allocates loc_7452's
+  coroutine; advance loc_7316/loc_7396) every frame. Wired from the live
+  boundary; the wall's 128·N(N+1) acceleration ramp fits the oracle's
+  level_settle exactly at N=162 ticks. Gated by a recording-bootstrap-only
+  flag: play-native's interactive debug title card deliberately keeps the
+  level frozen until Start (DEVIATION, pinned by the loc_1AE2E Hills test).
+- Verification: sweep 1786646904 = 55/69 pass, 74 blocking (from canonical
+  1786271326's 52/69, 116; -36 leftover-warp classification, -6 model),
+  ZERO level regressions; core suite 7128 green; wildside-cli failures
+  identical to the 26-test #417 baseline; verify-slice-fast and
+  verify-tas-full green (published-TAS baselines byte-identical — the boot
+  route never runs the settled-warp shell).
+- Remaining shell injections to retire (opened as #455): the Level-1
+  hardcoded RNG ring reset (`LEVEL_ONE_RECORDING_SETTLE_RNG_RING`), the
+  0x06/0x38/0x47 ghost-block extra ticks, and the Island shore extra ticks —
+  all now measurable against the witness harness. Consequence of the swap:
+  the surviving #419-#422 divergences start from an exact frame-0 state, so
+  they are post-frame-0 enemy-behaviour bugs, no longer shell confounds.
+
+### #455
+
+Opened 2026-08-13 (successor to #442's model swap). Three shell-era
+injections/stand-ins survive the measured model and should be retired against
+the witness + sweep harnesses: (1) `recording_oracle_warp_resets_level_one_rng`
+force-writes a hardcoded oracle ring at Level 1 settle — if the measured shell
+reproduces it naturally the reset is dead; if not, 0x01 has an unowned shell
+divergence; (2) `recording_oracle_warp_extra_ghost_block_ticks` (0x06 +8,
+0x38/0x47 +$2F) pre-dates the live shell and may double-count now that hidden
+frames run; (3) the Island shore extra ticks (0x10/0x12) likewise. Each wants
+the same treatment the wall got: find the subsystem's place in the hidden
+frame loop, wire it, delete the hand ticks.
+
 ### #451
 
 Opened 2026-08-09 (unmasked by the #423 Ninja speed fix). At 0x31 (roster
@@ -22162,6 +22213,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 454 | [x] | P1 | verification | Added a route-grouped early playtest checklist for boot, 0x00-0x08, named P0 smoke, and audio-device candidates with exact current checks and a report template. | Checklist ids equal the eligible awaiting-human set plus #374; `backlog-lint` and `verify-slice-fast` pass. See archive #454. |
 | 453 | [x] | P1 | infra | `project-status` ranks same-priority actionable rows above in-progress and explicit `Reopen only` risks, while retaining deferred rows when space remains. | Live top playability lane includes #442; 16 project-status tests and `verify-slice-fast` pass. See archive #453. |
 | 452 | [x] | P1 | testing/web | Restored the browser runtime asset contract: `kid_skid.bin` is catalogued and ROM-extractable, required airborne aliases are present in the render fixture/manifest, and the observable level-sidecar catalogue is current. | `verify-web-fast` and `verify-slice-fast` green; extractor/native runtime bundles byte-identical. See archive #452. |
+| 442 | [x] | P1 | verification | Settled-warp shell content modelled: per-level load-completion boundary (measured table, mapping `load_complete - 1`), hand tails + Driller/boss/Drips fudges deleted, murder wall wired into the hidden live shell, frame-0 RNG witness gate added. | Witness gate: probe levels RNG-exact (49/65 levels fully exact); sweep 1786646904: 55/69 pass, 74 blocking (from 52/69, 116), zero regressions; verify-tas-full green. See archive #442. |
 | 450 | [x] | P2 | enemy | Verdict: the pin was wrong, not native. ASM sub_36A58 derives the loc_3E566 right floor span as columns 1-3 for the fixture (40+9-1=48 -> col 3); the stale `2,17` pin predates commit 960352273's ROM scan width. Re-pinned with the derivation, renamed `_snapshot_` -> `_trace_export_`. | Test runs and passes inside the gated core suite. See archive #450. |
 | 448 | [x] | P2 | verification | `verify-disasm-fidelity` mise task assembles the pinned disassembly with AS and byte-diffs against the reference ROM, naming the nearest label/source line per mismatching region. Result: BIT-PERFECT (1,048,576 bytes; SHA-1 match) — the ASM-first rule's premise is now a gate. | Task green in ~2s warm / 12s cold; red path verified with deliberate corruption (3 regions localised to labels). See archive #448. |
 | 447 | [x] | P2 | verification | `verify-cpu-vectors` drives the pinned r68k core through all 1,317,560 SingleStepTests vectors (680x0 + m68000): 98.2%/97.3% arithmetic pass; defects named (BCD registers, DIVS/DIVU overflow, exception frames, odd-SP panics, no trace bit, constant MULU/DIV cycle models — the quantified #406 disagreement). Downward-only ratchet baseline (251 rows). | `mise run verify-cpu-vectors` + ratchet green; set-vs-set ASR/CHK/LINK/ADDQ-cycle disagreements recorded as findings. See archive #447. |

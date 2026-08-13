@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-13 handoff (#442 boundary swap landed — shell timing model complete)
+
+- The measured model replaced the fixed shell: per-level load-completion
+  boundary (`debug_level_entry_load_complete_step_loc_74e0`, mapping
+  `load_complete − 1`, locked by 0x48's legacy exactness and 0x30's exact
+  +12-byte RNG fit), hand tails + Driller/boss/Drips fudges deleted, and a
+  frame-0 RNG witness gate pinning the shell against the YAML table.
+  Probe levels 0x30/0x48/0x50/0x60/0x61 are RNG-exact (S3c's 2026-08-01 run
+  had 0 of 4 rings); full coverage 49/65 levels exact.
+- The swap exposed and fixed a subsystem gap: the murder wall never ticked
+  in native's hidden shell (0x08 regressed, then recovered exactly — the
+  wall's 128·N(N+1) ramp fits oracle level_settle at N=162). The live shell
+  is recording-bootstrap-only; play-native's held debug title card stays
+  frozen (deliberate DEVIATION, pinned by the loc_1AE2E Hills test).
+- Canonical sweep `1786646904`: 55/69 pass, 74 blocking (from 52/69, 116),
+  zero level regressions. Core suite green; CLI failures identical to the
+  26-test #417 baseline; verify-slice-fast + verify-tas-full green
+  (published-TAS baselines byte-identical). #442 closed; #455 opened for
+  the surviving shell injections (Level-1 RNG reset, ghost/island ticks).
+- Rows #419-#422 reframed: their divergences now start from an exact
+  frame-0 state — post-frame-0 enemy behaviour, no longer shell confounds.
+
 ## 2026-08-13 handoff (#442 shell-content capture: load duration + UFO hit named)
 
 - New `oracle-settle-census --dump-trace` persists the helper's full settle
