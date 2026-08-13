@@ -19800,6 +19800,7 @@ impl NativeRuntime {
         self.level_entry_camera_handoff = None;
         self.level_entry_player_handoff = None;
         self.debug_level_entry_suppresses_title_card_live_handoff = false;
+        self.debug_level_entry_runs_live_shell_loc_74e0 = false;
         self.pending_level_skip = None;
         self.pending_level_skip_resume = false;
         self.level_skip_transition = None;

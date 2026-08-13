@@ -220,6 +220,10 @@ impl NativeRuntime {
                 }
                 self.step_frame(idle);
                 self.begin_debug_level_entry_loc_74e0(target);
+                // ASM loc_74E0 (#442): the recording bootstrap replays the
+                // ROM's live shell — the level ages behind the never-shown
+                // title card, so frame-loop subsystems (murder wall) run.
+                self.debug_level_entry_runs_live_shell_loc_74e0 = true;
                 for _ in 0..120 {
                     self.step_frame(idle);
                 }

@@ -342,6 +342,14 @@ pub struct NativeRuntime {
     recorded_title_card_handoff_delay: bool,
     direct_title_card_handoff_capture: bool,
     debug_level_entry_suppresses_title_card_live_handoff: bool,
+    /// ASM loc_74E0: the ROM's debug level-skip shell runs the level LIVE
+    /// behind the (never-shown) title card — measured shell trace run
+    /// 1786640409 (#442). The recording bootstrap sets this so frame-loop
+    /// subsystems (murder wall) age through the hidden shell.
+    /// DEVIATION: play-native's interactive debug title card holds the level
+    /// frozen until Start so the picker cannot kill Kid behind the card;
+    /// that path leaves this false.
+    debug_level_entry_runs_live_shell_loc_74e0: bool,
     recording_oracle_debug_lifecycle_completed: bool,
     start_press_count: usize,
     current_level: LevelId,
@@ -1427,6 +1435,7 @@ impl NativeRuntime {
             recorded_title_card_handoff_delay: false,
             direct_title_card_handoff_capture: false,
             debug_level_entry_suppresses_title_card_live_handoff: false,
+            debug_level_entry_runs_live_shell_loc_74e0: false,
             recording_oracle_debug_lifecycle_completed: false,
             start_press_count: 0,
             current_level: LevelId(0),
@@ -4198,6 +4207,27 @@ impl NativeRuntime {
             // Increase_Diamonds may increment it later in the object pass.
             self.hud_diamond_count_loc_bdc0 = self.progression.diamond_count;
             self.refresh_active_roster();
+            // ASM Mode_Level loc_7396/loc_73B8 advances the murder wall every
+            // frame, including the hidden debug-warp shell frames behind the
+            // title window (#442). The visible Kid frame owns the wall while
+            // InGame; the hidden pass runs no Kid frame, so step it here —
+            // 0x08's wall reaches frame 0 aged by the whole live shell, not
+            // just the visible window. The wall worker (sub_7196 allocates
+            // loc_7452's camera/wall coroutine during Load_InGame) runs from
+            // the same live boundary as the object passes. Measured: the
+            // wall's 128·N(N+1) acceleration ramp fits the oracle's
+            // level_settle checkpoint exactly at N=162 ticks on the sweep's
+            // sampling (sweep run 1786646093 pinned the off-by-one both ways).
+            if self.debug_level_entry_runs_live_shell_loc_74e0
+                && debug_level_entry_elapsed
+                    .is_some_and(|elapsed| elapsed >= debug_level_entry_live_boundary)
+                && let Some(mut slice) = self.opening_slice
+            {
+                let mut camera_x = slice.camera.x_pos;
+                self.step_murder_wall(&mut camera_x);
+                slice.camera.x_pos = camera_x;
+                self.opening_slice = Some(slice);
+            }
             self.step_pending_prize_diamond_awards();
             self.step_pending_sound_effects();
             self.step_pending_dragon_death_children();

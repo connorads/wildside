@@ -663,6 +663,35 @@ mod tests {
         );
     }
 
+    /// ASM Mode_Level's live shell advances the murder wall every frame
+    /// (loc_7316/loc_7396 via the sub_7196-allocated wall worker), including
+    /// the hidden debug-warp shell frames behind the title window. Oracle
+    /// sweep run 1786644354 pins Level 0x08's wall at 234240 on the
+    /// level_settle checkpoint; the sweep's sampling sits one step after the
+    /// 60th scenario frame, so this harness steps 61. Without hidden-shell
+    /// wall ticks native reaches only the visible window's ticks from the
+    /// -$30px seed (23px short).
+    #[test]
+    fn gameplay_regression_murder_wall_ages_through_hidden_shell_loc_7396() {
+        use wildside_core::{FrameInput, LevelId, NativeRuntime};
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.set_recorded_title_card_handoff_delay(true);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x08));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x08));
+        let mut frame = runtime.trace_frame();
+        for _ in 0..61 {
+            frame = runtime.step_frame(FrameInput::default());
+        }
+        assert_eq!(
+            frame.murder_wall_x,
+            Some(234240),
+            "level 0x08 murder wall at the sweep's level_settle sampling must match oracle run 1786644354"
+        );
+    }
+
     /// #442 shell-content instrumentation: `--dump-trace` must persist the
     /// helper's FULL settle rows (RNG ring, kid kinematics, object-slot dump)
     /// so per-step shell analysis reads measured data instead of re-deriving
