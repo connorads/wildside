@@ -866,38 +866,62 @@ mod tests {
             return;
         };
 
-        const FRAME_IDX: usize = 100;
-        let scenario = idle_level_scenario(0, Some(FRAME_IDX + 10));
-        let native_trace = wildside_core::run_script_with_warp(
-            manifest.clone(),
-            &scenario.script,
-            scenario.frame_count,
-            scenario.warp_to_level,
-        );
-        let frame = native_trace.get(FRAME_IDX).expect("frame in trace");
+        use native_player::render_trace_with_vdp_latched_state_and_resident;
+
+        // Mirror the capture_scenario_frames pipeline exactly — the canonical
+        // pixel oracle renders `render_trace_with_vdp_latched_state_and_resident`
+        // (previous trace + resident snapshot) against the RUNTIME's live
+        // block grid. Compare a spread of frame indices, including the early
+        // fade/latch window and a spawn-adjacent index, so parity holds
+        // regardless of enemy spawn timing (#419's loc_3691E delay) instead
+        // of pinning one frame's output.
+        const FRAME_INDICES: [usize; 5] = [0, 1, 2, 50, 100];
+        let last_frame = *FRAME_INDICES.iter().max().expect("non-empty");
+        let scenario = idle_level_scenario(0, Some(last_frame + 10));
         let (level_visuals, block_grid) =
             load_session_assets(&manifest, 0).expect("session assets");
-        let scene = build_scene_filtered(
-            frame,
-            false,
-            Some(&level_visuals),
-            Some(&block_grid),
-            LayerFilter::default(),
-        );
-        let mut want = vec![0u8; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
-        render_scene(&scene, &mut want);
+
+        let mut runtime =
+            wildside_core::NativeRuntime::with_generated_level_layout(manifest.clone());
+        runtime.set_recorded_title_card_handoff_delay(true);
+        runtime.boot_to_level(wildside_core::LevelId(0));
 
         let blob =
             wildside_data::pack_bundle_blob(&manifest.output_root).expect("pack bundle blob");
         let mut session =
             wildside_web::WebSession::from_bundle_blob(&blob, Some(0)).expect("web session");
-        for frame_idx in 0..=FRAME_IDX {
-            session.step(scenario.script.get(frame_idx).copied().unwrap_or(0));
+
+        let mut frame = runtime.trace_frame();
+        for frame_idx in 0..=last_frame {
+            let buttons = scenario.script.get(frame_idx).copied().unwrap_or(0);
+            let previous_trace = frame.clone();
+            frame = runtime.step_frame(wildside_core::FrameInput::from_mask(buttons));
+            session.step(buttons);
+            if !FRAME_INDICES.contains(&frame_idx) {
+                continue;
+            }
+            let render_trace = render_trace_with_vdp_latched_state_and_resident(
+                &frame,
+                Some(&previous_trace),
+                runtime.source_port_render_trace_snapshot(),
+            );
+            let render_block_grid = runtime
+                .source_port_render_block_grid()
+                .unwrap_or(&block_grid);
+            let scene = build_scene_filtered(
+                &render_trace,
+                false,
+                Some(&level_visuals),
+                Some(render_block_grid),
+                LayerFilter::default(),
+            );
+            let mut want = vec![0u8; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
+            render_scene(&scene, &mut want);
+            assert!(
+                session.rgb_frame() == want.as_slice(),
+                "web session frame {frame_idx} diverged from the capture-frames pixel pipeline"
+            );
         }
-        assert!(
-            session.rgb_frame() == want.as_slice(),
-            "web session frame {FRAME_IDX} diverged from the capture-frames pixel pipeline"
-        );
     }
 
     /// Shell-screen parity (#19): an unwarped web session renders the VDP
