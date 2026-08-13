@@ -149,7 +149,7 @@ pub(crate) fn step_driller(
         Vec::new()
     };
     if drilled.is_empty() {
-        step_pacer(enemy, Some(grid));
+        step_pacer(enemy, Some(grid), None);
         enemy.shared_drive_sound_previous_render_hidden =
             !driller_drilled_cells_loc_3be78(enemy, grid).is_empty();
     } else {
@@ -161,7 +161,7 @@ pub(crate) fn step_driller(
                 terrain::Cell::from_be_bytes(0, 0),
             );
         }
-        step_pacer(enemy, Some(&grid_after_drill));
+        step_pacer(enemy, Some(&grid_after_drill), None);
         enemy.shared_drive_sound_previous_render_hidden =
             !driller_drilled_cells_loc_3be78(enemy, &grid_after_drill).is_empty();
     }
@@ -339,7 +339,7 @@ mod tests {
         let mut grid = mini_hopping_skull_test_grid();
         grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0, 0));
 
-        step_pacer(&mut enemy, Some(&grid));
+        step_pacer(&mut enemy, Some(&grid), None);
 
         assert_eq!(
             enemy.hit_points, 0,

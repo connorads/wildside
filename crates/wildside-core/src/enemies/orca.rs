@@ -534,7 +534,7 @@ pub(crate) fn step_orca(
 ) {
     match enemy.orca_state {
         OrcaState::Walking => {
-            step_pacer(enemy, block_grid);
+            step_pacer(enemy, block_grid, None);
 
             // Cooldown between lunges
             if enemy.wait_timer > 0 {

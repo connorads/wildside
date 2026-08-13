@@ -4940,7 +4940,7 @@ pub(crate) fn step_active_enemies_with_rng(
                     if step_goat_tracking_turn_loc_3cc18(enemy, player_x_pos) {
                         continue;
                     }
-                    step_pacer(enemy, block_grid);
+                    step_pacer(enemy, block_grid, player_x_pos);
                     // Scorpion: tracking callback (Scorpion.asm loc_3DD7E).
                     // Within 170px: face toward player (unless tracking-locked),
                     // boost speed to $38000 if enemy_level > 1 (HP > 3).
@@ -7682,6 +7682,96 @@ fn register_shared_walker_turnaround(enemy: &mut ActiveEnemy) -> bool {
     }
 }
 
+/// ASM (#419): the ROM ships two shared-walker libraries with opposite
+/// cliff semantics. The kid.asm loc_3C04E/loc_3C0FA walker (Diamond, Crab,
+/// Driller, Fire Demon, Tank, TankShooting, Robot, SpinningTwins) turns at
+/// cliff edges (loc_3C0A6/loc_3C0B4) and lands from falls into a turnaround
+/// (loc_3C30C -> loc_3C0D2). The Lion.asm loc_3E3B2/loc_3E566 walker (Goat,
+/// Lion, Orca, Armadillo, Scorpion, Ninja, walking Dragon) has NO look-ahead
+/// cliff turn — `tst.w d6; bmi loc_3E682` walks off the edge into the
+/// falling loop — and lands through loc_3E732 -> loc_3E392 (face Right,
+/// restore the walk step, seed the -120 charge cooldown). Partition measured
+/// from the per-family `include`/branch targets in code/enemy/*.asm.
+pub(crate) fn shared_walker_turns_at_cliffs_loc_3c0a6(family: EnemyFamily) -> bool {
+    !matches!(
+        family,
+        EnemyFamily::Goat
+            | EnemyFamily::Lion
+            | EnemyFamily::Orca
+            | EnemyFamily::Armadillo
+            | EnemyFamily::Scorpion
+            | EnemyFamily::Ninja
+            | EnemyFamily::DragonWalking
+    )
+}
+
+/// ASM Goat.asm loc_3CA30..loc_3CA7E: `$4C(a5)` accumulates the CHARGE word
+/// (3, plus 1 for HP > 4). The charge entry loc_3E4CE/loc_3E50A writes that
+/// word into the HIGH word of the walk step `$50(a5)`, so an HP-4 Goat's
+/// $18000 walk becomes a $38000 (3.5px/frame) charge.
+pub(crate) fn goat_charge_step_loc_3e4ce(hit_points: u8) -> i32 {
+    let charge_word: i32 = if hit_points > 4 { 4 } else { 3 };
+    let walk = pacer_walk_speed(EnemyFamily::Goat, hit_points);
+    (charge_word << 16) | (walk & 0xFFFF)
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum GoatChargeRouteLoc3E434 {
+    /// Continue the current grounded walk step (loc_3E4C6).
+    WalkOn,
+    /// Enter the charge toward the Kid (loc_3E4CE right / loc_3E50A left):
+    /// face the Kid, mark `$42` 1/2, swap the charge step in. No walk step
+    /// this frame — both entries end in the loc_3E392/loc_3E546 hibernate.
+    ChargeStart { toward: Direction },
+    /// Kid escaped beyond ±$70: loc_3E48E aborts the charge — `$42 = $FF88`
+    /// (-120 cooldown), restore the walk step, turn away, no step.
+    ChargeAbortTurn,
+    /// Cooldown frame: `addi.w #1,$42(a3)` then take the walk step.
+    CooldownTick,
+}
+
+/// ASM Lion.asm loc_3E434 (the per-step charge controller shared by the
+/// loc_3E3B2 walker, reached on non-boundary-crossing grounded steps):
+/// `$42 == $A` and cooldown frames walk on; `$42 == 0` starts a charge when
+/// the Kid is within ±$60 px horizontally (loc_3E450 — x only, any row);
+/// `$42 > 0` keeps charging until the Kid passes ±$70 px (loc_3E476), then
+/// aborts through loc_3E48E.
+pub(crate) fn goat_charge_controller_loc_3e434(
+    charge_state: i16,
+    goat_x_px: i16,
+    kid_x_px: i16,
+) -> GoatChargeRouteLoc3E434 {
+    if charge_state == 0xA {
+        return GoatChargeRouteLoc3E434::WalkOn;
+    }
+    if charge_state > 0 {
+        let dx = i32::from(kid_x_px) - i32::from(goat_x_px);
+        if dx.abs() > 0x70 {
+            return GoatChargeRouteLoc3E434::ChargeAbortTurn;
+        }
+        return GoatChargeRouteLoc3E434::WalkOn;
+    }
+    if charge_state < 0 {
+        return GoatChargeRouteLoc3E434::CooldownTick;
+    }
+    let dx = i32::from(kid_x_px) - i32::from(goat_x_px);
+    if dx.abs() <= 0x60 {
+        return GoatChargeRouteLoc3E434::ChargeStart {
+            toward: if dx > 0 {
+                Direction::Right
+            } else {
+                Direction::Left
+            },
+        };
+    }
+    GoatChargeRouteLoc3E434::WalkOn
+}
+
+/// ASM Lion.asm loc_3E48E / loc_3E732: both the charge abort and the fall
+/// landing seed `$42 = $FF88` — a -120-frame lockout that loc_3E434 counts
+/// back up one per grounded step before a new charge can start.
+pub(crate) const GOAT_CHARGE_COOLDOWN_LOC_3E48E: i16 = -0x78;
+
 fn register_enemy_terrain_kill(enemy: &mut ActiveEnemy) {
     if let Some(death_animation_frames) = enemy_death_animation_frames(enemy.family) {
         // ASM loc_3C464 and Lion.asm loc_3E94E write collision_type=$FFFF;
@@ -7826,7 +7916,11 @@ fn shared_walker_walk_speed(enemy: &ActiveEnemy) -> i32 {
 /// Step a Pacer-archetype enemy: walk at a fixed speed, reverse on wall or
 /// floor edge. Matches the shared walker subroutines in the disassembly
 /// (loc_3E392 / loc_3E546 / loc_3E560 / loc_3E3AC).
-pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+pub(crate) fn step_pacer(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+) {
     let Some(grid) = block_grid else {
         return;
     };
@@ -7920,17 +8014,84 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         return;
     }
 
-    let grounded_turn_plan = shared_walker_grounded_scan_turn_plan(
-        enemy,
-        grid,
-        enemy.x_velocity,
-        probe_half_width,
-        probe_height,
-    );
+    let turns_at_cliffs = shared_walker_turns_at_cliffs_loc_3c0a6(enemy.family);
+    let grounded_turn_plan = if turns_at_cliffs {
+        shared_walker_grounded_scan_turn_plan(
+            enemy,
+            grid,
+            enemy.x_velocity,
+            probe_half_width,
+            probe_height,
+        )
+    } else {
+        // ASM Lion.asm loc_3E3B2/loc_3E566 (#419): the Goat-lineage walker
+        // has no loc_3C04E boundary turn plan; its boundary logic is the
+        // charge controller (loc_3E434) and the wall/fall branch below.
+        None
+    };
     enemy.shared_walker_grounded_scan_trace = Some(SharedWalkerGroundedScanTrace {
         turn_plan: grounded_turn_plan,
         ..scan_trace
     });
+
+    if matches!(enemy.family, EnemyFamily::Goat) {
+        let kid_x_px = player_x_pos.map(|px| (px >> 16) as i16);
+        let crossed_boundary = {
+            let next_x = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+            let next_x_px = (next_x >> 16) as i32;
+            let pixel_delta = if enemy.x_velocity >= 0 {
+                next_x_px - current_x_px
+            } else {
+                current_x_px - next_x_px
+            };
+            let tile_remainder = if enemy.x_velocity >= 0 {
+                (-(current_x_px + probe_half_width)) & 0xF
+            } else {
+                (current_x_px - probe_half_width) & 0xF
+            };
+            pixel_delta > 0 && tile_remainder < pixel_delta
+        };
+        if !crossed_boundary && let Some(kid_x_px) = kid_x_px {
+            match goat_charge_controller_loc_3e434(
+                enemy.shared_walker_state,
+                current_x_px as i16,
+                kid_x_px,
+            ) {
+                GoatChargeRouteLoc3E434::ChargeStart { toward } => {
+                    // ASM loc_3E4CE/loc_3E50A: face the Kid, mark the charge,
+                    // swap the $4C charge word into the step's high word, and
+                    // hibernate without walking this frame.
+                    enemy.facing = toward;
+                    enemy.shared_walker_state = if matches!(toward, Direction::Right) {
+                        1
+                    } else {
+                        2
+                    };
+                    enemy.walk_speed_override = goat_charge_step_loc_3e4ce(enemy.hit_points);
+                    enemy.x_velocity = 0;
+                    return;
+                }
+                GoatChargeRouteLoc3E434::ChargeAbortTurn => {
+                    // ASM loc_3E48E: restore the walk step, seed the -120
+                    // cooldown, bump the Lion-style $5A counter, and turn
+                    // away (loc_3E546/loc_3E392) without walking.
+                    enemy.shared_walker_state = GOAT_CHARGE_COOLDOWN_LOC_3E48E;
+                    enemy.walk_speed_override = 0;
+                    reverse_enemy_direction(enemy);
+                    enemy.x_velocity = 0;
+                    let result =
+                        lion_turnaround_loc_3e48e_3e642(enemy.shared_walker_turnaround_counter);
+                    enemy.shared_walker_turnaround_counter = result.next_counter;
+                    return;
+                }
+                GoatChargeRouteLoc3E434::CooldownTick => {
+                    // ASM loc_3E434: `addi.w #1,$42(a3)` then walk on.
+                    enemy.shared_walker_state = enemy.shared_walker_state.saturating_add(1);
+                }
+                GoatChargeRouteLoc3E434::WalkOn => {}
+            }
+        }
+    }
 
     if matches!(
         grounded_turn_plan,
@@ -7970,6 +8131,26 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
 
     // Wall probe: reverse if we hit a wall.
     let wall = terrain::probe_wall(grid, cx, cy, probe_half_width, probe_height, moving_right);
+    if wall.hit && !turns_at_cliffs {
+        // ASM Lion.asm loc_3E3B2 wall-crossing branch (#419): snap the body
+        // to the boundary and enter the falling loop (loc_3E682). With floor
+        // directly below, loc_3E732 re-lands next frame into loc_3E392 —
+        // the wall-adjacent land/fall cycle that holds the 0x60 Goat frozen
+        // at x=583.5 (oracle run 1786640409). No direction reverse here.
+        let wall_fp = (wall.wall_x_px as u32) << 16;
+        let edge_fp = (probe_half_width as u32) << 16;
+        if moving_right {
+            if enemy.x_pos + edge_fp > wall_fp {
+                enemy.x_pos = wall_fp.saturating_sub(edge_fp);
+            }
+        } else if enemy.x_pos < wall_fp + edge_fp {
+            enemy.x_pos = wall_fp + edge_fp;
+        }
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0;
+        enemy.on_ground = false;
+        return;
+    }
     if wall.hit {
         // ASM loc_3C026 (rightward walkers) / loc_3C0D2 (leftward walkers):
         // clr.l x_vel(a3); clr.l y_vel(a3); st/sf x_direction(a3) — stop
@@ -8101,7 +8282,11 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     } else {
         cx - probe_half_width
     };
-    if terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+    if !turns_at_cliffs || terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+        // ASM Lion.asm loc_3E3B2 (#419): the Goat-lineage walker has no
+        // look-ahead cliff turn — it walks to the edge and the next pass's
+        // `tst.w d6; bmi loc_3E682` fall branch takes over. The kid.asm
+        // lineage keeps its loc_3C0A6 look-ahead turn below.
         let floor = terrain::probe_floor(grid, cx, cy);
         if floor.on_ground {
             enemy.y_pos = (floor.floor_y_px as u32) << 16;
@@ -8118,6 +8303,10 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
 }
 
 fn step_shared_walker_falling_loc_3c288(enemy: &mut ActiveEnemy, grid: &terrain::BlockGrid) {
+    if !shared_walker_turns_at_cliffs_loc_3c0a6(enemy.family) {
+        step_lion_walker_falling_loc_3e6ae(enemy, grid);
+        return;
+    }
     // ASM loc_3C19C / loc_3C288: falling shared walkers keep the horizontal
     // velocity seeded by loc_3C17A/loc_3C266, apply the current Y velocity, then
     // loc_3C246/loc_3C332 adds `$2000` gravity capped at `$80000`.
@@ -8142,6 +8331,76 @@ fn step_shared_walker_falling_loc_3c288(enemy: &mut ActiveEnemy, grid: &terrain:
     }
 
     enemy.y_velocity = (enemy.y_velocity + 0x2000).min(0x0008_0000);
+}
+
+/// ASM Lion.asm loc_3E6AE (#419): the Goat-lineage falling loop. X keeps the
+/// walk/charge step (loc_3E682 seeds `x_vel = $50(a5)`) with a wall snap that
+/// clears it; gravity adds `$4000` per frame capped at `$180000` (loc_3E77E).
+/// Landing (loc_3E732) snaps to the floor, restores the walk step from
+/// `$5E(a5)`, seeds the `$42 = $FF88` charge cooldown, and exits through
+/// loc_3E392 — which faces the walker RIGHT (`st x_direction`) regardless of
+/// its previous direction; the oracle's 0x60 Goats land facing Right.
+fn step_lion_walker_falling_loc_3e6ae(enemy: &mut ActiveEnemy, grid: &terrain::BlockGrid) {
+    let probe_half_width = pacer_probe_half_width(enemy.family);
+    let probe_height = pacer_probe_height(enemy.family);
+    let previous_y_px = enemy.y_pos >> 16;
+
+    let moved_x = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    let moved_x_px = (moved_x >> 16) as i32;
+    let cy = (enemy.y_pos >> 16) as i32;
+    let moving_right = enemy.x_velocity >= 0;
+    let wall = terrain::probe_wall(
+        grid,
+        moved_x_px,
+        cy,
+        probe_half_width,
+        probe_height,
+        moving_right,
+    );
+    if enemy.x_velocity != 0 && wall.hit {
+        // ASM loc_3E6AE first block: snap against the wall and clear x_vel.
+        let wall_fp = (wall.wall_x_px as u32) << 16;
+        let edge_fp = (probe_half_width as u32) << 16;
+        if moving_right {
+            if moved_x + edge_fp > wall_fp {
+                enemy.x_pos = wall_fp.saturating_sub(edge_fp);
+            } else {
+                enemy.x_pos = moved_x;
+            }
+        } else if moved_x < wall_fp + edge_fp {
+            enemy.x_pos = wall_fp + edge_fp;
+        } else {
+            enemy.x_pos = moved_x;
+        }
+        enemy.x_velocity = 0;
+    } else {
+        enemy.x_pos = moved_x;
+    }
+
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    let cx = (enemy.x_pos >> 16) as i32;
+    let cy = (enemy.y_pos >> 16) as i32;
+    let crossed_y_pixel = (enemy.y_pos >> 16) != previous_y_px;
+    if crossed_y_pixel && enemy.y_velocity >= 0 {
+        let floor = terrain::probe_floor(grid, cx, cy);
+        let floor_y_fp = (floor.floor_y_px as u32) << 16;
+        if floor.on_ground && enemy.y_pos >= floor_y_fp {
+            // ASM loc_3E732 landing tail -> loc_3E392.
+            enemy.y_pos = floor_y_fp;
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            enemy.on_ground = true;
+            enemy.walk_speed_override = 0;
+            if enemy.shared_walker_state != 0xA {
+                enemy.shared_walker_state = GOAT_CHARGE_COOLDOWN_LOC_3E48E;
+            }
+            enemy.facing = Direction::Right;
+            return;
+        }
+    }
+
+    // ASM loc_3E77E: `addi.l #$4000` capped at `$180000`.
+    enemy.y_velocity = (enemy.y_velocity + 0x4000).min(0x0018_0000);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -10962,7 +11221,7 @@ mod tests {
         enemy.y_pos = 0x008F_0000;
         enemy.on_ground = true;
 
-        step_pacer(&mut enemy, Some(&grid));
+        step_pacer(&mut enemy, Some(&grid), None);
 
         assert_eq!(
             enemy.x_pos, 0x0287_8000,
@@ -10981,7 +11240,7 @@ mod tests {
             "ASM loc_3C266 should enter the falling walker loop rather than pinning the Tank as grounded"
         );
 
-        step_pacer(&mut enemy, Some(&grid));
+        step_pacer(&mut enemy, Some(&grid), None);
 
         assert_eq!(
             enemy.x_pos, 0x0287_0000,
@@ -13047,7 +13306,7 @@ impl NativeRuntime {
             // TODO(fidelity): promote other enemy-family presentation ages
             // only when their own ASM/oracle frontier proves the exact lead.
             for _ in 0..ARMADILLO_RECORDING_PRESENTATION_LEAD_TICKS_LOC_73D0 {
-                step_pacer(enemy, self.block_grid.as_ref());
+                step_pacer(enemy, self.block_grid.as_ref(), None);
             }
         }
         self.rebuild_active_enemy_roster();

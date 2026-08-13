@@ -3728,7 +3728,7 @@ mod chunk_04 {
         enemy.shared_walker_patrol_timer = 1;
         enemy.shared_walker_patrol_short_next = true;
 
-        step_pacer(&mut enemy, Some(&grid));
+        step_pacer(&mut enemy, Some(&grid), None);
 
         assert_eq!(
             enemy.x_pos,
@@ -4868,7 +4868,7 @@ mod chunk_04 {
         let grid = grid_with_floor_at_row(14);
         let mut enemy = make_pacer(EnemyFamily::Goat, 3, 128, 224);
         let x_before = enemy.x_pos;
-        step_pacer(&mut enemy, Some(&grid));
+        step_pacer(&mut enemy, Some(&grid), None);
         assert!(
             enemy.x_pos < x_before,
             "goat should move left (x_before={:#x}, x_after={:#x})",
@@ -4879,24 +4879,34 @@ mod chunk_04 {
     }
 
     #[test]
-    fn goat_reverses_at_floor_edge() {
+    fn goat_falls_at_floor_edge_loc_3e682() {
+        // ASM Lion.asm loc_3E3B2 (#419): the Goat-lineage shared walker has
+        // no look-ahead cliff turn — `tst.w d6; bmi loc_3E682` walks off the
+        // edge into the falling loop. Oracle run 1786640409 shows the 0x60
+        // Goats doing exactly this at the y=192 ledge.
         // Small platform: floor only at columns 5-10, row 13 (y=208..224).
         let solid: Vec<(u16, u16)> = (5..=10).map(|col| (col, 13)).collect();
         let grid = grid_with_solid_cells(20, 15, &solid);
         // Place goat near left edge of platform, x=88px (col 5.5).
-        // With speed 0x8000 (0.5 px/frame) it reaches the edge in ~8 frames.
         let mut enemy = make_pacer(EnemyFamily::Goat, 3, 88, 208);
 
-        let mut reversed = false;
-        for _ in 0..50 {
+        let mut fell = false;
+        for _ in 0..80 {
             let facing_before = enemy.facing;
-            step_pacer(&mut enemy, Some(&grid));
-            if enemy.facing != facing_before {
-                reversed = true;
+            step_pacer(&mut enemy, Some(&grid), None);
+            assert_eq!(
+                enemy.facing, facing_before,
+                "the Lion.asm walker never turns at a cliff edge"
+            );
+            if !enemy.on_ground {
+                fell = true;
                 break;
             }
         }
-        assert!(reversed, "goat should reverse at floor edge");
+        assert!(
+            fell,
+            "goat should walk off the floor edge into the loc_3E682 falling loop"
+        );
     }
 
     #[test]
@@ -4911,7 +4921,7 @@ mod chunk_04 {
         let mut enemy = make_pacer(EnemyFamily::Goat, 3, 88, 208);
 
         for _ in 0..300 {
-            step_pacer(&mut enemy, Some(&grid));
+            step_pacer(&mut enemy, Some(&grid), None);
         }
         assert_eq!(
             enemy.facing,
@@ -4930,7 +4940,7 @@ mod chunk_04 {
         let mut enemy = make_pacer(EnemyFamily::Crab, 3, 83, 208);
         enemy.facing = Direction::Right;
 
-        step_pacer(&mut enemy, Some(&grid));
+        step_pacer(&mut enemy, Some(&grid), None);
 
         assert_eq!(
             enemy.facing,

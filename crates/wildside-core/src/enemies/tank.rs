@@ -1521,7 +1521,7 @@ mod tests {
         tank.wait_timer = 0;
         tank.on_ground = true;
         tank.x_velocity = -0x8000;
-        step_pacer(&mut tank, Some(&grid));
+        step_pacer(&mut tank, Some(&grid), None);
         assert_eq!(
             tank.x_velocity, 0,
             "ASM Tank.asm loc_3B49A clears `$50(a5)` and loc_3B4BA does not restore it before loc_3C0FA",

@@ -1192,7 +1192,7 @@ pub(crate) fn step_ninja(
         NinjaState::Stealth => {
             let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
                 // Pace like normal
-                step_pacer(enemy, block_grid);
+                step_pacer(enemy, block_grid, None);
                 return;
             };
             let kid_minus_ninja_x = ninja_position_word_delta_px_loc_3d706(px, enemy.x_pos);
@@ -1281,7 +1281,7 @@ pub(crate) fn step_ninja(
             enemy.wait_timer = ninja_advance_walk_phase_loc_3d4ea(enemy.wait_timer);
 
             // Pace like normal
-            step_pacer(enemy, block_grid);
+            step_pacer(enemy, block_grid, None);
         }
         NinjaState::Guard => {
             let Some(px) = player_x_pos else {

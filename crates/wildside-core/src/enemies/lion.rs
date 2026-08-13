@@ -1350,7 +1350,7 @@ pub(crate) fn step_lion(
     match enemy.lion_state {
         LionState::Walking => {
             // Pace like normal
-            step_pacer(enemy, block_grid);
+            step_pacer(enemy, block_grid, None);
             step_lion_walking_tracking_loc_3e03c(enemy, player_x_pos);
 
             // Count down charge timer. ASM Lion.asm loc_3E03C only resolves

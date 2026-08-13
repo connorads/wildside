@@ -692,6 +692,46 @@ mod tests {
         );
     }
 
+    /// #419: the 0x60 Goat li=3 must survive its shell journey — walk the
+    /// y=192 floor at full cadence, fall off the ledge (Lion.asm loc_3E3B2
+    /// walkers have no cliff turn), land through loc_3E732 facing Right, and
+    /// freeze against the wall via the loc_3E682 land/fall cycle — reaching
+    /// frame 0 alive at the oracle's x=0x02478000 (run 1786640409). The old
+    /// spurious cliff-turn oscillation halved its walk speed and landed it
+    /// in the hurt tile at x=588, dead.
+    #[test]
+    fn gameplay_regression_goat_survives_shell_ledge_fall_loc_3e3b2() {
+        use wildside_core::{LevelId, NativeRuntime};
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.set_recorded_title_card_handoff_delay(true);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x60));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x60));
+        let frame = runtime.trace_frame();
+        let goat3 = frame
+            .active_objects
+            .iter()
+            .find(|object| object.layout_index == Some(3))
+            .expect("Goat layout #3 must be in the frame-0 roster");
+        assert_eq!(
+            goat3.hit_points,
+            Some(4),
+            "Goat li=3 must reach frame 0 alive (oracle hp 4)"
+        );
+        // TODO(fidelity): the oracle holds the pre-snap fraction (0x02478000,
+        // 583.5) in its wall-adjacent hold state; native's loc_3E682 land/fall
+        // cycle snaps to the pixel (583.0). Half a pixel, within the sweep's
+        // authoritative tolerance; the exact hold state is future work.
+        assert!(
+            (0x0247_0000..=0x0247_8000).contains(&goat3.x_pos),
+            "Goat li=3 must freeze at the oracle's wall-adjacent landing x \
+             (oracle 0x02478000, native {:#010x})",
+            goat3.x_pos
+        );
+    }
+
     /// #442 shell-content instrumentation: `--dump-trace` must persist the
     /// helper's FULL settle rows (RNG ring, kid kinematics, object-slot dump)
     /// so per-step shell analysis reads measured data instead of re-deriving

@@ -26588,7 +26588,7 @@ mod chunk_10 {
         assert_eq!(enemy.facing, Direction::Left, "starts facing left");
 
         for _ in 0..200 {
-            step_pacer(&mut enemy, Some(&grid));
+            step_pacer(&mut enemy, Some(&grid), None);
             if enemy.death_animation_active {
                 break;
             }
@@ -26694,7 +26694,7 @@ mod chunk_10 {
         enemy.facing = Direction::Right;
         let start_x = enemy.x_pos;
 
-        step_pacer(&mut enemy, Some(&grid));
+        step_pacer(&mut enemy, Some(&grid), None);
 
         assert_eq!(
             enemy.facing,
@@ -26763,7 +26763,7 @@ mod chunk_10 {
         let mut enemy = make_pacer(EnemyFamily::Robot, 3, 100, 208);
         enemy.facing = Direction::Right;
 
-        step_pacer(&mut enemy, Some(&grid));
+        step_pacer(&mut enemy, Some(&grid), None);
 
         assert!(
             enemy.death_animation_active,
@@ -26796,7 +26796,7 @@ mod chunk_10 {
         let mut enemy = make_pacer(EnemyFamily::FireDemon, 4, 100, 208);
         enemy.facing = Direction::Right;
 
-        step_pacer(&mut enemy, Some(&grid));
+        step_pacer(&mut enemy, Some(&grid), None);
 
         assert_eq!(
             enemy.x_pos,
@@ -26833,7 +26833,7 @@ mod chunk_10 {
         let mut enemy = make_pacer(EnemyFamily::FireDemon, 4, 119, 208);
         enemy.facing = Direction::Right;
 
-        step_pacer(&mut enemy, Some(&grid));
+        step_pacer(&mut enemy, Some(&grid), None);
 
         assert_eq!(
             enemy.x_pos,
@@ -26864,7 +26864,7 @@ mod chunk_10 {
         let mut enemy = make_pacer(EnemyFamily::FireDemon, 4, 121, 208);
         enemy.facing = Direction::Left;
 
-        step_pacer(&mut enemy, Some(&grid));
+        step_pacer(&mut enemy, Some(&grid), None);
 
         assert_eq!(
             enemy.x_pos,
@@ -26894,7 +26894,7 @@ mod chunk_10 {
 
         // Walk right until the edge reversal triggers.
         for _ in 0..200 {
-            step_pacer(&mut enemy, Some(&grid));
+            step_pacer(&mut enemy, Some(&grid), None);
             if enemy.facing == Direction::Left {
                 break;
             }
@@ -26925,7 +26925,7 @@ mod chunk_10 {
 
         // Walk right until the cliff reversal triggers.
         for _ in 0..200 {
-            step_pacer(&mut enemy, Some(&grid));
+            step_pacer(&mut enemy, Some(&grid), None);
             if enemy.facing == Direction::Left {
                 break;
             }
@@ -26949,7 +26949,7 @@ mod chunk_10 {
         let mut enemy = make_pacer(EnemyFamily::Tank, 2, 200, 223);
         enemy.facing = Direction::Left;
 
-        step_pacer(&mut enemy, Some(&grid));
+        step_pacer(&mut enemy, Some(&grid), None);
 
         assert_eq!(
             enemy.y_pos,
@@ -27052,7 +27052,7 @@ mod chunk_10 {
         enemy.facing = Direction::Left;
         let start_x = enemy.x_pos;
 
-        step_pacer(&mut enemy, Some(&grid));
+        step_pacer(&mut enemy, Some(&grid), None);
 
         assert_eq!(
             enemy.facing,
@@ -27079,7 +27079,7 @@ mod chunk_10 {
         enemy.facing = Direction::Left;
         let start_x = enemy.x_pos;
 
-        step_pacer(&mut enemy, Some(&grid));
+        step_pacer(&mut enemy, Some(&grid), None);
 
         assert_eq!(
             enemy.facing,
@@ -27109,7 +27109,7 @@ mod chunk_10 {
         enemy.facing = Direction::Left;
         let start_y = enemy.y_pos;
 
-        step_pacer(&mut enemy, Some(&grid));
+        step_pacer(&mut enemy, Some(&grid), None);
 
         assert_eq!(
             enemy.y_pos, start_y,
@@ -27137,7 +27137,7 @@ mod chunk_10 {
 
         // Walk left until the cliff reversal triggers.
         for _ in 0..200 {
-            step_pacer(&mut enemy, Some(&grid));
+            step_pacer(&mut enemy, Some(&grid), None);
             if enemy.facing == Direction::Right {
                 break;
             }
@@ -27248,7 +27248,7 @@ mod chunk_10 {
         let start_y = enemy.y_pos;
 
         for _ in 0..200 {
-            step_pacer(&mut enemy, Some(&grid));
+            step_pacer(&mut enemy, Some(&grid), None);
             if enemy.facing == Direction::Right {
                 break;
             }
@@ -27280,7 +27280,7 @@ mod chunk_10 {
         enemy.facing = Direction::Left;
 
         for _ in 0..200 {
-            step_pacer(&mut enemy, Some(&grid));
+            step_pacer(&mut enemy, Some(&grid), None);
         }
 
         assert_eq!(
@@ -27305,7 +27305,7 @@ mod chunk_10 {
 
         let mut reversed = false;
         for _ in 0..200 {
-            step_pacer(&mut enemy, Some(&grid));
+            step_pacer(&mut enemy, Some(&grid), None);
             if enemy.facing == Direction::Left {
                 reversed = true;
                 break;
@@ -27337,7 +27337,7 @@ mod chunk_10 {
         let start_y = enemy.y_pos;
 
         for _ in 0..200 {
-            step_pacer(&mut enemy, Some(&grid));
+            step_pacer(&mut enemy, Some(&grid), None);
         }
 
         assert_eq!(
@@ -27365,7 +27365,7 @@ mod chunk_10 {
         let start_y = enemy.y_pos;
 
         for _ in 0..200 {
-            step_pacer(&mut enemy, Some(&grid));
+            step_pacer(&mut enemy, Some(&grid), None);
         }
 
         assert_eq!(

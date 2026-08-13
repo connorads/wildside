@@ -787,7 +787,7 @@ pub(crate) fn step_spinning_twins(
         SpinningTwinsPhase::Walking => {
             // Apply gravity while airborne until grounded, then walk as pacer
             if enemy.on_ground {
-                step_pacer(enemy, block_grid);
+                step_pacer(enemy, block_grid, None);
             } else {
                 enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
                 enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
