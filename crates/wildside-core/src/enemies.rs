@@ -7692,17 +7692,16 @@ fn register_shared_walker_turnaround(enemy: &mut ActiveEnemy) -> bool {
 /// falling loop — and lands through loc_3E732 -> loc_3E392 (face Right,
 /// restore the walk step, seed the -120 charge cooldown). Partition measured
 /// from the per-family `include`/branch targets in code/enemy/*.asm.
+///
+/// TODO(fidelity): only the Goat runs the Lion.asm fall semantics natively
+/// so far — its full journey (fall, landing, wall freeze, charge) is
+/// oracle-measured at 0x60/0x61 (run 1786640409, sweep 1786650839). The
+/// other six families keep the cliff-turn approximation until each one's
+/// companion behaviours (Ninja loc_3D92A stealth cadence + loc_3D9A4 jump,
+/// Lion/Scorpion tails) are modelled; a first attempt at flipping them all
+/// regressed 0x45/0x56 because the turn was masking those gaps (#456).
 pub(crate) fn shared_walker_turns_at_cliffs_loc_3c0a6(family: EnemyFamily) -> bool {
-    !matches!(
-        family,
-        EnemyFamily::Goat
-            | EnemyFamily::Lion
-            | EnemyFamily::Orca
-            | EnemyFamily::Armadillo
-            | EnemyFamily::Scorpion
-            | EnemyFamily::Ninja
-            | EnemyFamily::DragonWalking
-    )
+    !matches!(family, EnemyFamily::Goat)
 }
 
 /// ASM Goat.asm loc_3CA30..loc_3CA7E: `$4C(a5)` accumulates the CHARGE word
