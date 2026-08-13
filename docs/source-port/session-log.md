@@ -30,6 +30,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 - During the probe, two truncated tool outputs briefly mimicked
   native/oracle nondeterminism; both native and oracle replay bit-identical
   across runs (verified twice each side).
+- Continued into #420 (Driller) and identified its root cause from the
+  0x55 frame-0 rosters + Driller.asm: the ROM's two drill children TRAVEL
+  (Enemy1A_Driller_Init spawns them at body x±$18 with x_vel ∓$8000 and
+  level collision) and loc_3BE78 consumes their wall events to smash the
+  contact block — the shell's Micromax/diamond chain on 0x55. Native's
+  children are fixed-offset gfx, and native's shell body li=3
+  bit2-self-kills at x=60 (oracle idles at x=12). Fix shape + regression
+  bar in archive #420; row marked [~] ready to implement.
 
 ## 2026-08-13 handoff (#458 resolved as test infra; Goat spawn delay landed)
 

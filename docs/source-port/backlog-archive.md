@@ -719,6 +719,32 @@ regression is tightened to equality at 0x02478000 and passes.
 
 ### #420
 
+2026-08-13 probe session — ROOT CAUSE IDENTIFIED (ready to implement).
+0x55 diverges AT FRAME 0 (all shell-window): oracle Kid already hit
+(hp 1, just_received_damage, falling) and one object ahead; by settle the
+oracle Kid is mid-Micromax transform (helmet 9, hp 3) and gains a diamond
+by idle_tail. Frame-0 rosters name the mechanism: the ROM Driller is a
+walking BODY plus TWO independently TRAVELLING drill children —
+Enemy1A_Driller_Init allocates two GfxObjects at body x±$18 with
+x_vel = ∓$8000 and `$3C(a1)` level collision (observed: li=3's left child
+at x=-1 carrying collision_type $0008/leftwall; right child at x=36
+moving right), and the loc_3BE78 body callback consumes a child's wall
+event ($38(a4) == 8 left / 4 right), clears it, and smashes the block at
+the child's contact cell (the `$FFFF4A04` row lookup into the
+sub_10EDA-family block worker) — releasing prize contents. On 0x55 that
+chain (child → wall → smashed prize block → Micromax helmet → Kid
+transform; later a diamond) plays out inside the hidden shell. Native
+models the children as fixed-offset gfx only (#449), so no child travel,
+no wall events, no smash, no prize chain; additionally native's shell
+body li=3 self-kills via the d7-bit-2 body scan at x=60 (frame-0 roster:
+hp 0, wait $0A, scan d7=0b111) where the oracle's body idles at x=12.
+Fix shape: model the drill children as travelling, level-colliding
+entities owned by the body (spawn/velocity/collision per init), wire
+loc_3BE78's wall-event consumption into the existing block-smash worker,
+and re-check the body's shell walk (the x=60 self-kill smells like the
+#331 over-advance class). Regression = 0x55/0x68 frame-0 witnesses +
+both levels pass the state sweep, zero regressions elsewhere.
+
 Driller (0x55/0x68, 19 blockers — largest cluster). 0x55 (Driller-only roster
 x8): native Kid frozen at spawn, oracle Kid shows the golden Micromax transform
 shimmer (helmet 9, currently_transforming, just_received_damage) with a Driller
