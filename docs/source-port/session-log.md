@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-13 handoff (#458 resolved as test infra; Goat spawn delay landed)
+
+- #458 dissected to zero mystery: fs/bundle visuals and palettes
+  byte-match, and rendering the parity test's native arm through the
+  canonical pipeline (latch with previous trace + resident snapshot, live
+  block grid) is pixel-identical to the web at every frame. The test now
+  mirrors capture_scenario_frames across frames 0/1/2/50/100 — no
+  frame-specific pinning, valid under any spawn timing. Closed.
+- #419's spawn delay landed, evidence-narrowed twice by the gates: global
+  scope regressed the published route's pixel baseline (the 37,518 exact
+  frames pin the live loader as undelayed); shell-wide scope regressed
+  0x30/0x40/0x48 (UFO witnesses exact without it). Final scope: the
+  shell-loaded Goat (Enemy10_Goat_Init ends in the walker hibernate).
+  0x60's walking Goats are now frame-0 position-exact (li=1 pinned at
+  0x01C78000) and the charge hit lands on the oracle's frame.
+- Canonical sweep `1786657958`: 55/69, 70 blocking — per-level identical
+  to `1786652191`, zero regressions. verify-slice-fast, verify-tas-full
+  (byte-identical baselines), core suite, CLI baseline, witness gate, and
+  the strengthened web parity gate all green.
+- #419 stays open: 0x60's idle_tail cascade (native Kid knocked into the
+  pit by the now-correctly-timed hit, where the oracle recovers at spawn)
+  persists at 6 blockers — next probe is the knockback trajectory.
+
 ## 2026-08-13 handoff (#419 idle window: spawn-delay root cause, fix withdrawn)
 
 - 360-frame settled probe at 0x60: the oracle Kid takes the Goat-charge

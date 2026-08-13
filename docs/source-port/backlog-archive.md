@@ -617,6 +617,20 @@ fix under the zero-regression bar. The withdrawal keeps canonical sweep
 1786652191 as the verified state; the fix recipe above is complete and
 ready to re-apply once #458 lands.
 
+Landed 2026-08-13 (de0806e62), evidence-narrowed twice during
+verification: a GLOBAL delay regressed the published route's pixel
+baseline (37,518 exact frames pin the live Manage_EnemyLoading path as
+undelayed — 241 -> 1,734 mismatch frames before rollback), and a
+SHELL-WIDE delay regressed 0x30/0x40/0x48 whose UFO frame-0 witnesses are
+position-exact without it. The final scope is the shell-loaded GOAT
+(Enemy10_Goat_Init ends in the walker hibernate): all three walking 0x60
+Goats now reach the pre-frame-0 surface position-exact (li=1 pinned at
+0x01C78000). Sweep 1786657958: totals and per-level results identical to
+canonical (55/69, 70 blocking) — the frame-0 exactness moved the hit to
+the oracle's frame but the idle_tail cascade (native Kid knocked into the
+pit) persists at 6 blockers; the row continues on the knockback
+trajectory.
+
 ### #458
 
 Opened 2026-08-13 (unmasked by #419's drafted loc_3691E spawn delay).
@@ -629,6 +643,17 @@ the same latch semantics. Remaining suspects: the fs-loaded
 (`load_session_assets`) vs bundle-loaded (`load_level_visuals_with_source`)
 visuals diverging in a drip/animation-adjacent asset, or a runtime-state
 render input not captured in the trace. Blocks #419's spawn-delay fix.
+
+Resolved 2026-08-13 (8c25d91ca). No engine or asset divergence existed:
+fs- and bundle-loaded visuals and palettes byte-match, and rendering the
+native arm through the canonical pipeline
+(`render_trace_with_vdp_latched_state_and_resident` with the previous
+trace + resident snapshot, against the runtime's live block grid) is
+pixel-identical to the web session at EVERY frame — including the
+session-start frames 0-1 that diverged under the old raw-trace/pristine-
+grid test arm. The parity test now mirrors capture_scenario_frames and
+compares frames 0/1/2/50/100, so parity holds regardless of enemy spawn
+timing instead of pinning one frame's output.
 
 ### #456
 
@@ -22348,6 +22373,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 454 | [x] | P1 | verification | Added a route-grouped early playtest checklist for boot, 0x00-0x08, named P0 smoke, and audio-device candidates with exact current checks and a report template. | Checklist ids equal the eligible awaiting-human set plus #374; `backlog-lint` and `verify-slice-fast` pass. See archive #454. |
 | 453 | [x] | P1 | infra | `project-status` ranks same-priority actionable rows above in-progress and explicit `Reopen only` risks, while retaining deferred rows when space remains. | Live top playability lane includes #442; 16 project-status tests and `verify-slice-fast` pass. See archive #453. |
 | 452 | [x] | P1 | testing/web | Restored the browser runtime asset contract: `kid_skid.bin` is catalogued and ROM-extractable, required airborne aliases are present in the render fixture/manifest, and the observable level-sidecar catalogue is current. | `verify-web-fast` and `verify-slice-fast` green; extractor/native runtime bundles byte-identical. See archive #452. |
+| 458 | [x] | P2 | render/web | No engine divergence existed: the parity test's native arm skipped the canonical pipeline's latch (prev + resident) and live grid; fs/bundle assets byte-match. Test now mirrors capture_scenario_frames across frames 0-100. | Strengthened gate green on the un-fixed and fixed trees; unblocked #419's spawn delay. See archive #458. |
 | 442 | [x] | P1 | verification | Settled-warp shell content modelled: per-level load-completion boundary (measured table, mapping `load_complete - 1`), hand tails + Driller/boss/Drips fudges deleted, murder wall wired into the hidden live shell, frame-0 RNG witness gate added. | Witness gate: probe levels RNG-exact (49/65 levels fully exact); sweep 1786646904: 55/69 pass, 74 blocking (from 52/69, 116), zero regressions; verify-tas-full green. See archive #442. |
 | 450 | [x] | P2 | enemy | Verdict: the pin was wrong, not native. ASM sub_36A58 derives the loc_3E566 right floor span as columns 1-3 for the fixture (40+9-1=48 -> col 3); the stale `2,17` pin predates commit 960352273's ROM scan width. Re-pinned with the derivation, renamed `_snapshot_` -> `_trace_export_`. | Test runs and passes inside the gated core suite. See archive #450. |
 | 448 | [x] | P2 | verification | `verify-disasm-fidelity` mise task assembles the pinned disassembly with AS and byte-diffs against the reference ROM, naming the nearest label/source line per mismatching region. Result: BIT-PERFECT (1,048,576 bytes; SHA-1 match) — the ASM-first rule's premise is now a gate. | Task green in ~2s warm / 12s cold; red path verified with deliberate corruption (3 regions localised to labels). See archive #448. |
