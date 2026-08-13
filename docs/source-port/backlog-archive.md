@@ -867,6 +867,14 @@ levels 0x30/0x60; raw rows in each level dir's settle-trace.json):
   census derivation with load_complete, re-measure the shell table, drive
   the native shell from it, delete the elapsed-71 boundary and family
   tails, then re-run the frame-0 probes (S3c gate) and the sweep.
+- Native anchor for the model change: `debug_level_entry_object_pass` /
+  `debug_level_entry_hibernated` (wildside-core/src/lib.rs, `!(2..71)` /
+  `< 71`) and `debug_level_entry_mode_level_active_loc_74e0`
+  (`elapsed_frames: 72..`). The two elapsed-0/1 early object passes model
+  the pre-freeze draws; the 71/72 boundary is the fixed stand-in for the
+  measured per-level load-complete step (native elapsed ≈ oracle title-wait
+  step − 4 on the 0x30 witness; confirm the mapping per level against the
+  frame-0 RNG witnesses when swapping in the table).
 
 ### #451
 

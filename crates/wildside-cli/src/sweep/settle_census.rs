@@ -33,8 +33,14 @@ const SETTLE_LIVE_STABLE_FRAMES: usize = 60;
 
 /// Bump when the derivation in this module changes meaning, so downstream
 /// consumers (the checked-in shell table, S3b/S3c of #442) can detect stale
-/// artefacts mechanically.
-pub(crate) const SETTLE_CENSUS_DERIVATION_VERSION: u32 = 1;
+/// artefacts mechanically. Version 2 adds the RNG-freeze load-completion
+/// fields (`rng_freeze_start_step`/`load_complete_step`/`title_wait_live_rows`).
+pub(crate) const SETTLE_CENSUS_DERIVATION_VERSION: u32 = 2;
+
+/// Minimum consecutive title-wait rows with a frozen RNG offset to count as
+/// the loader freeze. Real loads measure 60-73 frozen rows (0x60/0x30, run
+/// 1786640409); the threshold only guards against one-off lag stalls.
+const MIN_RNG_FREEZE_ROWS: usize = 8;
 
 /// Frame-0 witness: the state the last captured settle row exposes, which is
 /// exactly the state scenario frame 0 starts from. RNG offset + full-ring
@@ -88,6 +94,54 @@ pub(crate) struct SettleCensusLevel {
     pub(crate) took_debug_skip: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) frame0: Option<SettleFrame0Witness>,
+    /// First title-wait step of the loader's RNG-offset freeze (#442 shell
+    /// content): the loader blocks the frame loop, so controller draws stop.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) rng_freeze_start_step: Option<usize>,
+    /// First title-wait step drawing RNG again after the loader freeze — the
+    /// measured per-level load completion the native shell must anchor on
+    /// (0x30 measures 75, 0x60 measures 62; run 1786640409).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) load_complete_step: Option<usize>,
+    /// Title-wait rows the level runs live after load completion
+    /// (`120 - load_complete_step` on the standard debug-warp path).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) title_wait_live_rows: Option<usize>,
+}
+
+/// #442 shell content: locate the loader freeze inside the title-wait rows as
+/// the longest run of consecutive rows with an identical RNG offset. Returns
+/// `(freeze_start_step, load_complete_step, title_wait_live_rows)` only when
+/// the freeze both spans `MIN_RNG_FREEZE_ROWS` and observably ends inside the
+/// title wait.
+fn derive_title_wait_rng_freeze(trace: &[OracleSettleTraceRow]) -> Option<(usize, usize, usize)> {
+    let rows: Vec<&OracleSettleTraceRow> = trace
+        .iter()
+        .filter(|row| row.phase == "title_wait")
+        .collect();
+    let mut best: Option<(usize, usize)> = None; // (start_index, len)
+    let mut run_start = 0usize;
+    for index in 1..rows.len() {
+        if rows[index].rng_offset != rows[run_start].rng_offset {
+            let run_len = index - run_start;
+            if best.is_none_or(|(_, best_len)| run_len > best_len) {
+                best = Some((run_start, run_len));
+            }
+            run_start = index;
+        }
+    }
+    // A run still open at the last row never resumed: the load did not
+    // observably complete inside the title wait, so it cannot become `best`.
+    let (start_index, run_len) = best?;
+    if run_len < MIN_RNG_FREEZE_ROWS {
+        return None;
+    }
+    let resume_index = start_index + run_len;
+    Some((
+        rows[start_index].step,
+        rows[resume_index].step,
+        rows.len() - resume_index,
+    ))
 }
 
 /// Census artefact written to `.cache/audit/oracle-settle-census.json`.
@@ -135,6 +189,9 @@ fn unmeasurable(
         flap_resets: 0,
         took_debug_skip,
         frame0: None,
+        rng_freeze_start_step: None,
+        load_complete_step: None,
+        title_wait_live_rows: None,
     }
 }
 
@@ -199,6 +256,7 @@ pub(crate) fn derive_settle_census_level(
         .position(|&live| live)
         .map(|index| rows[index].step);
     let shell_frames_to_frame0 = last.step + paused_live_rows;
+    let rng_freeze = derive_title_wait_rng_freeze(trace);
 
     SettleCensusLevel {
         level_id,
@@ -221,6 +279,9 @@ pub(crate) fn derive_settle_census_level(
             camera_x_pos: last.camera_x_pos,
             camera_y_pos: last.camera_y_pos,
         }),
+        rng_freeze_start_step: rng_freeze.map(|(start, _, _)| start),
+        load_complete_step: rng_freeze.map(|(_, resume, _)| resume),
+        title_wait_live_rows: rng_freeze.map(|(_, _, live_rows)| live_rows),
     }
 }
 
@@ -510,6 +571,65 @@ mod tests {
             serde_json::to_value(&rows).unwrap(),
             "dump must round-trip every captured field"
         );
+    }
+
+    fn title_row(step: usize, rng_offset: u16) -> OracleSettleTraceRow {
+        let mut title = row("title_wait", step, false, false);
+        title.rng_offset = rng_offset;
+        title
+    }
+
+    fn stable_target_rows() -> Vec<OracleSettleTraceRow> {
+        (0..60)
+            .map(|step| row("target_live", step, true, false))
+            .collect()
+    }
+
+    /// #442 shell content: the per-level load duration is visible as the
+    /// longest frozen run of the RNG offset inside the 120-frame title wait —
+    /// the loader blocks the frame loop, so no controller draws land.
+    /// `load_complete_step` is the first step drawing again (0x30 measures 75,
+    /// 0x60 measures 62; run 1786640409).
+    #[test]
+    fn rng_freeze_derives_the_per_level_load_completion() {
+        let mut trace = vec![title_row(0, 0xFFF6), title_row(1, 0xFFFA)];
+        trace.extend((2..=74).map(|step| title_row(step, 0xFFFE)));
+        trace.extend((75..120).map(|step| title_row(step, 0xFF00 + step as u16)));
+        trace.extend(stable_target_rows());
+        let derived = derive_settle_census_level(0x50, &trace);
+        assert!(derived.measurable, "{:?}", derived.unmeasurable_reason);
+        assert_eq!(derived.rng_freeze_start_step, Some(2));
+        assert_eq!(derived.load_complete_step, Some(75));
+        assert_eq!(derived.title_wait_live_rows, Some(45));
+    }
+
+    /// A freeze that never resumes inside the title wait means the load did
+    /// not observably complete there; the census must say so rather than
+    /// invent a boundary.
+    #[test]
+    fn rng_freeze_without_resume_reports_no_load_completion() {
+        let mut trace = vec![title_row(0, 0xFFF6)];
+        trace.extend((1..120).map(|step| title_row(step, 0xFFFE)));
+        trace.extend(stable_target_rows());
+        let derived = derive_settle_census_level(0x50, &trace);
+        assert!(derived.measurable);
+        assert_eq!(derived.rng_freeze_start_step, None);
+        assert_eq!(derived.load_complete_step, None);
+        assert_eq!(derived.title_wait_live_rows, None);
+    }
+
+    /// Continuously drawing title-wait rows (no load freeze) carry no
+    /// load-completion fields; the target_live derivation is unaffected.
+    #[test]
+    fn moving_rng_title_wait_carries_no_load_completion() {
+        let mut trace: Vec<_> = (0..120)
+            .map(|step| title_row(step, 0xFF00 + step as u16))
+            .collect();
+        trace.extend(stable_target_rows());
+        let derived = derive_settle_census_level(0x50, &trace);
+        assert!(derived.measurable);
+        assert_eq!(derived.load_complete_step, None);
+        assert_eq!(derived.shell_frames_to_frame0, Some(59));
     }
 
     /// Helper loop: 60 immediately-live rows break at step 59 without a tick,

@@ -8,8 +8,8 @@
 #     --shell-table crates/wildside-cli/data/oracle-settle-shell.yaml
 helper_cache_version: 873c219865ab41852d90595c0c79292bfbca7d6f
 rom_sha1: 28b904000b2863b6760531807760b571f1a5fc1d
-derivation_version: 1
-census_run_id: '1785591828'
+derivation_version: 2
+census_run_id: '1786641691'
 levels:
 - level_id: 0
   measurable: true
@@ -46,6 +46,9 @@ levels:
     kid_y_pos: 12517376
     camera_x_pos: 0
     camera_y_pos: 1835008
+  rng_freeze_start_step: 2
+  load_complete_step: 70
+  title_wait_live_rows: 50
 - level_id: 2
   measurable: true
   phase: target_live
@@ -64,6 +67,9 @@ levels:
     kid_y_pos: 108986368
     camera_x_pos: 0
     camera_y_pos: 98304000
+  rng_freeze_start_step: 2
+  load_complete_step: 71
+  title_wait_live_rows: 49
 - level_id: 3
   measurable: true
   phase: target_live
@@ -82,6 +88,9 @@ levels:
     kid_y_pos: 8323072
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 73
+  title_wait_live_rows: 47
 - level_id: 4
   measurable: true
   phase: target_live
@@ -100,6 +109,9 @@ levels:
     kid_y_pos: 7274496
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 81
+  title_wait_live_rows: 39
 - level_id: 5
   measurable: true
   phase: target_live
@@ -118,6 +130,9 @@ levels:
     kid_y_pos: 14614528
     camera_x_pos: 104857600
     camera_y_pos: 4390912
+  rng_freeze_start_step: 2
+  load_complete_step: 71
+  title_wait_live_rows: 49
 - level_id: 6
   measurable: true
   phase: target_live
@@ -136,6 +151,9 @@ levels:
     kid_y_pos: 11468800
     camera_x_pos: 0
     camera_y_pos: 786432
+  rng_freeze_start_step: 2
+  load_complete_step: 76
+  title_wait_live_rows: 44
 - level_id: 7
   measurable: true
   phase: target_live
@@ -154,6 +172,9 @@ levels:
     kid_y_pos: 46071808
     camera_x_pos: 19136512
     camera_y_pos: 35848192
+  rng_freeze_start_step: 2
+  load_complete_step: 68
+  title_wait_live_rows: 52
 - level_id: 8
   measurable: true
   phase: target_live
@@ -172,6 +193,9 @@ levels:
     kid_y_pos: 7274496
     camera_x_pos: 2949120
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 80
+  title_wait_live_rows: 40
 - level_id: 9
   measurable: true
   phase: target_live
@@ -190,6 +214,9 @@ levels:
     kid_y_pos: 27197440
     camera_x_pos: 0
     camera_y_pos: 14680064
+  rng_freeze_start_step: 2
+  load_complete_step: 75
+  title_wait_live_rows: 45
 - level_id: 16
   measurable: true
   phase: target_live
@@ -208,6 +235,9 @@ levels:
     kid_y_pos: 9371648
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 68
+  title_wait_live_rows: 52
 - level_id: 17
   measurable: true
   phase: target_live
@@ -226,6 +256,9 @@ levels:
     kid_y_pos: 10420224
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 74
+  title_wait_live_rows: 46
 - level_id: 18
   measurable: true
   phase: target_live
@@ -244,6 +277,9 @@ levels:
     kid_y_pos: 34537472
     camera_x_pos: 88932352
     camera_y_pos: 24313856
+  rng_freeze_start_step: 2
+  load_complete_step: 84
+  title_wait_live_rows: 36
 - level_id: 19
   measurable: true
   phase: target_live
@@ -262,6 +298,9 @@ levels:
     kid_y_pos: 3080192
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 80
+  title_wait_live_rows: 40
 - level_id: 20
   measurable: true
   phase: target_live
@@ -280,6 +319,9 @@ levels:
     kid_y_pos: 8323072
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 79
+  title_wait_live_rows: 41
 - level_id: 21
   measurable: true
   phase: target_live
@@ -298,6 +340,9 @@ levels:
     kid_y_pos: 16711680
     camera_x_pos: 0
     camera_y_pos: 6488064
+  rng_freeze_start_step: 2
+  load_complete_step: 74
+  title_wait_live_rows: 46
 - level_id: 22
   measurable: true
   phase: target_live
@@ -316,6 +361,9 @@ levels:
     kid_y_pos: 45023232
     camera_x_pos: 104857600
     camera_y_pos: 34799616
+  rng_freeze_start_step: 2
+  load_complete_step: 69
+  title_wait_live_rows: 51
 - level_id: 23
   measurable: true
   phase: target_live
@@ -334,6 +382,9 @@ levels:
     kid_y_pos: 25100288
     camera_x_pos: 0
     camera_y_pos: 14614528
+  rng_freeze_start_step: 2
+  load_complete_step: 76
+  title_wait_live_rows: 44
 - level_id: 24
   measurable: true
   phase: target_live
@@ -352,6 +403,9 @@ levels:
     kid_y_pos: 13565952
     camera_x_pos: 0
     camera_y_pos: 2883584
+  rng_freeze_start_step: 2
+  load_complete_step: 74
+  title_wait_live_rows: 46
 - level_id: 25
   measurable: true
   phase: target_live
@@ -370,6 +424,9 @@ levels:
     kid_y_pos: 85917696
     camera_x_pos: 0
     camera_y_pos: 73400320
+  rng_freeze_start_step: 2
+  load_complete_step: 77
+  title_wait_live_rows: 43
 - level_id: 32
   measurable: true
   phase: target_live
@@ -388,6 +445,9 @@ levels:
     kid_y_pos: 19857408
     camera_x_pos: 0
     camera_y_pos: 9633792
+  rng_freeze_start_step: 2
+  load_complete_step: 79
+  title_wait_live_rows: 41
 - level_id: 33
   measurable: true
   phase: target_live
@@ -406,6 +466,9 @@ levels:
     kid_y_pos: 12517376
     camera_x_pos: 0
     camera_y_pos: 1835008
+  rng_freeze_start_step: 2
+  load_complete_step: 79
+  title_wait_live_rows: 41
 - level_id: 34
   measurable: true
   phase: target_live
@@ -424,6 +487,9 @@ levels:
     kid_y_pos: 9371648
     camera_x_pos: 62914560
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 78
+  title_wait_live_rows: 42
 - level_id: 35
   measurable: true
   phase: target_live
@@ -442,6 +508,9 @@ levels:
     kid_y_pos: 4128768
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 75
+  title_wait_live_rows: 45
 - level_id: 36
   measurable: true
   phase: target_live
@@ -460,6 +529,9 @@ levels:
     kid_y_pos: 68091904
     camera_x_pos: 52690944
     camera_y_pos: 57409536
+  rng_freeze_start_step: 2
+  load_complete_step: 74
+  title_wait_live_rows: 46
 - level_id: 37
   measurable: true
   phase: target_live
@@ -478,6 +550,9 @@ levels:
     kid_y_pos: 8323072
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 71
+  title_wait_live_rows: 49
 - level_id: 38
   measurable: true
   phase: target_live
@@ -496,6 +571,9 @@ levels:
     kid_y_pos: 55508992
     camera_x_pos: 0
     camera_y_pos: 44040192
+  rng_freeze_start_step: 2
+  load_complete_step: 68
+  title_wait_live_rows: 52
 - level_id: 39
   measurable: true
   phase: target_live
@@ -514,6 +592,9 @@ levels:
     kid_y_pos: 10420224
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 69
+  title_wait_live_rows: 51
 - level_id: 40
   measurable: true
   phase: target_live
@@ -532,6 +613,9 @@ levels:
     kid_y_pos: 114229248
     camera_x_pos: 0
     camera_y_pos: 102760448
+  rng_freeze_start_step: 2
+  load_complete_step: 75
+  title_wait_live_rows: 45
 - level_id: 41
   measurable: true
   phase: target_live
@@ -550,6 +634,9 @@ levels:
     kid_y_pos: 29294592
     camera_x_pos: 34144256
     camera_y_pos: 18612224
+  rng_freeze_start_step: 2
+  load_complete_step: 80
+  title_wait_live_rows: 40
 - level_id: 48
   measurable: true
   phase: target_live
@@ -568,6 +655,9 @@ levels:
     kid_y_pos: 6225920
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 75
+  title_wait_live_rows: 45
 - level_id: 49
   measurable: true
   phase: target_live
@@ -586,6 +676,9 @@ levels:
     kid_y_pos: 11468800
     camera_x_pos: 30212096
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 76
+  title_wait_live_rows: 44
 - level_id: 50
   measurable: true
   phase: target_live
@@ -604,6 +697,9 @@ levels:
     kid_y_pos: 12517376
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 80
+  title_wait_live_rows: 40
 - level_id: 51
   measurable: true
   phase: target_live
@@ -622,6 +718,9 @@ levels:
     kid_y_pos: 8323072
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 63
+  title_wait_live_rows: 57
 - level_id: 52
   measurable: true
   phase: target_live
@@ -640,6 +739,9 @@ levels:
     kid_y_pos: 142540800
     camera_x_pos: 0
     camera_y_pos: 132055040
+  rng_freeze_start_step: 2
+  load_complete_step: 79
+  title_wait_live_rows: 41
 - level_id: 53
   measurable: true
   phase: target_live
@@ -658,6 +760,9 @@ levels:
     kid_y_pos: 3080192
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 79
+  title_wait_live_rows: 41
 - level_id: 54
   measurable: true
   phase: target_live
@@ -676,6 +781,9 @@ levels:
     kid_y_pos: 21954560
     camera_x_pos: 0
     camera_y_pos: 11730944
+  rng_freeze_start_step: 2
+  load_complete_step: 78
+  title_wait_live_rows: 42
 - level_id: 55
   measurable: true
   phase: target_live
@@ -694,6 +802,9 @@ levels:
     kid_y_pos: 21954560
     camera_x_pos: 0
     camera_y_pos: 11272192
+  rng_freeze_start_step: 2
+  load_complete_step: 76
+  title_wait_live_rows: 44
 - level_id: 56
   measurable: true
   phase: target_live
@@ -712,6 +823,9 @@ levels:
     kid_y_pos: 84869120
     camera_x_pos: 0
     camera_y_pos: 73400320
+  rng_freeze_start_step: 2
+  load_complete_step: 75
+  title_wait_live_rows: 45
 - level_id: 57
   measurable: true
   phase: target_live
@@ -730,6 +844,9 @@ levels:
     kid_y_pos: 56557568
     camera_x_pos: 0
     camera_y_pos: 44040192
+  rng_freeze_start_step: 2
+  load_complete_step: 71
+  title_wait_live_rows: 49
 - level_id: 64
   measurable: true
   phase: target_live
@@ -748,6 +865,9 @@ levels:
     kid_y_pos: 140443648
     camera_x_pos: 0
     camera_y_pos: 129761280
+  rng_freeze_start_step: 2
+  load_complete_step: 77
+  title_wait_live_rows: 43
 - level_id: 65
   measurable: true
   phase: target_live
@@ -766,6 +886,9 @@ levels:
     kid_y_pos: 84869120
     camera_x_pos: 0
     camera_y_pos: 73400320
+  rng_freeze_start_step: 2
+  load_complete_step: 75
+  title_wait_live_rows: 45
 - level_id: 66
   measurable: true
   phase: target_live
@@ -784,6 +907,9 @@ levels:
     kid_y_pos: 24051712
     camera_x_pos: 0
     camera_y_pos: 13369344
+  rng_freeze_start_step: 2
+  load_complete_step: 77
+  title_wait_live_rows: 43
 - level_id: 67
   measurable: true
   phase: target_live
@@ -802,6 +928,9 @@ levels:
     kid_y_pos: 10420224
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 79
+  title_wait_live_rows: 41
 - level_id: 68
   measurable: true
   phase: target_live
@@ -820,6 +949,9 @@ levels:
     kid_y_pos: 28246016
     camera_x_pos: 0
     camera_y_pos: 17563648
+  rng_freeze_start_step: 2
+  load_complete_step: 76
+  title_wait_live_rows: 44
 - level_id: 69
   measurable: true
   phase: target_live
@@ -838,6 +970,9 @@ levels:
     kid_y_pos: 21954560
     camera_x_pos: 0
     camera_y_pos: 11730944
+  rng_freeze_start_step: 2
+  load_complete_step: 75
+  title_wait_live_rows: 45
 - level_id: 70
   measurable: true
   phase: target_live
@@ -856,6 +991,9 @@ levels:
     kid_y_pos: 13565952
     camera_x_pos: 64815104
     camera_y_pos: 2883584
+  rng_freeze_start_step: 2
+  load_complete_step: 76
+  title_wait_live_rows: 44
 - level_id: 71
   measurable: true
   phase: target_live
@@ -874,6 +1012,9 @@ levels:
     kid_y_pos: 84869120
     camera_x_pos: 0
     camera_y_pos: 73400320
+  rng_freeze_start_step: 2
+  load_complete_step: 75
+  title_wait_live_rows: 45
 - level_id: 72
   measurable: true
   phase: target_live
@@ -892,6 +1033,9 @@ levels:
     kid_y_pos: 40828928
     camera_x_pos: 31719424
     camera_y_pos: 30146560
+  rng_freeze_start_step: 2
+  load_complete_step: 72
+  title_wait_live_rows: 48
 - level_id: 73
   measurable: true
   phase: target_live
@@ -910,6 +1054,9 @@ levels:
     kid_y_pos: 23003136
     camera_x_pos: 0
     camera_y_pos: 12779520
+  rng_freeze_start_step: 2
+  load_complete_step: 56
+  title_wait_live_rows: 64
 - level_id: 80
   measurable: true
   phase: target_live
@@ -928,6 +1075,9 @@ levels:
     kid_y_pos: 53411840
     camera_x_pos: 0
     camera_y_pos: 42729472
+  rng_freeze_start_step: 2
+  load_complete_step: 58
+  title_wait_live_rows: 62
 - level_id: 81
   measurable: true
   phase: target_live
@@ -946,6 +1096,9 @@ levels:
     kid_y_pos: 53411840
     camera_x_pos: 0
     camera_y_pos: 42729472
+  rng_freeze_start_step: 2
+  load_complete_step: 65
+  title_wait_live_rows: 55
 - level_id: 82
   measurable: true
   phase: target_live
@@ -964,6 +1117,9 @@ levels:
     kid_y_pos: 22839296
     camera_x_pos: 0
     camera_y_pos: 12124160
+  rng_freeze_start_step: 2
+  load_complete_step: 57
+  title_wait_live_rows: 63
 - level_id: 83
   measurable: true
   phase: target_live
@@ -982,6 +1138,9 @@ levels:
     kid_y_pos: 9371648
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 60
+  title_wait_live_rows: 60
 - level_id: 84
   measurable: true
   phase: target_live
@@ -1000,6 +1159,9 @@ levels:
     kid_y_pos: 53411840
     camera_x_pos: 0
     camera_y_pos: 43188224
+  rng_freeze_start_step: 2
+  load_complete_step: 64
+  title_wait_live_rows: 56
 - level_id: 85
   measurable: true
   phase: target_live
@@ -1018,6 +1180,9 @@ levels:
     kid_y_pos: 9420800
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 61
+  title_wait_live_rows: 59
 - level_id: 86
   measurable: true
   phase: target_live
@@ -1036,6 +1201,9 @@ levels:
     kid_y_pos: 10420224
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 64
+  title_wait_live_rows: 56
 - level_id: 87
   measurable: true
   phase: target_live
@@ -1054,6 +1222,9 @@ levels:
     kid_y_pos: 4128768
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 62
+  title_wait_live_rows: 58
 - level_id: 88
   measurable: true
   phase: target_live
@@ -1072,6 +1243,9 @@ levels:
     kid_y_pos: 54460416
     camera_x_pos: 0
     camera_y_pos: 44040192
+  rng_freeze_start_step: 2
+  load_complete_step: 60
+  title_wait_live_rows: 60
 - level_id: 89
   measurable: true
   phase: target_live
@@ -1090,6 +1264,9 @@ levels:
     kid_y_pos: 6225920
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 59
+  title_wait_live_rows: 61
 - level_id: 96
   measurable: true
   phase: target_live
@@ -1108,6 +1285,9 @@ levels:
     kid_y_pos: 6225920
     camera_x_pos: 20971520
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 62
+  title_wait_live_rows: 58
 - level_id: 97
   measurable: true
   phase: target_live
@@ -1126,6 +1306,9 @@ levels:
     kid_y_pos: 8323072
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 64
+  title_wait_live_rows: 56
 - level_id: 98
   measurable: true
   phase: target_live
@@ -1144,6 +1327,9 @@ levels:
     kid_y_pos: 6225920
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 71
+  title_wait_live_rows: 49
 - level_id: 99
   measurable: true
   phase: target_live
@@ -1162,6 +1348,9 @@ levels:
     kid_y_pos: 55508992
     camera_x_pos: 0
     camera_y_pos: 44040192
+  rng_freeze_start_step: 2
+  load_complete_step: 72
+  title_wait_live_rows: 48
 - level_id: 100
   measurable: true
   phase: target_live
@@ -1180,6 +1369,9 @@ levels:
     kid_y_pos: 26148864
     camera_x_pos: 0
     camera_y_pos: 14680064
+  rng_freeze_start_step: 2
+  load_complete_step: 70
+  title_wait_live_rows: 50
 - level_id: 101
   measurable: true
   phase: target_live
@@ -1198,6 +1390,9 @@ levels:
     kid_y_pos: 52363264
     camera_x_pos: 0
     camera_y_pos: 42139648
+  rng_freeze_start_step: 2
+  load_complete_step: 63
+  title_wait_live_rows: 57
 - level_id: 102
   measurable: true
   phase: target_live
@@ -1216,6 +1411,9 @@ levels:
     kid_y_pos: 23003136
     camera_x_pos: 20971520
     camera_y_pos: 12779520
+  rng_freeze_start_step: 2
+  load_complete_step: 61
+  title_wait_live_rows: 59
 - level_id: 103
   measurable: true
   phase: target_live
@@ -1234,6 +1432,9 @@ levels:
     kid_y_pos: 8323072
     camera_x_pos: 0
     camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 58
+  title_wait_live_rows: 62
 - level_id: 104
   measurable: true
   phase: target_live
@@ -1252,3 +1453,6 @@ levels:
     kid_y_pos: 21954560
     camera_x_pos: 0
     camera_y_pos: 11730944
+  rng_freeze_start_step: 2
+  load_complete_step: 58
+  title_wait_live_rows: 62
