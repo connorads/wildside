@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-13 handoff (#419 idle window: spawn-delay root cause, fix withdrawn)
+
+- 360-frame settled probe at 0x60: the oracle Kid takes the Goat-charge
+  hit at frame 60, native at 59 — the +1.5px walker lead is exactly one
+  walk step. Root cause identified from the oracle's own trace: ASM
+  Manage_EnemyLoading loc_3691E runs a fresh enemy's Init on the object
+  pass AFTER allocation (ending in the walker hibernate), so the first
+  walk lands one pass later; native steps fresh enemies immediately.
+- The fix (a runtime freshness set consumed as a one-pass AI skip) was
+  drafted and oracle-proven — 0x60's walking goats reach frame 0
+  position-exact — but WITHDRAWN: it flips the web-parity pixel gate red
+  by moving the 0x00 Drips' spawn-adjacent frames across the pinned index,
+  where the native and web render arms disagree with verified-identical
+  trace/grid/builder inputs. That pre-existing divergence is #458 and
+  blocks the fix under the zero-regression bar; the complete recipe is in
+  archive #419 for re-application once #458 lands.
+- No code landed; canonical sweep remains `1786652191`. Rows: #419
+  re-scoped to the blocked fix; #458 opened (render/web parity).
+
 ## 2026-08-13 handoff (#419 Goat walker model landed, staged Goat-only)
 
 - Probes first: the frozen oracle coroutine pointer identified the landing

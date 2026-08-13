@@ -589,6 +589,47 @@ walker phase lead on all shell walkers. verify-tas-full byte-identical;
 core suite green; CLI failures identical to the 26-test baseline; frame-0
 RNG witnesses unchanged.
 
+2026-08-13 idle-window session (probe + drafted fix, withdrawn). A 360-frame
+settled probe at 0x60 pinned the residue's root: the oracle Kid takes the
+Goat-charge hit at scenario frame 60; native takes it at frame 59 — the
++1.5px walker phase lead is exactly ONE walk step. The oracle's own trace
+shows a fresh enemy appearing at spawn x on one row and stepping first on
+the FOLLOWING tick: ASM Manage_EnemyLoading loc_3691E allocates after
+Execute_Objects, the family Init runs on the next object pass (ending in
+the walker hibernate), and the first walk lands one pass later. Native
+steps fresh enemies on their first AI pass — one step early, globally.
+
+Drafted fix (proven, then withdrawn): a runtime `(segment, layout)`
+freshness set filled by the two post-Execute loaders and consumed as a
+one-pass skip at the AI loop top. With it, 0x60's three walking goats
+reach frame 0 POSITION-EXACT against the oracle (li=1 0x01C90000, li=2,
+li=5 all equal; the pre-frame-0 surface reads the last settle row
+0x01C78000). Core suite, witness gate, and the CLI baseline stayed green —
+but the web-parity gate (gameplay_regression_web_session_matches_
+capture_frames_pixels) went red: the legitimate one-frame spawn shift
+moves the 0x00 Drips' spawn-adjacent frames across the pinned index, and
+the native and web render arms disagree there by a ~40-row sliver at
+(158-160, 117-156) EVEN WITH trace, block grid, scene builder, and latch
+inputs verified identical (a runtime-arm rewrite of the test's native side
+to mirror capture-frames' live grid did not close it). That divergence is
+pre-existing and unrelated to enemies — opened as #458 and it blocks this
+fix under the zero-regression bar. The withdrawal keeps canonical sweep
+1786652191 as the verified state; the fix recipe above is complete and
+ready to re-apply once #458 lands.
+
+### #458
+
+Opened 2026-08-13 (unmasked by #419's drafted loc_3691E spawn delay).
+Native capture-frames and the web session disagree on spawn-adjacent
+Drips pixels at 0x00: at any frame index adjacent to the enemy's spawn
+frame, a ~40-row, 2-3px-wide sliver at (158-160, 117-156) differs while
+the trace frames are byte-identical (verified via full Debug compare),
+the live block grids match, and both arms use build_scene_filtered with
+the same latch semantics. Remaining suspects: the fs-loaded
+(`load_session_assets`) vs bundle-loaded (`load_level_visuals_with_source`)
+visuals diverging in a drip/animation-adjacent asset, or a runtime-state
+render input not captured in the trace. Blocks #419's spawn-delay fix.
+
 ### #456
 
 Opened 2026-08-13 (#419 staging). The measured walker partition says six
