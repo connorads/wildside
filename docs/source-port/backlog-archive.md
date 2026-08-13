@@ -631,6 +631,37 @@ the oracle's frame but the idle_tail cascade (native Kid knocked into the
 pit) persists at 6 blockers; the row continues on the knockback
 trajectory.
 
+Resolved 2026-08-13 (f5b7e1b39) — the residue was never the Kid knockback.
+A full per-frame 0x60 idle probe (frames 0-359, tas-diff + oracle-probe RAM
+watches on all four goat slots) showed the frame-60 charge hit is
+parity-exact on both sides: HP 2→1, neither Kid displaced, both recover at
+spawn. The divergence was post-charge GOAT behaviour. Oracle truth: every
+0x60 goat ends parked in the grounded wall hold — Lion.asm
+loc_3E3B2/loc_3E566 route a boundary-crossing grounded step through
+`btst #1,d7`/`tst.w d5`/`lsl.w #3,d4; cmp.w $48(a5),d4` into
+loc_3E406/loc_3E5BA, and with d7 bit 0 set the Goat (object_meta $10)
+re-arms `$42(a3)`=$FF88, restores the walk speed from `$5E(a5)`, and never
+commits the step or turns. sub_36972 loc_369BC preloads d7 bits 0+1 at the
+level edge, so 0x60's 640px-wide platforms pin li=1 at 631.5 (charge 1 →
+$FF88 at frame 73) and li=2 at 630.5 (cooldown walk, $FF88 re-armed from
+frame 75); li=3 holds at 583.5 and li=5 at 519 against interior walls —
+`$42`=$FF88 constant in every case, and the Kid-tracking dead-band
+(loc_3CC18, |dx|<32) keeps them facing the Kid without re-contact. Native
+instead walked li=1 off the level edge (pit death at 85, loader respawn,
+fatal re-charge of the Kid at frame 263 → pit death arc → ELSEWHERE card)
+and turned li=2 at the wall. Corrected understanding: the prior "land/fall
+cycle" wall model (da867bd7f) was wrong — it snapped x to the pixel, which
+is exactly #457's half-pixel misfit; the ROM hold preserves the fraction.
+Fix: expose d5 from the native grounded scans, implement the full crossing
+dispatch (snap+fall arm, loc_3E406 hold, controller-on-bit0-clear
+crossings) in step_pacer's Goat branch, delete the land/fall wall model.
+Evidence: 0x60 idle frames 0..359 ALL match oracle (was 6 idle_tail
+blockers + the 237-344 death cascade); sweep 1786660540: 56/69 pass, 64
+blocking (from 55/69, 70), the only per-level change 0x60 FAIL→PASS;
+verify-slice-fast + verify-tas-full green, baselines byte-identical; core
+suite at the pre-existing 5-failure demo/snapshot set. 0x63's old +2-gfx
+census note stays with sweep-census follow-ups (0x63 passes the sweep).
+
 ### #458
 
 Opened 2026-08-13 (unmasked by #419's drafted loc_3691E spawn delay).
@@ -678,6 +709,13 @@ oracle holds the pre-snap 583.5 — its last x write is a plain walk store
 and the hold state never rewrites x. Half a pixel, within the sweep's
 authoritative tolerance; the shell regression test pins the range
 0x02470000..=0x02478000 until the exact hold state is modelled.
+
+Resolved 2026-08-13 (f5b7e1b39, with #419's close). The hold state is the
+grounded loc_3E406/loc_3E5BA wall hold, not the land/fall cycle: the ROM
+never commits the boundary-crossing step, so the pre-boundary fraction
+survives untouched. Oracle-probe: li=3's x is 0x02478000 with `$42`=$FF88
+constant from frame 0. Native now takes the same path; the shell
+regression is tightened to equality at 0x02478000 and passes.
 
 ### #420
 
@@ -22368,6 +22406,8 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 419 | [x] | P1 | enemy | 0x60 idle_tail cascade closed: the frame-60 charge hit was already parity-exact (neither Kid displaced); native goats missed the ROM's grounded wall hold (Lion.asm loc_3E3B2/loc_3E566 crossing -> loc_3E406/loc_3E5BA: `$42`=$FF88 re-armed, step never committed, no turn; sub_36972 loc_369BC makes the level edge a wall), so li=1 pit-died, respawned, and re-charged Kid fatally at frame 263. | 0x60 idle frames 0..359 all match oracle; sweep 1786660540: 56/69 pass, 64 blocking, only change 0x60 FAIL->PASS; verify-tas-full byte-identical. See archive #419. |
+| 457 | [x] | P3 | enemy | The hold is the grounded loc_3E406 wall hold, not a land/fall cycle: the ROM never commits the crossing step, so the sub-pixel fraction survives — li=3 rests at exactly 0x02478000 with `$42`=$FF88 constant. Native now takes the same path. | Shell regression tightened to equality at 0x02478000 and passes; witness gate green. See archive #457. |
 | 433 | [x] | P2 | verification | Classify leftover debug warp 0x41 as non-comparable: Load_InGame selects incomplete resource 0x41 and the oracle consumes adjacent RAM unavailable to the clean native bundle. | Focused sweep 1786567508: 12 oracle limitations, zero blockers, both checkpoints UNVERIFIED. See archive #433. |
 | 425 | [x] | P2 | enemy | Reject the SpinningTwins attribution: 0x47 maps to incomplete leftover resource 0x42, producing the same non-comparable 12-field shell as 0x38/0x41. | Focused sweep 1786567508: 12 oracle limitations, zero blockers, both checkpoints UNVERIFIED. See archive #425. |
 | 454 | [x] | P1 | verification | Added a route-grouped early playtest checklist for boot, 0x00-0x08, named P0 smoke, and audio-device candidates with exact current checks and a report template. | Checklist ids equal the eligible awaiting-human set plus #374; `backlog-lint` and `verify-slice-fast` pass. See archive #454. |

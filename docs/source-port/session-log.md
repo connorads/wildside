@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-13 handoff (#419 closed — Goat grounded wall hold; #457 closed with it)
+
+- The 0x60 idle_tail residue was never the Kid knockback: a full per-frame
+  probe (tas-diff 0-359 + oracle-probe RAM watches on all four goat slots)
+  showed the frame-60 charge hit parity-exact — HP 2→1, neither Kid
+  displaced. The divergence was post-charge Goat behaviour: the ROM parks
+  every 0x60 goat in the grounded loc_3E406/loc_3E5BA wall hold
+  (`$42`=$FF88 re-armed each frame, step never committed, no turn;
+  sub_36972 loc_369BC makes the level edge a wall), while native walked
+  li=1 off the level edge (pit death, loader respawn, fatal re-charge of
+  the Kid at frame 263) and turned li=2.
+- Landed (f5b7e1b39): d5 exposed from the grounded scans, the full
+  loc_3E3B2/loc_3E566 crossing dispatch in step_pacer's Goat branch, the
+  disproven land/fall wall model deleted. The hold preserves the sub-pixel
+  fraction, so li=3 now rests at exactly 0x02478000 — #457 closed by the
+  same commit; its shell regression is tightened to equality.
+- Evidence: 0x60 idle frames 0..359 ALL match the oracle. Canonical sweep
+  `1786660540`: 56/69 pass, 64 blocking (from 55/69, 70) — the only
+  per-level change is 0x60 FAIL→PASS. verify-slice-fast + verify-tas-full
+  green with byte-identical baselines; witness gate green.
+- During the probe, two truncated tool outputs briefly mimicked
+  native/oracle nondeterminism; both native and oracle replay bit-identical
+  across runs (verified twice each side).
+
 ## 2026-08-13 handoff (#458 resolved as test infra; Goat spawn delay landed)
 
 - #458 dissected to zero mystery: fs/bundle visuals and palettes
