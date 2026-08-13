@@ -241,11 +241,26 @@ fn settle_census_scenario(level_id: u8) -> DynamicScenario {
     scenario
 }
 
+/// #442 shell-content instrumentation: persist the helper's full settle rows
+/// (RNG ring, kid kinematics, object-slot dump per step) beside the level's
+/// scenario so per-step shell analysis reads measured data. The census itself
+/// only keeps derived lengths; this dump is the raw evidence.
+pub(crate) fn write_settle_trace_dump(
+    level_dir: &Path,
+    rows: &[OracleSettleTraceRow],
+) -> Result<PathBuf> {
+    let path = level_dir.join("settle-trace.json");
+    fs::write(&path, serde_json::to_vec_pretty(rows)?)
+        .with_context(|| format!("failed to write {}", path.display()))?;
+    Ok(path)
+}
+
 fn measure_level(
     env: &OracleEnvironment,
     rom_path: &Path,
     run_dir: &Path,
     level_id: u8,
+    dump_trace: bool,
 ) -> SettleCensusLevel {
     let level_dir = run_dir.join(format!("levels/{level_id:02x}"));
     let result = (|| -> Result<SettleCensusLevel> {
@@ -266,6 +281,9 @@ fn measure_level(
             &level_dir,
             &options,
         )?;
+        if dump_trace {
+            write_settle_trace_dump(&level_dir, &manifest.settle_trace)?;
+        }
         Ok(derive_settle_census_level(level_id, &manifest.settle_trace))
     })();
     result.unwrap_or_else(|error| {
@@ -315,6 +333,7 @@ pub(crate) fn run_oracle_settle_census(
     output: Option<&Path>,
     from_json: Option<&Path>,
     shell_table: Option<&Path>,
+    dump_trace: bool,
 ) -> Result<()> {
     if let Some(json_path) = from_json {
         let census: OracleSettleCensus = serde_json::from_str(
@@ -342,7 +361,7 @@ pub(crate) fn run_oracle_settle_census(
         .par_iter()
         .map(|&level_id| {
             println!("settle census level {level_id:#04x}...");
-            measure_level(&env, rom_path, &run_dir, level_id)
+            measure_level(&env, rom_path, &run_dir, level_id, dump_trace)
         })
         .collect();
     rows.sort_by_key(|row| row.level_id);
@@ -468,6 +487,29 @@ mod tests {
         let mut skip = row("post_skip_input", 0, false, false);
         skip.game_mode = game_mode;
         skip
+    }
+
+    /// #442 shell-content instrumentation: `--dump-trace` must persist the
+    /// helper's FULL settle rows (RNG ring, kid kinematics, object-slot dump)
+    /// so per-step shell analysis reads measured data instead of re-deriving
+    /// it from the collapsed census lengths.
+    #[test]
+    fn dump_trace_persists_full_settle_rows_losslessly() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let rows = vec![
+            row("title_wait", 68, false, false),
+            row("target_live", 0, true, false),
+        ];
+        let path = write_settle_trace_dump(dir.path(), &rows).expect("dump must write");
+        assert_eq!(path, dir.path().join("settle-trace.json"));
+        let reloaded: Vec<OracleSettleTraceRow> =
+            serde_json::from_str(&fs::read_to_string(&path).expect("dump must be readable"))
+                .expect("dump must parse as the settle-trace schema");
+        assert_eq!(
+            serde_json::to_value(&reloaded).unwrap(),
+            serde_json::to_value(&rows).unwrap(),
+            "dump must round-trip every captured field"
+        );
     }
 
     /// Helper loop: 60 immediately-live rows break at step 59 without a tick,

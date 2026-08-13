@@ -1027,6 +1027,11 @@ enum Commands {
         /// staleness-guarded schema) to this path
         #[arg(long)]
         shell_table: Option<PathBuf>,
+        /// Persist each measured level's full settle rows (RNG ring, kid
+        /// kinematics, object-slot dump per step) as settle-trace.json in the
+        /// level's run dir — the #442 shell-content evidence
+        #[arg(long)]
+        dump_trace: bool,
     },
     /// Cluster the classified GEMS outcome corpus from
     /// `verify-tas --compare-gems --gems-mismatch-report` by classification,
@@ -2672,6 +2677,7 @@ fn main() -> Result<()> {
             output,
             from_json,
             shell_table,
+            dump_trace,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -2683,6 +2689,7 @@ fn main() -> Result<()> {
                 output.as_deref(),
                 from_json.as_deref(),
                 shell_table.as_deref(),
+                dump_trace,
             )?;
         }
         Commands::ReleaseGate {
