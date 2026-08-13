@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-13 handoff (#442 shell-content capture: load duration + UFO hit named)
+
+- New `oracle-settle-census --dump-trace` persists the helper's full settle
+  rows per level (no helper edit, oracle cache key untouched). Run
+  1786640409 captured 0x30/0x60; raw rows in each level dir's
+  settle-trace.json.
+- The debug-warp shell has NO title card (Game_Mode $C from title_wait
+  step 2). Load duration is per-level: RNG freezes during the load and
+  resumes with the object roster + Kid pose (0x30 step 75, 0x60 step 62);
+  exactly 3 draw-frames precede the freeze; 4 bytes/frame while live. Shell
+  live frames to frame 0: 107 (0x30) vs 120 (0x60) — the fixed elapsed-71
+  boundary and the family tails both stand in for load duration.
+- 0x30's Kid damage source is the UFO BODY, not the beam: it swoops from
+  spawn and overflies Kid on the first stable-live frame; the loc_BC34
+  damage-flash thread leaves its idle poll exactly there (d3=$A seeded).
+  The beam cycle starts only after arrival and every drop lands inside the
+  invulnerability window. 0x60 has no shell hit — its Goat divergence is
+  pure walk aging.
+- Next session: derive load_complete (first RNG-resume row) in the census,
+  re-measure the shell table, drive the native shell from it, delete the
+  elapsed-71 boundary + family tails, re-run the frame-0 probes (S3c gate).
+
 ## 2026-08-12 handoff (#442 shell-content boundary dead end)
 
 - Level 0x30 confirms shell content, not length: native frame 0 is HP 2/RNG

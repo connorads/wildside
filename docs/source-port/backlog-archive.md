@@ -511,6 +511,14 @@ non-comparable leftover debug warps; see #425/#433. Focused sweep 1786567508
 classifies its 12 fields as oracle limitations and marks both checkpoints
 UNVERIFIED. #419 remains open only for the authoritative 0x60 timing divergence.
 
+2026-08-13: the 0x60 shell trace (run 1786640409, see #442) shows NO
+pre-settle hit — the loc_BC34 damage thread never leaves its loc_BC44 idle
+poll, so both Kids reach frame 0 at HP 2 and the Goat x offsets are pure walk
+aging. 0x60's shell runs (120−62)+2+60 = 120 live frames (load completes at
+title_wait step 62), while native's fixed elapsed-71 boundary models a
+different live count. Ownership: the fix is #442's per-level load-complete
+shell model; no Goat-family code change is indicated.
+
 ### #420
 
 Driller (0x55/0x68, 19 blockers — largest cluster). 0x55 (Driller-only roster
@@ -562,6 +570,15 @@ age or RNG-stream offset moves the beam; note the sweep never compares RNG
 (include_rng is always false in SweepStateComparisonOptions), so the report's
 `rng: 0` is not evidence of RNG parity. Phase half to #442; 0x48 count half to
 #449.
+
+2026-08-13: 0x30's damage source is measured and NAMED (shell trace run
+1786640409, full evidence under #442): the UFO BODY overflies Kid's spawn on
+the first stable-live frame and lands the hit — the beam is disproven as the
+hit source (its drop cycle only starts after the UFO parks over Kid, and
+every drop falls inside the 66-frame invulnerability window). The
+"RNG-gated beam moves with age/RNG offset" suspicion is retired; what moves
+the hit is the per-level load-complete step that anchors the UFO's scripted
+approach swoop.
 
 ### #423
 
@@ -810,6 +827,46 @@ global title-wait boundary change is disproven. Next investigation must capture
 the oracle's per-title-wait object dispatch/RNG deltas around steps 68-75 and
 identify which object actually damages Kid; do not infer the schedule from the
 12-byte net offset.
+
+2026-08-13 measurement — both dead-end questions answered from a full shell
+trace (`oracle-settle-census --levels 48,96 --dump-trace`, run 1786640409,
+levels 0x30/0x60; raw rows in each level dir's settle-trace.json):
+
+- The debug-warp shell has NO title card. `Game_Mode` flips $0008→$000C at
+  title_wait step 2 and never returns; the whole 120-frame "title wait" is
+  Mode_Level with the level loading underneath.
+- Load duration is PER-LEVEL and is the missing model input. The RNG offset
+  freezes while the loader runs (0x30: steps 3-74; 0x60: steps 3-61) and
+  resumes the exact frame the object roster and Kid's header pose land
+  (0x30: step 75; 0x60: step 62). Shell live frames to frame 0 =
+  (120 − load_complete) + 2 + 60: 107 at 0x30 vs 120 at 0x60. One fixed
+  boundary cannot model both; the elapsed-71 boundary and the family tails
+  are both stand-ins for this measured quantity.
+- RNG model: exactly 3 draw-frames precede the freeze (steps 0-2, 12 bytes,
+  identical on both levels), then 4 bytes/frame (2 controller words) on
+  every unfrozen frame. The 12-byte net offset the dead end refused to
+  curve-fit is exactly those 3 pre-freeze draw frames, not a boundary shift.
+- 0x30's Kid damage source is NAMED: the UFO OBJECT ITSELF, not its beam.
+  It spawns at load-complete, flies a scripted swoop (to x $97, down to
+  y≈98, back up; w44 counts $3C down, d0 phase $E800→$E000 at step 113),
+  then approaches at constant y 78.59 flying left 4px/frame and overflies
+  Kid's spawn ($28,$5F) at target_live step 0-1 — the loc_BC34 damage-flash
+  thread (slot $FFFF0EFC) leaves its loc_BC40/BC44 idle poll exactly there,
+  d3 freshly seeded $A. The 66-frame latch spans past frame 0, matching the
+  probe's HP 1 + just_received_damage=true. The beam cycle starts only
+  AFTER arrival (w44 reset to $32 at target_live 5; child loc_355D8 drops
+  at ($24,$5B) every 5 frames, falling 3px/frame) and every drop lands
+  inside Kid's invulnerability window. #422's "RNG-gated beam" suspicion is
+  disproven as the hit source.
+- 0x60 confirms the split: no hit in its shell (the damage thread never
+  leaves loc_BC44); the Goat divergence is pure walk aging over a
+  13-frame-longer live shell than 0x30's.
+- Model consequence: shell content = 3 pre-load draw frames + per-level
+  load-complete step (first RNG-resume row — the census can derive it) +
+  full Mode_Level frames from load-complete to frame 0. Next: extend the
+  census derivation with load_complete, re-measure the shell table, drive
+  the native shell from it, delete the elapsed-71 boundary and family
+  tails, then re-run the frame-0 probes (S3c gate) and the sweep.
 
 ### #451
 
