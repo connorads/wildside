@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-13 handoff (#419 root cause: the two-walker-library mis-collapse)
+
+- Post-#442 probe session at 0x60. First divergence isolated frame-by-frame
+  with a temporary in-crate shell diagnostic (deleted after use): native's
+  Goat li=3 reaches frame 0 dead in a hurt tile; the oracle's falls off the
+  same ledge earlier, lands short of the tile, and wall-stands at 583.5
+  with hp 4 for 120+ frames.
+- Root cause identified: the ROM has two shared-walker libraries with
+  opposite cliff semantics (kid.asm loc_3C04E family turns; Lion.asm
+  loc_3E3B2 family falls). Native's step_pacer applies the turn to all
+  families, and its comments assert walkers never fall. The spurious turn
+  oscillates against Goat Kid-tracking (loc_3CC18), halving walk speed on
+  the ledge approach — the whole measured causal chain is under archive
+  #419, including the exact per-frame evidence.
+- Two named unknowns block the fix commit and open the next session:
+  loc_3E48E's wall-stand hold semantics, and the oracle Kid's settle hit at
+  0x60 that no goat can reach (suspect missing Kid-side hurt-tile damage).
+- No code committed (investigation + docs only); rows #419-#422 and NOW
+  updated; the tas_pixels.rs formatting diff remains preserved unstaged.
+
 ## 2026-08-13 handoff (#442 boundary swap landed — shell timing model complete)
 
 - The measured model replaced the fixed shell: per-level load-completion

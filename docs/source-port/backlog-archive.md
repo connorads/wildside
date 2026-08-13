@@ -519,6 +519,48 @@ title_wait step 62), while native's fixed elapsed-71 boundary models a
 different live count. Ownership: the fix is #442's per-level load-complete
 shell model; no Goat-family code change is indicated.
 
+2026-08-13 post-#442 investigation — ROOT CAUSE IDENTIFIED (ready to
+implement). Goat li=3 reaches frame 0 DEAD natively (hp 0, death animation,
+x 588) where the oracle's is alive and frozen (x 583.5, hp 4, facing Right).
+Measured frame-by-frame (temporary in-crate shell diagnostic + the
+run-1786640409 trace):
+
+1. Native's `step_pacer` tail runs a look-ahead cliff-edge TURN for every
+   pacer family. The ROM has TWO shared-walker libraries with opposite
+   cliff semantics: the kid.asm loc_3C04E/loc_3C0FA walker (Diamond, Crab,
+   Driller, Fire Demon, Tank, TankShooting, Robot, SpinningTwins) turns at
+   cliffs (loc_3C0A6/loc_3C0B4), while the Lion.asm loc_3E3B2/loc_3E566
+   walker (Goat, Lion, Orca, Armadillo, Scorpion, Ninja, walking Dragon)
+   FALLS at cliffs (`tst.w d6; bmi loc_3E682` enters the falling loop —
+   there is no look-ahead cliff turn). Native collapsed both libraries into
+   the Tank semantics; step_pacer's own comments assert "walkers never
+   fall", contradicted by both the ASM and the oracle.
+2. Approaching 0x60's lower-floor ledge (x≈535..554) the native Goat
+   oscillates: the spurious cliff-turn flips it Left, Goat Kid-tracking
+   (loc_3CC18) flips it back Right and consumes the walk frame — measured
+   +1.5px per TWO frames vs the oracle's steady 1.5px/frame.
+3. Native therefore leaves the ledge ~9 frames late; the fall itself (the
+   `floor_class_d6 < 0` branch, correct Lion semantics) carries it to
+   x=588 — into a hurt tile — where the first grounded scan returns d7=5
+   and the hurt bit kills it. The ROM's Goat leaves at trace row ti97,
+   lands at 579, walks to 583.5 and enters a Goat-specific wall reaction
+   (Lion.asm loc_3E406 routes object_meta $10 through loc_3E48E, writing
+   $42=$FF88) holding it frozen ≥120 frames at hp 4.
+4. Cascade: the dead Goat despawns by settle (7v8 objects) and native's
+   later idle_tail death follows.
+
+Remaining unknowns for the fix session: (a) loc_3E48E's hold/release
+semantics — every visible branch ends in a turn yet the oracle holds facing
+Right, so the $42-negative state's interaction with the loc_3CC18 resume
+gate needs a full read; (b) the oracle Kid's settle hit (HP 2→1 with
+just_received_damage at frame 60) has NO goat within reach in the trace —
+suspect missing Kid-side hurt-tile/terrain damage natively, a separate
+defect to isolate before attributing it to the Goat. Fix shape: split
+step_pacer's cliff behaviour by ROM walker library (fall for the Lion.asm
+seven, turns for the kid.asm eight), then model the Goat wall-stand;
+regression = frame-0 roster (li=3 alive at 583.5) + witness gate + full
+sweep, watching Scorpion/Ninja/Lion levels for cross-family cliff effects.
+
 ### #420
 
 Driller (0x55/0x68, 19 blockers — largest cluster). 0x55 (Driller-only roster
