@@ -25,9 +25,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   The beam cycle starts only after arrival and every drop lands inside the
   invulnerability window. 0x60 has no shell hit — its Goat divergence is
   pure walk aging.
-- Next session: derive load_complete (first RNG-resume row) in the census,
-  re-measure the shell table, drive the native shell from it, delete the
-  elapsed-71 boundary + family tails, re-run the frame-0 probes (S3c gate).
+- Same session, second unit: census derivation v2 lands
+  rng_freeze_start_step / load_complete_step / title_wait_live_rows and the
+  shell table is re-measured for all 69 levels. load_complete spans 56..84
+  (28-frame per-level spread); freeze_start uniformly 2; only 0x00 (title
+  path) has none. Corroboration: 0x48 — native's one exact shell — measures
+  72, matching the fixed elapsed-71/72 boundary; every failing phase
+  witness loads faster (0x50=58, 0x52=57, 0x55=61, 0x60=62, 0x61=64,
+  0x68=58), the measured mechanism behind the oracle-more count bias.
+- Next session: swap the elapsed-71/72 constants for per-level
+  load-complete from the table, delete the family tails, validate the
+  elapsed↔step mapping against frame-0 RNG witnesses, re-run the frame-0
+  probes (S3c gate), then verify-tas-full + sweep.
 
 ## 2026-08-12 handoff (#442 shell-content boundary dead end)
 

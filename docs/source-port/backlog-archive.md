@@ -875,6 +875,14 @@ levels 0x30/0x60; raw rows in each level dir's settle-trace.json):
   measured per-level load-complete step (native elapsed ≈ oracle title-wait
   step − 4 on the 0x30 witness; confirm the mapping per level against the
   frame-0 RNG witnesses when swapping in the table).
+- 2026-08-13 derivation landed (census v2, table re-measured, all 69
+  levels): load_complete spans 56..84. Corroboration: 0x48 — the one level
+  whose shell native already matched EXACTLY — measures load_complete 72,
+  i.e. the fixed boundary is correct there and only there; every failing
+  phase witness loads faster (0x50=58, 0x52=57, 0x55=61, 0x60=62, 0x61=64,
+  0x68=58), so native under-ages them — the measured mechanism behind the
+  one-directional oracle-more count bias. 0x30=75 loads slower, giving its
+  slight over-age + the 12-byte RNG delta.
 
 ### #451
 
