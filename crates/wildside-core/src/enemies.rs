@@ -4256,6 +4256,7 @@ pub(crate) fn step_active_enemies(
     drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
 ) {
     let mut rng = RomRandomState::default();
+    let mut freshly_loaded_enemies = std::collections::HashSet::new();
     step_active_enemies_with_rng(
         active,
         block_grid,
@@ -4273,6 +4274,7 @@ pub(crate) fn step_active_enemies(
         &mut rng,
         drilled_blocks,
         None,
+        &mut freshly_loaded_enemies,
     );
 }
 
@@ -4294,6 +4296,7 @@ pub(crate) fn step_active_enemies_with_rng(
     rng: &mut RomRandomState,
     drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
     mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
+    freshly_loaded_enemies: &mut std::collections::HashSet<(usize, usize)>,
 ) {
     seed_pending_archer_initial_hibernates_loc_33fda(active, camera_x_px, rng);
 
@@ -4342,6 +4345,15 @@ pub(crate) fn step_active_enemies_with_rng(
     .into_iter()
     .peekable();
     for (enemy_index, enemy) in active.iter_mut().enumerate() {
+        if freshly_loaded_enemies.remove(&(enemy.segment_index, enemy.layout_index)) {
+            // ASM Manage_EnemyLoading loc_3691E (#419): this is the freshly
+            // allocated enemy's family-Init object pass — the init ends in
+            // the walker hibernate entries, so no behaviour step runs. Its
+            // first walk lands on the NEXT pass (oracle run 1786640409:
+            // Goat li=1 appears at spawn x on one row and steps on the
+            // following tick).
+            continue;
+        }
         if matches!(enemy.family, EnemyFamily::Driller) && !enemy.shared_walker_patrol_short_next {
             // ASM Driller.asm loc_3BE60: increment the shared DrillMoving
             // refcount, install loc_3BE78 as the callback, then enter the
@@ -10911,6 +10923,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             Some(&mut sound_effects),
+            &mut std::collections::HashSet::new(),
         );
 
         assert!(
@@ -10954,6 +10967,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             Some(&mut sound_effects),
+            &mut std::collections::HashSet::new(),
         );
 
         assert!(
@@ -10993,6 +11007,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
+            &mut std::collections::HashSet::new(),
         );
 
         assert_eq!(
@@ -11018,6 +11033,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
+            &mut std::collections::HashSet::new(),
         );
 
         assert_eq!(
@@ -13281,6 +13297,7 @@ impl NativeRuntime {
                     &mut self.rom_random,
                     &mut self.drilled_blocks,
                     None,
+                    &mut self.freshly_loaded_enemies_loc_3691e,
                 );
                 restore_active_enemy_storage_order(&mut self.active_enemies, &enemy_storage_order);
                 self.move_heady_metal_body_piece_workers_sub_376ec();
@@ -13669,6 +13686,7 @@ impl NativeRuntime {
                     &mut self.rom_random,
                     &mut self.drilled_blocks,
                     Some(&mut played_enemy_sound_effects),
+                    &mut self.freshly_loaded_enemies_loc_3691e,
                 );
                 restore_active_enemy_storage_order(&mut self.active_enemies, &enemy_storage_order);
                 self.move_heady_metal_body_piece_workers_sub_376ec();
@@ -13924,6 +13942,22 @@ impl NativeRuntime {
                 .len()
                 .saturating_sub(active_before_trailing_load)
                 .min(usize::from(u16::MAX)) as u16;
+        // ASM Enemy10_Goat_Init (#419): the Goat's init ends in the walker
+        // hibernate (loc_3CB02 -> loc_3E392/loc_3E546), so its first walk
+        // step lands one object pass after the shell roster appearance —
+        // oracle run 1786640409 shows the 0x60 Goats appearing at spawn x
+        // and stepping on the following tick, while native stepped them
+        // immediately (+1.5px lead, the one-frame-early charge hit).
+        // Scoped to the Goat: the other families' shell frame-0 witnesses
+        // (0x30/0x40/0x48 UFO among them) are position-exact WITHOUT a
+        // delay, and the published route's 37,518 pixel-exact frames pin
+        // the live Manage_EnemyLoading path as undelayed too.
+        for enemy in &self.active_enemies[active_before_trailing_load..] {
+            if matches!(enemy.family, EnemyFamily::Goat) {
+                self.freshly_loaded_enemies_loc_3691e
+                    .insert((enemy.segment_index, enemy.layout_index));
+            }
+        }
         self.enemy_loading_initial_pass_complete = true;
         self.ensure_heady_metal_breakup_slots_loc_39247();
         self.rebuild_active_enemy_roster();

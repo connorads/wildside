@@ -429,6 +429,13 @@ pub struct NativeRuntime {
     /// not yet run their family initialiser to allocate a GfxObject.
     /// ASM Mode_Level loc_80C -> loc_3691E, then Execute_Objects loc_E1E.
     pending_enemy_gfx_initialisations_loc_3691e: u16,
+    /// ASM Manage_EnemyLoading loc_3691E (#419): enemies allocated by the
+    /// post-Execute loaders run their family Init on the NEXT object pass
+    /// (the init ends in the walker hibernate), so their first behaviour
+    /// step lands one pass after the roster appearance. Identities
+    /// `(segment_index, layout_index)` allocated this frame; the next AI
+    /// pass consumes the set as a one-pass skip.
+    freshly_loaded_enemies_loc_3691e: std::collections::HashSet<(usize, usize)>,
     /// Blocks drilled by Driller enemies this frame.
     /// Driller.asm loc_3BE78: checks sprite timer, destroys Smash/Ice blocks ahead.
     drilled_blocks: Vec<DrilledBlockLoc3BE78>,
@@ -1482,6 +1489,7 @@ impl NativeRuntime {
             enemy_status_words: [0; 0x001E],
             enemy_loading_initial_pass_complete: false,
             pending_enemy_gfx_initialisations_loc_3691e: 0,
+            freshly_loaded_enemies_loc_3691e: std::collections::HashSet::new(),
             drilled_blocks: Vec::new(),
             active_platforms: Vec::new(),
             active_platform_roster: Vec::new(),

@@ -854,6 +854,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             Some(&mut sound_effects),
+            &mut std::collections::HashSet::new(),
         );
 
         assert_eq!(

@@ -244,6 +244,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
+            &mut std::collections::HashSet::new(),
         );
 
         assert!(
@@ -268,6 +269,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
+            &mut std::collections::HashSet::new(),
         );
 
         assert!(
@@ -383,6 +385,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
+            &mut std::collections::HashSet::new(),
         );
 
         assert_eq!(

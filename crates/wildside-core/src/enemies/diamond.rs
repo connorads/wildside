@@ -565,6 +565,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
+            &mut std::collections::HashSet::new(),
         );
         diamond = enemies[0];
 

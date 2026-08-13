@@ -730,6 +730,23 @@ mod tests {
              (oracle 0x02478000, native {:#010x})",
             goat3.x_pos
         );
+        // ASM Manage_EnemyLoading loc_3691E (#419): a freshly allocated enemy
+        // runs its family Init on the NEXT object pass (the init ends in the
+        // walker hibernate), so the first walk step lands one pass after the
+        // roster appearance. Oracle run 1786640409: Goat li=1 appears at
+        // spawn x=280 on title-wait row 63, steps first on the following
+        // tick, and its LAST settle row (target_live 59 — the state scenario
+        // frame 0 starts from, this harness's surface) reads 0x01C78000.
+        let goat1 = frame
+            .active_objects
+            .iter()
+            .find(|object| object.layout_index == Some(1))
+            .expect("Goat layout #1 must be in the frame-0 roster");
+        assert_eq!(
+            goat1.x_pos, 0x01C7_8000,
+            "Goat li=1 must reach the pre-frame-0 surface without the extra \
+             spawn-frame walk step"
+        );
     }
 
     /// #442 shell-content instrumentation: `--dump-trace` must persist the
