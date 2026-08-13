@@ -9,28 +9,6 @@ use crate::level::{
 // that tail, so settled full-frame traces need the oracle-observed live age.
 const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
 const RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 60;
-const MULTI_HEAD_BOSS_LEVEL_SKIP_LIVE_TAIL_FRAMES: usize = 60;
-const DRILLER_LEVEL_SKIP_LIVE_TAIL_FRAMES_LOC_3BE78: usize = 63;
-const DRIPS_LEVEL_SKIP_LIVE_WINDOW_CORRECTION_LOC_33424: isize = -7;
-// ASM loc_74E0: residual stable gameplay windows after the recording runner
-// has already executed the typed debug title-card lifecycle and its hidden
-// Mode_Level object passes. The direct compatibility path retains its older
-// full-window values in `recording_oracle_warp_target_live_frames`.
-const LEVEL_ONE_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 65;
-// ASM loc_74E0 plus Dragon_Flying.asm loc_3480A: after the typed debug-title
-// lifecycle, Level 0x06 reaches the recording hand-off after 55 stable target
-// passes. The interval-1 oracle keeps the opening Dragon stationary through
-// frame 8 and commits its first descent vector on frame 9.
-const LEVEL_SIX_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 55;
-const LEVEL_EIGHT_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 102;
-const LEVEL_1B_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 70;
-const BLOODY_SWAMP_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 108;
-// ASM loc_74E0 plus Tar_Monster.asm unk_32264: oracle settle traces expose
-// route-specific pre-frame script ages. Level 0x46 reaches its first loc_3231C
-// shot at recording frame 109 after 55 native live passes; Level 0x64 reaches
-// the corresponding opening shot at frame 94 after 62 passes.
-const LEVEL_46_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 55;
-const LEVEL_64_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 62;
 const RECORDING_SETTLED_WARP_TIMER_SECONDS_LOC_BDC0: u16 = 179;
 const RECORDING_SETTLED_WARP_TIMER_SUBFRAMES_LOC_BDC0: u16 = 0x08;
 const LEVEL_ZERO_RECORDING_TIMER_SECONDS_BEFORE_FRAME_0_LOC_BE82: u16 = 180;
@@ -56,6 +34,50 @@ const LEVEL_ONE_RECORDING_SETTLE_RNG_RING: [u8; 55] = [
     0xB2, 0xE6, 0xAC, 0xED, 0x40, 0xD1, 0xE6, 0x9F, 0x61, 0x05, 0xC3, 0x78, 0x00, 0xA3, 0xC5, 0x89,
     0x96, 0x12, 0xE1, 0x8E, 0x29, 0x15, 0x4A,
 ];
+
+/// ASM loc_74E0 (kid.asm): measured per-level load completion of the
+/// debug-warp title window (#442). The ROM's loader blocks the frame loop, so
+/// controller RNG freezes until this title-wait step; the level then runs
+/// live Mode_Level under the remaining window. Measured by
+/// `oracle-settle-census` derivation v2 (run 1786640409) and checked in as
+/// `crates/wildside-cli/data/oracle-settle-shell.yaml`; a CLI test pins this
+/// table to that YAML. Level 0 takes the title path and has no debug-warp
+/// load freeze.
+pub(crate) fn debug_level_entry_load_complete_step_loc_74e0(level: LevelId) -> Option<usize> {
+    match level {
+        LevelId(0x49) => Some(56),
+        LevelId(0x52) => Some(57),
+        LevelId(0x50 | 0x67 | 0x68) => Some(58),
+        LevelId(0x59) => Some(59),
+        LevelId(0x53 | 0x58) => Some(60),
+        LevelId(0x55 | 0x66) => Some(61),
+        LevelId(0x57 | 0x60) => Some(62),
+        LevelId(0x33 | 0x65) => Some(63),
+        LevelId(0x54 | 0x56 | 0x61) => Some(64),
+        LevelId(0x51) => Some(65),
+        LevelId(0x07 | 0x10 | 0x26) => Some(68),
+        LevelId(0x16 | 0x27) => Some(69),
+        LevelId(0x01 | 0x64) => Some(70),
+        LevelId(0x02 | 0x05 | 0x25 | 0x39 | 0x62) => Some(71),
+        LevelId(0x48 | 0x63) => Some(72),
+        LevelId(0x03) => Some(73),
+        LevelId(0x11 | 0x15 | 0x18 | 0x24) => Some(74),
+        LevelId(0x09 | 0x23 | 0x28 | 0x30 | 0x38 | 0x41 | 0x45 | 0x47) => Some(75),
+        LevelId(0x06 | 0x17 | 0x31 | 0x37 | 0x44 | 0x46) => Some(76),
+        LevelId(0x19 | 0x40 | 0x42) => Some(77),
+        LevelId(0x22 | 0x36) => Some(78),
+        LevelId(0x14 | 0x20 | 0x21 | 0x34 | 0x35 | 0x43) => Some(79),
+        LevelId(0x08 | 0x13 | 0x29 | 0x32) => Some(80),
+        LevelId(0x04) => Some(81),
+        LevelId(0x12) => Some(84),
+        _ => None,
+    }
+}
+
+/// The legacy fixed live boundary the measured table replaces. It equals
+/// `load_complete_step - 1` for level 0x48 (72), the one level whose shell the
+/// fixed model reproduced exactly — the anchor that fixed the mapping.
+pub(crate) const DEBUG_LEVEL_ENTRY_LEGACY_LIVE_BOUNDARY_LOC_74E0: usize = 71;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SettleWarpMode {
@@ -102,41 +124,15 @@ fn recording_oracle_warp_target_live_frames(
             _ => RECORDING_SETTLED_WARP_LIVE_FRAMES,
         };
     }
-    if level_id == LevelId(0) {
-        RECORDING_SETTLED_WARP_LIVE_FRAMES
-    } else if level_id == LevelId(1) {
-        LEVEL_ONE_RECORDING_SETTLED_WARP_LIVE_FRAMES
-    } else if level_id == LevelId(0x08) {
-        // ASM loc_74E0's level-skip path has a live target-level tail before
-        // the helper's 60 stable-frame recording window. Level 0x08 exposes
-        // that hidden age through Murderwall loc_140CE plus loc_7316/loc_7334:
-        // oracle issue266 frame 0 has advanced 102 wall ticks from the -$30 px
-        // seed, so native must enter the scenario one pre-frame earlier and let
-        // the traced frame supply tick 102.
-        LEVEL_EIGHT_RECORDING_SETTLED_WARP_LIVE_FRAMES
-    } else if level_id == LevelId(0x06) {
-        // Under Skull Mountain 3 exposes the ROM level-skip tail through
-        // loc_124A6/sub_F730 ghost-block phase. Once oracle enemy capture can
-        // see Dragon_Flying.asm loc_3480A via loc_32146's collision source, the
-        // same issue #289 recording pins the live tail at 0x18 frames for
-        // object scheduling; the final eight ticks belong only to the
-        // ghost-block timer below.
-        LEVEL_SIX_RECORDING_SETTLED_WARP_LIVE_FRAMES
-    } else if level_id == LevelId(0x1B) {
-        LEVEL_1B_RECORDING_SETTLED_WARP_LIVE_FRAMES
-    } else if level_id == LevelId(0x3E) {
-        // Bloody Swamp exposes the ROM level-skip live tail through Murderwall
-        // loc_140CE. Oracle issue374 settle tracing reaches frame-0 wall age at
-        // target_live 47, so the recording frame-60 checkpoint needs the same
-        // hidden 47-frame prefix before the normal 60 visible frames.
-        BLOODY_SWAMP_RECORDING_SETTLED_WARP_LIVE_FRAMES
-    } else if level_id == LevelId(0x46) {
-        LEVEL_46_RECORDING_SETTLED_WARP_LIVE_FRAMES
-    } else if level_id == LevelId(0x64) {
-        LEVEL_64_RECORDING_SETTLED_WARP_LIVE_FRAMES
-    } else {
-        RECORDING_SETTLED_WARP_LIVE_FRAMES
-    }
+    // #442: the debug title lifecycle now ages every measured level from its
+    // per-level load completion (`debug_level_entry_load_complete_step_loc_74e0`),
+    // so the residual stable window is the helper minimum everywhere — the
+    // census (derivation v2, run 1786640409) measured exactly 60 on all 68
+    // warped levels. The old per-level tails (0x01/0x06/0x08/0x1B/0x3E/0x46/
+    // 0x64) and family adjustments modelled the load duration the fixed
+    // boundary lacked; they are deleted, not zeroed, so a reappearing need
+    // must re-justify itself against the shell table.
+    RECORDING_SETTLED_WARP_LIVE_FRAMES
 }
 
 fn recording_oracle_warp_extra_ghost_block_ticks(level_id: LevelId) -> usize {
@@ -149,22 +145,6 @@ fn recording_oracle_warp_extra_ghost_block_ticks(level_id: LevelId) -> usize {
 
 fn recording_oracle_warp_resets_level_one_rng(level_id: LevelId) -> bool {
     level_id == LevelId(1)
-}
-
-fn recording_oracle_warp_enemy_live_window_adjustment(
-    families: impl IntoIterator<Item = EnemyFamily>,
-    target_window_has_driller: bool,
-) -> isize {
-    let mut has_multi_head_boss = false;
-    let mut has_drips = false;
-    for family in families {
-        has_multi_head_boss |= is_multi_head_boss(family);
-        has_drips |= family == EnemyFamily::Drips;
-    }
-    (usize::from(has_multi_head_boss) * MULTI_HEAD_BOSS_LEVEL_SKIP_LIVE_TAIL_FRAMES
-        + usize::from(target_window_has_driller) * DRILLER_LEVEL_SKIP_LIVE_TAIL_FRAMES_LOC_3BE78)
-        as isize
-        + isize::from(has_drips) * DRIPS_LEVEL_SKIP_LIVE_WINDOW_CORRECTION_LOC_33424
 }
 
 fn should_restore_recorded_title_card_after_first_live(
@@ -185,7 +165,11 @@ impl NativeRuntime {
         self.boot_to_level_with_warp_lifecycle(target, false);
     }
 
-    fn boot_to_level_for_recording_oracle(&mut self, target: LevelId) {
+    /// The settled-recording-warp bootstrap the scenario runner and the state
+    /// sweep use. Public so the #442 witness gate can drive the exact same
+    /// path when comparing native frame-0 state against the measured
+    /// oracle-settle-shell witnesses.
+    pub fn boot_to_level_for_recording_oracle(&mut self, target: LevelId) {
         self.boot_to_level_with_warp_lifecycle(target, true);
     }
 
@@ -341,56 +325,14 @@ impl NativeRuntime {
         self.settle_recording_oracle_warp_live_window_with_target_frames(level_id, None);
     }
 
-    /// Today's hand-tuned window model: the per-level table plus family-keyed
-    /// adjustments. Must be evaluated AFTER the respawn-settle enemy loading
-    /// prime — the family adjustment reads the freshly activated roster.
-    fn resolve_recording_oracle_warp_live_frames_hand_model(
-        &self,
-        level_id: LevelId,
-        debug_lifecycle_completed: bool,
-    ) -> usize {
-        // ASM loc_74E0 enters the target Mode_Level object schedule while the
-        // recording helper is still inside its fixed title wait. Nearby
-        // Drillers spawn 63 object passes before target_live step zero, so
-        // Driller.asm loc_3BE78 reaches the same drill child and block-worker
-        // phase before the ordinary 60-frame stable window.
-        let (camera_x_px, camera_y_px) = self.opening_slice.map_or((0, 0), |slice| {
-            (slice.camera.x_pos >> 16, slice.camera.y_pos >> 16)
-        });
-        let target_window_has_driller = self.enemy_layout(level_id).is_some_and(|layout| {
-            let view = enemy_layout_view(layout, camera_x_px, camera_y_px);
-            view.objects.iter().any(|object| {
-                EnemyFamily::from_layout_object(view.enemy_type_slots, object)
-                    == EnemyFamily::Driller
-            })
-        });
-        let enemy_level_skip_adjustment = recording_oracle_warp_enemy_live_window_adjustment(
-            self.active_enemies.iter().map(|enemy| enemy.family),
-            target_window_has_driller,
-        );
-        // ASM loc_74E0 keeps the target level live behind the level-skip
-        // shell. Enemy22_Shiskaboss_Init and the parallel multi-head boss
-        // initialisers expose that full tail through their continuously
-        // moving head, eye and projectile coroutines before recording frame
-        // zero; the direct native boot shortcut otherwise starts them one
-        // stable-window late.
-        // ASM loc_74E0 keeps family workers live for a different portion of
-        // the hidden level-skip shell. Drips.asm loc_3340E/loc_33424 exposes
-        // seven fewer passes than native's generic stable target window;
-        // derive that correction from the active family, not the level ID.
-        recording_oracle_warp_target_live_frames(level_id, debug_lifecycle_completed)
-            .saturating_add_signed(enemy_level_skip_adjustment)
-    }
-
     /// #442: the hidden live window every settled-warp caller runs. All five
     /// harness callers route through here; `target_live_frames_override`
-    /// exists so a measured (oracle-settle-census) window can replace the
-    /// hand-tuned model below without touching callers. The measured swap is
-    /// STOPPED until native reproduces the shell's RNG content — the census
-    /// measured the window at exactly 60 on 0x30/0x50/0x60/0x61 while frame-0
-    /// probes show the RNG ring content diverging, so the fudge the table
-    /// compensates for lives in shell content, not window length (archive
-    /// #442, 2026-08-01).
+    /// remains as the census experiment entry point. The measured model is
+    /// live: the debug lifecycle ages the level from its per-level load
+    /// completion (`debug_level_entry_load_complete_step_loc_74e0`) and the
+    /// residual window is the helper minimum; the frame-0 RNG witnesses
+    /// (`gameplay_regression_settled_warp_frame0_witnesses_probe_levels`)
+    /// gate the shell against `oracle-settle-shell.yaml`.
     fn settle_recording_oracle_warp_live_window_with_target_frames(
         &mut self,
         level_id: LevelId,
@@ -420,13 +362,12 @@ impl NativeRuntime {
             self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
         }
         self.prime_recording_warp_sprite_animation_clocks();
-        let target_live_frames = match target_live_frames_override {
-            Some(frames) => frames,
-            None => self.resolve_recording_oracle_warp_live_frames_hand_model(
-                level_id,
-                debug_lifecycle_completed,
-            ),
-        };
+        // #442: the measured window model — the debug lifecycle ages the
+        // level from its per-level load completion, so the residual window is
+        // the per-route table with no family adjustments.
+        let target_live_frames = target_live_frames_override.unwrap_or_else(|| {
+            recording_oracle_warp_target_live_frames(level_id, debug_lifecycle_completed)
+        });
         self.settle_target_level_live_window(level_id, target_live_frames);
         // ASM Init_SpriteAttr_HUD loc_BDC0 seeds Time_SubSeconds to 1. The
         // level-skip tail is level-dependent: #289 Level 0x07 watches reach
@@ -1033,80 +974,46 @@ mod tests {
     }
 
     #[test]
-    fn recording_oracle_warp_target_live_frames_pin_oracle_routes() {
-        assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(0), true),
-            RECORDING_SETTLED_WARP_LIVE_FRAMES,
-            "ASM loc_1AE2E Level 0 recording settle uses the full 60-frame live window"
-        );
-        assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(1), true),
-            LEVEL_ONE_RECORDING_SETTLED_WARP_LIVE_FRAMES,
-            "Level 1 recording settle stops at the RNG $FFCB route instead of the full-frame settle age"
-        );
-        assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(0x06), true),
-            LEVEL_SIX_RECORDING_SETTLED_WARP_LIVE_FRAMES,
-            "Under Skull Mountain 3 carries the Dragon_Flying.asm loc_3480A live-tail age before frame 0"
-        );
-        assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(0x08), true),
-            LEVEL_EIGHT_RECORDING_SETTLED_WARP_LIVE_FRAMES,
-            "Hills murder-wall recording settle enters one pre-frame before the traced 102nd wall tick"
-        );
-        assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(0x1B), true),
-            LEVEL_1B_RECORDING_SETTLED_WARP_LIVE_FRAMES,
-            "Skydragon Castle recording settle keeps its shorter opening Sphere loc_36148 age"
-        );
-        assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(0x3E), true),
-            BLOODY_SWAMP_RECORDING_SETTLED_WARP_LIVE_FRAMES,
-            "Bloody Swamp recording settle keeps Murderwall loc_140CE's live-tail age"
-        );
-        assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(0x3F), true),
-            RECORDING_SETTLED_WARP_LIVE_FRAMES,
-            "Scorpion Isle uses the default window; Archer.asm loc_33FDA timing is modelled in enemies"
-        );
-        assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(0x46), true),
-            LEVEL_46_RECORDING_SETTLED_WARP_LIVE_FRAMES,
-            "Level 0x46 enters Tar_Monster.asm unk_32264 at the oracle-observed recording age"
-        );
-        assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(0x64), true),
-            LEVEL_64_RECORDING_SETTLED_WARP_LIVE_FRAMES,
-            "Level 0x64 enters Tar_Monster.asm unk_32264 at the oracle-observed recording age"
-        );
-        assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(0x12), true),
-            RECORDING_SETTLED_WARP_LIVE_FRAMES,
-            "ordinary recording oracles use the default stable live window"
-        );
+    fn recording_oracle_warp_target_live_frames_is_the_measured_helper_minimum() {
+        // #442: the debug title lifecycle ages every measured level from its
+        // per-level load completion, so the residual stable window is the
+        // helper minimum (census v2 run 1786640409 measured exactly 60 on all
+        // 68 warped levels). The old 0x01/0x06/0x08/0x1B/0x3E/0x46/0x64 tails
+        // and Driller/boss/Drips family adjustments modelled the missing load
+        // duration and are deleted.
+        for level in [
+            0x00u8, 0x01, 0x06, 0x08, 0x1B, 0x3E, 0x3F, 0x46, 0x55, 0x64, 0x12,
+        ] {
+            assert_eq!(
+                recording_oracle_warp_target_live_frames(LevelId(level), true),
+                RECORDING_SETTLED_WARP_LIVE_FRAMES,
+                "level {level:#04x}: the debug-lifecycle residual window is the measured helper minimum"
+            );
+        }
     }
 
+    /// #442: the measured load-completion table drives the hidden Mode_Level
+    /// boundary. Pin the witness anchors: 0x48 is the level the legacy fixed
+    /// boundary (71 = 72 - 1) already modelled exactly; 0x30/0x60 are the
+    /// dead-end levels whose loads complete at steps 75/62 (run 1786640409).
     #[test]
-    fn recording_oracle_warp_enemy_tail_matches_family_hidden_age() {
+    fn debug_level_entry_load_complete_table_pins_witness_anchors() {
         assert_eq!(
-            recording_oracle_warp_enemy_live_window_adjustment([], true),
-            DRILLER_LEVEL_SKIP_LIVE_TAIL_FRAMES_LOC_3BE78 as isize,
-            "ASM loc_74E0 gives Driller.asm loc_3BE78 63 hidden object passes before the recording helper's stable target window",
+            debug_level_entry_load_complete_step_loc_74e0(LevelId(0x48)),
+            Some(72)
         );
         assert_eq!(
-            recording_oracle_warp_enemy_live_window_adjustment([EnemyFamily::Archer], false),
-            0,
-            "families without an oracle-proven hidden tail retain the default recording settle window",
+            debug_level_entry_load_complete_step_loc_74e0(LevelId(0x30)),
+            Some(75)
         );
         assert_eq!(
-            recording_oracle_warp_enemy_live_window_adjustment([EnemyFamily::Driller], false),
-            0,
-            "a transient pre-settle roster must not age Drillers unless the target Manage_EnemyLoading window contains them",
+            debug_level_entry_load_complete_step_loc_74e0(LevelId(0x60)),
+            Some(62)
         );
         assert_eq!(
-            recording_oracle_warp_enemy_live_window_adjustment([EnemyFamily::Drips], false),
-            DRIPS_LEVEL_SKIP_LIVE_WINDOW_CORRECTION_LOC_33424,
-            "ASM loc_74E0 gives Drips.asm loc_3340E/loc_33424 seven fewer live passes than the generic stable recording window",
+            debug_level_entry_load_complete_step_loc_74e0(LevelId(0)),
+            None,
+            "level 0 takes the title path and has no debug-warp load freeze"
         );
     }
 

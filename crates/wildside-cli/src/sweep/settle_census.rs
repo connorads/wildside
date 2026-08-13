@@ -550,6 +550,119 @@ mod tests {
         skip
     }
 
+    fn cached_generated_manifest() -> Option<wildside_data::AssetManifest> {
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .expect("wildside-cli crate should live under <repo>/crates/wildside-cli")
+            .to_path_buf();
+        let manifest_path = repo_root
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        let bytes = fs::read(manifest_path).ok()?;
+        serde_json::from_slice(&bytes).ok()
+    }
+
+    fn settled_warp_frame0_witness_mismatches(levels: &[u8]) -> Vec<String> {
+        use wildside_core::{FrameInput, LevelId, NativeRuntime};
+        let table = include_str!("../../data/oracle-settle-shell.yaml");
+        let census: OracleSettleCensus =
+            serde_yaml::from_str(table).expect("shell table must parse as the census schema");
+        let Some(manifest) = cached_generated_manifest() else {
+            return Vec::new();
+        };
+        let _ = FrameInput::default();
+        let mut mismatches = Vec::new();
+        for level in &census.levels {
+            if !levels.contains(&level.level_id) {
+                continue;
+            }
+            let (Some(_load_complete), Some(frame0)) =
+                (level.load_complete_step, level.frame0.as_ref())
+            else {
+                continue;
+            };
+            let mut runtime = NativeRuntime::with_generated_level_layout(manifest.clone());
+            runtime.set_recorded_title_card_handoff_delay(true);
+            runtime.boot_to_level_for_recording_oracle(LevelId(level.level_id));
+            runtime.settle_recording_oracle_warp_live_window(LevelId(level.level_id));
+            let frame = runtime.trace_frame();
+            let native_offset = frame.rng_offset.expect("native trace exposes rng_offset");
+            let native_ring_sha1 = frame
+                .rng_ring
+                .as_ref()
+                .map(|ring| sha1_hex(ring.as_bytes()))
+                .expect("native trace exposes the rng ring");
+            let mut level_diffs = Vec::new();
+            if native_offset != frame0.rng_offset {
+                level_diffs.push(format!(
+                    "rng_offset native {:#06x} vs oracle {:#06x}",
+                    native_offset, frame0.rng_offset
+                ));
+            }
+            if native_ring_sha1 != frame0.rng_ring_sha1 {
+                level_diffs.push("rng_ring content differs".to_owned());
+            }
+            if frame.number_objects != frame0.number_objects {
+                level_diffs.push(format!(
+                    "number_objects native {} vs oracle {}",
+                    frame.number_objects, frame0.number_objects
+                ));
+            }
+            if !level_diffs.is_empty() {
+                mismatches.push(format!(
+                    "level {:#04x}: {}",
+                    level.level_id,
+                    level_diffs.join("; ")
+                ));
+            }
+        }
+        mismatches
+    }
+
+    /// #442 S3c gate on the probe levels: the settled-warp shell reproduces
+    /// the oracle's measured frame-0 RNG (offset + full 55-byte ring) from
+    /// `oracle-settle-shell.yaml` (census v2, run 1786640409) on all five
+    /// probe levels. The only allowed residue is the #422 UFO beam-child
+    /// undercount on 0x30/0x48 (one missing beam child at frame 0); any RNG
+    /// divergence or a new count residue is a timing-model regression.
+    #[test]
+    fn gameplay_regression_settled_warp_frame0_witnesses_probe_levels() {
+        let mismatches = settled_warp_frame0_witness_mismatches(&[0x30, 0x48, 0x50, 0x60, 0x61]);
+        let unexplained: Vec<&String> = mismatches
+            .iter()
+            .filter(|mismatch| {
+                !(mismatch.starts_with("level 0x30: number_objects native 5 vs oracle 6")
+                    || mismatch.starts_with("level 0x48: number_objects native 13 vs oracle 14"))
+            })
+            .collect();
+        assert!(
+            unexplained.is_empty(),
+            "settled-warp shell diverges from measured frame-0 witnesses beyond the \
+             documented #422 beam-child residue:\n{unexplained:#?}"
+        );
+    }
+
+    /// Full-coverage variant of the witness gate: every level with a measured
+    /// load completion except the non-comparable leftover warps 0x38/0x41/0x47
+    /// (#425/#433: the oracle plays garbage RAM there, so their witnesses
+    /// compare nothing real). Slow (65 native boots); run by hand during #442
+    /// model sessions, not in the per-commit gate. Residues as of the boundary
+    /// swap are enemy-content divergences owned by open rows (see archive
+    /// #442, 2026-08-14).
+    #[test]
+    #[ignore = "slow full-coverage witness sweep; run explicitly during #442 sessions"]
+    fn settled_warp_frame0_witnesses_all_levels() {
+        let all: Vec<u8> = (0..=0x68u8)
+            .filter(|level| !matches!(level, 0x38 | 0x41 | 0x47))
+            .collect();
+        let mismatches = settled_warp_frame0_witness_mismatches(&all);
+        assert!(
+            mismatches.is_empty(),
+            "settled-warp shell diverges from measured frame-0 witnesses:\n{}",
+            mismatches.join("\n")
+        );
+    }
+
     /// #442 shell-content instrumentation: `--dump-trace` must persist the
     /// helper's FULL settle rows (RNG ring, kid kinematics, object-slot dump)
     /// so per-step shell analysis reads measured data instead of re-deriving

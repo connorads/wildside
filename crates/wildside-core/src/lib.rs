@@ -3978,10 +3978,11 @@ impl NativeRuntime {
             matches!(self.boot_state, BootState::StartingLevel { .. });
         // ASM loc_74E0 -> loc_6E2/Load_TitleCard: the debug level-skip shell
         // runs two early Mode_Standard object passes, hibernates through the
-        // middle title-card window, then starts hidden Mode_Level on title
-        // wait tick 75. The first pass only burns Execute_Objects' RNG
-        // longword; Manage_EnemyLoading exposes the Archer on the following
-        // tick, when Enemy07_Archer_Init loc_33FDA consumes its RNG byte.
+        // loader freeze (the ROM loader blocks the frame loop, so controller
+        // RNG stops), then runs hidden Mode_Level from the measured per-level
+        // load completion (#442, oracle-settle-shell.yaml). The first live
+        // pass only burns Execute_Objects' RNG longword; Manage_EnemyLoading
+        // exposes enemies on the following tick.
         let debug_level_entry_elapsed = match self.boot_state {
             BootState::StartingLevel { elapsed_frames, .. }
                 if self.debug_level_entry_suppresses_title_card_live_handoff =>
@@ -3990,10 +3991,11 @@ impl NativeRuntime {
             }
             _ => None,
         };
-        let debug_level_entry_object_pass =
-            debug_level_entry_elapsed.is_some_and(|elapsed| !(2..71).contains(&elapsed));
-        let debug_level_entry_hibernated =
-            debug_level_entry_elapsed.is_some_and(|elapsed| elapsed < 71);
+        let debug_level_entry_live_boundary = self.debug_level_entry_live_boundary_loc_74e0();
+        let debug_level_entry_object_pass = debug_level_entry_elapsed
+            .is_some_and(|elapsed| !(2..debug_level_entry_live_boundary).contains(&elapsed));
+        let debug_level_entry_hibernated = debug_level_entry_elapsed
+            .is_some_and(|elapsed| elapsed < debug_level_entry_live_boundary);
         let level_entry_hibernated_gameplay_execution = self
             .starting_level_title_card_bootstrap_active_loc_1ae2e()
             || debug_level_entry_hibernated;
@@ -5078,15 +5080,28 @@ impl NativeRuntime {
             .is_some_and(|header| header.murder_wall_flags != 0)
     }
 
+    /// ASM loc_74E0 (#442): the hidden Mode_Level pass of the debug-warp
+    /// title window runs from the measured per-level load completion. The
+    /// mapping is `boundary = load_complete_step - 1`: native's elapsed-B
+    /// tick is the tick after oracle title-wait row B, and the oracle's first
+    /// drawing tick follows row `load_complete - 1`. Anchor: level 0x48
+    /// (load_complete 72) is the one level the legacy fixed boundary 71
+    /// reproduced exactly, and 71 = 72 - 1.
+    pub(crate) fn debug_level_entry_live_boundary_loc_74e0(&self) -> usize {
+        crate::scenario::debug_level_entry_load_complete_step_loc_74e0(self.current_level).map_or(
+            crate::scenario::DEBUG_LEVEL_ENTRY_LEGACY_LIVE_BOUNDARY_LOC_74E0,
+            |load_complete| load_complete.saturating_sub(1),
+        )
+    }
+
     pub(crate) fn debug_level_entry_mode_level_active_loc_74e0(&self) -> bool {
         self.debug_level_entry_suppresses_title_card_live_handoff
-            && matches!(
-                self.boot_state,
-                BootState::StartingLevel {
-                    elapsed_frames: 72..,
-                    ..
+            && match self.boot_state {
+                BootState::StartingLevel { elapsed_frames, .. } => {
+                    elapsed_frames > self.debug_level_entry_live_boundary_loc_74e0()
                 }
-            )
+                _ => false,
+            }
     }
 
     #[allow(non_snake_case)]
