@@ -20113,6 +20113,18 @@ impl NativeRuntime {
         self.load_block_grid_for_level(level_id)
     }
 
+    /// Public accessor for the interactive block records built by ASM
+    /// `loc_11C7E`, using the same sidecar-first-then-synthesis path as level
+    /// loading. Inspection tooling uses this for levels with no RAM sidecar.
+    pub fn block_list_for_level(&self, level_id: LevelId) -> Option<terrain::BlockList> {
+        let header = self.level_header(level_id)?;
+        let layout_width = u16::from(header.width_screens).saturating_mul(20);
+        let blank_top_rows =
+            terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits);
+        let grid = self.load_block_grid_for_level(level_id)?;
+        self.load_block_list_for_level(level_id, layout_width, &grid, blank_top_rows)
+    }
+
     pub(crate) fn load_block_grid_for_level(
         &self,
         level_id: LevelId,

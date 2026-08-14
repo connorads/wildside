@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#417 inspect cluster fixed)
+
+- Later-level `inspect-level` block records now fall back to core's
+  sidecar-first ASM `loc_11C7E` synthesis instead of disappearing when no RAM
+  sidecar exists. All 38 inspect tests pass.
+- The full CLI ratchet lowers from 26 to 25 failures. Every remaining failure is
+  in `native_player`; continue #417 with one test-vs-production cluster verdict.
+
 ## 2026-08-14 handoff (#445 workspace test gates closed)
 
 - All six formerly dark crates now run from `verify-slice-fast`.

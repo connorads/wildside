@@ -14,7 +14,6 @@
 # diff-stable when re-seeded.
 version: 1
 tests:
-  - inspect::tests::generated_later_level_block_lists_include_helmet_prize_entries
   - native_player::tests::block_destroy_effect_uses_sub_292e_rom_debris_tiles
   - native_player::tests::build_scene_animates_floating_diamond_from_local_loc_10396_countdown
   - native_player::tests::build_scene_draws_circle_of_doom_sprites_from_hud_diamond_rom_tiles

@@ -209,27 +209,29 @@ fn load_inspect_block_list(
     let layout_dir = manifest.output_root.join("level-layout");
     let logical_path = layout_dir.join(format!("{level_id:02X}.blocklist.bin"));
     let path = if logical_path.is_file() {
-        logical_path
+        Some(logical_path)
     } else {
         let fallback_path =
             layout_dir.join(format!("{effective_resource_level_id:02X}.blocklist.bin"));
-        if !fallback_path.is_file() {
-            return None;
-        }
-        fallback_path
+        fallback_path.is_file().then_some(fallback_path)
     };
 
-    std::fs::read(path).ok().map(|bytes| {
-        let layout_width = bundle
-            .parsed_header
-            .as_ref()
-            .map_or(256, |header| u16::from(header.width_screens) * 20);
-        if let Some(grid) = grid {
-            terrain::BlockList::from_raw_with_level_layout(&bytes, layout_width, grid)
-        } else {
-            terrain::BlockList::from_raw(&bytes, layout_width)
-        }
-    })
+    path.and_then(|path| std::fs::read(path).ok())
+        .map(|bytes| {
+            let layout_width = bundle
+                .parsed_header
+                .as_ref()
+                .map_or(256, |header| u16::from(header.width_screens) * 20);
+            if let Some(grid) = grid {
+                terrain::BlockList::from_raw_with_level_layout(&bytes, layout_width, grid)
+            } else {
+                terrain::BlockList::from_raw(&bytes, layout_width)
+            }
+        })
+        .or_else(|| {
+            wildside_core::NativeRuntime::with_generated_level_layout(manifest.clone())
+                .block_list_for_level(wildside_core::LevelId(level_id))
+        })
 }
 
 fn describe_block_list(block_list: &terrain::BlockList) -> Vec<String> {

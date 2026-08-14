@@ -3798,6 +3798,17 @@ implementation → `#[ignore]` with a re-derivation note per AGENTS.md; others a
 real engine-level regressions to fix (bsnes rule: fix at engine level, never
 per-level). Remove a test from the baseline in the same commit that fixes it.
 
+Progress 2026-08-14: the final `inspect` failure was a production tooling gap,
+not a stale fixture. `.cache/generated` contains RAM block-list sidecars for
+only four oracle-reachable levels, so `load_inspect_block_list` returned `None`
+for later levels even though core already reconstructs the ROM's interactive
+records from the decoded BLOCK stream. `NativeRuntime::block_list_for_level`
+now exposes the same sidecar-first, ASM `loc_11C7E` synthesis path used by level
+loading; `inspect-level` falls back to it when no sidecar exists. All 38 inspect
+tests pass, including Juggernaut, Cyclone and Skycutter prize records. The full
+CLI ratchet run removes that test and lowers the baseline 26 -> 25. The residue
+is entirely `native_player` clusters.
+
 Evidence source: `cargo test -p wildside-cli` on clean `main` (authoritative for
 test status). Native repro: reproduced. Minimum gate: `failing-test-ratchet` +
 `verify-slice-fast`.
