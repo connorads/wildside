@@ -253,8 +253,19 @@ impl NativeRuntime {
         self.level_skip_transition = None;
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.progression.number_lives = 3;
-        self.progression.number_hitpoints = self.progression.current_form.max_hitpoints();
-        self.just_received_damage = false;
+        if !used_debug_warp || !use_recording_oracle_lifecycle {
+            self.progression.number_hitpoints = self.progression.current_form.max_hitpoints();
+            self.just_received_damage = false;
+        } else {
+            // ASM loc_74E0 (#421): the recording debug lifecycle seeds
+            // Number_Hitpoints in Load_InGame BEFORE the hidden title window,
+            // and the shell's live Mode_Level passes can spend it — 0x61's
+            // li=0 Scorpion walks through Kid mid-shell and the ROM keeps
+            // that hit (oracle frame 0 reads Number_Hitpoints=1 with
+            // Just_received_damage clear after the loc_BC54 flash). The
+            // boundary must not restore HP or clear the flag here; the flash
+            // countdown already ticks through the shell's live frames.
+        }
         self.death_shell_snapshot = None;
         self.level_complete_gfx_snapshot = None;
         if !used_debug_warp || !use_recording_oracle_lifecycle {

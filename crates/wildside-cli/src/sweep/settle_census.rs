@@ -817,6 +817,45 @@ mod tests {
         );
     }
 
+    /// #421: the 0x61 Scorpion shell contact must survive the title->live
+    /// boundary. Oracle probe (idle scenario, watches `$FFFC40`/`$FFFA73`):
+    /// Kid enters scenario frame 0 with Number_Hitpoints=1 and
+    /// Just_received_damage CLEAR — the li=0 Scorpion (Scorpion.asm
+    /// Enemy13 init walk, `stru_3DB60` CollisionSize rows unk_318EA..)
+    /// walks through Kid during the hidden shell, and the ROM's contact
+    /// damage (Check_for_recent_damge -> loc_B700, no knockback) plus the
+    /// ~66-frame loc_BC54 flash both play out entirely before frame 0.
+    /// The returning Scorpion then lands the fatal second hit around
+    /// visible frame 22.
+    #[test]
+    fn gameplay_regression_scorpion_shell_contact_survives_boundary_level_0x61() {
+        use wildside_core::{LevelId, NativeRuntime};
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.set_recorded_title_card_handoff_delay(true);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x61));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x61));
+        let frame = runtime.trace_frame();
+        assert_eq!(
+            frame.number_hitpoints, 1,
+            "oracle frame 0: the shell walk-through contact already cost Kid \
+             one hit point; the boundary must not restore it"
+        );
+        assert!(
+            !frame.just_received_damage,
+            "oracle frame 0: the loc_BC54 flash finished before the live \
+             window, so Just_received_damage is clear again"
+        );
+        assert_eq!(
+            (frame.kid_x_pos, frame.kid_y_pos),
+            (Some(0x0060_0000), Some(0x007F_0000)),
+            "contact damage has no knockback: Kid still stands at the spawn \
+             column at frame 0"
+        );
+    }
+
     /// #420: the 0x68 Driller shell journey. Oracle settle trace (census run
     /// 1786662123): li=3/li=5 walk left at 0.5px/frame (hp 2), wall-turn at
     /// x=12 against the level edge, and read exactly x=59.5 at frame 0;
