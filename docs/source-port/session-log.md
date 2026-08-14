@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#417 prize-block fixtures fixed)
+
+- The shifted wobble assertion now follows ASM `sub_1007A/stru_101B6`'s
+  temporary `$220` page. The spawn flash samples its first presentable `$2CF`
+  page after the two oracle-pinned retained P-sprite frames.
+- All ten focused prize-block tests pass. The CLI failure ratchet lowers from
+  5 to 3; continue #417 with Iron Knight pose, reveal priority and level refresh.
+
 ## 2026-08-14 handoff (#417 platform-scene fixtures fixed)
 
 - Generic scene fixtures now supply typed ASM `loc_244C` platform dimensions,

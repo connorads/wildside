@@ -8957,8 +8957,8 @@ mod tests {
         };
         assert_eq!(
             copied_wobble_tiles.first().map(|tile| tile.tile.tile_index),
-            Some(0x008),
-            "ASM sub_1007A shifted wobble should preserve the copied `$E102` prize skin"
+            Some(0x000),
+            "ASM sub_1007A/stru_101B6 remaining=28 should draw the copied `$220` page, matching oracle frame 1023"
         );
         assert_eq!(grid.cell_at(1, 0), priority_cell);
     }
@@ -14290,8 +14290,10 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         // ASM sub_1007A places the loc_102B8 flash at cell_x*16+8,
         // cell_y*16-8. With sample camera (16,8), world (56,24) draws a
-        // 24x24 frame at screen top-left (28,4).
-        trace.prize_block_spawn_flashes = vec![(0x0038, 0x0018, 25)];
+        // 24x24 frame at screen top-left (28,4). The published-route oracle
+        // retains the prior P sprite at remaining=25 and 24, then presents
+        // stru_102DE's first `$2CF` page at remaining=23.
+        trace.prize_block_spawn_flashes = vec![(0x0038, 0x0018, 23)];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
 

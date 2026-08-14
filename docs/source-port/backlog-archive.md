@@ -3861,6 +3861,13 @@ places the first cell at y=14, including the ROM's two-pixel bias, rather than
 the stale y=16. Both focused tests pass; the full CLI ratchet lowers the
 baseline 7 -> 5.
 
+Progress 2026-08-14: both prize-block failures asserted superseded presentation
+instants. ASM `sub_1007A/stru_101B6` remaining=28 displays the temporary copied
+VRAM `$220` page at native sheet indices 0..3, as already pinned against oracle
+frame 1023. ASM `loc_102B8` retains the prior P sprite for remaining=25 and 24;
+the first presentable `stru_102DE` `$2CF` flash page is remaining=23. All ten
+focused prize-block tests pass; the full CLI ratchet lowers the baseline 5 -> 3.
+
 Evidence source: `cargo test -p wildside-cli` on clean `main` (authoritative for
 test status). Native repro: reproduced. Minimum gate: `failing-test-ratchet` +
 `verify-slice-fast`.
