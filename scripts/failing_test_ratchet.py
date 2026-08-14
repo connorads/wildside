@@ -54,6 +54,18 @@ TESTS_BLOCK_RE = re.compile(r"^tests:\n(?P<body>(?:[ \t]*-[ \t].*\n?)*)", re.MUL
 BASELINE_ITEM_RE = re.compile(r"^[ \t]*-[ \t]+(?P<id>\S+)\s*$", re.MULTILINE)
 
 
+def report_did_not_run(proc: subprocess.CompletedProcess[str]) -> None:
+    """Name why the suite did not run: cargo's exit status and its stderr tail.
+
+    The hk step surfaces only this script's stderr, so without the passthrough a
+    blocked commit says "did not run" with no way to see the compile error.
+    """
+    print(f"cargo test exit status {proc.returncode}", file=sys.stderr)
+    tail = proc.stderr.splitlines()[-20:]
+    for line in tail:
+        print(f"    {line}", file=sys.stderr)
+
+
 def current_failures() -> set[str] | None:
     """Run the `wildside-cli` suite and parse the final `failures:` summary block.
 
@@ -79,12 +91,16 @@ def current_failures() -> set[str] | None:
         text=True,
     )
     # libtest exits 0 on success and 101 on test failures; anything else is a
-    # build/harness problem, i.e. the suite did not run.
+    # build/harness problem, i.e. the suite did not run. cargo also exits 101 on
+    # its own build errors, so the exit status alone cannot prove a run
+    # happened — the `test result:` line check below closes that half.
     if proc.returncode not in (0, 101):
+        report_did_not_run(proc)
         return None
     # cargo prints test output to stdout; captured-output ordering is preserved.
     lines = proc.stdout.splitlines()
     if not any(line.startswith("test result:") for line in lines):
+        report_did_not_run(proc)
         return None
     result_lines = sum(1 for line in lines if line.startswith("test result:"))
     if result_lines != 1:
