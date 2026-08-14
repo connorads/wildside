@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#421 Armadillo allocation defer exact)
+
+- Oracle settle census `1786704210` proves 0x62 Armadillo li=7 is allocated on
+  title row 71, initialised at x=$0098 on row 72, and first walks on row 73.
+  Native now applies that one-pass `loc_3691E` defer and matches the focused
+  route through frame 3; the 0x11 Armadillo witness remains green.
+- The next divergence is Scorpion's damage latch at frame 4. Native reaches the
+  handoff with five countdown ticks while oracle clears its `loc_BC34` worker
+  at frame 10. Animation-seed and one-frame global latch experiments were
+  rejected. Trace the 0x62 sting-entry/object-worker phase next.
+- Both required gates pass. Full sweep `1786705177` remains 58/69 with 43
+  blockers and no per-level regression.
+
 ## 2026-08-14 handoff (#421 Scorpion collision animation exact)
 
 - ROM PC tracing proved the 0x61 parent collision latches on frame 21 and fatal

@@ -14139,7 +14139,9 @@ impl NativeRuntime {
         // `j_Hibernate_Object_1Frame`, and the loc_3C0D2/loc_3C026
         // walker-entry hibernate; oracle run 1786662123 shows 0x55 li=3 in
         // init resume codes on title rows 61/62, parked at 120 on row 63,
-        // first stepping on row 64). Scoped to those families:
+        // first stepping on row 64), Armadillo 1 (0x62 title rows 71/72/73
+        // hold Enemy04_Armadillo_Init, park at spawn, then first walk).
+        // Scoped to those families:
         // the other shell frame-0 witnesses (0x30/0x40/0x48 UFO among
         // them) are position-exact WITHOUT a delay, and the published
         // route's 37,518 pixel-exact frames pin the live
@@ -14158,6 +14160,11 @@ impl NativeRuntime {
                 // 3BCF0/3BCF4 on title rows 61/62, parked at x=120 on row
                 // 63, first step on row 64).
                 EnemyFamily::Driller => 3,
+                // ASM Enemy04_Armadillo_Init (#421): loc_3691E allocates the
+                // object after Execute_Objects. The next pass runs init into
+                // loc_3E546 and hibernates at spawn; loc_3E7C4 first moves on
+                // the following pass (census 1786704210, 0x62 rows 71/72/73).
+                EnemyFamily::Armadillo => 1,
                 // ASM Enemy13_Scorpion_Init (#421): loc_3691E allocates the
                 // object after Execute_Objects. Its first pass runs init
                 // straight into loc_3E392/loc_3E546 and hibernates at spawn;

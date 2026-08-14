@@ -5979,6 +5979,31 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level62_recording_settle_defers_armadillo_walk_after_allocation_loc_3691e_3c6dc() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x62)
+            .settle_recording_warp()
+            .run(&[0], 1)
+            .into_iter()
+            .next()
+            .expect("settled level 0x62 frame 0");
+        let armadillo = trace
+            .active_enemy_details
+            .iter()
+            .find(|object| object.kind == NativeObjectKind::Enemy { object_type: 0x04 })
+            .expect("settled Level 0x62 Armadillo should be active at frame 0");
+
+        assert_eq!(
+            armadillo.x_pos, 0x0061_8000,
+            "ASM Manage_EnemyLoading loc_3691E allocates Enemy04_Armadillo_Init after Execute_Objects; title-wait row 71 holds the init PC, row 72 initialises at x=$0098, and loc_3E7C4 first moves on row 73, leaving x=$0061.8000 at recording frame 0"
+        );
+    }
+
+    #[test]
     fn level14_recording_settle_counts_drips_controllers_enemy16_drip_init() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

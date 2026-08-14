@@ -873,6 +873,24 @@ worker count parity (native `driller.rs` `loc_3BE78`/`loc_3BE60` refcount).
 
 ### #421
 
+2026-08-14 implementation - 0x62's first scheduled-pass mismatch is fixed.
+Fresh oracle settle census `1786704210` proves `Manage_EnemyLoading loc_3691E`
+allocates Armadillo li=7 on title row 71, `Enemy04_Armadillo_Init` parks it at
+x=$0098 on row 72, and shared walker `loc_3E7C4` first moves it on row 73.
+Native now gives Armadillo the same one-pass allocation/init defer already
+modelled for Scorpion. The focused 0x62 route matches every field through frame
+3 and pins frame-0 Armadillo x=$0061.8000; the older 0x11 x=$0163 witness stays
+green. The next divergence is frame 4 `just_received_damage`: native reaches
+the shell handoff with countdown 5 and clears there, while the oracle
+`loc_BC34..loc_BC72` worker retains the latch until frame 10. Rejected two
+global guesses: changing Scorpion's walk-animation seed 6→0 regresses 0x61 at
+frame 22 without moving 0x62, and delaying the shared latch clear by one frame
+only moves 0x62's fatal hit from frame 5 to 6. Do not change the proven 66
+hibernate ticks or the shell length; trace the 0x62 sting-entry/object-worker
+phase that starts native damage roughly six ticks early. `verify-slice-fast`
+and `verify-tas-full` pass; full sweep `1786705177` stays 58/69 with 43 blockers
+and no per-level regression.
+
 2026-08-14 implementation - the 0x61 second-contact chain is exact. Oracle PC
 trace through `GfxObjects_CollisionKid loc_1B76..loc_1CF2` showed the Scorpion
 parent latches its side contact on visible frame 21 and
