@@ -98,7 +98,7 @@ depends = [
 # debug target dir lets the clippy and test caches converge. (#24)
 run = """
 sh -ec '
-cargo test -q -p wildside-core --lib -- --skip demo_ --skip published_tas --skip snapshot \
+python3 scripts/core_test_exclusions.py \
   && cargo test -q -p wildside-cli gameplay_regression_ \
   && cargo test -q -p wildside-rom
 '
@@ -106,7 +106,7 @@ cargo test -q -p wildside-core --lib -- --skip demo_ --skip published_tas --skip
 description = "Canonical green-gate: wildside-core unit sweep + wildside-cli gameplay regressions + wildside-rom + TAS frontier replay. Must pass at every commit."
 
 [tasks.workspace-failing-test-ratchet]
-run = "python3 scripts/test_workspace_failing_test_ratchet.py && python3 scripts/workspace_failing_test_ratchet.py"
+run = "python3 scripts/test_core_test_exclusions.py && python3 scripts/test_workspace_failing_test_ratchet.py && python3 scripts/workspace_failing_test_ratchet.py"
 description = "Fail on new named failures in md/frame/data/render/web; baseline may only shrink (#445)"
 
 [tasks.verify-1p-playable]

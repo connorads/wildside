@@ -1668,6 +1668,18 @@ loc_D770_eol_score_counter_snapshot...). With `--skip demo_` (171) and
 `--skip published_tas` (195), 306 core tests are name-pattern-excluded with
 no ratchet.
 
+Closed 2026-08-14. The earlier `6d6b43743` rename placed 20 ordinary
+trace-export regressions back inside the fast gate and left only the three
+real insta tests matching `snapshot`. The three broad libtest substring
+filters are now replaced by `core-test-exclusions.json`: 286 sorted exact
+names (283 demo/published-TAS routes plus the three insta tests). The runner
+lists the live suite, rejects any newly pattern-matched or stale exclusion,
+proves every full-name libtest filter selects exactly one test, then runs the
+7,153-test fast set. Parser contracts pin sorting/deduplication and reject
+substring collisions. `verify-slice-fast` consumes this runner, so a newly
+named `*_snapshot_*`, `demo_*`, or `published_tas*` test cannot silently go
+dark.
+
 ### #445
 
 2026-08-14 closure - all six formerly dark crates now run under the fast gate.
@@ -23115,6 +23127,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 439 | [x] | P2 | audio | Exact ASM call sites own block, Iron Knight, walking Dragon, title-thunder, jump and damage-voice SFX; broad state-delta fallbacks are removed. Every SFX opcode/argument multiset now matches oracle. | Full command parity 396→64 mismatches, 60→346 exact; native/oracle totals 428/437 differ only by #440's nine `0B` reloads. Full gameplay, RNG and pixel gates unchanged. See archive #439. |
 | 440 | [x] | P2 | audio | Exact command schedule: ROM order for same-frame destroy/diamond SFX, per-demo `loc_12004` loader boundaries, and both `loc_C0A` plus `Load_SegaScreen` reloads on every counterless demo return. | Full command parity 64→0 mismatches, 346→391 exact; native/oracle totals both 437, with 46 one-frame reconciliations. See archive #440. |
 | 441 | [x] | P2 | audio | Capture each oracle GEMS signature's instruction-quantised master clock and replay at that exact instant, eliminating sample timing and seed-divider alignment as causes of #437's residual. | Frame 871 divider phases become identical but native remains one Z80 instruction ahead; 1,623/1,631 strict frames classify the bounded residue as true Z80 execution drift. See archive #441. |
+| 444 | [x] | P2 | testing | Replace broad libtest substring skips with a reviewed exact-name exclusion manifest; the earlier trace-export renames keep all 20 ordinary enemy regressions inside the fast gate. | 286 exact exclusions are ratcheted; 7,153 core tests run, and contract tests reject new, stale, or substring-colliding exclusions. See archive #444. |
 | 437 | [x] | P2 | audio | Bounded-span timing replay: `oracle-probe --gems-stimulus-frames` captures the oracle's 68k→Z80 stimulus stream; `gems-span-replay` seeds a fresh engine at the frame-869 reinit and replays 34,135 stimuli over frames 870-2500. | Measured: first strict divergence frame 871 = z80_pc off by one instruction, 2-mclk phase offset, identical RAM/bank/wait/status; shapes bounded, non-compounding; skew-16 sensitivity unchanged. Report `.cache/audit/gems-span-replay-870-2500.json`; discriminator follow-up #441. See archive #437. |
 | 436 | [x] | P2 | audio | GEMS replay seam probe: `GemsStimulus` record buffer inside `GemsMasterClockTimingEngine` (outermost-public-entry rule, no call-site wrapping); `gems-replay-probe` records the frozen span and replays a fresh engine. | GO: 923/923 frames bit-identical full checkpoints from 34,091,643 recorded stimuli; frozen witness bit-identical before/after the seam (verify-tas-full ×2). See archive #436. |
 | 435 | [x] | P1 | audio | Command-parity gate `gems_command_parity_v1`: one `GemsRingDecoder` over both sides' mailbox rings, ordered per-frame comparison with directional ±1 skew reconciliation, `tas-gems-command-baseline` ratchet wired into `verify-tas-full` as the authoritative audio gate. | Honest baseline 419 mismatches / first at 16, fully attributed to native schedule clusters #438-#440; gate Match on baseline. See archive #435. |

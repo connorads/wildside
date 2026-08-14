@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#444 closed)
+
+- `verify-slice-fast` no longer uses broad `demo_`, `published_tas`, or
+  `snapshot` substring skips.
+- A checked-in set names all 286 reviewed slow/insta exclusions exactly and
+  fails on new, stale, or substring-colliding entries.
+- The 20 ordinary trace-export tests renamed earlier remain in the 7,153-test
+  fast core gate.
+
 ## 2026-08-14 handoff (#441 closed)
 
 - Oracle GEMS captures now export each `FrameRendered` signature's actual
