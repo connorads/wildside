@@ -1429,6 +1429,23 @@ no ratchet.
 
 ### #445
 
+2026-08-14 read-only census (no changes landed; selection returned to
+#420). The 2026-08-01 failure set has collapsed from 27 to 6:
+rom GREEN (12 tests); md 1
+(`runtime::tests::sprite_line_scan_keeps_a_zeroed_loc_b42_terminator_offscreen`);
+frame 1
+(`sprites::tests::select_player_frame_uses_accumulator_for_ground_slope_and_walk_poses`);
+data 1
+(`bundle_blob::tests::canonical_rom_extractor_matches_native_runtime_pack_byte_for_byte`);
+render 1 (`bundle::tests::enemy_visual_specs_include_rom_waited_death_frames` —
+the 21-test `load_*_visuals` family is gone, one residue); web 2
+(`session::tests::runtime_asset_catalogue_covers_attract_audio_and_every_level_boot`,
+`tests::wasm_extractor_boundary_matches_native_runtime_bundle`).
+Cost note for the wiring session: web's suite runs ~2.5 min (multi-target:
+3 `test result:` lines — the generalised ratchet needs a per-target parse,
+not the single-binary refusal); rom is 0s and can enter verify-slice-fast
+immediately.
+
 Opened 2026-08-01 (campaign audit). Per-crate gate coverage: core 7375 gated
 minus 306 skips; cli 1346 with only `gameplay_regression_*` (17) gated; frame
 209, render 82, data 165, md 147, rom 12, web 10 — no gate, no CI. ≈24% of
