@@ -912,6 +912,18 @@ and landing, including `loc_3E682..loc_3E7CA`, `$4E` tracking lock, and linked
 tail ownership; do not enable the family gate from endpoint counts alone.
 Experiment removed.
 
+Dead end 2026-08-14 - do not replace the Lion/Scorpion falling loop's centre
+landing probe with a full-width `probe_floor_hitbox` scan. Although
+`loc_3E732 -> sub_36C6A` scans the body span, applying that endpoint operation
+inside native's approximate fall loop did not repair the earlier trajectory:
+li=1 still terrain-died at x=295.5/y=352 and li=2 reached x=195/y=288 instead
+of the oracle's frame-0 x=312 and x=129. Focused sweep `1786699692` remained
+at three 0x61 and four 0x62 blockers; 0x60 still passed. The experiment also
+proved endpoint landing width cannot compensate for the missing per-pass
+`loc_3E682..loc_3E7CA` state transitions. Experiment removed. Next work must
+compare the first divergent scheduled pass after each initial landing, not
+another terminal collision-probe substitution.
+
 2026-08-14 session — boundary-damage fix LANDED (4d39e50b5), row stays
 [~]. Narrow probes (oracle-settle-census run 1786673717 + oracle-probe
 watches on `$FFFC40`/`$FFFA73`) decoded both levels end to end:

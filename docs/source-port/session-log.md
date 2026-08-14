@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#421 Scorpion fall-path probe)
+
+- The visible-window enemy frontier separates all three 0x61 Scorpions. li=0
+  remains phase-exact. Native terrain-kills li=1 and misroutes li=2 before
+  visible frame 0; oracle retains both at HP 3 at x=312/y=352 and x=129/y=288.
+- Rejected a full-width `probe_floor_hitbox` substitution at
+  `loc_3E732 -> sub_36C6A`. It leaves li=1 dead at x=295.5/y=352, puts li=2
+  at x=195/y=288, and leaves focused sweep `1786699692` at three 0x61 plus
+  four 0x62 blockers. 0x60 remains green. The experiment was removed.
+- Next #421 session must compare the first divergent scheduled pass after each
+  initial landing through `loc_3E682..loc_3E7CA`; do not retry endpoint landing
+  width or infer the family gate from frame-0 counts.
+
 ## 2026-08-14 handoff (#421 Scorpion init phase exact)
 
 - Corrected the first two-pass reading before push. Allocation happens after
