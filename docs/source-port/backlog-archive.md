@@ -3853,6 +3853,14 @@ origin. The hscrolled sample is source column 12, and the packed `$005D`
 diagnostic is `d11<-s11`, matching the existing frame-layer contract. Both
 focused tests pass; the full CLI ratchet lowers the baseline 9 -> 7.
 
+Progress 2026-08-14: both generic scene-placement failures used pre-dispatch
+platform snapshots. `push_platform_tiles` now correctly requires typed width,
+height, render flags and mapping word from ASM `loc_244C`; adding the `$94`
+horizontal mapping state restores asset-backed art. Its `loc_24D4` mapping
+places the first cell at y=14, including the ROM's two-pixel bias, rather than
+the stale y=16. Both focused tests pass; the full CLI ratchet lowers the
+baseline 7 -> 5.
+
 Evidence source: `cargo test -p wildside-cli` on clean `main` (authoritative for
 test status). Native repro: reproduced. Minimum gate: `failing-test-ratchet` +
 `verify-slice-fast`.

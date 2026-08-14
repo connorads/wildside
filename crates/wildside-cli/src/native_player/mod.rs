@@ -13691,7 +13691,12 @@ mod tests {
                 walk_phase: None,
                 sprite_animation_phase: None,
                 wait_timer: None,
-                debug_fields: std::collections::BTreeMap::new(),
+                debug_fields: std::collections::BTreeMap::from([
+                    ("platform_width_px".to_string(), "31".to_string()),
+                    ("platform_height_px".to_string(), "15".to_string()),
+                    ("platform_render_flags".to_string(), "0".to_string()),
+                    ("platform_mapping_addr_word".to_string(), "148".to_string()),
+                ]),
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -17061,7 +17066,12 @@ mod tests {
                 walk_phase: None,
                 sprite_animation_phase: None,
                 wait_timer: None,
-                debug_fields: std::collections::BTreeMap::new(),
+                debug_fields: std::collections::BTreeMap::from([
+                    ("platform_width_px".to_string(), "31".to_string()),
+                    ("platform_height_px".to_string(), "15".to_string()),
+                    ("platform_render_flags".to_string(), "0".to_string()),
+                    ("platform_mapping_addr_word".to_string(), "148".to_string()),
+                ]),
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -17109,7 +17119,11 @@ mod tests {
             },
         ];
         let scene = build_ingame_scene(&trace, true, None);
-        assert_eq!(sprite_position(&scene, 41), Some((-4, 16)));
+        assert_eq!(
+            sprite_position(&scene, 41),
+            Some((-4, 14)),
+            "ASM loc_244C/loc_24D4 applies the horizontal platform mapping's two-pixel Y bias"
+        );
         assert_eq!(sprite_position(&scene, 21), Some((10, 12)));
         assert_eq!(sprite_position(&scene, 1), Some((8, -24)));
     }

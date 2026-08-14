@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#417 platform-scene fixtures fixed)
+
+- Generic scene fixtures now supply typed ASM `loc_244C` platform dimensions,
+  flags and `$94` mapping word. The exact `loc_24D4` two-pixel Y bias is pinned.
+- Both focused tests pass. The CLI failure ratchet lowers from 7 to 5;
+  continue #417 with its final pose, reveal, level-refresh and prize tests.
+
 ## 2026-08-14 handoff (#417 Plane-B fixtures fixed)
 
 - Chunked Plane-B assertions now use ASM `sub_307D8`'s shared zero-based

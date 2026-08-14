@@ -14,10 +14,8 @@
 # diff-stable when re-seeded.
 version: 1
 tests:
-  - native_player::tests::game_scene_places_native_objects_relative_to_camera
   - native_player::tests::iron_knight_attach_hibernate_preserves_pre_sub_a3bc_pose_loc_a276
   - native_player::tests::level_complete_reveal_foreground_overrides_priority_hologram_pixels_loc_c21e
   - native_player::tests::live_level_change_direct_target_refreshes_runtime_block_grid_and_title_card
-  - native_player::tests::native_scene_builder_uses_asset_backed_commands_for_visible_level1_families
   - native_player::tests::prize_block_spawn_flash_uses_loc_102b8_stru_102de_tiles_above_block
   - native_player::tests::prize_block_wobble_draws_shifted_copied_tile_sub_1007a_issue324
