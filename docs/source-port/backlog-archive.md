@@ -3809,6 +3809,16 @@ tests pass, including Juggernaut, Cyclone and Skycutter prize records. The full
 CLI ratchet run removes that test and lowers the baseline 26 -> 25. The residue
 is entirely `native_player` clusters.
 
+Progress 2026-08-14: the six audio-transition failures were stale synthetic
+fixtures, not production defects. The command-parity model deliberately waits
+after ASM `Load_InGame` `StopMusic` until core emits the explicit `loc_12004`
+PlaySound event; the old fixtures expected an inferred level-theme start while
+providing no `played_bgm_ids`. They now queue the CAVE event and assert the
+resulting `CoreQueued(7)` cue. This preserves the already-green frame-layer
+contracts for the silent loader gap and authoritative start instant. The
+focused scripted event test and all 59 `play_native_*` tests pass; the full CLI
+ratchet removes all six failures and lowers the baseline 25 -> 19.
+
 Evidence source: `cargo test -p wildside-cli` on clean `main` (authoritative for
 test status). Native repro: reproduced. Minimum gate: `failing-test-ratchet` +
 `verify-slice-fast`.

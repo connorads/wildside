@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#417 audio fixtures fixed)
+
+- Six synthetic audio tests now include core's explicit ASM `loc_12004` BGM
+  event. They retain the production model's silent loader gap after
+  `StopMusic`, then assert the authoritative `CoreQueued` start.
+- The focused scripted event test and all 59 `play_native_*` tests pass. The
+  CLI failure ratchet lowers from 25 to 19; continue #417 with a render/scene
+  cluster verdict.
+
 ## 2026-08-14 handoff (#417 inspect cluster fixed)
 
 - Later-level `inspect-level` block records now fall back to core's

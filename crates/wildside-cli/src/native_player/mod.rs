@@ -21961,6 +21961,7 @@ mod tests {
         options.played_sound_effect_ids = vec![gems_sfx::NAVIGATE_JINGLE];
         let mut gameplay = sample_trace(GameMode::InGame);
         gameplay.frame_index = 2900;
+        gameplay.played_bgm_ids = vec![gems_bgm::CAVE];
         gameplay.played_sound_effect_ids = vec![gems_sfx::NAVIGATE_JINGLE, gems_sfx::DESTROY_BLOCK];
 
         let events = native_audio_events_for_trace(&fixture.manifest, &[intro, options, gameplay]);
@@ -21979,7 +21980,7 @@ mod tests {
                     gems_sfx::NAVIGATE_JINGLE
                 ),
                 String::from(
-                    "frame=2 mode=InGame level=00 active_before=Some(Options) active_after=Some(Level(LevelId(0))) command=StopMusicThenStart(7)"
+                    "frame=2 mode=InGame level=00 active_before=Some(Options) active_after=Some(CoreQueued(7)) command=StopMusicThenStart(7)"
                 ),
                 format!(
                     "frame=2 mode=InGame level=00 command=StartSequence({})",
@@ -22193,7 +22194,8 @@ mod tests {
     fn play_native_title_start_stops_shell_before_level_music() -> anyhow::Result<()> {
         let fixture = ManifestFixture::new()?;
         let transition = sample_trace(GameMode::LevelTransition);
-        let level = sample_trace(GameMode::InGame);
+        let mut level = sample_trace(GameMode::InGame);
+        level.played_bgm_ids = vec![gems_bgm::CAVE];
 
         let (active_after_gap, gap_command) = native_bgm_state_after_trace(
             &fixture.manifest,
@@ -22212,7 +22214,7 @@ mod tests {
         assert_eq!(
             native_bgm_state_after_trace(&fixture.manifest, &level, active_after_gap),
             (
-                Some(NativeBgmCue::Level(LevelId(0))),
+                Some(NativeBgmCue::CoreQueued(gems_bgm::CAVE)),
                 Some(NativeBgmPlaybackCommand::Start(gems_bgm::CAVE)),
             ),
             "after the title shell has already run ASM StopMusic, Load_InGame can queue the level BGM directly"
@@ -22224,7 +22226,8 @@ mod tests {
     fn play_native_death_respawn_stops_level_bgm_before_loader_restart() -> anyhow::Result<()> {
         let fixture = ManifestFixture::new()?;
         let transition = sample_trace(GameMode::LevelTransition);
-        let level = sample_trace(GameMode::InGame);
+        let mut level = sample_trace(GameMode::InGame);
+        level.played_bgm_ids = vec![gems_bgm::CAVE];
 
         let (active_after_gap, gap_command) = native_bgm_state_after_trace(
             &fixture.manifest,
@@ -22243,7 +22246,7 @@ mod tests {
         assert_eq!(
             native_bgm_state_after_trace(&fixture.manifest, &level, active_after_gap),
             (
-                Some(NativeBgmCue::Level(LevelId(0))),
+                Some(NativeBgmCue::CoreQueued(gems_bgm::CAVE)),
                 Some(NativeBgmPlaybackCommand::Start(gems_bgm::CAVE)),
             ),
             "after the death-respawn loader reset, the active level cue should restart from the foreground theme instead of continuing over the black hold"
@@ -22255,7 +22258,8 @@ mod tests {
     fn play_native_eol_transition_stops_scoreboard_before_next_level_bgm() -> anyhow::Result<()> {
         let fixture = ManifestFixture::new()?;
         let transition = sample_trace(GameMode::LevelTransition);
-        let level = sample_trace(GameMode::InGame);
+        let mut level = sample_trace(GameMode::InGame);
+        level.played_bgm_ids = vec![gems_bgm::CAVE];
 
         let (active_after_gap, gap_command) = native_bgm_state_after_trace(
             &fixture.manifest,
@@ -22274,7 +22278,7 @@ mod tests {
         assert_eq!(
             native_bgm_state_after_trace(&fixture.manifest, &level, active_after_gap),
             (
-                Some(NativeBgmCue::Level(LevelId(0))),
+                Some(NativeBgmCue::CoreQueued(gems_bgm::CAVE)),
                 Some(NativeBgmPlaybackCommand::Start(gems_bgm::CAVE)),
             ),
             "after the EOL loader reset, loc_12004 queues the next level BGM from a clean GEMS state"
@@ -22289,7 +22293,8 @@ mod tests {
         transition.level_complete = true;
         transition.level_complete_elapsed_frames = 1;
         transition.level_complete_score_counter_drained = true;
-        let level = sample_trace(GameMode::InGame);
+        let mut level = sample_trace(GameMode::InGame);
+        level.played_bgm_ids = vec![gems_bgm::CAVE];
 
         let (active_after_gap, gap_command) =
             native_bgm_state_after_trace(&fixture.manifest, &transition, None);
@@ -22311,7 +22316,7 @@ mod tests {
         assert_eq!(
             native_bgm_state_after_trace(&fixture.manifest, &level, active_after_gap),
             (
-                Some(NativeBgmCue::Level(LevelId(0))),
+                Some(NativeBgmCue::CoreQueued(gems_bgm::CAVE)),
                 Some(NativeBgmPlaybackCommand::Start(gems_bgm::CAVE)),
             ),
             "after the hard reset sentinel, the next level BGM starts cleanly without another stop-all"
@@ -22414,6 +22419,7 @@ mod tests {
         let fixture = ManifestFixture::new()?;
         let previous = sample_trace(GameMode::LevelTransition);
         let mut level = sample_trace(GameMode::InGame);
+        level.played_bgm_ids = vec![gems_bgm::CAVE];
         level.played_sound_commands = vec![
             NativeSoundCommand::start_sequence(gems_sfx::TANK_DRIVING),
             NativeSoundCommand::start_sequence(gems_sfx::TANK_MOUTH_OPEN),
