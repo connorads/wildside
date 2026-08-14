@@ -7,6 +7,33 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#420 partial — travelling drill children landed, stomp-latch phase remains)
+
+- Landed the ROM Driller model in three commits: grid fidelity
+  (cae78b0fc: hidden `$2000` cells survive prize reconciliation and the
+  settled-warp boundary keeps the lived-in grid, with a no-grid reload
+  fallback for 0x35's block-list-guard path), the travelling drill
+  children + loc_3BE78 smash consume (9303f9ff1: loc_3BFD4 re-pin,
+  never-integrated `$26` velocity ORIGINAL_QUIRK, unk_31A7A boxes,
+  loc_1A00/loc_197E push-outs, boundary clamps, level-edge wall turn,
+  stru_3BCCE retract), and exact contact surfaces (12e9dce72: unk_31A86
+  body box, drill-child touch damage with the measured -$3C000 rebound).
+- 0x55 drops 16→5 blocking diffs; clean-cache full sweep `1786671580`
+  is 56/69 with zero per-level regressions vs canonical `1786660540`;
+  verify-slice-fast and verify-tas-full green with all ratchets at their
+  committed frontiers. The 0x68 smash cadence is pinned by a live
+  oracle-probe regression (cols 6/7/8 at frames 2/34/66).
+- #420 stays [~]: everything left on 0x55/0x68 traces to the native
+  Kid-stomp latch running one phase frame late vs the ROM's
+  GfxObjects_CollisionKid latch-then-consume-pre-walk order. Exact
+  residue diffs, the 0x68 spawn/landing phase frames, and the
+  re-derivation bar (two #[ignore]d oracle-value shell witnesses) are in
+  archive #420.
+- Investigation hygiene: my dump-level-layout sidecars (26/35/55/68)
+  changed native block-list behaviour and manufactured both the
+  truncated-hidden-list pathology and an interim 0x26 "regression";
+  they are removed and the definitive runs used the clean cache.
+
 ## 2026-08-13 handoff (#419 closed — Goat grounded wall hold; #457 closed with it)
 
 - The 0x60 idle_tail residue was never the Kid knockback: a full per-frame

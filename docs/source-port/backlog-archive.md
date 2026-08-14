@@ -719,6 +719,62 @@ regression is tightened to equality at 0x02478000 and passes.
 
 ### #420
 
+2026-08-14 implementation session — PARTIAL LANDED (row stays [~]).
+Landed as cae78b0fc (grid fidelity), 9303f9ff1 (travelling drill
+children + loc_3BE78 smash), 12e9dce72 (exact contact boxes + child
+touch damage). Key measured findings beyond the probe session:
+
+- ORIGINAL_QUIRK: the drill children never set `is_moved` ($14), so
+  GfxObject_Move skips them — the ∓$8000 `$26` velocity ONLY steers
+  GfxObjects_Collision's left/right resolution. Child position is purely
+  the loc_3BFD4 re-pin (leading $18/trailing $17) plus push-outs; every
+  earlier fraction/parity model was a dead end.
+- Smash cadence law: a corridor cell col N is consumed at body
+  x = 16N+38 (left child) / body_int = 16N-23 (right child). Verified
+  against oracle-probe watches on 0x68 row 4 (cells cleared frames
+  2/34/66 exactly; live regression
+  driller_smash_cadence_matches_oracle_probe_level_0x68_row4) and the
+  0x55 census rows.
+- The x=60 self-kill needed NO walker change: the ROM body survives
+  because the child clears the path 11-12px ahead of the body scan.
+  Two grid corruptions were the real kill: (a) the prize reconcile
+  resurrected sub_127A8 `$2000` hidden cells as solid `$E102` whenever
+  the hidden-record list was truncated (my own dump-level-layout 55
+  sidecar triggered it; sidecars 26/35/55/68 removed from
+  .cache/generated — the synthesised block list is correct without
+  them); (b) the settled-warp title->live boundary reloaded the grid,
+  resurrecting drilled cells (oracle frame-0 RAM keeps 00f9/00fa).
+- Dead end: an unconditional no-reload gate broke 0x35 (its lifecycle
+  leaves no grid — the block-list guard path); the landed gate reloads
+  only when no lived-in grid exists. An interim 0x26 "regression" was
+  contamination from my own 26.bin sidecar, not code.
+- Kid interplay: falling onto a drill child flips y_vel to exactly
+  -$3C000 (census 1786662123 live 33 fresh hit hp 2->1 + live 51 under
+  invulnerability); the body box is unk_31A86 (-$7,$F,-$F,$E) and a
+  body stomp is a clean bit14-clear stomp (ONE per shell, live 51);
+  a stomped Driller retracts stru_3BCCE's $1E ticks.
+
+Remaining (the close bar is unchanged — 0x55/0x68 pass the state sweep):
+clean-cache full sweep `1786671580` = 56/69, zero per-level regressions,
+0x55 16→5 blocking diffs. Exact residue:
+0x55 level_settle just_received_damage false/true; idle_tail
+number_objects 4/5, number_gfx_objects 7/10, number_hitpoints 3/1,
+just_received_damage false/true. 0x68 level_settle number_objects 6/8,
+number_gfx_objects 13/15. Root cause of all of it: the ROM latches the
+`$2C` stomp in the PREVIOUS frame's GfxObjects_CollisionKid pass and
+loc_3BE78 consumes it BEFORE the walk step; native classifies the stomp
+inside the contact frame after the walker stepped. That one phase frame
+parks li=3 at 13 (oracle 12), shifts Kid's bounce band (0x908000 vs
+0x8FC000 at frame 0), and diverges the post-settle interplay (oracle:
+retract ends, driller side-hits Kid twice, Micromax 3->1,
+Just_received_damage held by the ~66-frame loc_BC54 flash; a diamond by
+idle_tail). 0x68's counts are two 2-frame smash workers whose windows
+miss the settle sample because li=1 lands 3 phase frames early and
+li=3/li=5 spawn 2 early. Re-derivation bar: the two #[ignore]d shell
+witnesses in sweep/settle_census.rs pin pure oracle values
+(li=3 12.0/hp2, li=2 405, Kid 0x8FC000; li=1 72.0, li=3/li=5 59.5)
+against census run 1786662123 — fix the latch, re-measure, re-enable.
+
 2026-08-13 probe session — ROOT CAUSE IDENTIFIED (ready to implement).
 0x55 diverges AT FRAME 0 (all shell-window): oracle Kid already hit
 (hp 1, just_received_damage, falling) and one object ahead; by settle the
