@@ -3875,6 +3875,13 @@ non-climbing trace. The fixture now supplies both sides to the existing typed
 latch instead of rendering post-update climb state directly. The focused test
 passes; the full CLI ratchet lowers the baseline 3 -> 2.
 
+Progress 2026-08-14: the EOL reveal priority failure used a two-colour palette
+for ASM `sub_C254`'s `$441A` replacement tile. Pixel provenance confirms the
+priority clear and subsequent Scroll A write are accepted, but palette line 2
+and pixel nibble 2 resolve to CRAM slot 31; the absent fixture slot rendered
+black. Supplying that slot restores the asserted colour. The focused test
+passes; the full CLI ratchet lowers the baseline 2 -> 1.
+
 Evidence source: `cargo test -p wildside-cli` on clean `main` (authoritative for
 test status). Native repro: reproduced. Minimum gate: `failing-test-ratchet` +
 `verify-slice-fast`.

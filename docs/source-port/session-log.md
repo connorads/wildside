@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#417 EOL reveal fixture fixed)
+
+- The EOL fixture now populates the CRAM line-2 slot selected by ASM
+  `sub_C254`'s `$441A` replacement tile. Pixel provenance confirms the reveal
+  write clears the old hologram priority and is accepted.
+- The focused test passes. The CLI failure ratchet lowers from 2 to 1;
+  finish #417 with the live level-refresh verdict.
+
 ## 2026-08-14 handoff (#417 Iron Knight latch fixture fixed)
 
 - The attach fixture now passes previous and current traces through ASM

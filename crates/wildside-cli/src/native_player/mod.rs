@@ -5385,9 +5385,13 @@ mod tests {
         let mut tile_sheet = blank_tile_sheet(0x0420);
         tile_sheet.tiles[1].pixels = [1; 64];
         tile_sheet.tiles[0x041A].pixels = [2; 64];
+        let mut eol_palette = vec![colour(0, 0, 0); 34];
+        eol_palette[0] = colour(255, 219, 0);
+        // ASM sub_C254 emits `$441A`: palette line 2, pixel nibble 2.
+        eol_palette[31] = colour(146, 146, 182);
         visuals.eol_hologram = Some(wildside_render::EolHologramVisuals {
             palette: Palette {
-                colours: vec![colour(255, 219, 0), colour(146, 146, 182)],
+                colours: eol_palette,
             },
             tile_sheet,
             rows: vec![vec![
