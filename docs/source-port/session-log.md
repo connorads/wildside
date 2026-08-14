@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#422 0x48 shooter ownership isolated)
+
+- Oracle frame 99's oldest x=$0282 beam has floor collision `$000C` at
+  y=$01CF and deletes on frame 100. Native cadence is exact, but its x=$027C
+  beam is only y=$0194 because a UFO 60px higher owns the shooting latch.
+- Exact beam-box and doubled linked-X experiments did not change the count and
+  were reverted. No gameplay change landed.
+- Next: instrument UFO controller/link identities and `Some_UFO_Shooting`
+  ownership from activation through the first ChkShoot winner.
+
 ## 2026-08-14 handoff (#422 0x30 death schedule exact)
 
 - Native now freezes the actual live Object/Gfx lists at `Death` and carries

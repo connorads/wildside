@@ -1036,6 +1036,21 @@ Scorpions. Count half (0x62 native +1 object) to #449.
 
 ### #422
 
+2026-08-14 investigation — 0x48's frame-100 surplus is not a beam-loop
+timing error. Oracle frame 99 has three `loc_355D8` beams at x=$0282; the
+oldest is y=$01CF with `collision_type=$000C`, and Enemy0F_UFOBeam_Loop deletes
+it on frame 100. Native has the same 5-frame beam cadence and next-wake delete
+rule, but all three beams are x=$027C and the oldest is only y=$0194. Native's
+global shooting latch selected layout #8 after that UFO moved from y=415 to
+y=355; oracle's shooting parent remains around y=415. The 60px source-parent
+gap fully explains why native has not reached the floor. Rejected hypotheses:
+using the exact `unk_31CD4` beam collision box instead of the centre probe, and
+applying loc_3531A's linked-object X offset a second time. Neither changes the
+frame-100 count. Next session must instrument the controller Object pointer,
+linked GfxObject pointer/position/direction, and `Some_UFO_Shooting` owner from
+settled-warp activation through the first ChkShoot winner; do not add another
+projectile lifetime or route count adjustment.
+
 2026-08-14 follow-up — 0x30 death schedule fixed. `Death`/loc_B7EA and
 loc_B80C allocate no generic workers, so the native death snapshot now freezes
 the actual live Object/Gfx lists, including typed transient children, rather
