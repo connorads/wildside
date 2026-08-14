@@ -11654,6 +11654,66 @@ impl NativeRuntime {
             || self.hostile_projectile_overlaps_player_for_fa75_loc_1c18(slice)
     }
 
+    /// ASM GfxObjects_CollisionKid on the Driller drill children (`stru_3BCBC`
+    /// frames -> CollisionSize row `unk_31A7A`: `dc.w $1,$F,-$B,$9`): each
+    /// travelling drill child is a live Kid hitbox at its own position. The
+    /// child's `$3A` word (`$1A | bit 6`) has bit 14 clear and the child is
+    /// not an Object_RAM enemy, so contact routes through the ordinary `$28`
+    /// side/below damage path — oracle 0x55 shell live 33: Kid falling
+    /// through the drilled floor is hurt by li=3's LEFT child (child x=5,
+    /// body x=29) with the standard knockback, while the body registers
+    /// nothing.
+    fn driller_drill_child_player_damage_contact_unk_31a7a(
+        &self,
+        slice: &OpeningSliceState,
+    ) -> bool {
+        let half_width = self.progression.current_form.half_width();
+        let px = (slice.player.x_pos >> 16) as i32;
+        let py = (slice.player.y_pos >> 16) as i32;
+        let p_left = px - half_width;
+        let p_right = px + half_width;
+        let p_top = py - PLAYER_HEIGHT;
+        let p_bottom = py;
+        for enemy in &self.active_enemies {
+            if !matches!(enemy.family, EnemyFamily::Driller) {
+                continue;
+            }
+            if enemy.death_animation_active {
+                // ASM Driller.asm loc_3BF1C swaps the children to the
+                // `stru_3BCE2` death frames, which map to the zero
+                // CollisionSize row `unk_31A78`.
+                continue;
+            }
+            let Some(children) = enemy.driller_children else {
+                continue;
+            };
+            for (child, flipped) in [(children.left, false), (children.right, true)] {
+                // GfxObjects_CollisionKid_SubBoxLoop(_Flipped) box mirroring.
+                let (left, right) = if flipped {
+                    (
+                        child.x_pos
+                            - crate::enemies::DRILLER_DRILL_CHILD_BOX_X_OFFSET_UNK_31A7A
+                            - crate::enemies::DRILLER_DRILL_CHILD_BOX_WIDTH_UNK_31A7A,
+                        child.x_pos - crate::enemies::DRILLER_DRILL_CHILD_BOX_X_OFFSET_UNK_31A7A,
+                    )
+                } else {
+                    (
+                        child.x_pos + crate::enemies::DRILLER_DRILL_CHILD_BOX_X_OFFSET_UNK_31A7A,
+                        child.x_pos
+                            + crate::enemies::DRILLER_DRILL_CHILD_BOX_X_OFFSET_UNK_31A7A
+                            + crate::enemies::DRILLER_DRILL_CHILD_BOX_WIDTH_UNK_31A7A,
+                    )
+                };
+                let top = child.y_pos + crate::enemies::DRILLER_DRILL_CHILD_BOX_Y_OFFSET_UNK_31A7A;
+                let bottom = top + crate::enemies::DRILLER_DRILL_CHILD_BOX_HEIGHT_UNK_31A7A;
+                if right >= p_left && left <= p_right && bottom >= p_top && top <= p_bottom {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     fn drips_drop_player_damage_contact_loc_3345c(
         &mut self,
         slice: &OpeningSliceState,
@@ -14446,20 +14506,24 @@ fn spinning_twins_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBo
 
 fn driller_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     // ASM Driller.asm parent walk frames `LnkTo_unk_C80E0..C80E8` map through
-    // GfxObjects_CollisionKid loc_1BCE to `unk_31A86`: `dc.w -$7,$F,-$F,$E`.
-    // The linked drill children use `LnkTo_unk_C80A8..C80C0` -> `unk_31A7A`
-    // (`dc.w $1,$F,-$B,$9`) at +/-24px from the parent. Native does not expose
-    // the exact child sprite link in this contact helper, so keep the live
-    // parent+drill union.
+    // GfxObjects_CollisionKid loc_1BCE to `unk_31A86`: `dc.w -$7,$F,-$F,$E` —
+    // the BODY box only. The travelling drill children carry their own
+    // `unk_31A7A` boxes at their own positions and route through the separate
+    // driller_drill_child_player_damage_contact_unk_31a7a hazard check (#420);
+    // folding them into a parent union misattributes child touches as body
+    // stomps and grinds the body's HP down (oracle 0x55: one stomp at live
+    // 51, not one per bounce).
     if enemy.stationary {
-        // ASM Driller.asm loc_3BF1C plays parent death script `stru_3BCD4` and
-        // linked-drill death script `stru_3BCE2`; their frames route through
-        // GfxObjects_CollisionKid loc_1BCE to zero rows `unk_31A84`/`unk_31A78`.
+        // ASM Driller.asm loc_3BF4E/loc_3BF1C play `stru_3BCCE`/`stru_3BCD4`;
+        // their frames route through GfxObjects_CollisionKid loc_1BCE to zero
+        // rows `unk_31A84`/`unk_31A78`.
         return empty_enemy_contact_bounds();
     }
+    // Unflipped art faces Left (x_direction clear); the flipped box mirrors
+    // per GfxObjects_CollisionKid_SubBoxLoop_Flipped.
     let (left_px, right_px) = match enemy.facing {
-        Some(Direction::Right) => (-23, 23),
-        Some(Direction::Left) | None => (-23, 23),
+        Some(Direction::Right) => (-8, 7),
+        Some(Direction::Left) | None => (-7, 8),
     };
 
     EnemyContactBounds {
@@ -15404,6 +15468,26 @@ impl NativeRuntime {
         // ordering tests.
         if kid_damage_invulnerable {
             self.projectile_hits_player_during_invulnerability(slice);
+        }
+
+        if slice.player.y_velocity > 0
+            && self.driller_drill_child_player_damage_contact_unk_31a7a(slice)
+        {
+            // Oracle 0x55 shell (settle trace run 1786662123): Kid falling
+            // onto a drill child flips y_vel to exactly -$3C000 on the
+            // contact frame — live 33 (fresh hit: Number_Hitpoints 2 -> 1,
+            // Just_received_damage set per loc_B72C) and live 51 again while
+            // still invulnerable (bounce only, no HP change). The bounce
+            // fires either way; the damage routes through the normal
+            // Check_for_recent_damge -> loc_B700 path.
+            slice.player.y_velocity = DRILLER_DRILL_CHILD_CONTACT_BOUNCE_VELOCITY;
+            slice.player.on_ground = false;
+            if !kid_damage_invulnerable {
+                self.opening_slice = Some(*slice);
+                self.apply_damage();
+                self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ContactDamage;
+                return true;
+            }
         }
 
         if !kid_damage_invulnerable

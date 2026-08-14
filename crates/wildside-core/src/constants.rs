@@ -793,6 +793,10 @@ pub(crate) const SPECIAL_FORM_SLOPE_STEP_FP: i32 = 0x0000_1000;
 // ASM Jump_On_Enemy restores Kid to the prior frame's anchor and starts the
 // next frame with a fixed -4 px bounce (`move.l #$FFFC0000,d7`).
 pub(crate) const STOMP_BOUNCE_VELOCITY: i32 = -0x0004_0000;
+/// Kid's rebound off a Driller drill child. Oracle 0x55 settle trace (run
+/// 1786662123) pins the post-contact y velocity at exactly -$3C000 on both
+/// the fresh-hit (live 33) and invulnerable (live 51) contacts.
+pub(crate) const DRILLER_DRILL_CHILD_CONTACT_BOUNCE_VELOCITY: i32 = -0x0003_C000;
 // Frames an enemy flashes white after taking a non-lethal stomp.
 pub(crate) const ENEMY_DAMAGE_FLASH_FRAMES: u8 = 8;
 /// ASM Dragon.asm `loc_3CEBE -> stru_3CCE6`: a surviving walking Dragon

@@ -642,10 +642,13 @@ fn driller_parent_and_drill_contact_uses_rom_collision_size_rows_loc_1bce() {
             bounds.top_px,
             bounds.bottom_px
         ),
-        (-23, 23, -15, -1),
-        "ASM Driller.asm parent LnkTo_unk_C80E0..C80E8 and linked drill LnkTo_unk_C80A8..C80C0 frames index CollisionSize rows unk_31A86/unk_31A7A through GfxObjects_CollisionKid loc_1BCE"
+        (-7, 8, -15, -1),
+        "ASM Driller.asm parent walk frames LnkTo_unk_C80E0..C80E8 index CollisionSize row unk_31A86 (`dc.w -$7,$F,-$F,$E`) through GfxObjects_CollisionKid loc_1BCE; the travelling drill children carry their own unk_31A7A boxes (#420)"
     );
 
+    // Kid at x=83 is 18px left of the body: outside the unk_31A86 body box
+    // (the old parent+drill union misclassified this child-zone touch as a
+    // body contact and ground the body HP down, #420).
     assert_eq!(
         classify_enemy_contact_with_half_width(
             slice.player,
@@ -654,8 +657,8 @@ fn driller_parent_and_drill_contact_uses_rom_collision_size_rows_loc_1bce() {
             slice.player.y_pos,
             PlayerForm::TheKid.half_width() as i64,
         ),
-        EnemyContactResult::Damage,
-        "the ROM Driller linked drill/body union reaches beyond the previous generic 8px-wide fallback"
+        EnemyContactResult::None,
+        "the drill-child zone must not register as Driller BODY contact; child touches route through driller_drill_child_player_damage_contact_unk_31a7a"
     );
 }
 

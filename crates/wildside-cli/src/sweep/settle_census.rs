@@ -748,6 +748,134 @@ mod tests {
         );
     }
 
+    /// #420: the 0x55 Driller shell journey. Oracle settle trace (census run
+    /// 1786662123): li=3 spawns at (120,175), walks left at 1px/frame while
+    /// its left drill child (sub_3BF72 loc_3BFD4 re-pin at body-$18) eats the
+    /// six `$E001` prize blocks of row 10 right-to-left (Driller.asm
+    /// loc_3BE78 consuming the child's colid_leftwall each 16 body pixels);
+    /// Kid's floor vanishes, he bounces on the spiky drill child, and li=3
+    /// parks at x=12 in the loc_3BF4E retract after the live-51 body stomp.
+    /// li=1 (312,95) terrain-dies at spawn; li=2 patrols 364..420.
+    ///
+    /// Native currently reproduces the whole chain one Kid-stomp phase frame
+    /// late: li=3 parks at 13 (oracle 12), li=2 reads 403 (oracle 405, two
+    /// 1px wall-turn debts), Kid bobs at 0x908000 (oracle 0x8FC000). The
+    /// ROM's `$2C` stomp is latched by the PREVIOUS frame's
+    /// GfxObjects_CollisionKid pass and consumed by loc_3BE78 BEFORE the
+    /// walk step; native classifies the stomp inside the same frame's Kid
+    /// pass, after the walker committed its step. Re-derive by moving the
+    /// native stomp latch to the frame boundary (kid.asm:3378 CollisionKid
+    /// order) and re-measuring the live-33/51 contact rows against census
+    /// run 1786662123 before re-enabling.
+    #[test]
+    #[ignore = "#420 residue: Kid-stomp latch runs a phase frame late; see doc comment"]
+    fn gameplay_regression_driller_shell_drills_kid_floor_loc_3be78_level_0x55() {
+        use wildside_core::{LevelId, NativeRuntime};
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.set_recorded_title_card_handoff_delay(true);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x55));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x55));
+        let frame = runtime.trace_frame();
+        let li3 = frame
+            .active_objects
+            .iter()
+            .find(|object| object.layout_index == Some(3))
+            .expect("Driller layout #3 must be in the frame-0 roster");
+        assert_eq!(
+            li3.x_pos, 0x000C_0000,
+            "oracle live-59: li=3 sits at x=12 in the retract hibernate after \
+             drilling its corridor and being stomped at live 51"
+        );
+        assert_eq!(
+            li3.y_pos, 0x00B0_0000,
+            "li=3 walks the y=176 row for the whole shell"
+        );
+        assert_eq!(
+            li3.hit_points,
+            Some(2),
+            "ASM Driller.asm loc_3BF02: exactly ONE colid_kidabove stomp \
+             decrements `$44(a3)` from 3 before frame 0"
+        );
+        let li2 = frame
+            .active_objects
+            .iter()
+            .find(|object| object.layout_index == Some(2))
+            .expect("Driller layout #2 must be in the frame-0 roster");
+        assert_eq!(
+            li2.x_pos, 0x0195_0000,
+            "oracle live-59: li=2 patrols the 364..420 ledge and reads x=405 \
+             at frame 0"
+        );
+        assert_eq!(
+            frame.kid_y_pos,
+            Some(0x008F_C000),
+            "oracle live-59: Kid fell through the drilled floor and is \
+             bobbing on the drill-child top at frame 0"
+        );
+    }
+
+    /// #420: the 0x68 Driller shell journey. Oracle settle trace (census run
+    /// 1786662123): li=3/li=5 walk left at 0.5px/frame (hp 2), wall-turn at
+    /// x=12 against the level edge, and read exactly x=59.5 at frame 0;
+    /// li=1 spawns at (40,64), falls, lands on the y=80 row, turns at x=28,
+    /// and walks right to x=72.0 — its right drill child then smashes row-4
+    /// cols 6/7/8 on visible frames 2/34/66 (oracle-probe 2026-08-14).
+    ///
+    /// Native currently reads li=3/li=5 at 60.5 (+1px: two spawn-entry phase
+    /// frames — the ROM's Enemy1A_Driller_Init spends an extra
+    /// Hibernate_Object_1Frame plus the loc_3C0D2 entry hibernate before the
+    /// first walk step) and li=1 at 73.5 (+1.5px: three landing-phase
+    /// frames in the loc_3C288 falling walker hand-off). Re-derive both
+    /// against census run 1786662123's title_wait rows (li spawn at title
+    /// 60/67, first steps and landing rows) before re-enabling.
+    #[test]
+    #[ignore = "#420 residue: Driller spawn/landing phase frames; see doc comment"]
+    fn gameplay_regression_driller_shell_walkers_survive_loc_3c0fa_level_0x68() {
+        use wildside_core::{LevelId, NativeRuntime};
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.set_recorded_title_card_handoff_delay(true);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x68));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x68));
+        let frame = runtime.trace_frame();
+        for (layout_index, expected_x, expected_y, label) in [
+            (
+                1usize,
+                0x0048_0000u32,
+                0x0050_0000u32,
+                "li=1 fell to y=80 and walks right",
+            ),
+            (
+                3,
+                0x003B_8000,
+                0x0080_0000,
+                "li=3 wall-turned at x=12 and reads 59.5",
+            ),
+            (
+                5,
+                0x003B_8000,
+                0x00A0_0000,
+                "li=5 wall-turned at x=12 and reads 59.5",
+            ),
+        ] {
+            let driller = frame
+                .active_objects
+                .iter()
+                .find(|object| object.layout_index == Some(layout_index))
+                .unwrap_or_else(|| panic!("Driller li={layout_index} must be in the roster"));
+            assert_eq!(
+                (driller.x_pos, driller.y_pos),
+                (expected_x, expected_y),
+                "oracle live-59 witness: {label}"
+            );
+        }
+    }
+
     /// #442 shell-content instrumentation: `--dump-trace` must persist the
     /// helper's FULL settle rows (RNG ring, kid kinematics, object-slot dump)
     /// so per-step shell analysis reads measured data instead of re-deriving
