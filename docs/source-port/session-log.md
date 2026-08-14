@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#421 Scorpion Lion-library fall exact)
+
+- PC tracing proved Scorpion's `sub_36972` height is `$16`, producing the ROM's
+  `d7=3` terrain turn at x=135. Native's default height returned 2.
+- `loc_3E6F6..loc_3E732 -> sub_36C6A` scans the old Y and full body span when a
+  predicted move crosses a tile boundary. Modelling that catches li=1's y=160
+  ledge on the 159->163 step and makes all three 0x61 parents exact through
+  visible frame 20. The linked GfxObject tail is now excluded from the
+  Object-worker frontier.
+- Focused frames 0..7 pass exactly. The first blocking divergence is now frame
+  21 `number_hitpoints`, the second-contact timing. `verify-slice-fast` and
+  `verify-tas-full` pass; full sweep `1786701987` remains 58/69 with 45 blockers
+  and no regression. Continue #421 at the frame-21 contact/death-arc pass.
+
 ## 2026-08-14 handoff (#421 Scorpion fall-path probe)
 
 - The visible-window enemy frontier separates all three 0x61 Scorpions. li=0

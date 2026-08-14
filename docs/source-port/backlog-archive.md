@@ -873,6 +873,25 @@ worker count parity (native `driller.rs` `loc_3BE78`/`loc_3BE60` refcount).
 
 ### #421
 
+2026-08-14 implementation - the first post-landing divergence is fixed. Oracle
+PC tracing proved `sub_36972` returns `d7=3` at li=2 x=135; native returned 2
+because Scorpion incorrectly used the default 16px probe height instead of
+the `$4A(a5)=$16` seeded at `Scorpion.asm loc_3DBD8`. The deeper li=1 phase
+error was vertical tunnelling: `Lion.asm loc_3E6F6..loc_3E732` tests a predicted
+tile-boundary crossing while `sub_36C6A` scans the uncommitted old Y and the
+whole `$48(a5)` span. Oracle therefore catches the y=160 ledge on the 159->163
+step; native's predicted-Y centre probe missed it. Native now follows that
+old-Y span scan, uses the Lion-library cliff/fall and direction-specific
+terrain paths for Scorpion, runs `loc_3DD7E` before the grounded walker, and
+exports the grounded GfxObject velocity as zero. The structural frontier also
+excludes the collision-active linked tail from the Object-worker roster, as
+`loc_3DBD8` allocates it in GfxObject_RAM. The strict 0x61 visible probe passes
+frames 0..7 exactly; bisection moves the first blocker from frame 0 to frame 21
+(`number_hitpoints`, second-contact timing). `verify-slice-fast` and
+`verify-tas-full` pass; full sweep `1786701987` stays 58/69 and 45 blockers,
+identical to `1786698154` with no regression. #421 stays open for the frame-21
+contact/death-arc chain and the three 0x61/four 0x62 state blockers.
+
 2026-08-14 correction before push: the initial two-pass reading was wrong.
 `Manage_EnemyLoading loc_3691E` allocates after Execute_Objects; the following
 object pass runs `Enemy13_Scorpion_Init` directly into `loc_3E392/loc_3E546`

@@ -877,6 +877,23 @@ mod tests {
             "oracle live-59: li=0 patrols back to exactly x=37.0 on the y=128 \
              row"
         );
+        for (layout_index, expected_x, expected_y, label) in [
+            (1usize, 0x0136_8000u32, 0x0160_0000u32, "li=1"),
+            (2usize, 0x007F_8000u32, 0x0120_0000u32, "li=2"),
+        ] {
+            let scorpion = frame
+                .active_objects
+                .iter()
+                .find(|object| {
+                    object.layout_index == Some(layout_index) && object.hit_points == Some(3)
+                })
+                .unwrap_or_else(|| panic!("Scorpion {label} parent must be in the roster"));
+            assert_eq!(
+                (scorpion.x_pos, scorpion.y_pos, scorpion.x_velocity),
+                (expected_x, expected_y, Some(0)),
+                "oracle target_live step 59: {label} must preserve the loc_3E6AE landing and loc_3E3B2 grounded-walk phase"
+            );
+        }
     }
 
     /// #420: the 0x68 Driller shell journey. Oracle settle trace (census run

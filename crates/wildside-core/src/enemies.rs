@@ -390,6 +390,9 @@ pub(crate) fn pacer_probe_height(family: EnemyFamily) -> i32 {
         // Tank_Shooting.asm loc_3B5A6 seed `$4A(a5)=$20` before entering the
         // shared walker loops.
         EnemyFamily::Robot | EnemyFamily::Tank | EnemyFamily::TankShooting => 32,
+        // ASM Scorpion.asm loc_3DBD8 seeds `$4A(a5)=$16`; sub_36972 must scan
+        // both occupied body rows or it misses wall bit 0 at tile boundaries.
+        EnemyFamily::Scorpion => 0x16,
         // ASM Lion.asm loc_3DFF0 seeds `$4A(a5)=$2F` for every charge and
         // walking callback reached through loc_3E11E.
         EnemyFamily::Lion => LION_CHARGE_PROBE_HEIGHT,
@@ -4998,20 +5001,22 @@ pub(crate) fn step_active_enemies_with_rng(
                     if step_goat_tracking_turn_loc_3cc18(enemy, player_x_pos) {
                         continue;
                     }
-                    step_pacer(enemy, block_grid, player_x_pos);
-                    // Scorpion: tracking callback (Scorpion.asm loc_3DD7E).
-                    // Within 170px: face toward player (unless tracking-locked),
-                    // boost speed to $38000 if enemy_level > 1 (HP > 3).
-                    // Outside 170px: reset speed to base $18000, clear tracking lock
-                    // if player is airborne.
-                    if matches!(enemy.family, EnemyFamily::Scorpion) {
+                    if matches!(enemy.family, EnemyFamily::Scorpion) && enemy.on_ground {
+                        // ASM Scorpion.asm loc_3DD72 -> loc_3E560/loc_3E3AC
+                        // -> loc_3DD7E (#421): the tracking callback runs
+                        // before the direction-specific grounded walker. The
+                        // falling loc_3E6AE/loc_3E7CA loops bypass it.
                         step_scorpion_tracking(
                             enemy,
                             player_x_pos,
                             player_y_pos,
                             player_y_velocity,
                         );
+                        if enemy.scorpion_sting_frames > 0 {
+                            continue;
+                        }
                     }
+                    step_pacer(enemy, block_grid, player_x_pos);
                     // ASM Tank_Shooting.asm loc_3C50E/loc_3B730: only the
                     // shooting tank variant emits bullets, and only on the
                     // turret animation gate.
@@ -7751,15 +7756,15 @@ fn register_shared_walker_turnaround(enemy: &mut ActiveEnemy) -> bool {
 /// restore the walk step, seed the -120 charge cooldown). Partition measured
 /// from the per-family `include`/branch targets in code/enemy/*.asm.
 ///
-/// TODO(fidelity): only the Goat runs the Lion.asm fall semantics natively
-/// so far — its full journey (fall, landing, wall freeze, charge) is
-/// oracle-measured at 0x60/0x61 (run 1786640409, sweep 1786650839). The
-/// other six families keep the cliff-turn approximation until each one's
+/// TODO(fidelity): Goat and Scorpion run the Lion.asm fall semantics natively.
+/// Their journeys are oracle-measured at 0x60/0x61 (runs 1786640409 and
+/// 1786701547). The other five families keep the cliff-turn approximation
+/// until each one's
 /// companion behaviours (Ninja loc_3D92A stealth cadence + loc_3D9A4 jump,
 /// Lion/Scorpion tails) are modelled; a first attempt at flipping them all
 /// regressed 0x45/0x56 because the turn was masking those gaps (#456).
 pub(crate) fn shared_walker_turns_at_cliffs_loc_3c0a6(family: EnemyFamily) -> bool {
-    !matches!(family, EnemyFamily::Goat)
+    !matches!(family, EnemyFamily::Goat | EnemyFamily::Scorpion)
 }
 
 /// ASM Goat.asm loc_3CA30..loc_3CA7E: `$4C(a5)` accumulates the CHARGE word
@@ -8098,7 +8103,7 @@ pub(crate) fn step_pacer(
         ..scan_trace
     });
 
-    if matches!(enemy.family, EnemyFamily::Goat) {
+    if !turns_at_cliffs {
         let kid_x_px = player_x_pos.map(|px| (px >> 16) as i16);
         let crossed_boundary = pixel_delta > 0 && tile_remainder < pixel_delta;
         if crossed_boundary {
@@ -8124,10 +8129,7 @@ pub(crate) fn step_pacer(
                 step_shared_walker_falling_loc_3c288(enemy, grid);
                 return;
             }
-            if !matches!(
-                lion_charge_terrain_gate_loc_3e406(scan.flags_d7 & 0b001 != 0, true),
-                LionLoc3E406Branch::ContinueTo3E434
-            ) {
+            if scan.flags_d7 & 0b001 != 0 && matches!(enemy.family, EnemyFamily::Goat) {
                 // ASM loc_3E406/loc_3E5BA Goat wall hold (#419/#457): re-arm
                 // `$42(a3)` = $FF88, restore the walk step from `$5E(a5)`, and
                 // hibernate grounded WITHOUT committing the step or turning —
@@ -8141,10 +8143,24 @@ pub(crate) fn step_pacer(
                 enemy.y_velocity = 0;
                 return;
             }
+            if scan.flags_d7 & 0b001 != 0 {
+                // ASM Lion.asm loc_3E406/loc_3E5BA -> loc_3E48E/loc_3E642
+                // (#421): non-Lion objects (Scorpion id $13) take the
+                // direction-specific turnaround when the leading floor-edge
+                // bit is set. They hibernate without committing the step.
+                enemy.scorpion_tracking_lock = true;
+                reverse_enemy_direction(enemy);
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+                register_shared_walker_turnaround(enemy);
+                return;
+            }
             // ASM loc_3E406 `btst #0,d7; beq.s loc_3E434`: a bit0-clear
             // crossing still runs the charge controller and commits the step.
         }
-        if let Some(kid_x_px) = kid_x_px {
+        if matches!(enemy.family, EnemyFamily::Goat)
+            && let Some(kid_x_px) = kid_x_px
+        {
             match goat_charge_controller_loc_3e434(
                 enemy.shared_walker_state,
                 current_x_px as i16,
@@ -8426,6 +8442,12 @@ pub(crate) fn step_pacer(
         enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
         register_shared_walker_turnaround(enemy);
     }
+    if matches!(enemy.family, EnemyFamily::Scorpion) {
+        // ASM Scorpion.asm loc_3DD72 -> Lion.asm loc_3E3B2: grounded motion
+        // adds parent `$50(a5)` directly to x_pos. The linked GfxObject's
+        // x_vel field remains zero at the hibernated checkpoint.
+        enemy.x_velocity = 0;
+    }
 }
 
 fn step_shared_walker_falling_loc_3c288(enemy: &mut ActiveEnemy, grid: &terrain::BlockGrid) {
@@ -8469,7 +8491,7 @@ fn step_shared_walker_falling_loc_3c288(enemy: &mut ActiveEnemy, grid: &terrain:
 fn step_lion_walker_falling_loc_3e6ae(enemy: &mut ActiveEnemy, grid: &terrain::BlockGrid) {
     let probe_half_width = pacer_probe_half_width(enemy.family);
     let probe_height = pacer_probe_height(enemy.family);
-    let previous_y_px = enemy.y_pos >> 16;
+    let previous_y_px = (enemy.y_pos >> 16) as i32;
 
     let moved_x = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     let moved_x_px = (moved_x >> 16) as i32;
@@ -8505,12 +8527,24 @@ fn step_lion_walker_falling_loc_3e6ae(enemy: &mut ActiveEnemy, grid: &terrain::B
 
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
     let cx = (enemy.x_pos >> 16) as i32;
-    let cy = (enemy.y_pos >> 16) as i32;
-    let crossed_y_pixel = (enemy.y_pos >> 16) != previous_y_px;
-    if crossed_y_pixel && enemy.y_velocity >= 0 {
-        let floor = terrain::probe_floor(grid, cx, cy);
-        let floor_y_fp = (floor.floor_y_px as u32) << 16;
-        if floor.on_ground && enemy.y_pos >= floor_y_fp {
+    let predicted_y_px = (enemy.y_pos >> 16) as i32;
+    let downward_pixel_delta = predicted_y_px.saturating_sub(previous_y_px);
+    let floor_boundary_distance = (-previous_y_px) & 0xF;
+    if enemy.y_velocity >= 0 && floor_boundary_distance < downward_pixel_delta {
+        // ASM Lion.asm loc_3E6F6..loc_3E732 (#421): `y_pos(a3)` is not
+        // committed before sub_36C6A. The floor scan therefore reads the old
+        // position when the predicted step crosses a tile boundary. Probing
+        // only the predicted Y tunnels through thin ledges (0x61 li=1 moves
+        // 159 -> 163 and must land at 160).
+        let floor_y_px = previous_y_px + floor_boundary_distance;
+        let floor = terrain::probe_floor_span(
+            grid,
+            cx - probe_half_width,
+            cx + probe_half_width - 1,
+            floor_y_px,
+        );
+        let floor_y_fp = (floor_y_px as u32) << 16;
+        if floor.on_ground {
             // ASM loc_3E732 landing tail -> loc_3E392.
             enemy.y_pos = floor_y_fp;
             enemy.x_velocity = 0;
@@ -11339,6 +11373,12 @@ mod tests {
             },
             "ASM Lion.asm loc_3E48E/loc_3E642 should wrap `$5A(a5)` without the generic walker's `beq` death branch"
         );
+    }
+
+    #[test]
+    fn scorpion_shared_walker_probe_dimensions_match_loc_3dbd8() {
+        assert_eq!(pacer_probe_half_width(EnemyFamily::Scorpion), 0x09);
+        assert_eq!(pacer_probe_height(EnemyFamily::Scorpion), 0x16);
     }
 
     #[test]

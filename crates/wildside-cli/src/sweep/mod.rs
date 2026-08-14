@@ -2100,6 +2100,7 @@ fn normalised_enemy_roster_for_frontier_with_peer<'a>(
         .active_enemies
         .iter()
         .filter(|enemy| !enemy_is_uninitialised_tank_gfx_proxy(state, enemy))
+        .filter(|enemy| !enemy_is_linked_scorpion_tail_gfx_loc_3dbd8(state, enemy))
         .filter(|enemy| !oracle_enemy_parent_object_is_orphaned_loc_e1e(state, enemy))
         .filter(|enemy| !dragon_flying_descent_fire_child_is_native_projectile(state, peer, enemy))
         .filter(|enemy| {
@@ -2116,6 +2117,23 @@ fn normalised_enemy_roster_for_frontier_with_peer<'a>(
         )
     });
     enemies
+}
+
+fn enemy_is_linked_scorpion_tail_gfx_loc_3dbd8(
+    state: &OracleState,
+    enemy: &OracleEnemyState,
+) -> bool {
+    // ASM Scorpion.asm loc_3DBD8 allocates the tail in GfxObject_RAM, not
+    // Object_RAM. Native exposes that collision-active attachment in its raw
+    // object trace, but the structural enemy roster compares Object workers.
+    enemy.object_type == 0x13
+        && enemy.current_hp == Some(0)
+        && state.active_enemies.iter().any(|candidate| {
+            !std::ptr::eq(candidate, enemy)
+                && candidate.object_type == 0x13
+                && candidate.current_hp.is_some_and(|hp| hp > 0)
+                && candidate.layout_index == enemy.layout_index
+        })
 }
 
 fn dragon_flying_descent_fire_child_is_native_projectile(
@@ -3110,6 +3128,43 @@ mod tests {
         assert_eq!(diffs.len(), 1);
         assert_eq!(diffs[0].field, "two_player");
         assert_eq!(diffs[0].category, DivergenceCategory::Authoritative);
+    }
+
+    #[test]
+    fn enemy_frontier_excludes_scorpion_linked_gfx_tail_loc_3dbd8() {
+        let parent = OracleEnemyState {
+            object_type: 0x13,
+            x_pos: 0x0081_0000,
+            y_pos: 0x0120_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: EnemyFacing::Right,
+            collision_type: None,
+            collision_source: None,
+            layout_index: Some(2),
+            layout_ptr: None,
+            parent_object_ptr: None,
+            gfx_slot_index: None,
+            on_ground: Some(true),
+            current_hp: Some(3),
+            debug_fields: BTreeMap::new(),
+        };
+        let tail = OracleEnemyState {
+            x_pos: 0x006B_0000,
+            y_pos: 0x010A_0000,
+            on_ground: None,
+            current_hp: Some(0),
+            ..parent.clone()
+        };
+        let mut native = demo_velocity_state(0, 0);
+        native.active_enemies = vec![tail, parent.clone()];
+        let mut oracle = native.clone();
+        oracle.active_enemies = vec![parent];
+
+        assert!(
+            enemy_roster_frontier_matches(&native, &oracle),
+            "ASM Scorpion.asm loc_3DBD8 allocates the tail in GfxObject_RAM, so it is not a second Object-worker enemy"
+        );
     }
 
     #[test]
