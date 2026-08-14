@@ -5953,6 +5953,44 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level30_ufo_contact_death_freezes_live_object_counts_at_death_loc_b7ea() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x30)
+            .settle_recording_warp()
+            .run(&[0], 9);
+
+        assert_eq!(
+            (trace[7].number_objects, trace[7].number_gfx_objects),
+            (5, 5),
+            "the live Object/Gfx lists contain five entries before UFO contact",
+        );
+        assert_eq!(
+            (trace[8].number_objects, trace[8].number_gfx_objects),
+            (5, 5),
+            "ASM Death/loc_B7EA allocates no Object or GfxObject workers",
+        );
+
+        let trace = ScriptRunner::new(cached_generated_manifest().expect("cached manifest"))
+            .warp_to_level(0x30)
+            .settle_recording_warp()
+            .run(&[0], 90);
+        assert_eq!(
+            (trace[89].kid_x_pos, trace[89].kid_y_pos),
+            (Some(0x0050_0000), Some(0x017E_8000)),
+            "ASM loc_B80C -> lose_life preserves the final visibility-tested Kid pose",
+        );
+        assert_eq!(
+            (trace[89].number_objects, trace[89].number_gfx_objects),
+            (5, 5),
+            "the hidden lose_life hand-off retains the live death-shell lists",
+        );
+    }
+
+    #[test]
     fn level11_recording_settle_ages_armadillo_during_palette_ramp_loc_73d0_3e546() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

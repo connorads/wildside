@@ -13484,30 +13484,24 @@ impl NativeRuntime {
             player_object.y_pos = frozen_player.y_pos;
         }
 
-        let (base_number_objects, base_number_gfx_objects) = self
-            .object_counts_from_roster_without_runtime_transients(
-                &frozen_active_objects,
-                slice.camera.x_pos,
-                slice.camera.y_pos,
-            );
-
-        let death_object_workers = if self.lion_projectile_object_only_tail_count > 0 {
-            // ASM Lion.asm loc_3E1B4 deletes the child projectile object after
-            // the hit; Death/loc_B80C then enters with that counted child tail
-            // still replacing one of native's generic death-shell workers in
-            // the Level 0x07 oracle trace.
-            1
-        } else {
-            2
-        };
+        // ASM Death/loc_B7EA (kid.asm:14740) changes Kid's transform and
+        // sprite, then loc_B80C advances that same GfxObject until it leaves
+        // the viewport. It allocates no generic death workers. Freeze the
+        // actual live lists, including projectile/effect workers represented
+        // outside `active_objects`, instead of adding route-derived counts.
+        let (frozen_number_objects, frozen_number_gfx_objects) = self.object_counts_from_roster(
+            &frozen_active_objects,
+            slice.camera.x_pos,
+            slice.camera.y_pos,
+        );
 
         LevelSkipTransitionState {
             elapsed_frames: 0,
             frozen_player,
             frozen_camera: slice.camera,
             frozen_active_objects,
-            frozen_number_objects: base_number_objects.saturating_add(death_object_workers),
-            frozen_number_gfx_objects: base_number_gfx_objects.saturating_add(3),
+            frozen_number_objects,
+            frozen_number_gfx_objects,
         }
     }
 
@@ -13576,6 +13570,22 @@ impl NativeRuntime {
     }
 
     pub(crate) fn enter_death_hidden_state(&mut self) {
+        if let (Some(snapshot), Some(slice)) =
+            (self.death_shell_snapshot.as_mut(), self.opening_slice)
+        {
+            // ASM Death/loc_B80C hands the last visibility-tested Kid
+            // GfxObject directly to lose_life. Preserve that actual terminal
+            // pose rather than the entry-time projection used as a fallback.
+            snapshot.frozen_player = slice.player;
+            if let Some(player_object) = snapshot
+                .frozen_active_objects
+                .iter_mut()
+                .find(|object| matches!(object.kind, NativeObjectKind::Player))
+            {
+                player_object.x_pos = slice.player.x_pos;
+                player_object.y_pos = slice.player.y_pos;
+            }
+        }
         // ASM loc_B7EA (kid.asm:14740): d7==0 death path strips the helmet
         // before the tumble arc — `tst.w (Current_Helmet).w; beq.w loc_B7FA;
         // clr.w (Current_Helmet_Available).w; bsr.w Kid_Transform`.

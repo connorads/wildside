@@ -1036,6 +1036,18 @@ Scorpions. Count half (0x62 native +1 object) to #449.
 
 ### #422
 
+2026-08-14 follow-up — 0x30 death schedule fixed. `Death`/loc_B7EA and
+loc_B80C allocate no generic workers, so the native death snapshot now freezes
+the actual live Object/Gfx lists, including typed transient children, rather
+than applying the route-derived +2/+3 constants. The `lose_life` hand-off now
+captures the actual last visibility-tested Kid pose and retains that same
+Object count while its old camera shell remains visible. The 0x30 focused
+route passes all 301 gameplay checkpoints; the 0x48 route passes through frame
+99, then gains one extra Object/Gfx pair at frame 100 and accumulates to +4/+4
+at idle tail. Full sweep `1786706606` improves to 60/69 with 38 blockers. Next:
+trace 0x48 UFO beam allocation/deletion from frames 95 onward; do not revisit
+the resolved death-count constants.
+
 2026-08-14 session — beam model LANDED (65e667cd2), frame-0 witness
 allowance RETIRED; row stays [~] for the residual sweep rows.
 

@@ -8251,7 +8251,7 @@ mod tests {
                 y_pos: 0x01ac_0000,
             },
             frozen_active_objects: Vec::new(),
-            frozen_number_objects: 13,
+            frozen_number_objects: 9,
             frozen_number_gfx_objects: 8,
         });
 
@@ -8313,7 +8313,7 @@ mod tests {
         runtime.player_lifecycle = PlayerLifecycle::Dying {
             remaining_frames: 2,
         };
-        assert_eq!(runtime.trace_frame().number_objects, 13);
+        assert_eq!(runtime.trace_frame().number_objects, 9);
 
         runtime.player_lifecycle = PlayerLifecycle::Dying {
             remaining_frames: 1,
@@ -9571,12 +9571,11 @@ impl NativeRuntime {
         let PlayerLifecycle::Dying { remaining_frames } = self.player_lifecycle else {
             return snapshot.frozen_number_objects;
         };
-        // ASM lose_life -> Teleport loc_B8DE enters the hidden mode-8
-        // transition shell. Oracle route issue-213-drips-upjump-right-probe-cache
-        // shows the object count decoupling from the old gameplay roster while
-        // GFX count remains latched to the frozen shell.
+        // ASM lose_life -> Teleport loc_B8DE enters mode 8 without allocating
+        // an Object. While the old camera/sprite shell remains visible, its
+        // actual Object list remains latched alongside the GfxObject list.
         if self.dying_hidden_camera_still_visible() {
-            9
+            snapshot.frozen_number_objects
         } else {
             match remaining_frames {
                 6..=9 => 0,

@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#422 0x30 death schedule exact)
+
+- Native now freezes the actual live Object/Gfx lists at `Death` and carries
+  the final loc_B80C visibility-tested Kid pose into `lose_life`; 0x30 matches
+  all 301 focused gameplay checkpoints.
+- 0x48 first diverges at visible frame 100 by one Object/Gfx pair, then
+  accumulates to +4/+4 at idle tail. Trace its live UFO beam lifecycle next.
+- Both required gates pass. Full sweep `1786706606` improves to 60/69 with 38
+  blockers and no regression.
+
 ## 2026-08-14 handoff (#421 Armadillo allocation defer exact)
 
 - Oracle settle census `1786704210` proves 0x62 Armadillo li=7 is allocated on
