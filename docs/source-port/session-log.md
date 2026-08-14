@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#445 green ROM gate entry)
+
+- Fresh six-crate census confirms the stable six failures: md/frame/data/render
+  each have one and web has two; `wildside-rom` remains 12/12 green.
+- `verify-slice-fast` now runs the full `wildside-rom` suite. Continue #445 by
+  generalising the named-set ratchet for multi-target crates, then gate the
+  remaining suites without accepting any new failure.
+
 ## 2026-08-14 handoff (#421 Scorpion cluster closed)
 
 - Oracle settle census `1786713171` pins the 0x62 sting-capable Scorpion's

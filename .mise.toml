@@ -98,10 +98,11 @@ depends = [
 run = """
 sh -ec '
 cargo test -q -p wildside-core --lib -- --skip demo_ --skip published_tas --skip snapshot \
-  && cargo test -q -p wildside-cli gameplay_regression_
+  && cargo test -q -p wildside-cli gameplay_regression_ \
+  && cargo test -q -p wildside-rom
 '
 """
-description = "Canonical green-gate: wildside-core unit sweep + wildside-cli gameplay regressions + TAS frontier replay. Must pass at every commit."
+description = "Canonical green-gate: wildside-core unit sweep + wildside-cli gameplay regressions + wildside-rom + TAS frontier replay. Must pass at every commit."
 
 [tasks.verify-1p-playable]
 run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- release-gate --target 1p-playable"

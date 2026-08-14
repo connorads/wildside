@@ -1654,6 +1654,14 @@ no ratchet.
 
 ### #445
 
+2026-08-14 implementation - the first green suite is gated. A fresh six-crate
+run confirms `wildside-rom` remains 12/12 green and the previously measured
+named failure set is stable: one each in md/frame/data/render and two in web.
+`verify-slice-fast` now runs the complete `wildside-rom` suite after core and
+the CLI gameplay slice. The remaining five crates need the per-target named
+ratchet before gate entry; web emits three test-result targets and therefore
+cannot reuse #417's single-target parser unchanged.
+
 2026-08-14 read-only census (no changes landed; selection returned to
 #420). The 2026-08-01 failure set has collapsed from 27 to 6:
 rom GREEN (12 tests); md 1
