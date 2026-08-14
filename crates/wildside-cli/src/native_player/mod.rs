@@ -14223,7 +14223,9 @@ mod tests {
     fn block_destroy_effect_uses_sub_292e_rom_debris_tiles() {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);
-        trace.block_destroy_effects = vec![(0x0030, 0x0020, 2, 2)];
+        // The worker's remaining=2 frame is still ASM sub_10EDA's `$220`
+        // pre-debris mapping. A zero lifetime exercises the sub_292E handoff.
+        trace.block_destroy_effects = vec![(0x0030, 0x0020, 0, 2)];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
@@ -14251,8 +14253,16 @@ mod tests {
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
-        let (_, tile, _) = indexed_tile_at_with_sheet_len(&scene, 47, 36, 0x200)
-            .expect("falling debris tile from ASM sub_2A4C");
+        let tile = scene
+            .commands
+            .iter()
+            .find_map(|command| {
+                let parts = sprite_command_parts(command)?;
+                (parts.x == 47 && parts.y == 36 && parts.tile_sheet.tiles.len() == 0x200)
+                    .then(|| parts.tiles.first().map(|tile| tile.tile))
+                    .flatten()
+            })
+            .expect("falling debris SAT tile from ASM sub_2A4C");
         assert_eq!(
             tile.tile_index, 8,
             "ASM sub_2A4C emits persistent falling shards with VRAM tile $8228, i.e. block sheet index 8"

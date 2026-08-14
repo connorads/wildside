@@ -14,14 +14,12 @@
 # diff-stable when re-seeded.
 version: 1
 tests:
-  - native_player::tests::block_destroy_effect_uses_sub_292e_rom_debris_tiles
   - native_player::tests::build_scene_animates_floating_diamond_from_local_loc_10396_countdown
   - native_player::tests::build_scene_draws_circle_of_doom_sprites_from_hud_diamond_rom_tiles
   - native_player::tests::build_scene_draws_floating_diamond_with_rom_sprite_art
   - native_player::tests::build_scene_draws_floating_special_icons_with_rom_art
   - native_player::tests::chunked_plane_b_overlay_samples_hscrolled_vdp_column_loc_3050a
   - native_player::tests::chunked_settled_row_history_replays_loc_30452_columns_into_alias_source_loc_30744
-  - native_player::tests::falling_block_debris_uses_sub_2a4c_rom_tile_after_destroy_handoff
   - native_player::tests::first_transform_frame_latches_previous_player_visual_state_loc_7c40
   - native_player::tests::game_hud_diamond_icon_prefers_traced_sub_44dc_offset
   - native_player::tests::game_scene_places_native_objects_relative_to_camera

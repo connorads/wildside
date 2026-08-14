@@ -3819,6 +3819,15 @@ contracts for the silent loader gap and authoritative start instant. The
 focused scripted event test and all 59 `play_native_*` tests pass; the full CLI
 ratchet removes all six failures and lowers the baseline 25 -> 19.
 
+Progress 2026-08-14: both block-debris failures were stale test contracts. The
+destroy-effect fixture used remaining=2, which now correctly renders ASM
+`sub_10EDA`'s pre-debris `$220` worker; remaining=0 reaches the asserted
+`sub_292E` handoff and preserves all five exact `$8228` tile positions. The
+persistent `sub_2A4C` shard is a `SatSprite` so VDP first-opaque-pixel ordering
+is retained, while the old assertion searched only `IndexedTile`. Both focused
+tests pass against the existing production renderer; the full CLI ratchet
+lowers the baseline 19 -> 17.
+
 Evidence source: `cargo test -p wildside-cli` on clean `main` (authoritative for
 test status). Native repro: reproduced. Minimum gate: `failing-test-ratchet` +
 `verify-slice-fast`.

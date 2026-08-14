@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#417 block-debris fixtures fixed)
+
+- The destroy fixture now samples ASM `sub_292E` after the pre-debris worker,
+  and the persistent `sub_2A4C` shard assertion follows its SAT sprite payload.
+- Both focused tests pass without production changes. The CLI failure ratchet
+  lowers from 19 to 17; continue #417 with the next render/scene cluster.
+
 ## 2026-08-14 handoff (#417 audio fixtures fixed)
 
 - Six synthetic audio tests now include core's explicit ASM `loc_12004` BGM
