@@ -895,6 +895,23 @@ that zero row explicit in native contact bounds changes neither focused level:
 0x61 remains three blockers and 0x62 four in run `1786698670`. The child is
 already excluded from the relevant ordinary-contact path. Experiment removed.
 
+Investigation 2026-08-14 - the visible 61-frame enemy-frontier probe
+`.cache/debug/issue421-visible-61.json` names the remaining shell error. At
+frame 0, li=0 is phase-exact (native/oracle x=38.5, y=128, HP 3), but native
+has already terrain-killed li=1 at x=287/y=336 and li=2 at x=95.5/y=256;
+oracle retains both at HP 3 (li=1 x=312/y=352, li=2 x=129/y=288).
+
+Dead end - do not merely flip Scorpion in
+`shared_walker_turns_at_cliffs_loc_3c0a6`. Adding the Lion-library fall plus
+the source-backed `loc_3E406/loc_3E5BA -> loc_3E642` bit-0 boundary turn keeps
+li=0's strict x=37 witness green and makes 0x61 object count exact, but the
+approximate fall path lands li=1/li=2 at the wrong positions/directions and
+adds a 13v10 gfx-count blocker. Focused run `1786698860` remains 3+4 blockers.
+The next probe must narrow li=1/li=2 from allocation through their first fall
+and landing, including `loc_3E682..loc_3E7CA`, `$4E` tracking lock, and linked
+tail ownership; do not enable the family gate from endpoint counts alone.
+Experiment removed.
+
 2026-08-14 session — boundary-damage fix LANDED (4d39e50b5), row stays
 [~]. Narrow probes (oracle-settle-census run 1786673717 + oracle-probe
 watches on `$FFFC40`/`$FFFA73`) decoded both levels end to end:
