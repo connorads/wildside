@@ -663,6 +663,43 @@ fn driller_parent_and_drill_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn driller_retract_contact_uses_zero_collision_size_row_loc_1bce() {
+    // ASM Driller.asm loc_3BF4E: a surviving stomp plays `stru_3BCCE`, whose
+    // only frame `LnkTo_unk_C80D8` indexes an EMPTY CollisionSize row —
+    // sub_1D84's `move.w (a1)+,d0; beq` skips the retracted body entirely, so
+    // GfxObjects_CollisionKid latches nothing on it. Oracle 0x55 visible
+    // window (WRAM dumps f9-f12): Kid's deep bounce at f10 latches `$2C` on
+    // the drill CHILD only; the retracted body's `$38` stays 0 and its HP
+    // stays 2 until the walking-frame stomp at f29.
+    let mut driller = test_enemy(EnemyFamily::Driller, 101 << 16, 100 << 16, 2);
+    driller.damage_flash_frames = DRILLER_RETRACT_FRAMES_STRU_3BCCE;
+
+    let bounds = enemy_contact_bounds(&driller.snapshot());
+    assert!(
+        bounds.left_px > bounds.right_px || bounds.top_px > bounds.bottom_px,
+        "the retracting Driller body must expose no Kid-facing collision box"
+    );
+
+    let mut slice = combat_slice();
+    slice.player.x_pos = 101 << 16;
+    slice.player.y_pos = 87 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0x2_0000;
+    slice.player.on_ground = false;
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &driller.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::None,
+        "a falling Kid directly above the retracted body must not stomp it"
+    );
+}
+
+#[test]
 fn driller_death_contact_uses_zero_collision_size_rows_loc_1bce() {
     let mut driller = test_enemy(EnemyFamily::Driller, 101 << 16, 100 << 16, 1);
     driller.death_animation_active = true;

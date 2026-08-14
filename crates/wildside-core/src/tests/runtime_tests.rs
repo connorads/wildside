@@ -14640,6 +14640,52 @@ mod chunk_09 {
         }
     }
 
+    /// ASM loc_BC34 (kid.asm:15181): the damage-flash thread is an
+    /// Object_RAM coroutine ticked by Execute_Objects, and Kid_Transform's
+    /// sub_8E0 loop suspends the whole object pass — so the 66-frame flash
+    /// cycle PAUSES for the transform's duration. Oracle 0x55 visible window:
+    /// Just_received_damage stays set from the shell hit through the f36-f95
+    /// Micromax transform and clears at f98, not at the undelayed f39.
+    #[test]
+    fn damage_flash_countdown_pauses_during_transform_hibernate_loc_bc34() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.boot_state = BootState::InGame;
+        rt.progression.invulnerable_frames = 10;
+        rt.just_received_damage = true;
+        rt.progression.form_change_flash_frames = 5;
+        rt.step_lifecycle(FrameInput::default());
+        assert_eq!(
+            rt.progression.invulnerable_frames, 10,
+            "the flash coroutine must not tick while the transform hibernates \
+             the object pass"
+        );
+        assert!(rt.just_received_damage);
+    }
+
+    /// ASM Kid_Transform loc_7E90 (kid.asm:8599-8600): the cleanup frame runs
+    /// `clr.l x_vel(a3); clr.l y_vel(a3)` before returning to regular
+    /// gameplay — the Kid resumes from REST regardless of the velocity he
+    /// carried into the transform freeze. Oracle 0x55 visible window: the
+    /// Kid falls from standstill at f95 into the f107 drill-child contact;
+    /// native previously resumed mid-bounce with the pre-freeze velocity.
+    #[test]
+    fn kid_transform_cleanup_clears_velocities_loc_7e90() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.boot_state = BootState::InGame;
+        let mut slice = combat_slice();
+        slice.player.x_velocity = 0x1_8000;
+        slice.player.y_velocity = -0x2_C000;
+        rt.opening_slice = Some(slice);
+        rt.progression.form_change_flash_frames = 1;
+        rt.step_lifecycle(FrameInput::default());
+        let player = rt.opening_slice.expect("slice survives the cleanup").player;
+        assert_eq!(
+            (player.x_velocity, player.y_velocity),
+            (0, 0),
+            "loc_7E90 clears both Kid velocities on the transform cleanup frame"
+        );
+    }
+
     #[test]
     fn loc_3bede_driller_smash_block_spawns_effect_at_tile_origin() {
         let mut rt = NativeRuntime::new(manifest());

@@ -8367,8 +8367,15 @@ impl NativeRuntime {
             PlayerLifecycle::Alive => {
                 // ASM loc_BC5C/loc_BC6E (kid.asm:15203/15210): the damage-flash
                 // thread hibernates 2+4 frames per cycle, 11 cycles = 66 frames.
-                // Native models this as a simple countdown.
-                if self.progression.invulnerable_frames > 0 {
+                // Native models this as a simple countdown. The thread is an
+                // Object_RAM coroutine ticked by Execute_Objects, and
+                // Kid_Transform's sub_8E0 loop suspends the object pass — so
+                // the cycle PAUSES for the transform's duration (oracle 0x55:
+                // Just_received_damage holds from the shell hit through the
+                // f36-f95 Micromax transform and clears at f98, #420).
+                if self.progression.invulnerable_frames > 0
+                    && !self.gameplay_hibernating_for_transform()
+                {
                     self.progression.invulnerable_frames -= 1;
                     if self.progression.invulnerable_frames == 0 {
                         self.just_received_damage = false;
@@ -8383,6 +8390,18 @@ impl NativeRuntime {
                     self.progression.form_change_flash_frames -= 1;
                     if cleanup_audio_due {
                         self.queue_transform_cleanup_audio_loc_7e26();
+                    }
+                    if self.progression.form_change_flash_frames == 0
+                        && let Some(slice) = self.opening_slice.as_mut()
+                    {
+                        // ASM Kid_Transform loc_7E90 (kid.asm:8599-8600):
+                        // `clr.l x_vel(a3); clr.l y_vel(a3)` — the cleanup
+                        // frame returns the Kid to gameplay at REST, dropping
+                        // whatever velocity he carried into the freeze
+                        // (oracle 0x55: the post-transform Kid falls from
+                        // standstill into the f107 drill-child contact, #420).
+                        slice.player.x_velocity = 0;
+                        slice.player.y_velocity = 0;
                     }
                 }
                 self.resolve_pending_form_change();

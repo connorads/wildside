@@ -14513,10 +14513,15 @@ fn driller_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     // folding them into a parent union misattributes child touches as body
     // stomps and grinds the body's HP down (oracle 0x55: one stomp at live
     // 51, not one per bounce).
-    if enemy.stationary {
+    if enemy.stationary || enemy.damage_flash {
         // ASM Driller.asm loc_3BF4E/loc_3BF1C play `stru_3BCCE`/`stru_3BCD4`;
         // their frames route through GfxObjects_CollisionKid loc_1BCE to zero
-        // rows `unk_31A84`/`unk_31A78`.
+        // rows `unk_31A84`/`unk_31A78`. The surviving-stomp RETRACT
+        // (`damage_flash` is the native retract marker) is the same
+        // `LnkTo_unk_C80D8` zero-row frame: oracle 0x55 visible-window WRAM
+        // dumps show Kid's f10 deep bounce latching `$2C` on the drill CHILD
+        // only while the retracted body's `$38` stays 0 and its HP holds at 2
+        // until the walking-frame stomp at f29 (#420).
         return empty_enemy_contact_bounds();
     }
     // Unflipped art faces Left (x_direction clear); the flipped box mirrors

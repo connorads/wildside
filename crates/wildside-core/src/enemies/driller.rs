@@ -579,6 +579,32 @@ mod tests {
         );
     }
 
+    /// ASM Enemy1A_Driller_Init computes the walk speed `$50(a5)` ONCE from
+    /// `enemy_level+2` (loc_3BD6C/loc_3BD74) and no damage path rewrites it —
+    /// a stomped Driller keeps its init speed. Oracle 0x55 visible window:
+    /// the body patrols at 1px/frame after the second stomp drops it to hp 1
+    /// (f119+ x steps 0x15,0x16,... per frame at hp 1).
+    #[test]
+    fn driller_walk_speed_keys_on_init_level_not_current_hp_loc_3bd74() {
+        let grid = mini_hopping_skull_test_grid();
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::Driller,
+            facing: Direction::Left,
+            enemy_level: 1,
+            hit_points: 1,
+            x_pos: 64 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+        enemy.driller_children = Some(driller_spawn_children_enemy1a_init(64, 32));
+        step_driller(&mut enemy, Some(&grid));
+        assert_eq!(
+            enemy.x_pos,
+            63 << 16,
+            "an enemy_level-1 Driller stomped down to hp 1 still walks its \
+             init `$10000` speed (1px/frame), not the hp-1 half-pixel tier"
+        );
+    }
+
     #[test]
     fn driller_spawn_setup_loc_3bd2a_faces_toward_player_and_seeds_hp() {
         assert_eq!(

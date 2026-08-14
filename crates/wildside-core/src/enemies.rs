@@ -7965,6 +7965,13 @@ fn shared_walker_walk_speed(enemy: &ActiveEnemy) -> i32 {
         0
     } else if enemy.walk_speed_override != 0 {
         enemy.walk_speed_override
+    } else if matches!(enemy.family, EnemyFamily::Driller) {
+        // ASM Enemy1A_Driller_Init computes `$50(a5)` ONCE from
+        // `enemy_level+2` (loc_3BD6C/loc_3BD74) and no damage path rewrites
+        // it — a stomped Driller keeps its init walk speed (oracle 0x55:
+        // the hp-1 body still patrols at 1px/frame after the second stomp,
+        // #420).
+        pacer_walk_speed(enemy.family, enemy.enemy_level.saturating_add(2))
     } else {
         pacer_walk_speed(enemy.family, enemy.hit_points)
     }
