@@ -1928,6 +1928,20 @@ Native surface: `step_murder_wall` (weather.rs) with
 camera_x. Wall error is causal; camera_x is the downstream push. Archive
 #266/#294/#335 cover the same subsystem on other levels; none owns 0x21.
 
+Closed 2026-08-14. Fresh report `1786730575` exposed that the stale wall-only
+attribution was downstream: native discarded Forced Entry's terrain, Kid
+pit-died during the recording settle, and the death shell froze the wall.
+ASM `loc_11CCA` multiplies `$FFFFF8D8`, the block-type-3 `loc_124E8` count of
+16-byte solid-ghost records. Native incorrectly supplied the separate
+`$FFFFF8EA` copied-background count, whose entries are eight bytes at
+`loc_11CA8`; Forced Entry's 151 copied records therefore triggered a false
+overflow despite having only 10 solid-ghost records. The corrected list/count
+pair retains terrain. Regression pins the 0x21 grid and settle checkpoint:
+Mode_Level, camera `$00040000/$001C0000`, wall `$00043600`. Focused sweep
+`1786731160` has zero authoritative differences. Full sweep `1786731170`
+improves 62/69 to 64/69 and 33 to 16 blockers with no regression; 0x22 also
+passes because it suffered the same false terrain rejection.
+
 ### #432
 
 0x42 high-skin decode (4 blockers) — the residual #330 already names
@@ -1935,6 +1949,13 @@ camera_x. Wall error is causal; camera_x is the downstream push. Archive
 351 vs oracle 367: exactly 16px = one tile, static from level_settle, no
 object diffs; PNGs show Kid resting one tile high on the lamppost platform.
 Suspect: city skin blank-top-row/high-skin collision-terrain decode
+
+Closed 2026-08-14 with #431. The high-skin attribution was stale: 0x42's
+terrain was decoded correctly, then discarded when native passed the separate
+8-byte copied-background count to ASM `loc_11CCA`'s 16-byte solid-ghost-list
+guard. Correcting that list/count pairing retains the decoded terrain. Full
+sweep `1786731170` passes 0x42 with no new failure; focused confirmation
+`1786732273` has zero differences.
 (`sub_140F6` / `Load_LevelData loc_15A0` family) offsetting the collision
 surface one row.
 
@@ -22995,6 +23016,8 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 432 | [x] | P2 | level | 0x42's high-skin terrain was correct but falsely rejected by the copied-background/solid-ghost count mix-up fixed with #431. | Full sweep `1786731170` and focused sweep `1786732273` pass with zero 0x42 differences. See archive #432. |
+| 431 | [x] | P2 | level/weather | `loc_11CCA` now checks the 16-byte solid-ghost list count, not the separate 8-byte copied-background count; 0x21 retains terrain, Kid survives, and the murder wall reaches its oracle settle state. | 0x21 sweep `1786731160`; full sweep `1786731170` improves to 64/69 and also clears 0x22. See archive #431. |
 | 430 | [x] | P2 | kid-physics | The 0x52 recording settle counts its already-live debug-warp entry state, removing the one-frame Rubber-bounce phase lead without changing gameplay physics. | Focused boundary regression; 0x52 sweep `1786729401` and full sweep `1786729407` pass with no regression. See archive #430. |
 | 426 | [x] | P2 | enemy | Non-zero enemy-layout status bytes now seed and advance the ROM's `loc_3200A` / `Manage_EnemyLoading` countdown before spatial loading; Hand #2 at 0x59 stays dormant through its `$C0F0` delay. | 0x59 passes sweep `1786727203`; focused 240-pass regression and required fast/full TAS gates green. See archive #426. |
 | 417 | [x] | P2 | testing | Closed all 53 grandfathered `wildside-cli` failures through production fixes or evidence-backed fixture verdicts; the downward-only baseline is empty. | Complete CLI suite and `verify-slice-fast` green; any future CLI failure is new debt. See archive #417. |

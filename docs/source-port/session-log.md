@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#431/#432 closed)
+
+- The murder-wall lag was downstream of terrain rejection: `loc_11CCA` used
+  the copied-background count instead of the 16-byte solid-ghost count, so
+  Forced Entry lost its floor and Kid pit-died during settle.
+- 0x21, 0x22 and 0x42 now pass. Full sweep `1786731170` improves to 64/69
+  with 16 blockers and no regression. Select the next open risk with
+  `mise run project-status`.
+
 ## 2026-08-14 handoff (#430 closed)
 
 - The 0x52 discrepancy was a recording-harness phase error, not incorrect

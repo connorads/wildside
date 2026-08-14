@@ -12005,6 +12005,33 @@ mod chunk_09 {
         assert_eq!(frame.kid_y_velocity, Some(-0x0002_4000));
     }
 
+    /// #431 - ASM loc_74E0 -> loc_6E2/loc_11C34: Forced Entry must retain its
+    /// decoded terrain through the recording debug-warp hand-off. Without the
+    /// floor, Kid pit-dies and freezes the murder-wall coroutine downstream.
+    #[test]
+    fn issue431_level21_recording_entry_retains_terrain_loc_11c34() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x21));
+
+        assert!(
+            runtime.block_grid().is_some(),
+            "ASM loc_11C34 terrain loaded by loc_6E2 must survive the debug-warp title hand-off"
+        );
+
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x21));
+        let mut frame = runtime.trace_frame();
+        for _ in 0..61 {
+            frame = runtime.step_frame(FrameInput::default());
+        }
+        assert_eq!(frame.game_mode, GameMode::InGame);
+        assert_eq!(frame.camera_x_pos, 0x0004_0000);
+        assert_eq!(frame.camera_y_pos, 0x001C_0000);
+        assert_eq!(frame.murder_wall_x, Some(0x0004_3600));
+    }
+
     #[test]
     fn issue289_level06_lower_ghost_group_vanishes_before_kid_jump_collision_loc_f730_902a() {
         let Some(manifest) = cached_generated_manifest() else {

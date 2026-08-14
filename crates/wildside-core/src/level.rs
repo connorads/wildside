@@ -20484,11 +20484,15 @@ impl NativeRuntime {
         // ASM loc_11CCA (kid.asm:23877): the generated hidden-block list starts
         // at the same `$FFFF3B24` work buffer and must not span into
         // `FGPlane_UpdateQueueCustom`.
-        let hidden_block_count = u16::try_from(block_list.hidden_blocks.len()).ok()?;
+        // ASM loc_11CCA reads `$FFFFF8D8`, the count incremented by block
+        // type 3's loc_124E8 for 16-byte solid-ghost records. The copied
+        // background/hidden records use the separate `$FFFFF8EA` count and
+        // eight-byte loc_11CA8 list checked later at loc_11CF6.
+        let hidden_block_count = u16::try_from(block_list.ghost_blocks.len()).ok()?;
         let hidden_block_list_addr = if hidden_block_count == 0 {
             0
         } else {
-            0xFFFF_3B24
+            0xFFFF_3B24u32.wrapping_add((block_list.prize_blocks.len() as u32).wrapping_mul(8))
         };
         if !hidden_block_list_guard_loc_11CCA(hidden_block_list_addr, hidden_block_count) {
             return None;
