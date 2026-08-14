@@ -1654,6 +1654,15 @@ no ratchet.
 
 ### #445
 
+2026-08-14 closure - all six formerly dark crates now run under the fast gate.
+`wildside-rom` is directly green-gated at 12/12. The other five suites run
+independently through `workspace_failing_test_ratchet.py`, which prefixes every
+failure with its crate, parses every completed libtest target (including web's
+three targets), fails closed on compile/abort output, rejects any new name, and
+allows the reviewed baseline only to shrink. Three parser contract tests cover
+multi-target failures, multi-target green output, and incomplete runs. The live
+gate reports exactly the six reviewed failures; no new failure is accepted.
+
 2026-08-14 implementation - the first green suite is gated. A fresh six-crate
 run confirms `wildside-rom` remains 12/12 green and the previously measured
 named failure set is stable: one each in md/frame/data/render and two in web.
@@ -22868,6 +22877,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 445 | [x] | P2 | testing | All six formerly dark crates run in the fast gate: ROM is green; md/frame/data/render/web use a crate-qualified, multi-target, fail-closed named-set ratchet that can only shrink from six failures. | Parser contracts pass; live ratchet reports exactly 6/6 reviewed names; `verify-slice-fast` green. See archive #445. |
 | 421 | [x] | P1 | enemy | Scorpion Lion-library movement, fall paths, animation-row collision, allocation timing, and the sting-capable linked-tail settle age now follow the ASM/oracle schedule. | 0x61's 61-frame and 0x62's 30-frame probes are exact; sweep 1786713871 improves to 62/69 with 34 blockers; required gates green. See archive #421. |
 | 414 | [-] | P1 | intro/render | Retired stale intro/title residue: all former IntroText, IntroSequence5, and frame-21765 title witnesses are absent from the current full-route mismatch report. | Full TAS has only HUD diamond/life-icon clusters; reopen only from a named current intro worker plus differing hardware evidence. See archive #414. |
 | 408 | [-] | P1 | rendering | Retired the stale dynamic-animation umbrella: all current full-route pixel debt is in HUD regions and no live object-local mismatch remains; prior concrete script defects are fixed or their generic hypotheses rejected. | Full TAS mismatch report has only `hud_diamond` and `hud_life_icon`; reopen as a narrow issue only from a named live GfxObject/script witness. See archive #408. |

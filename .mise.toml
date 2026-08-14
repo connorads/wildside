@@ -85,6 +85,7 @@ depends = [
   "audit-debug-fields",
   "asm-coverage-check-required",
   "asm-coverage-check-no-new-test-only",
+  "workspace-failing-test-ratchet",
 ]
 # `check-hooks` makes the gate refuse to pass on a clone/worktree where the
 # pre-commit hook isn't wired (run: mise run setup) — fail-closed, near-instant.
@@ -103,6 +104,10 @@ cargo test -q -p wildside-core --lib -- --skip demo_ --skip published_tas --skip
 '
 """
 description = "Canonical green-gate: wildside-core unit sweep + wildside-cli gameplay regressions + wildside-rom + TAS frontier replay. Must pass at every commit."
+
+[tasks.workspace-failing-test-ratchet]
+run = "python3 scripts/test_workspace_failing_test_ratchet.py && python3 scripts/workspace_failing_test_ratchet.py"
+description = "Fail on new named failures in md/frame/data/render/web; baseline may only shrink (#445)"
 
 [tasks.verify-1p-playable]
 run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- release-gate --target 1p-playable"

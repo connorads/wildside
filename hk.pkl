@@ -75,6 +75,16 @@ hooks {
                 check = "python3 scripts/failing_test_ratchet.py"
                 fix = "python3 scripts/failing_test_ratchet.py --update"
             }
+            // #445: five formerly dark workspace suites run under a
+            // downward-only, crate-qualified named failure set. The parser
+            // handles multiple libtest targets (wildside-web) and fails closed.
+            ["workspace-failing-test-ratchet"] {
+                glob = List("crates/**/*.rs", "docs/source-port/workspace-failing-test-baseline.yaml")
+                stage = List("docs/source-port/workspace-failing-test-baseline.yaml")
+                check_first = false
+                check = "python3 scripts/workspace_failing_test_ratchet.py"
+                fix = "python3 scripts/workspace_failing_test_ratchet.py --update"
+            }
             // #406 meter: teleports that discard the engine clock for a
             // measured oracle cycle. Frames inside the rolling window below the
             // frontier are the working set; older ones may only ever be

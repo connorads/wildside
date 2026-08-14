@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#445 workspace test gates closed)
+
+- All six formerly dark crates now run from `verify-slice-fast`.
+  `wildside-rom` is green; md/frame/data/render/web are protected by a
+  crate-qualified six-name ratchet that handles multiple libtest targets and
+  fails closed when a suite does not complete.
+- Three parser contracts and the live five-crate run pass. #445 is closed.
+  Next selector-owned work is #417's existing CLI failure clusters.
+
 ## 2026-08-14 handoff (#445 green ROM gate entry)
 
 - Fresh six-crate census confirms the stable six failures: md/frame/data/render
