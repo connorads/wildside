@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#408 stale animation umbrella retired)
+
+- The current full pixel report contains only HUD diamond/life-icon clusters;
+  there is no live object-local mismatch satisfying #408's Verify condition.
+- Earlier #408 sessions already landed the concrete Cyclone, prize-worker,
+  Dragon and Iron Knight fixes. Generic Diamond/Dragon/global-clock trials
+  either changed zero pixels or regressed the route and remain rejected.
+- Reopen only as a narrow issue from a current named GfxObject/script witness.
+  Next selector-owned P1 work is #414's intro/title/story-card timing.
+
 ## 2026-08-14 handoff (#413 stale Plane-B row retired)
 
 - The current full pixel mismatch report contains only HUD diamond/life-icon

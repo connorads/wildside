@@ -3844,6 +3844,18 @@ scheduler.
 
 ### #408
 
+Retired 2026-08-14. The current full `source_port_visible_rgb24_v1`
+mismatch report contains only HUD diamond and life-icon clusters. It has no
+live object-local mismatch satisfying this row's Verify condition. The
+object-script defects formerly grouped here have durable fixes and evidence:
+Cyclone's double visual pass, prize-worker/Sprite-Table hand-offs, Dragon hurt
+and transform cursors, Dragon landing resets, and Iron Knight pose selection.
+The archived generic Diamond clock changed zero pixels, while global Dragon
+phase shifts and static helmet-prize frames regressed the authoritative route.
+Do not reopen this umbrella from a global `frame_index` search. Open a narrow
+issue only when a current rendered mismatch identifies the concrete live
+GfxObject, animation script, timer and oracle frame.
+
 Rejected 2026-07-29: giving ordinary Diamond enemies an object-local
 `stru_3ACA8` five-frame/six-tick clock and rendering from its typed snapshot
 changed zero pixels across all 37,759 published-route frames. The route stayed
@@ -22825,6 +22837,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 408 | [-] | P1 | rendering | Retired the stale dynamic-animation umbrella: all current full-route pixel debt is in HUD regions and no live object-local mismatch remains; prior concrete script defects are fixed or their generic hypotheses rejected. | Full TAS mismatch report has only `hud_diamond` and `hud_life_icon`; reopen as a narrow issue only from a named live GfxObject/script witness. See archive #408. |
 | 413 | [-] | P1 | rendering | Retired stale Plane-B seam attribution: the current full route has only HUD pixel clusters, and prior source-column/forest-edge probes found no source-proven row-history discrepancy. | Full TAS mismatch report: 37,518/37,759 exact; all 2,391 changed pixels belong to HUD diamond/life-icon clusters. See archive #413. |
 | 422 | [x] | P1 | enemy | Debug-entry camera scheduling now leaves horizontal follow to Mode_Level before Manage_EnemyLoading while preserving the atomic vertical-settle seed; UFO Gfx collision treats HiddenBlock top-row overlap as ceiling and side overlap as wall. | 0x48 passes 420 focused checkpoints and the state sweep; full sweep 1786711753 improves to 61/69 with 36 blockers; required gates green. See archive #422. |
 | 419 | [x] | P1 | enemy | 0x60 idle_tail cascade closed: the frame-60 charge hit was already parity-exact (neither Kid displaced); native goats missed the ROM's grounded wall hold (Lion.asm loc_3E3B2/loc_3E566 crossing -> loc_3E406/loc_3E5BA: `$42`=$FF88 re-armed, step never committed, no turn; sub_36972 loc_369BC makes the level edge a wall), so li=1 pit-died, respawned, and re-charged Kid fatally at frame 263. | 0x60 idle frames 0..359 all match oracle; sweep 1786660540: 56/69 pass, 64 blocking, only change 0x60 FAIL->PASS; verify-tas-full byte-identical. See archive #419. |
