@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#443 ratchet fail-closed — closed with black-box contract tests)
+
+- #443 closed (24d11d4a9). The fail-closed handling itself predated this
+  session (1ab60f71c) but had no tests; the close bar was black-box
+  proof. New `scripts/test_failing_test_ratchet.py` runs the shipped
+  script as a subprocess in a temp repo tree with a fake `cargo` on
+  PATH: did-not-run runs (compile error, signal kill, odd exit status
+  with complete-looking stdout) exit 1 and never touch the baseline even
+  under `--update`; ratchet-down preserves the header comment; novel
+  failures block; multi-target parses refuse with exit 2. Against the
+  pre-fix script 6/10 fail, reproducing the real baseline-wipe class.
+- Added: the did-not-run path now names cargo's exit status and stderr
+  tail, so a blocked commit surfaces the compile error.
+- Live smoke: the real ratchet reports 26/26 subset; verify-slice-fast
+  green; sibling script suites unaffected.
+- Next per NOW step 4: #445 green-first gate entry (wildside-rom
+  immediately) plus a per-crate named ratchet.
+
 ## 2026-08-14 handoff (#422 UFO beam model — frame-0 witness allowance retired)
 
 - Decoded the 0x30 aimed-beam law from the shell census (5/5/10 spawn

@@ -1383,6 +1383,24 @@ eligible row is missing or added. `backlog-lint` and `verify-slice-fast` pass.
 
 ### #443
 
+2026-08-14 session — CLOSED (24d11d4a9). The engine fix landed earlier in
+1ab60f71c (exit statuses other than 0/101 or output without a `test
+result:` line are "did not run"; refuse to compare or shrink; a second
+`test result:` line refuses the single-binary parse with exit 2) but
+shipped without tests, so the row stayed open. The close-out adds
+`scripts/test_failing_test_ratchet.py`: black-box only — each test
+copies the shipped script into a temp repo-shaped tree, plants a fake
+`cargo` on PATH, and asserts exit code, stderr, and baseline BYTES.
+Red-proof: run against the pre-fix f7afda6ed script, 6/10 fail —
+including `--update` on a compile error exiting 0 with the baseline
+rewritten — proving the suite catches the real wipe class, not a
+strawman. One new behaviour rode along: the did-not-run path prints
+cargo's exit status and its stderr tail (last 20 lines), so a blocked
+commit shows the compile error instead of a bare refusal. Note for
+future readers: cargo itself exits 101 on build errors, so the exit
+status alone can never prove a run happened — the `test result:` line
+check is the other half of the gate, and both are pinned by tests.
+
 Opened 2026-08-01 (campaign audit). `scripts/failing_test_ratchet.py:69-82`
 never inspects `proc.returncode`; `current_failures()` returns an empty set
 whenever stdout lacks a `failures:` header — including compile errors,
@@ -22576,6 +22594,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 453 | [x] | P1 | infra | `project-status` ranks same-priority actionable rows above in-progress and explicit `Reopen only` risks, while retaining deferred rows when space remains. | Live top playability lane includes #442; 16 project-status tests and `verify-slice-fast` pass. See archive #453. |
 | 452 | [x] | P1 | testing/web | Restored the browser runtime asset contract: `kid_skid.bin` is catalogued and ROM-extractable, required airborne aliases are present in the render fixture/manifest, and the observable level-sidecar catalogue is current. | `verify-web-fast` and `verify-slice-fast` green; extractor/native runtime bundles byte-identical. See archive #452. |
 | 458 | [x] | P2 | render/web | No engine divergence existed: the parity test's native arm skipped the canonical pipeline's latch (prev + resident) and live grid; fs/bundle assets byte-match. Test now mirrors capture_scenario_frames across frames 0-100. | Strengthened gate green on the un-fixed and fixed trees; unblocked #419's spawn delay. See archive #458. |
+| 443 | [x] | P1 | testing | Failing-test ratchet is fail-closed: exit statuses other than 0/101 or a missing `test result:` line are "did not run" (never an empty failure set, never a shrink), multi-target parses refuse, and the did-not-run path names cargo's exit status + stderr tail. Black-box contract suite added. | `python3 scripts/test_failing_test_ratchet.py`: 10/10 vs current script, 6/10 red vs pre-fix f7afda6ed; live check reports 26/26 subset; verify-slice-fast green. See archive #443. |
 | 442 | [x] | P1 | verification | Settled-warp shell content modelled: per-level load-completion boundary (measured table, mapping `load_complete - 1`), hand tails + Driller/boss/Drips fudges deleted, murder wall wired into the hidden live shell, frame-0 RNG witness gate added. | Witness gate: probe levels RNG-exact (49/65 levels fully exact); sweep 1786646904: 55/69 pass, 74 blocking (from 52/69, 116), zero regressions; verify-tas-full green. See archive #442. |
 | 450 | [x] | P2 | enemy | Verdict: the pin was wrong, not native. ASM sub_36A58 derives the loc_3E566 right floor span as columns 1-3 for the fixture (40+9-1=48 -> col 3); the stale `2,17` pin predates commit 960352273's ROM scan width. Re-pinned with the derivation, renamed `_snapshot_` -> `_trace_export_`. | Test runs and passes inside the gated core suite. See archive #450. |
 | 448 | [x] | P2 | verification | `verify-disasm-fidelity` mise task assembles the pinned disassembly with AS and byte-diffs against the reference ROM, naming the nearest label/source line per mismatching region. Result: BIT-PERFECT (1,048,576 bytes; SHA-1 match) — the ASM-first rule's premise is now a gate. | Task green in ~2s warm / 12s cold; red path verified with deliberate corruption (3 regions localised to labels). See archive #448. |
