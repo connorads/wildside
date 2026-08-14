@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#426 closed)
+
+- Enemy layout flag `$01` now follows ASM `loc_3200A` and
+  `Manage_EnemyLoading loc_36840..loc_368A8`: Hand #2 at 0x59 waits through
+  the `$C0F0` countdown instead of loading immediately.
+- Full sweep `1786727203` passes 0x59. Current-HEAD disabled control
+  `1786727060` proves the unchanged 0x24/0x40 failures pre-exist this fix.
+  `verify-slice-fast` and all 37,759 full TAS frames are green. Select the next
+  open risk with `mise run project-status`.
+
 ## 2026-08-14 handoff (#417 closed)
 
 - The final level-refresh fixture now pins ASM `loc_75C0`'s exact settled pose:

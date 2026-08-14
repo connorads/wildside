@@ -3465,6 +3465,7 @@ pub(crate) fn activate_enemies(
     killed: &std::collections::HashSet<(usize, usize)>,
 ) {
     let mut rng = RomRandomState::default();
+    let mut enemy_status_words = [0; 0x001E];
     activate_enemies_with_rng(
         active,
         layout,
@@ -3477,6 +3478,7 @@ pub(crate) fn activate_enemies(
         0,
         false,
         killed,
+        &mut enemy_status_words,
         &mut rng,
     );
 }
@@ -3494,6 +3496,7 @@ pub(crate) fn activate_enemies_with_rng(
     blank_top_rows: u16,
     enemy_loading_initial_pass_complete: bool,
     killed: &std::collections::HashSet<(usize, usize)>,
+    enemy_status_words: &mut [u16; 0x001E],
     rng: &mut RomRandomState,
 ) {
     activate_enemies_with_rng_inner(
@@ -3508,6 +3511,7 @@ pub(crate) fn activate_enemies_with_rng(
         blank_top_rows,
         enemy_loading_initial_pass_complete,
         killed,
+        enemy_status_words,
         rng,
         ExistingEnemyLoaderAction::Retain,
     );
@@ -3526,6 +3530,7 @@ fn allocate_enemies_after_execute_objects_loc_3691e(
     blank_top_rows: u16,
     enemy_loading_initial_pass_complete: bool,
     killed: &std::collections::HashSet<(usize, usize)>,
+    enemy_status_words: &mut [u16; 0x001E],
     rng: &mut RomRandomState,
 ) {
     activate_enemies_with_rng_inner(
@@ -3540,6 +3545,7 @@ fn allocate_enemies_after_execute_objects_loc_3691e(
         blank_top_rows,
         enemy_loading_initial_pass_complete,
         killed,
+        enemy_status_words,
         rng,
         ExistingEnemyLoaderAction::Preserve,
     );
@@ -3587,10 +3593,26 @@ fn activate_enemies_with_rng_inner(
     blank_top_rows: u16,
     enemy_loading_initial_pass_complete: bool,
     killed: &std::collections::HashSet<(usize, usize)>,
+    enemy_status_words: &mut [u16; 0x001E],
     rng: &mut RomRandomState,
     existing_enemy_action: ExistingEnemyLoaderAction,
 ) {
     let view = enemy_layout_view(layout, camera_x_px, camera_y_px);
+    if enemy_status_words.iter().all(|&word| word == 0) {
+        // ASM loc_31FE6 -> loc_3200A initialises the active layout bucket's
+        // EnemyStatus_Table from byte 1 of every eight-byte entry before the
+        // first Manage_EnemyLoading pass. Positive bytes seed a delayed reload
+        // countdown, negative bytes seed the forced-load sentinel, and zero is
+        // immediately eligible.
+        for (status, object) in enemy_status_words.iter_mut().zip(view.objects) {
+            *status = match object.flags {
+                0 | 5..=0x7F => 0,
+                flags => {
+                    crate::level::enemy_layout_status_word_with_negative_sentinel_loc_32036(flags)
+                }
+            };
+        }
+    }
     // Most enemies despawn on spawn-point exit. Flyers keep their live object
     // around longer; the Level 1 Dragon continues drifting after its layout
     // anchor scrolls behind the camera.
@@ -3624,6 +3646,21 @@ fn activate_enemies_with_rng_inner(
 
     // Activate new enemies that entered the window.
     for (index, object) in view.objects.iter().enumerate() {
+        let Some(status_word) = enemy_status_words.get_mut(index) else {
+            continue;
+        };
+        let loader_state = if matches!(object.flags, 0 | 5..=0x7F) {
+            // TODO(fidelity): zero-flag slots remain on the established
+            // immediate-reload path until native models their complete
+            // loc_3C4C0 offscreen/death lifecycle. Applying isolated status
+            // words here regresses the oracle-matching 0x24/0x40 rosters.
+            ManageEnemyLoadingSpawnStateLoc36840::Fresh
+        } else {
+            let Some(loader_state) = manage_enemy_loading_status_step_loc_36840(status_word) else {
+                continue;
+            };
+            loader_state
+        };
         let object_x = u32::from(object.x);
         let object_y = u32::from(object.y);
         if !window.contains(object_x, object_y) {
@@ -4298,7 +4335,54 @@ fn activate_enemies_with_rng_inner(
             }
             active.push(enemy);
         }
+        match loader_state {
+            ManageEnemyLoadingSpawnStateLoc36840::Fresh => {}
+            ManageEnemyLoadingSpawnStateLoc36840::ForcedReload => *status_word = 0xFFFF,
+            ManageEnemyLoadingSpawnStateLoc36840::CountdownReload => {
+                *status_word = status_word.wrapping_add(0x0400);
+            }
+        }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ManageEnemyLoadingSpawnStateLoc36840 {
+    Fresh,
+    CountdownReload,
+    ForcedReload,
+}
+
+/// Advance one ASM `Manage_EnemyLoading loc_36840..loc_368A8` status word.
+/// `None` means this entry skips the spatial load window on this pass.
+#[allow(clippy::verbose_bit_mask)] // Keep the ASM `andi.w #$3FF` tests literal.
+fn manage_enemy_loading_status_step_loc_36840(
+    status_word: &mut u16,
+) -> Option<ManageEnemyLoadingSpawnStateLoc36840> {
+    if *status_word == 0 {
+        return Some(ManageEnemyLoadingSpawnStateLoc36840::Fresh);
+    }
+    if *status_word == 0xFFFF {
+        return None;
+    }
+    if *status_word & 0x2000 != 0 {
+        if *status_word & 0x03FF == 0 {
+            return Some(ManageEnemyLoadingSpawnStateLoc36840::Fresh);
+        }
+        *status_word = status_word.wrapping_sub(1);
+        return None;
+    }
+    if *status_word & 0x4000 == 0 {
+        return Some(ManageEnemyLoadingSpawnStateLoc36840::ForcedReload);
+    }
+
+    *status_word = status_word.wrapping_sub(1);
+    if *status_word & 0x03FF != 0 {
+        return None;
+    }
+    let selector = usize::from(status_word.rotate_left(4) & 3);
+    const RELOAD_WORDS_UNK_3680C: [u16; 4] = [0x00F0, 0x01E0, 0x02D0, 0x03C0];
+    *status_word |= RELOAD_WORDS_UNK_3680C[selector];
+    Some(ManageEnemyLoadingSpawnStateLoc36840::CountdownReload)
 }
 
 fn dragon_flying_dive_zero_contact_row_loc_348ce(x_velocity: i32, y_velocity: i32) -> bool {
@@ -11578,6 +11662,94 @@ mod tests {
     }
 
     #[test]
+    fn issue426_positive_layout_status_delays_hand_until_loc_3686e_countdown_expires() {
+        let object = wildside_data::EnemyLayoutObject {
+            object_type: 0x17,
+            flags: 0x01,
+            hit_points_plus_one: 0,
+            x: 312,
+            y: 191,
+        };
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![0x4017, 0xFFFF, 0xFFFF],
+            unknown_word: 0x7D00,
+            header_byte: 0x80,
+            object_count: 1,
+            objects: vec![object.clone()],
+            segments: vec![wildside_data::EnemyLayoutSegment {
+                lower_bound: 0,
+                upper_bound: 0x7D00,
+                enemy_type_slots: vec![0x4017, 0xFFFF, 0xFFFF],
+                object_batch_flags: 0x80,
+                object_count: 1,
+                objects: vec![object],
+            }],
+        };
+        let window = ActivationWindow {
+            x_min: 0,
+            x_max: 0x01C0,
+            y_min: 0,
+            y_max: 0x0160,
+        };
+        let bounds = physics::LevelBounds {
+            width_pixels: 4096,
+            height_pixels: 512,
+        };
+        let killed = std::collections::HashSet::new();
+        let mut active = Vec::new();
+        let mut status_words = [0; 0x001E];
+        let mut rng = RomRandomState::default();
+
+        for pass in 0..239 {
+            activate_enemies_with_rng(
+                &mut active,
+                &layout,
+                window,
+                0,
+                0,
+                bounds,
+                0,
+                0,
+                0,
+                false,
+                &killed,
+                &mut status_words,
+                &mut rng,
+            );
+            assert!(
+                active.is_empty(),
+                "ASM loc_3200A `$C0F0` Hand must remain unloaded on countdown pass {pass}"
+            );
+        }
+        assert_eq!(status_words[0], 0xC001);
+
+        activate_enemies_with_rng(
+            &mut active,
+            &layout,
+            window,
+            0,
+            0,
+            bounds,
+            0,
+            0,
+            0,
+            false,
+            &killed,
+            &mut status_words,
+            &mut rng,
+        );
+
+        assert_eq!(active.len(), 1, "ASM loc_3686E reloads on pass 240");
+        assert_eq!(active[0].family, EnemyFamily::Hand);
+        assert_eq!(
+            status_words[0], 0xC4F0,
+            "ASM loc_3686E rebuilds the reload word then loc_36900 adds `$400`"
+        );
+    }
+
+    #[test]
     fn tornado_init_uses_loc_35326_motion_picker_and_one_rng_byte_per_spawn() {
         // ASM Tornado.asm Enemy18_Tornado_Init: `bsr.w loc_35326` draws one
         // Get_RandomNumber_byte per tornado and picks the first motion vector
@@ -11619,6 +11791,7 @@ mod tests {
         let _second_byte = control.next_byte();
         let mut active = Vec::new();
         let mut rng = RomRandomState::default();
+        let mut enemy_status_words = [0; 0x001E];
 
         activate_enemies_with_rng(
             &mut active,
@@ -11635,6 +11808,7 @@ mod tests {
             0,
             false,
             &std::collections::HashSet::new(),
+            &mut enemy_status_words,
             &mut rng,
         );
 
@@ -13468,6 +13642,7 @@ impl NativeRuntime {
                 blank_top_rows,
                 self.enemy_loading_initial_pass_complete,
                 &self.killed_enemies,
+                &mut self.enemy_status_words,
                 &mut self.rom_random,
             );
             self.ensure_heady_metal_breakup_slots_loc_39247();
@@ -13569,6 +13744,7 @@ impl NativeRuntime {
             blank_top_rows,
             false,
             &self.killed_enemies,
+            &mut self.enemy_status_words,
             &mut self.rom_random,
         );
         self.enemy_loading_initial_pass_complete = true;
@@ -13834,6 +14010,7 @@ impl NativeRuntime {
                             blank_top_rows,
                             self.enemy_loading_initial_pass_complete,
                             &self.killed_enemies,
+                            &mut self.enemy_status_words,
                             &mut self.rom_random,
                         );
                     }
@@ -14101,6 +14278,7 @@ impl NativeRuntime {
             blank_top_rows,
             self.enemy_loading_initial_pass_complete,
             &self.killed_enemies,
+            &mut self.enemy_status_words,
             &mut self.rom_random,
         );
         self.pending_enemy_gfx_initialisations_loc_3691e =
@@ -14147,6 +14325,7 @@ impl NativeRuntime {
             blank_top_rows,
             self.enemy_loading_initial_pass_complete,
             &self.killed_enemies,
+            &mut self.enemy_status_words,
             &mut self.rom_random,
         );
         self.pending_enemy_gfx_initialisations_loc_3691e =

@@ -9077,7 +9077,6 @@ pub(crate) fn manage_enemy_loading_spawn_object_loc_3691E(
 }
 
 #[allow(non_snake_case)]
-#[cfg(test)]
 pub(crate) fn enemy_layout_status_word_loc_3200A(entry_status_byte: u8) -> u16 {
     // ASM loc_3200A (kid.asm:37413): clear `d0`, read byte `1(a1)`, and
     // branch to loc_32044 for empty slots, where `clr.w (a2)+` writes the
@@ -9105,7 +9104,6 @@ pub(crate) fn enemy_layout_status_word_loc_3200A(entry_status_byte: u8) -> u16 {
 }
 
 #[allow(non_snake_case)]
-#[cfg(test)]
 pub(crate) fn enemy_layout_status_word_with_negative_sentinel_loc_32036(
     entry_status_byte: u8,
 ) -> u16 {

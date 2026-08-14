@@ -1261,6 +1261,22 @@ the shell's enemy-loading passes (EnemyStatus_Table + Addr_EnemyLayout
 segment cursor) — the divergence is hidden-shell loading content (#442
 family), possibly a camera-keyed H1 sub-list native's parser flattens.
 
+Closed [x] 2026-08-14. ASM `loc_31FE6 -> loc_3200A` seeds positive layout
+byte 1 values as `$C000` countdown words; `Manage_EnemyLoading loc_36840..loc_368A8`
+advances those words before the spatial window and reloads only when the low
+ten bits expire. Native now carries the existing `enemy_status_words` table
+through every loader call and applies that source-defined state machine to
+non-zero ROM selectors. The level-0x59 Hand #2 flag `$01` therefore starts at
+`$C0F0`, remains absent for 239 passes, and becomes eligible on pass 240.
+Regression `issue426_positive_layout_status_delays_hand_until_loc_3686e_countdown_expires`
+pins the exact transition and `$C4F0` reload word. Unsupported positive fixture
+bytes and zero-flag entries retain the established path pending their complete
+`loc_3C4C0` lifecycle; isolated activation regressed 0x24/0x40, while disabled
+current-HEAD control run `1786727060` proves both failures already exist with
+#426 off and only 0x59 changes. Full sweep `1786727203` passes 0x59. Required
+`verify-slice-fast` and `verify-tas-full` gates pass; the full TAS has zero
+authoritative enemy-frontier differences across 37,759 frames.
+
 ### #427
 
 Tornado RNG flight (0x50, 2 blockers). Only diff: number_hitpoints 2v1 at BOTH
@@ -22968,6 +22984,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 426 | [x] | P2 | enemy | Non-zero enemy-layout status bytes now seed and advance the ROM's `loc_3200A` / `Manage_EnemyLoading` countdown before spatial loading; Hand #2 at 0x59 stays dormant through its `$C0F0` delay. | 0x59 passes sweep `1786727203`; focused 240-pass regression and required fast/full TAS gates green. See archive #426. |
 | 417 | [x] | P2 | testing | Closed all 53 grandfathered `wildside-cli` failures through production fixes or evidence-backed fixture verdicts; the downward-only baseline is empty. | Complete CLI suite and `verify-slice-fast` green; any future CLI failure is new debt. See archive #417. |
 | 445 | [x] | P2 | testing | All six formerly dark crates run in the fast gate: ROM is green; md/frame/data/render/web use a crate-qualified, multi-target, fail-closed named-set ratchet that can only shrink from six failures. | Parser contracts pass; live ratchet reports exactly 6/6 reviewed names; `verify-slice-fast` green. See archive #445. |
 | 421 | [x] | P1 | enemy | Scorpion Lion-library movement, fall paths, animation-row collision, allocation timing, and the sting-capable linked-tail settle age now follow the ASM/oracle schedule. | 0x61's 61-frame and 0x62's 30-frame probes are exact; sweep 1786713871 improves to 62/69 with 34 blockers; required gates green. See archive #421. |
