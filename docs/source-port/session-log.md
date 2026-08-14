@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#421 Scorpion init phase exact)
+
+- Corrected the first two-pass reading before push. Allocation happens after
+  Execute_Objects; the following pass runs init into the single walker-entry
+  hibernate, and the next pass moves. Census rows 64/65/66 corroborate it.
+- The strict 0x61 live-59 x=37.0 witness is enabled. The rejected two-pass
+  x=35.5 result was not a #442 boundary residue.
+- Both Scorpion regressions pass with no ignores; `verify-slice-fast` and
+  `verify-tas-full` are green with exact TAS ratchets. Clean-cache sweep
+  `1786698154` is 58/69 with 45 blockers, identical to `1786695230` with zero
+  regressions. #421 stays open for the downstream three 0x61 and four 0x62
+  death-arc/count blockers.
+
 ## 2026-08-14 handoff (#420 second partial — 0x68 sweep pass, 0x55 witness exact)
 
 - Modelled the scheduled three-pass Driller init, next-frame Jump_On_Enemy

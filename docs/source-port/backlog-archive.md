@@ -873,6 +873,21 @@ worker count parity (native `driller.rs` `loc_3BE78`/`loc_3BE60` refcount).
 
 ### #421
 
+2026-08-14 correction before push: the initial two-pass reading was wrong.
+`Manage_EnemyLoading loc_3691E` allocates after Execute_Objects; the following
+object pass runs `Enemy13_Scorpion_Init` directly into `loc_3E392/loc_3E546`
+and hibernates at spawn, then the next pass resumes through `sub_3E8BA` and
+moves. Census `1786673717` says the same: positionless row 64, parked row 65,
+first step row 66. The correct post-allocation defer is one. The strict 0x61
+live-59 x=37.0 witness is enabled; re-run evidence supersedes sweep
+`1786697291`. The rejected two-pass result (x=35.5) was not #442 residue.
+Final gates: both Scorpion regressions pass with no ignores;
+`verify-slice-fast` and `verify-tas-full` are green with all TAS ratchets exact.
+Clean-cache sweep `1786698154` is 58/69 with 45 blockers, identical to
+`1786695230` with zero per-level regressions. The exact phase leaves 0x61 at
+three blockers and 0x62 at four, so #421 stays open for their downstream
+death-arc/count chain.
+
 2026-08-14 session — boundary-damage fix LANDED (4d39e50b5), row stays
 [~]. Narrow probes (oracle-settle-census run 1786673717 + oracle-probe
 watches on `$FFFC40`/`$FFFA73`) decoded both levels end to end:

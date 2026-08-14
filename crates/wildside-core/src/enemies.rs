@@ -14089,6 +14089,15 @@ impl NativeRuntime {
                 // 3BCF0/3BCF4 on title rows 61/62, parked at x=120 on row
                 // 63, first step on row 64).
                 EnemyFamily::Driller => 3,
+                // ASM Enemy13_Scorpion_Init (#421): loc_3691E allocates the
+                // object after Execute_Objects. Its first pass runs init
+                // straight into loc_3E392/loc_3E546 and hibernates at spawn;
+                // the next pass resumes through sub_3E8BA and takes the first
+                // 1.5px step. That is ONE deferred AI pass after allocation
+                // (census 1786673717: 0x61 li=0 is positionless on title row
+                // 64, parked at x=184 on row 65, and steps on row 66; 0x62
+                // li=0 follows rows 71/72/73 identically).
+                EnemyFamily::Scorpion => 1,
                 _ => 0,
             };
             if no_step_passes > 0 {

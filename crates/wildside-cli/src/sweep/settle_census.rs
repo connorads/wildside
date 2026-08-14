@@ -845,6 +845,40 @@ mod tests {
         );
     }
 
+    /// #421: the 0x61 Scorpion walk phase. ASM Manage_EnemyLoading loc_3691E
+    /// + Enemy13_Scorpion_Init: loc_3691E allocates after Execute_Objects;
+    /// the first object pass runs init into the Lion-library walker-entry
+    /// hibernate (census 1786673717: 0x61 title row 64 has no position,
+    /// row 65 parks at spawn x=184, and row 66 takes the first 1.5px step).
+    /// Thus the object has one deferred AI pass after allocation. li=0 walks
+    /// left, turns at
+    /// x=25 (arrive live50, one hold, step live52), and reads exactly 37.0
+    /// on the live-59 row.
+    ///
+    #[test]
+    fn gameplay_regression_scorpion_walk_phase_loc_3e55a_level_0x61() {
+        use wildside_core::{LevelId, NativeRuntime};
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.set_recorded_title_card_handoff_delay(true);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x61));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x61));
+        let frame = runtime.trace_frame();
+        let li0 = frame
+            .active_objects
+            .iter()
+            .find(|object| object.layout_index == Some(0))
+            .expect("Scorpion layout #0 must be in the frame-0 roster");
+        assert_eq!(
+            (li0.x_pos, li0.y_pos),
+            (0x0025_0000, 0x0080_0000),
+            "oracle live-59: li=0 patrols back to exactly x=37.0 on the y=128 \
+             row"
+        );
+    }
+
     /// #420: the 0x68 Driller shell journey. Oracle settle trace (census run
     /// 1786662123): li=3/li=5 walk left at 0.5px/frame (hp 2), wall-turn at
     /// x=12 against the level edge, and read exactly x=59.5 at frame 0;
