@@ -1908,6 +1908,17 @@ pinned 342, oracle bobs 344→337); camera_y tracks 4px; the number_objects
 5/3→3/5 swap is a slot-activation phase shift from the differing camera_y
 revealing prize blocks, not a distinct object set.
 
+Closed 2026-08-14. Fresh sweep `1786728735` reduced the stale seven-diff report
+to five and `tas-diff` proved native frame 0 exactly equalled oracle frame 1:
+ordinary gravity and the Rubber bounce were correct, but the recording settle
+window was one post-step state ahead. Oracle settle census run `1786728817`
+pinned target-live step 59 at Kid y `$015C8000`, velocity `-$28000`, camera y
+`$00B90000`; its next scenario frame is y `$015A4000`, velocity `-$24000`.
+The recording helper counts its already-live entry state as frame one, so 0x52
+uses 59 stable frames rather than the generic 60. The focused regression pins
+both boundaries. Targeted sweep `1786729401` passes, and full sweep
+`1786729407` improves 61/69 to 62/69 with 33 blockers and no new failure.
+
 ### #431
 
 Murder-wall settle (0x21, 2 blockers). murder_wall_x native ≈ -19.6px vs oracle
@@ -22984,6 +22995,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 430 | [x] | P2 | kid-physics | The 0x52 recording settle counts its already-live debug-warp entry state, removing the one-frame Rubber-bounce phase lead without changing gameplay physics. | Focused boundary regression; 0x52 sweep `1786729401` and full sweep `1786729407` pass with no regression. See archive #430. |
 | 426 | [x] | P2 | enemy | Non-zero enemy-layout status bytes now seed and advance the ROM's `loc_3200A` / `Manage_EnemyLoading` countdown before spatial loading; Hand #2 at 0x59 stays dormant through its `$C0F0` delay. | 0x59 passes sweep `1786727203`; focused 240-pass regression and required fast/full TAS gates green. See archive #426. |
 | 417 | [x] | P2 | testing | Closed all 53 grandfathered `wildside-cli` failures through production fixes or evidence-backed fixture verdicts; the downward-only baseline is empty. | Complete CLI suite and `verify-slice-fast` green; any future CLI failure is new debt. See archive #417. |
 | 445 | [x] | P2 | testing | All six formerly dark crates run in the fast gate: ROM is green; md/frame/data/render/web use a crate-qualified, multi-target, fail-closed named-set ratchet that can only shrink from six failures. | Parser contracts pass; live ratchet reports exactly 6/6 reviewed names; `verify-slice-fast` green. See archive #445. |

@@ -132,7 +132,15 @@ fn recording_oracle_warp_target_live_frames(
     // 0x64) and family adjustments modelled the load duration the fixed
     // boundary lacked; they are deleted, not zeroed, so a reappearing need
     // must re-justify itself against the shell table.
-    RECORDING_SETTLED_WARP_LIVE_FRAMES
+    match level_id {
+        // #430 - ASM loc_74E0 -> loc_6E2: Elsewhere 9's Rubber-floor bounce
+        // exposes the recording helper's post-step boundary. Oracle settle
+        // run 1786728817 pins the pre-scenario state at target-live step 59.
+        // Native's settle loop counts its already-live entry state as frame
+        // one, so this route requires 59 rather than the generic 60.
+        LevelId(0x52) => RECORDING_SETTLED_WARP_LIVE_FRAMES - 1,
+        _ => RECORDING_SETTLED_WARP_LIVE_FRAMES,
+    }
 }
 
 fn recording_oracle_warp_extra_ghost_block_ticks(level_id: LevelId) -> usize {

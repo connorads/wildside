@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#430 closed)
+
+- The 0x52 discrepancy was a recording-harness phase error, not incorrect
+  Rubber physics: native frame 0 exactly matched oracle frame 1.
+- The settle helper now counts the already-live entry state correctly for
+  0x52. Full sweep `1786729407` improves to 62/69 with 33 blockers and no new
+  failure. Select the next open risk with `mise run project-status`.
+
 ## 2026-08-14 handoff (#426 closed)
 
 - Enemy layout flag `$01` now follows ASM `loc_3200A` and

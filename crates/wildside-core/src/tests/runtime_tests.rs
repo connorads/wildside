@@ -11982,6 +11982,29 @@ mod chunk_09 {
         assert_under_skull_mountain3_lower_ghost_group_ticks_loc_124a6_f730(&mut rt);
     }
 
+    /// #430 - ASM loc_74E0 -> loc_6E2: the recording helper counts the
+    /// already-live entry state as its first stable frame. The Rubber floor
+    /// makes a one-frame settle-window error observable at frame 0.
+    #[test]
+    fn issue430_level52_recording_settle_counts_live_entry_state_loc_74e0() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x52));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x52));
+        let settled = runtime.trace_frame();
+        assert_eq!(settled.kid_y_pos, Some(0x015C_8000));
+        assert_eq!(settled.kid_y_velocity, Some(-0x0002_8000));
+        assert_eq!(settled.camera_y_pos, 0x00B9_0000);
+
+        let frame = runtime.step_frame(FrameInput::default());
+
+        assert_eq!(frame.kid_y_pos, Some(0x015A_4000));
+        assert_eq!(frame.kid_y_velocity, Some(-0x0002_4000));
+    }
+
     #[test]
     fn issue289_level06_lower_ghost_group_vanishes_before_kid_jump_collision_loc_f730_902a() {
         let Some(manifest) = cached_generated_manifest() else {
