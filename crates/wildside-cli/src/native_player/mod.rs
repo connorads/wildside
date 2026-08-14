@@ -10187,7 +10187,7 @@ mod tests {
         };
         visuals.background_tiles = blank_tile_sheet(40);
         visuals.background_tiles.tiles[8].pixels = [2; 64];
-        visuals.background_tiles.tiles[13].pixels = [3; 64];
+        visuals.background_tiles.tiles[12].pixels = [3; 64];
         visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
             placements: vec![BackgroundPlacement {
                 chunk_id: 0,
@@ -10214,18 +10214,18 @@ mod tests {
         assert_eq!(diagnostic.scroll_x_px_loc_3050a, 36);
         assert_eq!(diagnostic.destination_column_loc_30744, 4);
         assert_eq!(diagnostic.sample_column, 12);
-        assert_eq!(diagnostic.source_column_start_loc_30744, 5);
+        assert_eq!(diagnostic.source_column_start_loc_30744, 4);
         assert_eq!(diagnostic.fresh_window_offset_loc_30744, Some(8));
-        assert_eq!(diagnostic.sample_source_column_loc_30744, Some(13));
+        assert_eq!(diagnostic.sample_source_column_loc_30744, Some(12));
 
         let sample = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 61, 0)
             .expect("hscrolled Plane B sample");
         assert_eq!(
-            sample.tile_index, 13,
-            "ASM loc_3050A applies H-scroll after sub_30744/sub_307D8 write Plane-B cells, so screen x=61 samples VDP column 12 and source column 13, not screen column 7"
+            sample.tile_index, 12,
+            "ASM loc_3050A applies H-scroll after sub_30744/sub_307D8 write Plane-B cells, so screen x=61 samples VDP/source column 12, not screen column 7"
         );
         assert_eq!(sample.background_row_index, Some(7));
-        assert_eq!(sample.background_column, Some(13));
+        assert_eq!(sample.background_column, Some(12));
         assert_eq!(sample.source_x, 1);
     }
 
@@ -10442,7 +10442,7 @@ mod tests {
             super::scene::chunked_plane_b_row_debug_for_trace_loc_30744(&trace, &visuals, 292, 18)
                 .expect("settled chunked Plane-B row debug");
         assert!(
-            debug.contains("upload_data=d11<-s12w005D"),
+            debug.contains("upload_data=d11<-s11w005D"),
             "ASM sub_307D8 reads the packed loc_30452 Horiz_Scroll_Data word for row-upload placement; #289 diagnostics must keep it visible beside the display-derived upload: {debug}",
         );
     }

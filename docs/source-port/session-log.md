@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#417 Plane-B fixtures fixed)
+
+- Chunked Plane-B assertions now use ASM `sub_307D8`'s shared zero-based
+  source/VDP column origin. The hscrolled pixel and alias-row diagnostic match
+  the frame-layer contracts.
+- Both focused tests pass. The CLI failure ratchet lowers from 9 to 7;
+  continue #417 with the remaining scene failures.
+
 ## 2026-08-14 handoff (#417 HUD/transform fixtures fixed)
 
 - HUD diamond assertions now follow current-field ASM `loc_4626` DMA commits;

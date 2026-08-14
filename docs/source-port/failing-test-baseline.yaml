@@ -14,8 +14,6 @@
 # diff-stable when re-seeded.
 version: 1
 tests:
-  - native_player::tests::chunked_plane_b_overlay_samples_hscrolled_vdp_column_loc_3050a
-  - native_player::tests::chunked_settled_row_history_replays_loc_30452_columns_into_alias_source_loc_30744
   - native_player::tests::game_scene_places_native_objects_relative_to_camera
   - native_player::tests::iron_knight_attach_hibernate_preserves_pre_sub_a3bc_pose_loc_a276
   - native_player::tests::level_complete_reveal_foreground_overrides_priority_hologram_pixels_loc_c21e

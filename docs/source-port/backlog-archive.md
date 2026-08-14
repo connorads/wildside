@@ -3846,6 +3846,13 @@ explicit pre-transform trace rather than a standalone post-update snapshot.
 All four focused tests pass against the existing frame implementation; the
 full CLI ratchet lowers the baseline 13 -> 9.
 
+Progress 2026-08-14: both Plane-B failures used a stale one-based source
+column. ASM `sub_307D8 loc_30840` adds the normalised scroll column directly
+to the `$87B2` row pointer, so source and VDP columns share a zero-based
+origin. The hscrolled sample is source column 12, and the packed `$005D`
+diagnostic is `d11<-s11`, matching the existing frame-layer contract. Both
+focused tests pass; the full CLI ratchet lowers the baseline 9 -> 7.
+
 Evidence source: `cargo test -p wildside-cli` on clean `main` (authoritative for
 test status). Native repro: reproduced. Minimum gate: `failing-test-ratchet` +
 `verify-slice-fast`.
