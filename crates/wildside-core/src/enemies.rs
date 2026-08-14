@@ -370,7 +370,8 @@ pub(crate) fn pacer_probe_half_width(family: EnemyFamily) -> i32 {
         EnemyFamily::FireDemon
         | EnemyFamily::Robot
         | EnemyFamily::Tank
-        | EnemyFamily::TankShooting => 11,
+        | EnemyFamily::TankShooting
+        | EnemyFamily::Ninja => 11,
         // ASM Armadillo.asm loc_3C766, Dragon.asm loc_3CDFC, Goat.asm
         // loc_3CA7E, and Scorpion.asm loc_3DBD8 seed `$48(a5)=9`.
         EnemyFamily::Armadillo
@@ -390,6 +391,9 @@ pub(crate) fn pacer_probe_height(family: EnemyFamily) -> i32 {
         // Tank_Shooting.asm loc_3B5A6 seed `$4A(a5)=$20` before entering the
         // shared walker loops.
         EnemyFamily::Robot | EnemyFamily::Tank | EnemyFamily::TankShooting => 32,
+        // ASM Ninja.asm loc_3D554 seeds `$4A(a5)=$1D` before entering
+        // Lion.asm loc_3E392/loc_3E546 and its shared terrain scans.
+        EnemyFamily::Ninja => 0x1D,
         // ASM Scorpion.asm loc_3DBD8 seeds `$4A(a5)=$16`; sub_36972 must scan
         // both occupied body rows or it misses wall bit 0 at tile boundaries.
         EnemyFamily::Scorpion => 0x16,
@@ -7910,15 +7914,30 @@ fn register_shared_walker_turnaround(enemy: &mut ActiveEnemy) -> bool {
 /// restore the walk step, seed the -120 charge cooldown). Partition measured
 /// from the per-family `include`/branch targets in code/enemy/*.asm.
 ///
-/// TODO(fidelity): Goat and Scorpion run the Lion.asm fall semantics natively.
-/// Their journeys are oracle-measured at 0x60/0x61 (runs 1786640409 and
-/// 1786701547). The other five families keep the cliff-turn approximation
-/// until each one's
-/// companion behaviours (Ninja loc_3D92A stealth cadence + loc_3D9A4 jump,
-/// Lion/Scorpion tails) are modelled; a first attempt at flipping them all
+/// TODO(fidelity): Goat, Scorpion, and Ninja run the Lion.asm fall semantics
+/// natively. Their journeys are oracle-measured at 0x60/0x61 and 0x31. The
+/// other four families keep the cliff-turn approximation until each one's
+/// companion behaviours are modelled; a first attempt at flipping them all
 /// regressed 0x45/0x56 because the turn was masking those gaps (#456).
 pub(crate) fn shared_walker_turns_at_cliffs_loc_3c0a6(family: EnemyFamily) -> bool {
-    !matches!(family, EnemyFamily::Goat | EnemyFamily::Scorpion)
+    !matches!(
+        family,
+        EnemyFamily::Goat | EnemyFamily::Scorpion | EnemyFamily::Ninja
+    )
+}
+
+fn fresh_enemy_no_step_passes_loc_3691e(family: EnemyFamily, enemy_level: u8) -> u8 {
+    // ASM Manage_EnemyLoading loc_3691E: allocation happens after the object
+    // pass. Goat, Ninja (Enemy11_Ninja_Init loc_3D554), and Armadillo then
+    // hibernate once in the family init; Driller has three init/walker defers.
+    // Scorpion's linked-tail scheduler adds six more passes at level 1+.
+    match family {
+        EnemyFamily::Goat | EnemyFamily::Ninja | EnemyFamily::Armadillo => 1,
+        EnemyFamily::Driller => 3,
+        EnemyFamily::Scorpion if enemy_level >= 1 => 7,
+        EnemyFamily::Scorpion => 1,
+        _ => 0,
+    }
 }
 
 /// ASM Goat.asm loc_3CA30..loc_3CA7E: `$4C(a5)` accumulates the CHARGE word
@@ -7987,6 +8006,20 @@ pub(crate) fn goat_charge_controller_loc_3e434(
 /// landing seed `$42 = $FF88` — a -120-frame lockout that loc_3E434 counts
 /// back up one per grounded step before a new charge can start.
 pub(crate) const GOAT_CHARGE_COOLDOWN_LOC_3E48E: i16 = -0x78;
+
+fn lion_landing_native_shared_state_loc_3e732(
+    family: EnemyFamily,
+    native_shared_state: i16,
+) -> i16 {
+    // ASM Lion.asm loc_3E732 writes -$78 to `$42(a3)`. Native's shared state
+    // represents that charge word only for Goat; for Ninja it represents the
+    // distinct `$4C(a5)` guard byte tested by Ninja.asm loc_3D960.
+    if matches!(family, EnemyFamily::Goat) && native_shared_state != 0xA {
+        GOAT_CHARGE_COOLDOWN_LOC_3E48E
+    } else {
+        native_shared_state
+    }
+}
 
 fn register_enemy_terrain_kill(enemy: &mut ActiveEnemy) {
     if let Some(death_animation_frames) = enemy_death_animation_frames(enemy.family) {
@@ -8705,9 +8738,8 @@ fn step_lion_walker_falling_loc_3e6ae(enemy: &mut ActiveEnemy, grid: &terrain::B
             enemy.y_velocity = 0;
             enemy.on_ground = true;
             enemy.walk_speed_override = 0;
-            if enemy.shared_walker_state != 0xA {
-                enemy.shared_walker_state = GOAT_CHARGE_COOLDOWN_LOC_3E48E;
-            }
+            enemy.shared_walker_state =
+                lion_landing_native_shared_state_loc_3e732(enemy.family, enemy.shared_walker_state);
             enemy.facing = Direction::Right;
             return;
         }
@@ -11105,6 +11137,43 @@ pub(crate) mod test_fixtures {
 mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
+
+    #[test]
+    fn ninja_uses_lion_walker_cliff_semantics_loc_3e3b2_3e566() {
+        assert!(
+            !shared_walker_turns_at_cliffs_loc_3c0a6(EnemyFamily::Ninja),
+            "ASM Ninja.asm loc_3D998 branches directly to Lion.asm loc_3E3B2/loc_3E566, whose negative d6 path walks off the ledge through loc_3E682/loc_3E79E"
+        );
+    }
+
+    #[test]
+    fn ninja_terrain_scan_uses_init_dimensions_loc_3d554() {
+        assert_eq!(pacer_probe_half_width(EnemyFamily::Ninja), 0x0B);
+        assert_eq!(pacer_probe_height(EnemyFamily::Ninja), 0x1D);
+    }
+
+    #[test]
+    fn ninja_init_hibernates_before_its_first_walk_step_loc_3d554() {
+        assert_eq!(
+            fresh_enemy_no_step_passes_loc_3691e(EnemyFamily::Ninja, 0),
+            1,
+            "ASM Enemy11_Ninja_Init loc_3D554 ends in Lion.asm loc_3E392/loc_3E546, so the allocation pass hibernates at spawn before the first loc_3D92A walk step"
+        );
+    }
+
+    #[test]
+    fn ninja_landing_keeps_guard_byte_clear_loc_3e732_3d960() {
+        assert_eq!(
+            lion_landing_native_shared_state_loc_3e732(EnemyFamily::Ninja, 0),
+            0,
+            "ASM Lion.asm loc_3E732 writes the `$42(a3)` charge word, not Ninja.asm loc_3D960's distinct `$4C(a5)` guard byte"
+        );
+        assert_eq!(
+            lion_landing_native_shared_state_loc_3e732(EnemyFamily::Goat, 0),
+            GOAT_CHARGE_COOLDOWN_LOC_3E48E,
+            "Goat maps native shared state to Lion.asm loc_3E732's `$42(a3)` charge word"
+        );
+    }
 
     #[test]
     fn layout_object_family_name_resolves_direct_slot_and_unknown_ids() {
@@ -14370,41 +14439,8 @@ impl NativeRuntime {
         // interleaving, rewriting the whole 0x30 approach path — the UFO's
         // one-frame shooting lead was the ChkShoot pre-move order instead.)
         for enemy in &self.active_enemies[active_before_trailing_load..] {
-            let no_step_passes = match enemy.family {
-                EnemyFamily::Goat => 1,
-                // ASM Enemy1A_Driller_Init (#420): the loc_3691E allocation
-                // defer, the init's opening `j_Hibernate_Object_1Frame`, and
-                // the loc_3C0D2/loc_3C026 walker-entry hibernate make THREE
-                // shell no-step passes; the first walk step lands on the
-                // fourth (oracle run 1786662123: 0x55 li=3 resume codes
-                // 3BCF0/3BCF4 on title rows 61/62, parked at x=120 on row
-                // 63, first step on row 64).
-                EnemyFamily::Driller => 3,
-                // ASM Enemy04_Armadillo_Init (#421): loc_3691E allocates the
-                // object after Execute_Objects. The next pass runs init into
-                // loc_3E546 and hibernates at spawn; loc_3E7C4 first moves on
-                // the following pass (census 1786704210, 0x62 rows 71/72/73).
-                EnemyFamily::Armadillo => 1,
-                // ASM Enemy13_Scorpion_Init (#421): loc_3691E allocates the
-                // object after Execute_Objects. Its first pass runs init
-                // straight into loc_3E392/loc_3E546 and hibernates at spawn;
-                // the next pass resumes through sub_3E8BA and takes the first
-                // 1.5px step. That is ONE deferred AI pass after allocation
-                // (census 1786673717: 0x61 li=0 is positionless on title row
-                // 64, parked at x=184 on row 65, and steps on row 66; 0x62
-                // li=0 follows rows 71/72/73 identically).
-                // ASM Enemy13_Scorpion_Init -> loc_3E392/loc_3E546 and
-                // loc_3DD7E (#421): the native parent-only scheduler omits
-                // six object passes from the sting-capable linked-tail path.
-                // Oracle settle census 1786713171 pins Level 0x62's first
-                // loc_3DDEE entry at x=$0044.8000 on title row 118 and its
-                // resulting loc_BC6E latch age at frame 0. Level 0x61's
-                // level-0 Scorpions cannot enter loc_3DDEE and retain the
-                // common one-pass init defer above.
-                EnemyFamily::Scorpion if enemy.enemy_level >= 1 => 7,
-                EnemyFamily::Scorpion => 1,
-                _ => 0,
-            };
+            let no_step_passes =
+                fresh_enemy_no_step_passes_loc_3691e(enemy.family, enemy.enemy_level);
             if no_step_passes > 0 {
                 self.freshly_loaded_enemies_loc_3691e
                     .insert((enemy.segment_index, enemy.layout_index), no_step_passes);

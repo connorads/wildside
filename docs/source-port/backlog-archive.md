@@ -700,6 +700,10 @@ stealth cadence and the loc_3D9A4 timer jump modelled first. Per family:
 model the companions, flip the gate, prove the family's levels with zero
 sweep regressions.
 
+Ninja resolved 2026-08-14 under #451. Its Lion-library companions now include
+the loc_3D554 init defer and 11x29 terrain box, loc_3D960 guard byte, and
+loc_3D9A4 timer jump. Five families remain staged here.
+
 ### #457
 
 Opened 2026-08-13 (#419 residue). Native's Goat wall freeze emerges from
@@ -1549,6 +1553,17 @@ old doubled speed the native Ninja happened to still be alive/in-roster at
 the tail. Suspects: native despawn-on-window-exit vs ROM retention for
 jumping Ninjas, or a ledge/pit death at the true speed. Probe frames 60-250
 to find the exact loss frame before reading Ninja.asm's lifecycle branches.
+
+Resolved 2026-08-14. The 0x31 loss was the cliff-turn approximation: Ninja.asm
+loc_3D998 enters Lion.asm loc_3E3B2/loc_3E566 and falls at cliffs. Enabling
+that path exposed three masked companion defects. Native skipped the init's
+loc_3D554 hibernate, Lion.asm loc_3E732 wrote its Goat charge cooldown into
+Ninja.asm loc_3D960's distinct guard byte, and the shared terrain scan used
+the 8x16 default instead of loc_3D554's `$48=$B`, `$4A=$1D`. The last defect
+made the 0x45 Ninja fall through its spawn platform during the hidden shell.
+Focused sweep `1786743079` passes 0x31, 0x45, and 0x56. Full sweep
+`1786743087` improves 64/69 with 16 blockers to 65/69 with 14, with no new
+failure. `verify-slice-fast` and `verify-tas-full` pass.
 
 ### #452
 
@@ -23131,6 +23146,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 448 | [x] | P2 | verification | `verify-disasm-fidelity` mise task assembles the pinned disassembly with AS and byte-diffs against the reference ROM, naming the nearest label/source line per mismatching region. Result: BIT-PERFECT (1,048,576 bytes; SHA-1 match) — the ASM-first rule's premise is now a gate. | Task green in ~2s warm / 12s cold; red path verified with deliberate corruption (3 regions localised to labels). See archive #448. |
 | 447 | [x] | P2 | verification | `verify-cpu-vectors` drives the pinned r68k core through all 1,317,560 SingleStepTests vectors (680x0 + m68000): 98.2%/97.3% arithmetic pass; defects named (BCD registers, DIVS/DIVU overflow, exception frames, odd-SP panics, no trace bit, constant MULU/DIV cycle models — the quantified #406 disagreement). Downward-only ratchet baseline (251 rows). | `mise run verify-cpu-vectors` + ratchet green; set-vs-set ASR/CHK/LINK/ADDQ-cycle disagreements recorded as findings. See archive #447. |
 | 427 | [x] | P1 | enemy | Tornado init now draws its first motion vector from loc_35326 (UFO table unk_35344, one RNG byte per tornado, cursor stays at unk_35A0C entry 0) and the $46/$47 doubling follows the accel-vs-target split shared with UFO loc_34E10/loc_34E1C. | Frame-0 probe: facing/RNG-draw match oracle; 0x50's residual 2 hp diffs are the #442 pre-settle Kid hit, not Tornado. See archive #427. |
+| 451 | [x] | P2 | enemy | Ninja uses the Lion cliff-fall walker with its own loc_3D554 init defer and 11x29 scan box; landing preserves loc_3D960's distinct guard byte so the timer jump remains reachable. | Focused sweep 1786743079 passes 0x31/0x45/0x56; full sweep 1786743087 improves to 65/69 with 14 blockers; required gates green. See archive #451. |
 | 423 | [x] | P1 | enemy | Ninja walk speed misread Enemy11_Ninja_Init: HP 2 walked at $18000 instead of $8000 (HP 3 $10000, HP 4+ $18000 — the Driller loc_3BD6C/loc_3BD74 accumulation shape). At 2-3x speed native Ninjas converged on idle Kid at 0x56 and killed him. | 0x56 passes the state sweep (run 1786271326); oracle frame-0 probe walks the HP-2 Ninja at $8000/frame. Secondary 0x31 residual opened as #451. See archive #423. |
 | 449 | [x] | P2 | enemy | Per-family child-slot model (`EnemyFamily::child_slots`): Robot/Tank/TankShooting/Scorpion pairs collapse to one Object slot, Archer/TarMonster/SpinningTwins/Driller gfx-only children derived from the same table, dormant loc_3E9D0 skulls counted object-only. | Full sweep 1786270123: 0x44/0x63/0x65 pass, 0x62/0x68 shrink, zero regressions (127 -> 119 blocking). Residual count diffs attributed to #442 shell content / #422 beam. See archive #449. |
 | 424 | [x] | P2 | enemy | MiniHoppingSkull dormant proximity controllers (`loc_3E9D0` Object-only slots) counted natively via the #449 dormant-worker model. | 0x44 and 0x65 pass the state sweep (run 1786270123). See archive #424. |

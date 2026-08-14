@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#451 closed)
+
+- The 0x31 Ninja loss was the cliff-turn approximation; Ninja uses the
+  Lion.asm fall path.
+- Ninja now carries its loc_3D554 init defer and 11x29 terrain box. Landing
+  no longer overwrites loc_3D960's distinct guard byte.
+- 0x31, 0x45, and 0x56 pass together. Full sweep `1786743087` improves to
+  65/69 with 14 blockers and no regression.
+
 ## 2026-08-14 handoff (#446 closed)
 
 - The fast gate now self-tests the real `tas-pixel-baseline` CLI with the
