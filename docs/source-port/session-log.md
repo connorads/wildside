@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#441 closed)
+
+- Oracle GEMS captures now export each `FrameRendered` signature's actual
+  instruction-quantised master-clock instant; span replay consumes it.
+- Frame 871 divider phases become exact at the captured instant while native
+  remains one Z80 instruction ahead with every other strict field equal.
+- The 870-2500 census remains 1,623/1,631 strict: bounded true Z80 execution
+  drift, not sampling artefact. The #416 frozen witness still owns this debt.
+
 ## 2026-08-14 handoff (#440 closed)
 
 - Published-route GEMS command parity is complete: 437/437 commands, 391

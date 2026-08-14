@@ -398,6 +398,8 @@ struct OracleManifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     gems_frame_signatures: Vec<Option<wildside_core::GemsFrameSignature>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    gems_frame_sample_mclk: Vec<Option<u64>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     gems_frame_audio_ram: Vec<Option<Vec<u8>>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     gems_frame_rings: Vec<Option<wildside_core::GemsFrameRing>>,
@@ -920,6 +922,9 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
         capture_gems_frame_signature
             .then(|| Vec::with_capacity(resolved.frame_count))
             .unwrap_or_default();
+    let mut gems_frame_sample_mclk: Vec<Option<u64>> = capture_gems_frame_signature
+        .then(|| Vec::with_capacity(resolved.frame_count))
+        .unwrap_or_default();
     let mut gems_frame_audio_ram: Vec<Option<Vec<u8>>> = capture_gems_state
         .then(|| Vec::with_capacity(resolved.frame_count))
         .unwrap_or_default();
@@ -1244,6 +1249,14 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                     if capture_gems_frame_signature || capture_gems_state {
                         let checkpoint = emulator.debug().wildside_gems_checkpoint_now();
                         if capture_gems_frame_signature {
+                            // #441: the callback runs after the complete 68000
+                            // instruction quantum that crossed scanline 232.
+                            // The cumulative cycle counter therefore records
+                            // the oracle's real sample instant, not the nominal
+                            // start of the scanline.
+                            gems_frame_sample_mclk.push(Some(
+                                emulator.debug().wildside_m68k_cycle_counter() * 7,
+                            ));
                             // Command-parity raw input (#435): the 64-byte
                             // 68k->Z80 mailbox ring at Z80 $1A40 plus the
                             // write-index byte at $0036 (ASM sub_E143A /
@@ -1361,6 +1374,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
         frame_crcs,
         frame_rng_states,
         gems_frame_signatures,
+        gems_frame_sample_mclk,
         gems_frame_audio_ram,
         gems_frame_rings,
         memory_watches: all_memory_watches,

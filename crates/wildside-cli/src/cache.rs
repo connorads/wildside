@@ -144,6 +144,7 @@ mod tests {
             frame_crcs: vec![0x1234_5678],
             frame_rng_states: Vec::new(),
             gems_frame_signatures: Vec::new(),
+            gems_frame_sample_mclk: Vec::new(),
             gems_frame_audio_ram: Vec::new(),
             gems_frame_rings: Vec::new(),
             memory_watches: Vec::new(),

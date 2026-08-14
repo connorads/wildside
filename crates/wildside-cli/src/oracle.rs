@@ -112,6 +112,12 @@ pub struct OracleManifest {
     pub frame_rng_states: Vec<Option<wildside_core::RomRandomFrameState>>,
     #[serde(default)]
     pub gems_frame_signatures: Vec<Option<wildside_core::GemsFrameSignature>>,
+    /// Absolute NTSC master-clock instant at which each GEMS signature was
+    /// sampled. `FrameRendered` is delivered after the 68000 instruction
+    /// quantum that crossed scanline 232, so this is later than the nominal
+    /// scanline boundary by an instruction-dependent amount (#441).
+    #[serde(default)]
+    pub gems_frame_sample_mclk: Vec<Option<u64>>,
     /// Raw 8 KiB GEMS RAM at each `FrameRendered` boundary, populated only by
     /// the explicit `oracle-probe --capture-gems-state` diagnostic path.
     #[serde(default)]

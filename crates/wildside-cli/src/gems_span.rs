@@ -42,6 +42,19 @@ const NTSC_SCANLINES_PER_FRAME: u64 = 262;
 const FRAME_RENDERED_SCANLINE: u64 = 232;
 const MCLK_PER_M68K_CYCLE: u64 = 7;
 
+fn frame_sample_mclk(frame: usize, captured: Option<u64>) -> Result<(u64, bool)> {
+    let nominal = (frame as u64 * NTSC_SCANLINES_PER_FRAME + FRAME_RENDERED_SCANLINE)
+        * MASTER_CLOCKS_PER_SCANLINE;
+    let Some(captured) = captured else {
+        return Ok((nominal, false));
+    };
+    ensure!(
+        captured >= nominal,
+        "oracle GEMS sample clock for frame {frame} precedes FrameRendered: {captured} < {nominal}"
+    );
+    Ok((captured, true))
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 pub(crate) struct GemsSpanFrameDiff {
     pub(crate) frame: usize,
@@ -62,6 +75,9 @@ pub(crate) struct GemsSpanReport {
     pub(crate) start_frame: usize,
     pub(crate) end_frame: usize,
     pub(crate) stimulus_count: usize,
+    /// Number of frames sampled at the oracle's captured instruction-close
+    /// instant rather than the legacy nominal scanline-232 boundary.
+    pub(crate) oracle_sample_clock_frames: usize,
     pub(crate) frames_compared: usize,
     pub(crate) exact_frames: usize,
     pub(crate) advisory_only_frames: usize,
@@ -164,10 +180,17 @@ pub(crate) fn replay_gems_span(
     let mut exact_frames = 0usize;
     let mut advisory_only_frames = 0usize;
     let mut strict_mismatch_frames = 0usize;
+    let mut oracle_sample_clock_frames = 0usize;
 
     for frame in start_frame..=end_frame {
-        let sample_mclk = (frame as u64 * NTSC_SCANLINES_PER_FRAME + FRAME_RENDERED_SCANLINE)
-            * MASTER_CLOCKS_PER_SCANLINE;
+        let captured_sample_mclk = manifest
+            .gems_frame_sample_mclk
+            .get(frame)
+            .copied()
+            .flatten();
+        let (sample_mclk, used_oracle_sample_clock) =
+            frame_sample_mclk(frame, captured_sample_mclk)?;
+        oracle_sample_clock_frames += usize::from(used_oracle_sample_clock);
         while let Some(row) = stimuli_iter.peek() {
             let stimulus_mclk = (row.m68k_cycle_counter + stamp_skew_cycles) * MCLK_PER_M68K_CYCLE;
             if stimulus_mclk >= sample_mclk {
@@ -234,6 +257,7 @@ pub(crate) fn replay_gems_span(
         start_frame,
         end_frame,
         stimulus_count: stimuli.len(),
+        oracle_sample_clock_frames,
         frames_compared,
         exact_frames,
         advisory_only_frames,
@@ -313,4 +337,21 @@ pub(crate) fn run_gems_span_replay(
     }
     println!("  report: {}", output_path.display());
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn oracle_instruction_close_clock_replaces_the_nominal_frame_boundary() {
+        let nominal =
+            (871 * NTSC_SCANLINES_PER_FRAME + FRAME_RENDERED_SCANLINE) * MASTER_CLOCKS_PER_SCANLINE;
+        assert_eq!(frame_sample_mclk(871, None).unwrap(), (nominal, false));
+        assert_eq!(
+            frame_sample_mclk(871, Some(nominal + 2)).unwrap(),
+            (nominal + 2, true)
+        );
+        assert!(frame_sample_mclk(871, Some(nominal - 1)).is_err());
+    }
 }
