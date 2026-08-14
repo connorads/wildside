@@ -443,7 +443,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "issue-422-ufo-shooting-owner",
-      "first_added_commit": "working-tree",
+      "first_added_commit": "14f8af1ac",
       "intended_meaning": "Native UFO controller identity, position, direction, velocity, one-second timer, beam counters, and derived loc_3531A linked-GfxObject position used to identify the Some_UFO_Shooting owner.",
       "promotion_trigger": "Promote if UFO controller/link identity becomes typed parity state or a checked-in regression dependency."
     },
