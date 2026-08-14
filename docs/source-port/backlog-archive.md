@@ -3837,6 +3837,15 @@ also asserted a HUD-diamond pixel signature while supplying a blank HUD page,
 so it now seeds the referenced `$6F2` tile. All four focused tests pass without
 production changes; the full CLI ratchet lowers the baseline 17 -> 13.
 
+Progress 2026-08-14: four HUD/transform failures were stale against the
+frame-layer timing contracts. ASM `loc_4626` commits a changed `$DD40` page in
+the current field, while an unchanged selector retains its page; offset 6 is
+therefore fixture page 19, not wrapped page 16. ASM `loc_901` latches the
+preceding transform countdown, and the first transform HP table requires an
+explicit pre-transform trace rather than a standalone post-update snapshot.
+All four focused tests pass against the existing frame implementation; the
+full CLI ratchet lowers the baseline 13 -> 9.
+
 Evidence source: `cargo test -p wildside-cli` on clean `main` (authoritative for
 test status). Native repro: reproduced. Minimum gate: `failing-test-ratchet` +
 `verify-slice-fast`.

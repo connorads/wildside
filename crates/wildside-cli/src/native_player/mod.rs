@@ -12387,8 +12387,8 @@ mod tests {
         let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
 
         assert_eq!(
-            render_trace.hud_diamond_frame_offset, previous.hud_diamond_frame_offset,
-            "ASM sub_44DC loc_45EE advances the diamond DMA page before Make_SpriteAttr_HUD/sub_BDC0's next visible symbol latch, so render keeps the previous HUD diamond page"
+            render_trace.hud_diamond_frame_offset, trace.hud_diamond_frame_offset,
+            "ASM loc_4626 starts the changed loc_45EE page DMA early enough for the current HUD field"
         );
         assert_eq!(
             render_trace.kid_x_pos, previous.kid_x_pos,
@@ -12400,8 +12400,8 @@ mod tests {
         let next_render_trace = render_trace_with_vdp_latched_state(&next, Some(&trace));
 
         assert_eq!(
-            next_render_trace.hud_diamond_frame_offset, trace.hud_diamond_frame_offset,
-            "the loc_45EE HUD diamond page latch advances one trace at a time"
+            next_render_trace.hud_diamond_frame_offset, next.hud_diamond_frame_offset,
+            "ASM loc_4626 starts the changed loc_45EE page DMA early enough for the current HUD field"
         );
     }
 
@@ -12508,18 +12508,17 @@ mod tests {
             ),
             (
                 next.current_helmet_id,
-                next.form_change_flash_frames,
+                trace.form_change_flash_frames,
                 next.active_objects[0].x_pos
             ),
-            "only the first Kid_Transform entry frame keeps the previous player visual state"
+            "ASM loc_901 keeps the preceding transform countdown with the latched player visual state"
         );
     }
 
     #[test]
     fn transform_hibernate_suppresses_hp_pips_loc_bdc0() {
-        let mut trace = sample_trace(GameMode::DemoPlay);
-        trace.number_hitpoints = 3;
-        trace.current_helmet_id = PlayerForm::Cyclone.helmet_id();
+        let mut previous = sample_trace(GameMode::DemoPlay);
+        previous.number_hitpoints = 3;
         let visuals = sample_level_visuals();
         let transform_frames = visuals
             .player
@@ -12531,8 +12530,12 @@ mod tests {
             .map(|step| step.duration_frames)
             .sum::<usize>() as u8;
 
+        let mut trace = previous.clone();
+        trace.current_helmet_id = PlayerForm::Cyclone.helmet_id();
         trace.form_change_flash_frames = transform_frames;
-        let first_hibernate_scene = build_scene(&trace, false, Some(&visuals), None);
+        trace.transform_source_hitpoints_loc_bdc0 = Some(3);
+        let first_render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
+        let first_hibernate_scene = build_scene(&first_render_trace, false, Some(&visuals), None);
 
         assert!(
             first_hibernate_scene.commands.iter().any(|command| {
@@ -12545,8 +12548,10 @@ mod tests {
             "ASM Mode_Level transfers the previous Sprite_Table before Make_SpriteAttr_HUD loc_BDC0 skips HP pips, so the first hibernated Cyclone frame still shows them"
         );
 
-        trace.form_change_flash_frames = transform_frames - 1;
-        let scene = build_scene(&trace, false, Some(&visuals), None);
+        let mut next = trace.clone();
+        next.form_change_flash_frames = transform_frames - 1;
+        let next_render_trace = render_trace_with_vdp_latched_state(&next, Some(&trace));
+        let scene = build_scene(&next_render_trace, false, Some(&visuals), None);
 
         assert!(
             !scene.commands.iter().any(|command| {
@@ -21122,12 +21127,12 @@ mod tests {
 
         assert_eq!(
             diamond_page_sample(&frame_offset_6),
-            Some(16),
-            "ASM sub_44DC loc_45EE stores `$FFFFFA5D=6`; trace-scene rendering presents the subsequent VBlank page, wrapping the fourth `unk_461C` DMA page back to the first"
+            Some(19),
+            "ASM sub_44DC loc_45EE stores `$FFFFFA5D=6`, selecting the fourth `unk_461C` DMA page for the current field"
         );
         assert_eq!(
             diamond_page_sample(&frame_index_60_same_offset),
-            Some(16),
+            Some(19),
             "HUD diamond rendering should use traced sub_44DC RAM, not replay-local frame_index phase"
         );
     }

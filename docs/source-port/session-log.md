@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#417 HUD/transform fixtures fixed)
+
+- HUD diamond assertions now follow current-field ASM `loc_4626` DMA commits;
+  transform assertions carry the preceding `loc_901` countdown and build the
+  first HP table from an explicit pre-transform trace.
+- All four focused tests pass without production changes. The CLI failure
+  ratchet lowers from 13 to 9; continue #417 with Plane-B or scene objects.
+
 ## 2026-08-14 handoff (#417 floating-prize fixtures fixed)
 
 - Diamond fixtures now sample the first presentable ASM `loc_10396` frame,
