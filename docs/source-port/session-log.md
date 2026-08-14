@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#446 closed)
+
+- The fast gate now self-tests the real `tas-pixel-baseline` CLI with the
+  production frontier schema.
+- The committed baseline must pass; adding one changed pixel must return exit
+  1 with an explicit regression verdict and no frontier mutation.
+
 ## 2026-08-14 handoff (#444 closed)
 
 - `verify-slice-fast` no longer uses broad `demo_`, `published_tas`, or

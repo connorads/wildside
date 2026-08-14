@@ -1744,6 +1744,17 @@ only checked for candidates, and all 4 carry indefinite exemptions.
 (b) Gate vacuity: nothing proves the TAS/pixel gate can fail (OpenRCT2 #11228:
 a replay gate that dry-ran for months); add a deliberate-perturbation test.
 
+Closed 2026-08-14. The debug-field audit had already been split into a
+read-only default and explicit `--update`. The remaining pixel-gate vacuity
+is now checked through the real CLI boundary on every `verify-slice-fast`:
+`test_tas_pixel_gate.py` copies the committed frontier, synthesises a complete
+37,759-frame report from its current baseline, and first requires the real
+`tas-pixel-baseline` command to return green. It then adds exactly one changed
+pixel, requires exit 1 plus the explicit `FAIL — REGRESSION` verdict, and
+asserts the read-only command did not mutate the copied frontier. This covers
+the command wiring, production report/frontier schema, exit-code propagation,
+and red path rather than only the in-process classifier.
+
 ### #447
 
 Opened 2026-08-01 (campaign audit). `crates/wildside-md` pins `r68k-emu` to a
@@ -23128,6 +23139,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 440 | [x] | P2 | audio | Exact command schedule: ROM order for same-frame destroy/diamond SFX, per-demo `loc_12004` loader boundaries, and both `loc_C0A` plus `Load_SegaScreen` reloads on every counterless demo return. | Full command parity 64→0 mismatches, 346→391 exact; native/oracle totals both 437, with 46 one-frame reconciliations. See archive #440. |
 | 441 | [x] | P2 | audio | Capture each oracle GEMS signature's instruction-quantised master clock and replay at that exact instant, eliminating sample timing and seed-divider alignment as causes of #437's residual. | Frame 871 divider phases become identical but native remains one Z80 instruction ahead; 1,623/1,631 strict frames classify the bounded residue as true Z80 execution drift. See archive #441. |
 | 444 | [x] | P2 | testing | Replace broad libtest substring skips with a reviewed exact-name exclusion manifest; the earlier trace-export renames keep all 20 ordinary enemy regressions inside the fast gate. | 286 exact exclusions are ratcheted; 7,153 core tests run, and contract tests reject new, stale, or substring-colliding exclusions. See archive #444. |
+| 446 | [x] | P2 | testing | Prove the real TAS pixel ratchet is non-vacuous through its CLI: current baseline must pass, a one-pixel regression must fail, and the check must stay read-only. | `verify-slice-fast` runs the self-check; it observes exit 0 then exit 1 with `FAIL — REGRESSION` against a 37,759-frame production-shaped fixture. See archive #446. |
 | 437 | [x] | P2 | audio | Bounded-span timing replay: `oracle-probe --gems-stimulus-frames` captures the oracle's 68k→Z80 stimulus stream; `gems-span-replay` seeds a fresh engine at the frame-869 reinit and replays 34,135 stimuli over frames 870-2500. | Measured: first strict divergence frame 871 = z80_pc off by one instruction, 2-mclk phase offset, identical RAM/bank/wait/status; shapes bounded, non-compounding; skew-16 sensitivity unchanged. Report `.cache/audit/gems-span-replay-870-2500.json`; discriminator follow-up #441. See archive #437. |
 | 436 | [x] | P2 | audio | GEMS replay seam probe: `GemsStimulus` record buffer inside `GemsMasterClockTimingEngine` (outermost-public-entry rule, no call-site wrapping); `gems-replay-probe` records the frozen span and replays a fresh engine. | GO: 923/923 frames bit-identical full checkpoints from 34,091,643 recorded stimuli; frozen witness bit-identical before/after the seam (verify-tas-full ×2). See archive #436. |
 | 435 | [x] | P1 | audio | Command-parity gate `gems_command_parity_v1`: one `GemsRingDecoder` over both sides' mailbox rings, ordered per-frame comparison with directional ±1 skew reconciliation, `tas-gems-command-baseline` ratchet wired into `verify-tas-full` as the authoritative audio gate. | Honest baseline 419 mismatches / first at 16, fully attributed to native schedule clusters #438-#440; gate Match on baseline. See archive #435. |
