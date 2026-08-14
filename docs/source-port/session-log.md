@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#414 stale intro/title row retired)
+
+- The current full pixel report contains only HUD diamond/life-icon clusters.
+  Former IntroText, IntroSequence5, and frame-21765 title witnesses are exact.
+- The rejected blanket title snapshot, elapsed exception, and text suppression
+  remain invalid. Reopen only from a current named worker and hardware diff.
+- Next selector-owned P1 work is #421's 0x61/0x62 Scorpion residue.
+
 ## 2026-08-14 handoff (#408 stale animation umbrella retired)
 
 - The current full pixel report contains only HUD diamond/life-icon clusters;

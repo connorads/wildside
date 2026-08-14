@@ -7960,6 +7960,16 @@ The synthetic per-frame map lacks the resident tilemap contents that frame 7
 would overwrite. Do not suppress text or adjust pose timing until the
 IntroSequence5 map-residency timeline is modelled.
 
+Retired 2026-08-14. The current full `source_port_visible_rgb24_v1`
+mismatch report contains only `hud_diamond` and `hud_life_icon`. Former #414
+witnesses - including IntroText2/4 glyph cells, IntroSequence5 poses and maps,
+and the frame-21765 title band - are absent and therefore exact on the current
+route. The source-derived IntroText anchors and later presentation work have
+removed the actionable residue. Do not revive the rejected blanket title
+snapshot, elapsed/map-index exception, or IntroSequence5 text suppression.
+Reopen a narrow issue only from a new current intro frame with a named ROM
+worker and differing VDP/SAT/VRAM evidence.
+
 Investigation 2026-07-15: a consecutive published-TAS FIFO capture over
 frames 896..1000 confirms `sub_44DC loc_45EE/loc_460A -> sub_5D4A`'s same
 `$DD40` 0x200-byte diamond DMA reaches the display at materially different
@@ -22837,6 +22847,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 414 | [-] | P1 | intro/render | Retired stale intro/title residue: all former IntroText, IntroSequence5, and frame-21765 title witnesses are absent from the current full-route mismatch report. | Full TAS has only HUD diamond/life-icon clusters; reopen only from a named current intro worker plus differing hardware evidence. See archive #414. |
 | 408 | [-] | P1 | rendering | Retired the stale dynamic-animation umbrella: all current full-route pixel debt is in HUD regions and no live object-local mismatch remains; prior concrete script defects are fixed or their generic hypotheses rejected. | Full TAS mismatch report has only `hud_diamond` and `hud_life_icon`; reopen as a narrow issue only from a named live GfxObject/script witness. See archive #408. |
 | 413 | [-] | P1 | rendering | Retired stale Plane-B seam attribution: the current full route has only HUD pixel clusters, and prior source-column/forest-edge probes found no source-proven row-history discrepancy. | Full TAS mismatch report: 37,518/37,759 exact; all 2,391 changed pixels belong to HUD diamond/life-icon clusters. See archive #413. |
 | 422 | [x] | P1 | enemy | Debug-entry camera scheduling now leaves horizontal follow to Mode_Level before Manage_EnemyLoading while preserving the atomic vertical-settle seed; UFO Gfx collision treats HiddenBlock top-row overlap as ceiling and side overlap as wall. | 0x48 passes 420 focused checkpoints and the state sweep; full sweep 1786711753 improves to 61/69 with 36 blockers; required gates green. See archive #422. |
