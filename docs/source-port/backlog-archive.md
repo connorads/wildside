@@ -873,6 +873,21 @@ worker count parity (native `driller.rs` `loc_3BE78`/`loc_3BE60` refcount).
 
 ### #421
 
+2026-08-14 implementation - the 0x61 second-contact chain is exact. Oracle PC
+trace through `GfxObjects_CollisionKid loc_1B76..loc_1CF2` showed the Scorpion
+parent latches its side contact on visible frame 21 and
+`Check_for_recent_damge loc_B700` consumes it on frame 22. The prior native
+union box used the widest `stru_3DB60` dimensions on every frame and latched
+one frame early. Native now advances the six six-tick walk mappings and uses
+their distinct `CollisionSize_Index` rows `unk_318EA..unk_3191C`, including
+the flipped `loc_1BE4` bounds and the ROM's -1 bottom edge. The 61-checkpoint
+probe `.cache/debug/issue421-visible-61.json` passes exactly. Focused sweep
+`1786703165` reduces 0x61 from three authoritative blockers to one
+(`level_settle number_gfx_objects`); 0x62 remains at four position/count
+blockers. Both required gates pass. Full sweep `1786703672` stays 58/69 and
+drops from 45 to 43 blockers with no per-level regression. Continue at 0x62's
+first causal scheduled pass.
+
 2026-08-14 implementation - the first post-landing divergence is fixed. Oracle
 PC tracing proved `sub_36972` returns `d7=3` at li=2 x=135; native returned 2
 because Scorpion incorrectly used the default 16px probe height instead of

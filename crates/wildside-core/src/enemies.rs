@@ -1345,6 +1345,7 @@ pub(crate) struct ActiveEnemy {
     /// Cloud reuses this for `stru_35EC8` ticks between Cloud.asm loc_35D9E
     /// and loc_35DB8 lightning allocation. Emo Rock reuses it for the
     /// Emo_Rock.asm loc_3621A `stru_3647E` pre-drop animation hibernate.
+    /// Scorpion reuses it as the elapsed `stru_3DB60` walk-animation tick.
     pub(crate) dragon_descent_frames: u8,
     pub(crate) ninja_state: NinjaState,
     pub(crate) hand_state: HandState,
@@ -2628,12 +2629,22 @@ impl ActiveEnemy {
         } else {
             None
         };
-        let sprite_animation_phase = matches!(self.family, EnemyFamily::DragonWalking).then_some(
-            dragon_walking_sprite_animation_phase_stru_3cc5e(
+        let sprite_animation_phase = if matches!(self.family, EnemyFamily::DragonWalking) {
+            Some(dragon_walking_sprite_animation_phase_stru_3cc5e(
                 self.dragon_descent_index,
                 self.hit_points,
-            ),
-        );
+            ))
+        } else if matches!(self.family, EnemyFamily::Scorpion)
+            && self.damage_flash_frames == 0
+            && self.scorpion_sting_frames == 0
+            && !self.death_animation_active
+        {
+            // ASM Scorpion.asm stru_3DB60: each of the six walking mappings
+            // remains live for six GfxObject_Animate ticks.
+            Some((self.dragon_descent_frames / 6) % 6)
+        } else {
+            None
+        };
         let wait_timer = if matches!(
             self.family,
             EnemyFamily::DragonWalking | EnemyFamily::Lion | EnemyFamily::Drips | EnemyFamily::UFO
@@ -4118,7 +4129,16 @@ fn activate_enemies_with_rng_inner(
                 } else {
                     0
                 },
-                dragon_descent_frames: 0,
+                // ASM j_Init_Animation installs Scorpion `stru_3DB60` with
+                // its first six-tick entry already selected. Native's elapsed
+                // counter is sampled before its next phase transition; the
+                // install path consumes six animation ticks before the first
+                // regular scheduler sample.
+                dragon_descent_frames: if matches!(family, EnemyFamily::Scorpion) {
+                    6
+                } else {
+                    0
+                },
                 ninja_state: NinjaState::Stealth,
                 hand_state: HandState::Walking,
                 lion_state: spawn_lion_state_loc_3e030(family),
@@ -4477,6 +4497,15 @@ pub(crate) fn step_active_enemies_with_rng(
                 enemy.dragon_descent_index,
                 enemy.hit_points,
             );
+        }
+        if matches!(enemy.family, EnemyFamily::Scorpion)
+            && enemy.damage_flash_frames == 0
+            && enemy.scorpion_sting_frames == 0
+            && !enemy.death_animation_active
+        {
+            // ASM Scorpion.asm stru_3DB60: GfxObject_Animate advances six
+            // six-tick mapping entries independently from the walker coroutine.
+            enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1) % 36;
         }
         if executable_enemy_indices.next_if_eq(&enemy_index).is_none() {
             continue;

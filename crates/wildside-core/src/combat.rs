@@ -14915,19 +14915,30 @@ fn scorpion_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
         };
     }
 
-    // ASM Scorpion.asm walking script `stru_3DB60` uses `LnkTo_unk_C7DDE..C7E06`,
-    // which map through GfxObjects_CollisionKid loc_1BCE to CollisionSize_Index
-    // rows `unk_318EA..unk_3191C`.
+    // ASM Scorpion.asm `stru_3DB60` maps its six frames through
+    // GfxObjects_CollisionKid loc_1BCE to the distinct CollisionSize_Index
+    // rows `unk_318EA..unk_3191C`. The frame-1 row (`unk_318F4`) is narrower
+    // than frame 0; treating the whole walk as the widest row latches Kid
+    // contact one frame early on exact-edge approaches (#421).
+    let phase = usize::from(enemy.sprite_animation_phase.unwrap_or(0).min(5));
+    let (raw_left, width) = [
+        (-23, 43),
+        (-20, 40),
+        (-20, 43),
+        (-20, 41),
+        (-21, 43),
+        (-20, 41),
+    ][phase];
     let (left_px, right_px) = match enemy.facing {
-        Some(Direction::Right) => (-22, 23),
-        Some(Direction::Left) | None => (-23, 22),
+        Some(Direction::Right) => (-raw_left - width, -raw_left),
+        Some(Direction::Left) | None => (raw_left, raw_left + width),
     };
 
     EnemyContactBounds {
         left_px,
         right_px,
         top_px: -22,
-        bottom_px: -2,
+        bottom_px: -1,
     }
 }
 

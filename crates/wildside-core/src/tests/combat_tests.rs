@@ -796,7 +796,7 @@ fn scorpion_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
             bounds.top_px,
             bounds.bottom_px
         ),
-        (-23, 22, -22, -2),
+        (-23, 20, -22, -1),
         "ASM Scorpion.asm stru_3DB60 uses LnkTo_unk_C7DDE..C7E06; GfxObjects_CollisionKid loc_1BCE indexes CollisionSize rows unk_318EA..unk_3191C"
     );
 
@@ -1743,9 +1743,58 @@ fn scorpion_walking_contact_right_facing_flips_via_loc_1be4() {
             bounds.top_px,
             bounds.bottom_px
         ),
-        (-22, 23, -22, -2),
-        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors the unflipped Scorpion row unk_318EA..unk_3191C (-23..+22) to -22..+23 for right-facing sprites",
+        (-20, 23, -22, -1),
+        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors Scorpion frame 0 row unk_318EA (-23 width 43) to -20..+23 for right-facing sprites",
     );
+}
+
+#[test]
+fn scorpion_walking_contact_tracks_all_stru_3db60_collision_rows() {
+    let expected_left = [
+        (-23, 20),
+        (-20, 20),
+        (-20, 23),
+        (-20, 21),
+        (-21, 22),
+        (-20, 21),
+    ];
+    let expected_right = [
+        (-20, 23),
+        (-20, 20),
+        (-23, 20),
+        (-21, 20),
+        (-22, 21),
+        (-21, 20),
+    ];
+
+    for (phase, (left_expected, right_expected)) in
+        expected_left.into_iter().zip(expected_right).enumerate()
+    {
+        let mut scorpion = test_enemy(EnemyFamily::Scorpion, 101 << 16, 100 << 16, 3);
+        scorpion.dragon_descent_frames = phase as u8 * 6;
+        assert_eq!(
+            enemy_contact_bounds(&scorpion.snapshot()),
+            EnemyContactBounds {
+                left_px: left_expected.0,
+                right_px: left_expected.1,
+                top_px: -22,
+                bottom_px: -1,
+            },
+            "ASM Scorpion.asm stru_3DB60 phase {phase} uses its own unk_318EA..unk_3191C row",
+        );
+
+        scorpion.facing = Direction::Right;
+        assert_eq!(
+            enemy_contact_bounds(&scorpion.snapshot()),
+            EnemyContactBounds {
+                left_px: right_expected.0,
+                right_px: right_expected.1,
+                top_px: -22,
+                bottom_px: -1,
+            },
+            "ASM GfxObjects_CollisionKid loc_1BE4 flips stru_3DB60 phase {phase}",
+        );
+    }
 }
 
 #[test]

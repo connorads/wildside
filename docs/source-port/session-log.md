@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#421 Scorpion collision animation exact)
+
+- ROM PC tracing proved the 0x61 parent collision latches on frame 21 and fatal
+  damage is consumed on frame 22. Native's static widest walking box latched a
+  frame early.
+- Native now advances `stru_3DB60`'s six six-tick mappings and applies their
+  exact `unk_318EA..unk_3191C` collision rows, including flipped bounds.
+- The focused 61-frame route and both required gates pass. Full sweep
+  `1786703672` stays 58/69 and drops from 45 to 43 blockers with no per-level
+  regression. It leaves one 0x61 Gfx-count blocker and the existing four 0x62
+  position/count blockers. Continue #421 at 0x62's first causal scheduled pass.
+
 ## 2026-08-14 handoff (#421 Scorpion Lion-library fall exact)
 
 - PC tracing proved Scorpion's `sub_36972` height is `$16`, producing the ROM's
