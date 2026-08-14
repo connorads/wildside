@@ -14198,6 +14198,15 @@ impl NativeRuntime {
                 // (census 1786673717: 0x61 li=0 is positionless on title row
                 // 64, parked at x=184 on row 65, and steps on row 66; 0x62
                 // li=0 follows rows 71/72/73 identically).
+                // ASM Enemy13_Scorpion_Init -> loc_3E392/loc_3E546 and
+                // loc_3DD7E (#421): the native parent-only scheduler omits
+                // six object passes from the sting-capable linked-tail path.
+                // Oracle settle census 1786713171 pins Level 0x62's first
+                // loc_3DDEE entry at x=$0044.8000 on title row 118 and its
+                // resulting loc_BC6E latch age at frame 0. Level 0x61's
+                // level-0 Scorpions cannot enter loc_3DDEE and retain the
+                // common one-pass init defer above.
+                EnemyFamily::Scorpion if enemy.enemy_level >= 1 => 7,
                 EnemyFamily::Scorpion => 1,
                 _ => 0,
             };

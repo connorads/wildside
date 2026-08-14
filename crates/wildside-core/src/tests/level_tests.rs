@@ -6034,10 +6034,30 @@ mod chunk_02 {
             .iter()
             .find(|object| object.kind == NativeObjectKind::Enemy { object_type: 0x04 })
             .expect("settled Level 0x62 Armadillo should be active at frame 0");
-
         assert_eq!(
             armadillo.x_pos, 0x0061_8000,
             "ASM Manage_EnemyLoading loc_3691E allocates Enemy04_Armadillo_Init after Execute_Objects; title-wait row 71 holds the init PC, row 72 initialises at x=$0098, and loc_3E7C4 first moves on row 73, leaving x=$0061.8000 at recording frame 0"
+        );
+    }
+
+    #[test]
+    fn level62_recording_settle_preserves_scorpion_sting_damage_latch_loc_3ddee_bc6e() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x62)
+            .settle_recording_warp()
+            .run(&[0; 6], 6);
+
+        assert!(
+            trace[4].just_received_damage,
+            "ASM Scorpion.asm loc_3DDEE reaches Kid during the hidden settle; oracle census 1786713171 and the 0x62 framewise probe keep loc_BC6E's damage latch set through visible frame 4"
+        );
+        assert_eq!(
+            trace[5].number_hitpoints, 1,
+            "the oracle's still-live loc_BC6E damage gate prevents a second Scorpion contact from killing Kid at visible frame 5"
         );
     }
 

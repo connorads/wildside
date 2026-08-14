@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#421 Scorpion cluster closed)
+
+- Oracle settle census `1786713171` pins the 0x62 sting-capable Scorpion's
+  `loc_3DDEE` entry and resulting damage-latch age six object passes later than
+  native's simplified parent-only schedule. The engine now preserves those
+  passes for enemy-level 1+ Scorpions; level-0 Scorpions retain their exact
+  one-pass init defer.
+- The 0x61 61-frame and 0x62 30-frame probes are exact. Full sweep
+  `1786713871` improves from 61/69 and 36 blockers to 62/69 and 34 blockers.
+  Both required gates pass.
+- #421 is closed. The selector now owns the next item; NOW names #445 gate
+  entry followed by #417 cluster verdicts.
+
 ## 2026-08-14 handoff (#414 stale intro/title row retired)
 
 - The current full pixel report contains only HUD diamond/life-icon clusters.

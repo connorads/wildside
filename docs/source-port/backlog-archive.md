@@ -873,6 +873,19 @@ worker count parity (native `driller.rs` `loc_3BE78`/`loc_3BE60` refcount).
 
 ### #421
 
+2026-08-14 closure - the six-tick 0x62 sting/damage age is exact. Fresh settle
+census `1786713171` shows the sting-capable li=0 Scorpion reaching x=$0044.8000
+and entering `loc_3DDEE` on title row 118; at visible frame 0 the linked-tail
+contact has left `loc_BC6E`'s damage latch with eleven live ticks, while native's
+simplified parent-only scheduler had only five. Sting-capable Scorpions now
+carry the missing six object passes in the post-allocation settle schedule;
+level-0 Scorpions retain the proven one-pass init defer. The new regression
+pins the authoritative consequences: the latch remains set at frame 4 and Kid
+still has one HP at frame 5. The 0x62 30-frame gameplay/enemy probe and 0x61
+61-frame enemy probe are exact. Focused sweep 1786713713 passes both levels;
+full sweep `1786713871` improves 61/69 and 36 blockers to 62/69 and 34 blockers
+with no unrelated regression. `verify-slice-fast` and `verify-tas-full` pass.
+
 2026-08-14 implementation - 0x62's first scheduled-pass mismatch is fixed.
 Fresh oracle settle census `1786704210` proves `Manage_EnemyLoading loc_3691E`
 allocates Armadillo li=7 on title row 71, `Enemy04_Armadillo_Init` parks it at
@@ -22847,6 +22860,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 421 | [x] | P1 | enemy | Scorpion Lion-library movement, fall paths, animation-row collision, allocation timing, and the sting-capable linked-tail settle age now follow the ASM/oracle schedule. | 0x61's 61-frame and 0x62's 30-frame probes are exact; sweep 1786713871 improves to 62/69 with 34 blockers; required gates green. See archive #421. |
 | 414 | [-] | P1 | intro/render | Retired stale intro/title residue: all former IntroText, IntroSequence5, and frame-21765 title witnesses are absent from the current full-route mismatch report. | Full TAS has only HUD diamond/life-icon clusters; reopen only from a named current intro worker plus differing hardware evidence. See archive #414. |
 | 408 | [-] | P1 | rendering | Retired the stale dynamic-animation umbrella: all current full-route pixel debt is in HUD regions and no live object-local mismatch remains; prior concrete script defects are fixed or their generic hypotheses rejected. | Full TAS mismatch report has only `hud_diamond` and `hud_life_icon`; reopen as a narrow issue only from a named live GfxObject/script witness. See archive #408. |
 | 413 | [-] | P1 | rendering | Retired stale Plane-B seam attribution: the current full route has only HUD pixel clusters, and prior source-column/forest-edge probes found no source-proven row-history discrepancy. | Full TAS mismatch report: 37,518/37,759 exact; all 2,391 changed pixels belong to HUD diamond/life-icon clusters. See archive #413. |
