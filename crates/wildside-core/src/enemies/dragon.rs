@@ -1018,6 +1018,7 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
             spawn_shared_walker_right_turn_extra_step_consumed(family, child_init.facing),
         shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
         shared_drive_sound_previous_render_hidden: false,
+        driller_children: None,
         shared_walker_debug_branch: None,
         shared_walker_dx_to_kid_px: None,
         shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),

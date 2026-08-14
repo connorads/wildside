@@ -39,6 +39,233 @@ pub(crate) fn driller_init_tail_loc_3be60(
 /// the parent's `$48(a5)` collision half-width.
 pub(crate) const DRILLER_DRILL_CHILD_X_OFFSET: i32 = 0x18;
 
+/// ASM sub_3BF72 loc_3BFD4 (kid.asm): the per-frame re-pin puts the LEADING
+/// child a full `$18` from the body and the TRAILING child at `$17`
+/// (`subi.w #$18`/`addi.w #$17` when x_direction is clear, mirrored when set).
+pub(crate) const DRILLER_DRILL_CHILD_TRAILING_X_OFFSET: i32 = 0x17;
+
+/// ASM CollisionSize row `unk_31A7A` (kid.asm): `dc.w $1,$F,-$B,$9` — the
+/// drill-child hitbox the level-collision engine reads through `$22(a2)`
+/// for anim `stru_3BCBC` frames `LnkTo_unk_C80A8..C80C0`.
+pub(crate) const DRILLER_DRILL_CHILD_BOX_X_OFFSET_UNK_31A7A: i32 = 0x1;
+pub(crate) const DRILLER_DRILL_CHILD_BOX_WIDTH_UNK_31A7A: i32 = 0xF;
+pub(crate) const DRILLER_DRILL_CHILD_BOX_Y_OFFSET_UNK_31A7A: i32 = -0xB;
+pub(crate) const DRILLER_DRILL_CHILD_BOX_HEIGHT_UNK_31A7A: i32 = 0x9;
+
+/// ORIGINAL_QUIRK: Enemy1A_Driller_Init arms `$26(a1)` with ∓$8000 x
+/// velocity, but the children never set `is_moved` (`$14`), so GfxObject_Move
+/// skips them and the velocity is NEVER integrated into position — it exists
+/// solely to steer GfxObjects_Collision_Solid's moving-left/right resolution.
+/// Child position is purely the loc_3BFD4 re-pin plus collision push-outs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DrillerDrillChildSide {
+    /// `$3A(a5)`: spawned at body x-$18, x_vel -$8000, sprite unflipped.
+    Left,
+    /// `$3E(a5)`: spawned at body x+$18, x_vel +$8000, `st $16(a1)` flipped.
+    Right,
+}
+
+/// One drill child GfxObject. ASM Enemy1A_Driller_Init allocates both with
+/// `st $3C(a1)` (level collision), so GfxObjects_Collision latches `$38`
+/// wall events and pushes them out of solid tiles each frame; without
+/// `is_moved` they never self-propel (see DRILLER_DRILL_CHILD_X_VEL).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DrillerDrillChildSub3BF72 {
+    /// Integer x pixel (`$1A(a2)`). Can go negative: GfxObjects_Collision's
+    /// LeftBoundary arm shifts the object so the hitbox's left edge lands on
+    /// x=0, leaving x = -1 for the unk_31A7A box (`sub.w d0,d7`).
+    pub(crate) x_pos: i32,
+    /// Integer y pixel; loc_3BFD4 re-pins it to the body y word each walker
+    /// frame (`move.w d5,y_pos(a4)`), and the children never gain y velocity.
+    pub(crate) y_pos: i32,
+    /// Latched `$38(a2)` collision word (colid_leftwall=8 / colid_rightwall=4).
+    /// GfxObjects_Collision overwrites it on each new contact; Driller.asm
+    /// loc_3BE8E clears it only when the facing-side consume matches.
+    pub(crate) wall_event: u16,
+}
+
+/// Both drill children of one Driller body, keyed by init side.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DrillerDrillChildrenSub3BF72 {
+    pub(crate) left: DrillerDrillChildSub3BF72,
+    pub(crate) right: DrillerDrillChildSub3BF72,
+}
+
+/// ASM Enemy1A_Driller_Init: both children spawn at body x -/+ $18 with the
+/// body y (`move.w x_pos(a3),$1A(a1)` then `subi.w #$18`/`addi.w #$18`).
+pub(crate) fn driller_spawn_children_enemy1a_init(
+    body_x_px: i32,
+    body_y_px: i32,
+) -> DrillerDrillChildrenSub3BF72 {
+    DrillerDrillChildrenSub3BF72 {
+        left: DrillerDrillChildSub3BF72 {
+            x_pos: body_x_px - DRILLER_DRILL_CHILD_X_OFFSET,
+            y_pos: body_y_px,
+            wall_event: 0,
+        },
+        right: DrillerDrillChildSub3BF72 {
+            x_pos: body_x_px + DRILLER_DRILL_CHILD_X_OFFSET,
+            y_pos: body_y_px,
+            wall_event: 0,
+        },
+    }
+}
+
+/// ASM sub_3BF72 loc_3BFD4: every shared-walker hibernate site with `$3A(a5)`
+/// set re-pins both children to the body. Facing-left (x_direction clear):
+/// left child at x-$18, right at x+$17; facing-right (x_direction set): left
+/// at x-$17, right at x+$18.
+pub(crate) fn driller_repin_children_loc_3bfd4(
+    children: &mut DrillerDrillChildrenSub3BF72,
+    body_x_px: i32,
+    body_y_px: i32,
+    facing: Direction,
+) {
+    let (left_offset, right_offset) = match facing {
+        Direction::Left => (
+            DRILLER_DRILL_CHILD_X_OFFSET,
+            DRILLER_DRILL_CHILD_TRAILING_X_OFFSET,
+        ),
+        Direction::Right => (
+            DRILLER_DRILL_CHILD_TRAILING_X_OFFSET,
+            DRILLER_DRILL_CHILD_X_OFFSET,
+        ),
+    };
+    children.left.x_pos = body_x_px - left_offset;
+    children.right.x_pos = body_x_px + right_offset;
+    children.left.y_pos = body_y_px;
+    children.right.y_pos = body_y_px;
+}
+
+/// ASM GfxObjects_Collision for one drill child at its pinned position:
+/// latch `$38` wall events against level boundaries and `$6000`-class solid
+/// tiles, pushing the hitbox out.
+///
+/// The solid resolution follows GfxObjects_Collision_Solid_MovingLeft/Right:
+/// `lsr.l #8` of the SIGNED `$26` velocity leaves d0.w negative for the left
+/// child, so the `muls`/`cmp.l` wall-vs-floor disambiguation always picks
+/// the wall arm for a horizontal mover whose hitbox bottom sits below the
+/// tile top (loc_19BA -> colid_leftwall / loc_1966 -> colid_rightwall).
+pub(crate) fn driller_child_move_and_collide_gfx_objects_collision(
+    child: &mut DrillerDrillChildSub3BF72,
+    side: DrillerDrillChildSide,
+    grid: &terrain::BlockGrid,
+) {
+    let x_int = child.x_pos;
+
+    // ASM GfxObjects_Collision_SubBoxLoop: unflipped boxes span
+    // [x+off, x+off+width]; `$16(a2)`-flipped boxes mirror to
+    // [x-off-width, x-off]. The left child is unflipped, the right child is
+    // flipped (`st $16(a1)` in Enemy1A_Driller_Init).
+    let (box_left, box_right) = match side {
+        DrillerDrillChildSide::Left => (
+            x_int + DRILLER_DRILL_CHILD_BOX_X_OFFSET_UNK_31A7A,
+            x_int
+                + DRILLER_DRILL_CHILD_BOX_X_OFFSET_UNK_31A7A
+                + DRILLER_DRILL_CHILD_BOX_WIDTH_UNK_31A7A,
+        ),
+        DrillerDrillChildSide::Right => (
+            x_int
+                - DRILLER_DRILL_CHILD_BOX_X_OFFSET_UNK_31A7A
+                - DRILLER_DRILL_CHILD_BOX_WIDTH_UNK_31A7A,
+            x_int - DRILLER_DRILL_CHILD_BOX_X_OFFSET_UNK_31A7A,
+        ),
+    };
+    let level_width_px = i32::from(grid.width_cells) * 16;
+
+    // ASM GfxObjects_Collision_ChkBoundaries: the level edges are checked
+    // before any tile scan and latch the same wall codes.
+    if box_left < 0 {
+        // GfxObjects_Collision_LeftBoundary: `sub.w d0,d7` shifts the object
+        // so the hitbox's left edge lands on x=0 (left child ends at x=-1).
+        child.x_pos = x_int - box_left;
+        child.wall_event = DRILLER_COLID_LEFTWALL;
+        return;
+    }
+    if box_right >= level_width_px {
+        // GfxObjects_Collision_RightBoundary: width - (right - x) - 1.
+        child.x_pos = level_width_px - (box_right - x_int) - 1;
+        child.wall_event = DRILLER_COLID_RIGHTWALL;
+        return;
+    }
+
+    let box_top = child.y_pos + DRILLER_DRILL_CHILD_BOX_Y_OFFSET_UNK_31A7A;
+    let box_bottom = box_top + DRILLER_DRILL_CHILD_BOX_HEIGHT_UNK_31A7A;
+    if box_top < 0 {
+        return;
+    }
+    // ASM GfxObjects_Collision_Tiles_Loop: rows outer, columns inner, first
+    // colliding tile wins.
+    for row in (box_top >> 4)..=(box_bottom >> 4) {
+        for col in (box_left >> 4)..=(box_right >> 4) {
+            if row >= i32::from(grid.height_cells) || col >= i32::from(grid.width_cells) {
+                continue;
+            }
+            let cell = grid.cell_at(col as u16, row as u16);
+            // ASM loc_17C6: `$7000` spikes are ignored; `$4000/$5000` slopes
+            // route to the slope arms whose horizontal-mover outcomes never
+            // produce the `$38` wall codes Driller.asm loc_3BE8E consumes, so
+            // they are skipped here; `$6000` is the solid arm.
+            if cell.collision != terrain::CollisionKind::Solid {
+                continue;
+            }
+            let tile_x = col << 4;
+            let tile_y = row << 4;
+            match side {
+                DrillerDrillChildSide::Left => {
+                    // GfxObjects_Collision_Solid_MovingLeft(Down): d0.w after
+                    // `lsr.l #8` of $FFFF8000 is $FF80 (negative), so
+                    // `(bottom-tile_y)*d0 < (left-tile_right)*y_vel(=0)`
+                    // holds whenever the box bottom is below the tile top and
+                    // loc_19BA -> loc_19D2 latches colid_leftwall.
+                    if box_bottom > tile_y {
+                        // loc_1A00 (unflipped): x = tile_x - $1 + $10.
+                        child.x_pos = tile_x + 16 - DRILLER_DRILL_CHILD_BOX_X_OFFSET_UNK_31A7A;
+                        child.wall_event = DRILLER_COLID_LEFTWALL;
+                    }
+                }
+                DrillerDrillChildSide::Right => {
+                    // Solid_MovingRight(Down): d0.w stays positive, so
+                    // `(bottom-tile_y)*d0 > 0` picks loc_1966 -> loc_197E
+                    // colid_rightwall for a box below the tile top.
+                    if box_bottom > tile_y {
+                        // loc_197E (flipped): x = tile_x + $1 - 1.
+                        child.x_pos = tile_x + DRILLER_DRILL_CHILD_BOX_X_OFFSET_UNK_31A7A - 1;
+                        child.wall_event = DRILLER_COLID_RIGHTWALL;
+                    }
+                }
+            }
+            return;
+        }
+    }
+}
+
+/// ASM ingame/anim/enemy/Driller.asm `stru_3BCCE`: one `$1E`-tick retract
+/// frame the surviving stomped Driller hibernates through (loc_3BF4E).
+pub(crate) const DRILLER_RETRACT_FRAMES_STRU_3BCCE: u8 = 0x1E;
+
+pub(crate) const DRILLER_COLID_LEFTWALL: u16 = colid::LEFTWALL;
+pub(crate) const DRILLER_COLID_RIGHTWALL: u16 = colid::RIGHTWALL;
+
+/// ASM Driller.asm loc_3BE78/loc_3BE8E: the body callback selects the
+/// facing-side child (`$3A(a5)`/d1=8 when x_direction is clear, `$3E(a5)`/
+/// d1=4 when set), and only an exactly-matching `$38` word is consumed
+/// (cleared) and turned into a block probe at the child's (x, y-$10).
+pub(crate) fn driller_consume_child_wall_event_loc_3be8e(
+    children: &mut DrillerDrillChildrenSub3BF72,
+    facing: Direction,
+) -> Option<(i32, i32)> {
+    let (child, expected) = match facing {
+        Direction::Left => (&mut children.left, DRILLER_COLID_LEFTWALL),
+        Direction::Right => (&mut children.right, DRILLER_COLID_RIGHTWALL),
+    };
+    if child.wall_event == 0 || child.wall_event != expected {
+        return None;
+    }
+    child.wall_event = 0;
+    Some((child.x_pos, child.y_pos - 0x10))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DrillerBlockDrillActionLoc3BEDE {
     None,
@@ -128,9 +355,10 @@ pub(crate) fn driller_collision_dispatch_loc_3bf02(
     }
 }
 
-/// Step a Driller enemy: paces like normal, but drills through Smash and Ice blocks.
-/// ASM loc_3BE78: when sprite timer matches direction (8 for left, 4 for right),
-/// checks cell at (sprite_x ± offset, sprite_y - 16) for drillable block type and destroys it.
+/// Step a Driller enemy: consume the facing child's wall event into a block
+/// smash (loc_3BE78), run the shared walker, then re-pin both children
+/// (sub_3BF72 loc_3BFD4). The children's own move + level collision runs in
+/// the runtime's post-object GfxObjects pass.
 /// Returns the drilled cells and their ASM block-dispatch action this frame.
 pub(crate) fn step_driller(
     enemy: &mut ActiveEnemy,
@@ -139,20 +367,22 @@ pub(crate) fn step_driller(
     let Some(grid) = block_grid else {
         return Vec::new();
     };
+    // ASM Enemy1A_Driller_Init spawns both children before entering the
+    // walker; native lazily creates them on the first body pass.
+    let mut children = *enemy.driller_children.get_or_insert_with(|| {
+        driller_spawn_children_enemy1a_init((enemy.x_pos >> 16) as i32, (enemy.y_pos >> 16) as i32)
+    });
 
-    // ASM Mode_Level runs Execute_Objects before GfxObjects_Collision. The
-    // child wall code written after the previous object pass is therefore the
-    // only collision Driller.asm loc_3BE78 may consume on this pass.
-    let drilled = if enemy.shared_drive_sound_previous_render_hidden {
-        driller_drilled_cells_loc_3be78(enemy, grid)
-    } else {
-        Vec::new()
-    };
+    // ASM Mode_Level runs Execute_Objects before GfxObjects_MoveAndAnimate/
+    // GfxObjects_Collision, so loc_3BE78 consumes the wall event latched by
+    // the PREVIOUS frame's collision pass.
+    let drilled = driller_consume_drilled_block_loc_3be78(&mut children, enemy.facing, grid);
+
     if drilled.is_empty() {
         step_pacer(enemy, Some(grid), None);
-        enemy.shared_drive_sound_previous_render_hidden =
-            !driller_drilled_cells_loc_3be78(enemy, grid).is_empty();
     } else {
+        // ASM Driller.asm loc_3BEDE erases the block inside the body's own
+        // pass, so the walker scan below already sees the drilled hole.
         let mut grid_after_drill = grid.clone();
         for drilled_block in &drilled {
             grid_after_drill.set_cell_at(
@@ -162,40 +392,52 @@ pub(crate) fn step_driller(
             );
         }
         step_pacer(enemy, Some(&grid_after_drill), None);
-        enemy.shared_drive_sound_previous_render_hidden =
-            !driller_drilled_cells_loc_3be78(enemy, &grid_after_drill).is_empty();
     }
+
+    // ASM sub_3BF72 loc_3BFD4: the shared-walker hibernate sites re-pin the
+    // children to the post-walk body position each frame.
+    driller_repin_children_loc_3bfd4(
+        &mut children,
+        (enemy.x_pos >> 16) as i32,
+        (enemy.y_pos >> 16) as i32,
+        enemy.facing,
+    );
+    enemy.driller_children = Some(children);
 
     drilled
 }
 
-fn driller_drilled_cells_loc_3be78(
-    enemy: &ActiveEnemy,
+/// ASM Driller.asm loc_3BE78..loc_3BEF2: consume the facing child's matching
+/// `$38` wall word, probe the level word at the child's (x, y-$10) cell, and
+/// dispatch negative words by their `$F00` nibble.
+fn driller_consume_drilled_block_loc_3be78(
+    children: &mut DrillerDrillChildrenSub3BF72,
+    facing: Direction,
     grid: &terrain::BlockGrid,
 ) -> Vec<DrilledBlockLoc3BE78> {
-    let cx = (enemy.x_pos >> 16) as i32;
-    let cy = (enemy.y_pos >> 16) as i32;
-    // ASM Driller.asm loc_3BE8E gates drilling on the selected linked child
-    // collision word (`d1=8` left child / `d1=4` right child), clears it,
-    // then probes that child's x position and y-16 cell before dispatching to
-    // loc_3BEDE/loc_3BEF2. Native has the child wall-contact gate in the
-    // object-step shell; this helper preserves the child-space cell probe.
-    let probe_x = if enemy.facing == Direction::Right {
-        cx + DRILLER_DRILL_CHILD_X_OFFSET
-    } else {
-        cx - DRILLER_DRILL_CHILD_X_OFFSET
+    let Some((probe_x, probe_y)) = driller_consume_child_wall_event_loc_3be8e(children, facing)
+    else {
+        return Vec::new();
     };
-    let direction = match enemy.facing {
+    let direction = match facing {
         // ASM Driller.asm loc_3BE78 selects the right child and seeds d0=3.
         Direction::Right => 3,
         // ASM Driller.asm loc_3BE78 uses the left child with d0=1.
         Direction::Left => 1,
     };
-    // ASM sub_3BEF2: Y probe is 16px above sprite (subi.w #$10,d7).
-    let probe_y = cy - 16;
-
-    let col = terrain::pixel_to_cell(probe_x).max(0) as u16;
-    let row = terrain::pixel_to_cell(probe_y).max(0) as u16;
+    // ORIGINAL_QUIRK: loc_3BE8E computes the column with `lsr.w #4`, so a
+    // boundary-clamped child at x=-1 indexes far outside the layout row and
+    // reads unrelated RAM (observed on 0x55: never a smashable word). Native
+    // bounds-checks instead of modelling the out-of-range read.
+    if probe_x < 0 || probe_y < 0 {
+        return Vec::new();
+    }
+    let col = terrain::pixel_to_cell(probe_x);
+    let row = terrain::pixel_to_cell(probe_y);
+    if col >= i32::from(grid.width_cells) || row >= i32::from(grid.height_cells) {
+        return Vec::new();
+    }
+    let (col, row) = (col as u16, row as u16);
     let cell = grid.cell_at(col, row);
 
     let action = driller_block_drill_action_loc_3bede(cell);
@@ -398,35 +640,232 @@ mod tests {
     }
 
     #[test]
-    fn driller_consumes_child_terrain_collision_on_next_loc_3be78_tick() {
-        let mut enemy = mini_hopping_skull_test_enemy();
-        enemy.family = EnemyFamily::Driller;
-        enemy.facing = Direction::Right;
+    fn driller_repin_children_loc_3bfd4_uses_asymmetric_facing_offsets() {
+        let mut children = driller_spawn_children_enemy1a_init(120, 175);
+        assert_eq!(
+            (children.left.x_pos, children.right.x_pos),
+            (120 - 0x18, 120 + 0x18),
+            "ASM Enemy1A_Driller_Init spawns both children at body x -/+ $18",
+        );
+
+        driller_repin_children_loc_3bfd4(&mut children, 100, 176, Direction::Left);
+        assert_eq!(
+            (children.left.x_pos, children.right.x_pos),
+            (100 - 0x18, 100 + 0x17),
+            "ASM sub_3BF72 loc_3BFD4 x_direction-clear arm: subi #$18 left, addi #$17 right",
+        );
+        assert_eq!((children.left.y_pos, children.right.y_pos), (176, 176));
+
+        driller_repin_children_loc_3bfd4(&mut children, 100, 176, Direction::Right);
+        assert_eq!(
+            (children.left.x_pos, children.right.x_pos),
+            (100 - 0x17, 100 + 0x18),
+            "ASM sub_3BF72 loc_3C000 x_direction-set arm: subi #$17 left, addi #$18 right",
+        );
+    }
+
+    #[test]
+    fn driller_child_latches_wall_events_and_pushes_out_gfx_objects_collision() {
+        // 8x4 grid with a solid block at col 3, row 1 (unk_31A7A rows for
+        // y=32 are 21..30 -> row 1).
         let mut grid = mini_hopping_skull_test_grid();
         grid.set_cell_at(3, 1, terrain::Cell::from_be_bytes(0xE0, 0x01));
 
-        let first_tick = step_driller(&mut enemy, Some(&grid));
-
-        assert!(
-            first_tick.is_empty(),
-            "ASM Mode_Level runs GfxObjects_Collision after Execute_Objects, so Driller.asm loc_3BE78 cannot consume the drill child's new wall collision in the same object tick",
+        // Left child whose box [x+1, x+16] overlaps col 3 (span 48..63).
+        let mut left = DrillerDrillChildSub3BF72 {
+            x_pos: 62,
+            y_pos: 32,
+            wall_event: 0,
+        };
+        driller_child_move_and_collide_gfx_objects_collision(
+            &mut left,
+            DrillerDrillChildSide::Left,
+            &grid,
+        );
+        assert_eq!(
+            (left.x_pos, left.wall_event),
+            (3 * 16 + 15, DRILLER_COLID_LEFTWALL),
+            "ASM loc_19D2/loc_1A00: leftward solid contact latches colid_leftwall and pushes x to tile_x - $1 + $10",
         );
 
-        let second_tick = step_driller(&mut enemy, Some(&grid));
+        // Right child (flipped box [x-16, x-1]) overlapping the same block.
+        let mut right = DrillerDrillChildSub3BF72 {
+            x_pos: 49,
+            y_pos: 32,
+            wall_event: 0,
+        };
+        driller_child_move_and_collide_gfx_objects_collision(
+            &mut right,
+            DrillerDrillChildSide::Right,
+            &grid,
+        );
+        assert_eq!(
+            (right.x_pos, right.wall_event),
+            (3 * 16, DRILLER_COLID_RIGHTWALL),
+            "ASM loc_197E flipped arm: rightward solid contact latches colid_rightwall and pushes x to tile_x + $1 - 1",
+        );
+
+        // One pixel short of overlap latches nothing.
+        let mut shy = DrillerDrillChildSub3BF72 {
+            x_pos: 63,
+            y_pos: 32,
+            wall_event: 0,
+        };
+        driller_child_move_and_collide_gfx_objects_collision(
+            &mut shy,
+            DrillerDrillChildSide::Left,
+            &grid,
+        );
+        assert_eq!(
+            (shy.x_pos, shy.wall_event),
+            (63, 0),
+            "ASM GfxObjects_Collision only fires once the unk_31A7A box (left edge x+1) reaches the tile span",
+        );
+    }
+
+    #[test]
+    fn driller_child_level_boundaries_clamp_and_latch_loc_1aea() {
+        let grid = mini_hopping_skull_test_grid();
+
+        // 0x55 frame-0 witness: the wall-turned body at x=12 pins its left
+        // child at -11; the LeftBoundary arm clamps the unk_31A7A box to the
+        // level edge, leaving the child at exactly x=-1 with colid_leftwall.
+        let mut left = DrillerDrillChildSub3BF72 {
+            x_pos: -11,
+            y_pos: 32,
+            wall_event: 0,
+        };
+        driller_child_move_and_collide_gfx_objects_collision(
+            &mut left,
+            DrillerDrillChildSide::Left,
+            &grid,
+        );
+        assert_eq!(
+            (left.x_pos, left.wall_event),
+            (-1, DRILLER_COLID_LEFTWALL),
+            "ASM GfxObjects_Collision_LeftBoundary: `sub.w d0,d7` lands the box's left edge on x=0",
+        );
+
+        let mut right = DrillerDrillChildSub3BF72 {
+            x_pos: 8 * 16 + 4,
+            y_pos: 32,
+            wall_event: 0,
+        };
+        driller_child_move_and_collide_gfx_objects_collision(
+            &mut right,
+            DrillerDrillChildSide::Right,
+            &grid,
+        );
+        assert_eq!(
+            (right.x_pos, right.wall_event),
+            (8 * 16, DRILLER_COLID_RIGHTWALL),
+            "ASM GfxObjects_Collision_RightBoundary: width - (right - x) - 1 keeps the flipped box inside the level",
+        );
+    }
+
+    #[test]
+    fn driller_consume_selects_facing_child_and_exact_code_loc_3be8e() {
+        let mut children = driller_spawn_children_enemy1a_init(100, 176);
+        children.left.wall_event = DRILLER_COLID_LEFTWALL;
+        children.right.wall_event = DRILLER_COLID_RIGHTWALL;
 
         assert_eq!(
-            second_tick,
-            vec![DrilledBlockLoc3BE78 {
-                col: 3,
-                row: 1,
-                action: DrillerBlockDrillActionLoc3BEDE::SmashBits,
-                direction: 3,
-            }],
-            "ASM Driller.asm loc_3BE78 consumes the right child's colid_rightwall on the following Execute_Objects pass",
+            driller_consume_child_wall_event_loc_3be8e(&mut children, Direction::Left),
+            Some((100 - 0x18, 160)),
+            "ASM loc_3BE78 x_direction-clear arm reads `$3A(a5)` with d1=8 and probes (x, y-$10)",
         );
-        assert!(
-            !enemy.shared_drive_sound_previous_render_hidden,
-            "ASM Driller.asm loc_3BE8E clears the selected child's `$38` collision word before destroying the block; the following GfxObjects_Collision pass leaves it clear when no next block is present",
+        assert_eq!(
+            children.left.wall_event, 0,
+            "ASM loc_3BE8E clears the matched `$38` word",
+        );
+        assert_eq!(
+            children.right.wall_event, DRILLER_COLID_RIGHTWALL,
+            "the trailing child's latched word is untouched by the facing-side consume",
+        );
+
+        // A mismatched code on the facing child is left latched.
+        children.left.wall_event = DRILLER_COLID_RIGHTWALL;
+        assert_eq!(
+            driller_consume_child_wall_event_loc_3be8e(&mut children, Direction::Left),
+            None,
+            "ASM loc_3BE8E `cmp.w d1,d4; bne` skips without clearing on a non-matching word",
+        );
+        assert_eq!(children.left.wall_event, DRILLER_COLID_RIGHTWALL);
+    }
+
+    /// Oracle-probe run 2026-08-14 on level 0x68 (watches on row-4 cells
+    /// `$FFA79E..$FFA7A2` + `Number_Objects`): the li=1 Driller walks right
+    /// from x=72.0 at 0.5px/frame (hp 2) and its right drill child smashes
+    /// row-4 cols 6/7/8 on scenario frames 2/34/66 exactly. This pins the
+    /// whole chain: loc_3BFD4 re-pin (+$18, no GfxObject_Move integration),
+    /// unk_31A7A box overlap latch, loc_197E push-out, and the loc_3BE78
+    /// next-frame consume.
+    #[test]
+    fn driller_smash_cadence_matches_oracle_probe_level_0x68_row4() {
+        let width: u16 = 40;
+        let height: u16 = 8;
+        let data = vec![0u8; usize::from(width) * usize::from(height) * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, width, height);
+        // Level 0x68 rows: row 4 carries the `$E001` smash blocks (cols 4/5
+        // already drilled during the shell), row 5 is the `$E710` floor.
+        for col in 6..14 {
+            grid.set_cell_at(col, 4, terrain::Cell::from_be_bytes(0xE0, 0x01));
+        }
+        for col in 0..width {
+            grid.set_cell_at(col, 5, terrain::Cell::from_be_bytes(0xE7, 0x10));
+        }
+
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Driller;
+        enemy.facing = Direction::Right;
+        enemy.hit_points = 2;
+        enemy.x_pos = 72 << 16;
+        enemy.y_pos = 80 << 16;
+        enemy.on_ground = true;
+        // Frame-0 oracle state: children pinned by the previous walker frame,
+        // no event pending (cols 4/5 are already open).
+        enemy.driller_children = Some({
+            let mut children = driller_spawn_children_enemy1a_init(72, 80);
+            driller_repin_children_loc_3bfd4(&mut children, 72, 80, Direction::Right);
+            children
+        });
+
+        let mut smashes = Vec::new();
+        for frame in 0..70u32 {
+            let drilled = step_driller(&mut enemy, Some(&grid));
+            for block in &drilled {
+                grid.set_cell_at(block.col, block.row, terrain::Cell::from_be_bytes(0, 0));
+                smashes.push((frame, block.col, block.row, block.action, block.direction));
+            }
+            let children = enemy
+                .driller_children
+                .as_mut()
+                .expect("step_driller seeds the children");
+            driller_child_move_and_collide_gfx_objects_collision(
+                &mut children.left,
+                DrillerDrillChildSide::Left,
+                &grid,
+            );
+            driller_child_move_and_collide_gfx_objects_collision(
+                &mut children.right,
+                DrillerDrillChildSide::Right,
+                &grid,
+            );
+        }
+
+        assert_eq!(
+            smashes,
+            vec![
+                (2, 6, 4, DrillerBlockDrillActionLoc3BEDE::SmashBits, 3),
+                (34, 7, 4, DrillerBlockDrillActionLoc3BEDE::SmashBits, 3),
+                (66, 8, 4, DrillerBlockDrillActionLoc3BEDE::SmashBits, 3),
+            ],
+            "oracle-probe level 0x68: right-child smashes must land on frames 2/34/66 at row-4 cols 6/7/8",
+        );
+        assert_eq!(
+            enemy.x_pos >> 16,
+            72 + 35,
+            "the hp-2 Driller walks 0.5px/frame (ASM loc_3BD74 single `$8000` add) through the drilled corridor without turning or dying",
         );
     }
 }

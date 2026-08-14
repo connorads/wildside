@@ -1313,6 +1313,36 @@ impl NativeRuntime {
         }
     }
 
+    /// ASM Mode_Level's GfxObjects_MoveAndAnimate + GfxObjects_Collision pass
+    /// for the Driller drill children: integrate their `$26` x velocity and
+    /// latch `$38` wall events against the post-smash grid, ready for the
+    /// next body pass's Driller.asm loc_3BE78 consume. Runs even while the
+    /// body hibernates in the retract/death animation — those hibernate
+    /// loops only skip sub_3BF72's re-pin, not the GfxObjects passes.
+    pub(crate) fn move_driller_drill_children_gfx_objects_pass(&mut self) {
+        let Some(grid) = self.block_grid.as_ref() else {
+            return;
+        };
+        for enemy in &mut self.active_enemies {
+            if !matches!(enemy.family, EnemyFamily::Driller) {
+                continue;
+            }
+            let Some(children) = enemy.driller_children.as_mut() else {
+                continue;
+            };
+            driller_child_move_and_collide_gfx_objects_collision(
+                &mut children.left,
+                DrillerDrillChildSide::Left,
+                grid,
+            );
+            driller_child_move_and_collide_gfx_objects_collision(
+                &mut children.right,
+                DrillerDrillChildSide::Right,
+                grid,
+            );
+        }
+    }
+
     pub(crate) fn move_heady_metal_body_piece_workers_sub_376ec(&mut self) {
         let Some(heady_metal) = self
             .active_enemies

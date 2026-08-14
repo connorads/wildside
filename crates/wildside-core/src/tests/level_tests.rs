@@ -26355,11 +26355,34 @@ mod chunk_10 {
         );
     }
 
+    /// Seed a Driller's drill children (Enemy1A init + loc_3BFD4 re-pin) and
+    /// run one GfxObjects_Collision pass so the next step_driller call can
+    /// consume any latched `$38` wall event, matching the ROM's frame order.
+    fn seed_driller_children_with_collision_pass(
+        enemy: &mut ActiveEnemy,
+        grid: &terrain::BlockGrid,
+    ) {
+        let x = (enemy.x_pos >> 16) as i32;
+        let y = (enemy.y_pos >> 16) as i32;
+        let mut children = driller_spawn_children_enemy1a_init(x, y);
+        driller_repin_children_loc_3bfd4(&mut children, x, y, enemy.facing);
+        driller_child_move_and_collide_gfx_objects_collision(
+            &mut children.left,
+            DrillerDrillChildSide::Left,
+            grid,
+        );
+        driller_child_move_and_collide_gfx_objects_collision(
+            &mut children.right,
+            DrillerDrillChildSide::Right,
+            grid,
+        );
+        enemy.driller_children = Some(children);
+    }
+
     #[test]
     fn loc_3be78_driller_drills_front_smash_block_before_pacer_turnaround() {
         let mut enemy = make_pacer(EnemyFamily::Driller, 3, 84, 80);
         enemy.facing = Direction::Right;
-        enemy.shared_drive_sound_previous_render_hidden = true;
         let grid = grid_with_cells(
             8,
             8,
@@ -26370,6 +26393,7 @@ mod chunk_10 {
                 (6, 5, 0x60, 0x00),
             ],
         );
+        seed_driller_children_with_collision_pass(&mut enemy, &grid);
 
         let drilled = step_driller(&mut enemy, Some(&grid));
 
@@ -26392,9 +26416,8 @@ mod chunk_10 {
 
     #[test]
     fn loc_3be78_driller_probes_right_child_x_not_parent_collision_width() {
-        let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
+        let mut enemy = make_pacer(EnemyFamily::Driller, 3, 89, 80);
         enemy.facing = Direction::Right;
-        enemy.shared_drive_sound_previous_render_hidden = true;
         let grid = grid_with_cells(
             9,
             8,
@@ -26406,6 +26429,8 @@ mod chunk_10 {
                 (7, 5, 0x60, 0x00),
             ],
         );
+
+        seed_driller_children_with_collision_pass(&mut enemy, &grid);
 
         let drilled = step_driller(&mut enemy, Some(&grid));
 
@@ -26425,7 +26450,6 @@ mod chunk_10 {
     fn loc_3be78_driller_probes_left_child_x_not_parent_collision_width() {
         let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
         enemy.facing = Direction::Left;
-        enemy.shared_drive_sound_previous_render_hidden = true;
         let grid = grid_with_cells(
             9,
             8,
@@ -26437,6 +26461,8 @@ mod chunk_10 {
                 (5, 5, 0x60, 0x00),
             ],
         );
+
+        seed_driller_children_with_collision_pass(&mut enemy, &grid);
 
         let drilled = step_driller(&mut enemy, Some(&grid));
 
@@ -26454,9 +26480,8 @@ mod chunk_10 {
 
     #[test]
     fn loc_3bef2_driller_preserves_ice_block_dispatch_for_runtime_bullets() {
-        let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
+        let mut enemy = make_pacer(EnemyFamily::Driller, 3, 89, 80);
         enemy.facing = Direction::Right;
-        enemy.shared_drive_sound_previous_render_hidden = true;
         let grid = grid_with_cells(
             9,
             8,
@@ -26468,6 +26493,8 @@ mod chunk_10 {
                 (7, 5, 0x60, 0x00),
             ],
         );
+
+        seed_driller_children_with_collision_pass(&mut enemy, &grid);
 
         let drilled = step_driller(&mut enemy, Some(&grid));
 
@@ -26485,9 +26512,8 @@ mod chunk_10 {
 
     #[test]
     fn loc_3be78_driller_does_not_drill_type_c_ec2d_shooter_cells() {
-        let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
+        let mut enemy = make_pacer(EnemyFamily::Driller, 3, 89, 80);
         enemy.facing = Direction::Right;
-        enemy.shared_drive_sound_previous_render_hidden = true;
         let grid = grid_with_cells(
             9,
             8,
@@ -26502,6 +26528,8 @@ mod chunk_10 {
             ],
         );
 
+        seed_driller_children_with_collision_pass(&mut enemy, &grid);
+
         let drilled = step_driller(&mut enemy, Some(&grid));
 
         assert_eq!(
@@ -26513,9 +26541,8 @@ mod chunk_10 {
 
     #[test]
     fn loc_3be8e_driller_requires_front_wall_collision_before_drilling() {
-        let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
+        let mut enemy = make_pacer(EnemyFamily::Driller, 3, 89, 80);
         enemy.facing = Direction::Right;
-        enemy.shared_drive_sound_previous_render_hidden = true;
         let grid = grid_with_cells(
             9,
             8,
@@ -26528,6 +26555,8 @@ mod chunk_10 {
                 (7, 5, 0x60, 0x00),
             ],
         );
+
+        seed_driller_children_with_collision_pass(&mut enemy, &grid);
 
         let drilled = step_driller(&mut enemy, Some(&grid));
 
@@ -29054,6 +29083,7 @@ mod chunk_10 {
             shared_walker_right_turn_extra_step_consumed: false,
             shared_walker_patrol_short_next: false,
             shared_drive_sound_previous_render_hidden: false,
+            driller_children: None,
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
@@ -29213,6 +29243,7 @@ mod chunk_10 {
             shared_walker_right_turn_extra_step_consumed: false,
             shared_walker_patrol_short_next: false,
             shared_drive_sound_previous_render_hidden: false,
+            driller_children: None,
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
@@ -29283,6 +29314,7 @@ mod chunk_10 {
             shared_walker_right_turn_extra_step_consumed: false,
             shared_walker_patrol_short_next: false,
             shared_drive_sound_previous_render_hidden: false,
+            driller_children: None,
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),

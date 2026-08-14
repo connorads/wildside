@@ -1442,6 +1442,11 @@ pub(crate) struct ActiveEnemy {
     /// Driller reuses this disjoint-family bit for loc_3BE8E's drill-child
     /// terrain collision written by the previous GfxObjects_Collision pass.
     pub(crate) shared_drive_sound_previous_render_hidden: bool,
+    /// Driller: the two travelling drill-child GfxObjects (`$3A(a5)`/`$3E(a5)`).
+    /// ASM Enemy1A_Driller_Init spawns them level-colliding; sub_3BF72
+    /// loc_3BFD4 re-pins them each walker frame and loc_3BE78 consumes their
+    /// `$38` wall events into block smashes. None until the first body pass.
+    pub(crate) driller_children: Option<DrillerDrillChildrenSub3BF72>,
     /// Frontier-only trace label for the last shared-walker branch taken.
     pub(crate) shared_walker_debug_branch: Option<&'static str>,
     /// Signed horizontal distance to Kid when the grounded shared walker last evaluated him.
@@ -2485,6 +2490,24 @@ impl ActiveEnemy {
                     return false;
                 }
             }
+        }
+        if matches!(self.family, EnemyFamily::Driller) {
+            // ASM Driller.asm loc_3BF02: colid_kidabove decrements `$44(a3)`;
+            // a surviving Driller hibernates through the `$1E`-tick retract
+            // `stru_3BCCE` (loc_3BF4E) before loc_3BF66 resumes the walker.
+            let dispatch = driller_collision_dispatch_loc_3bf02(
+                DRILLER_COLID_KIDABOVE as i16,
+                u16::from(self.hit_points),
+            );
+            debug_assert!(matches!(
+                dispatch.route,
+                DrillerCollisionRouteLoc3BF02::HurtAnimation
+            ));
+            self.hit_points = dispatch.next_current_hp as u8;
+            self.damage_flash_frames = DRILLER_RETRACT_FRAMES_STRU_3BCCE;
+            self.x_velocity = 0;
+            self.y_velocity = 0;
+            return false;
         }
         self.hit_points -= 1;
         self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
@@ -4172,6 +4195,7 @@ fn activate_enemies_with_rng_inner(
                     spawn_shared_walker_right_turn_extra_step_consumed(family, facing),
                 shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
                 shared_drive_sound_previous_render_hidden: false,
+                driller_children: None,
                 shared_walker_debug_branch: None,
                 shared_walker_dx_to_kid_px: None,
                 shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
@@ -8133,6 +8157,27 @@ pub(crate) fn step_pacer(
         }
     }
 
+    if !moving_right
+        && turns_at_cliffs
+        && scan.flags_d7 & 0b001 != 0
+        && current_x_px - probe_half_width < 16
+        && pixel_delta > 0
+        && tile_remainder < pixel_delta
+    {
+        // ASM sub_36A58 loc_36A9E: a leftward walker whose left column is the
+        // level's column 0 preloads d7 bits 0+1 (there is no wall CELL for
+        // the post-commit probe below to find). loc_3C0FA's crossing dispatch
+        // then routes bit 0 through loc_3C152 (`st $6E(a5)`) into loc_3C026:
+        // clear the velocities, face Right, bump `$5A(a5)`, and hibernate
+        // WITHOUT committing the crossing step — oracle 0x55/0x68 hold their
+        // Drillers at exactly x=12 against the left edge before walking back.
+        reverse_enemy_direction(enemy);
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0;
+        register_shared_walker_turnaround(enemy);
+        return;
+    }
+
     if matches!(
         grounded_turn_plan,
         Some(SharedWalkerGroundedTurn::RightBoundaryAtCurrentPosition)
@@ -10751,6 +10796,7 @@ pub(crate) mod test_fixtures {
             shared_walker_right_turn_extra_step_consumed: false,
             shared_walker_patrol_short_next: false,
             shared_drive_sound_previous_render_hidden: false,
+            driller_children: None,
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
@@ -13321,6 +13367,7 @@ impl NativeRuntime {
                 for drilled_block in drilled_blocks {
                     self.apply_drilled_block_loc_3bede_3bef2(drilled_block);
                 }
+                self.move_driller_drill_children_gfx_objects_pass();
             }
         }
         for enemy in self
@@ -13744,6 +13791,7 @@ impl NativeRuntime {
                     self.apply_drilled_block_loc_3bede_3bef2(drilled_block);
                 }
                 self.drilled_blocks.clear();
+                self.move_driller_drill_children_gfx_objects_pass();
                 self.stop_rock_tank_drive_sound_on_last_exit_loc_3c46e(driving_rock_tanks_before);
                 self.rebuild_active_enemy_roster();
             } else {
