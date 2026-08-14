@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#413 stale Plane-B row retired)
+
+- The current full pixel mismatch report contains only HUD diamond/life-icon
+  clusters. No Plane-B source-column or row-history witness remains.
+- Prior #413 probes already established that the space witness was an intro
+  frame and the forest right-edge residue did not respond to the ASM-derived
+  source-column change. #413 is retired, not patched speculatively.
+- Next selector-owned P1 work is #408's per-object animation phase.
+
 ## 2026-08-14 handoff (#422 UFO cluster closed)
 
 - 0x48 now matches all 420 focused gameplay checkpoints and passes the state

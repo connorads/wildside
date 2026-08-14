@@ -6203,6 +6203,16 @@ the live row was stale.
 
 ### #413
 
+Retired 2026-08-14. The current full `source_port_visible_rgb24_v1`
+mismatch report contains only `hud_diamond` and `hud_life_icon` clusters:
+37,518/37,759 frames are exact and all 2,391 changed pixel instances are in
+those HUD regions. There is no live Plane-B source-column or row-history
+discrepancy satisfying this row's explicit reopen condition. The archived
+space frame was an intro presentation frame, while the forest right-edge
+residue was already shown to be visually coincident and not changed by the
+ASM-derived source-column experiment. Reopen only from a new current gameplay
+witness that exposes differing Plane-B VRAM/history.
+
 Rejected 2026-07-17: the archived 22-pixel route-frame-36783 Plane-B seam is
 not reproducible from the current release renderer. Fresh native/oracle scene
 captures at 36782..36784 differ by 69,886/70,629/70,637 pixels respectively,
@@ -22815,6 +22825,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 413 | [-] | P1 | rendering | Retired stale Plane-B seam attribution: the current full route has only HUD pixel clusters, and prior source-column/forest-edge probes found no source-proven row-history discrepancy. | Full TAS mismatch report: 37,518/37,759 exact; all 2,391 changed pixels belong to HUD diamond/life-icon clusters. See archive #413. |
 | 422 | [x] | P1 | enemy | Debug-entry camera scheduling now leaves horizontal follow to Mode_Level before Manage_EnemyLoading while preserving the atomic vertical-settle seed; UFO Gfx collision treats HiddenBlock top-row overlap as ceiling and side overlap as wall. | 0x48 passes 420 focused checkpoints and the state sweep; full sweep 1786711753 improves to 61/69 with 36 blockers; required gates green. See archive #422. |
 | 419 | [x] | P1 | enemy | 0x60 idle_tail cascade closed: the frame-60 charge hit was already parity-exact (neither Kid displaced); native goats missed the ROM's grounded wall hold (Lion.asm loc_3E3B2/loc_3E566 crossing -> loc_3E406/loc_3E5BA: `$42`=$FF88 re-armed, step never committed, no turn; sub_36972 loc_369BC makes the level edge a wall), so li=1 pit-died, respawned, and re-charged Kid fatally at frame 263. | 0x60 idle frames 0..359 all match oracle; sweep 1786660540: 56/69 pass, 64 blocking, only change 0x60 FAIL->PASS; verify-tas-full byte-identical. See archive #419. |
 | 457 | [x] | P3 | enemy | The hold is the grounded loc_3E406 wall hold, not a land/fall cycle: the ROM never commits the crossing step, so the sub-pixel fraction survives — li=3 rests at exactly 0x02478000 with `$42`=$FF88 constant. Native now takes the same path. | Shell regression tightened to equality at 0x02478000 and passes; witness gate green. See archive #457. |
