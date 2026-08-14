@@ -1036,6 +1036,29 @@ Scorpions. Count half (0x62 native +1 object) to #449.
 
 ### #422
 
+Resolved 2026-08-14. The apparent frame-100 beam-lifetime surplus was caused
+upstream by the debug-entry camera schedule and UFO terrain classification.
+`Mode_Level loc_80C` must move horizontal camera X before
+`Manage_EnemyLoading loc_368A8`; pre-applying that X step skipped 0x48's
+camera-$278 activation window and changed the initial loc_35326 RNG ownership.
+Native's atomic settle still needs the corresponding vertical Y seed, so the
+entry model now pre-applies only Y and leaves raw header X for the live pass.
+
+The remaining layout-17 drift began at frame 130, where ROM
+`GfxObjects_Collision loc_16F0` treated collision-kind-2 terrain as a wall and
+bounced the UFO; native ignored HiddenBlock cells and flew through. The same
+collision class is directional: layout #8's upward top-row overlap is ceiling
+`$10`, not sidewall. Native now classifies both paths before UFO.asm loc_35056.
+The live UFO trace also exports the pre-resume `$44` word sampled while
+Enemy0F_UFO_Loop sleeps, without altering death-animation timers.
+
+Verification: the 0x48 focused route passes all 420 gameplay checkpoints;
+focused state sweep `1786711734` passes 0x24/0x48/0x51; full state sweep
+`1786711753` improves 60/69 with 38 blockers to 61/69 with 36, with no
+regressions. `verify-slice-fast` and `verify-tas-full` are green; the full TAS
+retains exact player/camera, RNG, gameplay, and enemy frontiers plus all
+ratcheted pixel/audio baselines.
+
 2026-08-14 investigation — 0x48's frame-100 surplus is not a beam-loop
 timing error. Oracle frame 99 has three `loc_355D8` beams at x=$0282; the
 oldest is y=$01CF with `collision_type=$000C`, and Enemy0F_UFOBeam_Loop deletes
@@ -22792,6 +22815,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 422 | [x] | P1 | enemy | Debug-entry camera scheduling now leaves horizontal follow to Mode_Level before Manage_EnemyLoading while preserving the atomic vertical-settle seed; UFO Gfx collision treats HiddenBlock top-row overlap as ceiling and side overlap as wall. | 0x48 passes 420 focused checkpoints and the state sweep; full sweep 1786711753 improves to 61/69 with 36 blockers; required gates green. See archive #422. |
 | 419 | [x] | P1 | enemy | 0x60 idle_tail cascade closed: the frame-60 charge hit was already parity-exact (neither Kid displaced); native goats missed the ROM's grounded wall hold (Lion.asm loc_3E3B2/loc_3E566 crossing -> loc_3E406/loc_3E5BA: `$42`=$FF88 re-armed, step never committed, no turn; sub_36972 loc_369BC makes the level edge a wall), so li=1 pit-died, respawned, and re-charged Kid fatally at frame 263. | 0x60 idle frames 0..359 all match oracle; sweep 1786660540: 56/69 pass, 64 blocking, only change 0x60 FAIL->PASS; verify-tas-full byte-identical. See archive #419. |
 | 457 | [x] | P3 | enemy | The hold is the grounded loc_3E406 wall hold, not a land/fall cycle: the ROM never commits the crossing step, so the sub-pixel fraction survives — li=3 rests at exactly 0x02478000 with `$42`=$FF88 constant. Native now takes the same path. | Shell regression tightened to equality at 0x02478000 and passes; witness gate green. See archive #457. |
 | 433 | [x] | P2 | verification | Classify leftover debug warp 0x41 as non-comparable: Load_InGame selects incomplete resource 0x41 and the oracle consumes adjacent RAM unavailable to the clean native bundle. | Focused sweep 1786567508: 12 oracle limitations, zero blockers, both checkpoints UNVERIFIED. See archive #433. |

@@ -31,6 +31,11 @@ fn ufo_probe_wall_loc_16f0(
     let last_row = bottom_y.div_euclid(16);
 
     for row in first_row..=last_row {
+        // ASM GfxObjects_Collision_Solid classifies an upward-moving UFO's
+        // first overlap on the hitbox top row as ceiling, not side wall.
+        if y_velocity < 0 && row == first_row {
+            continue;
+        }
         // ASM GfxObjects_Collision_Solid chooses the floor branch when a
         // descending UFO's first overlap is confined to its bottom tile row.
         if y_velocity >= 0 && row == last_row {
@@ -38,7 +43,10 @@ fn ufo_probe_wall_loc_16f0(
         }
         let probe_y = top_y.max(row * 16);
         let probe = terrain::probe_at(grid, edge_x, probe_y);
-        if probe.cell.collision == terrain::CollisionKind::Solid {
+        if matches!(
+            probe.cell.collision,
+            terrain::CollisionKind::Solid | terrain::CollisionKind::HiddenBlock
+        ) {
             let wall_x_px = if moving_right {
                 i32::from(probe.cell_x) * 16
             } else {
@@ -2875,6 +2883,45 @@ mod tests {
         assert!(
             ufo.x_velocity > 0,
             "ASM UFO.asm Enemy0F_UFO_Loop resumes at loc_35056/Enemy0F_UFO_BounceWall before the next acceleration and movement pass"
+        );
+    }
+
+    #[test]
+    fn ufo_wall_collision_treats_hidden_block_as_leftwall_loc_16f0() {
+        let grid = ufo_test_grid(8, 8, &[(4, 3, 0x20, 0x00)]);
+        let mut ufo = ufo_test_enemy(96, 80);
+        ufo.x_velocity = -0x0003_0000;
+        ufo.x_acceleration = -0x0000_1000;
+        ufo.target_x_velocity = -0x0003_0000;
+        let mut rng = RomRandomState::default();
+
+        step_ufo_with_player(&mut ufo, Some(&grid), None, None, &mut rng);
+
+        assert_eq!(
+            (ufo.x_pos, ufo.x_velocity, ufo.dragon_phase_frames),
+            (94 << 16, -0x0003_0000, 0x0008),
+            "ASM GfxObjects_Collision loc_16F0 reports Level 0x48's collision-kind-2 hidden cell as leftwall `$08`, snapping UFO layout #17 before UFO.asm loc_35056 bounces it",
+        );
+    }
+
+    #[test]
+    fn ufo_upward_hidden_block_overlap_is_ceiling_not_sidewall_loc_16f0() {
+        let grid = ufo_test_grid(8, 8, &[(4, 3, 0x20, 0x00)]);
+        let mut ufo = ufo_test_enemy(82, 80);
+        ufo.x_velocity = 0x0003_0000;
+        ufo.y_velocity = -0x0003_0000;
+        ufo.x_acceleration = 0;
+        ufo.y_acceleration = 0;
+        ufo.target_x_velocity = 0x0003_0000;
+        ufo.target_y_velocity = -0x0003_0000;
+        let mut rng = RomRandomState::default();
+
+        step_ufo_with_player(&mut ufo, Some(&grid), None, None, &mut rng);
+
+        assert_eq!(
+            (ufo.x_pos, ufo.y_pos, ufo.dragon_phase_frames),
+            (85 << 16, 91 << 16, 0x0010),
+            "ASM GfxObjects_Collision loc_16F0 classifies Level 0x48 layout #8's upward top-row hidden-block overlap as ceiling `$10`, leaving horizontal motion untouched",
         );
     }
 

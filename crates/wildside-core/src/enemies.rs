@@ -2645,9 +2645,16 @@ impl ActiveEnemy {
         } else {
             None
         };
-        let wait_timer = if matches!(
+        let wait_timer = if matches!(self.family, EnemyFamily::UFO) && !self.death_animation_active
+        {
+            // ASM Enemy0F_UFO_Loop hibernates before the trailing `$44`
+            // decrement. Native stores the resumed continuation count used
+            // by the next host step; expose the pre-resume Object word that
+            // the oracle samples while the coroutine sleeps.
+            Some(self.wait_timer.saturating_add(1))
+        } else if matches!(
             self.family,
-            EnemyFamily::DragonWalking | EnemyFamily::Lion | EnemyFamily::Drips | EnemyFamily::UFO
+            EnemyFamily::DragonWalking | EnemyFamily::Lion | EnemyFamily::Drips
         ) || (matches!(self.family, EnemyFamily::BigHoppingSkull)
             && self.wait_timer > 0
             && !self.death_animation_active)

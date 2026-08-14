@@ -19513,12 +19513,15 @@ impl NativeRuntime {
             // rather than replacing the lifecycle with a floor-snapped slice.
             Self::resolve_spawn_wall_overlap(&mut opening_slice, grid);
         }
-        // ASM loc_75D4 (kid.asm:7707): the spawn coroutine runs `sub_71E4`
-        // once against the fresh header pose before its first hibernate. The
-        // live gravity settle that follows only runs post-collision follows,
-        // so without this leading tick seed-below-target levels rest one
-        // pixel short of the oracle's `target - 3` (0x24/0x50/0x51 cluster).
+        // ASM loc_75D4 (kid.asm:7707): native's atomic vertical settle needs
+        // the opening `sub_71E4` Y step which its later floor-snap collapses;
+        // 0x24/0x51 prove omitting it leaves camera Y one pixel high. The
+        // horizontal step still belongs to the first live Mode_Level pass:
+        // retain raw header X so 0x48 moves $280->$278 immediately before
+        // Manage_EnemyLoading loc_368A8 instead of skipping that window.
+        let raw_camera_x = opening_slice.camera.x_pos;
         opening_slice.update_camera_follow(0);
+        opening_slice.camera.x_pos = raw_camera_x;
         self.opening_slice = Some(opening_slice);
     }
 

@@ -11071,6 +11071,34 @@ mod chunk_09 {
             .map(|object| (object.x_pos >> 16, object.wait_timer))
             .collect::<Vec<_>>();
         drips_waits.sort_unstable_by_key(|(x, _)| *x);
+        let ufo = frame
+            .active_enemy_details
+            .iter()
+            .find(|object| {
+                object.kind == NativeObjectKind::Enemy { object_type: 0x0F }
+                    && object.layout_index == Some(8)
+            })
+            .expect("settled Level 0x48 should retain UFO layout #8");
+
+        assert_eq!(
+            (
+                ufo.x_pos,
+                ufo.y_pos,
+                ufo.x_velocity,
+                ufo.y_velocity,
+                ufo.facing,
+                ufo.wait_timer,
+            ),
+            (
+                0x0246_8000,
+                0x0140_C000,
+                Some(0x0003_0000),
+                Some(-0x0003_0000),
+                Some(Direction::Right),
+                Some(0x000E),
+            ),
+            "ASM Mode_Level loc_80C -> Manage_EnemyLoading loc_368A8 runs on the first post-loader pass: oracle title row 72 loads at camera $278 before UFO.asm loc_35326 advances layout #8",
+        );
 
         assert_eq!(
             (frame.rng_offset, frame.number_objects, drips_waits),

@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#422 UFO cluster closed)
+
+- 0x48 now matches all 420 focused gameplay checkpoints and passes the state
+  sweep. The debug-entry shell preserves raw camera X until Mode_Level's first
+  follow/load pass while retaining the vertical seed needed by atomic settle.
+- UFO collision now treats collision-kind-2 terrain as the ROM does: upward
+  top-row contact is ceiling, side contact is wall. This fixes layout #8's
+  early bounce and layout #17's frame-130 wall bounce/unload path.
+- Full sweep `1786711753` improves to 61/69 with 36 blockers and no regression.
+  `verify-slice-fast` and `verify-tas-full` pass. Next selector-owned work is
+  #413 because #406/#409 are frozen.
+
 ## 2026-08-14 handoff (#422 0x48 shooter ownership isolated)
 
 - Oracle frame 99's oldest x=$0282 beam has floor collision `$000C` at
