@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#422 UFO beam model — frame-0 witness allowance retired)
+
+- Decoded the 0x30 aimed-beam law from the shell census (5/5/10 spawn
+  spacing; the last beam mid-fall at (36,91) exactly at frame 0) and
+  fixed three ROM-order defects in one unit (65e667cd2): ChkShoot tests
+  the pre-move position, the start pass spends one loc_34FD6 interval,
+  and beams die on the wake AFTER their latched collision word — with
+  the invented 60-frame lifetime replaced by collision-word exits
+  including the bottom boundary (0x48's pit beams).
+- The settled-warp frame-0 witness gate now requires exact object
+  counts on all five probe levels; the documented #422 beam-child
+  allowance is deleted and the gate passes. slice-fast/tas-full green
+  (all ratchets at committed frontiers); clean-cache full sweep
+  1786680330 is 56/69 with zero per-level regressions.
+- Dead end recorded: deferring the UFO spawn via the #419 loc_3691E
+  set shifts its motion-picker RNG draw and rewrites the whole 0x30
+  approach path — the one-frame lead was call order, not spawn phase.
+- #422 stays [~]: 0x30's remaining settle rows are the visible-window
+  Kid-death schedule (a native die-respawn cycle the oracle doesn't
+  have — same interplay class as #421's residue), and 0x48 carries +4
+  unattributed tail counts. Both need a visible-window census before
+  more code.
+
 ## 2026-08-14 handoff (#421 boundary-damage fix — shell-earned Kid damage persists)
 
 - #421 probe decoded 0x61/0x62 end to end (settle census 1786673717 +

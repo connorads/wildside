@@ -874,6 +874,46 @@ Scorpions. Count half (0x62 native +1 object) to #449.
 
 ### #422
 
+2026-08-14 session — beam model LANDED (65e667cd2), frame-0 witness
+allowance RETIRED; row stays [~] for the residual sweep rows.
+
+Measured chain (oracle 0x30 census run 1786640409 + fresh probes): the
+UFO parks over Kid and the aimed ChkShoot cycle drops a 1-sampled-frame
+beam every 5 frames continuously (rows 73/78/83 | 93/98/103 — the
+5/5/10 law: spawns start+4/+9/+14, clear +19, refire +20); the last
+beam sits mid-fall at (36,91) exactly at frame 0 over the invulnerable
+Kid. Three native defects fixed, all ROM-order class:
+1. ChkShoot tested the post-move position (fired a frame early) — the
+   loop order is checks-then-SpeedToPos.
+2. The start pass skipped ChkLoadBeam's same-pass loc_34FD6 tick
+   (cycles ran 21 frames and drifted phase per cycle).
+3. Beams deleted same-pass on contact; the ROM's Enemy0F_UFOBeam_Loop
+   consumes the latched collision word on its NEXT wake (one-frame
+   delete latency), and has NO lifetime — its exits are collision
+   words only, including the bottom-boundary latch (0x48's pit
+   beams). The invented 60-frame cap is gone.
+The settled-warp frame-0 witness gate now demands exact counts on all
+five probe levels (allowlist deleted) and passes.
+
+Dead end (do not retry): adding the UFO to the #419 loc_3691E
+fresh-spawn defer set. It shifts the motion-picker RNG draw one
+scheduler burn later, rewriting the whole 0x30 approach path (the UFO
+parks at (42,63) instead of swooping to (40,78)). The one-frame
+shooting lead was the ChkShoot pre-move order, not spawn phase.
+
+Remaining (close bar: both levels pass the state sweep):
+- 0x30 level_settle number_objects 7v5 / gfx 8v5, idle_tail
+  oracle_limitation rows: the VISIBLE-window Kid-death schedule — the
+  oracle Kid is knocked off the bridge and dies once; native's
+  hit/death cycle runs on a different schedule (alive-at-spawn with a
+  fresh just_received_damage at idle_tail = a native die-respawn
+  cycle), leaving +2 death/respawn workers at settle. Same
+  post-frame-0 interplay class as #421's residue.
+- 0x48 idle_tail number_objects 17v13 / gfx 26v22: +4 unattributed at
+  the tail sample (frame-0 witness including its three pit beams is
+  exact); attribute against a visible-window census before touching
+  code.
+
 UFO beam workers (0x30/0x48, 7 blockers). 0x30 (high): oracle Kid hit by the
 RNG-gated beam (`Enemy0F_UFO_ChkShoot`/`ChkLoadBeam` → `Enemy0F_UFOBeam_Init`,
 beam sets has_kid_collision) and knocked off the bridge (hitpoints 0 vs 1, kid
