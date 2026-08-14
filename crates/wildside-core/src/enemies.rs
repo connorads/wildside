@@ -4280,7 +4280,7 @@ pub(crate) fn step_active_enemies(
     drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
 ) {
     let mut rng = RomRandomState::default();
-    let mut freshly_loaded_enemies = std::collections::HashSet::new();
+    let mut freshly_loaded_enemies = std::collections::HashMap::new();
     step_active_enemies_with_rng(
         active,
         block_grid,
@@ -4320,7 +4320,7 @@ pub(crate) fn step_active_enemies_with_rng(
     rng: &mut RomRandomState,
     drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
     mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
-    freshly_loaded_enemies: &mut std::collections::HashSet<(usize, usize)>,
+    freshly_loaded_enemies: &mut std::collections::HashMap<(usize, usize), u8>,
 ) {
     seed_pending_archer_initial_hibernates_loc_33fda(active, camera_x_px, rng);
 
@@ -4369,15 +4369,6 @@ pub(crate) fn step_active_enemies_with_rng(
     .into_iter()
     .peekable();
     for (enemy_index, enemy) in active.iter_mut().enumerate() {
-        if freshly_loaded_enemies.remove(&(enemy.segment_index, enemy.layout_index)) {
-            // ASM Manage_EnemyLoading loc_3691E (#419): this is the freshly
-            // allocated enemy's family-Init object pass — the init ends in
-            // the walker hibernate entries, so no behaviour step runs. Its
-            // first walk lands on the NEXT pass (oracle run 1786640409:
-            // Goat li=1 appears at spawn x on one row and steps on the
-            // following tick).
-            continue;
-        }
         if matches!(enemy.family, EnemyFamily::Driller) && !enemy.shared_walker_patrol_short_next {
             // ASM Driller.asm loc_3BE60: increment the shared DrillMoving
             // refcount, install loc_3BE78 as the callback, then enter the
@@ -4485,6 +4476,30 @@ pub(crate) fn step_active_enemies_with_rng(
             );
         }
         if executable_enemy_indices.next_if_eq(&enemy_index).is_none() {
+            continue;
+        }
+        if let Some(remaining) =
+            freshly_loaded_enemies.get_mut(&(enemy.segment_index, enemy.layout_index))
+        {
+            // ASM Manage_EnemyLoading loc_3691E (#419/#420): a freshly
+            // allocated enemy's first passes run its family Init, which ends
+            // in the walker hibernate entries, so no behaviour step runs —
+            // but the object still occupies its Execute_Objects slot, so the
+            // scheduler index above must be consumed before deferring (a
+            // pre-scheduler `continue` desynchronised `next_if_eq` and
+            // silently skipped every LATER object in the pass; 0x68's li=3
+            // froze for exactly li=5's three defer passes).
+            // Goat spends one such pass (oracle run 1786640409: li=1 appears
+            // at spawn x on one row and steps on the following tick);
+            // Driller spends three: the allocation defer, the init's
+            // opening `j_Hibernate_Object_1Frame`, and the
+            // loc_3C0D2/loc_3C026 walker-entry hibernate (oracle run
+            // 1786662123: 0x55 li=3 shows init resume codes on title rows
+            // 61/62, parks at x=120 on row 63, and first steps on row 64).
+            *remaining -= 1;
+            if *remaining == 0 {
+                freshly_loaded_enemies.remove(&(enemy.segment_index, enemy.layout_index));
+            }
             continue;
         }
         let restores_dragon_walking_animation =
@@ -8185,6 +8200,33 @@ pub(crate) fn step_pacer(
         return;
     }
 
+    if !moving_right
+        && matches!(enemy.family, EnemyFamily::Driller)
+        && pixel_delta > 0
+        && tile_remainder < pixel_delta
+        && scan.flags_d7.trailing_zeros() >= 2
+        && scan.floor_class_d6 >= 0
+    {
+        // ASM loc_3C0FA -> loc_3C152/loc_3C160 (kid.asm:43621-43634): on a
+        // leading-edge tile crossing with d7 bits 0 and 1 clear and a
+        // following row that still has floor somewhere (`tst.w d6` non-minus),
+        // the leftward walker turns via `st $6E(a5)` -> loc_3C026 WITHOUT
+        // committing the crossing step, and the loc_3C03A entry hibernate
+        // parks it one frame. A mid-floor crossing never fires here: the
+        // following-row lead cell's `$4000` bit sets d7 bit 1 first. Oracle
+        // 0x55 li=2 (census run 1786662123 t107/t108): the patroller holds
+        // at exactly x=364 for one frame before walking back right. Restrict
+        // this exact crossing arm to Driller until the other shared-walker
+        // families have family-specific oracle routes; enabling it for Crab
+        // regresses the 0x64 state sweep because that lifecycle still relies
+        // on the documented shared-walker approximation above.
+        reverse_enemy_direction(enemy);
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0;
+        register_shared_walker_turnaround(enemy);
+        return;
+    }
+
     if matches!(
         grounded_turn_plan,
         Some(SharedWalkerGroundedTurn::RightBoundaryAtCurrentPosition)
@@ -10990,7 +11032,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             Some(&mut sound_effects),
-            &mut std::collections::HashSet::new(),
+            &mut std::collections::HashMap::new(),
         );
 
         assert!(
@@ -11034,7 +11076,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             Some(&mut sound_effects),
-            &mut std::collections::HashSet::new(),
+            &mut std::collections::HashMap::new(),
         );
 
         assert!(
@@ -11074,7 +11116,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashSet::new(),
+            &mut std::collections::HashMap::new(),
         );
 
         assert_eq!(
@@ -11100,7 +11142,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashSet::new(),
+            &mut std::collections::HashMap::new(),
         );
 
         assert_eq!(
@@ -14011,23 +14053,40 @@ impl NativeRuntime {
                 .len()
                 .saturating_sub(active_before_trailing_load)
                 .min(usize::from(u16::MAX)) as u16;
-        // ASM Enemy10_Goat_Init (#419): the Goat's init ends in the walker
-        // hibernate (loc_3CB02 -> loc_3E392/loc_3E546), so its first walk
-        // step lands one object pass after the shell roster appearance —
-        // oracle run 1786640409 shows the 0x60 Goats appearing at spawn x
-        // and stepping on the following tick, while native stepped them
-        // immediately (+1.5px lead, the one-frame-early charge hit).
-        // Scoped to the Goat: the other families' shell frame-0 witnesses
-        // (0x30/0x40/0x48 UFO among them) are position-exact WITHOUT a
-        // delay, and the published route's 37,518 pixel-exact frames pin
-        // the live Manage_EnemyLoading path as undelayed too. (#422 probed
-        // a UFO spawn delay here and it CHANGED the motion-picker RNG
+        // ASM Manage_EnemyLoading loc_3691E (#419/#420): a freshly loaded
+        // enemy's first object passes run its family Init, which ends in a
+        // walker hibernate, so its first walk step lands late. Per-family
+        // shell counts: Goat 1 (Enemy10_Goat_Init ends in loc_3CB02 ->
+        // loc_3E392/loc_3E546; oracle run 1786640409 shows the 0x60 Goats
+        // appearing at spawn x and stepping on the following tick), Driller
+        // 3 (the loc_3691E defer, Enemy1A_Driller_Init's opening
+        // `j_Hibernate_Object_1Frame`, and the loc_3C0D2/loc_3C026
+        // walker-entry hibernate; oracle run 1786662123 shows 0x55 li=3 in
+        // init resume codes on title rows 61/62, parked at 120 on row 63,
+        // first stepping on row 64). Scoped to those families:
+        // the other shell frame-0 witnesses (0x30/0x40/0x48 UFO among
+        // them) are position-exact WITHOUT a delay, and the published
+        // route's 37,518 pixel-exact frames pin the live
+        // Manage_EnemyLoading path as undelayed too. (#422 probed a UFO
+        // spawn delay here and it CHANGED the motion-picker RNG
         // interleaving, rewriting the whole 0x30 approach path — the UFO's
         // one-frame shooting lead was the ChkShoot pre-move order instead.)
         for enemy in &self.active_enemies[active_before_trailing_load..] {
-            if matches!(enemy.family, EnemyFamily::Goat) {
+            let no_step_passes = match enemy.family {
+                EnemyFamily::Goat => 1,
+                // ASM Enemy1A_Driller_Init (#420): the loc_3691E allocation
+                // defer, the init's opening `j_Hibernate_Object_1Frame`, and
+                // the loc_3C0D2/loc_3C026 walker-entry hibernate make THREE
+                // shell no-step passes; the first walk step lands on the
+                // fourth (oracle run 1786662123: 0x55 li=3 resume codes
+                // 3BCF0/3BCF4 on title rows 61/62, parked at x=120 on row
+                // 63, first step on row 64).
+                EnemyFamily::Driller => 3,
+                _ => 0,
+            };
+            if no_step_passes > 0 {
                 self.freshly_loaded_enemies_loc_3691e
-                    .insert((enemy.segment_index, enemy.layout_index));
+                    .insert((enemy.segment_index, enemy.layout_index), no_step_passes);
             }
         }
         self.enemy_loading_initial_pass_complete = true;

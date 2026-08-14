@@ -486,7 +486,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashSet::new(),
+            &mut std::collections::HashMap::new(),
         );
 
         assert!(
@@ -511,12 +511,71 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashSet::new(),
+            &mut std::collections::HashMap::new(),
         );
 
         assert!(
             enemies[0].shared_walker_patrol_short_next,
             "ASM Driller.asm loc_3BE60 is an init tail, so the native latch must stay set after the first visible step",
+        );
+    }
+
+    /// ASM Manage_EnemyLoading loc_3691E defers a fresh allocation's first
+    /// execution one pass; `Enemy1A_Driller_Init` (Driller.asm line 6) then
+    /// opens with `j_Hibernate_Object_1Frame`, and the loc_3C0D2/loc_3C026
+    /// walker entry parks one more frame — a freshly loaded shell Driller
+    /// spends THREE object passes without walking (oracle run 1786662123:
+    /// 0x55 li=3 shows init resume codes 3BCF0/3BCF4 on title rows 61/62,
+    /// parks at x=120 on row 63, and first steps on row 64).
+    #[test]
+    fn freshly_loaded_driller_defers_three_object_passes_loc_3691e() {
+        let grid = mini_hopping_skull_test_grid();
+        let mut enemies = [ActiveEnemy {
+            family: EnemyFamily::Driller,
+            facing: Direction::Left,
+            hit_points: 3,
+            x_pos: 64 << 16,
+            ..mini_hopping_skull_test_enemy()
+        }];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+        let mut freshly_loaded = std::collections::HashMap::new();
+        freshly_loaded.insert((enemies[0].segment_index, enemies[0].layout_index), 3u8);
+
+        for (pass, expected_x, label) in [
+            (0u16, 64u32, "first pass is the loc_3691E allocation defer"),
+            (1, 64, "second pass is the init's opening hibernate"),
+            (2, 64, "third pass is the walker-entry hibernate"),
+            (3, 63, "fourth pass takes the first walk step"),
+        ] {
+            step_active_enemies_with_rng(
+                &mut enemies,
+                Some(&grid),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                pass,
+                false,
+                None,
+                &mut rng,
+                &mut drilled_blocks,
+                None,
+                &mut freshly_loaded,
+            );
+            assert_eq!(
+                enemies[0].x_pos >> 16,
+                expected_x,
+                "ASM loc_3691E + Enemy1A_Driller_Init entry hibernates: {label}"
+            );
+        }
+        assert!(
+            freshly_loaded.is_empty(),
+            "the defer mark must be fully consumed after its three passes"
         );
     }
 
@@ -627,7 +686,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashSet::new(),
+            &mut std::collections::HashMap::new(),
         );
 
         assert_eq!(

@@ -750,18 +750,14 @@ mod tests {
     /// parks at x=12 in the loc_3BF4E retract after the live-51 body stomp.
     /// li=1 (312,95) terrain-dies at spawn; li=2 patrols 364..420.
     ///
-    /// Native currently reproduces the whole chain one Kid-stomp phase frame
-    /// late: li=3 parks at 13 (oracle 12), li=2 reads 403 (oracle 405, two
-    /// 1px wall-turn debts), Kid bobs at 0x908000 (oracle 0x8FC000). The
-    /// ROM's `$2C` stomp is latched by the PREVIOUS frame's
-    /// GfxObjects_CollisionKid pass and consumed by loc_3BE78 BEFORE the
-    /// walk step; native classifies the stomp inside the same frame's Kid
-    /// pass, after the walker committed its step. Re-derive by moving the
-    /// native stomp latch to the frame boundary (kid.asm:3378 CollisionKid
-    /// order) and re-measuring the live-33/51 contact rows against census
-    /// run 1786662123 before re-enabling.
+    /// Native reproduces the whole chain row-for-row: the loc_3691E
+    /// three-pass spawn defer aligns the walkers, the drill-child contact
+    /// routes through Jump_On_Enemy's pending-stomp anchor/bounce
+    /// (kid.asm:14607), and the loc_3C160 leftward cliff turn abandons the
+    /// crossing step with the one-frame entry hold — li=3 parks at 12,
+    /// li=2 reads 405, and Kid bobs at 0x8FC000, all matching census run
+    /// 1786662123's live-59 row exactly.
     #[test]
-    #[ignore = "#420 residue: Kid-stomp latch runs a phase frame late; see doc comment"]
     fn gameplay_regression_driller_shell_drills_kid_floor_loc_3be78_level_0x55() {
         use wildside_core::{LevelId, NativeRuntime};
         let Some(manifest) = cached_generated_manifest() else {
@@ -856,15 +852,18 @@ mod tests {
     /// and walks right to x=72.0 — its right drill child then smashes row-4
     /// cols 6/7/8 on visible frames 2/34/66 (oracle-probe 2026-08-14).
     ///
-    /// Native currently reads li=3/li=5 at 60.5 (+1px: two spawn-entry phase
-    /// frames — the ROM's Enemy1A_Driller_Init spends an extra
-    /// Hibernate_Object_1Frame plus the loc_3C0D2 entry hibernate before the
-    /// first walk step) and li=1 at 73.5 (+1.5px: three landing-phase
-    /// frames in the loc_3C288 falling walker hand-off). Re-derive both
-    /// against census run 1786662123's title_wait rows (li spawn at title
-    /// 60/67, first steps and landing rows) before re-enabling.
+    /// Native reads li=1 exactly (the loc_3691E three-pass spawn defer) and
+    /// li=3/li=5 at 59.0 (-0.5px). Measured against census run 1786662123:
+    /// the walkers are row-for-row exact from spawn (init rows t58/59, park
+    /// t60, first step t61) through the x=12 edge turn (arrive t84, hold
+    /// t85, step t86) — the half pixel is the title->live boundary itself,
+    /// where the oracle runs TWO object passes between t119 (29.0) and
+    /// live0 (30.0) while the native settled-warp model runs one. Frame-0
+    /// RNG is exact, so the ROM's extra boundary pass skips the loc_E12
+    /// long burn — a #442 boundary-model row, not a Driller behaviour.
+    /// Re-derive after the boundary model accounts for that pass.
     #[test]
-    #[ignore = "#420 residue: Driller spawn/landing phase frames; see doc comment"]
+    #[ignore = "#420/#442 residue: one RNG-silent title->live boundary object pass; see doc comment"]
     fn gameplay_regression_driller_shell_walkers_survive_loc_3c0fa_level_0x68() {
         use wildside_core::{LevelId, NativeRuntime};
         let Some(manifest) = cached_generated_manifest() else {

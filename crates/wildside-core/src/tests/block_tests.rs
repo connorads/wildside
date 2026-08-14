@@ -6990,7 +6990,7 @@ mod chunk_04 {
             &mut rng,
             &mut drilled_blocks,
             Some(&mut sound_effects),
-            &mut std::collections::HashSet::new(),
+            &mut std::collections::HashMap::new(),
         );
 
         assert_eq!(
@@ -7023,7 +7023,7 @@ mod chunk_04 {
             &mut rng,
             &mut drilled_blocks,
             Some(&mut sound_effects),
-            &mut std::collections::HashSet::new(),
+            &mut std::collections::HashMap::new(),
         );
 
         assert_eq!(
@@ -14721,7 +14721,7 @@ mod chunk_04 {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashSet::new(),
+            &mut std::collections::HashMap::new(),
         );
 
         assert_eq!(
@@ -14750,7 +14750,7 @@ mod chunk_04 {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashSet::new(),
+            &mut std::collections::HashMap::new(),
         );
 
         assert_eq!(

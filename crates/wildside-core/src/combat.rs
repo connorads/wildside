@@ -15473,21 +15473,27 @@ impl NativeRuntime {
         if slice.player.y_velocity > 0
             && self.driller_drill_child_player_damage_contact_unk_31a7a(slice)
         {
-            // Oracle 0x55 shell (settle trace run 1786662123): Kid falling
-            // onto a drill child flips y_vel to exactly -$3C000 on the
-            // contact frame — live 33 (fresh hit: Number_Hitpoints 2 -> 1,
-            // Just_received_damage set per loc_B72C) and live 51 again while
-            // still invulnerable (bounce only, no HP change). The bounce
-            // fires either way; the damage routes through the normal
-            // Check_for_recent_damge -> loc_B700 path.
-            slice.player.y_velocity = DRILLER_DRILL_CHILD_CONTACT_BOUNCE_VELOCITY;
-            slice.player.on_ground = false;
-            if !kid_damage_invulnerable {
-                self.opening_slice = Some(*slice);
-                self.apply_damage();
-                self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ContactDamage;
-                return true;
-            }
+            // ASM GfxObjects_CollisionKid latches `colid_kidabove` for the
+            // falling Kid against the drill child; the NEXT frame's
+            // Jump_On_Enemy (kid.asm:14607) restores the `$FFFFFA2C/2E`
+            // anchor word (integer pixel only — the live subpixel survives),
+            // sets y_vel to loc_B6DA's -$40000, rewinds/1.5×s x, and routes
+            // bit-14 contact damage through Check_for_recent_damge. Oracle
+            // 0x55 shell (run 1786662123): live 33 is the fresh hit
+            // (Number_Hitpoints 2 -> 1) with the bounce sampling -$3C000
+            // after gravity and y snapping to anchor-int|live-sub; live 51
+            // bounces again under the flash with no HP change (loc_1D00
+            // gate). The pending-stomp path models all of that one frame
+            // after the contact, like every other Jump_On_Enemy consumer.
+            self.pending_stomp_bounce = Some(PendingStompBounce {
+                anchor_x_pos: frame_start_x_pos,
+                anchor_y_pos: frame_start_y_pos,
+                y_velocity: STOMP_BOUNCE_VELOCITY,
+                causes_contact_damage: true,
+            });
+            self.opening_slice = Some(*slice);
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::StompBounce;
+            return true;
         }
 
         if !kid_damage_invulnerable

@@ -719,6 +719,32 @@ regression is tightened to equality at 0x02478000 and passes.
 
 ### #420
 
+2026-08-14 implementation session — SECOND PARTIAL VERIFIED (row stays [~]).
+The remaining phase debt split into four source-backed behaviours: freshly loaded
+Drillers consume three scheduled object passes (loc_3691E allocation defer,
+Enemy1A_Driller_Init opening hibernate, loc_3C0D2/loc_3C026 walker-entry
+hibernate); defer consumption happens after the Execute_Objects scheduler slot;
+drill-child falls latch the next-frame Jump_On_Enemy anchor/bounce; and Driller's
+leftward loc_3C160 crossing turns without committing the step. The 0x55 strict
+shell witness is now live and exact (li=3 x=12/hp2, li=2 x=405, Kid y=0x8FC000).
+0x68 clears its two object-count sweep diffs and passes.
+
+Rejected hypotheses: delaying `EraseBlockFromLevelLayout` until a synthetic
+sub_10EDA worker pass moved 0x55 from x=13 to x=14 and was fully removed; applying
+the loc_3C160 crossing hold to every approximate shared-walker family regressed
+0x64's Crab lifecycle, so the proven arm is Driller-scoped pending family-specific
+oracle routes. The remaining 0x68 half-pixel position witness begins only at the
+RNG-silent title-to-live extra object pass and is re-attributed to #442 boundary
+modelling, not Driller behaviour.
+
+Verification: `verify-slice-fast` green (7,138 core tests, 22/23 live CLI tests,
+one intentional #420/#442 ignore); `verify-tas-full` green with all 37,759
+player/camera, gameplay, enemy, RNG, pixel and GEMS frames checked and all ratchets
+unchanged. Clean-cache full state sweep `1786686554` is 57/69 with 50 blocking
+diffs versus `1786680330` at 56/69: 0x68 alone changes from fail to pass, with zero
+other authoritative changes. #420 remains open because 0x55 still has five later
+damage/prize/count blockers after the now-exact live-59 witness.
+
 2026-08-14 implementation session — PARTIAL LANDED (row stays [~]).
 Landed as cae78b0fc (grid fidelity), 9303f9ff1 (travelling drill
 children + loc_3BE78 smash), 12e9dce72 (exact contact boxes + child

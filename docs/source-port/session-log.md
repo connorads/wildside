@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#420 second partial — 0x68 sweep pass, 0x55 witness exact)
+
+- Modelled the scheduled three-pass Driller init, next-frame Jump_On_Enemy
+  drill-child bounce, and Driller loc_3C160 no-step crossing hold. The defer
+  counter now consumes only when Execute_Objects schedules that enemy, removing
+  native-only mid-walk freezes.
+- The 0x55 strict shell witness is exact and enabled. 0x68 moves from fail to
+  pass; its ignored half-pixel position witness starts at #442's RNG-silent
+  title-to-live boundary pass, not inside Driller behaviour.
+- Rejected and removed a delayed block-erasure model. A broad loc_3C160 arm
+  regressed 0x64's approximate Crab path, so the measured correction is scoped
+  to Driller pending family-specific oracle routes.
+- `verify-slice-fast` and `verify-tas-full` green. Clean-cache sweep
+  `1786686554` is 57/69 with 50 blockers, one pass gained and zero authoritative
+  regressions against `1786680330`. #420 stays open for 0x55's five post-witness
+  damage/prize/count diffs.
+
 ## 2026-08-14 handoff (#443 ratchet fail-closed — closed with black-box contract tests)
 
 - #443 closed (24d11d4a9). The fail-closed handling itself predated this
