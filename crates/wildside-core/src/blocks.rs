@@ -5204,40 +5204,10 @@ impl NativeRuntime {
     }
 
     pub(crate) fn step_visual_effects(&mut self) {
-        // #342: snapshot the live falling-clock count before any `floating_items`
-        // removal this tick so loc_107E0's stop can fire when the last clock
-        // object leaves (collected at 4596/the fall-gate retain, fell past
-        // Level_height_pixels, or its countdown expired).
-        let active_clock_prizes_before = self.active_clock_prize_count();
         self.clock_prize_animation_swaps_loc_10796.clear();
         self.continue_prize_animation_swaps_loc_1080a.clear();
         self.step_rubber_block_animations_sub_10de4();
         self.step_metal_block_push_workers_sub_1129C();
-        let level_height_pixels = i64::from(self.level_bounds(self.current_level).height_pixels);
-
-        let floating_item_can_fall = |grid: &terrain::BlockGrid, item: &FloatingItem| {
-            let current_cell = grid.cell_at(item.level_col, item.level_row);
-            let current_row_open = matches!(
-                current_cell.collision,
-                terrain::CollisionKind::Empty | terrain::CollisionKind::HiddenBlock
-            );
-            if current_row_open {
-                return true;
-            }
-            // ASM loc_103B2 (kid.asm:21630): sample the current row first and
-            // stop immediately on solid rows unless the bit-16 grace flag is
-            // still set. When that grace bit is present, the routine checks
-            // one row below and keeps falling only if that second sample is
-            // passable too.
-            if !item.first_row_grace {
-                return false;
-            }
-            let below_cell = grid.cell_at(item.level_col, item.level_row.saturating_add(1));
-            matches!(
-                below_cell.collision,
-                terrain::CollisionKind::Empty | terrain::CollisionKind::HiddenBlock
-            )
-        };
 
         // ASM sub_1007A (kid.asm:21345-21599), sub_11120 (kid.asm:23050),
         // and sub_113C0 (kid.asm:23322): each hibernate cycle applies one
@@ -5544,6 +5514,25 @@ impl NativeRuntime {
             self.block_debris_scratch_cursor_sub_292e = 0;
         }
 
+        self.age_floating_items_loc_10396();
+    }
+
+    /// ASM loc_104AE/loc_105D6: the PrizeHelmet worker sleeps ONE frame
+    /// between GfxObjects_CollisionKid latching its `$38` word and the wake
+    /// that consumes it, and the wake runs AFTER the Kid in Execute_Objects.
+    /// Native arms on the latch frame's award pass and awards on the next
+    /// frame's pass — after that frame's Kid movement — so the transform
+    /// freeze holds the ROM pose (oracle 0x55: the exact bounce apex, with
+    /// the same-frame (0,6) headbutt fired) (#420).
+    #[allow(non_snake_case)]
+    pub(crate) fn award_collision_latched_prize_loc_104ae(&mut self) {
+        if self.floating_items.iter().any(|f| f.collision_latched)
+            && !self.latched_prize_wake_armed_loc_104ae
+        {
+            self.latched_prize_wake_armed_loc_104ae = true;
+            return;
+        }
+        self.latched_prize_wake_armed_loc_104ae = false;
         let deleted_collision_latched_prize = self
             .floating_items
             .iter()
@@ -5604,12 +5593,40 @@ impl NativeRuntime {
                     x_pos,
                     y_pos.clamp(0, i64::from(u32::MAX)) as u32,
                 );
-                // `sub_7ACC` runs from the Kid dispatch after this object pass.
-                // `refresh_opening_slice` invokes that handler before normal
-                // movement so its target-form space check owns this wake frame.
             }
         }
+    }
 
+    #[allow(non_snake_case)]
+    fn age_floating_items_loc_10396(&mut self) {
+        // #342: snapshot the live falling-clock count before any
+        // `floating_items` removal this tick so loc_107E0's stop can fire
+        // when the last clock object leaves.
+        let active_clock_prizes_before = self.active_clock_prize_count();
+        let level_height_pixels = i64::from(self.level_bounds(self.current_level).height_pixels);
+        let floating_item_can_fall = |grid: &terrain::BlockGrid, item: &FloatingItem| {
+            let current_cell = grid.cell_at(item.level_col, item.level_row);
+            let current_row_open = matches!(
+                current_cell.collision,
+                terrain::CollisionKind::Empty | terrain::CollisionKind::HiddenBlock
+            );
+            if current_row_open {
+                return true;
+            }
+            // ASM loc_103B2 (kid.asm:21630): sample the current row first and
+            // stop immediately on solid rows unless the bit-16 grace flag is
+            // still set. When that grace bit is present, the routine checks
+            // one row below and keeps falling only if that second sample is
+            // passable too.
+            if !item.first_row_grace {
+                return false;
+            }
+            let below_cell = grid.cell_at(item.level_col, item.level_row.saturating_add(1));
+            matches!(
+                below_cell.collision,
+                terrain::CollisionKind::Empty | terrain::CollisionKind::HiddenBlock
+            )
+        };
         for f in &mut self.floating_items {
             if f.spawn_delay > 0 {
                 f.spawn_delay -= 1;

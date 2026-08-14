@@ -185,6 +185,66 @@ mod chunk_04 {
         );
     }
 
+    /// ASM: the Kid object executes at the head of Execute_Objects, and the
+    /// PrizeHelmet worker (loc_104AE/loc_105D6) sleeps ONE frame between the
+    /// GfxObjects_CollisionKid latch and the wake that consumes it — so the
+    /// Kid takes the wake frame's movement BEFORE Kid_Transform freezes him.
+    /// Oracle 0x55 (WRAM f34/f35): the Kid rises to his exact bounce apex
+    /// (kid_y 0x8F0000) — and headbutts the (0,6) prize block — on the wake
+    /// frame; the freeze holds the apex pose, not the pre-apex one.
+    #[test]
+    fn latched_helmet_transform_starts_after_kid_movement_loc_104ae() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+        advance_past_level_entry_damage_grace(&mut runtime);
+        let start_y = {
+            let slice = runtime
+                .opening_slice
+                .as_mut()
+                .expect("live slice after level entry");
+            slice.player.y_pos = 100 << 16;
+            slice.player.y_velocity = -0x0002_0000;
+            slice.player.on_ground = false;
+            slice.player.y_pos
+        };
+        runtime.floating_items.push(FloatingItem {
+            x_pos: runtime.opening_slice.expect("slice").player.x_pos,
+            y_pos: i64::from(90u32 << 16),
+            y_velocity: 0,
+            remaining: 144,
+            spawn_delay: 0,
+            level_col: 3,
+            level_row: 3,
+            first_row_grace: false,
+            content: terrain::PrizeContent::Micromax,
+            collected: false,
+            collision_latched: true,
+        });
+
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            runtime.progression.current_form,
+            PlayerForm::TheKid,
+            "the latch frame only arms the worker's one-frame hibernate"
+        );
+        let mid_y = runtime.opening_slice.expect("slice").player.y_pos;
+        assert!(mid_y < start_y, "the Kid keeps moving on the latch frame");
+
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            runtime.progression.current_form,
+            PlayerForm::Micromax,
+            "the worker's wake starts Kid_Transform one frame after the latch"
+        );
+        let end_y = runtime.opening_slice.expect("slice").player.y_pos;
+        assert!(
+            end_y < mid_y,
+            "the Kid must take the wake frame's movement BEFORE the transform \
+             freezes him (mid {mid_y:#x}, end {end_y:#x})"
+        );
+    }
+
     #[test]
     fn opening_level_one_object_counts_at_grounded_camera() {
         assert_eq!(

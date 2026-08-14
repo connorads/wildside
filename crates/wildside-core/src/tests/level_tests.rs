@@ -24494,7 +24494,12 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         );
         assert_eq!(runtime.progression.pending_form, None);
 
-        runtime.step_visual_effects();
+        // ASM loc_104AE/loc_105D6: the worker sleeps one frame after the
+        // latch, then its wake (after the Kid in Execute_Objects) consumes
+        // it; native arms on the first award pass and awards on the second
+        // (#420).
+        runtime.award_collision_latched_prize_loc_104ae();
+        runtime.award_collision_latched_prize_loc_104ae();
 
         assert!(
             runtime.floating_items.is_empty(),
@@ -24549,7 +24554,12 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         let mut slice = make_airborne_slice(752, 196);
 
         runtime.collect_floating_items(&mut slice);
-        runtime.step_visual_effects();
+        // ASM loc_104AE/loc_105D6: the worker sleeps one frame after the
+        // latch, then its wake (after the Kid in Execute_Objects) consumes
+        // it; native arms on the first award pass and awards on the second
+        // (#420).
+        runtime.award_collision_latched_prize_loc_104ae();
+        runtime.award_collision_latched_prize_loc_104ae();
 
         assert!(
             runtime.floating_items.is_empty(),
