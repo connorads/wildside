@@ -24,6 +24,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   regressions against `1786680330`. #420 stays open for 0x55's five post-witness
   damage/prize/count diffs.
 
+## 2026-08-14 handoff (#420 CLOSED — Driller cluster complete, 0x55 zero blockers)
+
+- #420 closed (4c3f909a6 four fidelity fixes + c5f263370 wake schedule).
+  The five post-witness 0x55 blockers were one chain: the Kid's bounce
+  apex headbutts the two-stage prize blocks above him ((1,6) Micromax,
+  then the (0,6) DIAMOND after the neighbour empties), and the
+  latched-helmet transform must start only after the wake frame's Kid
+  movement — with the takeover suspending the frame tail exactly like
+  the ROM, which is what keeps the published TAS's water-palette
+  rotation phase pixel-exact.
+- Gates: focused 0x55 zero blocking diffs; 22 live regressions green;
+  verify-slice-fast green; verify-tas-full green with every
+  pixel/GEMS/command ratchet exactly at its committed frontier;
+  clean-cache full sweep 1786695230 = 58/69, zero per-level
+  regressions vs 1786686554, only change 0x55 FAIL->PASS.
+- Dead ends recorded in archive #420 (deferred-erase, award-order-only
+  delay, invuln refund). The 0x68 walkers' half-pixel witness stays
+  ignored — it is the #442 RNG-silent boundary pass, not Driller.
+
 ## 2026-08-14 handoff (#443 ratchet fail-closed — closed with black-box contract tests)
 
 - #443 closed (24d11d4a9). The fail-closed handling itself predated this

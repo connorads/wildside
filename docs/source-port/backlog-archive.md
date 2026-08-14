@@ -719,6 +719,39 @@ regression is tightened to equality at 0x02478000 and passes.
 
 ### #420
 
+2026-08-14 close-out session — CLOSED (4c3f909a6 + c5f263370). The five
+post-witness 0x55 blockers all collapsed into one measured chain:
+- The Kid's drill-child bounce apex HEADBUTTS the prize blocks above
+  him (sub_BBE2's pick: left-corner cell, promoted to the right
+  neighbour only while it is a solid block). Prize blocks are
+  two-stage: an `$E001` hit wobbles to `$E102` silently (loc_101D8
+  restores `$E102`, kid.asm:21525); an `$E102` hit wobbles, restores
+  `$E001`, and pops the record content (Prize_Init off `$FFFFF8D4`).
+  Cell (1,6) popped the Micromax at f11 and emptied; the f34 apex fell
+  back to (0,6) (right neighbour no longer solid) whose record is the
+  DIAMOND — frozen wobble through the transform, pop f126, pickup
+  f151, Number_Diamonds=1 by idle_tail.
+- Retracted body = zero CollisionSize row (LnkTo_unk_C80D8): only ONE
+  walking-frame stomp per pass; the body survives at hp 1 and lands
+  both post-transform side hits (f108/f335).
+- loc_BC34's flash coroutine pauses with the suspended object pass;
+  loc_7E90 clears both velocities on transform exit; the walk speed is
+  init-keyed (`enemy_level+2`), never hp-keyed.
+- loc_104AE wake schedule: the worker sleeps one frame after the
+  latch; the Kid (head of Execute_Objects) takes the wake frame's
+  movement (reaching the exact apex 143.0 and firing the headbutt)
+  before Kid_Transform suspends the rest of the frame — including the
+  weather/palette ticks, which is what keeps the published TAS's
+  water-palette rotation phase pixel-exact across every transform.
+Dead ends recorded: deferring the shared-grid erase to a sub_10EDA
+worker pass (moved 0x55 away from oracle; Block_LoadSmashBits' `$F`
+write IS consume-frame-visible), an award-order-only delay without the
+frame-tail suspension (480k pixel flicker on the TAS water bands), and
+an invulnerability-tick refund (no-op). Remaining known residue lives
+in other rows: the 0x68 walkers' half-pixel is the #442 RNG-silent
+title->live boundary pass (the still-ignored walkers witness).
+
+
 2026-08-14 implementation session — SECOND PARTIAL VERIFIED (row stays [~]).
 The remaining phase debt split into four source-backed behaviours: freshly loaded
 Drillers consume three scheduled object passes (loc_3691E allocation defer,
@@ -22637,6 +22670,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 453 | [x] | P1 | infra | `project-status` ranks same-priority actionable rows above in-progress and explicit `Reopen only` risks, while retaining deferred rows when space remains. | Live top playability lane includes #442; 16 project-status tests and `verify-slice-fast` pass. See archive #453. |
 | 452 | [x] | P1 | testing/web | Restored the browser runtime asset contract: `kid_skid.bin` is catalogued and ROM-extractable, required airborne aliases are present in the render fixture/manifest, and the observable level-sidecar catalogue is current. | `verify-web-fast` and `verify-slice-fast` green; extractor/native runtime bundles byte-identical. See archive #452. |
 | 458 | [x] | P2 | render/web | No engine divergence existed: the parity test's native arm skipped the canonical pipeline's latch (prev + resident) and live grid; fs/bundle assets byte-match. Test now mirrors capture_scenario_frames across frames 0-100. | Strengthened gate green on the un-fixed and fixed trees; unblocked #419's spawn delay. See archive #458. |
+| 420 | [x] | P1 | enemy | Driller cluster closed: travelling drill children + loc_3BE78 smash, scheduled three-pass init, retract zero-row Kid collision, transform flash-pause + loc_7E90 velocity clear, init-keyed walk speed, and the loc_104AE latched-prize wake schedule (kid moves, headbutts, THEN transforms). 0x55 and 0x68 both pass the state sweep. | Sweep 1786695230: 58/69, zero regressions vs 1786686554, 0x55 FAIL->PASS with zero blockers; verify-tas-full ratchet-exact. See archive #420. |
 | 443 | [x] | P1 | testing | Failing-test ratchet is fail-closed: exit statuses other than 0/101 or a missing `test result:` line are "did not run" (never an empty failure set, never a shrink), multi-target parses refuse, and the did-not-run path names cargo's exit status + stderr tail. Black-box contract suite added. | `python3 scripts/test_failing_test_ratchet.py`: 10/10 vs current script, 6/10 red vs pre-fix f7afda6ed; live check reports 26/26 subset; verify-slice-fast green. See archive #443. |
 | 442 | [x] | P1 | verification | Settled-warp shell content modelled: per-level load-completion boundary (measured table, mapping `load_complete - 1`), hand tails + Driller/boss/Drips fudges deleted, murder wall wired into the hidden live shell, frame-0 RNG witness gate added. | Witness gate: probe levels RNG-exact (49/65 levels fully exact); sweep 1786646904: 55/69 pass, 74 blocking (from 52/69, 116), zero regressions; verify-tas-full green. See archive #442. |
 | 450 | [x] | P2 | enemy | Verdict: the pin was wrong, not native. ASM sub_36A58 derives the loc_3E566 right floor span as columns 1-3 for the fixture (40+9-1=48 -> col 3); the stale `2,17` pin predates commit 960352273's ROM scan width. Re-pinned with the derivation, renamed `_snapshot_` -> `_trace_export_`. | Test runs and passes inside the gated core suite. See archive #450. |
