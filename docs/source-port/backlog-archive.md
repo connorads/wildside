@@ -3868,6 +3868,13 @@ frame 1023. ASM `loc_102B8` retains the prior P sprite for remaining=25 and 24;
 the first presentable `stru_102DE` `$2CF` flash page is remaining=23. All ten
 focused prize-block tests pass; the full CLI ratchet lowers the baseline 5 -> 3.
 
+Progress 2026-08-14: the Iron Knight attach failure bypassed the frame latch.
+ASM Mode_Level `loc_901` transfers the completed Sprite Table before `loc_A276`
+enters climb and hibernates, so the attach presentation comes from the previous
+non-climbing trace. The fixture now supplies both sides to the existing typed
+latch instead of rendering post-update climb state directly. The focused test
+passes; the full CLI ratchet lowers the baseline 3 -> 2.
+
 Evidence source: `cargo test -p wildside-cli` on clean `main` (authoritative for
 test status). Native repro: reproduced. Minimum gate: `failing-test-ratchet` +
 `verify-slice-fast`.

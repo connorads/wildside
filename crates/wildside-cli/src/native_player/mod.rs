@@ -18134,15 +18134,18 @@ mod tests {
 
     #[test]
     fn iron_knight_attach_hibernate_preserves_pre_sub_a3bc_pose_loc_a276() {
-        let mut trace = trace_with_player(720, 0);
-        trace.current_helmet_id = PlayerForm::IronKnight.helmet_id();
-        trace.kid_on_ground = Some(false);
-        trace.kid_x_velocity = Some(0);
-        trace.kid_y_velocity = Some(-0x4000);
+        let mut previous = trace_with_player(719, 0);
+        previous.current_helmet_id = PlayerForm::IronKnight.helmet_id();
+        previous.kid_on_ground = Some(false);
+        previous.kid_x_velocity = Some(0);
+        previous.kid_y_velocity = Some(-0x4000);
+        let mut trace = previous.clone();
+        trace.frame_index = 720;
         trace.iron_knight_climbing = true;
         trace.iron_knight_climb_pose_accum = 0;
 
-        let scene = build_ingame_scene(&trace, false, None);
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
+        let scene = build_ingame_scene(&render_trace, false, None);
 
         assert_eq!(
             player_sprite_signature(&scene),

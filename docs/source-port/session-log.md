@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#417 Iron Knight latch fixture fixed)
+
+- The attach fixture now passes previous and current traces through ASM
+  Mode_Level `loc_901`'s Sprite Table latch. The visible attach frame retains
+  the pre-`loc_A276` airborne pose before climb state reaches presentation.
+- The focused test passes. The CLI failure ratchet lowers from 3 to 2;
+  continue #417 with reveal priority and live level refresh.
+
 ## 2026-08-14 handoff (#417 prize-block fixtures fixed)
 
 - The shifted wobble assertion now follows ASM `sub_1007A/stru_101B6`'s
