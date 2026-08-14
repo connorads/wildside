@@ -814,6 +814,46 @@ worker count parity (native `driller.rs` `loc_3BE78`/`loc_3BE60` refcount).
 
 ### #421
 
+2026-08-14 session — boundary-damage fix LANDED (4d39e50b5), row stays
+[~]. Narrow probes (oracle-settle-census run 1786673717 + oracle-probe
+watches on `$FFFC40`/`$FFFA73`) decoded both levels end to end:
+
+- 0x61: li=0 (Scorpion.asm Enemy13, Lion-library walker with the
+  loc_3DD7E `$6A(a5)` AI) walks left from x=184 at 1.5px/f, walks
+  THROUGH Kid mid-shell (contact damage, no knockback — Kid never
+  moves), turns at x=25, walks back and lands the fatal second contact
+  at visible frame 22. Oracle frame 0: Number_Hitpoints=1,
+  Just_received_damage clear (the ~66-frame loc_BC54 flash finished
+  in-shell), Kid still at (96,127).
+- Native reproduced the whole walk (same cadence, same turn point,
+  first hit in the oracle's [39,50]-row contact window, 66-frame
+  invulnerability ticking through the shell) but the title->live
+  boundary reset Number_Hitpoints/Just_received_damage, so Kid entered
+  the window at full HP and survived the second contact. Fix: gate the
+  boundary reset on the recording lifecycle (same condition as #420's
+  grid persistence); regression
+  gameplay_regression_scorpion_shell_contact_survives_boundary_level_0x61
+  pins the frame-0 witness.
+- Result: 0x61 5->3 blocking (hitpoints row resolved; kid death-arc
+  x/y within 1px/7px), 0x62 hitpoints row resolved. Full sweep run
+  1786676000: 56/69, same pass set as 1786671580, no pass/fail
+  regressions; slice-fast/tas-full green, ratchets untouched.
+
+Remaining (the close bar is 0x61/0x62 passing the state sweep):
+- 0x61 settle: number_objects 7v8; kid (0x740000,0x78c000) vs
+  (0x730000,0x71f000) — the native second hit lands at visible ~19 vs
+  oracle 22. Root: native li=0 reads ~38.5 at frame 0 vs oracle ~37 —
+  the same enemy spawn/init phase-frame debt class recorded for #420's
+  0x68 walkers (Manage_EnemyLoading/init hibernate cadence), worth one
+  dedicated cross-family session rather than per-level nudges.
+- 0x62 settle: number_objects 7v5, gfx 10v7, kid
+  (0x3c8000,0xb0f000) vs (0x388000,0x80b000). Oracle: ONE live li=0
+  parks at x=68 (the $24 sting boundary; tail-child unk_31926 box
+  reaches Kid; col $28 at live 59), a second enemy dies at title 88;
+  Kid dies mid-window and the native death runs ~earlier/deeper (y 176
+  vs 128), so the native settle carries +2 death/respawn-shell objects.
+  Attribute the +2 and the arc once the phase debt lands.
+
 Scorpion (0x61/0x62, 10 blockers). 0x61 (high): native missing ~2 objects/~3
 gfx; Scorpion.asm init allocates a linked tail/stinger gfx child
 (`loc_3DC86`), so one missing scorpion drops 1 object + 2 gfx. diff PNG lights

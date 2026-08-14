@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#421 boundary-damage fix — shell-earned Kid damage persists)
+
+- #421 probe decoded 0x61/0x62 end to end (settle census 1786673717 +
+  oracle-probe HP/flag watches): the li=0 Scorpion walks through Kid
+  during the hidden shell (contact damage, no knockback), and the ROM
+  keeps that hit — oracle frame 0 reads Number_Hitpoints=1 with the
+  flash already finished. Native matched the entire walk but the
+  title->live boundary reset HP/Just_received_damage, so Kid survived
+  the returning Scorpion's fatal second contact (oracle: visible 22).
+- Landed 4d39e50b5: the boundary keeps shell-earned damage on the
+  recording lifecycle (same gate as #420's grid persistence), with a
+  frame-0 witness regression on 0x61. Result: 0x61 5->3 blocking,
+  0x62's hitpoints row resolved; full sweep 1786676000 is 56/69 with
+  the same pass set as 1786671580 and no pass/fail regressions;
+  slice-fast/tas-full green, no baselines touched.
+- #421 stays [~]: the remaining death-arc x/y and 0x62 counts trace to
+  the ~1-frame enemy spawn/init phase debt already carried by #420's
+  0x68 walkers — one cross-family mechanism (Manage_EnemyLoading/init
+  hibernate cadence), named in archive #421 as the next dedicated
+  session rather than per-level nudges.
+
 ## 2026-08-14 handoff (#420 partial — travelling drill children landed, stomp-latch phase remains)
 
 - Landed the ROM Driller model in three commits: grid fidelity
