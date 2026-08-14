@@ -888,6 +888,13 @@ Clean-cache sweep `1786698154` is 58/69 with 45 blockers, identical to
 three blockers and 0x62 at four, so #421 stays open for their downstream
 death-arc/count chain.
 
+Dead end 2026-08-14 - do not retry linked-tail zero-contact as the death-arc
+cause. ASM `Enemy13_Scorpion_Init` seeds the child with zero mapping
+`LnkTo_unk_C7E1E` until `loc_3DDEE` installs the sting animation, but making
+that zero row explicit in native contact bounds changes neither focused level:
+0x61 remains three blockers and 0x62 four in run `1786698670`. The child is
+already excluded from the relevant ordinary-contact path. Experiment removed.
+
 2026-08-14 session — boundary-damage fix LANDED (4d39e50b5), row stays
 [~]. Narrow probes (oracle-settle-census run 1786673717 + oracle-probe
 watches on `$FFFC40`/`$FFFA73`) decoded both levels end to end:
