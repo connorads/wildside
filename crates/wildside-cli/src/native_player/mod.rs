@@ -9720,7 +9720,8 @@ mod tests {
             size_word: 0x0500,
             pattern_word: 0x86F2,
         }];
-        let visuals = sample_level_visuals();
+        let mut visuals = sample_level_visuals();
+        visuals.hud.diamond_tiles.tiles[8].pixels = [17; 64];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
@@ -9740,7 +9741,9 @@ mod tests {
     #[test]
     fn build_scene_draws_floating_diamond_with_rom_sprite_art() {
         let mut trace = sample_trace(GameMode::InGame);
-        trace.floating_items = vec![(48, 64, 0x01F4, 0x00)];
+        // ASM PrizeDiamond_Init loc_10396 allocates the worker at `$01F4`,
+        // then hibernates before its first presentable `$01F3` frame.
+        trace.floating_items = vec![(48, 64, 0x01F3, 0x00)];
         let visuals = sample_level_visuals();
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -9798,10 +9801,10 @@ mod tests {
         trace.frame_index = 150;
         // ASM PrizeDiamond_Init calls j_Init_Animation on `stru_10D6E` when
         // the object is created; global Time_Frames does not choose the
-        // diamond frame. At remaining d3=$01F4 the local animation is still on
-        // the first `unk_E0E66` frame even though frame_index/3 would select
-        // fixture frame 2.
-        trace.floating_items = vec![(48, 64, 0x01F4, 0x00)];
+        // diamond frame. At the first visible remaining d3=$01F3 the local
+        // animation is still on the first `unk_E0E66` frame even though
+        // frame_index/3 would select fixture frame 2.
+        trace.floating_items = vec![(48, 64, 0x01F3, 0x00)];
         let visuals = sample_level_visuals();
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -9912,7 +9915,9 @@ mod tests {
             ),
         ] {
             let mut trace = sample_trace(GameMode::InGame);
-            trace.floating_items = vec![(48, 64, u16::from(u8::MAX), content_id)];
+            // ASM loc_1071E/loc_FF4E/loc_107B4 switches to the blink script
+            // at `$012C`; its first six ticks are visible.
+            trace.floating_items = vec![(48, 64, 0x012C, content_id)];
             let visuals = sample_level_visuals();
 
             let scene = build_scene(&trace, false, Some(&visuals), None);

@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#417 floating-prize fixtures fixed)
+
+- Diamond fixtures now sample the first presentable ASM `loc_10396` frame,
+  special icons sample a visible `$012C` blink tick, and Circle of Doom supplies
+  the HUD diamond tile page its assertion identifies.
+- All four focused tests pass without production changes. The CLI failure
+  ratchet lowers from 17 to 13; continue #417 with the next render cluster.
+
 ## 2026-08-14 handoff (#417 block-debris fixtures fixed)
 
 - The destroy fixture now samples ASM `sub_292E` after the pre-debris worker,

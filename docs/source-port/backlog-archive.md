@@ -3828,6 +3828,15 @@ is retained, while the old assertion searched only `IndexedTile`. Both focused
 tests pass against the existing production renderer; the full CLI ratchet
 lowers the baseline 19 -> 17.
 
+Progress 2026-08-14: four floating-diamond/special-icon failures were stale
+fixture instants. ASM `PrizeDiamond_Init loc_10396` allocates at `$01F4` and
+hibernates before the first presentable `$01F3` frame. Ankh, Clock and Continue
+switch to their blink scripts at `$012C`, whose first six ticks are visible;
+the former `$00FF` sample was in a null interval. The Circle of Doom fixture
+also asserted a HUD-diamond pixel signature while supplying a blank HUD page,
+so it now seeds the referenced `$6F2` tile. All four focused tests pass without
+production changes; the full CLI ratchet lowers the baseline 17 -> 13.
+
 Evidence source: `cargo test -p wildside-cli` on clean `main` (authoritative for
 test status). Native repro: reproduced. Minimum gate: `failing-test-ratchet` +
 `verify-slice-fast`.
