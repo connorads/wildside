@@ -410,6 +410,22 @@ pub fn native_bgm_state_after_trace_delta(
             // (frames 16 and 32).
             return (None, Some(NativeBgmPlaybackCommand::StopMusic));
         }
+        if trace.game_mode == GameMode::SegaScreen
+            && trace.boot_phase.as_deref() == Some("sega_screen")
+            && trace.boot_phase_elapsed.is_none()
+            && previous_trace.is_some_and(|previous| {
+                previous.game_mode == GameMode::SegaScreen
+                    && previous.number_objects != 0
+                    && trace.number_objects == 0
+            })
+        {
+            // ASM loc_6E2 clears the resident demo objects immediately before
+            // Load_SegaScreen (kid.asm:25444) calls StopMusic and decompresses
+            // the Sega art. The counterless loc_C0A return exposes that clear
+            // as the nearest typed source boundary; the frame-spanning reload
+            // becomes ring-visible on the following sample.
+            return (None, Some(NativeBgmPlaybackCommand::StopMusic));
+        }
         if trace.game_mode == GameMode::SegaScreen && active_bgm_cue.is_some() {
             // ASM loc_C0A (kid.asm:1383) return-to-title and Load_SegaScreen
             // (kid.asm:25444-25445) run StopMusic before loading the Sega
@@ -4687,7 +4703,24 @@ pub fn gems_event_audio_commands(
     prev: &NativeTraceFrame,
     curr: &NativeTraceFrame,
 ) -> Vec<NativeAudioTraceCommand> {
-    let sound_commands = gems_event_sound_commands(prev, curr);
+    let mut sound_commands = gems_event_sound_commands(prev, curr);
+    // ASM Block_LoadSmashBits queues sfx_Destroy_block during the block
+    // interaction, before the later PrizeDiamondCollected_Init object pass
+    // queues sfx_Diamond_prize. Native applies the prize award before block
+    // effects and can therefore append these two cumulative trace events
+    // backwards on one frame. Restore the ROM's queue order without changing
+    // either call site's frame or command byte.
+    if let (Some(destroy), Some(diamond)) = (
+        sound_commands
+            .iter()
+            .position(|command| command.sound_id == gems_sfx::DESTROY_BLOCK),
+        sound_commands
+            .iter()
+            .position(|command| command.sound_id == gems_sfx::DIAMOND_PRIZE),
+    ) && destroy > diamond
+    {
+        sound_commands.swap(destroy, diamond);
+    }
     let music_speed_updates = gems_event_music_speed_updates(prev, curr);
     let (voice_bummer_commands, pre_speed_sound_commands): (Vec<_>, Vec<_>) = sound_commands
         .into_iter()
@@ -5499,6 +5532,21 @@ mod tests {
             native_bgm_state_after_trace_delta(&manifest, Some(&sega_reentry), &sega_reentry, None),
             (None, None),
             "the counterless handoff frames after loc_C0A must not repost the reload"
+        );
+
+        let mut resident_demo = sega_reentry.clone();
+        resident_demo.number_objects = 4;
+        let mut sega_loader_empty = resident_demo.clone();
+        sega_loader_empty.number_objects = 0;
+        assert_eq!(
+            native_bgm_state_after_trace_delta(
+                &manifest,
+                Some(&resident_demo),
+                &sega_loader_empty,
+                None,
+            ),
+            (None, Some(NativeBgmPlaybackCommand::StopMusic)),
+            "ASM loc_6E2 clears the resident demo objects immediately before Load_SegaScreen calls StopMusic"
         );
     }
 
@@ -8145,6 +8193,29 @@ mod tests {
             queued_gems_sound_commands_since(&prev, &curr),
             vec![NativeSoundCommand::start_sequence(gems_sfx::SCORE_COUNTER)],
             "legacy traces without command bytes fall back to start-sequence commands from sound ids"
+        );
+    }
+
+    #[test]
+    fn same_frame_destroy_block_precedes_diamond_prize_in_rom_order() {
+        let prev = trace(GameMode::InGame);
+        let mut curr = trace(GameMode::InGame);
+        curr.played_sound_commands = vec![
+            NativeSoundCommand::start_sequence(gems_sfx::DIAMOND_PRIZE),
+            NativeSoundCommand::start_sequence(gems_sfx::DESTROY_BLOCK),
+        ];
+
+        assert_eq!(
+            gems_event_audio_commands(&prev, &curr),
+            vec![
+                NativeAudioTraceCommand::Sound(NativeSoundCommand::start_sequence(
+                    gems_sfx::DESTROY_BLOCK,
+                )),
+                NativeAudioTraceCommand::Sound(NativeSoundCommand::start_sequence(
+                    gems_sfx::DIAMOND_PRIZE,
+                )),
+            ],
+            "ASM Block_LoadSmashBits queues sfx_Destroy_block before PrizeDiamondCollected_Init queues the later prize sound"
         );
     }
 

@@ -3157,15 +3157,15 @@ mod chunk_02 {
     }
 
     #[test]
-    fn begin_demo_gameplay_queues_level_bgm_from_loc_11fd2() {
+    fn begin_demo_gameplay_waits_for_load_ingame_loc_12004_music_boundary() {
         let mut runtime = NativeRuntime::new(manifest());
 
         runtime.begin_demo_gameplay(LevelId(0));
 
         assert_eq!(
             runtime.trace_frame().played_bgm_ids,
-            vec![0x07],
-            "ASM Load_DemoPlay enters Load_InGame and reaches loc_11FD2/loc_12004; demo bootstrap should queue the fixture's bgm_Cave=$07"
+            Vec::<u8>::new(),
+            "ASM Load_DemoPlay has not reached loc_11FD2/loc_12004 when native first allocates the demo opening slice"
         );
     }
 

@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#440 closed)
+
+- Published-route GEMS command parity is complete: 437/437 commands, 391
+  exact, 46 reconciled within one sampled frame, zero mismatches.
+- ROM ordering, distinct demo-loader BGM boundaries, and the second
+  `Load_SegaScreen` reload on every counterless demo return close the residual.
+- The frozen frame-signature witness remains 36,836 mismatches by decision;
+  #441 owns the remaining sampling-vs-Z80-phase discriminator.
+
 ## 2026-08-14 handoff (#439 closed)
 
 - Every SFX command multiset now matches the ROM: exact ASM paths own block,

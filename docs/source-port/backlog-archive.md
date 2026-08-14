@@ -2222,6 +2222,30 @@ at the frame boundary) is structurally coarser than the ROM's
 mid-frame PlaySound instants; closing #438/#439 first will shrink the
 aligner noise and make per-command drift attribution cleaner.
 
+Closed 2026-08-14. The residual was three source-backed schedule families,
+not an unavoidable whole-frame trace limitation:
+
+- `Block_LoadSmashBits` queues `$11` before the later
+  `PrizeDiamondCollected_Init` object queues `$2D`; native's effect order had
+  reversed them on six route frames. The audio adapter restores ROM queue
+  order without moving either call.
+- `Load_DemoPlay -> Load_InGame loc_11FD2/loc_12004` reaches the shorter
+  Skydragon loader one VBlank before native's object-warmup allocation, while
+  Knights Isle's longer loader reaches it at demo counter 70. Both lineages
+  now post their level BGM at the measured boundary.
+- Every counterless `loc_C0A` demo return calls `StopMusic`, clears resident
+  objects through `loc_6E2`, then `Load_SegaScreen` calls `StopMusic` again.
+  The 4-to-0 object edge is the nearest typed source boundary for the second
+  reload; the frame-spanning ring write becomes visible on the next sample.
+
+Full published-route command parity is complete: native/oracle totals are
+437/437, with 391 exact and 46 reconciled inside the established one-frame
+sampling window, zero mismatches, and no first mismatch. This improves the
+#439 baseline from 64 mismatches / 346 exact. All 37,759 player/camera CRC
+frames, 37,743 post-init RNG frames, gameplay and enemy frontiers remain
+authoritative-clean; pixels remain 37,518 exact / 241 divergent. The frozen
+frame-signature count remains 36,836 by design and only its digest changes.
+
 ### #436
 
 Closed 2026-07-24: **GO.** `gems-replay-probe` (subcommand) records the
@@ -23067,6 +23091,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 424 | [x] | P2 | enemy | MiniHoppingSkull dormant proximity controllers (`loc_3E9D0` Object-only slots) counted natively via the #449 dormant-worker model. | 0x44 and 0x65 pass the state sweep (run 1786270123). See archive #424. |
 | 438 | [x] | P2 | audio | Native director posts the ROM's StopMusic driver reloads: cold-boot GameProgram/Load_SegaScreen timer edges, Load_IntroSequence1 loader instant (cue deferred to intro elapsed 33), loc_C0A reboot re-entry; the parity probe splits each reload's wipe and GETPTRS repost across the frame boundary so consecutive reloads stay ring-visible. | Command parity 419→403 mismatches, first 16→812, exact 40→54; boot `0B` stream 16/32/70/140 + starts 70/171 all exact. Residue (reboot `Load_SegaScreen` `0B` 36097, flagpole pairs→#440) in archive #438. |
 | 439 | [x] | P2 | audio | Exact ASM call sites own block, Iron Knight, walking Dragon, title-thunder, jump and damage-voice SFX; broad state-delta fallbacks are removed. Every SFX opcode/argument multiset now matches oracle. | Full command parity 396→64 mismatches, 60→346 exact; native/oracle totals 428/437 differ only by #440's nine `0B` reloads. Full gameplay, RNG and pixel gates unchanged. See archive #439. |
+| 440 | [x] | P2 | audio | Exact command schedule: ROM order for same-frame destroy/diamond SFX, per-demo `loc_12004` loader boundaries, and both `loc_C0A` plus `Load_SegaScreen` reloads on every counterless demo return. | Full command parity 64→0 mismatches, 346→391 exact; native/oracle totals both 437, with 46 one-frame reconciliations. See archive #440. |
 | 437 | [x] | P2 | audio | Bounded-span timing replay: `oracle-probe --gems-stimulus-frames` captures the oracle's 68k→Z80 stimulus stream; `gems-span-replay` seeds a fresh engine at the frame-869 reinit and replays 34,135 stimuli over frames 870-2500. | Measured: first strict divergence frame 871 = z80_pc off by one instruction, 2-mclk phase offset, identical RAM/bank/wait/status; shapes bounded, non-compounding; skew-16 sensitivity unchanged. Report `.cache/audit/gems-span-replay-870-2500.json`; discriminator follow-up #441. See archive #437. |
 | 436 | [x] | P2 | audio | GEMS replay seam probe: `GemsStimulus` record buffer inside `GemsMasterClockTimingEngine` (outermost-public-entry rule, no call-site wrapping); `gems-replay-probe` records the frozen span and replays a fresh engine. | GO: 923/923 frames bit-identical full checkpoints from 34,091,643 recorded stimuli; frozen witness bit-identical before/after the seam (verify-tas-full ×2). See archive #436. |
 | 435 | [x] | P1 | audio | Command-parity gate `gems_command_parity_v1`: one `GemsRingDecoder` over both sides' mailbox rings, ordered per-frame comparison with directional ±1 skew reconciliation, `tas-gems-command-baseline` ratchet wired into `verify-tas-full` as the authoritative audio gate. | Honest baseline 419 mismatches / first at 16, fully attributed to native schedule clusters #438-#440; gate Match on baseline. See archive #435. |

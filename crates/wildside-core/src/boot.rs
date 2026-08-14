@@ -6399,9 +6399,6 @@ impl NativeRuntime {
         // level load calls sub_44B0, which re-seeds the five HUD animation
         // countdown bytes while preserving their adjacent script offsets.
         boot::reset_hud_animation_countdowns_sub_44b0(&mut self.hud_animation_state);
-        // ASM Load_DemoPlay enters Load_InGame and reaches loc_11FD2/loc_12004
-        // after the shared post-load initialisers.
-        self.queue_level_start_music_loc_11fd2(level_id);
         self.level_timer = LevelTimer::new();
         // ASM Load_DemoPlay -> Load_InGame enters sub_8E0's loc_8FE HUD tail
         // before the demo bootstrap first exposes gameplay. Init_SpriteAttr_HUD
@@ -6880,8 +6877,20 @@ impl NativeRuntime {
             self.current_level = level_id;
             self.reload_block_grid_for_level(level_id);
         }
+        if use_demo_2 && frame_counter + 1 == demo::DEMO_OBJECT_WARMUP_FRAME {
+            // Skydragon's shorter Load_InGame workload reaches
+            // loc_11FD2/loc_12004 one VBlank before native allocates the
+            // opening slice at its object-warmup boundary.
+            self.queue_level_start_music_loc_11fd2(level_id);
+        }
         if frame_counter >= demo::DEMO_OBJECT_WARMUP_FRAME && self.opening_slice.is_none() {
             self.begin_demo_gameplay(level_id);
+        }
+        if !use_demo_2 && frame_counter == demo::DEMO_LEVEL_MUSIC_QUEUE_FRAME_LOC_12004 {
+            // ASM Load_DemoPlay -> Load_InGame loc_11FD2/loc_12004 posts the
+            // Knights Isle BGM only after its longer hidden loader work. Native
+            // allocates its opening slice at the earlier object-warmup boundary.
+            self.queue_level_start_music_loc_11fd2(level_id);
         }
         if frame_counter + 1 < gameplay_start_frame {
             self.demo_read_joypad_work_loc_c22 = Some(Self::demo_read_joypad_work_loc_c22(

@@ -131,6 +131,11 @@ pub(crate) const DEMO_CAMERA_HOLD_START_FRAME: u16 = 58;
 /// Demo bootstrap publishes widened object counts one frame before the player
 /// becomes visible.
 pub(crate) const DEMO_OBJECT_WARMUP_FRAME: u16 = 64;
+/// ASM Load_DemoPlay -> Load_InGame reaches loc_11FD2/loc_12004 for the longer
+/// Knights Isle demo bootstrap six VBlanks after native allocates its opening
+/// slice. The queue write appears in the trace after this counter advances;
+/// Skydragon reaches the call one VBlank before the ordinary warmup boundary.
+pub(crate) const DEMO_LEVEL_MUSIC_QUEUE_FRAME_LOC_12004: u16 = 70;
 /// First demo startup frame where gameplay, physics, and recorded inputs apply.
 pub(crate) const DEMO_GAMEPLAY_START_FRAME: u16 = 65;
 /// Demo 1 (Knights Isle) keeps the player hidden and inert seven frames longer

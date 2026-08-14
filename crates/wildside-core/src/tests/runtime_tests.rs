@@ -2399,15 +2399,26 @@ fn runtime_with_projectile_and_player(
 }
 
 #[test]
-fn published_tas_issue439_sound_paths_match_rom_call_sites() {
+fn published_tas_issue439_and_440_sound_paths_match_rom_call_sites() {
     let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
         return;
     };
     let mut thunder_frames = Vec::new();
     let mut iron_knight_landing_frames = Vec::new();
+    let mut sky_bgm_frames = Vec::new();
+    let mut island_bgm_frames = Vec::new();
+    let mut previous_bgm_count = runtime.trace_frame().played_bgm_ids.len();
     for (frame_index, mask) in script.iter().copied().enumerate().take(28_300) {
         let previous_sound_count = runtime.played_sound_effects.len();
-        let _ = runtime.step_frame(FrameInput::from_mask(mask));
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        for &bgm in &trace.played_bgm_ids[previous_bgm_count..] {
+            match bgm {
+                0x02 => sky_bgm_frames.push(frame_index),
+                0x08 => island_bgm_frames.push(frame_index),
+                _ => {}
+            }
+        }
+        previous_bgm_count = trace.played_bgm_ids.len();
         for effect in &runtime.played_sound_effects[previous_sound_count..] {
             match effect {
                 QueuedSoundEffect::Thunderstorm => thunder_frames.push(frame_index),
@@ -2434,6 +2445,16 @@ fn published_tas_issue439_sound_paths_match_rom_call_sites() {
             25_529,
         ],
         "ASM loc_A94E posts sfx_Jump_on_enemy for ordinary Iron Knight landings as well as enemy-stomp bounces"
+    );
+    assert_eq!(
+        sky_bgm_frames,
+        vec![901, 3_884, 11_050, 17_411, 23_312],
+        "ASM Load_DemoPlay -> Load_InGame loc_11FD2/loc_12004 reaches Skydragon music on its shorter warmup boundary"
+    );
+    assert_eq!(
+        island_bgm_frames,
+        vec![2_606, 6_977, 13_199, 21_836, 24_574],
+        "ASM Load_DemoPlay -> Load_InGame loc_11FD2/loc_12004 queues Knights Isle's Island BGM only after the longer hidden loader work"
     );
 }
 
