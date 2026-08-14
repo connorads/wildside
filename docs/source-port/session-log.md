@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#417 closed)
+
+- The final level-refresh fixture now pins ASM `loc_75C0`'s exact settled pose:
+  centre y=31 for a 32-pixel Kid above the target grid's y=64 solid floor.
+- The complete CLI suite is green and its failure baseline lowers 53 to 0.
+  #417 is closed; select the next open risk with `mise run project-status`.
+
 ## 2026-08-14 handoff (#417 EOL reveal fixture fixed)
 
 - The EOL fixture now populates the CRAM line-2 slot selected by ASM

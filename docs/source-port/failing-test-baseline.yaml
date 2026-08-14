@@ -14,4 +14,3 @@
 # diff-stable when re-seeded.
 version: 1
 tests:
-  - native_player::tests::live_level_change_direct_target_refreshes_runtime_block_grid_and_title_card

@@ -16036,9 +16036,9 @@ mod tests {
         let (_, kid_y) = runtime
             .level_entry_opening_player_position()
             .expect("direct live level-change transition should keep a hidden opening slice");
-        assert!(
-            kid_y >= 0x0030_0000,
-            "direct live level-change asset swaps should rebuild the hidden opening slice from the swapped target grid, not preserve the stale no-floor entry pose; y={kid_y:#010x}"
+        assert_eq!(
+            kid_y, 0x001F_0000,
+            "ASM loc_75C0 hidden settle should place Kid's 32px body one pixel above the swapped target grid's y=64 solid floor"
         );
     }
 

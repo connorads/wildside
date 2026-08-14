@@ -3882,6 +3882,13 @@ and pixel nibble 2 resolve to CRAM slot 31; the absent fixture slot rendered
 black. Supplying that slot restores the asserted colour. The focused test
 passes; the full CLI ratchet lowers the baseline 2 -> 1.
 
+Resolved 2026-08-14: the final live level-refresh test used an impossible
+settled-position threshold. Its target solid floor begins at y=64; ASM
+`loc_75C0` spawn settling places Kid's 32-pixel body at centre y=31, including
+the solid-floor one-pixel bias. The test now pins `0x001F0000` while retaining
+its independent target-grid and title-shell assertions. The focused test and
+complete CLI suite pass; the failure baseline lowers 53 -> 0.
+
 Evidence source: `cargo test -p wildside-cli` on clean `main` (authoritative for
 test status). Native repro: reproduced. Minimum gate: `failing-test-ratchet` +
 `verify-slice-fast`.
@@ -22961,6 +22968,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 417 | [x] | P2 | testing | Closed all 53 grandfathered `wildside-cli` failures through production fixes or evidence-backed fixture verdicts; the downward-only baseline is empty. | Complete CLI suite and `verify-slice-fast` green; any future CLI failure is new debt. See archive #417. |
 | 445 | [x] | P2 | testing | All six formerly dark crates run in the fast gate: ROM is green; md/frame/data/render/web use a crate-qualified, multi-target, fail-closed named-set ratchet that can only shrink from six failures. | Parser contracts pass; live ratchet reports exactly 6/6 reviewed names; `verify-slice-fast` green. See archive #445. |
 | 421 | [x] | P1 | enemy | Scorpion Lion-library movement, fall paths, animation-row collision, allocation timing, and the sting-capable linked-tail settle age now follow the ASM/oracle schedule. | 0x61's 61-frame and 0x62's 30-frame probes are exact; sweep 1786713871 improves to 62/69 with 34 blockers; required gates green. See archive #421. |
 | 414 | [-] | P1 | intro/render | Retired stale intro/title residue: all former IntroText, IntroSequence5, and frame-21765 title witnesses are absent from the current full-route mismatch report. | Full TAS has only HUD diamond/life-icon clusters; reopen only from a named current intro worker plus differing hardware evidence. See archive #414. |
