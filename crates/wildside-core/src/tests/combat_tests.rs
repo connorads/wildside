@@ -20153,7 +20153,20 @@ mod chunk_03 {
         enemy.wait_timer = 1;
         enemy.facing = Direction::Right;
         let mut projectiles = Vec::new();
-        step_dragon_walking(&mut enemy, None, &mut projectiles, None);
+        let mut sounds = Vec::new();
+        step_dragon_walking_with_sound(
+            &mut enemy,
+            None,
+            &mut projectiles,
+            None,
+            false,
+            Some(&mut sounds),
+        );
+        assert_eq!(
+            sounds,
+            vec![QueuedSoundEffect::DragonFlameBreath],
+            "ASM Dragon.asm loc_3CF6E queues sfx_Dragon_flame_breath before allocating the breath child"
+        );
         assert_eq!(projectiles.len(), 1);
         assert_eq!(
             projectiles[0].x_velocity, 0,
@@ -20176,6 +20189,24 @@ mod chunk_03 {
             "ASM loc_3D02A should remain typed as the breath child so loc_3D082 owns deletion"
         );
         assert_eq!(enemy.wait_timer, DRAGON_WALKING_BREATH_RESET);
+
+        let mut hidden_enemy = test_enemy(EnemyFamily::DragonWalking, 100 << 16, 200 << 16, 2);
+        hidden_enemy.on_ground = true;
+        hidden_enemy.wait_timer = 1;
+        let mut hidden_projectiles = Vec::new();
+        let mut hidden_sounds = Vec::new();
+        step_dragon_walking_with_sound(
+            &mut hidden_enemy,
+            None,
+            &mut hidden_projectiles,
+            None,
+            true,
+            Some(&mut hidden_sounds),
+        );
+        assert!(
+            hidden_sounds.is_empty(),
+            "ASM Dragon.asm loc_3CF6E skips sfx_Dragon_flame_breath when Make_SpriteFromGfxObject left `$19(a3)` set"
+        );
         assert_eq!(
             enemy.dragon_script_cmd, 1,
             "dragon should enter breath hold"
@@ -33573,6 +33604,14 @@ mod chunk_05 {
         // Drift (+$80) then boost (-$1800), clamped to min accel (-$800)
         assert_eq!(rt.helmet.iron_knight_climb_accel, IRON_KNIGHT_MIN_ACCEL);
         assert!(slice.player.y_velocity < 0, "should be climbing upward");
+        assert_eq!(
+            rt.played_sound_effects
+                .iter()
+                .map(|effect| effect.sound_id())
+                .collect::<Vec<_>>(),
+            vec![0x1C],
+            "ASM Get_RandomNumber_wordC queues sfx_Iron_Knight_wall_climbing on each C rising edge"
+        );
     }
 
     #[test]

@@ -4906,10 +4906,26 @@ pub(crate) fn step_active_enemies_with_rng(
                         step_dragon_walking_berzerker_knockback(enemy);
                         continue;
                     }
+                    let render_hidden_flag_19 =
+                        tank_render_hidden_flag_19_loc_11ee(enemy, camera_x_px, camera_y_px);
                     if let Some(ref mut projs) = projectiles {
-                        step_dragon_walking(enemy, block_grid, projs, player_x_pos);
+                        step_dragon_walking_with_sound(
+                            enemy,
+                            block_grid,
+                            projs,
+                            player_x_pos,
+                            render_hidden_flag_19,
+                            played_sound_effects.as_deref_mut(),
+                        );
                     } else {
-                        step_dragon_walking(enemy, block_grid, &mut Vec::new(), player_x_pos);
+                        step_dragon_walking_with_sound(
+                            enemy,
+                            block_grid,
+                            &mut Vec::new(),
+                            player_x_pos,
+                            render_hidden_flag_19,
+                            played_sound_effects.as_deref_mut(),
+                        );
                     }
                 } else if matches!(enemy.family, EnemyFamily::Driller) {
                     if enemy.damage_flash_frames > 0 {

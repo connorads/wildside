@@ -22912,8 +22912,8 @@ mod tests {
 
         assert_eq!(
             gems_event_sound_ids(&prev, &curr),
-            vec![gems_sfx::BLOCK_HIT],
-            "the old headbutt counter still drives non-rubber block-hit paths when no new ASM-backed rubber id was queued"
+            Vec::<u8>::new(),
+            "ASM loc_1002E/loc_10200 queue sfx_Block_hit=$0D only for the prize-block path; a stale headbutt counter must not infer it"
         );
     }
 

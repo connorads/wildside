@@ -2998,6 +2998,29 @@ pub(crate) fn title_screen_lightning_sequence_loc_1B37C() -> TitleScreenLightnin
     }
 }
 
+pub(crate) fn title_screen_lightning_plays_thunder_at_elapsed_loc_1b37c(
+    title_elapsed: usize,
+    worker_delay_frames: usize,
+) -> bool {
+    // ASM loc_1B37C (kid.asm:29579-29635): Load_IntroSequence6 allocates the
+    // worker at the first live post-loader object pass. Sound is posted after
+    // the two opening zero-frame uploads and the three closing zero uploads.
+    let worker_elapsed = title_elapsed
+        .saturating_sub(INTRO_SEQUENCE_6_POST_LOADER_RNG_FIRST_LIVE_FRAME)
+        .saturating_sub(worker_delay_frames);
+    let mut elapsed_at_step = 0usize;
+    for step in title_screen_lightning_sequence_loc_1B37C().steps {
+        elapsed_at_step += usize::from(step.hibernate_frames);
+        if worker_elapsed == elapsed_at_step {
+            return step.play_thunderstorm;
+        }
+        if worker_elapsed < elapsed_at_step {
+            return false;
+        }
+    }
+    false
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroSequence6LongwordFillLoc1B170 {
     pub(crate) vram_word_addr: u16,
@@ -6985,6 +7008,26 @@ impl NativeRuntime {
     /// Advance the boot state machine one frame (Sega screen, intros, title,
     /// options, sound test, level transition, ending).
     pub(crate) fn step_boot_state(&mut self, input: FrameInput, start_pressed: bool) {
+        let title_lightning_worker_delay = match self.boot_state {
+            BootState::IntroSequence6 {
+                carry_timeout_restart_hidden_camera_wrap,
+                ..
+            } if self.intro_sequence_6_entered_from_timeout_restart
+                && !carry_timeout_restart_hidden_camera_wrap =>
+            {
+                TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_WORKER_DELAY_FRAMES
+            }
+            BootState::IntroSequence6 { .. } => 0,
+            _ => usize::MAX,
+        };
+        let title_lightning_plays_thunder = title_lightning_worker_delay != usize::MAX
+            && title_screen_lightning_plays_thunder_at_elapsed_loc_1b37c(
+                self.title_screen_elapsed_frames.saturating_add(1),
+                title_lightning_worker_delay,
+            );
+        if title_lightning_plays_thunder {
+            let _ = self.play_thunderstorm_sound_sub_1B36C(0);
+        }
         let intro_sequence_1_frames_override =
             self.demo_auto_timeout_intro_sequence_1_frames_override;
         let intro_sequence_2_frames_override =

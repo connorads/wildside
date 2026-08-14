@@ -199,6 +199,7 @@ pub mod gems_sfx {
     pub const MICROMAX_TRANSFORM: u8 = 0x33;
     pub const JUGGERNAUT_TRANSFORM: u8 = 0x34;
     // Helmet abilities
+    pub const IRON_KNIGHT_WALL_CLIMBING: u8 = 0x1C;
     pub const MANIAXE_THROW: u8 = 0x20;
     pub const RED_STEALTH_ATTACK_DOWN: u8 = 0x13;
     pub const RED_STEALTH_SWORD: u8 = 0x23;
@@ -4788,7 +4789,10 @@ pub fn is_damage_resolution_voice_sound_id(sound_id: u8) -> bool {
 pub fn is_explicit_block_sound_id(sound_id: u8) -> bool {
     matches!(
         sound_id,
-        gems_sfx::DESTROY_BLOCK | gems_sfx::METAL_BLOCK | gems_sfx::RUBBER_BLOCK
+        gems_sfx::DESTROY_BLOCK
+            | gems_sfx::METAL_BLOCK
+            | gems_sfx::RUBBER_BLOCK
+            | gems_sfx::IRON_KNIGHT_WALL_CLIMBING
     )
 }
 
@@ -4841,15 +4845,9 @@ pub fn gems_event_sound_commands(
         sound_commands.push(NativeSoundCommand::start_sequence(track));
     }
 
-    // Jump
-    if gameplay_sfx_fallback_active
-        && !queued_sound_ids.contains(&gems_sfx::JUMP)
-        && prev.kid_on_ground == Some(true)
-        && curr.kid_on_ground == Some(false)
-        && curr.kid_y_velocity.is_some_and(|v| v < 0)
-    {
-        sound_commands.push(NativeSoundCommand::start_sequence(gems_sfx::JUMP));
-    }
+    // Jump is queued by the exact loc_A480 launch paths in core. Inferring it
+    // from an airborne transition also catches non-jump launches such as the
+    // published route's enemy/contact bounce frames.
 
     // Stomp enemy is now driven by the core trace. ASM Jump_On_Enemy
     // (kid.asm:14607) plays `sfx_Jump_on_enemy` before any enemy HP/score
@@ -4868,10 +4866,11 @@ pub fn gems_event_sound_commands(
     // Damage taken (HP decreased). ASM loc_B73C/loc_B750/loc_B764/loc_B778
     // can queue enemy-family-specific ouch takes; keep the heuristic only for
     // paths that have not yet promoted their exact core SFX into the trace.
-    if !queued_sound_ids
-        .iter()
-        .copied()
-        .any(is_damage_resolution_voice_sound_id)
+    if gameplay_sfx_fallback_active
+        && !queued_sound_ids
+            .iter()
+            .copied()
+            .any(is_damage_resolution_voice_sound_id)
         && curr.number_hitpoints < prev.number_hitpoints
         && prev.number_hitpoints > 0
     {
@@ -4924,18 +4923,10 @@ pub fn gems_event_sound_commands(
         sound_commands.push(NativeSoundCommand::stop_sequence(gems_sfx::SCORE_COUNTER));
     }
 
-    // Block headbutt. ASM loc_10DA4 queues rubber blocks as
-    // `sfx_Rubber_block` and loc_110D0 queues metal/springy blocks as
-    // `sfx_Metal_block`; when an exact block cue is present for this frame,
-    // do not layer the generic `sfx_Block_hit` brick crunch over it.
-    if curr.blocks_hit_this_frame > 0
-        && !queued_sound_ids
-            .iter()
-            .copied()
-            .any(is_explicit_block_sound_id)
-    {
-        sound_commands.push(NativeSoundCommand::start_sequence(gems_sfx::BLOCK_HIT));
-    }
+    // Block sounds are queued by their ASM interaction paths in core. The
+    // historical `blocks_hit_this_frame` fallback conflated prize wobble
+    // (loc_1002E: `$0D`) with silent smash-block destruction and Iron Knight
+    // climb boosts (Get_RandomNumber_wordC: `$1C`).
 
     // Block destroyed (new destroy effects appeared). ASM ice blocks queue
     // sfx_Prize_block=$11 from the core trace on the same frame as sub_10F9C's
@@ -8201,6 +8192,7 @@ mod tests {
             gems_sfx::DESTROY_BLOCK,
             gems_sfx::METAL_BLOCK,
             gems_sfx::RUBBER_BLOCK,
+            gems_sfx::IRON_KNIGHT_WALL_CLIMBING,
         ] {
             assert!(is_explicit_block_sound_id(sound_id));
         }
@@ -8220,6 +8212,33 @@ mod tests {
             assert!(is_transform_sound_id(sound_id));
         }
         assert!(!is_transform_sound_id(gems_sfx::MANIAXE_THROW));
+    }
+
+    #[test]
+    fn native_audio_hp_reset_outside_gameplay_does_not_infer_voice_ouch() {
+        let mut prev = trace(GameMode::TitleScreen);
+        let mut curr = trace(GameMode::TitleScreen);
+        prev.number_hitpoints = 3;
+        curr.number_hitpoints = 0;
+
+        assert!(
+            gems_event_sound_commands(&prev, &curr).is_empty(),
+            "ASM loc_B73C damage voices run in Kid gameplay; title/demo-reset HP bookkeeping must not synthesise sfx_Voice_ouch"
+        );
+    }
+
+    #[test]
+    fn native_audio_airborne_transition_without_loc_a480_command_does_not_infer_jump() {
+        let mut prev = trace(GameMode::InGame);
+        let mut curr = trace(GameMode::InGame);
+        prev.kid_on_ground = Some(true);
+        curr.kid_on_ground = Some(false);
+        curr.kid_y_velocity = Some(-0x4_0000);
+
+        assert!(
+            gems_event_sound_commands(&prev, &curr).is_empty(),
+            "only ASM loc_A480 launch paths queue sfx_Jump; an airborne state edge is not sound authority"
+        );
     }
 
     #[test]

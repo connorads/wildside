@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-14 handoff (#439 closed)
+
+- Every SFX command multiset now matches the ROM: exact ASM paths own block,
+  Iron Knight, Dragon, title-thunder, jump and damage-voice cues.
+- Command parity improves 396→64 mismatches and 60→346 exact commands. The
+  remaining nine-command multiset gap is entirely #440's attributed `0B`
+  reload split. Select the next item with `mise run project-status`.
+
 ## 2026-08-14 handoff (#431/#432 closed)
 
 - The murder-wall lag was downstream of terrain rejection: `loc_11CCA` used

@@ -786,11 +786,23 @@ fn step_dragon_walking_walk(
 }
 
 /// Fire breath for a walking dragon (called after step_pacer handles movement).
+#[cfg(test)]
 pub(crate) fn step_dragon_walking(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
     projectiles: &mut Vec<EnemyProjectile>,
     player_x_pos: Option<u32>,
+) {
+    step_dragon_walking_with_sound(enemy, block_grid, projectiles, player_x_pos, false, None);
+}
+
+pub(crate) fn step_dragon_walking_with_sound(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    projectiles: &mut Vec<EnemyProjectile>,
+    player_x_pos: Option<u32>,
+    object_flag_19_set: bool,
+    mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
     enemy.shared_walker_debug_branch = None;
     enemy.shared_walker_dx_to_kid_px = None;
@@ -808,7 +820,12 @@ pub(crate) fn step_dragon_walking(
     if enemy.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK && enemy.wait_timer > 0 {
         enemy.wait_timer -= 1;
         if enemy.wait_timer == 0 {
-            let breath_trigger = dragon_walking_breath_trigger_loc_3cf6e(false, false);
+            let breath_trigger = dragon_walking_breath_trigger_loc_3cf6e(false, object_flag_19_set);
+            if breath_trigger.play_sound
+                && let Some(sound_effects) = played_sound_effects.as_mut()
+            {
+                sound_effects.push(QueuedSoundEffect::DragonFlameBreath);
+            }
             let breath_object = dragon_walking_breath_object_start_loc_3cf90();
             debug_assert_eq!(breath_object.child_callback, "loc_3D02A");
             // ASM loc_3D02A: breath is a stationary animated hitbox at

@@ -6342,6 +6342,15 @@ impl NativeRuntime {
                     }
                 }
             }
+            if slice.player.on_ground
+                && pre_physics_y_velocity > 0
+                && self.progression.current_form == PlayerForm::IronKnight
+            {
+                // ASM loc_A94E (kid.asm:13236-13250): once sub_B000 and
+                // sub_AF7A both return zero, ordinary Iron Knight floor
+                // landing queues `sfx_Jump_on_enemy = $4C` before settling.
+                self.queue_start_sequence(QueuedSoundEffect::JumpOnEnemy);
+            }
 
             self.note_kid_same_frame_stomp_probe(
                 &slice,

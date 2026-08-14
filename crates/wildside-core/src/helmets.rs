@@ -6909,6 +6909,9 @@ impl NativeRuntime {
 
         // C press: boost upward
         if c_pressed {
+            // ASM Get_RandomNumber_wordC (kid.asm:12653): the sound is tied
+            // to the consumed C edge, before the climb acceleration update.
+            self.queue_start_sequence(QueuedSoundEffect::IronKnightWallClimbing);
             self.helmet.iron_knight_climb_accel = self
                 .helmet
                 .iron_knight_climb_accel

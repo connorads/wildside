@@ -4191,6 +4191,7 @@ impl NativeRuntime {
         // that produced visible debris over an intact (still wobbling)
         // prize block.
         if slice.prize_block_hit.is_some() {
+            self.queue_start_sequence(QueuedSoundEffect::BlockHit);
             self.blocks_hit_this_frame += 1;
         }
 

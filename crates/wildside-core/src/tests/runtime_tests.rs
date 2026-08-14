@@ -2398,6 +2398,45 @@ fn runtime_with_projectile_and_player(
     rt
 }
 
+#[test]
+fn published_tas_issue439_sound_paths_match_rom_call_sites() {
+    let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+        return;
+    };
+    let mut thunder_frames = Vec::new();
+    let mut iron_knight_landing_frames = Vec::new();
+    for (frame_index, mask) in script.iter().copied().enumerate().take(28_300) {
+        let previous_sound_count = runtime.played_sound_effects.len();
+        let _ = runtime.step_frame(FrameInput::from_mask(mask));
+        for effect in &runtime.played_sound_effects[previous_sound_count..] {
+            match effect {
+                QueuedSoundEffect::Thunderstorm => thunder_frames.push(frame_index),
+                QueuedSoundEffect::JumpOnEnemy
+                    if runtime.progression.current_form == PlayerForm::IronKnight =>
+                {
+                    iron_knight_landing_frames.push(frame_index);
+                }
+                _ => {}
+            }
+        }
+    }
+    assert_eq!(
+        thunder_frames,
+        vec![
+            20_933, 20_939, 21_077, 21_083, 21_089, 28_108, 28_114, 28_252, 28_258, 28_264,
+        ],
+        "ASM loc_1B37C -> sub_1B36C posts five sfx_Thunderstorm commands on each published title-lightning pass"
+    );
+    assert_eq!(
+        iron_knight_landing_frames,
+        vec![
+            7_765, 7_834, 7_872, 7_932, 13_987, 14_056, 14_094, 14_154, 25_362, 25_431, 25_469,
+            25_529,
+        ],
+        "ASM loc_A94E posts sfx_Jump_on_enemy for ordinary Iron Knight landings as well as enemy-stomp bounces"
+    );
+}
+
 mod chunk_09 {
     use super::*;
 
@@ -17953,6 +17992,14 @@ mod chunk_09 {
             "ASM loc_1002E does not call Block_LoadSmashBits; prize-block hits must not emit debris"
         );
         assert_eq!(rt.blocks_hit_this_frame, 1);
+        assert_eq!(
+            rt.played_sound_effects
+                .iter()
+                .map(|effect| effect.sound_id())
+                .collect::<Vec<_>>(),
+            vec![0x0D],
+            "ASM loc_1002E queues sfx_Block_hit on the prize-block wobble path"
+        );
     }
 
     // --- Floating item: diamond uses inclusive overlap, helmet uses exclusive ---

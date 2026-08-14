@@ -42,6 +42,7 @@ pub(crate) fn prize_10000_points_clear_slots_loc_10AFA(_worker_slots: [u32; 5]) 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum QueuedSoundEffect {
     Jump,
+    BlockHit,
     MiniHoppingSkullScream,
     VoiceOuch,
     VoiceOuch1,
@@ -65,6 +66,7 @@ pub(crate) enum QueuedSoundEffect {
     EyeclopsTransform,
     JuggernautTransform,
     IronKnightTransform,
+    IronKnightWallClimbing,
     BerzerkerTransform,
     ManiaxeTransform,
     MicromaxTransform,
@@ -92,6 +94,7 @@ pub(crate) enum QueuedSoundEffect {
     UfoShoots,
     ArcherShoots,
     FireballBouncing,
+    DragonFlameBreath,
     NinjaBlocking,
     VoiceNoTime,
     KidPullup,
@@ -108,6 +111,9 @@ impl QueuedSoundEffect {
         match self {
             // constants.asm: sfx_Jump = $17; played by sub_A432 loc_A480.
             Self::Jump => 0x17,
+            // ASM loc_1002E/loc_10200 (kid.asm:21319,21480): prize-block
+            // wobble workers queue `sfx_Block_hit = $0D`.
+            Self::BlockHit => 0x0D,
             // constants.asm: sfx_Mini_Hopping_Skull_screams = $3F.
             Self::MiniHoppingSkullScream => 0x3F,
             // ASM loc_B778 / constants.asm: sfx_Voice_ouch = $61.
@@ -120,6 +126,9 @@ impl QueuedSoundEffect {
             // ASM Death (kid.asm:14714): `moveq #sfx_Voice_die,d0`;
             // constants.asm: sfx_Voice_die = $60.
             Self::VoiceDie => 0x60,
+            // ASM Get_RandomNumber_wordC (kid.asm:12653): each C-button
+            // climb boost queues `sfx_Iron_Knight_wall_climbing = $1C`.
+            Self::IronKnightWallClimbing => 0x1C,
             // ASM loc_10DA4 (kid.asm:22692): rubber contact plays
             // `sfx_Rubber_block = $56` before spawning the skin-swap worker.
             Self::RubberBlock => 0x56,
@@ -243,6 +252,9 @@ impl QueuedSoundEffect {
             // constants.asm: sfx_Fireball_bouncing = $5D; Fireball.asm
             // loc_32C60 plays this before dispatching non-zero collision.
             Self::FireballBouncing => 0x5D,
+            // ASM Dragon.asm loc_3CF6E (line 200): ordinary walking dragons
+            // queue `sfx_Dragon_flame_breath = $46` before child allocation.
+            Self::DragonFlameBreath => 0x46,
             // constants.asm: sfx_Ninja_blocking = $52; Ninja.asm loc_3D65A
             // plays this when `$4C(a5)` is non-zero and the animation-finished
             // byte is clear before resuming through loc_3D638.

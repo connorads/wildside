@@ -86,19 +86,19 @@
         "mismatch_count": 36836,
         "oracle_limitation_count": 885,
         "advisory_only_frames": 38,
-        "mismatch_digest": "c1ef32c78c893280659079426755413c08209b2d",
+        "mismatch_digest": "a3badef29cef837b638745cc7013e11c512056b4",
         "first_mismatch_frame": 923
       },
       "full_expected_gems_command_comparison": {
         "compared_frames": 37759,
-        "native_command_count": 415,
+        "native_command_count": 428,
         "oracle_command_count": 437,
-        "matched_exact": 60,
-        "reconciled_native_earlier": 4,
-        "reconciled_oracle_earlier": 2,
-        "mismatch_count": 396,
-        "first_mismatch_frame": 1347,
-        "mismatch_digest": "d7762b25b31fa124af35537750a56fff97ec876c"
+        "matched_exact": 346,
+        "reconciled_native_earlier": 24,
+        "reconciled_oracle_earlier": 9,
+        "mismatch_count": 64,
+        "first_mismatch_frame": 1408,
+        "mismatch_digest": "2a81a2e1552ee30c9e179e6cafe165a18d7fa1bc"
       },
       "status": "verified"
     },
