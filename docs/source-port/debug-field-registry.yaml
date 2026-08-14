@@ -439,6 +439,15 @@
       "promotion_trigger": "Promote if UFO linked-object render or cleanup parity starts depending on typed linked child object state."
     },
     {
+      "key": "ufo_controller_link_state_loc_34de4",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "issue-422-ufo-shooting-owner",
+      "first_added_commit": "working-tree",
+      "intended_meaning": "Native UFO controller identity, position, direction, velocity, one-second timer, beam counters, and derived loc_3531A linked-GfxObject position used to identify the Some_UFO_Shooting owner.",
+      "promotion_trigger": "Promote if UFO controller/link identity becomes typed parity state or a checked-in regression dependency."
+    },
+    {
       "key": "mini_hopping_skull_air_sprite_loc_3ea88",
       "scope": "object",
       "status": "exploratory",

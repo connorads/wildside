@@ -6,10 +6,10 @@
 # Regenerate after any oracle-helper edit:
 #   cargo run --release -p wildside-cli -- oracle-settle-census \
 #     --shell-table crates/wildside-cli/data/oracle-settle-shell.yaml
-helper_cache_version: 873c219865ab41852d90595c0c79292bfbca7d6f
+helper_cache_version: 101b9d36c0f5488fbabc0eba16b0b450083e6564
 rom_sha1: 28b904000b2863b6760531807760b571f1a5fc1d
 derivation_version: 2
-census_run_id: '1786641691'
+census_run_id: '1786709214'
 levels:
 - level_id: 0
   measurable: true

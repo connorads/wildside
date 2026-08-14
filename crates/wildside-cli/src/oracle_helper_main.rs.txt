@@ -2127,6 +2127,7 @@ fn object_slots_debug_loc_e1e(
         let d1 = read_wram_u32(work_ram, object_addr + 0x1A);
         let d2 = read_wram_u32(work_ram, object_addr + 0x1E);
         let d3 = read_wram_u32(work_ram, object_addr + 0x22);
+        let object_42 = read_wram_u8(work_ram, object_addr + 0x42);
         let object_44 = read_wram_u16(work_ram, object_addr + 0x44);
         let object_46 = read_wram_u16(work_ram, object_addr + 0x46);
         let object_48 = read_wram_u16(work_ram, object_addr + 0x48);
@@ -2149,7 +2150,8 @@ fn object_slots_debug_loc_e1e(
             // Object+$36 and loc_3478C can keep the Object live while the
             // helper's active-enemy GfxObject scan omits display-cleared slots.
             format!(
-                "@{:#010x},{:#010x}:vel={:#010x},{:#010x},spr={:#06x},anim={:#06x},disp={:#04x},col={},src={:#06x}",
+                ",gfx={gfx_addr:#08x},dir={:#04x}@{:#010x},{:#010x}:vel={:#010x},{:#010x},spr={:#06x},anim={:#06x},disp={:#04x},col={},src={:#06x}",
+                read_wram_u8(work_ram, gfx_addr + 0x16),
                 read_wram_u32(work_ram, gfx_addr + OBJECT_X_POS_OFFSET),
                 read_wram_u32(work_ram, gfx_addr + OBJECT_Y_POS_OFFSET),
                 read_wram_u32(work_ram, gfx_addr + 0x26),
@@ -2167,7 +2169,7 @@ fn object_slots_debug_loc_e1e(
             String::from("@-")
         };
         slots.push(format!(
-            "{object_addr:#08x}:code={code:#08x},hib={hibernate},d0={d0:#010x},d1={d1:#010x},d2={d2:#010x},d3={d3:#010x},w44={object_44:#06x},w46={object_46:#06x},w48={object_48:#06x},w4a={object_4a:#06x},w4c={object_4c:#06x},w50={object_50:#06x}{layout}{gfx}"
+            "{object_addr:#08x}:code={code:#08x},hib={hibernate},d0={d0:#010x},d1={d1:#010x},d2={d2:#010x},d3={d3:#010x},b42={object_42:#04x},w44={object_44:#06x},w46={object_46:#06x},w48={object_48:#06x},w4a={object_4a:#06x},w4c={object_4c:#06x},w50={object_50:#06x}{layout}{gfx}"
         ));
         object_addr = read_wram_u32(work_ram, object_addr) as usize;
         guard += 1;

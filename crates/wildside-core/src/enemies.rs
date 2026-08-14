@@ -2746,6 +2746,24 @@ impl ActiveEnemy {
                     ufo_linked_object_x_loc_3531a(self.x_pos, self.facing)
                 ),
             );
+            debug_fields.insert(
+                "ufo_controller_link_state_loc_34de4".into(),
+                format!(
+                    "controller={}:{}@{:#010x},{:#010x} facing={:?} vel={:#010x},{:#010x} wait={:#06x} beam={}:{} linked={:#06x},{:#06x}",
+                    self.segment_index,
+                    self.layout_index,
+                    self.x_pos,
+                    self.y_pos,
+                    self.facing,
+                    self.x_velocity,
+                    self.y_velocity,
+                    self.wait_timer,
+                    self.ufo_beam_segments,
+                    self.ufo_beam_interval,
+                    ufo_linked_object_x_loc_3531a(self.x_pos, self.facing),
+                    ((self.y_pos >> 16) as u16).wrapping_sub(0x000b),
+                ),
+            );
         }
         if matches!(self.family, EnemyFamily::MiniHoppingSkull)
             && !self.on_ground
