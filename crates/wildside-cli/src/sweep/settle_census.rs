@@ -622,23 +622,16 @@ mod tests {
     /// #442 S3c gate on the probe levels: the settled-warp shell reproduces
     /// the oracle's measured frame-0 RNG (offset + full 55-byte ring) from
     /// `oracle-settle-shell.yaml` (census v2, run 1786640409) on all five
-    /// probe levels. The only allowed residue is the #422 UFO beam-child
-    /// undercount on 0x30/0x48 (one missing beam child at frame 0); any RNG
-    /// divergence or a new count residue is a timing-model regression.
+    /// probe levels, object counts included — the former #422 beam-child
+    /// allowance is retired (the ChkShoot->ChkLoadBeam same-pass tick puts
+    /// the beam mid-fall at frame 0 exactly like the oracle).
     #[test]
     fn gameplay_regression_settled_warp_frame0_witnesses_probe_levels() {
         let mismatches = settled_warp_frame0_witness_mismatches(&[0x30, 0x48, 0x50, 0x60, 0x61]);
-        let unexplained: Vec<&String> = mismatches
-            .iter()
-            .filter(|mismatch| {
-                !(mismatch.starts_with("level 0x30: number_objects native 5 vs oracle 6")
-                    || mismatch.starts_with("level 0x48: number_objects native 13 vs oracle 14"))
-            })
-            .collect();
         assert!(
-            unexplained.is_empty(),
-            "settled-warp shell diverges from measured frame-0 witnesses beyond the \
-             documented #422 beam-child residue:\n{unexplained:#?}"
+            mismatches.is_empty(),
+            "settled-warp shell diverges from measured frame-0 witnesses:\n{}",
+            mismatches.join("\n")
         );
     }
 

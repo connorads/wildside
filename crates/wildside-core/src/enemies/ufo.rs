@@ -786,7 +786,52 @@ pub(crate) fn step_ufo_beam_with_rng(
     random_beam_enabled: bool,
     mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) -> bool {
-    // Active beam sequence: spawn segments at intervals
+    // ASM Enemy0F_UFO_Loop order: Enemy0F_UFO_ChkShoot runs first and may
+    // start the cycle; Enemy0F_UFO_ChkLoadBeam then runs IN THE SAME object
+    // pass — its loc_34FD6 tick already spends one `$4A` interval on the
+    // start frame, so the first beam lands at start+4 and a refire cycle's
+    // first beam lands 10 frames after the previous cycle's last (oracle
+    // 0x30 census run 1786640409: beam rows 73/78/83 then 93/98/103).
+    if enemy.ufo_beam_segments == 0
+        && !some_ufo_shooting
+        && let Some((px, py)) = player_pos
+    {
+        let ex = enemy.x_pos >> 16;
+        let ey = enemy.y_pos >> 16;
+        let kx = px >> 16;
+        let ky = py >> 16;
+        // ASM ChkShoot: Kid below the UFO and the UFO x within
+        // [kid_x-2, kid_x+2] (`subq #2` then `addq #4` on the compare base).
+        if ky > ey && kx.abs_diff(ex) <= 2 {
+            apply_ufo_beam_start_loc_34eec(enemy);
+            some_ufo_shooting = true;
+            if let Some(sound_effects) = played_sound_effects.as_deref_mut() {
+                // ASM UFO.asm loc_34EDC: targeted beam starts play
+                // `sfx_UFO_shoots` before loading the beam counters.
+                sound_effects.push(QueuedSoundEffect::UfoShoots);
+            }
+        }
+    }
+
+    // ASM ChkLoadBeam random-start branch: only for `$4C`-clear UFOs that are
+    // not already shooting (unk_34D48 sets `$4C` for every configured level,
+    // so live levels never reach this draw).
+    if enemy.ufo_beam_segments == 0
+        && !some_ufo_shooting
+        && random_beam_enabled
+        && ufo_random_beam_should_start_loc_34f8e(rng.next_byte())
+    {
+        apply_ufo_beam_start_loc_34eec(enemy);
+        some_ufo_shooting = true;
+        if let Some(sound_effects) = played_sound_effects {
+            // ASM UFO.asm loc_34FAE: random beam starts use the same
+            // `sfx_UFO_shoots` cue before setting Some_UFO_Shooting.
+            sound_effects.push(QueuedSoundEffect::UfoShoots);
+        }
+    }
+
+    // ASM loc_34FD6: the interval tick runs every pass while `$46(a5)` is
+    // set, including the pass that started the cycle.
     if enemy.ufo_beam_segments > 0 {
         let tick =
             ufo_beam_load_tick_loc_34fd6(true, enemy.ufo_beam_segments, enemy.ufo_beam_interval);
@@ -811,43 +856,13 @@ pub(crate) fn step_ufo_beam_with_rng(
                 x_pos: (enemy.x_pos as i64 + (i64::from(x_offset_px) << 16)) as u32,
                 y_pos: (enemy.y_pos as i64 + (10 << 16)) as u32,
                 y_velocity: UFO_BEAM_Y_VELOCITY,
-                lifetime: 60,
+                // ASM Enemy0F_UFOBeam_Loop has no timer: the beam lives until
+                // a collision word (terrain, Kid, or the level's bottom
+                // boundary) is latched and consumed on the next wake (#422).
+                lifetime: u16::MAX,
                 kind: EnemyProjectileKind::UfoBeam,
                 ..Default::default()
             });
-        }
-        return some_ufo_shooting;
-    }
-
-    // Check if player is directly below — targeted shoot (ASM ChkShoot)
-    if !some_ufo_shooting && let Some((px, py)) = player_pos {
-        let ex = enemy.x_pos >> 16;
-        let ey = enemy.y_pos >> 16;
-        let kx = px >> 16;
-        let ky = py >> 16;
-        // Player must be below UFO and within ±2px horizontally
-        if ky > ey && kx.abs_diff(ex) <= 2 {
-            apply_ufo_beam_start_loc_34eec(enemy);
-            some_ufo_shooting = true;
-            if let Some(sound_effects) = played_sound_effects.as_deref_mut() {
-                // ASM UFO.asm loc_34EDC: targeted beam starts play
-                // `sfx_UFO_shoots` before loading the beam counters.
-                sound_effects.push(QueuedSoundEffect::UfoShoots);
-            }
-            return some_ufo_shooting;
-        }
-    }
-
-    if !some_ufo_shooting
-        && random_beam_enabled
-        && ufo_random_beam_should_start_loc_34f8e(rng.next_byte())
-    {
-        apply_ufo_beam_start_loc_34eec(enemy);
-        some_ufo_shooting = true;
-        if let Some(sound_effects) = played_sound_effects {
-            // ASM UFO.asm loc_34FAE: random beam starts use the same
-            // `sfx_UFO_shoots` cue before setting Some_UFO_Shooting.
-            sound_effects.push(QueuedSoundEffect::UfoShoots);
         }
     }
     some_ufo_shooting
@@ -2021,6 +2036,43 @@ mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
 
+    /// Oracle 0x30 settle trace (census run 1786640409): the UFO parks over
+    /// Kid and the aimed cycle drops beams on rows `start+4/+9/+14`, clears
+    /// at `+19`, refires at `+20`, and drops the next cycle's first beam at
+    /// `+24` — the measured 5/5/10 spacing (oracle beam rows 73/78/83 then
+    /// 93/98/103). ASM order inside Enemy0F_UFO_Loop: ChkShoot starts the
+    /// cycle (`$4A=5`), then ChkLoadBeam's loc_34FD6 tick runs IN THE SAME
+    /// object pass, so the start frame already spends one interval tick.
+    #[test]
+    fn ufo_targeted_beam_cadence_matches_chkshoot_then_chkloadbeam_order_loc_34fd6() {
+        let mut enemy = ufo_test_enemy(40, 78);
+        let mut projectiles = Vec::new();
+        let mut rng = RomRandomState::default();
+        let mut some_ufo_shooting = false;
+        let mut spawn_frames = Vec::new();
+        for frame in 0..30u32 {
+            let before = projectiles.len();
+            some_ufo_shooting = step_ufo_beam_with_rng(
+                &mut enemy,
+                &mut projectiles,
+                Some((40 << 16, 95 << 16)),
+                &mut rng,
+                some_ufo_shooting,
+                false,
+                None,
+            );
+            if projectiles.len() > before {
+                spawn_frames.push(frame);
+            }
+        }
+        assert_eq!(
+            spawn_frames,
+            vec![4, 9, 14, 24, 29],
+            "beam spawns must land on start+4/+9/+14 with the measured \
+             10-frame inter-cycle gap (clear +19, ChkShoot refire +20)",
+        );
+    }
+
     fn ufo_test_enemy(x_px: u32, y_px: u32) -> ActiveEnemy {
         ActiveEnemy {
             family: EnemyFamily::UFO,
@@ -2622,8 +2674,8 @@ mod tests {
 
         assert_eq!(
             (ufo.ufo_beam_segments, ufo.ufo_beam_interval, ufo.wait_timer),
-            (4, 5, 0x32),
-            "ASM UFO.asm Enemy0F_UFO_ChkShoot uses integer x/y words to start the beam when Kid is below and within the ±2px window"
+            (4, 4, 0x32),
+            "ASM UFO.asm Enemy0F_UFO_ChkShoot starts the beam within the ±2px window, and the same pass's ChkLoadBeam tick already spends one `$4A` interval (#422)"
         );
 
         let mut same_y = ufo_test_enemy(100, 80);

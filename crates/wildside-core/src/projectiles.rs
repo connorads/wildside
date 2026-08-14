@@ -3843,13 +3843,39 @@ impl NativeRuntime {
 
             let tar_monster_collision_latched = is_tar_monster_straight_glob
                 && p.tar_monster_collision_response_budget == u16::MAX;
+            if is_ufo_beam && p.animation_elapsed_frames != 0 {
+                // ASM Enemy0F_UFOBeam_Loop: the collision word is written by
+                // the PREVIOUS frame's collision passes; the beam coroutine
+                // wakes, consumes it, and deletes itself before moving again
+                // — so a contacted beam survives exactly one sampled frame
+                // (#422: the oracle's frame-0 beam sits latched at (36,91)).
+                // `animation_elapsed_frames` counts the movement passes left:
+                // a pre-move Kid contact (the invulnerability consume runs
+                // before this retain in the same frame) latches 2 so the
+                // beam still survives the current frame.
+                p.animation_elapsed_frames -= 1;
+                if p.animation_elapsed_frames == 0 {
+                    return false;
+                }
+            }
             if !is_lion_projectile && !tar_monster_collision_latched {
                 p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
                 p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
             }
-            if is_ufo_beam && grid.is_some_and(|grid| ufo_beam_hits_floor_loc_355d4(grid, p))
+            if is_ufo_beam
+                && p.animation_elapsed_frames == 0
+                && grid.is_some_and(|grid| {
+                    // ASM GfxObjects_Collision_BottomBoundary: a beam falling
+                    // past Level_height_pixels latches colid_floor exactly
+                    // like a terrain hit; the ROM beam has no lifetime — its
+                    // only exits are collision words (#422: 0x48's pit beams
+                    // die at the level bottom, not an invented 60-frame cap).
+                    ufo_beam_hits_floor_loc_355d4(grid, p)
+                        || (p.y_pos >> 16) as i32 >= i32::from(grid.height_cells) * 16
+                })
             {
-                return false;
+                // Latch the collision; the delete lands next pass.
+                p.animation_elapsed_frames = 1;
             }
             if is_fireball_trail {
                 if p.kind == EnemyProjectileKind::FireballObstacleTrail {
@@ -4640,6 +4666,17 @@ impl NativeRuntime {
                     ));
                 }
                 if projectile_contact == ProjectilePlayerContactLocB640::None {
+                    true
+                } else if p.kind == EnemyProjectileKind::UfoBeam {
+                    // ASM Enemy0F_UFOBeam_Loop deletes only on its NEXT wake
+                    // after GfxObjects_CollisionKid latches the contact, so
+                    // the beam survives this frame's sample (#422). The
+                    // invulnerability consume runs BEFORE this frame's
+                    // movement retain (latch 2 movement passes); the
+                    // after-step damage consume runs after it (latch 1).
+                    if p.animation_elapsed_frames == 0 {
+                        p.animation_elapsed_frames = if skip_shooter_blocks { 2 } else { 1 };
+                    }
                     true
                 } else if p.kind == EnemyProjectileKind::ShooterBlock {
                     // ASM Process_ShooterObjects loc_EF62 writes the sprite and

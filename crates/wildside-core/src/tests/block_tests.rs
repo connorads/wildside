@@ -10133,8 +10133,8 @@ mod chunk_04 {
         step_ufo_beam(&mut enemy, &mut projectiles, player_x, player_y);
         assert_eq!(enemy.ufo_beam_segments, 4, "should start beam sequence");
         assert_eq!(
-            enemy.ufo_beam_interval, 5,
-            "ASM UFO.asm loc_34EEC starts the beam interval at 5"
+            enemy.ufo_beam_interval, 4,
+            "ASM UFO.asm loc_34EEC seeds `$4A`=5 and the same pass's ChkLoadBeam tick spends one interval (#422)"
         );
 
         // Step through interval frames to spawn segments
@@ -10143,8 +10143,8 @@ mod chunk_04 {
         }
         assert_eq!(
             projectiles.len(),
-            3,
-            "ASM UFO.asm loc_34FD6 decrements `$48(a5)` before allocating; the `$48=4` start sequence clears shooting on the fourth interval instead of spawning a fourth beam"
+            4,
+            "ASM UFO.asm loc_34FD6 spawns three beams per `$48=4` cycle (start+4/+9/+14), clears on the fourth interval, and ChkShoot refires next pass with the Kid still below — the second cycle's first beam lands at start+24 (#422)"
         );
         assert!(
             projectiles.iter().all(|p| p.y_velocity > 0),
@@ -10181,8 +10181,9 @@ mod chunk_04 {
             "ASM UFO.asm Enemy0F_UFOBeam_Init seeds beam y_vel with `$30000`"
         );
         assert_eq!(
-            first_beam.lifetime, 60,
-            "native projectile bridge gives UFO beam segments a bounded lifetime while preserving loc_355D4 collision deletion"
+            first_beam.lifetime,
+            u16::MAX,
+            "ASM Enemy0F_UFOBeam_Loop has no timer: the beam lives until a latched collision word (terrain, Kid, or the level bottom boundary) is consumed on its next wake (#422)"
         );
         assert_eq!(first_beam.gravity, 0);
         assert!(!first_beam.friendly);
@@ -10521,7 +10522,8 @@ mod chunk_04 {
             enemy.ufo_beam_segments, 4,
             "ASM UFO.asm Enemy0F_UFO_ChkLoadBeam starts on random bytes 0..=4"
         );
-        assert_eq!(enemy.ufo_beam_interval, 5);
+        // The same pass's loc_34FD6 tick spends one interval (#422).
+        assert_eq!(enemy.ufo_beam_interval, 4);
         assert!(projectiles.is_empty());
     }
 

@@ -4603,14 +4603,13 @@ pub(crate) fn step_active_enemies_with_rng(
                         &mut projectiles,
                     );
                 } else if matches!(enemy.family, EnemyFamily::UFO) {
-                    step_ufo_with_player_and_rng(
-                        enemy,
-                        block_grid,
-                        player_x_pos,
-                        player_y_pos,
-                        rng,
-                        some_ufo_shooting,
-                    );
+                    // ASM Enemy0F_UFO_Loop order: ChkShoot/ChkLoadBeam test
+                    // the PRE-MOVE position — Enemy0F_UFO_SpeedToPos commits
+                    // this frame's movement only after both beam checks, so
+                    // the aimed cycle starts one pass after the UFO ends a
+                    // frame inside the +/-2 window (#422: oracle 0x30 starts
+                    // shooting at live 5 with the final aimed beam mid-fall
+                    // exactly at frame 0).
                     if let Some(ref mut projs) = projectiles {
                         some_ufo_shooting = step_ufo_beam_with_rng(
                             enemy,
@@ -4625,6 +4624,14 @@ pub(crate) fn step_active_enemies_with_rng(
                             played_sound_effects.as_deref_mut(),
                         );
                     }
+                    step_ufo_with_player_and_rng(
+                        enemy,
+                        block_grid,
+                        player_x_pos,
+                        player_y_pos,
+                        rng,
+                        some_ufo_shooting,
+                    );
                     if let (Some(kid_x), Some(kid_y)) = (player_x_pos, player_y_pos) {
                         let (next_count, next_latch, sound) = ufo_on_screen_gate_loc_35008(
                             enemy.x_pos,
@@ -14013,7 +14020,10 @@ impl NativeRuntime {
         // Scoped to the Goat: the other families' shell frame-0 witnesses
         // (0x30/0x40/0x48 UFO among them) are position-exact WITHOUT a
         // delay, and the published route's 37,518 pixel-exact frames pin
-        // the live Manage_EnemyLoading path as undelayed too.
+        // the live Manage_EnemyLoading path as undelayed too. (#422 probed
+        // a UFO spawn delay here and it CHANGED the motion-picker RNG
+        // interleaving, rewriting the whole 0x30 approach path — the UFO's
+        // one-frame shooting lead was the ChkShoot pre-move order instead.)
         for enemy in &self.active_enemies[active_before_trailing_load..] {
             if matches!(enemy.family, EnemyFamily::Goat) {
                 self.freshly_loaded_enemies_loc_3691e
