@@ -5064,6 +5064,17 @@ pub(crate) fn reconcile_prize_block_cells_loc_123DC(
             // as a type-C no-op ceiling block.
             continue;
         }
+        if current_cell.collision == terrain::CollisionKind::HiddenBlock {
+            // ASM sub_127A8 leaves `$20xx` in Level_Layout for a hidden
+            // type-1 placement; only the hidden-block reveal worker
+            // (sub_E3C6) ever installs `$E101/$E102` there. The overlay pass
+            // above already wrote that intangible word, so a prize record
+            // whose cell is still hidden must not be resurrected as a solid
+            // prize — 0x55's rows 4-5/9 hidden diamonds sit directly in the
+            // Driller body-scan band and a solid rewrite terrain-kills the
+            // li=3 walker the oracle keeps alive (#420).
+            continue;
+        }
 
         // ASM loc_123DC/loc_12408 writes `$E102` for visible prize cells and
         // `$E101` for disguised ones while building Level_Layout. Some generated

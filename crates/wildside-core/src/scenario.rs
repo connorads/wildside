@@ -257,9 +257,20 @@ impl NativeRuntime {
         self.just_received_damage = false;
         self.death_shell_snapshot = None;
         self.level_complete_gfx_snapshot = None;
-        self.reload_block_grid_for_level(self.current_level);
         if !used_debug_warp || !use_recording_oracle_lifecycle {
+            self.reload_block_grid_for_level(self.current_level);
             self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(self.current_level));
+        } else if self.block_grid.is_none() {
+            self.reload_block_grid_for_level(self.current_level);
+        } else {
+            // ASM loc_74E0 (#420/#442): the recording debug lifecycle already
+            // ran Load_InGame BEFORE the hidden title window, and the target
+            // level then aged live behind it — including Driller.asm
+            // loc_3BE78 block smashes eating Level_Layout cells. The oracle
+            // never rebuilds Level_Layout at the title->live boundary
+            // (0x55's frame-0 RAM keeps the drilled `00f9/00fa` words), so
+            // reloading a lived-in grid here would resurrect the drilled
+            // blocks and terrain-kill the walker the ROM keeps alive.
         }
         self.level_start_frame = Some(self.frame_index);
         self.allow_pausing = true;

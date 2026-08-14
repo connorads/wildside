@@ -50,6 +50,12 @@ fn hidden_type_1_prize_reconciliation_preserves_sub_127a8_cell() {
         "ASM loc_123DC/loc_12434 records prize metadata while sub_127A8 keeps the hidden Level_Layout cell at `$2000` until sub_E3C6 reveals it",
     );
 
+    // A `$2000` cell is only ever written by sub_127A8 (hidden placements),
+    // and only the sub_E3C6 reveal worker rewrites it — even when the
+    // hidden-record list lost the entry. Level 0x55's generated sidecar
+    // truncates its hidden section, and resurrecting those cells as solid
+    // `$E102` put prize blocks inside the Driller body-scan band,
+    // terrain-killing the li=3 walker the oracle keeps alive (#420).
     let mut visible_grid = crate::terrain::BlockGrid::from_level_layout(&[0x20, 0x00], 1, 1);
     let visible_blocks = crate::terrain::BlockList {
         hidden_blocks: Vec::new(),
@@ -58,8 +64,18 @@ fn hidden_type_1_prize_reconciliation_preserves_sub_127a8_cell() {
     crate::level::reconcile_prize_block_cells_loc_123DC(&mut visible_grid, &visible_blocks);
     assert_eq!(
         visible_grid.cell_at(0, 0),
+        crate::terrain::Cell::from_be_bytes(0x20, 0x00),
+        "a still-hidden `$2000` cell must survive reconciliation even without a matching hidden-block record (#420: 0x55's sidecar hidden list is truncated)",
+    );
+
+    // An ordinary visible prize cell (non-hidden collision class) is still
+    // reconciled to its `$E101` disguised form.
+    let mut consumed_grid = crate::terrain::BlockGrid::from_level_layout(&[0x00, 0x00], 1, 1);
+    crate::level::reconcile_prize_block_cells_loc_123DC(&mut consumed_grid, &visible_blocks);
+    assert_eq!(
+        consumed_grid.cell_at(0, 0),
         crate::terrain::Cell::from_be_bytes(0xE1, 0x01),
-        "ASM loc_123DC/loc_12408 still reconciles an ordinary disguised prize record when no hidden placement owns its address",
+        "ASM loc_123DC/loc_12408 reconciles an ordinary disguised prize record on a non-hidden cell",
     );
 }
 
