@@ -740,6 +740,19 @@ remains 65/69 with 14 blockers and no unrelated regression. `verify-slice-fast`
 and the full 37,759-frame TAS gate pass with every ratchet unchanged. Orca
 remains staged.
 
+Orca and #456 resolved 2026-08-15. `Enemy08_Orca_Init`, collision resume at
+loc_3D21E/loc_3D2D2, and lunge landing resume at loc_3D466 all dispatch by
+`x_direction` directly into the Lion.asm walker. Native already models the
+fixed HP/speed state, cooldown and proximity trigger, wind-up, ballistic lunge,
+wall/ceiling/slope responses, landing delay, hurt/death paths, and Berzerker
+knockback. Focused sweep `1786798681` is regression-neutral across all five Orca
+levels (0x16, 0x32, 0x38, 0x40, 0x64). 0x40 retains exactly its prior native
+3/4 versus oracle 12/12 settle and 3/4 versus 8/8 idle object counts plus the
+same 92 changed pixels, so its existing blocker is outside this cliff gate.
+Full sweep `1786798696` remains 65/69 with 14 blockers. Every Lion-lineage
+family now follows its source cliff semantics. `verify-slice-fast` and the full
+37,759-frame TAS gate pass with every ratchet unchanged.
+
 ### #457
 
 Opened 2026-08-13 (#419 residue). Native's Goat wall freeze emerges from
@@ -23200,6 +23213,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 456 | [x] | P2 | enemy | Every Lion-lineage family now uses the ASM-selected cliff-fall walker after its companion state was modelled. | Per-family focused sweeps, full sweep `1786798696`, and both mandatory gates show zero regression; 0x40 retains identical unrelated blockers. See archive #456. |
 | 455 | [x] | P2 | verification | Retired all settled-warp phase stand-ins: Level-1 RNG is natural, Island shore replays the measured hidden object window, and oracle RAM proves 0x06/0x38/0x47 have no SolidGhost descriptors to tick. | Focused sweep `1786796443`; full sweep `1786796452` unchanged at 65/69 with 14 blockers. See archive #455. |
 | 432 | [x] | P2 | level | 0x42's high-skin terrain was correct but falsely rejected by the copied-background/solid-ghost count mix-up fixed with #431. | Full sweep `1786731170` and focused sweep `1786732273` pass with zero 0x42 differences. See archive #432. |
 | 431 | [x] | P2 | level/weather | `loc_11CCA` now checks the 16-byte solid-ghost list count, not the separate 8-byte copied-background count; 0x21 retains terrain, Kid survives, and the murder wall reaches its oracle settle state. | 0x21 sweep `1786731160`; full sweep `1786731170` improves to 64/69 and also clears 0x22. See archive #431. |

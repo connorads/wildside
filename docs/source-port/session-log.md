@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (#456 closed with Orca)
+
+- Orca now follows its init, collision-resume, and landing-resume ASM branches
+  into the Lion.asm cliff-fall walker.
+- Focused sweep `1786798681` is regression-neutral across all five Orca levels.
+- 0x40 retains exactly its pre-existing four object-count blockers and 92 pixels.
+- Full sweep `1786798696` remains 65/69 with 14 blockers.
+- `verify-slice-fast` and `verify-tas-full` pass with every ratchet unchanged.
+- #456 is closed; every Lion-lineage family now uses its source cliff semantics.
+
 ## 2026-08-15 handoff (#456 walking Dragon)
 
 - Walking Dragon now follows `Dragon.asm loc_3CE84` into the Lion.asm

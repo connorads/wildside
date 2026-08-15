@@ -7914,12 +7914,9 @@ fn register_shared_walker_turnaround(enemy: &mut ActiveEnemy) -> bool {
 /// restore the walk step, seed the -120 charge cooldown). Partition measured
 /// from the per-family `include`/branch targets in code/enemy/*.asm.
 ///
-/// TODO(fidelity): Goat, Lion, Armadillo, walking Dragon, Scorpion, and Ninja
-/// run the Lion.asm fall semantics natively. Their journeys are oracle-measured
-/// at 0x60, the three Lion levels, the seven Armadillo levels, all 13 walking
-/// Dragon levels, 0x61, and 0x31. Orca keeps the cliff-turn approximation until
-/// its companion behaviours are modelled; a first attempt at flipping every
-/// family regressed 0x45/0x56 because the turn was masking those gaps (#456).
+/// Goat, Lion, Orca, Armadillo, walking Dragon, Scorpion, and Ninja run the
+/// Lion.asm fall semantics natively. Their journeys are oracle-measured across
+/// every family level (#456).
 pub(crate) fn shared_walker_turns_at_cliffs_loc_3c0a6(family: EnemyFamily) -> bool {
     !matches!(
         family,
@@ -7927,6 +7924,7 @@ pub(crate) fn shared_walker_turns_at_cliffs_loc_3c0a6(family: EnemyFamily) -> bo
             | EnemyFamily::Lion
             | EnemyFamily::Armadillo
             | EnemyFamily::DragonWalking
+            | EnemyFamily::Orca
             | EnemyFamily::Scorpion
             | EnemyFamily::Ninja
     )
@@ -11173,6 +11171,14 @@ mod tests {
         assert!(
             !shared_walker_turns_at_cliffs_loc_3c0a6(EnemyFamily::DragonWalking),
             "ASM Dragon.asm loc_3CE84 dispatches directly into loc_3E392/loc_3E546, whose negative d6 path walks off the ledge through loc_3E682/loc_3E79E"
+        );
+    }
+
+    #[test]
+    fn orca_uses_its_own_walker_cliff_semantics_loc_3d21e_3d2d2_3d466() {
+        assert!(
+            !shared_walker_turns_at_cliffs_loc_3c0a6(EnemyFamily::Orca),
+            "ASM Orca.asm loc_3D21E/loc_3D2D2 and loc_3D466 dispatch directly into the Lion.asm fall walker"
         );
     }
 
