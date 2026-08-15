@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (proactive scenario mutation refresh)
+
+- Refreshed `scenario.rs` after #455: the initial 154-mutant run found 50
+  misses across the loc_74E0 load table, recording settle windows, boot/settle
+  lifecycle predicates, raster visitor, and title-handoff restore.
+- Added exhaustive cache-free contracts for every measured load-table arm and
+  legacy settle tail. Replaced duplicated lifecycle conditions with tested
+  predicates, removed the equivalent explicit Level-0/default arm and the
+  redundant zero-pass guard, and exercised Level-1 recording boot end-to-end.
+- Final full shard: 155 tested, 132 caught, 22 unviable, zero missed, one
+  suite-level timeout. The timed `enter_level_playtest -> Default` replacement
+  is caught by its focused cache-free contract; the full process times out only
+  because other tests keep running after that assertion fails.
+- `verify-slice-fast` and `verify-tas-full` pass. The full gate checks all
+  37,759 published-TAS frames and matches the checked-in pixel, GEMS, gameplay,
+  enemy, camera, and RNG ratchets.
+- Scenario tests pass. Mandatory fast/full gates follow before commit.
+
 ## 2026-08-15 handoff (proactive Orca mutation refresh)
 
 - `enemies/orca.rs` mutation testing is clean: 91 mutants tested in 11 minutes,

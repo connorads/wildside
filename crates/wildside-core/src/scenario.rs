@@ -93,7 +93,6 @@ fn recording_oracle_warp_target_live_frames(
 ) -> usize {
     if !debug_lifecycle_completed {
         return match level_id {
-            LevelId(0) => RECORDING_SETTLED_WARP_LIVE_FRAMES,
             LevelId(1) => ORACLE_SETTLED_WARP_LIVE_FRAMES - 1,
             LevelId(0x06) => RECORDING_SETTLED_WARP_LIVE_FRAMES + 0x18,
             LevelId(0x08) => 101,
@@ -119,6 +118,22 @@ fn recording_oracle_warp_target_live_frames(
         LevelId(0x52) => RECORDING_SETTLED_WARP_LIVE_FRAMES - 1,
         _ => RECORDING_SETTLED_WARP_LIVE_FRAMES,
     }
+}
+
+fn compatibility_boot_waits_for_ingame(use_recording_oracle_lifecycle: bool) -> bool {
+    !use_recording_oracle_lifecycle
+}
+
+fn boot_boundary_rebuilds_pristine_level(
+    used_debug_warp: bool,
+    use_recording_oracle_lifecycle: bool,
+) -> bool {
+    !used_debug_warp || !use_recording_oracle_lifecycle
+}
+
+fn recording_settle_primes_respawn(level_id: LevelId, debug_lifecycle_completed: bool) -> bool {
+    level_id == LevelId(0)
+        || (!debug_lifecycle_completed && oracle_warp_primes_respawn_settle_enemy_loading(level_id))
 }
 
 fn recording_oracle_warp_hidden_object_passes_loc_e12(level_id: LevelId) -> usize {
@@ -172,7 +187,7 @@ impl NativeRuntime {
             }
         }
 
-        if !use_recording_oracle_lifecycle {
+        if compatibility_boot_waits_for_ingame(use_recording_oracle_lifecycle) {
             // The boot-title oracle now keeps the Level 1 title-card shell
             // hidden through frame 719, so a fixed 720-frame bootstrap no
             // longer implies that live gameplay has started. Compatibility
@@ -233,7 +248,7 @@ impl NativeRuntime {
         self.level_skip_transition = None;
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.progression.number_lives = 3;
-        if !used_debug_warp || !use_recording_oracle_lifecycle {
+        if boot_boundary_rebuilds_pristine_level(used_debug_warp, use_recording_oracle_lifecycle) {
             self.progression.number_hitpoints = self.progression.current_form.max_hitpoints();
             self.just_received_damage = false;
         } else {
@@ -248,7 +263,7 @@ impl NativeRuntime {
         }
         self.death_shell_snapshot = None;
         self.level_complete_gfx_snapshot = None;
-        if !used_debug_warp || !use_recording_oracle_lifecycle {
+        if boot_boundary_rebuilds_pristine_level(used_debug_warp, use_recording_oracle_lifecycle) {
             self.reload_block_grid_for_level(self.current_level);
             self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(self.current_level));
         } else if self.block_grid.is_none() {
@@ -361,10 +376,7 @@ impl NativeRuntime {
             self.enemy_status_words.fill(0);
             self.enemy_loading_initial_pass_complete = false;
         }
-        if level_id == LevelId(0)
-            || (!debug_lifecycle_completed
-                && oracle_warp_primes_respawn_settle_enemy_loading(level_id))
-        {
+        if recording_settle_primes_respawn(level_id, debug_lifecycle_completed) {
             self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
         }
         self.prime_recording_warp_sprite_animation_clocks();
@@ -400,16 +412,12 @@ impl NativeRuntime {
         self.hud_timer_sprite_seconds_loc_bee8 = self.level_timer.seconds;
         self.rebase_mode_level_tail_after_external_override_loc_2ffe8();
         let hidden_object_passes = recording_oracle_warp_hidden_object_passes_loc_e12(level_id);
-        if hidden_object_passes != 0 {
-            // ASM Mode_Level -> Execute_Objects loc_E12: Load_InGame
-            // loc_11FB0 allocates the Island shore coroutine, whose
-            // loc_12098/loc_12110/loc_12188 countdowns continue through every
-            // remaining hidden title-wait pass. The native debug lifecycle
-            // collapses those object resumes, so replay the measured window
-            // rather than maintaining independent band-phase constants.
-            for _ in 0..hidden_object_passes {
-                self.step_island_shore_cycle_loc_1202a();
-            }
+        // ASM Mode_Level -> Execute_Objects loc_E12: Load_InGame loc_11FB0
+        // allocates the Island shore coroutine, whose loc_12098/loc_12110/
+        // loc_12188 countdowns continue through every remaining hidden
+        // title-wait pass. A zero pass count naturally performs no work.
+        for _ in 0..hidden_object_passes {
+            self.step_island_shore_cycle_loc_1202a();
         }
     }
 }
@@ -905,6 +913,24 @@ mod tests {
     }
 
     #[test]
+    fn boot_and_recording_settle_lifecycle_predicates_pin_all_state_combinations() {
+        assert!(compatibility_boot_waits_for_ingame(false));
+        assert!(!compatibility_boot_waits_for_ingame(true));
+
+        assert!(boot_boundary_rebuilds_pristine_level(false, false));
+        assert!(boot_boundary_rebuilds_pristine_level(false, true));
+        assert!(boot_boundary_rebuilds_pristine_level(true, false));
+        assert!(!boot_boundary_rebuilds_pristine_level(true, true));
+
+        assert!(recording_settle_primes_respawn(LevelId(0), false));
+        assert!(recording_settle_primes_respawn(LevelId(0), true));
+        assert!(recording_settle_primes_respawn(LevelId(1), false));
+        assert!(!recording_settle_primes_respawn(LevelId(1), true));
+        assert!(!recording_settle_primes_respawn(LevelId(2), false));
+        assert!(!recording_settle_primes_respawn(LevelId(2), true));
+    }
+
+    #[test]
     fn oracle_warp_target_live_frames_pin_level_specific_windows() {
         assert_eq!(
             oracle_warp_target_live_frames(LevelId(0)),
@@ -942,6 +968,38 @@ mod tests {
         }
     }
 
+    #[test]
+    fn recording_oracle_warp_legacy_windows_pin_every_special_route_loc_1ae2e() {
+        // ASM loc_1AE2E/loc_74E0: before the typed debug lifecycle completes,
+        // these are the oracle-measured stable-live tails retained for legacy
+        // callers. Every other level uses the 60-frame helper minimum.
+        let special = [
+            (0x00, 60),
+            (0x01, 107),
+            (0x06, 84),
+            (0x08, 101),
+            (0x1B, 112),
+            (0x3E, 107),
+        ];
+        for (level, expected) in special {
+            assert_eq!(
+                recording_oracle_warp_target_live_frames(LevelId(level), false),
+                expected,
+                "level {level:#04x}: preserve its pre-loc_74E0 oracle tail"
+            );
+        }
+        assert_eq!(
+            recording_oracle_warp_target_live_frames(LevelId(0x52), false),
+            RECORDING_SETTLED_WARP_LIVE_FRAMES,
+            "the 0x52 59-frame correction applies only after the debug lifecycle"
+        );
+        assert_eq!(
+            recording_oracle_warp_target_live_frames(LevelId(0x52), true),
+            RECORDING_SETTLED_WARP_LIVE_FRAMES - 1,
+            "oracle settle run 1786728817 pins 0x52 at target-live step 59"
+        );
+    }
+
     /// #442: the measured load-completion table drives the hidden Mode_Level
     /// boundary. Pin the witness anchors: 0x48 is the level the legacy fixed
     /// boundary (71 = 72 - 1) already modelled exactly; 0x30/0x60 are the
@@ -965,6 +1023,93 @@ mod tests {
             None,
             "level 0 takes the title path and has no debug-warp load freeze"
         );
+    }
+
+    #[test]
+    fn debug_level_entry_load_complete_table_pins_every_measured_level_loc_74e0() {
+        // oracle-settle-census derivation v2, run 1786640409. An exhaustive
+        // domain assertion prevents an individual match arm silently falling
+        // back to `None` while the three historical anchors remain green.
+        let expected = [
+            (0x49, 56),
+            (0x52, 57),
+            (0x50, 58),
+            (0x67, 58),
+            (0x68, 58),
+            (0x59, 59),
+            (0x53, 60),
+            (0x58, 60),
+            (0x55, 61),
+            (0x66, 61),
+            (0x57, 62),
+            (0x60, 62),
+            (0x33, 63),
+            (0x65, 63),
+            (0x54, 64),
+            (0x56, 64),
+            (0x61, 64),
+            (0x51, 65),
+            (0x07, 68),
+            (0x10, 68),
+            (0x26, 68),
+            (0x16, 69),
+            (0x27, 69),
+            (0x01, 70),
+            (0x64, 70),
+            (0x02, 71),
+            (0x05, 71),
+            (0x25, 71),
+            (0x39, 71),
+            (0x62, 71),
+            (0x48, 72),
+            (0x63, 72),
+            (0x03, 73),
+            (0x11, 74),
+            (0x15, 74),
+            (0x18, 74),
+            (0x24, 74),
+            (0x09, 75),
+            (0x23, 75),
+            (0x28, 75),
+            (0x30, 75),
+            (0x38, 75),
+            (0x41, 75),
+            (0x45, 75),
+            (0x47, 75),
+            (0x06, 76),
+            (0x17, 76),
+            (0x31, 76),
+            (0x37, 76),
+            (0x44, 76),
+            (0x46, 76),
+            (0x19, 77),
+            (0x40, 77),
+            (0x42, 77),
+            (0x22, 78),
+            (0x36, 78),
+            (0x14, 79),
+            (0x20, 79),
+            (0x21, 79),
+            (0x34, 79),
+            (0x35, 79),
+            (0x43, 79),
+            (0x08, 80),
+            (0x13, 80),
+            (0x29, 80),
+            (0x32, 80),
+            (0x04, 81),
+            (0x12, 84),
+        ];
+        let expected = expected
+            .into_iter()
+            .collect::<std::collections::BTreeMap<_, _>>();
+        for level in 0u8..=0x68 {
+            assert_eq!(
+                debug_level_entry_load_complete_step_loc_74e0(LevelId(level)),
+                expected.get(&level).copied(),
+                "level {level:#04x}: loc_74E0 completion must match the checked-in census"
+            );
+        }
     }
 
     #[test]
@@ -1161,6 +1306,66 @@ mod tests {
     }
 
     #[test]
+    fn raster_scheduler_runner_executes_visitor_for_every_requested_frame() {
+        let mut scheduled = Vec::new();
+        let mut visited = Vec::new();
+        ScriptRunner::new(minimal_manifest())
+            .try_for_each_frame_with_raster_scheduler(
+                &[0; 3],
+                3,
+                |index, _| {
+                    scheduled.push(index);
+                    None
+                },
+                |index, _, _, trace| {
+                    visited.push((index, trace.frame_index));
+                    Ok::<_, std::convert::Infallible>(())
+                },
+            )
+            .expect("scheduled replay");
+
+        assert!(
+            scheduled.is_empty(),
+            "boot frames do not yet own a Mode_Level raster pass"
+        );
+        assert_eq!(
+            visited.iter().map(|(index, _)| *index).collect::<Vec<_>>(),
+            [0, 1, 2]
+        );
+    }
+
+    #[test]
+    fn recording_runner_reports_delayed_input_and_restores_title_handoff_once_loc_1ae2e() {
+        let runner = ScriptRunner::new(minimal_manifest())
+            .warp_to_level(1)
+            .settle_recording_warp()
+            .direct_initial_title_card_handoff();
+        let (mut runtime, delay_input, mut restore_handoff) = runner.into_runtime();
+        assert_eq!(runtime.current_level, LevelId(1));
+        assert!(runtime.recording_oracle_debug_lifecycle_completed);
+        assert!(
+            delay_input,
+            "recording-oracle replay delays script input by one frame"
+        );
+        assert!(
+            restore_handoff,
+            "direct initial handoff arms the one-shot restore"
+        );
+
+        runtime.set_recorded_title_card_handoff_delay(false);
+        restore_recorded_title_card_handoff_if_needed(
+            &mut runtime,
+            &mut restore_handoff,
+            GameMode::InGame,
+        );
+        assert!(
+            !restore_handoff,
+            "the first live frame consumes the restore latch"
+        );
+        assert!(runtime.recorded_title_card_handoff_delay);
+    }
+
+    #[test]
     fn run_script_with_warp_returns_requested_live_frames_without_cache() {
         let manifest = minimal_manifest();
         let trace = run_script_with_warp(manifest, &[0, 0], 2, Some(0));
@@ -1179,6 +1384,20 @@ mod tests {
                 .iter()
                 .any(|frame| frame.game_mode == GameMode::InGame),
             "boot_to_level should put the wrapped runner in gameplay for a level warp"
+        );
+    }
+
+    #[test]
+    fn enter_level_playtest_returns_the_live_target_trace_without_cache() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let trace = runtime.enter_level_playtest(LevelId(0x12));
+
+        assert_eq!(trace.current_level, LevelId(0x12));
+        assert_eq!(trace.game_mode, GameMode::InGame);
+        assert_eq!(
+            trace.authoritative_crc32(),
+            runtime.trace_frame().authoritative_crc32(),
+            "the returned playtest trace must describe the mutated runtime, not a default frame"
         );
     }
 
