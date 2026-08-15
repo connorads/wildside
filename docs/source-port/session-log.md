@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (proactive terrain grid-mutation refresh)
+
+- Mutation-tested the `BlockGrid` cell/raw accessors: 25 tested, 24 caught,
+  one compiler-unviable, zero survivors.
+- The adjacent ASM `loc_11542` erase and raw-word mutation shard initially
+  left three survivors: erase-word high-byte reconstruction and independent
+  row/column bounds in the erase lookup and raw-word setter.
+- Added a distinct erase-word contract plus one-axis-at-a-time out-of-bounds
+  checks. Fresh shard: 19 tested, 18 caught, one compiler-unviable, zero
+  survivors. `verify-slice-fast` passes.
+
 ## 2026-08-15 handoff (proactive terrain layout-parser mutation refresh)
 
 - Mutation-tested `BlockGrid::from_level_layout` plus the ASM `loc_11542`

@@ -4638,6 +4638,35 @@ mod tests {
         assert_eq!(grid.cell_at(2, 2).collision, CollisionKind::Solid);
     }
 
+    #[test]
+    fn block_grid_erase_and_raw_word_paths_preserve_words_and_reject_each_oob_axis() {
+        let erase_words = vec![0x1234, 0x5678, 0x9ABC, 0xDEF0, 0x1357, 0x2468];
+        let mut grid =
+            BlockGrid::from_level_layout_with_erase_words_loc_11542(&[0; 12], erase_words, 3, 2);
+
+        assert_eq!(
+            grid.erase_cell_at_loc_11542(2, 1),
+            Cell::from_be_bytes(0x24, 0x68),
+            "ASM EraseBlockFromLevelLayout loc_11542 restores both bytes of the decoded layout word",
+        );
+        assert_eq!(
+            grid.erase_cell_at_loc_11542(3, 0),
+            Cell::from_be_bytes(0, 0),
+            "a column beyond Level_Width must not alias the next row",
+        );
+        assert_eq!(
+            grid.erase_cell_at_loc_11542(0, 2),
+            Cell::from_be_bytes(0, 0),
+            "a row beyond Level_Height must not read past the layout",
+        );
+
+        let before = grid.clone();
+        grid.set_raw_word_at(3, 0, 0xA1B2);
+        grid.set_raw_word_at(0, 2, 0xC3D4);
+        assert_eq!(grid.cells, before.cells);
+        assert_eq!(grid.raw_words, before.raw_words);
+    }
+
     // -----------------------------------------------------------------------
     // Probe functions — left-moving and edge cases
     // -----------------------------------------------------------------------
