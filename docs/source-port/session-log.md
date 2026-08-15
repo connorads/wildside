@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (#456 Armadillo)
+
+- Armadillo now follows its source branch from loc_3C930 into Lion.asm's
+  cliff-fall walker instead of the kid.asm cliff-turn approximation.
+- All seven Armadillo levels pass focused sweep `1786792150`.
+- Full sweep `1786792159` remains 65/69 with 14 blockers and no regression.
+- `verify-slice-fast` and `verify-tas-full` pass.
+- Lion, Orca, and walking Dragon remain staged under #456.
+
 ## 2026-08-15 handoff (#455 partial)
 
 - Removed the hardcoded Level-1 RNG ring/offset force-write. The measured

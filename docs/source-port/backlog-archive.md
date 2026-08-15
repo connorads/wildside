@@ -702,7 +702,20 @@ sweep regressions.
 
 Ninja resolved 2026-08-14 under #451. Its Lion-library companions now include
 the loc_3D554 init defer and 11x29 terrain box, loc_3D960 guard byte, and
-loc_3D9A4 timer jump. Five families remain staged here.
+loc_3D9A4 timer jump. Scorpion was already converted under #421, leaving four
+families staged here at that boundary.
+
+Armadillo resolved 2026-08-15. Its companion routes were already complete:
+Enemy04_Armadillo_Init's one-pass defer, loc_3C756/loc_3C766 capped speed,
+loc_3C848 damage response, loc_3C898/loc_3C8CC Berzerker launch, and
+loc_3C93C/loc_3C954 child fall/death. `loc_3C930` branches directly by
+`x_direction` into Lion.asm loc_3E3B2/loc_3E566, so native now uses that
+library's cliff-fall path instead of the kid.asm cliff turn. Focused sweep
+`1786792150` passes all seven Armadillo levels (0x11, 0x12, 0x37, 0x43, 0x46,
+0x53, 0x62) with zero blockers. Full sweep `1786792159` remains 65/69 with 14
+blockers, identical to `1786743087`; no unrelated level regresses. Lion, Orca,
+and walking Dragon remain staged. `verify-slice-fast` and the full 37,759-frame
+TAS gate pass with every ratchet unchanged.
 
 ### #457
 
