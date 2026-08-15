@@ -717,6 +717,16 @@ blockers, identical to `1786743087`; no unrelated level regresses. Lion, Orca,
 and walking Dragon remain staged. `verify-slice-fast` and the full 37,759-frame
 TAS gate pass with every ratchet unchanged.
 
+Lion resolved 2026-08-15. Enemy12_Lion_Init already owns the full companion
+state: loc_3DFD8/loc_3DFF0 motion and 20x47 terrain dimensions, loc_3E03C roar
+and projectile cadence, loc_3E318 damage, the dedicated loc_3E48E/loc_3E642
+turnaround counter, and loc_3E732 landing. `loc_3E11E` branches directly into
+loc_3E3B2/loc_3E566, so native now lets Lion walk off cliffs through
+loc_3E682/loc_3E79E. Focused sweep `1786793277` passes all three Lion levels
+(0x07, 0x23, 0x36). Full sweep `1786793285` remains 65/69 with 14 blockers and
+no unrelated regression. `verify-slice-fast` and the full 37,759-frame TAS gate
+pass with every ratchet unchanged. Orca and walking Dragon remain staged.
+
 ### #457
 
 Opened 2026-08-13 (#419 residue). Native's Goat wall freeze emerges from
