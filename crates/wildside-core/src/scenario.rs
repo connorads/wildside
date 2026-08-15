@@ -1,8 +1,4 @@
 use super::*;
-use crate::level::{
-    island_shore_art_source_label_loc_1220e, step_island_palette_cycle_lower_band_loc_12188,
-};
-
 // Full-frame oracle warps do more than the explicit 60-frame stable-level poll:
 // the ROM level-skip path has a live title-card tail before the helper starts
 // counting stable target frames. The compatibility `boot_to_level` path skips
@@ -20,9 +16,8 @@ const LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS: usize = 0x08;
 // frame 365. The recording shell therefore advances SolidGhost state by $2F
 // ticks beyond the direct boot settle for the 0x38/0x47 block-list aliases.
 const CRYPT_RECORDING_GHOST_BLOCK_EXTRA_TICKS: usize = 0x2F;
-const ISLAND_RECORDING_SHORE_EXTRA_TICKS_LOC_1202A: usize = 0x10;
-const ISLAND_RECORDING_SHORE_LOWER_EXTRA_TICKS_LOC_12188: usize = 0x12;
 const SETTLED_WARP_MAX_ATTEMPT_FRAMES: usize = 828;
+const RECORDING_DEBUG_TITLE_WAIT_FRAMES_LOC_1AE2E: usize = 120;
 
 /// ASM loc_74E0 (kid.asm): measured per-level load completion of the
 /// debug-warp title window (#442). The ROM's loader blocks the frame loop, so
@@ -140,6 +135,12 @@ fn recording_oracle_warp_extra_ghost_block_ticks(level_id: LevelId) -> usize {
     }
 }
 
+fn recording_oracle_warp_hidden_object_passes_loc_e12(level_id: LevelId) -> usize {
+    debug_level_entry_load_complete_step_loc_74e0(level_id).map_or(0, |load_complete| {
+        RECORDING_DEBUG_TITLE_WAIT_FRAMES_LOC_1AE2E.saturating_sub(load_complete)
+    })
+}
+
 fn should_restore_recorded_title_card_after_first_live(
     restore_after_first_live: bool,
     game_mode: GameMode,
@@ -217,7 +218,7 @@ impl NativeRuntime {
                 // ROM's live shell — the level ages behind the never-shown
                 // title card, so frame-loop subsystems (murder wall) run.
                 self.debug_level_entry_runs_live_shell_loc_74e0 = true;
-                for _ in 0..120 {
+                for _ in 0..RECORDING_DEBUG_TITLE_WAIT_FRAMES_LOC_1AE2E {
                     self.step_frame(idle);
                 }
                 self.step_frame(start);
@@ -424,55 +425,17 @@ impl NativeRuntime {
                 self.step_ghost_blocks();
             }
         }
-        // ASM loc_1202A runs the Island shore DMA object through the ROM
-        // level-skip shell before recording frame 0. `Time_Frames` is already
-        // at the oracle phase here, so only the object-local VRAM worker gets
-        // the hidden tail; non-Island levels no-op because the object is absent.
-        for _ in 0..ISLAND_RECORDING_SHORE_EXTRA_TICKS_LOC_1202A {
-            self.step_island_shore_cycle_loc_1202a();
-        }
-        // ASM loc_12188's lower shore band reaches the #289 oracle VDP frame
-        // through additional level-skip DMA age after the primary/mid bands
-        // already match. Keep this scoped to the recording settle shim; normal
-        // live gameplay continues through the unified loc_1202A object.
-        for _ in 0..ISLAND_RECORDING_SHORE_LOWER_EXTRA_TICKS_LOC_12188 {
-            self.step_island_shore_lower_band_only_loc_12188();
-        }
-    }
-
-    fn step_island_shore_lower_band_only_loc_12188(&mut self) {
-        self.island_shore_dma_uploads_loc_1202a.clear();
-        let Some(state) = self.island_shore_cycle_loc_1202a.as_mut() else {
-            return;
-        };
-
-        let lower = step_island_palette_cycle_lower_band_loc_12188(
-            state.lower_countdown_48,
-            state.lower_phase_d1,
-        );
-        state.lower_countdown_48 = lower.next_countdown;
-        state.lower_phase_d1 = lower.next_phase;
-        if let (
-            Some(frame_index),
-            Some(source_offset),
-            Some(vram_word_address),
-            Some(dma_length_bytes),
-        ) = (
-            lower.uploaded_frame_index,
-            lower.dma_source_offset,
-            lower.vram_word_address,
-            lower.dma_length_bytes,
-        ) {
-            state.lower_vram_frame = frame_index;
-            self.island_shore_dma_uploads_loc_1202a
-                .push(IslandShoreDmaUploadLoc1202A {
-                    frame_index,
-                    art_source_label: island_shore_art_source_label_loc_1220e(frame_index)
-                        .to_owned(),
-                    source_offset,
-                    vram_word_address,
-                    dma_length_bytes,
-                });
+        let hidden_object_passes = recording_oracle_warp_hidden_object_passes_loc_e12(level_id);
+        if hidden_object_passes != 0 {
+            // ASM Mode_Level -> Execute_Objects loc_E12: Load_InGame
+            // loc_11FB0 allocates the Island shore coroutine, whose
+            // loc_12098/loc_12110/loc_12188 countdowns continue through every
+            // remaining hidden title-wait pass. The native debug lifecycle
+            // collapses those object resumes, so replay the measured window
+            // rather than maintaining independent band-phase constants.
+            for _ in 0..hidden_object_passes {
+                self.step_island_shore_cycle_loc_1202a();
+            }
         }
     }
 }
@@ -1055,6 +1018,20 @@ mod tests {
     }
 
     #[test]
+    fn recording_oracle_warp_replays_measured_hidden_object_passes_loc_e12() {
+        assert_eq!(
+            recording_oracle_warp_hidden_object_passes_loc_e12(LevelId(0x07)),
+            52,
+            "oracle settle trace 1786744461 runs Mode_Level Execute_Objects from Level 0x07 load-complete step 68 through title-wait step 119"
+        );
+        assert_eq!(
+            recording_oracle_warp_hidden_object_passes_loc_e12(LevelId(0)),
+            0,
+            "Level 0 takes the direct title path rather than the loc_74E0 debug-warp window"
+        );
+    }
+
+    #[test]
     fn settle_recording_oracle_warp_ticks_level_specific_ghost_blocks_loc_124a6_f730() {
         let mut ordinary_level = runtime_with_single_solid_ghost_group();
 
@@ -1129,57 +1106,6 @@ mod tests {
             runtime.trace_frame().hud_timer_sprite_seconds_loc_bee8,
             Some(180),
             "ASM loc_1AE2E presents the initial 3:00 timer table built by Make_SpriteAttr_HUD loc_BEE8 at recording frame zero"
-        );
-    }
-
-    #[test]
-    fn step_island_shore_lower_band_only_updates_lower_dma_loc_12188() {
-        let mut runtime = NativeRuntime::new(minimal_manifest());
-        runtime.island_shore_dma_uploads_loc_1202a.push(
-            crate::types::IslandShoreDmaUploadLoc1202A {
-                frame_index: 3,
-                art_source_label: "stale".to_owned(),
-                source_offset: 0,
-                vram_word_address: 0,
-                dma_length_bytes: 0,
-            },
-        );
-        runtime.island_shore_cycle_loc_1202a = Some(IslandShoreCycleStateLoc1202A {
-            primary_countdown_44: 9,
-            mid_countdown_46: 0x0F,
-            lower_countdown_48: 1,
-            primary_phase_d3: 1,
-            mid_phase_d2: 1,
-            lower_phase_d1: 2,
-            primary_vram_frame: 0,
-            mid_vram_frame: 0,
-            lower_vram_frame: 0,
-        });
-
-        runtime.step_island_shore_lower_band_only_loc_12188();
-
-        let state = runtime
-            .island_shore_cycle_loc_1202a
-            .expect("lower shore state should remain active");
-        assert_eq!(
-            (
-                state.lower_countdown_48,
-                state.lower_phase_d1,
-                state.lower_vram_frame
-            ),
-            (0x001E, 3, 2),
-            "ASM loc_12188 should tick only the lower shore band state"
-        );
-        assert_eq!(
-            runtime.island_shore_dma_uploads_loc_1202a,
-            vec![crate::types::IslandShoreDmaUploadLoc1202A {
-                frame_index: 2,
-                art_source_label: "unk_97E0E".to_owned(),
-                source_offset: 0x0162,
-                vram_word_address: 0xF760,
-                dma_length_bytes: 0x0180,
-            }],
-            "ASM loc_12188 should clear stale shore DMA uploads and enqueue only the lower-band transfer"
         );
     }
 

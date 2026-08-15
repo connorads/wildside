@@ -1578,6 +1578,20 @@ RNG write or add blanket per-hidden-frame ghost/shore calls.
 Focused state sweep `1786791549` passes 0x01. `verify-slice-fast` and the full
 37,759-frame TAS gate pass.
 
+Partial 2026-08-15 (Island shore): deleted the `$10` complete-worker and `$12`
+lower-band-only phase injections plus the production-only lower-band shim.
+Oracle settle trace `1786744461` exposes the real boundary: Level 0x07 loads
+at title-wait step 68, then `Mode_Level -> Execute_Objects loc_E12` resumes the
+loc_12098/loc_12110/loc_12188 shore coroutine on every remaining row through
+step 119. Native now derives `120 - load_complete` from #442's measured table
+and runs the complete coroutine for each hidden object pass. The cache-backed
+#289 witness retains exact shore frames `(3,2,1)` and `(0,3,1)`; the slow
+all-level frame-0 witness retains exactly the same 15 known residual levels.
+Full sweep `1786794753` remains 65/69 with 14 blockers and no regression. Only
+the SolidGhost 0x06/0x38/0x47 compatibility tail remains under #455.
+`verify-slice-fast` and the full 37,759-frame TAS gate pass with every ratchet
+unchanged.
+
 ### #451
 
 Opened 2026-08-09 (unmasked by the #423 Ninja speed fix). At 0x31 (roster

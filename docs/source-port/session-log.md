@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (#455 Island shore)
+
+- Deleted the two Island shore phase injections and lower-band-only shim.
+- Shore now runs its complete coroutine for each measured hidden object pass.
+- Cache-backed #289 remains exact; the 15-level shell residue set is unchanged.
+- Full sweep `1786794753` remains 65/69 with 14 blockers.
+- `verify-slice-fast` and the full 37,759-frame TAS gate pass unchanged.
+- The SolidGhost 0x06/0x38/0x47 tail is the final #455 injection.
+
 ## 2026-08-15 handoff (#456 Lion)
 
 - Lion now follows loc_3E11E into its own Lion.asm cliff-fall walker.
