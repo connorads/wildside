@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (#455 partial)
+
+- Removed the hardcoded Level-1 RNG ring/offset force-write. The measured
+  debug-warp shell reproduces the complete frame-0 state naturally.
+- The all-level witness retains the same 15 known residual levels and does not
+  list 0x01.
+- Focused sweep `1786791549`, `verify-slice-fast`, and `verify-tas-full` pass.
+- Ghost and Island tails remain. Removing them breaks the synthetic ghost and
+  green #289 witnesses; blanket murder-wall-style hidden ticks over-age them.
+  The cache-backed #230 route is independently stale against the current 0x38
+  block-list shape. Continue from the separate compatibility-shell boundary.
+
 ## 2026-08-14 handoff (#451 closed)
 
 - The 0x31 Ninja loss was the cliff-turn approximation; Ninja uses the

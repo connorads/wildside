@@ -23,17 +23,6 @@ const CRYPT_RECORDING_GHOST_BLOCK_EXTRA_TICKS: usize = 0x2F;
 const ISLAND_RECORDING_SHORE_EXTRA_TICKS_LOC_1202A: usize = 0x10;
 const ISLAND_RECORDING_SHORE_LOWER_EXTRA_TICKS_LOC_12188: usize = 0x12;
 const SETTLED_WARP_MAX_ATTEMPT_FRAMES: usize = 828;
-const LEVEL_ONE_RECORDING_SETTLE_RNG_OFFSET: u16 = 0xFFCB;
-// Oracle `issue260_p11` settle tracing reaches Level 1 target_live step 59 at
-// RNG $FFCB/$32. The first scenario frame then runs the two controller RNG
-// words through Get_RandomNumber_byte (kid.asm:1181) before Drips.asm
-// loc_3340E sees $FFCF/$09.
-const LEVEL_ONE_RECORDING_SETTLE_RNG_RING: [u8; 55] = [
-    0xF8, 0x5C, 0x32, 0x1D, 0xA6, 0xA1, 0xDA, 0xE0, 0xF3, 0x21, 0x05, 0xB3, 0xE5, 0x5E, 0x22, 0x59,
-    0x9B, 0x3F, 0xFA, 0xE6, 0x27, 0x5E, 0xA7, 0x64, 0x9C, 0xB7, 0x36, 0x64, 0x5B, 0xBC, 0xDA, 0x11,
-    0xB2, 0xE6, 0xAC, 0xED, 0x40, 0xD1, 0xE6, 0x9F, 0x61, 0x05, 0xC3, 0x78, 0x00, 0xA3, 0xC5, 0x89,
-    0x96, 0x12, 0xE1, 0x8E, 0x29, 0x15, 0x4A,
-];
 
 /// ASM loc_74E0 (kid.asm): measured per-level load completion of the
 /// debug-warp title window (#442). The ROM's loader blocks the frame loop, so
@@ -149,10 +138,6 @@ fn recording_oracle_warp_extra_ghost_block_ticks(level_id: LevelId) -> usize {
         LevelId(0x38 | 0x47) => CRYPT_RECORDING_GHOST_BLOCK_EXTRA_TICKS,
         _ => 0,
     }
-}
-
-fn recording_oracle_warp_resets_level_one_rng(level_id: LevelId) -> bool {
-    level_id == LevelId(1)
 }
 
 fn should_restore_recorded_title_card_after_first_live(
@@ -452,12 +437,6 @@ impl NativeRuntime {
         // live gameplay continues through the unified loc_1202A object.
         for _ in 0..ISLAND_RECORDING_SHORE_LOWER_EXTRA_TICKS_LOC_12188 {
             self.step_island_shore_lower_band_only_loc_12188();
-        }
-        if recording_oracle_warp_resets_level_one_rng(level_id) {
-            self.rom_random = RomRandomState::from_raw_parts(
-                LEVEL_ONE_RECORDING_SETTLE_RNG_RING,
-                LEVEL_ONE_RECORDING_SETTLE_RNG_OFFSET,
-            );
         }
     }
 
@@ -1073,10 +1052,6 @@ mod tests {
             recording_oracle_warp_extra_ghost_block_ticks(LevelId(0x47)),
             CRYPT_RECORDING_GHOST_BLOCK_EXTRA_TICKS
         );
-
-        assert!(!recording_oracle_warp_resets_level_one_rng(LevelId(0)));
-        assert!(recording_oracle_warp_resets_level_one_rng(LevelId(1)));
-        assert!(!recording_oracle_warp_resets_level_one_rng(LevelId(2)));
     }
 
     #[test]

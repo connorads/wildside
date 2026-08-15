@@ -4449,6 +4449,7 @@ impl RomRandomState {
         0x6C, 0x50, 0xFD, 0x99, 0x5F, 0x92, 0xD8, 0xD0, 0x90, 0x68,
     ];
 
+    #[cfg(test)]
     pub(crate) fn from_raw_parts(ram: [u8; Self::RAM_LENGTH], offset_word: u16) -> Self {
         let index = i32::from(offset_word as i16) + Self::RAM_LENGTH as i32;
         assert!(

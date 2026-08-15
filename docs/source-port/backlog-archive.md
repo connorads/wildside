@@ -1540,6 +1540,21 @@ frames run; (3) the Island shore extra ticks (0x10/0x12) likewise. Each wants
 the same treatment the wall got: find the subsystem's place in the hidden
 frame loop, wire it, delete the hand ticks.
 
+Partial 2026-08-15: retired the Level-1 force-write. With its hardcoded
+55-byte ring and `$FFCB` offset removed, the cache-backed all-level frame-0
+witness still reports exactly the same 15 known residual levels and does not
+list 0x01, proving the measured loc_74E0 shell reaches Level 1's complete RNG
+state naturally. The ghost and shore tails are not dead: deleting them breaks
+the synthetic ghost-tail contract and green #289 compatibility-bootstrap
+witness, while calling both workers beside the murder-wall hidden pass
+over-ages their state. The cache-backed #230 route is independently stale on
+the current generated 0x38 block list: it loads five horizontal groups and has
+no expected vertical `(0x1D,0x44)` group even with the existing tail. Continue
+by modelling the compatibility-shell boundary separately; do not restore the
+RNG write or add blanket per-hidden-frame ghost/shore calls.
+Focused state sweep `1786791549` passes 0x01. `verify-slice-fast` and the full
+37,759-frame TAS gate pass.
+
 ### #451
 
 Opened 2026-08-09 (unmasked by the #423 Ninja speed fix). At 0x31 (roster
