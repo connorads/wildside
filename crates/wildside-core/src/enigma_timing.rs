@@ -192,15 +192,19 @@ fn emit_return(
     // speculative input byte(s), align a0 to an even ROM address, restore the
     // thirteen saved registers, and return.
     emit(&[8, 8], visit, timing);
-    let mut return_address = source_address + u32::from(trace.terminator_next_input_offset) - 1;
+    // Only the address parity reaches loc_1357A. Addition and subtraction have
+    // identical parity, so model the branch directly instead of retaining an
+    // otherwise unobservable full speculative address.
+    let mut return_address_is_even =
+        source_address.is_multiple_of(2) != trace.terminator_next_input_offset.is_multiple_of(2);
     if trace.terminator_bits_remaining == 0x10 {
         emit(&[8, 8], visit, timing);
-        return_address -= 1;
+        return_address_is_even = !return_address_is_even;
     } else {
         emit(&[10], visit, timing);
     }
     emit(&[4, 8], visit, timing);
-    if return_address & 1 == 0 {
+    if return_address_is_even {
         emit(&[10], visit, timing);
     } else {
         emit(&[8, 8], visit, timing);
@@ -243,6 +247,73 @@ pub fn visit_enigma_instructions(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn compact_intro_maps_cover_inline_packet_and_return_paths() {
+        // ASM unk_2E77A, unk_2FDA6, and unk_2F840 are compact checked-in Enigma
+        // streams. Together they exercise loc_1359A..loc_135D2 mixed property
+        // flags, one- and two-bit crossing reads, exact packet reads, command-7
+        // inline lists, and loc_13570's `$10` terminator rewind. Keeping the
+        // bytes inline avoids a cache-only dependency while pinning every
+        // timing branch to ROM data.
+        const MAP_2E77A: &[u8] = &[
+            0x09, 0x03, 0x00, 0x02, 0x00, 0x00, 0x46, 0x01, 0x15, 0x01, 0xC0, 0x1B, 0xB0, 0x45,
+            0xB8, 0x00, 0xDA, 0xE4, 0x7F, 0x80, 0xA5, 0xAE, 0x49, 0xE8, 0x81, 0xFB, 0xE4, 0xBE,
+            0x89, 0x3F, 0xE1, 0x87, 0xEB, 0x94, 0x14, 0x39, 0x82, 0x02, 0x92, 0x52, 0x80, 0x05,
+            0xE2, 0x97, 0xC0, 0x26, 0x57, 0x2B, 0x48, 0x70, 0x0A, 0xB7, 0xCB, 0x15, 0xA2, 0xE4,
+            0x8D, 0xC2, 0xFB, 0xC0, 0x3F, 0x5C, 0x31, 0x48, 0xF1, 0x11, 0x86, 0x5E, 0xA8, 0x8E,
+            0xE3, 0x00, 0xC4, 0xA3, 0xE8, 0xFF,
+        ];
+        const MAP_2FDA6: &[u8] = &[
+            0x0A, 0x02, 0x00, 0x34, 0x00, 0x00, 0x4E, 0xAA, 0x70, 0x47, 0x85, 0x34, 0xAC, 0x9D,
+            0x90, 0xB6, 0x9F, 0x60, 0x12, 0x50, 0x28, 0xA8, 0x94, 0xAB, 0xA8, 0xB4, 0x6C, 0x29,
+            0x34, 0x6B, 0xA9, 0xC4, 0xEA, 0x2A, 0x45, 0x28, 0xAA, 0x95, 0x3F, 0x80,
+        ];
+        const MAP_2F840: &[u8] = &[
+            0x04, 0x02, 0x00, 0x00, 0x00, 0x07, 0x02, 0x10, 0x00, 0x80, 0x00, 0x20, 0x00, 0x0E,
+            0x20, 0x98, 0x10, 0x26, 0x13, 0x20, 0xFF,
+        ];
+
+        for (data, base_tile_word, source_address, expected) in [
+            (
+                MAP_2E77A,
+                0,
+                0x2E77A,
+                EnigmaTiming {
+                    instruction_count: 2_481,
+                    raw_cycles: 20_678,
+                    output_words: 203,
+                },
+            ),
+            (
+                MAP_2FDA6,
+                0,
+                0x2FDA6,
+                EnigmaTiming {
+                    instruction_count: 1_138,
+                    raw_cycles: 9_912,
+                    output_words: 90,
+                },
+            ),
+            (
+                MAP_2F840,
+                0,
+                0x2F840,
+                EnigmaTiming {
+                    instruction_count: 615,
+                    raw_cycles: 5_602,
+                    output_words: 28,
+                },
+            ),
+        ] {
+            let timing = visit_enigma_instructions(data, base_tile_word, source_address, |_| {})
+                .expect("valid ROM Enigma stream");
+            assert_eq!(
+                timing, expected,
+                "ASM EniDec timing for {source_address:#x}"
+            );
+        }
+    }
 
     #[test]
     fn repeated_intro_rows_follow_eni_dec_source_instruction_path() {

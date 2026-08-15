@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (proactive Enigma timing mutation refresh)
+
+- Mutation-tested `enigma_timing.rs`: the initial 77-mutant run found 23
+  misses across inline property flags, crossing-packet cycle arithmetic,
+  command-7 inline lists, prefix width, and return alignment.
+- Added cache-independent ROM fixtures from `unk_2E77A`, `unk_2FDA6`, and
+  `unk_2F840`, covering one/two-bit crossings, exact boundaries, mixed flags,
+  inline lists, and the `$10` terminator rewind through public EniDec timing.
+- Replaced the unobservable speculative return-address arithmetic with its
+  exact even/odd alignment decision. Fresh full shard: 70 tested, 69 caught,
+  one compiler-unviable, zero survivors. `verify-slice-fast` and
+  `verify-tas-full` pass; the full gate checks 37,759 frames.
+
 ## 2026-08-15 handoff (proactive walking Dragon mutation refresh)
 
 - Mutation-tested `enemies/dragon_walking.rs` after #456: the initial 154-mutant
