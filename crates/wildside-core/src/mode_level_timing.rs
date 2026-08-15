@@ -7171,11 +7171,12 @@ pub fn transform_sub_8e0_advance_to_wait_for_vint_poll_with_scheduler(
         refresh_events = refresh_events.checked_add(advance.refresh_events)?;
         phase = advance.phase_after;
         let mut pending_wait = generated_wait;
-        while pending_wait.get() != 0 {
-            let wait = phase.advance_external_wait(pending_wait);
+        while let Some(wait_cycles) = core::num::NonZeroU32::new(pending_wait.get()) {
+            let wait_count = M68kCycleCount::from_raw(wait_cycles.get());
+            let wait = phase.advance_external_wait(wait_count);
             elapsed = elapsed.checked_add(wait.elapsed.get())?;
             phase = wait.phase_after;
-            pending_wait = advance_hardware(pending_wait)?;
+            pending_wait = advance_hardware(wait_count)?;
         }
     }
 
@@ -7902,6 +7903,162 @@ pub fn mode_level_post_hud_advance_to_loc_892_with_phase_observer(
 mod tests {
     use super::*;
 
+    fn cyclone_pickup_execute_work() -> ModeLevelExecuteObjectsWork {
+        ModeLevelExecuteObjectsWork {
+            rng_offset_before_sub_e12: Some(0xFFDF),
+            linked_object_count: 5,
+            linked_gfx_object_count: 5,
+            linked_non_transient_object_count: 4,
+            player: crate::ModeLevelPlayerWorkBeforeHud::Stationary,
+            prize_block_wobble_workers_sub_1007a: 0,
+            prize_block_worker_tails_sub_1007a: 0,
+            prize_block_flash_workers_loc_102b8: 0,
+            floating_prize_workers: 1,
+            collected_diamond_workers: Vec::new(),
+            rubber_block_skin_workers_sub_10de4: 0,
+            active_enemy_workers: 0,
+            active_platform_workers: 0,
+            palette_rotation_worker_loc_11f96: 0,
+            unclassified_runtime_transient_workers: 0,
+            block_destroy_workers_sub_10eda: Vec::new(),
+            block_debris_workers_sub_292e: 0,
+            player_entry_position: None,
+            player_gfx_terrain_scan: None,
+            cyclone_visual_accumulator_before: None,
+            prize_block_wobble_paths_sub_1007a: Vec::new(),
+            player_spawned_prize_block_initial_sub_1007a: None,
+            player_prize_wobble_list_work_loc_1002e: None,
+            player_spawned_block_destroy_list_work_sub_10e86: None,
+            prize_object_execution_order_sub_e12: Some(vec![
+                ModeLevelPrizeObjectExecutionSubE12::FloatingPrize { index: 0 },
+                ModeLevelPrizeObjectExecutionSubE12::Player,
+            ]),
+            damage_flash_wait_loc_bc44: Some(ModeLevelDamageFlashWaitLocBc44::AwaitDamage),
+            demo_exit_wait_loc_119e0: Some(ModeLevelDemoExitWaitLoc119E0::HibernateNoStart),
+            input_worker_loc_7452: Some(
+                ModeLevelInputWorkerPathLoc7452::DemoNoLeftNoStartTimerClear,
+            ),
+            palette_fade_worker_sub_73d0: None,
+            prize_block_tail_paths_sub_1066: Vec::new(),
+            prize_block_flash_paths_sub_1066: Vec::new(),
+            floating_prize_paths: vec![crate::ModeLevelFloatingPrizeWork {
+                content: crate::terrain::PrizeContent::Cyclone,
+                remaining: 765,
+                spawn_delay: 0,
+                initial_sub_102f8: false,
+                first_row_grace: false,
+                collision_latched: true,
+                fall_path_loc_103b2: Some(
+                    ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallSameRow,
+                ),
+            }],
+            executed_player_path: Some(ModeLevelPlayerExecutionPath::Unclassified),
+        }
+    }
+
+    #[test]
+    fn cyclone_pickup_transform_classifier_rejects_each_non_published_fact() {
+        // ASM sub_E12 -> loc_E1E -> loc_103B2 -> loc_A73A -> Kid_Transform
+        // sub_8E0, published TAS frame 1058. Every fact below identifies one
+        // independently observed worker/list branch; weakening any one must
+        // leave the timing path unclassified.
+        let valid = cyclone_pickup_execute_work();
+        assert_eq!(
+            cyclone_pickup_transform_entry_sub_e12(&valid),
+            Some(CyclonePickupTransformEntrySubE12),
+        );
+
+        let mut invalid = Vec::new();
+        macro_rules! changed {
+            ($name:literal, $field:ident, $value:expr) => {{
+                let mut work = valid.clone();
+                work.$field = $value;
+                invalid.push(($name, work));
+            }};
+        }
+        changed!("RNG offset", rng_offset_before_sub_e12, None);
+        changed!("object count", linked_object_count, 4);
+        changed!("gfx count", linked_gfx_object_count, 4);
+        changed!("non-transient count", linked_non_transient_object_count, 3);
+        changed!("floating worker count", floating_prize_workers, 0);
+        changed!("rubber worker", rubber_block_skin_workers_sub_10de4, 1);
+        changed!("enemy worker", active_enemy_workers, 1);
+        changed!("platform worker", active_platform_workers, 1);
+        changed!("palette rotation", palette_rotation_worker_loc_11f96, 1);
+        changed!(
+            "unclassified transient",
+            unclassified_runtime_transient_workers,
+            1
+        );
+        changed!(
+            "execution order",
+            prize_object_execution_order_sub_e12,
+            None
+        );
+        changed!("player path", executed_player_path, None);
+        changed!("input worker", input_worker_loc_7452, None);
+        changed!("damage worker", damage_flash_wait_loc_bc44, None);
+        changed!("demo worker", demo_exit_wait_loc_119e0, None);
+        changed!(
+            "palette worker",
+            palette_fade_worker_sub_73d0,
+            Some(crate::ModeLevelPaletteFadeWorkerPathSub73D0::InitialCopyAndHibernate)
+        );
+
+        type PrizeMutation = fn(&mut crate::ModeLevelFloatingPrizeWork);
+        let prize_mutations: [(&str, PrizeMutation); 6] = [
+            (
+                "prize content",
+                |prize: &mut crate::ModeLevelFloatingPrizeWork| {
+                    prize.content = crate::terrain::PrizeContent::Diamond;
+                },
+            ),
+            (
+                "remaining",
+                |prize: &mut crate::ModeLevelFloatingPrizeWork| {
+                    prize.remaining = 764;
+                },
+            ),
+            (
+                "spawn delay",
+                |prize: &mut crate::ModeLevelFloatingPrizeWork| {
+                    prize.spawn_delay = 1;
+                },
+            ),
+            (
+                "row grace",
+                |prize: &mut crate::ModeLevelFloatingPrizeWork| {
+                    prize.first_row_grace = true;
+                },
+            ),
+            (
+                "collision latch",
+                |prize: &mut crate::ModeLevelFloatingPrizeWork| {
+                    prize.collision_latched = false;
+                },
+            ),
+            (
+                "fall path",
+                |prize: &mut crate::ModeLevelFloatingPrizeWork| {
+                    prize.fall_path_loc_103b2 = None;
+                },
+            ),
+        ];
+        for (name, mutate) in prize_mutations {
+            let mut work = valid.clone();
+            mutate(&mut work.floating_prize_paths[0]);
+            invalid.push((name, work));
+        }
+
+        for (name, work) in invalid {
+            assert_eq!(
+                cyclone_pickup_transform_entry_sub_e12(&work),
+                None,
+                "classifier accepts wrong {name}",
+            );
+        }
+    }
+
     #[test]
     fn transform_sub_8e0_composes_empty_lists_to_wait_poll() {
         let work = TransformRasterWorkSub8E0 {
@@ -7919,6 +8076,11 @@ mod tests {
             M68kRefreshPhase::new(84).expect("test sub_8E0 entry phase"),
             &work,
             |cycles| {
+                assert_ne!(
+                    cycles.get(),
+                    0,
+                    "ASM sub_8E0 scheduler must not requeue a settled zero wait"
+                );
                 hardware_interval_cycles += cycles.get();
                 Some(M68kCycleCount::from_raw(0))
             },

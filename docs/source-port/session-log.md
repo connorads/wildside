@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (proactive Cyclone transform classifier refresh)
+
+- Mutation-tested the `mode_level_timing.rs` Cyclone pickup classifier and
+  `sub_8E0` refresh scheduler: the initial 46-mutant shard found 42 misses and
+  one timeout because the classifier had no direct contract and the zero-wait
+  loop admitted a hang-prone comparison mutation.
+- Added the published frame-1058 `sub_E12 -> loc_103B2 -> Kid_Transform`
+  fixture and independently falsified all 22 worker, list, prize, collision,
+  and fall-path facts. Replaced the raw zero comparison with `NonZeroU32`
+  pending-wait state.
+- Fresh focused shard: 45 tested, 43 caught, two compiler-unviable, zero
+  survivors. `verify-slice-fast` and `verify-tas-full` pass; the full gate
+  checks 37,759 frames.
+
 ## 2026-08-15 handoff (proactive transform scheduler mutation refresh)
 
 - Mutation-tested the five live `vdp.rs` scheduler adapters around ASM
