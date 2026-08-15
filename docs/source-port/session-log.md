@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (proactive leftward walker mutation refresh)
+
+- Mutation-tested ASM `sub_36A58` independently from its rightward counterpart.
+  The initial 13-mutant shard found two misses in `loc_36ACE` because existing
+  fixtures covered exact `$4000` and mixed `$5000/$6000`, but not an empty
+  following-lead word.
+- Added an exact empty-following-lead contract that keeps both low `d7` bits
+  clear. Fresh shard: 13 tested, 12 caught, one compiler-unviable, zero
+  survivors. `verify-slice-fast` passes.
+
 ## 2026-08-15 handoff (proactive terrain walker mutation refresh)
 
 - Mutation-tested the `sub_B55C` relative-collision helper cluster: 52 tested,

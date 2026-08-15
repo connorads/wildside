@@ -6081,6 +6081,20 @@ mod tests {
     }
 
     #[test]
+    fn grounded_walker_scan_left_sub_36a58_keeps_empty_following_lead_clear() {
+        let grid = BlockGrid::from_level_layout(&[0u8; 5 * 5 * 2], 5, 5);
+
+        // ASM sub_36A58 loc_36ABE/loc_36ACE: the following lead word is
+        // masked with $7000. An exact $4000 adds bit 0 and a remaining word
+        // carrying $4000 adds bit 1, so an empty word adds neither.
+        let scan = grounded_walker_scan_left_sub_36A58(&grid, 40, 48, 16, 32);
+
+        assert_eq!(scan.flags_d7, 0);
+        assert_eq!(scan.floor_class_d6, -1);
+        assert_eq!(scan.floor_row_mask_d5, 0);
+    }
+
+    #[test]
     fn horizontal_collision_scan_left_sub_36bd6_treats_the_left_boundary_as_blocked() {
         let data = [0u8; 4 * 4 * 2];
         let grid = BlockGrid::from_level_layout(&data, 4, 4);
