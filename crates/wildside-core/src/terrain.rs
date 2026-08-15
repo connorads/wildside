@@ -1572,9 +1572,6 @@ pub fn probe_floor_span(
     let start_x = left_x_px.min(right_x_px);
     let end_x = left_x_px.max(right_x_px);
     let grid_max_x = grid.width_pixels().saturating_sub(1);
-    if grid.width_pixels() <= 0 || end_x < 0 || start_x > grid_max_x {
-        return probe_floor(grid, start_x, foot_y_px);
-    }
     let scan_start_x = start_x.max(0);
     let scan_end_x = end_x.min(grid_max_x);
     let select_higher_floor = |a: FloorProbe, b: FloorProbe| {
@@ -3736,6 +3733,17 @@ mod tests {
 
         let right_outside = probe_floor_span(&grid, 64, 512, 31);
         assert_eq!(right_outside.cell.collision, CollisionKind::Empty);
+
+        let left_edge = probe_floor_span(&grid, -512, 0, 31);
+        assert_eq!(left_edge.cell.collision, CollisionKind::Empty);
+        assert_eq!(left_edge.cell_x, 0);
+
+        let left_outside = probe_floor_span(&grid, -512, -1, 31);
+        assert_eq!(left_outside.cell.collision, CollisionKind::Empty);
+
+        let empty = BlockGrid::from_level_layout(&[], 0, 0);
+        let empty_probe = probe_floor_span(&empty, -16, 16, 31);
+        assert_eq!(empty_probe.cell.collision, CollisionKind::Empty);
     }
 
     // -----------------------------------------------------------------------

@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (proactive terrain floor-span mutation refresh)
+
+- Mutation-tested the foundational `terrain.rs` pixel-to-cell, slope-floor,
+  and floor-probe cluster. The initial 60-mutant shard found six survivors in
+  `probe_floor_span`'s redundant pre-clipping range guard.
+- Removed that guard: clipped fully-outside and empty inclusive ranges already
+  fall through to the same `probe_floor` fallback. Added exact left-edge,
+  fully-left-outside, and empty-grid regression cases.
+- Fresh focused shard: 51 tested, 47 caught, four compiler-unviable, zero
+  survivors. `verify-slice-fast` passes.
+
 ## 2026-08-15 handoff (proactive Cyclone transform classifier refresh)
 
 - Mutation-tested the `mode_level_timing.rs` Cyclone pickup classifier and
