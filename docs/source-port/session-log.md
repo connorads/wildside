@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (proactive terrain walker mutation refresh)
+
+- Mutation-tested the `sub_B55C` relative-collision helper cluster: 52 tested,
+  49 caught, three compiler-unviable, zero survivors.
+- Narrowed the adjacent grounded-walker audit to ASM `sub_36972`; the initial
+  16-mutant shard found three misses because the following-lead fixture only
+  exercised a set `$4000` bit.
+- Added an exact empty-following-lead contract for `loc_369DE/loc_369EE`.
+  Fresh shard: 16 tested, 15 caught, one compiler-unviable, zero survivors.
+  `verify-slice-fast` passes.
+
 ## 2026-08-15 handoff (proactive terrain floor-span mutation refresh)
 
 - Mutation-tested the foundational `terrain.rs` pixel-to-cell, slope-floor,
