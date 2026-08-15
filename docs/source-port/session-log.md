@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (proactive Orca mutation refresh)
+
+- `enemies/orca.rs` mutation testing is clean: 91 mutants tested in 11 minutes,
+  74 caught, 17 unviable, zero missed, and zero timed out.
+- Fixed `mutants-file` after the clean run exposed two wrapper faults: an
+  apostrophe broke the enclosing shell quote after cargo-mutants completed, and
+  the documented default nested output path was not created first.
+- A zero-mutant smoke invocation now succeeds with only `FILE=...`; explicit
+  `OUTPUT` and `TMPDIR` are no longer needed.
+- The sole ordinary ASM-coverage residue, Tar Monster `loc_32454`, is a
+  `CollisionSize_Index` code-as-data alias with no control-flow predecessor, not
+  a missing native behaviour; no citation was added.
+
 ## 2026-08-15 handoff (#456 closed with Orca)
 
 - Orca now follows its init, collision-resume, and landing-resume ASM branches
