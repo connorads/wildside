@@ -3420,6 +3420,70 @@ mod tests {
     }
 
     #[test]
+    fn transform_timing_paths_reject_each_unclassified_vblank_workload() {
+        // ASM loc_8FE enters sub_1596, skips pause sub_6874, and reaches the
+        // stable three-hitpoint sub_BDC0 path in the classified Cyclone trace.
+        // Each independent deviation must fail closed for the repeat,
+        // descriptor-transition, and loc_7E14 finish compositions.
+        let work = crate::ModeLevelVblankWorkBeforeSubE12 {
+            dynamic_art_tiles_loc_ad4: Some([12, 0, 0, 0, 0, 0]),
+            palette_dma_sub_970: true,
+            scroll_path: crate::ModeLevelScrollTransferPath::NormalLoc300ba,
+            foreground_custom_queue_entries_sub_1596: 0,
+            foreground_cell_queue_sub_1596: crate::ModeLevelForegroundCellQueueWorkSub1596::EMPTY,
+            paused_sub_6874: false,
+            hud_path_sub_bdc0: crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters,
+        };
+        let mut custom_queue = work;
+        custom_queue.foreground_custom_queue_entries_sub_1596 = 1;
+        let mut cell_queue = work;
+        cell_queue.foreground_cell_queue_sub_1596 =
+            crate::ModeLevelForegroundCellQueueWorkSub1596::from_paths(&[
+                crate::ModeLevelForegroundCellQueuePathSub1596::VisibleTheme,
+            ])
+            .expect("one foreground cell fits the ROM queue");
+        let mut paused = work;
+        paused.paused_sub_6874 = true;
+        let mut other_hud = work;
+        other_hud.hud_path_sub_bdc0 = crate::ModeLevelHudBuildPath::Other;
+
+        let descriptor_resume = crate::TransformRasterResume::AdvanceDescriptor {
+            descriptor_index: 1,
+            handler: crate::TransformHandler::HelmetArt,
+        };
+        for (name, unsupported) in [
+            ("custom queue", custom_queue),
+            ("cell queue", cell_queue),
+            ("pause", paused),
+            ("HUD path", other_hud),
+        ] {
+            assert_eq!(
+                visit_transform_sub_8e0_repeat_suffix_after_scroll_dma(unsupported, |_| {}),
+                None,
+                "repeat suffix accepts unsupported {name}",
+            );
+            assert_eq!(
+                visit_transform_sub_8e0_descriptor_suffix_after_scroll_dma(
+                    unsupported,
+                    descriptor_resume,
+                    |_| {},
+                ),
+                None,
+                "descriptor suffix accepts unsupported {name}",
+            );
+            assert_eq!(
+                transform_sub_8e0_finish_to_sub_44dc_timing(
+                    unsupported,
+                    crate::TransformRasterResume::FinishLoc7e14,
+                    crate::M68kRefreshPhase::new(16).expect("valid refresh phase"),
+                ),
+                None,
+                "finish suffix accepts unsupported {name}",
+            );
+        }
+    }
+
+    #[test]
     fn cyclone_pickup_entry_retains_sub_e12_to_sub_8e0_boundaries() {
         let mut cycles = Vec::new();
         let timing = visit_cyclone_pickup_transform_entry_sub_e12(

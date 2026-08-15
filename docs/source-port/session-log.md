@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (proactive transform timing mutation refresh)
+
+- Mutation-tested the post-July transform timing composition in
+  `intro_timing.rs`: the initial 35-mutant shard found nine misses in the
+  independent fail-closed guards for foreground queues, pause work, and the
+  classified three-hitpoint HUD path.
+- Added one public contract that varies each unsupported VBlank workload in
+  isolation across the repeat, descriptor-transition, and `loc_7E14` finish
+  paths from ASM `Kid_Transform sub_8E0`.
+- Fresh focused shard: 35 tested, 31 caught, four compiler-unviable, zero
+  survivors. `verify-slice-fast` and `verify-tas-full` pass; the full gate
+  checks 37,759 frames.
+
 ## 2026-08-15 handoff (proactive Saxman timing mutation refresh)
 
 - Mutation-tested `saxman_timing.rs`: the initial 82-mutant run found 24
