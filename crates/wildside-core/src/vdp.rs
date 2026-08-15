@@ -10443,6 +10443,134 @@ mod tests {
     }
 
     #[test]
+    fn transform_scheduler_cursors_advance_each_sub_8e0_boundary() {
+        // ASM Kid_Transform sub_8E0: exercise every scheduler adapter that
+        // composes the source-timed entry, repeat, descriptor, palette-return,
+        // and Cyclone pickup paths onto the persistent H40 beam.
+        let entry = LoadInGameCpuRasterCursor {
+            beam: H40BeamPosition::new(100, 500).expect("bounded test beam"),
+            refresh_phase: M68kRefreshPhase::new(84).expect("bounded refresh phase"),
+        };
+        let vblank_work = crate::ModeLevelVblankWorkBeforeSubE12 {
+            dynamic_art_tiles_loc_ad4: Some([12, 0, 0, 0, 0, 0]),
+            palette_dma_sub_970: true,
+            scroll_path: crate::ModeLevelScrollTransferPath::NormalLoc300ba,
+            foreground_custom_queue_entries_sub_1596: 0,
+            foreground_cell_queue_sub_1596: crate::ModeLevelForegroundCellQueueWorkSub1596::EMPTY,
+            paused_sub_6874: false,
+            hud_path_sub_bdc0: crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters,
+        };
+        let raster_work = crate::TransformRasterWorkSub8E0 {
+            murder_wall_active_sub_5e02: false,
+            gfx_sprite_work_sub_1492: crate::ModeLevelGfxSpriteWorkSub1492::Classified {
+                nodes: Vec::new(),
+            },
+            platform_work_sub_2444: crate::ModeLevelPlatformWork {
+                frozen_fa64: false,
+                active_object_count: 0,
+            },
+        };
+
+        let repeat = transform_sub_8e0_repeat_suffix_after_scroll_dma_cursor_with_scheduler(
+            entry,
+            vblank_work,
+            |_, _, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("classified transform repeat cursor");
+        let descriptor =
+            transform_sub_8e0_descriptor_suffix_after_scroll_dma_cursor_with_scheduler(
+                entry,
+                vblank_work,
+                crate::TransformRasterResume::AdvanceDescriptor {
+                    descriptor_index: 1,
+                    handler: crate::TransformHandler::HelmetArt,
+                },
+                |_, _, _| Some(M68kCycleCount::from_raw(0)),
+            )
+            .expect("classified transform descriptor cursor");
+        let wait_poll = transform_sub_8e0_entry_to_wait_for_vint_poll_cursor_with_scheduler(
+            entry,
+            &raster_work,
+            |_, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("classified transform entry cursor");
+        let palette = transform_sub_8e0_palette_return_to_scroll_call_cursor_with_scheduler(
+            entry,
+            |_, _, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("classified transform palette-return cursor");
+        let pickup = cyclone_pickup_transform_entry_cursor_with_scheduler(
+            ModeLevelRasterSeedSubE12 {
+                beam: entry.beam,
+                refresh_phase: entry.refresh_phase,
+            },
+            crate::CyclonePickupTransformEntrySubE12,
+            |_, _, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("classified Cyclone pickup cursor");
+
+        assert_eq!(
+            repeat,
+            TitleIntroSourceAdvance {
+                cursor: LoadInGameCpuRasterCursor {
+                    beam: H40BeamPosition::new(101, 3_226).expect("expected repeat beam"),
+                    refresh_phase: M68kRefreshPhase::new(66).expect("expected repeat phase"),
+                },
+                timing: crate::intro_timing::IntroSourceTiming {
+                    instruction_count: 54,
+                    raw_cycles: M68kCycleCount::from_raw(864),
+                },
+                refresh_events: 7,
+                external_wait_cycles: M68kCycleCount::from_raw(0),
+            },
+        );
+        assert_eq!(
+            descriptor,
+            TitleIntroSourceAdvance {
+                cursor: LoadInGameCpuRasterCursor {
+                    beam: H40BeamPosition::new(103, 936).expect("expected descriptor beam"),
+                    refresh_phase: M68kRefreshPhase::new(76).expect("expected descriptor phase"),
+                },
+                timing: crate::intro_timing::IntroSourceTiming {
+                    instruction_count: 109,
+                    raw_cycles: M68kCycleCount::from_raw(1_504),
+                },
+                refresh_events: 12,
+                external_wait_cycles: M68kCycleCount::from_raw(0),
+            },
+        );
+        assert_eq!(
+            wait_poll,
+            LoadInGameCpuRasterCursor {
+                beam: H40BeamPosition::new(100, 2_964).expect("expected wait-poll beam"),
+                refresh_phase: M68kRefreshPhase::new(52).expect("expected wait-poll phase"),
+            },
+        );
+        assert_eq!(
+            palette,
+            TitleIntroSourceAdvance {
+                cursor: LoadInGameCpuRasterCursor {
+                    beam: H40BeamPosition::new(100, 612).expect("expected palette beam"),
+                    refresh_phase: M68kRefreshPhase::new(100).expect("expected palette phase"),
+                },
+                timing: crate::intro_timing::IntroSourceTiming {
+                    instruction_count: 1,
+                    raw_cycles: M68kCycleCount::from_raw(16),
+                },
+                refresh_events: 0,
+                external_wait_cycles: M68kCycleCount::from_raw(0),
+            },
+        );
+        assert_eq!(
+            pickup,
+            LoadInGameCpuRasterCursor {
+                beam: H40BeamPosition::new(113, 700).expect("expected pickup beam"),
+                refresh_phase: M68kRefreshPhase::new(64).expect("expected pickup phase"),
+            },
+        );
+    }
+
+    #[test]
     fn unchanged_gameplay_camera_tiles_match_frame_919_source_trace() {
         let entry_cycles = M68kCycleCount::from_raw(117_644_595);
         let advance = mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(

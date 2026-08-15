@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (proactive transform scheduler mutation refresh)
+
+- Mutation-tested the five live `vdp.rs` scheduler adapters around ASM
+  `Kid_Transform sub_8E0`; initially, replacing every cursor with `None`
+  survived because no test crossed these wrapper boundaries.
+- Added one end-to-end public scheduler contract covering the repeat,
+  descriptor-transition, pre-VINT entry, palette-return, and Cyclone pickup
+  cursors with exact H40 beam, refresh phase, source timing, and refresh-event
+  results.
+- Fresh focused shard: ten tested, five caught, five compiler-unviable, zero
+  survivors. `verify-slice-fast` and `verify-tas-full` pass; the full gate
+  checks 37,759 frames.
+
 ## 2026-08-15 handoff (proactive transform timing mutation refresh)
 
 - Mutation-tested the post-July transform timing composition in
