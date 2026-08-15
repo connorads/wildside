@@ -1592,6 +1592,21 @@ the SolidGhost 0x06/0x38/0x47 compatibility tail remains under #455.
 `verify-slice-fast` and the full 37,759-frame TAS gate pass with every ratchet
 unchanged.
 
+Resolved 2026-08-15. Temporary oracle settle instrumentation captured
+`$FFFFFB49`, `$FFFFF8D8`, and the descriptor pointer/table on every hidden row
+for 0x06, 0x38, and 0x47 (run `1786796239`). `$FFFFFB49` is clear, but the
+SolidGhost count stays zero throughout title-wait and target-live phases, so
+ASM `Mode_Level loc_7FC -> sub_F730` is a no-op on all three authoritative
+settled paths. The 8/47-tick table therefore modelled no ROM descriptor; it
+only sustained a synthetic fixture and the independently stale #230 cache
+route. Deleted the table, its side-effect helper, and the synthetic contract.
+Focused sweep `1786796443` passes 0x06 and retains the evidence-backed 0x38/
+0x47 oracle limitations. Full sweep `1786796452` remains 65/69 with 14
+blockers and no regression. The slow all-level frame-0 witness retains exactly
+the same 15 known residual levels. `verify-slice-fast` and the full
+37,759-frame TAS gate pass with every ratchet unchanged. All three #455
+stand-ins are now retired.
+
 ### #451
 
 Opened 2026-08-09 (unmasked by the #423 Ninja speed fix). At 0x31 (roster
@@ -23172,6 +23187,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 455 | [x] | P2 | verification | Retired all settled-warp phase stand-ins: Level-1 RNG is natural, Island shore replays the measured hidden object window, and oracle RAM proves 0x06/0x38/0x47 have no SolidGhost descriptors to tick. | Focused sweep `1786796443`; full sweep `1786796452` unchanged at 65/69 with 14 blockers. See archive #455. |
 | 432 | [x] | P2 | level | 0x42's high-skin terrain was correct but falsely rejected by the copied-background/solid-ghost count mix-up fixed with #431. | Full sweep `1786731170` and focused sweep `1786732273` pass with zero 0x42 differences. See archive #432. |
 | 431 | [x] | P2 | level/weather | `loc_11CCA` now checks the 16-byte solid-ghost list count, not the separate 8-byte copied-background count; 0x21 retains terrain, Kid survives, and the murder wall reaches its oracle settle state. | 0x21 sweep `1786731160`; full sweep `1786731170` improves to 64/69 and also clears 0x22. See archive #431. |
 | 430 | [x] | P2 | kid-physics | The 0x52 recording settle counts its already-live debug-warp entry state, removing the one-frame Rubber-bounce phase lead without changing gameplay physics. | Focused boundary regression; 0x52 sweep `1786729401` and full sweep `1786729407` pass with no regression. See archive #430. |

@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (#455 SolidGhost closure)
+
+- Oracle settle run `1786796239` captured `$FB49` and SolidGhost RAM for
+  0x06/0x38/0x47; descriptor count stays zero on every hidden/live row.
+- Deleted the 8/47-tick SolidGhost table and its synthetic-only contract.
+- Focused sweep `1786796443` passes; full sweep `1786796452` remains 65/69
+  with 14 blockers.
+- The 15-level shell residue set is unchanged; fast and full TAS gates pass.
+- #455 is closed; all three settled-warp phase injections are gone.
+
 ## 2026-08-15 handoff (#455 Island shore)
 
 - Deleted the two Island shore phase injections and lower-band-only shim.

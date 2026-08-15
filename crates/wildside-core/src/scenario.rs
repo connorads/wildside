@@ -10,12 +10,6 @@ const RECORDING_SETTLED_WARP_TIMER_SUBFRAMES_LOC_BDC0: u16 = 0x08;
 const LEVEL_ZERO_RECORDING_TIMER_SECONDS_BEFORE_FRAME_0_LOC_BE82: u16 = 180;
 const LEVEL_ZERO_RECORDING_TIMER_SUBFRAMES_BEFORE_FRAME_0_LOC_BE82: u16 = 1;
 const LEVEL_ZERO_RECORDING_TIME_FRAMES_BEFORE_FRAME_0_LOC_3038A: u16 = 0x003C;
-const LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS: usize = 0x08;
-// ASM loc_124A6/sub_F730: #230 Crypt oracle recordings keep the col $1D
-// group vanished at frame 298 while the col $22 wall remains solid until
-// frame 365. The recording shell therefore advances SolidGhost state by $2F
-// ticks beyond the direct boot settle for the 0x38/0x47 block-list aliases.
-const CRYPT_RECORDING_GHOST_BLOCK_EXTRA_TICKS: usize = 0x2F;
 const SETTLED_WARP_MAX_ATTEMPT_FRAMES: usize = 828;
 const RECORDING_DEBUG_TITLE_WAIT_FRAMES_LOC_1AE2E: usize = 120;
 
@@ -124,14 +118,6 @@ fn recording_oracle_warp_target_live_frames(
         // one, so this route requires 59 rather than the generic 60.
         LevelId(0x52) => RECORDING_SETTLED_WARP_LIVE_FRAMES - 1,
         _ => RECORDING_SETTLED_WARP_LIVE_FRAMES,
-    }
-}
-
-fn recording_oracle_warp_extra_ghost_block_ticks(level_id: LevelId) -> usize {
-    match level_id {
-        LevelId(0x06) => LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS,
-        LevelId(0x38 | 0x47) => CRYPT_RECORDING_GHOST_BLOCK_EXTRA_TICKS,
-        _ => 0,
     }
 }
 
@@ -413,18 +399,6 @@ impl NativeRuntime {
         // sprite-table value at the same boundary.
         self.hud_timer_sprite_seconds_loc_bee8 = self.level_timer.seconds;
         self.rebase_mode_level_tail_after_external_override_loc_2ffe8();
-        let extra_ghost_block_ticks = recording_oracle_warp_extra_ghost_block_ticks(level_id);
-        if extra_ghost_block_ticks != 0 {
-            // ASM loc_124A6 seeds ghost-block descriptors and sub_F730 ticks
-            // them during the level-skip shell that recording helpers observe.
-            // Dragon_Flying.asm loc_3480A pins Level 0x06 object scheduling
-            // eight frames younger than its ghost phase. The Crypt 0x38/0x47
-            // block-list aliases need their oracle-observed SolidGhost phase
-            // without advancing Kid, object loading, or the global timer.
-            for _ in 0..extra_ghost_block_ticks {
-                self.step_ghost_blocks();
-            }
-        }
         let hidden_object_passes = recording_oracle_warp_hidden_object_passes_loc_e12(level_id);
         if hidden_object_passes != 0 {
             // ASM Mode_Level -> Execute_Objects loc_E12: Load_InGame
@@ -994,30 +968,6 @@ mod tests {
     }
 
     #[test]
-    fn recording_oracle_warp_extra_side_effects_are_level_specific() {
-        assert_eq!(
-            recording_oracle_warp_extra_ghost_block_ticks(LevelId(0x05)),
-            0
-        );
-        assert_eq!(
-            recording_oracle_warp_extra_ghost_block_ticks(LevelId(0x06)),
-            LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS
-        );
-        assert_eq!(
-            recording_oracle_warp_extra_ghost_block_ticks(LevelId(0x07)),
-            0
-        );
-        assert_eq!(
-            recording_oracle_warp_extra_ghost_block_ticks(LevelId(0x38)),
-            CRYPT_RECORDING_GHOST_BLOCK_EXTRA_TICKS
-        );
-        assert_eq!(
-            recording_oracle_warp_extra_ghost_block_ticks(LevelId(0x47)),
-            CRYPT_RECORDING_GHOST_BLOCK_EXTRA_TICKS
-        );
-    }
-
-    #[test]
     fn recording_oracle_warp_replays_measured_hidden_object_passes_loc_e12() {
         assert_eq!(
             recording_oracle_warp_hidden_object_passes_loc_e12(LevelId(0x07)),
@@ -1028,44 +978,6 @@ mod tests {
             recording_oracle_warp_hidden_object_passes_loc_e12(LevelId(0)),
             0,
             "Level 0 takes the direct title path rather than the loc_74E0 debug-warp window"
-        );
-    }
-
-    #[test]
-    fn settle_recording_oracle_warp_ticks_level_specific_ghost_blocks_loc_124a6_f730() {
-        let mut ordinary_level = runtime_with_single_solid_ghost_group();
-
-        ordinary_level.settle_recording_oracle_warp_live_window(LevelId(0x05));
-
-        let ordinary_group = ordinary_level.block_state.ghost_groups[0];
-        assert_eq!(
-            (
-                ordinary_group.timer,
-                ordinary_group.state,
-                ordinary_group.solid
-            ),
-            (1, 0, true),
-            "ordinary recording settles must not tick ASM sub_F730 SolidGhost state"
-        );
-
-        let mut skull_mountain = runtime_with_single_solid_ghost_group();
-
-        skull_mountain.settle_recording_oracle_warp_live_window(LevelId(0x06));
-
-        let skull_group = skull_mountain.block_state.ghost_groups[0];
-        assert_eq!(
-            (skull_group.timer, skull_group.state, skull_group.solid),
-            (2, 3, false),
-            "ASM loc_124A6/sub_F730 recording settle should advance Level 0x06 by the eight oracle-observed SolidGhost ticks"
-        );
-        let cell = skull_mountain
-            .block_grid
-            .as_ref()
-            .expect("synthetic ghost grid should remain installed")
-            .cell_at(1, 1);
-        assert!(
-            !cell.has_block,
-            "ASM loc_F8A6 should clear the SolidGhost cell during the extra recording-settle ticks"
         );
     }
 
@@ -1107,39 +1019,6 @@ mod tests {
             Some(180),
             "ASM loc_1AE2E presents the initial 3:00 timer table built by Make_SpriteAttr_HUD loc_BEE8 at recording frame zero"
         );
-    }
-
-    fn runtime_with_single_solid_ghost_group() -> NativeRuntime {
-        let mut runtime = NativeRuntime::new(minimal_manifest());
-        let mut layout = vec![0u8; 4 * 4 * 2];
-        let ghost_offset = (4 + 1) * 2;
-        layout[ghost_offset] = 0xE3;
-        layout[ghost_offset + 1] = 0x04;
-        let mut erase_words = vec![0u16; 4 * 4];
-        erase_words[4 + 1] = 0x6005;
-        runtime.block_grid = Some(
-            terrain::BlockGrid::from_level_layout_with_erase_words_loc_11542(
-                &layout,
-                erase_words,
-                4,
-                4,
-            ),
-        );
-        runtime
-            .block_state
-            .ghost_groups
-            .push(crate::types::GhostGroup {
-                col: 1,
-                row: 1,
-                count: 1,
-                vertical: false,
-                solid_time: 10,
-                vanished_time: 5,
-                timer: 1,
-                state: 0,
-                solid: true,
-            });
-        runtime
     }
 
     fn minimal_manifest() -> AssetManifest {
