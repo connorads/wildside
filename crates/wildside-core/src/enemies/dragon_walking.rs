@@ -1267,6 +1267,21 @@ mod tests {
     }
 
     #[test]
+    fn dragon_walking_blocked_decodes_current_fp16_x_for_left_boundary_loc_3e566() {
+        let mut grid = dragon_walking_grid(4, 4, &[(1, 2), (2, 2)]);
+        grid.set_cell_at(0, 2, terrain::Cell::from_be_bytes(0x40, 0x00));
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.x_pos = 26 << 16;
+        dragon.y_pos = 32 << 16;
+        dragon.facing = Direction::Left;
+
+        assert!(
+            dragon_walking_blocked(&dragon, Some(&grid)),
+            "ASM Lion.asm loc_3E566 -> sub_36A58 compares the decoded current x_pos word against the left leading boundary before accepting otherwise valid floor support"
+        );
+    }
+
+    #[test]
     fn dragon_walking_grounded_walk_uses_shared_walker_speed_loc_3e4c6_3e67a() {
         let mut dragon = dragon_walking_test_enemy();
         dragon.x_pos = 0x0100 << 16;
@@ -1281,6 +1296,23 @@ mod tests {
             "ASM Lion.asm loc_3E4C6/loc_3E67A shared walker should commit d2 = x_pos + DragonWalking HP-3 speed while calm"
         );
         assert_eq!(dragon.shared_walker_debug_branch, Some("patrol_walk"));
+    }
+
+    #[test]
+    fn dragon_walking_grounded_walk_applies_left_signed_speed_loc_3e566_3e67a() {
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.x_pos = 0x0100 << 16;
+        dragon.facing = Direction::Left;
+        dragon.shared_walker_state = 0;
+
+        let step = step_dragon_walking_walk(&mut dragon, None, None);
+
+        assert!(matches!(step, DragonWalkingWalkStep::Walked));
+        assert_eq!(
+            dragon.x_pos,
+            (0x0100 << 16) - pacer_walk_speed(EnemyFamily::DragonWalking, 3) as u32,
+            "ASM Lion.asm loc_3E566/loc_3E67A negates the shared walker speed for clear x_direction before committing x_pos"
+        );
     }
 
     #[test]
@@ -1311,6 +1343,31 @@ mod tests {
             (0x0217_8000, Direction::Left),
             "ASM Lion.asm loc_3E3B2 commits both half-pixel steps before loc_3E406 turns the walking Dragon at the current FP16.16 position",
         );
+    }
+
+    #[test]
+    fn dragon_walking_right_fractional_step_ignores_wall_before_boundary_loc_3e3b2() {
+        let grid = dragon_walking_grid(4, 4, &[(1, 2), (2, 1), (2, 2)]);
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.x_pos = (24 << 16) + 0x8000;
+        dragon.y_pos = 32 << 16;
+        dragon.shared_walker_state = 0;
+
+        let step = step_dragon_walking_walk(&mut dragon, Some(&grid), None);
+
+        assert!(
+            matches!(step, DragonWalkingWalkStep::Walked),
+            "unexpected branch {:?} at x={:#010x} facing={:?}",
+            dragon.shared_walker_debug_branch,
+            dragon.x_pos,
+            dragon.facing
+        );
+        assert_eq!(
+            dragon.x_pos,
+            26 << 16,
+            "ASM Lion.asm loc_3E3B2 `cmp.w d1,d3; bcc` accepts the 1.5px Dragon step while its right edge remains before the next 16px boundary"
+        );
+        assert_eq!(dragon.facing, Direction::Right);
     }
 
     #[test]
@@ -1470,6 +1527,20 @@ mod tests {
             wait_before_hurt_hibernate - 1,
             "ASM Dragon.asm loc_3CE90 decrements `$66(a5)` before reading collision_type and entering loc_3CEBE"
         );
+
+        dragon.grounded_frames = 0;
+        dragon.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+        dragon.wait_timer = 100;
+        dragon.x_pos = 0x0100 << 16;
+
+        step_dragon_walking(&mut dragon, None, &mut projectiles, None);
+
+        assert_eq!(
+            dragon.x_pos,
+            (0x0100 << 16) + pacer_walk_speed(EnemyFamily::DragonWalking, 3) as u32,
+            "ASM Dragon.asm loc_3CE90 reaches loc_3CF62 once the hurt-animation hibernate count is exactly zero"
+        );
+        assert_eq!(dragon.shared_walker_debug_branch, Some("patrol_walk"));
     }
 
     #[test]
@@ -1526,6 +1597,8 @@ mod tests {
         let mut dragon = dragon_walking_test_enemy();
         dragon.dragon_script_cmd = DRAGON_WALKING_PHASE_BREATH;
         dragon.dragon_phase_frames = 1;
+        dragon.dragon_script_variant =
+            DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG | DRAGON_WALKING_TRANSFORM_TIMER_ALIGNED_FLAG;
         dragon.facing = Direction::Right;
         let mut projectiles = Vec::new();
 
@@ -1548,6 +1621,10 @@ mod tests {
             "ASM Dragon.asm loc_3D09E should delete the child and hand the parent to breath recovery once `$18(a3)` is set"
         );
         assert_eq!(dragon.dragon_phase_frames, DRAGON_WALKING_RECOVER_FRAMES);
+        assert_eq!(
+            dragon.dragon_script_variant, DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG,
+            "ASM Dragon.asm loc_3D09E completes the breath child phase without retaining the native transform-timer alignment latch"
+        );
     }
 
     #[test]

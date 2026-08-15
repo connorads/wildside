@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (proactive walking Dragon mutation refresh)
+
+- Mutation-tested `enemies/dragon_walking.rs` after #456: the initial 154-mutant
+  run found six misses across FP16 terrain-boundary decoding, shared-walker
+  movement, hurt-hibernate exit, and breath-phase flag cleanup.
+- Added ASM-cited behavioural contracts for both facing paths, the left slope
+  boundary, the pre-boundary fractional right step, exact zero-count hurt
+  resume, and selective phase-latch clearing.
+- Focused Dragon tests pass. Iterative mutation rechecks catch all six former
+  misses; the combined result is 129 caught and 25 compiler-unviable, with no
+  viable survivor. `verify-slice-fast` passes with 7,168 core tests.
+
 ## 2026-08-15 handoff (proactive scenario mutation refresh)
 
 - Refreshed `scenario.rs` after #455: the initial 154-mutant run found 50
