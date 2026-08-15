@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (#456 walking Dragon)
+
+- Walking Dragon now follows `Dragon.asm loc_3CE84` into the Lion.asm
+  cliff-fall walker rather than the kid.asm cliff-turn approximation.
+- All 13 walking Dragon levels pass focused sweep `1786797599`.
+- Full sweep `1786797610` remains 65/69 with 14 blockers and no regression.
+- `verify-slice-fast` and `verify-tas-full` pass with every ratchet unchanged.
+- Orca is the only family still staged under #456.
+
 ## 2026-08-15 handoff (#455 SolidGhost closure)
 
 - Oracle settle run `1786796239` captured `$FB49` and SolidGhost RAM for

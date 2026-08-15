@@ -727,6 +727,19 @@ loc_3E682/loc_3E79E. Focused sweep `1786793277` passes all three Lion levels
 no unrelated regression. `verify-slice-fast` and the full 37,759-frame TAS gate
 pass with every ratchet unchanged. Orca and walking Dragon remain staged.
 
+Walking Dragon resolved 2026-08-15. `Dragon.asm loc_3CE84` dispatches by
+`x_direction` directly into Lion.asm loc_3E392/loc_3E546; the negative terrain
+probe therefore continues through loc_3E682/loc_3E79E and falls rather than
+taking the kid.asm cliff turn. Native already models the family companions,
+including body/child ownership, breath allocation and recovery, stomp and hurt
+returns, transform pause, terrain dimensions, landing, and animation. Focused
+sweep `1786797599` passes all 13 walking Dragon levels (0x00, 0x04, 0x06, 0x08,
+0x09, 0x12, 0x13, 0x15, 0x19, 0x25, 0x34, 0x35, 0x44) with zero blockers; the
+limitations on 0x08, 0x09, and 0x19 are unchanged. Full sweep `1786797610`
+remains 65/69 with 14 blockers and no unrelated regression. `verify-slice-fast`
+and the full 37,759-frame TAS gate pass with every ratchet unchanged. Orca
+remains staged.
+
 ### #457
 
 Opened 2026-08-13 (#419 residue). Native's Goat wall freeze emerges from

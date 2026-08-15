@@ -7914,18 +7914,19 @@ fn register_shared_walker_turnaround(enemy: &mut ActiveEnemy) -> bool {
 /// restore the walk step, seed the -120 charge cooldown). Partition measured
 /// from the per-family `include`/branch targets in code/enemy/*.asm.
 ///
-/// TODO(fidelity): Goat, Lion, Armadillo, Scorpion, and Ninja run the Lion.asm
-/// fall semantics natively. Their journeys are oracle-measured at 0x60, the
-/// three Lion levels, the seven Armadillo levels, 0x61, and 0x31. Orca and
-/// walking Dragon keep the cliff-turn approximation until each one's companion
-/// behaviours are modelled; a first attempt at flipping them all regressed
-/// 0x45/0x56 because the turn was masking those gaps (#456).
+/// TODO(fidelity): Goat, Lion, Armadillo, walking Dragon, Scorpion, and Ninja
+/// run the Lion.asm fall semantics natively. Their journeys are oracle-measured
+/// at 0x60, the three Lion levels, the seven Armadillo levels, all 13 walking
+/// Dragon levels, 0x61, and 0x31. Orca keeps the cliff-turn approximation until
+/// its companion behaviours are modelled; a first attempt at flipping every
+/// family regressed 0x45/0x56 because the turn was masking those gaps (#456).
 pub(crate) fn shared_walker_turns_at_cliffs_loc_3c0a6(family: EnemyFamily) -> bool {
     !matches!(
         family,
         EnemyFamily::Goat
             | EnemyFamily::Lion
             | EnemyFamily::Armadillo
+            | EnemyFamily::DragonWalking
             | EnemyFamily::Scorpion
             | EnemyFamily::Ninja
     )
@@ -11164,6 +11165,14 @@ mod tests {
         assert!(
             !shared_walker_turns_at_cliffs_loc_3c0a6(EnemyFamily::Lion),
             "ASM Lion.asm loc_3E11E branches by x_direction into loc_3E3B2/loc_3E566, whose negative d6 path walks off the ledge through loc_3E682/loc_3E79E"
+        );
+    }
+
+    #[test]
+    fn walking_dragon_uses_its_own_walker_cliff_semantics_loc_3ce84_3e392_3e546() {
+        assert!(
+            !shared_walker_turns_at_cliffs_loc_3c0a6(EnemyFamily::DragonWalking),
+            "ASM Dragon.asm loc_3CE84 dispatches directly into loc_3E392/loc_3E546, whose negative d6 path walks off the ledge through loc_3E682/loc_3E79E"
         );
     }
 
