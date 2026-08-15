@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-16 handoff (proactive block-list parser mutation refresh)
+
+- Mutation-tested the ASM `sub_140F6` blank-row grid path (12 tested, 11
+  caught, one compiler-unviable) and its interactive block-list shift (six
+  tested, five caught, one compiler-unviable); both had zero survivors.
+- The adjacent `BlockList::from_raw_with_grid` audit initially found eight
+  misses among 140 mutants: prize coordinate byte selection, independently
+  enforced teleporter address/destination bounds, independently enforced
+  hidden-record address/cell-kind bounds, and an equivalent terminator index.
+- Added distinct parser contracts for those fields and boundaries, and matched
+  the optional two-byte teleporter terminator as a slice. Fresh full shard: 133
+  tested, 132 caught, one compiler-unviable, zero survivors.
+
 ## 2026-08-15 handoff (proactive terrain grid-mutation refresh)
 
 - Mutation-tested the `BlockGrid` cell/raw accessors: 25 tested, 24 caught,

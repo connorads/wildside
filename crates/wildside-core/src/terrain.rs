@@ -1022,7 +1022,7 @@ impl BlockList {
         // includes one. Generated RAM dumps are count-bounded by ASM loc_11CE0
         // and can place the hidden section immediately after the final
         // teleporter record.
-        if offset + 2 <= data.len() && u16::from_be_bytes([data[offset], data[offset + 1]]) == 0 {
+        if matches!(data.get(offset..offset + 2), Some([0, 0])) {
             offset += 2;
         }
         let mut hidden_blocks = Vec::new();
@@ -5176,6 +5176,23 @@ mod tests {
     }
 
     #[test]
+    fn block_list_from_raw_preserves_both_prize_column_bytes() {
+        let mut data = vec![
+            0x00, 0x10, // layout_addr
+            0x12, 0x34, // col
+            0x56, 0x78, // row
+            0x00, 0x03, // Cyclone
+        ];
+        data.extend_from_slice(&[0; GHOST_BLOCK_RECORD_BYTES]);
+
+        let block_list = BlockList::from_raw(&data, 20);
+
+        assert_eq!(block_list.prize_blocks.len(), 1);
+        assert_eq!(block_list.prize_blocks[0].col, 0x1234);
+        assert_eq!(block_list.prize_blocks[0].row, 0x5678);
+    }
+
+    #[test]
     fn block_list_from_raw_generated_ram_dump_stops_prizes_before_ghost_section() {
         // ASM loc_12434 writes prize entries by count and loc_11CB6 bounds the
         // section with that count; generated RAM dumps do not need a zero prize
@@ -5488,6 +5505,81 @@ mod tests {
         assert_eq!(bl.hidden_blocks[0].row, 0);
         assert_eq!(bl.hidden_blocks[0].block_type, 0x0A);
         assert_eq!(bl.hidden_blocks[0].block_setting, 0x02);
+    }
+
+    #[test]
+    fn block_list_generated_parser_checks_each_teleporter_boundary_independently() {
+        let width = 4;
+        let col = 1;
+        let row = 1;
+        let layout_addr = BlockList::level_layout_low_word_addr(col, row, width);
+        let mut layout = vec![0; usize::from(width) * 3 * 2];
+        let cell_offset = (usize::from(row) * usize::from(width) + usize::from(col)) * 2;
+        layout[cell_offset] = 0xE4;
+        layout[cell_offset + 1] = 0x07;
+        let grid = BlockGrid::from_level_layout(&layout, width, 3);
+
+        let record = |addr: u16, dest_x: u16| {
+            let [addr_hi, addr_lo] = addr.to_be_bytes();
+            let [dest_hi, dest_lo] = dest_x.to_be_bytes();
+            vec![
+                addr_hi, addr_lo, 0, col as u8, 0, row as u8, 0x10, 0, dest_hi, dest_lo,
+            ]
+        };
+
+        let valid =
+            BlockList::from_raw_with_level_layout(&record(layout_addr, 0x03FF), width, &grid);
+        assert_eq!(
+            valid.teleporters.len(),
+            1,
+            "ASM loc_1269C permits destination x=$03FF"
+        );
+
+        let wrong_addr =
+            BlockList::from_raw_with_level_layout(&record(layout_addr + 2, 0x03FF), width, &grid);
+        assert!(
+            wrong_addr.teleporters.is_empty(),
+            "ASM loc_11CE0 records must point at the stated Level_Layout column and row",
+        );
+
+        let past_dest_limit =
+            BlockList::from_raw_with_level_layout(&record(layout_addr, 0x0400), width, &grid);
+        assert!(
+            past_dest_limit.teleporters.is_empty(),
+            "ASM loc_1269C destination x is bounded at $03FF",
+        );
+    }
+
+    #[test]
+    fn block_list_generated_parser_checks_hidden_address_and_cell_kind_independently() {
+        let width = 4;
+        let col = 1;
+        let row = 1;
+        let layout_addr = BlockList::level_layout_low_word_addr(col, row, width);
+        let record = |addr: u16| {
+            let [addr_hi, addr_lo] = addr.to_be_bytes();
+            vec![addr_hi, addr_lo, 0, col as u8, 0, row as u8, 0x10, 0]
+        };
+
+        let mut hidden_layout = vec![0; usize::from(width) * 3 * 2];
+        let cell_offset = (usize::from(row) * usize::from(width) + usize::from(col)) * 2;
+        hidden_layout[cell_offset] = 0xA0;
+        let hidden_grid = BlockGrid::from_level_layout(&hidden_layout, width, 3);
+        let wrong_addr =
+            BlockList::from_raw_with_level_layout(&record(layout_addr + 2), width, &hidden_grid);
+        assert!(
+            wrong_addr.hidden_blocks.is_empty(),
+            "ASM loc_11CF6 records must point at the stated Level_Layout column and row",
+        );
+
+        let ordinary_grid =
+            BlockGrid::from_level_layout(&vec![0; usize::from(width) * 3 * 2], width, 3);
+        let wrong_cell =
+            BlockList::from_raw_with_level_layout(&record(layout_addr), width, &ordinary_grid);
+        assert!(
+            wrong_cell.hidden_blocks.is_empty(),
+            "ASM loc_11CF6 generated records stop when the target is not a hidden-block cell",
+        );
     }
 
     #[test]
