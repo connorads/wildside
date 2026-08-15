@@ -309,15 +309,15 @@ pub fn visit_decompress_chunk_instructions_sub_13684(
                     });
                 }
                 if finished {
-                    let next =
-                        tokens
-                            .get(token_index + 1)
-                            .map(|next| DecompressChunkResumeSub13684 {
-                                token_index: u16::try_from(token_index + 1)
-                                    .expect("Saxman token count fits u16"),
-                                next_lane: u8::try_from(next.bit_position % 8)
-                                    .expect("bit lane fits u8"),
-                            });
+                    let next = match &tokens[token_index..] {
+                        [_, next, ..] => Some(DecompressChunkResumeSub13684 {
+                            token_index: u16::try_from(token_index + 1)
+                                .expect("Saxman token count fits u16"),
+                            next_lane: u8::try_from(next.bit_position % 8)
+                                .expect("bit lane fits u8"),
+                        }),
+                        _ => None,
+                    };
                     return Ok(DecompressChunkVisitSub13684 {
                         timing,
                         resume: next,
@@ -365,6 +365,18 @@ pub fn visit_initial_decompress_chunk_instructions_sub_13684(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn saxman_stream(control_bits: &[u8], input: &[u8]) -> Vec<u8> {
+        let mut control_bytes = vec![0_u8; control_bits.len().div_ceil(8)];
+        for (index, &bit) in control_bits.iter().enumerate() {
+            control_bytes[index / 8] |= bit << (7 - index % 8);
+        }
+        let mut compressed = Vec::with_capacity(2 + control_bytes.len() + input.len());
+        compressed.extend_from_slice(&(control_bytes.len() as u16).to_be_bytes());
+        compressed.extend_from_slice(&control_bytes);
+        compressed.extend_from_slice(input);
+        compressed
+    }
 
     #[test]
     fn wild_side_intro_decoder_matches_sub_13684_instruction_workload() {
@@ -474,5 +486,143 @@ mod tests {
                 .expect("ASM loc_1432C resumed chunk");
         assert_eq!(second.timing.output_bytes, 1);
         assert_eq!(second.resume, None);
+    }
+
+    #[test]
+    fn long_reference_count_codes_follow_sub_13684_branch_costs() {
+        // ASM Decompress_BP0_LongRef and its lane variants decode count codes
+        // 00/01/10 as 3/4/5 copies, then 11 + byte 6 as the extended loop.
+        // Finish with the extended-zero terminator.
+        let bits = [
+            0, 1, 0, 0, 0, 0, 0, // count 3
+            0, 1, 0, 0, 0, 0, 1, // count 4
+            0, 1, 0, 0, 0, 1, 0, // count 5
+            0, 1, 0, 0, 0, 1, 1, // extended count 6
+            0, 1, 0, 0, 0, 1, 1, // extended-zero end
+        ];
+        let compressed = saxman_stream(&bits, &[0, 0, 0, 0, 6, 0, 0]);
+
+        let visit = visit_decompress_chunk_instructions_sub_13684(&compressed, None, |_| {})
+            .expect("four long-reference forms and terminator");
+
+        assert_eq!(
+            visit,
+            DecompressChunkVisitSub13684 {
+                timing: DecompressChunkTimingSub13684 {
+                    instruction_count: 138,
+                    raw_cycles: 1_046,
+                    output_bytes: 18,
+                },
+                resume: None,
+            },
+        );
+    }
+
+    #[test]
+    fn automatic_window_returns_resume_token_for_short_and_long_paths() {
+        // ASM loc_13724 and lane-equivalent boundaries compare the low a2/a3
+        // words after references. Cross the initial $884D-byte window once
+        // through each reference family and pin the following token/lane.
+        for long_reference in [false, true] {
+            let literal_count = if long_reference { 34_890 } else { 34_892 };
+            let mut bits = vec![1; literal_count];
+            let mut input = vec![0xA5; literal_count];
+            if long_reference {
+                bits.extend([0, 1, 0, 0, 0, 0, 0]);
+            } else {
+                bits.extend([0, 0, 0]);
+            }
+            input.push(0);
+            bits.extend([0, 1, 0, 0, 0, 1, 1]);
+            input.extend([0, 0]);
+            let compressed = saxman_stream(&bits, &input);
+
+            let first = visit_decompress_chunk_instructions_sub_13684(&compressed, None, |_| {})
+                .expect("window-crossing stream");
+            let expected_first = if long_reference {
+                DecompressChunkVisitSub13684 {
+                    timing: DecompressChunkTimingSub13684 {
+                        instruction_count: 113_436,
+                        raw_cycles: 985_968,
+                        output_bytes: 34_893,
+                    },
+                    resume: Some(DecompressChunkResumeSub13684 {
+                        token_index: 34_891,
+                        next_lane: 1,
+                    }),
+                }
+            } else {
+                DecompressChunkVisitSub13684 {
+                    timing: DecompressChunkTimingSub13684 {
+                        instruction_count: 113_434,
+                        raw_cycles: 985_958,
+                        output_bytes: 34_894,
+                    },
+                    resume: Some(DecompressChunkResumeSub13684 {
+                        token_index: 34_893,
+                        next_lane: 7,
+                    }),
+                }
+            };
+            assert_eq!(first, expected_first);
+
+            let second =
+                visit_decompress_chunk_instructions_sub_13684(&compressed, first.resume, |_| {})
+                    .expect("resumed terminator");
+            let expected_second = if long_reference {
+                DecompressChunkVisitSub13684 {
+                    timing: DecompressChunkTimingSub13684 {
+                        instruction_count: 38,
+                        raw_cycles: 272,
+                        output_bytes: 0,
+                    },
+                    resume: None,
+                }
+            } else {
+                DecompressChunkVisitSub13684 {
+                    timing: DecompressChunkTimingSub13684 {
+                        instruction_count: 27,
+                        raw_cycles: 184,
+                        output_bytes: 0,
+                    },
+                    resume: None,
+                }
+            };
+            assert_eq!(second, expected_second);
+        }
+    }
+
+    #[test]
+    fn resumed_window_uses_loc_1432c_history_base() {
+        // ASM DecompressToVRAM loc_1432C resumes a2 at $FFFF7FB2, leaving a
+        // $804D-byte output window before the next reference return.
+        let literal_count = 32_841;
+        let mut bits = vec![0, 0, 0];
+        bits.extend(std::iter::repeat_n(1, literal_count));
+        bits.extend([0, 0, 0]);
+        bits.extend([0, 1, 0, 0, 0, 1, 1]);
+        let mut input = vec![0];
+        input.extend(std::iter::repeat_n(0x5A, literal_count));
+        input.extend([0, 0, 0]);
+        let compressed = saxman_stream(&bits, &input);
+
+        let visit = visit_decompress_chunk_instructions_sub_13684(
+            &compressed,
+            Some(DecompressChunkResumeSub13684 {
+                token_index: 0,
+                next_lane: 0,
+            }),
+            |_| {},
+        )
+        .expect("resumed window-crossing stream");
+
+        assert_eq!(visit.timing.output_bytes, 32_845);
+        assert_eq!(
+            visit.resume,
+            Some(DecompressChunkResumeSub13684 {
+                token_index: 32_843,
+                next_lane: 7,
+            }),
+        );
     }
 }

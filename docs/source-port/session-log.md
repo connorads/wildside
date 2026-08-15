@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (proactive Saxman timing mutation refresh)
+
+- Mutation-tested `saxman_timing.rs`: the initial 82-mutant run found 24
+  misses across long-reference count codes, resume-lane dispatch, chunk-window
+  thresholds, and the next-token resume cursor.
+- Added exact public timing/resume contracts for all long count forms, both
+  automatic reference-return paths, and the initial `$77B2` and resumed
+  `$7FB2` history windows from ASM `Decompress_Chunk sub_13684`.
+- Expressed the long-reference next-token lookup as a two-token slice, avoiding
+  an observationally equivalent previous-token lane lookup. Fresh full shard:
+  81 tested, 77 caught, four compiler-unviable, zero survivors.
+  `verify-slice-fast` and `verify-tas-full` pass; the full gate checks 37,759
+  frames.
+
 ## 2026-08-15 handoff (proactive Enigma timing mutation refresh)
 
 - Mutation-tested `enigma_timing.rs`: the initial 77-mutant run found 23
