@@ -361,15 +361,13 @@ impl BlockGrid {
     /// row-major order). `width_cells` and `height_cells` come from
     /// Level_width_blocks and Level_height_blocks respectively.
     pub fn from_level_layout(data: &[u8], width_cells: u16, height_cells: u16) -> Self {
-        let expected = usize::from(width_cells) * usize::from(height_cells) * 2;
         let cell_count = usize::from(width_cells) * usize::from(height_cells);
         let mut cells = Vec::with_capacity(cell_count);
         let mut raw_words = Vec::with_capacity(cell_count);
         for i in 0..cell_count {
             let byte_offset = i * 2;
             if byte_offset + 1 < data.len() {
-                let raw_word =
-                    (u16::from(data[byte_offset]) << 8) | u16::from(data[byte_offset + 1]);
+                let raw_word = u16::from_be_bytes([data[byte_offset], data[byte_offset + 1]]);
                 raw_words.push(raw_word);
                 cells.push(Cell::from_be_bytes(
                     data[byte_offset],
@@ -384,7 +382,6 @@ impl BlockGrid {
         cells.resize(cell_count, Cell::from_be_bytes(0, 0));
         raw_words.resize(cell_count, 0);
         let erase_words_loc_11542 = vec![0; cell_count];
-        let _ = expected; // suppress unused warning
         Self {
             width_cells,
             height_cells,
@@ -4605,6 +4602,26 @@ mod tests {
         let grid = BlockGrid::from_level_layout(&data, w, h);
         assert_eq!(grid.width_pixels(), i32::from(w) * 16);
         assert_eq!(grid.height_pixels(), i32::from(h) * 16);
+    }
+
+    #[test]
+    fn block_grid_from_level_layout_decodes_distinct_three_by_two_words() {
+        let data = [
+            0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, // row 0
+            0xDE, 0xF0, 0x13, 0x57, 0x24, 0x68, // row 1
+        ];
+
+        let grid = BlockGrid::from_level_layout(&data, 3, 2);
+
+        assert_eq!(grid.width_cells, 3);
+        assert_eq!(grid.height_cells, 2);
+        assert_eq!(
+            grid.raw_words,
+            [0x1234, 0x5678, 0x9ABC, 0xDEF0, 0x1357, 0x2468]
+        );
+        assert_eq!(grid.cells.len(), 6);
+        assert_eq!(grid.erase_words_loc_11542, [0; 6]);
+        assert_eq!(grid.cell_at(2, 1), Cell::from_be_bytes(0x24, 0x68));
     }
 
     #[test]

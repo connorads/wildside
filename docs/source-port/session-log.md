@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-15 handoff (proactive terrain layout-parser mutation refresh)
+
+- Mutation-tested `BlockGrid::from_level_layout` plus the ASM `loc_11542`
+  erase-word constructor. The initial 25-mutant shard found five misses: a
+  dead expected-byte calculation, equivalent split-byte OR/XOR composition,
+  and dimensions insufficient to distinguish cell-count arithmetic.
+- Removed the dead calculation, decoded words with `u16::from_be_bytes`, and
+  added a distinct 3x2 row-major fixture pinning all six words, dimensions,
+  cell count, erase-word count, and final-cell lookup.
+- Fresh shard: 18 tested, 16 caught, two compiler-unviable, zero survivors.
+  `verify-slice-fast` passes.
+
 ## 2026-08-15 handoff (proactive leftward walker mutation refresh)
 
 - Mutation-tested ASM `sub_36A58` independently from its rightward counterpart.
