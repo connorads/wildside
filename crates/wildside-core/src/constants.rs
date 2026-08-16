@@ -1114,6 +1114,26 @@ mod tests {
     #[test]
     fn intro_and_continue_timing_constants_pin_inclusive_asm_counts() {
         assert_eq!(
+            DEMO_AUTO_TIMEOUT_INTRO_FIFTH_START_SKIP_RNG_FIRST_LIVE_ELAPSED, 56,
+            "ASM loc_1BA28 Start-skip lineage exposes the first gfx pass one frame early"
+        );
+        assert_eq!(
+            INTRO_SEQUENCE_5_START_SKIP_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED, 384,
+            "ASM loc_1BC36 chains the $A0,$90,$0B,$0B hibernations after worker start"
+        );
+        assert_eq!(
+            INTRO_SEQUENCE_5_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED, 385,
+            "ordinary timeout-restart lineage reaches the loc_1BC36 upload stall one frame later"
+        );
+        assert_eq!(
+            DEMO_AUTO_TIMEOUT_INTRO_FOURTH_RNG_FIRST_LIVE_ELAPSED, 36,
+            "ASM sub_1B988 wakes in the pass before the elapsed-37 camera handoff trace"
+        );
+        assert_eq!(
+            TIMEOUT_RESTART_INTRO_SEQUENCE_5_VDP_VISIBLE_ELAPSED_LOC_1BA28, 61,
+            "ASM loc_1BA28 presents the alley three traces after loc_1BCD0's first gfx pass"
+        );
+        assert_eq!(
             TITLE_IDLE_DBF_FRAMES_LOC_1BAEA, 0x0281,
             "ASM Obj_TitleMenu loc_1BAEA seeds d0=$280; dbf is inclusive"
         );

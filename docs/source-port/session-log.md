@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-16 handoff (proactive intro timing-constant mutation refresh)
+
+- Refreshed the `constants.rs` mutation audit after the table gained 16 new
+  mutation sites. The initial 75-mutant shard found 16 misses in five derived
+  intro-sequence timing boundaries.
+- Added one ASM-cited contract covering the sequence-4 worker wake, sequence-5
+  Start-skip wake and upload stall, ordinary upload stall, and VDP visibility
+  boundary. Fresh full shard: 75 tested, 65 caught, ten compiler-unviable,
+  zero survivors.
+
 ## 2026-08-16 handoff (proactive block-list parser mutation refresh)
 
 - Mutation-tested the ASM `sub_140F6` blank-row grid path (12 tested, 11
