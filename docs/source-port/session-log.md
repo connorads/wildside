@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-16 handoff (proactive UFO beam mutation refresh)
+
+- Mutation-tested the post-#422 `Enemy0F_UFOBeam_Loop` movement, terrain,
+  level-bottom, Kid-contact, and delayed-delete paths. The initial 71-site
+  shard found 13 UFO misses plus 12 equivalent deletions of explicit Drips
+  constructor fields already supplied by `EnemyProjectile::default`.
+- Added ASM-cited runtime contracts for the two-pass collision latch, exact
+  level-bottom boundary, unlatched in-bounds motion, non-UFO isolation, Kid
+  contact idempotence, and non-zero-column floor probes. Removed the redundant
+  Drips default fields.
+- Fresh bounded shard: 59 tested, 58 caught, one compiler-unviable, zero
+  survivors.
+
 ## 2026-08-16 handoff (proactive Driller collision mutation refresh)
 
 - Refreshed the live Driller helper shard added by #420. The initial 101-site

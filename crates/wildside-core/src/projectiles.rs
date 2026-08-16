@@ -816,11 +816,7 @@ fn drips_surface_crawler_from_splash_loc_335d8(
         x_pos: u32::from(init.x_pos_word) << 16,
         y_pos: u32::from(init.y_pos_word) << 16,
         x_velocity: init.x_velocity,
-        y_velocity: 0,
         lifetime: DRIPS_SURFACE_CRAWLER_LIFETIME,
-        friendly: false,
-        gravity: 0,
-        terrain_kill: false,
         // ASM Drips.asm loc_335D8 runs `stru_33FA6` to completion before
         // `st is_moved(a3)`, `loc_33526`, and the first loc_33650 hibernate.
         drips_surface_crawler_state: DripsSurfaceCrawlerState::StartupLoc335D8,
@@ -884,11 +880,8 @@ pub(crate) fn drips_surface_crawler_burst_helper_loc_338f8(
         x_pos: shot.x_pos,
         y_pos: shot.y_pos,
         x_velocity: shot.x_velocity,
-        y_velocity: 0,
         lifetime: 60,
         gravity: 0x1000,
-        friendly: false,
-        terrain_kill: false,
         tar_monster_collision_response_budget: shot.collision_response_budget,
         ..Default::default()
     }
@@ -899,13 +892,8 @@ fn drips_surface_crawler_finish_animation_loc_3392c(crawler: &EnemyProjectile) -
         kind: EnemyProjectileKind::DripsSurfaceCrawlerFinish,
         x_pos: crawler.x_pos,
         y_pos: crawler.y_pos,
-        x_velocity: 0,
-        y_velocity: 0,
         palette_variant: crawler.palette_variant,
         lifetime: 60,
-        gravity: 0,
-        friendly: false,
-        terrain_kill: false,
         ..Default::default()
     }
 }
@@ -1280,6 +1268,135 @@ mod drips_surface_crawler_tests {
         assert_eq!(
             finish.palette_variant, 2,
             "ASM Drips.asm loc_3392C keeps rendering the same Drip object after loc_335D8/loc_32146 selected its palette"
+        );
+    }
+
+    #[test]
+    fn ufo_beam_collision_latch_survives_one_sample_then_deletes_loc_355d4() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::UfoBeam,
+            x_pos: 20 << 16,
+            y_pos: 30 << 16,
+            x_velocity: 0x0001_0000,
+            y_velocity: 0x0003_0000,
+            lifetime: 100,
+            animation_elapsed_frames: 2,
+            ..Default::default()
+        });
+
+        runtime.step_projectiles();
+        assert_eq!(runtime.projectiles.len(), 1);
+        assert_eq!(runtime.projectiles[0].animation_elapsed_frames, 1);
+        assert_eq!(runtime.projectiles[0].x_pos, 21 << 16);
+        assert_eq!(runtime.projectiles[0].y_pos, 33 << 16);
+
+        runtime.step_projectiles();
+        assert!(
+            runtime.projectiles.is_empty(),
+            "ASM Enemy0F_UFOBeam_Loop consumes the prior collision word on its next wake before another move"
+        );
+    }
+
+    #[test]
+    fn ufo_beam_level_bottom_latches_before_next_wake_delete_loc_355d4() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.set_block_grid(terrain::BlockGrid::from_level_layout(&[0; 2 * 2 * 2], 2, 2));
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::UfoBeam,
+            x_pos: 8 << 16,
+            y_pos: 31 << 16,
+            y_velocity: 0x0001_0000,
+            lifetime: 100,
+            ..Default::default()
+        });
+
+        runtime.step_projectiles();
+        assert_eq!(runtime.projectiles.len(), 1);
+        assert_eq!(runtime.projectiles[0].y_pos, 32 << 16);
+        assert_eq!(
+            runtime.projectiles[0].animation_elapsed_frames, 1,
+            "ASM GfxObjects_Collision_BottomBoundary latches collision_type at the exact level-height edge"
+        );
+
+        runtime.step_projectiles();
+        assert!(runtime.projectiles.is_empty());
+    }
+
+    #[test]
+    fn ufo_beam_inside_level_without_grid_collision_stays_unlatched_loc_355d4() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.set_block_grid(terrain::BlockGrid::from_level_layout(&[0; 2 * 3 * 2], 2, 3));
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::UfoBeam,
+            x_pos: 8 << 16,
+            y_pos: 31 << 16,
+            y_velocity: 0x0001_0000,
+            lifetime: 100,
+            ..Default::default()
+        });
+
+        runtime.step_projectiles();
+        assert_eq!(runtime.projectiles.len(), 1);
+        assert_eq!(runtime.projectiles[0].y_pos, 32 << 16);
+        assert_eq!(
+            runtime.projectiles[0].animation_elapsed_frames, 0,
+            "ASM Enemy0F_UFOBeam_Loop keeps moving while collision_type is zero and y remains below the 48px level bottom"
+        );
+    }
+
+    #[test]
+    fn ordinary_projectile_never_enters_ufo_collision_latch_loc_355d4() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.set_block_grid(terrain::BlockGrid::from_level_layout(&[0; 2 * 2 * 2], 2, 2));
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::TarMonsterStraightGlob,
+            x_pos: 8 << 16,
+            y_pos: 31 << 16,
+            y_velocity: 0x0001_0000,
+            lifetime: 100,
+            ..Default::default()
+        });
+
+        runtime.step_projectiles();
+        assert_eq!(runtime.projectiles.len(), 1);
+        assert_eq!(
+            runtime.projectiles[0].animation_elapsed_frames, 0,
+            "ASM Enemy0F_UFOBeam_Loop collision latching belongs only to the UFO beam object"
+        );
+    }
+
+    #[test]
+    fn ufo_beam_kid_contact_sets_only_an_empty_collision_latch_loc_355d4() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 60 << 16;
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::UfoBeam,
+            x_pos: slice.player.x_pos,
+            y_pos: slice.player.y_pos,
+            lifetime: 100,
+            ..Default::default()
+        });
+
+        assert_ne!(
+            runtime.projectile_player_contact_loc_b640(&slice, false),
+            ProjectilePlayerContactLocB640::None
+        );
+        assert_eq!(runtime.projectiles[0].animation_elapsed_frames, 1);
+
+        runtime.projectiles[0].animation_elapsed_frames = 2;
+        assert_ne!(
+            runtime.projectile_player_contact_loc_b640(&slice, false),
+            ProjectilePlayerContactLocB640::None
+        );
+        assert_eq!(
+            runtime.projectiles[0].animation_elapsed_frames, 2,
+            "ASM collision_type is a latch: repeated Kid overlap must not restart an already-pending beam delete"
         );
     }
 
@@ -5321,6 +5438,17 @@ mod loc_3e266_tests {
 
         assert!(!super::ufo_beam_hits_floor_loc_355d4(&grid, &above_floor));
         assert!(super::ufo_beam_hits_floor_loc_355d4(&grid, &at_floor));
+
+        let right_column_grid = grid_with_cells(2, 3, &[(1, 2, terrain::CollisionKind::Solid)]);
+        let right_column_floor = EnemyProjectile {
+            x_pos: 24 << 16,
+            y_pos: 31 << 16,
+            ..above_floor
+        };
+        assert!(
+            super::ufo_beam_hits_floor_loc_355d4(&right_column_grid, &right_column_floor),
+            "ASM Enemy0F_UFOBeam_Loop probes the beam's integer X word, including non-zero tile columns"
+        );
     }
 
     #[test]
