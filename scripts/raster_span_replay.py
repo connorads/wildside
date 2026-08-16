@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
 """Replay bounded HUD raster spans from the census' measured CPU timeline.
 
-This is an ADR 0002 measurement tool, never a CI oracle. It tests whether the
-captured cumulative 68000 cycle span reproduces the captured H40 beam and
-classifies the asynchronous wait surface that a native frame-local scheduler
-must own. It does not emit values consumed by the game or pixel verifier.
+This is a measurement tool, never a CI oracle. It tests whether the captured
+cumulative 68000 cycle span reproduces the captured H40 beam and classifies
+the asynchronous wait surface that a native frame-local scheduler must own.
+It does not emit values consumed by the game or pixel verifier.
+
+Units: every `pixel` field in the census is an H40 **pixel index** (0..419),
+the unit `hud_timing_census.py` records. A pixel index is an mclk *interval*
+(8, 9, or 10 mclk wide under the H40 divider), never an mclk offset into the
+3,420-mclk scanline. The replay therefore advances the entry interval by the
+exact measured cycle count and asks whether it intersects the observed
+interval: `cpu_span_exact` is interval intersection, `residual_mclk` the
+signed gap when it misses (positive = replay stopped short of the observed
+beam, negative = replay overshot it).
 """
 
 from __future__ import annotations
@@ -16,21 +25,102 @@ from pathlib import Path
 from typing import Any, Iterable
 
 H40_MCLK_PER_SCANLINE = 3420
+H40_PIXELS_PER_SCANLINE = 420
 NTSC_SCANLINES = 262
+FRAME_MCLK = H40_MCLK_PER_SCANLINE * NTSC_SCANLINES
 MCLK_PER_M68K_CYCLE = 7
 DEFAULT_CLUSTERS = ("hud_diamond", "hud_life_icon")
 
+# H40 divider, ported from wildside-core `h40_scanline_mclk_to_pixel`
+# (crates/wildside-core/src/vdp.rs, itself from jgenesis
+# `scanline_mclk_to_pixel_h40`): mclk/8 outside HSYNC, with the documented
+# 8/10/9/10 divider pattern during HSYNC.
+_INTERNAL_H_JUMP = 0x1C9 - 0x16D
+_HSYNC_START_MCLK = (0x1CC - _INTERNAL_H_JUMP) * 8
+_HSYNC_PATTERN_MCLK = 8 + 7 * 10 + 2 * 9 + 7 * 10
+_HSYNC_END_MCLK = _HSYNC_START_MCLK + 2 * _HSYNC_PATTERN_MCLK
 
-def beam_mclk(position: dict[str, Any]) -> int:
-    return position["scanline"] * H40_MCLK_PER_SCANLINE + position["pixel"]
+
+def _scanline_mclk_to_pixel(scanline_mclk: int) -> int:
+    if scanline_mclk < _HSYNC_START_MCLK:
+        return scanline_mclk // 8
+    if scanline_mclk < _HSYNC_END_MCLK:
+        hsync_mclk = scanline_mclk - _HSYNC_START_MCLK
+        pattern_mclk = hsync_mclk % _HSYNC_PATTERN_MCLK
+        if pattern_mclk <= 7:
+            pattern_pixel = 0
+        elif pattern_mclk <= 77:
+            pattern_pixel = 1 + (pattern_mclk - 8) // 10
+        elif pattern_mclk <= 95:
+            pattern_pixel = 8 + (pattern_mclk - 78) // 9
+        else:
+            pattern_pixel = 10 + (pattern_mclk - 96) // 10
+        base = 0x1CC - _INTERNAL_H_JUMP
+        if hsync_mclk < _HSYNC_PATTERN_MCLK:
+            return base + pattern_pixel
+        return base + 17 + pattern_pixel
+    return 0x1CC - _INTERNAL_H_JUMP + 34 + (scanline_mclk - _HSYNC_END_MCLK) // 8
 
 
-def advance_beam(position: dict[str, Any], m68k_cycles: int) -> dict[str, int]:
-    frame_mclk = H40_MCLK_PER_SCANLINE * NTSC_SCANLINES
-    advanced = (beam_mclk(position) + m68k_cycles * MCLK_PER_M68K_CYCLE) % frame_mclk
+def _pixel_mclk_bounds() -> dict[int, tuple[int, int]]:
+    bounds: dict[int, tuple[int, int]] = {}
+    for mclk in range(H40_MCLK_PER_SCANLINE):
+        pixel = _scanline_mclk_to_pixel(mclk)
+        lo, hi = bounds.get(pixel, (mclk, mclk))
+        bounds[pixel] = (min(lo, mclk), max(hi, mclk))
+    return bounds
+
+
+PIXEL_MCLK_BOUNDS = _pixel_mclk_bounds()
+
+
+def beam_mclk_interval(position: dict[str, Any]) -> tuple[int, int]:
+    """Frame-absolute mclk interval a captured (scanline, pixel index) spans."""
+    pixel = position["pixel"]
+    if pixel not in PIXEL_MCLK_BOUNDS:
+        raise ValueError(
+            f"pixel index out of range 0..{H40_PIXELS_PER_SCANLINE - 1}: {pixel}"
+        )
+    lo, hi = PIXEL_MCLK_BOUNDS[pixel]
+    base = position["scanline"] * H40_MCLK_PER_SCANLINE
+    return base + lo, base + hi
+
+
+def mclk_to_position(frame_mclk: int) -> dict[str, int]:
+    wrapped = frame_mclk % FRAME_MCLK
     return {
-        "scanline": advanced // H40_MCLK_PER_SCANLINE,
-        "pixel": advanced % H40_MCLK_PER_SCANLINE,
+        "scanline": wrapped // H40_MCLK_PER_SCANLINE,
+        "pixel": _scanline_mclk_to_pixel(wrapped % H40_MCLK_PER_SCANLINE),
+    }
+
+
+def replay_cpu_span(
+    entry: dict[str, Any], observed: dict[str, Any], m68k_cycles: int
+) -> dict[str, Any]:
+    entry_lo, entry_hi = beam_mclk_interval(entry)
+    advance = m68k_cycles * MCLK_PER_M68K_CYCLE
+    advanced_lo, advanced_hi = entry_lo + advance, entry_hi + advance
+
+    observed_lo, observed_hi = beam_mclk_interval(observed)
+    # The observed beam recurs every frame; compare against the occurrence
+    # nearest the advanced interval so multi-frame spans replay correctly.
+    frames_ahead = round(
+        ((advanced_lo + advanced_hi) - (observed_lo + observed_hi)) / (2 * FRAME_MCLK)
+    )
+    observed_lo += frames_ahead * FRAME_MCLK
+    observed_hi += frames_ahead * FRAME_MCLK
+
+    if advanced_hi < observed_lo:
+        residual = observed_lo - advanced_hi
+    elif advanced_lo > observed_hi:
+        residual = observed_hi - advanced_lo
+    else:
+        residual = 0
+    return {
+        "replayed_update_hud": mclk_to_position(advanced_hi),
+        "cpu_span_exact": residual == 0,
+        "residual_mclk": residual,
+        "entry_quantisation_mclk": entry_hi - entry_lo + 1,
     }
 
 
@@ -92,20 +182,22 @@ def replay_census(
     for cluster in clusters:
         rows = []
         for frame in cluster["frames"]:
-            replayed_update = advance_beam(
-                frame["mode_entry"], frame["mode_to_update_hud"]["m68k_cycles"]
-            )
             observed_update = {
                 "scanline": frame["update_hud"]["scanline"],
                 "pixel": frame["update_hud"]["pixel"],
             }
-            cpu_span_exact = replayed_update == observed_update
-            exact_cpu_spans += int(cpu_span_exact)
+            span = replay_cpu_span(
+                frame["mode_entry"],
+                observed_update,
+                frame["mode_to_update_hud"]["m68k_cycles"],
+            )
+            exact_cpu_spans += int(span["cpu_span_exact"])
             total_frames += 1
             first_commit = frame["first_fifo_commit"]
             fifo_latency_mclk = (
-                beam_mclk(first_commit) - beam_mclk(observed_update)
-            ) % (H40_MCLK_PER_SCANLINE * NTSC_SCANLINES)
+                beam_mclk_interval(first_commit)[0]
+                - beam_mclk_interval(observed_update)[0]
+            ) % FRAME_MCLK
             rows.append(
                 {
                     "frame": frame["frame"],
@@ -115,17 +207,17 @@ def replay_census(
                         and frame["update_to_draw_hud"]["z80_wait_cycles"] == 0
                         else "asynchronous_z80_wait"
                     ),
-                    "replayed_update_hud": replayed_update,
                     "observed_update_hud": observed_update,
-                    "cpu_span_exact": cpu_span_exact,
                     "first_fifo_commit": first_commit,
                     "fifo_latency_mclk_from_update_hud": fifo_latency_mclk,
+                    **span,
                 }
             )
         output_clusters.append({"cluster": cluster["cluster"], "frames": rows})
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
+        "pixel_units": "h40_pixel_index",
         "measurement_only": True,
         "clusters": output_clusters,
         "frame_count": total_frames,
