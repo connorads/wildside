@@ -182,6 +182,7 @@ pub(crate) fn run_tas_gems_command_baseline(
     frontier_path: &Path,
     slug: &str,
     update: bool,
+    force: bool,
 ) -> Result<i32> {
     let block = load_report_block(report_path)?;
     let frontier_content = fs::read_to_string(frontier_path)
@@ -207,7 +208,14 @@ pub(crate) fn run_tas_gems_command_baseline(
         })
         .transpose()?;
     let actual = block.comparison.baseline();
+    if force && !update {
+        anyhow::bail!(
+            "tas-gems-command-baseline: --force is only meaningful together with --update"
+        );
+    }
     let Some(expected) = expected else {
+        // Creating a missing baseline block is not a regression; the guard
+        // below covers only the classified path.
         if update {
             let spliced = splice_recording_block(&frontier_content, slug, FRONTIER_KEY, &actual)?;
             fs::write(frontier_path, &spliced)
@@ -224,6 +232,13 @@ pub(crate) fn run_tas_gems_command_baseline(
         );
     };
     let (classification, rows) = classify(&expected, &actual);
+    crate::tas_pixel_baseline::guard_baseline_update(
+        "tas-gems-command-baseline",
+        classification,
+        &rows,
+        update,
+        force,
+    )?;
 
     if update {
         let spliced = splice_recording_block(&frontier_content, slug, FRONTIER_KEY, &actual)?;
@@ -491,6 +506,7 @@ mod tests {
             &frontier_path,
             "any-percent-published",
             false,
+            false,
         )
         .expect("classification run");
         assert_eq!(code, IMPROVEMENT_EXIT_CODE);
@@ -500,6 +516,7 @@ mod tests {
             &frontier_path,
             "any-percent-published",
             true,
+            false,
         )
         .expect("update run");
         assert_eq!(code, 0);
@@ -507,6 +524,7 @@ mod tests {
             &report_path,
             &frontier_path,
             "any-percent-published",
+            false,
             false,
         )
         .expect("post-update run");
@@ -532,6 +550,7 @@ mod tests {
             &report_path,
             &frontier_path,
             "any-percent-published",
+            false,
             false,
         )
         .expect("regression run");

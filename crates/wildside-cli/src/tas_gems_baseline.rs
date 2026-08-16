@@ -207,6 +207,7 @@ pub(crate) fn run_tas_gems_baseline(
     frontier_path: &Path,
     slug: &str,
     update: bool,
+    force: bool,
 ) -> Result<i32> {
     let gems = load_report_gems(report_path)?;
     let frontier_content = fs::read_to_string(frontier_path)
@@ -223,6 +224,13 @@ pub(crate) fn run_tas_gems_baseline(
     enforce_gems_coverage(&gems, total_frames)?;
     let actual = gems.baseline();
     let (classification, rows) = classify(&expected, &actual);
+    crate::tas_pixel_baseline::guard_baseline_update(
+        "tas-gems-baseline",
+        classification,
+        &rows,
+        update,
+        force,
+    )?;
 
     if update {
         let spliced = splice_recording_block(&frontier_content, slug, FRONTIER_GEMS_KEY, &actual)?;
@@ -546,26 +554,46 @@ mod tests {
         .expect("write report");
 
         // Without --update: improvement exit code.
-        let code =
-            run_tas_gems_baseline(&report_path, &frontier_path, "any-percent-published", false)
-                .expect("classification run");
+        let code = run_tas_gems_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            false,
+            false,
+        )
+        .expect("classification run");
         assert_eq!(code, IMPROVEMENT_EXIT_CODE);
 
         // With --update: splices and subsequently matches.
-        let code =
-            run_tas_gems_baseline(&report_path, &frontier_path, "any-percent-published", true)
-                .expect("update run");
+        let code = run_tas_gems_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            true,
+            false,
+        )
+        .expect("update run");
         assert_eq!(code, 0);
-        let code =
-            run_tas_gems_baseline(&report_path, &frontier_path, "any-percent-published", false)
-                .expect("post-update run");
+        let code = run_tas_gems_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            false,
+            false,
+        )
+        .expect("post-update run");
         assert_eq!(code, 0, "updated baseline must classify as Match");
 
         // Write-guard: a second --update leaves the file byte-identical.
         let before = fs::read_to_string(&frontier_path).expect("before");
-        let code =
-            run_tas_gems_baseline(&report_path, &frontier_path, "any-percent-published", true)
-                .expect("no-op update");
+        let code = run_tas_gems_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            true,
+            false,
+        )
+        .expect("no-op update");
         assert_eq!(code, 0);
         let after = fs::read_to_string(&frontier_path).expect("after");
         assert_eq!(before, after);
@@ -590,9 +618,14 @@ mod tests {
         )
         .expect("write report");
 
-        let code =
-            run_tas_gems_baseline(&report_path, &frontier_path, "any-percent-published", false)
-                .expect("regression run");
+        let code = run_tas_gems_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            false,
+            false,
+        )
+        .expect("regression run");
         assert_eq!(code, 1);
     }
 }

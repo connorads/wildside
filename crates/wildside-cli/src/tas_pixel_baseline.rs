@@ -406,6 +406,32 @@ fn splice_pixel_baseline(original: &str, slug: &str, actual: &PixelBaseline) -> 
     splice_recording_block(original, slug, FRONTIER_PIXEL_KEY, actual)
 }
 
+/// One update guard shared by all three TAS ratchets. `--force` is only
+/// meaningful with `--update`, and a regressed report may only be baselined
+/// under an explicit `--update --force`: an accidental `--update` after a
+/// regressed run must not quietly lower the bar behind a printed warning.
+/// The caller bails before any write, so the frontier file stays untouched.
+pub(crate) fn guard_baseline_update(
+    gate: &str,
+    classification: Classification,
+    rows: &[MetricRow],
+    update: bool,
+    force: bool,
+) -> Result<()> {
+    if force && !update {
+        bail!("{gate}: --force is only meaningful together with --update");
+    }
+    if update && !force && classification == Classification::Regression {
+        println!("{gate}: REFUSING --update — the report REGRESSES the committed baseline");
+        print_metric_table(rows);
+        println!(
+            "  review the regression; to deliberately accept it, re-run with --update --force"
+        );
+        bail!("{gate}: refusing to ratchet a regression without --force");
+    }
+    Ok(())
+}
+
 pub(crate) fn print_metric_table(rows: &[MetricRow]) {
     for row in rows {
         println!(
@@ -426,6 +452,7 @@ pub(crate) fn run_tas_pixel_baseline(
     frontier_path: &Path,
     slug: &str,
     update: bool,
+    force: bool,
 ) -> Result<i32> {
     let pixel = load_report_pixels(report_path)?;
     let frontier_content = fs::read_to_string(frontier_path)
@@ -442,6 +469,7 @@ pub(crate) fn run_tas_pixel_baseline(
     enforce_pixel_coverage(&pixel, total_frames)?;
     let actual = pixel.baseline();
     let (classification, rows) = classify(&expected, &actual);
+    guard_baseline_update("tas-pixel-baseline", classification, &rows, update, force)?;
 
     if update {
         let spliced = splice_pixel_baseline(&frontier_content, slug, &actual)?;
@@ -826,6 +854,111 @@ mod tests {
         assert_eq!(spliced, original);
     }
 
+    fn report_from(comparison: &ReportPixelComparison, dir: &Path) -> std::path::PathBuf {
+        let report_path = dir.join("report.json");
+        let report = serde_json::json!({
+            "pixel_comparison": serde_json::to_value(comparison).expect("fixture value"),
+        });
+        fs::write(
+            &report_path,
+            serde_json::to_vec_pretty(&report).expect("report bytes"),
+        )
+        .expect("write report");
+        report_path
+    }
+
+    #[test]
+    fn update_refuses_regression_without_force_and_leaves_file_untouched() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let frontier_path = dir.path().join("tas_frontier.json");
+        fs::write(&frontier_path, frontier_fixture()).expect("write fixture");
+        let original = fs::read(&frontier_path).expect("original bytes");
+
+        let mut regressed = coverage_fixture();
+        regressed.frame_counts = ReportFrameCounts {
+            requested: 37759,
+            native: 37759,
+            oracle: 37759,
+            compared: 37759,
+        };
+        let base = baseline();
+        regressed.exact_match_frames = base.exact_match_frames;
+        regressed.mismatch_frames = base.mismatch_frames;
+        regressed.total_changed_pixels = base.total_changed_pixels + 1;
+        regressed.mismatch_digest = base.mismatch_digest.clone();
+        regressed.first_mismatch = base.first_mismatch.clone();
+        regressed.worst_mismatch = base.worst_mismatch.clone();
+        let report_path = report_from(&regressed, dir.path());
+
+        let error = run_tas_pixel_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            true,
+            false,
+        )
+        .expect_err("regression --update without --force must refuse");
+        assert!(error.to_string().contains("--force"));
+        assert_eq!(
+            fs::read(&frontier_path).expect("after"),
+            original,
+            "refused update must not touch the frontier file"
+        );
+
+        // --update --force deliberately accepts the regressed frontier.
+        let code = run_tas_pixel_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            true,
+            true,
+        )
+        .expect("forced update");
+        assert_eq!(code, 0);
+        assert_ne!(fs::read(&frontier_path).expect("after force"), original);
+        let code = run_tas_pixel_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            false,
+            false,
+        )
+        .expect("post-force run");
+        assert_eq!(code, 0, "forced baseline must classify as Match");
+    }
+
+    #[test]
+    fn force_without_update_bails() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let frontier_path = dir.path().join("tas_frontier.json");
+        fs::write(&frontier_path, frontier_fixture()).expect("write fixture");
+        let mut matching = coverage_fixture();
+        matching.frame_counts = ReportFrameCounts {
+            requested: 37759,
+            native: 37759,
+            oracle: 37759,
+            compared: 37759,
+        };
+        let base = baseline();
+        matching.exact_match_frames = base.exact_match_frames;
+        matching.mismatch_frames = base.mismatch_frames;
+        matching.total_changed_pixels = base.total_changed_pixels;
+        matching.mismatch_digest = base.mismatch_digest.clone();
+        matching.first_mismatch = base.first_mismatch.clone();
+        matching.worst_mismatch = base.worst_mismatch.clone();
+        let report_path = report_from(&matching, dir.path());
+
+        let error = run_tas_pixel_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            false,
+            true,
+        )
+        .expect_err("--force without --update is a usage error");
+        assert!(error.to_string().contains("--update"));
+    }
+
     #[test]
     fn update_writes_spliced_file_and_write_guard_skips_matching() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -856,15 +989,25 @@ mod tests {
         .expect("write report");
 
         // Without --update: improvement exit code.
-        let code =
-            run_tas_pixel_baseline(&report_path, &frontier_path, "any-percent-published", false)
-                .expect("classification run");
+        let code = run_tas_pixel_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            false,
+            false,
+        )
+        .expect("classification run");
         assert_eq!(code, IMPROVEMENT_EXIT_CODE);
 
         // With --update: splices and subsequently matches.
-        let code =
-            run_tas_pixel_baseline(&report_path, &frontier_path, "any-percent-published", true)
-                .expect("update run");
+        let code = run_tas_pixel_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            true,
+            false,
+        )
+        .expect("update run");
         assert_eq!(code, 0);
         let updated = fs::read_to_string(&frontier_path).expect("read updated");
         let updated_value: serde_json::Value = serde_json::from_str(&updated).expect("valid JSON");
@@ -873,16 +1016,26 @@ mod tests {
             serde_json::json!(8_300_000u64)
         );
 
-        let code =
-            run_tas_pixel_baseline(&report_path, &frontier_path, "any-percent-published", false)
-                .expect("post-update run");
+        let code = run_tas_pixel_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            false,
+            false,
+        )
+        .expect("post-update run");
         assert_eq!(code, 0, "updated baseline must classify as Match");
 
         // Write-guard: a second --update leaves the file byte-identical.
         let before = fs::read_to_string(&frontier_path).expect("before");
-        let code =
-            run_tas_pixel_baseline(&report_path, &frontier_path, "any-percent-published", true)
-                .expect("no-op update");
+        let code = run_tas_pixel_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            true,
+            false,
+        )
+        .expect("no-op update");
         assert_eq!(code, 0);
         let after = fs::read_to_string(&frontier_path).expect("after");
         assert_eq!(before, after);

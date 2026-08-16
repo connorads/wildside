@@ -1548,6 +1548,10 @@ enum Commands {
         /// (surgical: only that block changes; byte-identical writes skipped)
         #[arg(long, default_value_t = false)]
         update: bool,
+        /// Allow --update to accept a REGRESSED report (deliberate,
+        /// reviewed baseline lowering; refused otherwise)
+        #[arg(long, default_value_t = false)]
+        force: bool,
     },
     /// Ratchet-aware GEMS/Z80 audio-timing gate: compare a verify-tas
     /// --compare-gems report against the committed frontier baseline. Exit 0
@@ -1567,6 +1571,10 @@ enum Commands {
         /// (surgical: only that block changes; byte-identical writes skipped)
         #[arg(long, default_value_t = false)]
         update: bool,
+        /// Allow --update to accept a REGRESSED report (deliberate,
+        /// reviewed baseline lowering; refused otherwise)
+        #[arg(long, default_value_t = false)]
+        force: bool,
     },
     /// Ratchet gate for GEMS command parity (`gems_command_parity_v1`, the
     /// authoritative audio gate per #416/#435): compare a verify-tas
@@ -1587,6 +1595,10 @@ enum Commands {
         /// (surgical: only that block changes; byte-identical writes skipped)
         #[arg(long, default_value_t = false)]
         update: bool,
+        /// Allow --update to accept a REGRESSED report (deliberate,
+        /// reviewed baseline lowering; refused otherwise)
+        #[arg(long, default_value_t = false)]
+        force: bool,
     },
 }
 
@@ -3513,9 +3525,11 @@ fn main() -> Result<()> {
             frontier,
             slug,
             update,
+            force,
         } => {
-            let code =
-                tas_pixel_baseline::run_tas_pixel_baseline(&report, &frontier, &slug, update)?;
+            let code = tas_pixel_baseline::run_tas_pixel_baseline(
+                &report, &frontier, &slug, update, force,
+            )?;
             if code != 0 {
                 std::process::exit(code);
             }
@@ -3525,8 +3539,10 @@ fn main() -> Result<()> {
             frontier,
             slug,
             update,
+            force,
         } => {
-            let code = tas_gems_baseline::run_tas_gems_baseline(&report, &frontier, &slug, update)?;
+            let code =
+                tas_gems_baseline::run_tas_gems_baseline(&report, &frontier, &slug, update, force)?;
             if code != 0 {
                 std::process::exit(code);
             }
@@ -3536,9 +3552,10 @@ fn main() -> Result<()> {
             frontier,
             slug,
             update,
+            force,
         } => {
             let code = tas_gems_command_baseline::run_tas_gems_command_baseline(
-                &report, &frontier, &slug, update,
+                &report, &frontier, &slug, update, force,
             )?;
             if code != 0 {
                 std::process::exit(code);
