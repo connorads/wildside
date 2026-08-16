@@ -796,10 +796,7 @@ mod tests {
         assert_eq!(match_region(&bbox(20, 18, 30, 22)), Some("timer_digits"));
         assert_eq!(match_region(&bbox(288, 34, 299, 45)), Some("hud_diamond"));
         assert_eq!(match_region(&bbox(290, 40, 295, 44)), Some("hud_diamond"));
-        assert_eq!(
-            match_region(&bbox(289, 13, 293, 17)),
-            Some("hud_life_icon")
-        );
+        assert_eq!(match_region(&bbox(289, 13, 293, 17)), Some("hud_life_icon"));
         // Overlapping but not contained, and fully outside.
         assert_eq!(match_region(&bbox(15, 16, 41, 23)), None);
         assert_eq!(match_region(&bbox(288, 34, 300, 45)), None);
@@ -850,6 +847,40 @@ mod tests {
         let clusters = cluster_mismatches(&frames, SAMPLES_PER_CLUSTER);
         assert_eq!(clusters.len(), 2);
         assert!(clusters[0].key < clusters[1].key);
+    }
+
+    #[test]
+    fn mismatch_digest_is_location_blind() {
+        // Characterisation, not endorsement: the digest hashes only
+        // (frame_index, changed_pixels), so the same count at a completely
+        // different screen location produces the SAME digest — the ratchet
+        // cannot see intra-frame relocation. The regions/bbox work closes
+        // this hole; this test pins the pre-existing behaviour it fixes.
+        let native = [0u8; 12];
+        let mut left_edge = [0u8; 12];
+        left_edge[0] = 0xFF; // pixel (0,0) of a 2x2 frame
+        let mut right_edge = [0u8; 12];
+        right_edge[11] = 0xFF; // pixel (1,1) of the same frame
+
+        let mut first = PixelComparisonAccumulator::with_detail(2, true);
+        first.observe(5, "left", &native, &left_edge).expect("left");
+        let mut second = PixelComparisonAccumulator::with_detail(2, true);
+        second
+            .observe(5, "right", &native, &right_edge)
+            .expect("right");
+
+        let first_detail = first.detail.take().expect("detail");
+        let second_detail = second.detail.take().expect("detail");
+        assert_ne!(
+            first_detail[0].bbox, second_detail[0].bbox,
+            "the two mismatches are at different locations"
+        );
+        let first_report = first.finish([5, 6], 1, 1, 1);
+        let second_report = second.finish([5, 6], 1, 1, 1);
+        assert_eq!(
+            first_report.mismatch_digest, second_report.mismatch_digest,
+            "same (frame, count) at different bboxes digests identically"
+        );
     }
 
     #[test]
