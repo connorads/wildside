@@ -517,8 +517,8 @@ run = "scripts/verify_web_local.sh"
 description = "Manual local Worker + Playwright journeys (requires canonical ROM and installed Playwright Chromium)"
 
 [tasks.raster-span-replay]
-run = "python3 scripts/raster_span_replay.py --census .cache/audit/hud-timing-census.json --output .cache/audit/raster-span-replay.json"
-description = "Replay the bounded HUD CPU/raster census as measurement evidence (ADR 0002; never a CI gate)"
+run = "cargo run --release -q -p wildside-cli -- raster-span-replay --census .cache/audit/hud-timing-census.json --output .cache/audit/raster-span-replay.json"
+description = "Replay the bounded HUD CPU/raster census as measurement evidence (ADR 0003; never a CI gate)"
 
 # The 2026-08-11 census was built from a probe whose command line was never
 # recorded; this task IS the recipe. The scenario path comes from

@@ -24,6 +24,7 @@ mod player;
 mod playtest_ingest;
 mod project_status;
 mod ram_diff;
+mod raster_span;
 mod recording;
 mod release_gate;
 mod rust_source_context;
@@ -1472,6 +1473,19 @@ enum Commands {
         /// Collection tier
         #[arg(long, value_enum, default_value_t = sweep::SweepTier::State)]
         tier: sweep::SweepTier,
+    },
+    /// Replay the bounded HUD CPU/raster census as measurement evidence
+    /// (#409, ADR 0003). Never a CI gate; shares the engine's H40 divider.
+    RasterSpanReplay {
+        /// HUD timing census JSON (from `mise run hud-timing-census`)
+        #[arg(long)]
+        census: PathBuf,
+        /// HUD cluster to replay; repeat to select both (default: both)
+        #[arg(long)]
+        cluster: Vec<String>,
+        /// Report JSON (default: stdout)
+        #[arg(long)]
+        output: Option<PathBuf>,
     },
     /// Diff two WRAM dump files byte-by-byte, highlighting changed addresses.
     RamDiff {
@@ -3449,6 +3463,13 @@ fn main() -> Result<()> {
             let level_ids = sweep::parse_level_range(&levels)?;
 
             sweep::run_sweep_compare(&repo_root, &rom_path, &manifest, &level_ids, tier)?;
+        }
+        Commands::RasterSpanReplay {
+            census,
+            cluster,
+            output,
+        } => {
+            raster_span::run_raster_span_replay(&census, &cluster, output.as_deref())?;
         }
         Commands::RamDiff {
             file_a,

@@ -7632,6 +7632,24 @@ fn h40_mclk_after_pixel(pixel: u16) -> Option<u16> {
     (0..MCLK_CYCLES_PER_SCANLINE as u16).find(|&mclk| h40_scanline_mclk_to_pixel(mclk) > pixel)
 }
 
+/// Inclusive scanline-mclk bounds of one H40 pixel index (0..=419).
+///
+/// A captured (scanline, pixel) pair quantises the beam to the 8/9/10-mclk
+/// interval the divider assigns that pixel, so measurement tools replaying
+/// captured cursors need the interval, not a point. `None` for an
+/// out-of-range pixel index.
+pub fn h40_pixel_mclk_bounds(pixel: u16) -> Option<(u16, u16)> {
+    let lo = (0..MCLK_CYCLES_PER_SCANLINE as u16)
+        .find(|&mclk| h40_scanline_mclk_to_pixel(mclk) == pixel)?;
+    // The divider is monotonic across the scanline, so the pixel's mclk
+    // interval is contiguous.
+    let hi = (lo..MCLK_CYCLES_PER_SCANLINE as u16)
+        .take_while(|&mclk| h40_scanline_mclk_to_pixel(mclk) == pixel)
+        .last()
+        .unwrap_or(lo);
+    Some((lo, hi))
+}
+
 fn life_icon_last_pending_enqueue_cursor_loc_44d4(
     entry: ModeLevelCpuRasterCursor,
 ) -> Option<ModeLevelCpuRasterCursor> {
@@ -10368,6 +10386,18 @@ fn load_saxman_art(source: &dyn AssetSource, rel: &std::path::Path) -> Result<Ve
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn h40_pixel_mclk_bounds_follow_the_divider_pattern() {
+        // Pre-HSYNC region: mclk/8, so pixel 204 spans 1632..1639.
+        assert_eq!(h40_pixel_mclk_bounds(204), Some((1_632, 1_639)));
+        // HSYNC divider region (8/10/9/10 pattern): pixel 380 is a
+        // 10-mclk slot starting 3,060 mclk into the scanline.
+        assert_eq!(h40_pixel_mclk_bounds(380), Some((3_060, 3_069)));
+        // Last pixel of the 420-pixel H40 line; anything beyond is invalid.
+        assert_eq!(h40_pixel_mclk_bounds(419), Some((3_412, 3_419)));
+        assert_eq!(h40_pixel_mclk_bounds(420), None);
+    }
 
     #[test]
     fn absolute_m68k_clock_resolves_stop_music_entry_beam_e14c8() {
