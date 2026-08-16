@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-16 handoff (unchecked enemy-status layout count)
+
+- Traced the 0x24/0x40 missing opening rosters to layout entries 36/37. ASM
+  `loc_3200A` and `Manage_EnemyLoading` iterate the unchecked bucket count,
+  while native silently discarded every status index above its 30-word array.
+- Retained the full six-bit status-index space safely and corrected
+  `loc_368A8` to apply blank-top-row Y adjustment to both loader windows. The
+  settled frame-0 regression now covers 0x24 and 0x40.
+- Focused sweep `1786887279` passes both levels. `verify-slice-fast` and
+  `verify-tas-full` pass; 0x33 is the only authoritative sweep failure left and
+  remains blocked on a named boss route under #301.
+
 ## 2026-08-16 handoff (settled-warp collision scheduling)
 
 - Extended the oracle settle trace with Kid HP, damage-latch, and invulnerability

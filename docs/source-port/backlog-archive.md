@@ -1330,6 +1330,24 @@ current-HEAD control run `1786727060` proves both failures already exist with
 `verify-slice-fast` and `verify-tas-full` gates pass; the full TAS has zero
 authoritative enemy-frontier differences across 37,759 frames.
 
+Dead end 2026-08-16: do not attribute the 0x24/0x40 missing rosters to a stale
+EnemyStatus_Table across `loc_31FE6` segment changes. A runtime prototype
+tracked `EnemyLayoutView.segment_index`, cleared the table on every bucket
+change, and exercised every settled, direct-probe, live, and trailing-loader
+call site. Focused sweep `1786884140` was byte-identical: 0x24 remained 3/4
+vs 6/7 and 0x40 remained 3/4 vs 12/12 then 8/8; 0x59 stayed green. The
+prototype was removed. The missing workers arise before or outside bucket
+status reuse.
+
+Resolved follow-up 2026-08-16: both missing opening rosters were entries 36/37
+of their selected layout buckets. ASM `loc_31F9A` clears only 30 words, but
+`loc_3200A` and `Manage_EnemyLoading loc_36840` iterate the unchecked layout
+count; native instead bounded the status array at 30 and silently skipped every
+later entry. Native now safely retains the full six-bit status-index space and
+applies `Number_blank_top_rows * 8` before both `loc_368A8` window tests. The
+settled frame-0 witness covers 0x24 and 0x40; focused sweep `1786887279` passes
+both levels. `verify-slice-fast` and all 37,759 frames of `verify-tas-full` pass.
+
 ### #427
 
 Tornado RNG flight (0x50, 2 blockers). Only diff: number_hitpoints 2v1 at BOTH

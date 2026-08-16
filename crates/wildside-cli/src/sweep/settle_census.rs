@@ -630,7 +630,8 @@ mod tests {
     /// the beam mid-fall at frame 0 exactly like the oracle).
     #[test]
     fn gameplay_regression_settled_warp_frame0_witnesses_probe_levels() {
-        let mismatches = settled_warp_frame0_witness_mismatches(&[0x30, 0x48, 0x50, 0x60, 0x61]);
+        let mismatches =
+            settled_warp_frame0_witness_mismatches(&[0x24, 0x30, 0x40, 0x48, 0x50, 0x60, 0x61]);
         assert!(
             mismatches.is_empty(),
             "settled-warp shell diverges from measured frame-0 witnesses:\n{}",

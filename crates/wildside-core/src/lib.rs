@@ -417,10 +417,11 @@ pub struct NativeRuntime {
     /// Prevents respawn when their spawn point re-enters the activation window.
     /// ASM: per-segment killed bitfield at $FFFFF66A.
     killed_enemies: HashSet<(usize, usize)>,
-    /// Native mirror of the 30-word EnemyStatus_Table cleared by ASM
-    /// `loc_31F9A`. Loader usage is still approximated by `killed_enemies`,
-    /// but death/deactivation routes write their table side effects here.
-    enemy_status_words: [u16; 0x001E],
+    /// Native mirror of EnemyStatus_Table. ASM loc_31F9A clears 30 words, but
+    /// loc_3200A and Manage_EnemyLoading iterate the unchecked layout count.
+    /// ORIGINAL_QUIRK: retain the full six-bit status-index space without
+    /// corrupting adjacent native state for buckets containing over 30 entries.
+    enemy_status_words: [u16; 0x0040],
     /// ASM `$FFFFFB51`: set after `Manage_EnemyLoading` has completed one pass.
     /// Native currently mirrors it for settled recording/oracle-warps, where
     /// probe frames start after the hidden first pass has already happened.
@@ -1535,7 +1536,7 @@ impl NativeRuntime {
             active_enemy_roster: Vec::new(),
             active_enemies: Vec::new(),
             killed_enemies: HashSet::new(),
-            enemy_status_words: [0; 0x001E],
+            enemy_status_words: [0; 0x0040],
             enemy_loading_initial_pass_complete: false,
             pending_enemy_gfx_initialisations_loc_3691e: 0,
             freshly_loaded_enemies_loc_3691e: std::collections::HashMap::new(),

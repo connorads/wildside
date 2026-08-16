@@ -3500,7 +3500,7 @@ pub(crate) fn activate_enemies_with_rng(
     blank_top_rows: u16,
     enemy_loading_initial_pass_complete: bool,
     killed: &std::collections::HashSet<(usize, usize)>,
-    enemy_status_words: &mut [u16; 0x001E],
+    enemy_status_words: &mut [u16],
     rng: &mut RomRandomState,
 ) {
     activate_enemies_with_rng_inner(
@@ -3534,7 +3534,7 @@ fn allocate_enemies_after_execute_objects_loc_3691e(
     blank_top_rows: u16,
     enemy_loading_initial_pass_complete: bool,
     killed: &std::collections::HashSet<(usize, usize)>,
-    enemy_status_words: &mut [u16; 0x001E],
+    enemy_status_words: &mut [u16],
     rng: &mut RomRandomState,
 ) {
     activate_enemies_with_rng_inner(
@@ -3597,7 +3597,7 @@ fn activate_enemies_with_rng_inner(
     blank_top_rows: u16,
     enemy_loading_initial_pass_complete: bool,
     killed: &std::collections::HashSet<(usize, usize)>,
-    enemy_status_words: &mut [u16; 0x001E],
+    enemy_status_words: &mut [u16],
     rng: &mut RomRandomState,
     existing_enemy_action: ExistingEnemyLoaderAction,
 ) {
@@ -3667,10 +3667,12 @@ fn activate_enemies_with_rng_inner(
         };
         let object_x = u32::from(object.x);
         let object_y = u32::from(object.y);
-        if !window.contains(object_x, object_y) {
+        let object_y_with_blank_rows = object_y + u32::from(blank_top_rows) * 8;
+        // ASM Manage_EnemyLoading loc_368A8: add Number_blank_top_rows * 8
+        // before both the padded load-window and visible inner-window tests.
+        if !window.contains(object_x, object_y_with_blank_rows) {
             continue;
         }
-        let object_y_with_blank_rows = object_y + u32::from(blank_top_rows) * 8;
         if enemy_loading_initial_pass_complete
             && enemy_spawn_inside_visible_inner_window_loc_36900(
                 object_x,
