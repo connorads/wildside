@@ -15388,6 +15388,51 @@ fn drips_projectile_object_snapshot_loc_3345c(
 }
 
 impl NativeRuntime {
+    pub(crate) fn consume_hidden_shell_player_contact_damage_loc_b700(&mut self) {
+        // ASM Mode_Level -> Execute_Objects (kid.asm:935-937): Kid consumes
+        // the collision word written by the preceding pass before enemy
+        // workers run. The debug-warp shell has no native Kid movement frame,
+        // but Character_CheckCollision and Check_for_recent_damge still run.
+        let Some(pending) = self.pending_player_contact_damage.take() else {
+            return;
+        };
+        let damage_live = normal_recent_damage_survives_invulnerability_gate_loc_1d00(
+            self.progression.invulnerable_frames != 0
+                || self.recent_damage_gate_held_this_frame_loc_bc6e
+                || self.kid_is_invulnerable,
+        );
+        if !damage_live || !matches!(self.player_lifecycle, PlayerLifecycle::Alive) {
+            return;
+        }
+        let Some(mut slice) = self.opening_slice else {
+            return;
+        };
+        self.apply_damage_with_knockback(&mut slice, pending.enemy_x, pending.enemy_family);
+        self.opening_slice = Some(slice);
+        self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ContactDamage;
+    }
+
+    pub(crate) fn latch_hidden_shell_player_contact_damage_loc_1cf2(&mut self) {
+        // ASM GfxObjects_CollisionKid loc_1CF2 (kid.asm:3559): the late sprite
+        // collision pass writes Kid's side/below collision for consumption by
+        // Character_CheckCollision on the next Execute_Objects pass.
+        if self.pending_player_contact_damage.is_some() {
+            return;
+        }
+        let Some(slice) = self.opening_slice.as_ref() else {
+            return;
+        };
+        if let Some((enemy_x, enemy_family)) =
+            self.find_contact_damage_source_with_dragon_landing_reach(slice, false)
+        {
+            self.pending_player_contact_damage = Some(PendingPlayerContactDamage {
+                enemy_x,
+                enemy_family,
+            });
+            self.hidden_shell_contact_latched_frame_loc_1cf2 = Some(self.frame_index);
+        }
+    }
+
     pub(crate) fn begin_flagpole_level_complete_loc_c056(
         &mut self,
         slice: &OpeningSliceState,
@@ -15760,7 +15805,12 @@ impl NativeRuntime {
         // before the late GfxObjects_CollisionKid passes write the current
         // overlap into Kid's collision slot. The side/below contact is
         // therefore consumed by Check_for_recent_damge on the next frame.
-        if let Some(pending) = self.pending_player_contact_damage.take()
+        // Native's hidden-shell GFX pass precedes this decomposed gameplay
+        // tail. ASM GfxObjects_CollisionKid loc_1CF2 writes for the NEXT
+        // Execute_Objects pass, so never consume a collision on its producer
+        // frame even though both native phases share one outer step.
+        if self.hidden_shell_contact_latched_frame_loc_1cf2 != Some(self.frame_index)
+            && let Some(pending) = self.pending_player_contact_damage.take()
             && normal_recent_damage_live
             && matches!(self.player_lifecycle, PlayerLifecycle::Alive)
         {

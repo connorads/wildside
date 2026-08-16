@@ -531,6 +531,9 @@ mod tests {
             kid_y_pos: 0x0090_0000,
             kid_x_vel: 0,
             kid_y_vel: 0,
+            number_hitpoints: 2,
+            just_received_damage: false,
+            invulnerable_frames: 0,
             number_objects: if live || paused { 7 } else { 0 },
             object_slots_loc_e1e: String::new(),
             drips_object_slots_loc_33488: String::new(),
@@ -843,6 +846,75 @@ mod tests {
             "contact damage has no knockback: Kid still stands at the spawn \
              column at frame 0"
         );
+    }
+
+    /// #427/#442 residue: Tornado.asm loc_35908 hibernates before loc_35948
+    /// consumes the collision word. The late Mode_Level
+    /// GfxObjects_CollisionKid pass writes `$24` at target-live step 5; Kid's
+    /// next Execute_Objects pass consumes it through Check_for_recent_damge ->
+    /// loc_B700, so recording frame 0 starts with one HP and the damage flash
+    /// still active (oracle settle trace run 1786875151).
+    #[test]
+    fn gameplay_regression_tornado_shell_contact_survives_boundary_level_0x50() {
+        use wildside_core::{LevelId, NativeRuntime};
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.set_recorded_title_card_handoff_delay(true);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x50));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x50));
+        let frame = runtime.trace_frame();
+
+        assert_eq!(
+            frame.number_hitpoints, 1,
+            "ASM Mode_Level -> GfxObjects_CollisionKid -> loc_B700: the live-5 Tornado contact costs one HP before frame 0"
+        );
+        assert!(
+            frame.just_received_damage,
+            "only 53 hidden frames follow the live-6 hit, so loc_BC54's 66-frame damage flash remains active at frame 0"
+        );
+        assert_eq!(
+            (frame.kid_x_pos, frame.kid_y_pos),
+            (Some(0x0030_0000), Some(0x032F_0000)),
+            "Check_for_recent_damge applies no contact knockback"
+        );
+    }
+
+    /// ASM loc_75D4 resumes Kid's coroutine at the title-card hand-off. The
+    /// UFO collision written by the final hidden GfxObjects_CollisionKid pass
+    /// is consumed by Character_CheckCollision before visible movement, so
+    /// frame 0 has one HP without losing a movement frame (oracle settle trace
+    /// run 1786878990, target-live steps 0-1).
+    #[test]
+    fn gameplay_regression_ufo_shell_contact_consumes_at_handoff_level_0x30() {
+        use wildside_core::{LevelId, NativeRuntime};
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.set_recorded_title_card_handoff_delay(true);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x30));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x30));
+        let frame = runtime.trace_frame();
+
+        assert_eq!(frame.number_hitpoints, 1);
+        assert!(frame.just_received_damage);
+        assert_eq!(
+            frame.invulnerable_frames, 8,
+            "loc_BC5C ages the live-1 UFO hit through target-live step 59"
+        );
+        assert_eq!(
+            (frame.kid_x_pos, frame.kid_y_pos),
+            (Some(0x0028_0000), Some(0x005F_0000)),
+            "loc_B700 changes HP and damage state but not Kid's hidden-shell pose"
+        );
+        let ufo = frame
+            .active_objects
+            .iter()
+            .find(|object| object.layout_index == Some(4))
+            .expect("level 0x30 UFO layout #4 must be active at frame 0");
+        assert_eq!(ufo.x_pos, 0x0028_0000);
     }
 
     /// #421: the 0x61 Scorpion walk phase. ASM Manage_EnemyLoading loc_3691E

@@ -1366,6 +1366,13 @@ present. 0x50's state-tier diffs are unchanged (2x number_hitpoints — the
 #442 pre-settle Kid hit) and the level cannot pass until that shell content
 is modelled; full sweep showed no regressions.
 
+Follow-up 2026-08-16: allocation and family initialisation were still
+collapsed into one native pass. ASM `Manage_EnemyLoading loc_3691E` allocates
+after `Execute_Objects`; the new Tornado cannot run `Enemy18_Tornado_Init` ->
+`loc_35326` until the next pass. Deferring that RNG byte and motion install
+makes the 0x50 hidden-shell collision land on the oracle's steps 5-6. Focused
+0x50 and full sweep `1786881192` pass; the former two HP blockers are gone.
+
 ### #442
 
 Opened 2026-08-01 (campaign audit). The sweep's settle checkpoints observe the
@@ -1575,6 +1582,16 @@ Resolved 2026-08-13 (the boundary swap). The model landed in two commits:
   all now measurable against the witness harness. Consequence of the swap:
   the surviving #419-#422 divergences start from an exact frame-0 state, so
   they are post-frame-0 enemy-behaviour bugs, no longer shell confounds.
+
+Follow-up 2026-08-16: the residual 0x30/0x50 HP failures were object-pass
+scheduling, not collision geometry. Fresh oracle settle traces export
+`Number_Hitpoints`, `Just_received_damage`, and the damage-flash state: the
+0x30 UFO writes Kid-left on target-live step 0 and `loc_B700` spends one HP on
+step 1; the 0x50 Tornado follows the same write/consume hand-off on steps 5-6.
+Native now preserves hidden `loc_1CF2` writes until the next outer frame and
+defers freshly loaded Tornado `loc_35326` initialisation until its first object
+pass. Full sweep `1786881192` improves 65/69 with 14 blockers to 66/69 with 12;
+0x30 and 0x50 pass, and `verify-slice-fast` plus `verify-tas-full` are green.
 
 ### #455
 

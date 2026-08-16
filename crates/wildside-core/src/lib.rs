@@ -440,6 +440,9 @@ pub struct NativeRuntime {
     /// `j_Hibernate_Object_1Frame`, and the loc_3C0D2/loc_3C026 walker-entry
     /// hibernate).
     freshly_loaded_enemies_loc_3691e: std::collections::HashMap<(usize, usize), u8>,
+    /// Enemy18_Tornado_Init consumes its loc_35326 RNG byte on the first
+    /// Execute_Objects pass after loc_3691E allocation, not in the loader tail.
+    pending_tornado_initialisations_loc_3691e: HashSet<(usize, usize)>,
     /// Blocks drilled by Driller enemies this frame.
     /// Driller.asm loc_3BE78: checks sprite timer, destroys Smash/Ice blocks ahead.
     drilled_blocks: Vec<DrilledBlockLoc3BE78>,
@@ -632,6 +635,9 @@ pub struct NativeRuntime {
     /// ASM Mode_Level writes Kid/object collision words near the end of the
     /// frame; Character_CheckCollision consumes them on the next object pass.
     pending_player_contact_damage: Option<PendingPlayerContactDamage>,
+    /// Native's decomposed hidden-shell GFX pass runs before its gameplay tail.
+    /// Pin the producing frame so that tail cannot consume the collision early.
+    hidden_shell_contact_latched_frame_loc_1cf2: Option<usize>,
     /// Collision words emitted from object execution after this frame's
     /// Character_CheckCollision point. Promoted to
     /// `pending_player_contact_damage` once that consume point has passed.
@@ -1533,6 +1539,7 @@ impl NativeRuntime {
             enemy_loading_initial_pass_complete: false,
             pending_enemy_gfx_initialisations_loc_3691e: 0,
             freshly_loaded_enemies_loc_3691e: std::collections::HashMap::new(),
+            pending_tornado_initialisations_loc_3691e: HashSet::new(),
             drilled_blocks: Vec::new(),
             active_platforms: Vec::new(),
             active_platform_roster: Vec::new(),
@@ -1623,6 +1630,7 @@ impl NativeRuntime {
             kid_touched_enemy_this_frame_loc_fa75: false,
             pending_stomp_bounce: None,
             pending_player_contact_damage: None,
+            hidden_shell_contact_latched_frame_loc_1cf2: None,
             delayed_player_contact_damage: None,
             shooter_barrel_damage_latched_loc_1f52: false,
             pending_grounded_dragon_landing_graze: None,
@@ -4057,6 +4065,8 @@ impl NativeRuntime {
             .is_some_and(|elapsed| !(2..debug_level_entry_live_boundary).contains(&elapsed));
         let debug_level_entry_hibernated = debug_level_entry_elapsed
             .is_some_and(|elapsed| elapsed < debug_level_entry_live_boundary);
+        let debug_level_entry_live_object_pass = debug_level_entry_elapsed
+            .is_some_and(|elapsed| elapsed >= debug_level_entry_live_boundary);
         let level_entry_hibernated_gameplay_execution = self
             .starting_level_title_card_bootstrap_active_loc_1ae2e()
             || debug_level_entry_hibernated;
@@ -4258,7 +4268,20 @@ impl NativeRuntime {
             // Preserve the count encoded into this frame's Sprite_Table;
             // Increase_Diamonds may increment it later in the object pass.
             self.hud_diamond_count_loc_bdc0 = self.progression.diamond_count;
+            if debug_level_entry_live_object_pass {
+                // ASM Mode_Level Execute_Objects: the Kid collision consumer
+                // precedes enemy workers; loc_BC5C's damage-flash worker also
+                // remains live beneath the debug-warp title window (#427/#442).
+                self.recent_damage_gate_held_this_frame_loc_bc6e = self.just_received_damage;
+                self.step_damage_flash_thread_loc_bc5c();
+                self.consume_hidden_shell_player_contact_damage_loc_b700();
+            }
             self.refresh_active_roster();
+            if debug_level_entry_live_object_pass {
+                // ASM GfxObjects_CollisionKid runs after Execute_Objects and
+                // leaves contact for the following hidden pass to consume.
+                self.latch_hidden_shell_player_contact_damage_loc_1cf2();
+            }
             // ASM Mode_Level loc_7396/loc_73B8 advances the murder wall every
             // frame, including the hidden debug-warp shell frames behind the
             // title window (#442). The visible Kid frame owns the wall while

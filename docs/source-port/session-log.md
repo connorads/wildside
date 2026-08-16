@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-16 handoff (settled-warp collision scheduling)
+
+- Extended the oracle settle trace with Kid HP, damage-latch, and invulnerability
+  witnesses. The trace proves the 0x30 UFO body and 0x50 Tornado contacts are
+  consumed by `Character_CheckCollision` during the hidden Mode_Level shell.
+- Deferred Tornado `loc_35326` initialisation from `Manage_EnemyLoading` to the
+  next object pass, and preserved the collision write until the next
+  `Execute_Objects` pass. Added frame-0 regressions for both levels.
+- Full sweep `1786881192`: 66/69 pass, 12 blockers, no regressions. The prior
+  0x50 blocker is gone and 0x30 remains comparable with only idle-tail oracle
+  limitations. `verify-slice-fast` and `verify-tas-full` pass.
+
 ## 2026-08-16 handoff (proactive TankShooting projectile mutation refresh)
 
 - A bounded live-constructor audit found that `loc_3B730`'s Tank bullet tag and

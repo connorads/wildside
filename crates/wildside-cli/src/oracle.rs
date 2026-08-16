@@ -368,6 +368,12 @@ pub struct OracleSettleTraceRow {
     pub kid_y_pos: u32,
     pub kid_x_vel: i32,
     pub kid_y_vel: i32,
+    #[serde(default)]
+    pub number_hitpoints: u16,
+    #[serde(default)]
+    pub just_received_damage: bool,
+    #[serde(default)]
+    pub invulnerable_frames: u8,
     pub number_objects: u16,
     #[serde(default)]
     pub object_slots_loc_e1e: String,

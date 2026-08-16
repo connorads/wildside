@@ -4299,7 +4299,9 @@ fn activate_enemies_with_rng_inner(
                 enemy.y_velocity = 0;
                 enemy.on_ground = false;
             }
-            if matches!(family, EnemyFamily::Tornado) {
+            if matches!(family, EnemyFamily::Tornado)
+                && existing_enemy_action == ExistingEnemyLoaderAction::Retain
+            {
                 // ASM Tornado.asm Enemy18_Tornado_Init: `lea unk_35A0C(pc),a0`
                 // only primes the loc_359F2 script pointer at entry 0; the
                 // first motion vector comes from `bsr.w loc_35326` — an RNG
@@ -14268,6 +14270,36 @@ impl NativeRuntime {
                 let mut played_enemy_sound_effects = Vec::new();
                 let enemy_storage_order =
                     reorder_active_enemies_for_execute_objects_loc_de0(&mut self.active_enemies);
+                self.pending_tornado_initialisations_loc_3691e
+                    .retain(|key| {
+                        self.active_enemies
+                            .iter()
+                            .any(|enemy| (enemy.segment_index, enemy.layout_index) == *key)
+                    });
+                for enemy in &mut self.active_enemies {
+                    let key = (enemy.segment_index, enemy.layout_index);
+                    if enemy.family == EnemyFamily::Tornado
+                        && self.pending_tornado_initialisations_loc_3691e.remove(&key)
+                    {
+                        // ASM Manage_EnemyLoading loc_3691E allocates after
+                        // Execute_Objects. Enemy18_Tornado_Init runs on the
+                        // next pass, after loc_E12's Get_RandomNumber_long,
+                        // then loc_35326 consumes its own RNG byte.
+                        let (motion, facing) = ufo_motion_picker_loc_35326(
+                            self.rom_random.next_byte(),
+                            enemy.x_pos,
+                            enemy.x_velocity,
+                            enemy.y_velocity,
+                            enemy.flight_double_acceleration,
+                            enemy.flight_double_terminal_speed,
+                        );
+                        enemy.x_acceleration = motion.x_acceleration;
+                        enemy.target_x_velocity = motion.target_x_velocity;
+                        enemy.y_acceleration = motion.y_acceleration;
+                        enemy.target_y_velocity = motion.target_y_velocity;
+                        enemy.facing = facing;
+                    }
+                }
                 if self.progression.form_change_flash_frames == 1 {
                     if let Some(enemy) = self.active_enemies.last_mut()
                         && enemy.family == EnemyFamily::DragonWalking
@@ -14534,6 +14566,12 @@ impl NativeRuntime {
                 .len()
                 .saturating_sub(active_before_trailing_load)
                 .min(usize::from(u16::MAX)) as u16;
+        self.pending_tornado_initialisations_loc_3691e.extend(
+            self.active_enemies[active_before_trailing_load..]
+                .iter()
+                .filter(|enemy| enemy.family == EnemyFamily::Tornado)
+                .map(|enemy| (enemy.segment_index, enemy.layout_index)),
+        );
         self.ensure_heady_metal_breakup_slots_loc_39247();
     }
 
@@ -14581,6 +14619,12 @@ impl NativeRuntime {
                 .len()
                 .saturating_sub(active_before_trailing_load)
                 .min(usize::from(u16::MAX)) as u16;
+        self.pending_tornado_initialisations_loc_3691e.extend(
+            self.active_enemies[active_before_trailing_load..]
+                .iter()
+                .filter(|enemy| enemy.family == EnemyFamily::Tornado)
+                .map(|enemy| (enemy.segment_index, enemy.layout_index)),
+        );
         // ASM Manage_EnemyLoading loc_3691E (#419/#420): a freshly loaded
         // enemy's first object passes run its family Init, which ends in a
         // walker hibernate, so its first walk step lands late. Per-family

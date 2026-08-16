@@ -8425,14 +8425,7 @@ impl NativeRuntime {
                 // the cycle PAUSES for the transform's duration (oracle 0x55:
                 // Just_received_damage holds from the shell hit through the
                 // f36-f95 Micromax transform and clears at f98, #420).
-                if self.progression.invulnerable_frames > 0
-                    && !self.gameplay_hibernating_for_transform()
-                {
-                    self.progression.invulnerable_frames -= 1;
-                    if self.progression.invulnerable_frames == 0 {
-                        self.just_received_damage = false;
-                    }
-                }
+                self.step_damage_flash_thread_loc_bc5c();
                 if self.progression.form_change_flash_frames > 0 {
                     // ASM loc_7D22 -> loc_7E14/loc_7E26 (kid.asm:8486/8557):
                     // after the final animation-table hibernate, queue the
@@ -8766,6 +8759,20 @@ impl NativeRuntime {
         }
 
         true
+    }
+
+    pub(crate) fn step_damage_flash_thread_loc_bc5c(&mut self) {
+        // ASM loc_BC5C/loc_BC6E (kid.asm:15203/15210): the damage-flash
+        // Object_RAM coroutine hibernates 2+4 frames per cycle and clears
+        // Just_received_damage after 11 cycles. Hidden debug-warp Mode_Level
+        // passes execute this worker even though native does not run the Kid
+        // movement slice during the title-window shell.
+        if self.progression.invulnerable_frames > 0 && !self.gameplay_hibernating_for_transform() {
+            self.progression.invulnerable_frames -= 1;
+            if self.progression.invulnerable_frames == 0 {
+                self.just_received_damage = false;
+            }
+        }
     }
 }
 
