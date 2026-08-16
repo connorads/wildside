@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-16 handoff (proactive TankShooting projectile mutation refresh)
+
+- A bounded live-constructor audit found that `loc_3B730`'s Tank bullet tag and
+  camera/collision-driven lifetime sentinel were not pinned by the focused
+  spawn contract.
+- Added exact ASM-cited assertions for the `TankBullet` lifecycle and removed
+  six explicit zero/false fields already supplied by `EnemyProjectile::default`.
+
 ## 2026-08-16 handoff (proactive live Goat mutation refresh)
 
 - The family-local Goat shard was clean, but a bounded `enemies.rs` refresh

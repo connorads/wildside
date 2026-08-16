@@ -1144,6 +1144,15 @@ mod tests {
         assert_eq!(projectiles[0].x_velocity, 0x0003_0000);
         assert_eq!(projectiles[0].y_velocity, 0);
         assert_eq!(
+            projectiles[0].lifetime, TANK_BULLET_LIFETIME,
+            "ASM Tank_Shooting.asm loc_3B7BA loops until camera bounds or collision delete the bullet, rather than using a DBF lifetime"
+        );
+        assert_eq!(
+            projectiles[0].kind,
+            EnemyProjectileKind::TankBullet,
+            "the loc_3B730 worker must enter the dedicated loc_3B7BA lifecycle"
+        );
+        assert_eq!(
             enemy.wait_timer,
             TANK_SHOOTING_FAST_CYCLE_FRAMES - 1,
             "ASM `stru_3B4D8` loops every 116 frames, so the countdown reload is 115 after a shot"

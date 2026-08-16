@@ -10253,13 +10253,7 @@ pub(crate) fn step_tank_shooting_fire(
             .y_pos
             .wrapping_sub((TANK_BULLET_SPAWN_Y_OFFSET_PX as u32) << 16),
         x_velocity,
-        y_velocity: 0,
         lifetime: TANK_BULLET_LIFETIME,
-        friendly: false,
-        gravity: 0,
-        homing_accel: 0,
-        speed_cap: 0,
-        wall_bounce: false,
         kind: EnemyProjectileKind::TankBullet,
         ..Default::default()
     });
