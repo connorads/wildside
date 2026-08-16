@@ -135,11 +135,13 @@ pub(crate) struct TasPixelMismatchReport {
     per_frame: Vec<TasPixelFrameMismatch>,
 }
 
-fn cluster_key(mismatch: &TasPixelFrameMismatch) -> String {
-    if let Some(region) = mismatch.region {
+/// Region name where the bbox is contained by a HUD rect, else the
+/// quantised-grid key. One naming scheme shared by the mismatch-report
+/// clusters and the always-on `regions` summary.
+fn region_or_grid_key(region: Option<&str>, bbox: &BBox) -> String {
+    if let Some(region) = region {
         return region.to_owned();
     }
-    let bbox = &mismatch.bbox;
     format!(
         "grid:{},{}-{},{}",
         bbox.min_x / CLUSTER_GRID_CELL,
@@ -147,6 +149,10 @@ fn cluster_key(mismatch: &TasPixelFrameMismatch) -> String {
         bbox.max_x / CLUSTER_GRID_CELL,
         bbox.max_y / CLUSTER_GRID_CELL,
     )
+}
+
+fn cluster_key(mismatch: &TasPixelFrameMismatch) -> String {
+    region_or_grid_key(mismatch.region, &mismatch.bbox)
 }
 
 /// Collapse sorted frame indices into inclusive consecutive ranges.
@@ -247,6 +253,15 @@ pub(crate) struct TasPixelFrameCounts {
     compared: usize,
 }
 
+/// Per-region slice of the mismatch aggregates. The full `regions` map is an
+/// exact partition: summed over keys it reproduces `mismatch_frames` and
+/// `total_changed_pixels` (enforced when the report is built).
+#[derive(Debug, Clone, Copy, Default, Serialize, PartialEq, Eq)]
+pub(crate) struct TasPixelRegionSummary {
+    mismatch_frames: u64,
+    changed_pixels: u64,
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub(crate) struct TasPixelComparisonReport {
     projection: &'static str,
@@ -258,6 +273,9 @@ pub(crate) struct TasPixelComparisonReport {
     exact_match_frames: usize,
     mismatch_frames: usize,
     total_changed_pixels: u64,
+    /// Always-on location summary keyed by [`region_or_grid_key`]; extra work
+    /// is per *differing* pixel, so exact frames pay nothing.
+    regions: BTreeMap<String, TasPixelRegionSummary>,
     mismatch_digest: String,
     first_mismatch: Option<TasPixelFrameEvidence>,
     worst_mismatch: Option<TasPixelFrameEvidence>,
@@ -294,6 +312,7 @@ struct PixelComparisonAccumulator {
     exact_match_frames: usize,
     mismatch_frames: usize,
     total_changed_pixels: u64,
+    regions: BTreeMap<String, TasPixelRegionSummary>,
     digest: Sha1,
     first_mismatch: Option<TasPixelFrameEvidence>,
     worst_mismatch: Option<TasPixelFrameEvidence>,
@@ -301,8 +320,9 @@ struct PixelComparisonAccumulator {
 }
 
 impl PixelComparisonAccumulator {
-    /// `frame_width` derives per-pixel x/y for bbox detail; only read when
-    /// `collect_detail` is true, so the summary-only path never allocates.
+    /// `frame_width` derives per-pixel x/y for the mismatch bbox (regions are
+    /// always on); `collect_detail` additionally keeps the per-frame rows the
+    /// standalone mismatch report is built from.
     fn with_detail(frame_width: usize, collect_detail: bool) -> Self {
         Self {
             frame_width,
@@ -326,32 +346,24 @@ impl PixelComparisonAccumulator {
             );
         }
 
-        // Detail mode derives the mismatch bbox in the same single pass that
-        // produces the count, so summary fields (and mismatch_digest) stay
-        // byte-identical either way.
-        let (changed_pixels, bbox) = if self.detail.is_some() {
-            match crate::diff::pixel_mismatch_bbox(native_rgb, oracle_rgb, self.frame_width) {
-                Some((count, bbox)) => (count, Some(bbox)),
-                None => (0, None),
-            }
-        } else {
-            (
-                crate::diff::pixel_mismatch_count(native_rgb, oracle_rgb),
-                None,
-            )
-        };
+        // The bbox derives in the same single pass that produces the count
+        // and only does extra work per *differing* pixel, so exact frames pay
+        // nothing and summary fields stay identical with or without detail.
         self.compared_frames += 1;
-        if changed_pixels == 0 {
+        let Some((changed_pixels, bbox)) =
+            crate::diff::pixel_mismatch_bbox(native_rgb, oracle_rgb, self.frame_width)
+        else {
             self.exact_match_frames += 1;
             return Ok(());
-        }
+        };
+        let region = match_region(&bbox);
 
-        if let (Some(detail), Some(bbox)) = (self.detail.as_mut(), bbox) {
+        if let Some(detail) = self.detail.as_mut() {
             detail.push(TasPixelFrameMismatch {
                 frame_index,
                 label: label.to_owned(),
                 changed_pixels,
-                region: match_region(&bbox),
+                region,
                 bbox,
             });
         }
@@ -359,6 +371,12 @@ impl PixelComparisonAccumulator {
         self.total_changed_pixels = self
             .total_changed_pixels
             .saturating_add(changed_pixels as u64);
+        let slot = self
+            .regions
+            .entry(region_or_grid_key(region, &bbox))
+            .or_default();
+        slot.mismatch_frames += 1;
+        slot.changed_pixels += changed_pixels as u64;
         self.digest.update(frame_index.to_le_bytes());
         self.digest.update(changed_pixels.to_le_bytes());
         let evidence = TasPixelFrameEvidence {
@@ -385,11 +403,32 @@ impl PixelComparisonAccumulator {
         requested_frames: usize,
         native_frames: usize,
         oracle_frames: usize,
-    ) -> TasPixelComparisonReport {
+    ) -> Result<TasPixelComparisonReport> {
+        // The regions map must exactly partition the aggregates; a drifted
+        // slice would silently misattribute debt, so it hard-fails here.
+        let region_frames: u64 = self
+            .regions
+            .values()
+            .map(|region| region.mismatch_frames)
+            .sum();
+        let region_pixels: u64 = self
+            .regions
+            .values()
+            .map(|region| region.changed_pixels)
+            .sum();
+        if region_frames != self.mismatch_frames as u64
+            || region_pixels != self.total_changed_pixels
+        {
+            bail!(
+                "pixel region summary does not partition the totals: regions {region_frames} frames / {region_pixels} px vs totals {} / {}",
+                self.mismatch_frames,
+                self.total_changed_pixels
+            );
+        }
         let proves_requested_frame_pixels = requested_frames == native_frames
             && requested_frames == oracle_frames
             && requested_frames == self.compared_frames;
-        TasPixelComparisonReport {
+        Ok(TasPixelComparisonReport {
             projection: TAS_PIXEL_PROJECTION_NAME,
             frame_range,
             frame_counts: TasPixelFrameCounts {
@@ -405,10 +444,11 @@ impl PixelComparisonAccumulator {
             exact_match_frames: self.exact_match_frames,
             mismatch_frames: self.mismatch_frames,
             total_changed_pixels: self.total_changed_pixels,
+            regions: self.regions,
             mismatch_digest: format!("{:x}", self.digest.finalize()),
             first_mismatch: self.first_mismatch,
             worst_mismatch: self.worst_mismatch,
-        }
+        })
     }
 }
 
@@ -540,7 +580,7 @@ pub(crate) fn compare_tas_pixels(
         requested.len(),
         native_frames,
         oracle_frames.len(),
-    );
+    )?;
     if !report.proves_requested_frame_pixels {
         bail!(
             "incomplete TAS pixel coverage: requested={} native={} oracle={} compared={}",
@@ -727,7 +767,7 @@ mod tests {
 
     #[test]
     fn pixel_report_distinguishes_exact_and_changed_frames() {
-        let mut accumulator = PixelComparisonAccumulator::default();
+        let mut accumulator = PixelComparisonAccumulator::with_detail(2, false);
         accumulator
             .observe(4, "exact", &[0, 1, 2, 3, 4, 5], &[0, 1, 2, 3, 4, 5])
             .expect("exact frame");
@@ -735,7 +775,7 @@ mod tests {
             .observe(5, "changed", &[0, 1, 2, 3, 4, 5], &[0, 1, 9, 8, 4, 5])
             .expect("changed frame");
 
-        let report = accumulator.finish([4, 6], 2, 2, 2);
+        let report = accumulator.finish([4, 6], 2, 2, 2).expect("report");
 
         assert_eq!(report.exact_match_frames, 1);
         assert_eq!(report.mismatch_frames, 1);
@@ -752,11 +792,13 @@ mod tests {
         sampled
             .observe(5, "sample", &[0, 0, 0], &[0, 0, 0])
             .expect("sample");
-        let sampled = sampled.finish([0, 10], 1, 1, 1);
+        let sampled = sampled.finish([0, 10], 1, 1, 1).expect("report");
         assert!(sampled.proves_requested_frame_pixels);
         assert!(!sampled.proves_every_frame_in_range);
 
-        let incomplete = PixelComparisonAccumulator::default().finish([0, 1], 1, 0, 1);
+        let incomplete = PixelComparisonAccumulator::default()
+            .finish([0, 1], 1, 0, 1)
+            .expect("report");
         assert!(!incomplete.proves_requested_frame_pixels);
         assert!(!incomplete.proves_every_frame_in_range);
     }
@@ -875,11 +917,60 @@ mod tests {
             first_detail[0].bbox, second_detail[0].bbox,
             "the two mismatches are at different locations"
         );
-        let first_report = first.finish([5, 6], 1, 1, 1);
-        let second_report = second.finish([5, 6], 1, 1, 1);
+        let first_report = first.finish([5, 6], 1, 1, 1).expect("report");
+        let second_report = second.finish([5, 6], 1, 1, 1).expect("report");
         assert_eq!(
             first_report.mismatch_digest, second_report.mismatch_digest,
             "same (frame, count) at different bboxes digests identically"
+        );
+    }
+
+    #[test]
+    fn regions_summary_partitions_the_totals_without_detail() {
+        // Full-size frame so the HUD rects are addressable. One mismatch
+        // inside hud_diamond (288,34)-(299,45); one two-pixel mismatch out in
+        // the playfield that buckets by grid key. Regions are always on —
+        // no detail flag needed.
+        let width = NATIVE_FRAME_WIDTH as usize;
+        let height = NATIVE_FRAME_HEIGHT as usize;
+        let base = vec![0u8; width * height * 3];
+        let mut diamond = base.clone();
+        diamond[(40 * width + 290) * 3] = 0xFF;
+        let mut playfield = base.clone();
+        playfield[(100 * width + 100) * 3] = 0xFF;
+        playfield[(100 * width + 101) * 3] = 0xFF;
+
+        let mut accumulator = PixelComparisonAccumulator::with_detail(width, false);
+        accumulator
+            .observe(10, "diamond", &base, &diamond)
+            .expect("diamond frame");
+        accumulator
+            .observe(11, "playfield", &base, &playfield)
+            .expect("playfield frame");
+        let report = accumulator.finish([10, 12], 2, 2, 2).expect("report");
+
+        assert_eq!(report.regions.len(), 2);
+        let diamond_region = &report.regions["hud_diamond"];
+        assert_eq!(diamond_region.mismatch_frames, 1);
+        assert_eq!(diamond_region.changed_pixels, 1);
+        let grid_region = &report.regions["grid:12,12-12,12"];
+        assert_eq!(grid_region.mismatch_frames, 1);
+        assert_eq!(grid_region.changed_pixels, 2);
+        assert_eq!(
+            report
+                .regions
+                .values()
+                .map(|region| region.mismatch_frames)
+                .sum::<u64>(),
+            report.mismatch_frames as u64
+        );
+        assert_eq!(
+            report
+                .regions
+                .values()
+                .map(|region| region.changed_pixels)
+                .sum::<u64>(),
+            report.total_changed_pixels
         );
     }
 
@@ -913,8 +1004,8 @@ mod tests {
         assert_eq!(detail[0].changed_pixels, 2);
         assert_eq!(detail[0].bbox, bbox(0, 0, 1, 0));
 
-        let summary = summary_only.finish([4, 6], 2, 2, 2);
-        let detailed_summary = detailed.finish([4, 6], 2, 2, 2);
+        let summary = summary_only.finish([4, 6], 2, 2, 2).expect("report");
+        let detailed_summary = detailed.finish([4, 6], 2, 2, 2).expect("report");
         assert_eq!(summary, detailed_summary);
 
         let report = build_mismatch_report(&detailed_summary, detail);
