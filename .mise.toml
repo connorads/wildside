@@ -520,6 +520,39 @@ description = "Manual local Worker + Playwright journeys (requires canonical ROM
 run = "python3 scripts/raster_span_replay.py --census .cache/audit/hud-timing-census.json --output .cache/audit/raster-span-replay.json"
 description = "Replay the bounded HUD CPU/raster census as measurement evidence (ADR 0002; never a CI gate)"
 
+# The 2026-08-11 census was built from a probe whose command line was never
+# recorded; this task IS the recipe. The scenario path comes from
+# tests/tas_frontier.json exactly as verify-tas-frontier derives it (never
+# hand-typed), the frame list comes from the mismatch report's HUD clusters,
+# and the window starts one frame early because the census indexes the $7C8
+# Mode_Level entry at frame f-1 (scripts/hud_timing_census.py). Trace-only:
+# --no-frame-captures skips the per-frame PNG/state writes the census never
+# reads. Runs the oracle over the whole window — expect hours, not minutes;
+# time a 100-frame slice first when estimating.
+[tasks.hud-timing-probe]
+run = """
+sh -ec '
+slug=any-percent-published
+report=.cache/tas-verify/$slug/mismatch-report.json
+if [ ! -f "$report" ]; then echo "missing $report (run verify-tas-full first)"; exit 1; fi
+scenario=$(jq -r --arg slug "$slug" '"'"'.recordings[$slug].scenario'"'"' tests/tas_frontier.json)
+frames=$(jq -r '"'"'[.clusters[] | select(.key=="hud_diamond" or .key=="hud_life_icon") | .frame_ranges[] | range(.[0]; .[1]+1)] | unique | map(tostring) | join(",")'"'"' "$report")
+start=$(jq -r '"'"'[.clusters[] | select(.key=="hud_diamond" or .key=="hud_life_icon") | .frame_ranges[][0]] | min - 1'"'"' "$report")
+end=$(jq -r '"'"'[.clusters[] | select(.key=="hud_diamond" or .key=="hud_life_icon") | .frame_ranges[][1]] | max'"'"' "$report")
+mkdir -p .cache/audit
+cargo run --release -q -p wildside-cli -- oracle-probe \
+  --scenario "$scenario" \
+  --frame-start "$start" --frame-end "$end" \
+  --m68k-pc-trace 0x7C8,0xE12,0x44DC \
+  --vdp-fifo-commit-frames "$frames" \
+  --vdp-fifo-commit-address-range 0x4620-0xDF3F \
+  --vdp-fifo-summary \
+  --no-frame-captures > .cache/audit/hud-timing-probe.log
+echo "probe complete: .cache/oracle-probe/oracle/manifest.json (log .cache/audit/hud-timing-probe.log)"
+'
+"""
+description = "Capture the HUD census oracle traces ($7C8/$E12/$44DC + HUD VRAM FIFO) for the mismatch frames (#409 recipe; feeds hud-timing-census)"
+
 [tasks.hud-timing-census]
 run = "python3 scripts/hud_timing_census.py --mismatch-report .cache/tas-verify/any-percent-published/mismatch-report.json --manifest .cache/oracle-probe/oracle/manifest.json --output .cache/audit/hud-timing-census.json"
 description = "Census Diamond and life-icon raster timings from a bounded oracle-probe manifest"

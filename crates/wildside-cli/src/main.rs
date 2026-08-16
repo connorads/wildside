@@ -1454,6 +1454,11 @@ enum Commands {
         /// Capture hidden oracle target-level settle rows before scenario frame 0
         #[arg(long, default_value_t = false)]
         capture_settle_trace: bool,
+        /// Skip per-frame PNG/state checkpoint captures; keep trace/FIFO records.
+        /// Long trace-only probes (e.g. the HUD timing census) otherwise write
+        /// tens of thousands of PNG and state files they never read.
+        #[arg(long, default_value_t = false)]
+        no_frame_captures: bool,
     },
     /// Compare sweep results between three physics orderings.
     SweepCompare {
@@ -3095,6 +3100,7 @@ fn main() -> Result<()> {
             when,
             capture_cpu_state,
             capture_settle_trace,
+            no_frame_captures,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -3111,15 +3117,22 @@ fn main() -> Result<()> {
                 dyn_scenario.frame_count = end + 1;
             }
 
-            // Generate checkpoints for every frame in the range
+            // Generate checkpoints for every frame in the range. Checkpoints
+            // are what drive the oracle helper's per-frame PNG/state capture;
+            // trace and FIFO records are drained independently, so a
+            // trace-only probe can skip them entirely.
             let start = frame_start.unwrap_or(0);
             let end = frame_end.unwrap_or(dyn_scenario.frame_count.saturating_sub(1));
-            dyn_scenario.checkpoints = (start..=end)
-                .map(|f| scenarios::DynamicCheckpoint {
-                    label: format!("f{f}"),
-                    frame_index: f,
-                })
-                .collect();
+            dyn_scenario.checkpoints = if no_frame_captures {
+                Vec::new()
+            } else {
+                (start..=end)
+                    .map(|f| scenarios::DynamicCheckpoint {
+                        label: format!("f{f}"),
+                        frame_index: f,
+                    })
+                    .collect()
+            };
 
             // Write the sliced scenario
             let run_dir = repo_root.join(".cache/oracle-probe");
