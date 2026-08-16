@@ -7951,7 +7951,7 @@ fn fresh_enemy_no_step_passes_loc_3691e(family: EnemyFamily, enemy_level: u8) ->
 pub(crate) fn goat_charge_step_loc_3e4ce(hit_points: u8) -> i32 {
     let charge_word: i32 = if hit_points > 4 { 4 } else { 3 };
     let walk = pacer_walk_speed(EnemyFamily::Goat, hit_points);
-    (charge_word << 16) | (walk & 0xFFFF)
+    (charge_word << 16) + (walk & 0xFFFF)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -11262,6 +11262,139 @@ mod tests {
             Some(0x0002_8000),
             "ASM shared-walker falling tails use the object x_vel slot, so airborne Goat snapshots keep native x_velocity"
         );
+    }
+
+    #[test]
+    fn goat_tracking_zero_state_still_checks_kid_distance_loc_3cc18() {
+        assert_eq!(
+            goat_tracking_route_loc_3cc18(0, 100, 133, Direction::Left),
+            GoatTrackingRouteLoc3CC18::Right(GoatTrackingRightRouteLoc3CC36::TurnRight),
+            "ASM Goat.asm loc_3CC18 uses bgt, so a zero `$42(a3)` continues into the strict 32px Kid-distance checks",
+        );
+    }
+
+    #[test]
+    fn goat_tracking_runtime_requires_grounded_goat_and_integer_word_positions_loc_3cc18() {
+        let mut goat = ActiveEnemy {
+            family: EnemyFamily::Goat,
+            on_ground: true,
+            facing: Direction::Left,
+            x_pos: 0x0064_8000,
+            x_velocity: 0x0001_8000,
+            y_velocity: 0x0002_0000,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        assert!(step_goat_tracking_turn_loc_3cc18(
+            &mut goat,
+            Some(0x0085_8000),
+        ));
+        assert_eq!(goat.facing, Direction::Right);
+        assert_eq!((goat.x_velocity, goat.y_velocity), (0, 0));
+
+        let mut left_turn = ActiveEnemy {
+            family: EnemyFamily::Goat,
+            on_ground: true,
+            facing: Direction::Right,
+            x_pos: 0x0085_8000,
+            x_velocity: -0x0001_8000,
+            y_velocity: 0x0002_0000,
+            ..mini_hopping_skull_test_enemy()
+        };
+        assert!(step_goat_tracking_turn_loc_3cc18(
+            &mut left_turn,
+            Some(0x0064_8000),
+        ));
+        assert_eq!(left_turn.facing, Direction::Left);
+        assert_eq!((left_turn.x_velocity, left_turn.y_velocity), (0, 0));
+
+        for (family, on_ground, player_x) in [
+            (EnemyFamily::Robot, true, Some(0x0085_8000)),
+            (EnemyFamily::Goat, false, Some(0x0085_8000)),
+            (EnemyFamily::Goat, true, None),
+        ] {
+            let mut ineligible = ActiveEnemy {
+                family,
+                on_ground,
+                facing: Direction::Left,
+                x_pos: 0x0064_8000,
+                x_velocity: 0x0001_8000,
+                y_velocity: 0x0002_0000,
+                ..mini_hopping_skull_test_enemy()
+            };
+            assert!(
+                !step_goat_tracking_turn_loc_3cc18(&mut ineligible, player_x),
+                "ASM Goat.asm loc_3CC18 tracking callback belongs to a grounded Goat with a live Kid position",
+            );
+            assert_eq!(ineligible.facing, Direction::Left);
+            assert_eq!(
+                (ineligible.x_velocity, ineligible.y_velocity),
+                (0x0001_8000, 0x0002_0000),
+            );
+        }
+    }
+
+    #[test]
+    fn goat_charge_step_preserves_walk_fraction_and_hp_tier_loc_3e4ce() {
+        assert_eq!(goat_charge_step_loc_3e4ce(1), 0x0003_8000);
+        assert_eq!(goat_charge_step_loc_3e4ce(4), 0x0003_8000);
+        assert_eq!(goat_charge_step_loc_3e4ce(5), 0x0004_8000);
+    }
+
+    #[test]
+    fn goat_charge_controller_pins_signed_states_and_distance_edges_loc_3e434() {
+        assert_eq!(
+            goat_charge_controller_loc_3e434(0xA, 100, 200),
+            GoatChargeRouteLoc3E434::WalkOn,
+        );
+        assert_eq!(
+            goat_charge_controller_loc_3e434(-1, 100, 100),
+            GoatChargeRouteLoc3E434::CooldownTick,
+        );
+
+        for kid_x in [-12, 212] {
+            assert_eq!(
+                goat_charge_controller_loc_3e434(1, 100, kid_x),
+                GoatChargeRouteLoc3E434::WalkOn,
+                "ASM Lion.asm loc_3E476 keeps charging at the inclusive +/-$70 boundary",
+            );
+        }
+        for kid_x in [-13, 213] {
+            assert_eq!(
+                goat_charge_controller_loc_3e434(1, 100, kid_x),
+                GoatChargeRouteLoc3E434::ChargeAbortTurn,
+                "ASM Lion.asm loc_3E476 aborts only beyond +/-$70",
+            );
+        }
+
+        for (kid_x, expected) in [
+            (
+                4,
+                GoatChargeRouteLoc3E434::ChargeStart {
+                    toward: Direction::Left,
+                },
+            ),
+            (
+                100,
+                GoatChargeRouteLoc3E434::ChargeStart {
+                    toward: Direction::Left,
+                },
+            ),
+            (
+                196,
+                GoatChargeRouteLoc3E434::ChargeStart {
+                    toward: Direction::Right,
+                },
+            ),
+            (3, GoatChargeRouteLoc3E434::WalkOn),
+            (197, GoatChargeRouteLoc3E434::WalkOn),
+        ] {
+            assert_eq!(
+                goat_charge_controller_loc_3e434(0, 100, kid_x),
+                expected,
+                "ASM Lion.asm loc_3E450 starts inside the inclusive +/-$60 range and uses tst.w/bgt for direction",
+            );
+        }
     }
 
     #[test]

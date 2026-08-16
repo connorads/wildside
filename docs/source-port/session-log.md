@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-16 handoff (proactive live Goat mutation refresh)
+
+- The family-local Goat shard was clean, but a bounded `enemies.rs` refresh
+  exposed unpinned live tracking and charge-controller branches: the zero
+  tracking state, grounded/family guards, integer-word position extraction,
+  HP charge tiers, signed charge states, and strict +/-$60/$70 distance edges.
+- Added exact ASM-cited contracts for `loc_3CC18`, `loc_3E434`, and
+  `loc_3E4CE`. Expressed the disjoint high-word/fraction composition as
+  addition, avoiding the equivalent OR/XOR mutation while preserving the ASM
+  word write.
+- Both broad mutation attempts exhausted the host volume while cargo-mutants
+  copied isolated workspaces; completed Goat-focused tests pass. Mandatory fast
+  gate passes with 7,196 core tests.
+
 ## 2026-08-16 handoff (proactive Archer hibernate mutation refresh)
 
 - Refreshed `enemies/archer.rs`: the initial 153-site shard found six misses in
