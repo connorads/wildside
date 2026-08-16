@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-16 handoff (proactive Driller collision mutation refresh)
+
+- Refreshed the live Driller helper shard added by #420. The initial 101-site
+  audit found 17 misses in the `unk_31A7A` mirrored hitbox endpoints, strict
+  level and tile edges, vertical row span, block eligibility, and inert
+  first-pass child coordinates.
+- Added ASM-cited contracts for both mirrored boxes, the exact top and bottom
+  boundaries, row selection, and the conjunction of block/solid flags. Removed
+  redundant row bounds already enforced by `BlockGrid::cell_at`, and made fresh
+  child coordinates explicitly inert until `loc_3BFD4` re-pins them.
+- Fresh full live-helper shard: 96 tested, 90 caught, six compiler-unviable,
+  zero survivors.
+
 ## 2026-08-16 handoff (proactive intro timing-constant mutation refresh)
 
 - Refreshed the `constants.rs` mutation audit after the table gained 16 new

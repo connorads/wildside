@@ -196,11 +196,8 @@ pub(crate) fn driller_child_move_and_collide_gfx_objects_collision(
     }
     // ASM GfxObjects_Collision_Tiles_Loop: rows outer, columns inner, first
     // colliding tile wins.
-    for row in (box_top >> 4)..=(box_bottom >> 4) {
+    for row in terrain::pixel_to_cell(box_top)..=terrain::pixel_to_cell(box_bottom) {
         for col in (box_left >> 4)..=(box_right >> 4) {
-            if row >= i32::from(grid.height_cells) || col >= i32::from(grid.width_cells) {
-                continue;
-            }
             let cell = grid.cell_at(col as u16, row as u16);
             // ASM loc_17C6: `$7000` spikes are ignored; `$4000/$5000` slopes
             // route to the slope arms whose horizontal-mover outcomes never
@@ -368,10 +365,12 @@ pub(crate) fn step_driller(
         return Vec::new();
     };
     // ASM Enemy1A_Driller_Init spawns both children before entering the
-    // walker; native lazily creates them on the first body pass.
-    let mut children = *enemy.driller_children.get_or_insert_with(|| {
-        driller_spawn_children_enemy1a_init((enemy.x_pos >> 16) as i32, (enemy.y_pos >> 16) as i32)
-    });
+    // walker. A native child created on this body pass cannot carry a prior
+    // `$38` event, and loc_3BFD4 re-pins it before publication, so its
+    // pre-consume placeholder coordinates are deliberately inert.
+    let mut children = enemy
+        .driller_children
+        .unwrap_or_else(|| driller_spawn_children_enemy1a_init(0, 0));
 
     // ASM Mode_Level runs Execute_Objects before GfxObjects_MoveAndAnimate/
     // GfxObjects_Collision, so loc_3BE78 consumes the wall event latched by
@@ -805,6 +804,171 @@ mod tests {
             (shy.x_pos, shy.wall_event),
             (63, 0),
             "ASM GfxObjects_Collision only fires once the unk_31A7A box (left edge x+1) reaches the tile span",
+        );
+    }
+
+    #[test]
+    fn driller_child_collision_pins_mirrored_unk_31a7a_box_endpoints() {
+        let mut left_grid = mini_hopping_skull_test_grid();
+        left_grid.set_cell_at(1, 1, terrain::Cell::from_be_bytes(0xE0, 0x01));
+        left_grid.set_cell_at(4, 1, terrain::Cell::from_be_bytes(0xE0, 0x01));
+        let mut left = DrillerDrillChildSub3BF72 {
+            x_pos: 31,
+            y_pos: 32,
+            wall_event: 0,
+        };
+        driller_child_move_and_collide_gfx_objects_collision(
+            &mut left,
+            DrillerDrillChildSide::Left,
+            &left_grid,
+        );
+        assert_eq!(
+            (left.x_pos, left.wall_event),
+            (31, 0),
+            "ASM unk_31A7A unflipped box is exactly [x+1,x+16], so x=31 occupies only cols 2..2"
+        );
+
+        let mut right_endpoint_grid = mini_hopping_skull_test_grid();
+        right_endpoint_grid.set_cell_at(2, 1, terrain::Cell::from_be_bytes(0xE0, 0x01));
+        let mut left_at_right_endpoint = DrillerDrillChildSub3BF72 {
+            x_pos: 16,
+            y_pos: 32,
+            wall_event: 0,
+        };
+        driller_child_move_and_collide_gfx_objects_collision(
+            &mut left_at_right_endpoint,
+            DrillerDrillChildSide::Left,
+            &right_endpoint_grid,
+        );
+        assert_eq!(
+            (
+                left_at_right_endpoint.x_pos,
+                left_at_right_endpoint.wall_event
+            ),
+            (47, DRILLER_COLID_LEFTWALL),
+            "ASM unk_31A7A includes the unflipped x+1+$F right endpoint at x+16"
+        );
+
+        let mut right_grid = mini_hopping_skull_test_grid();
+        right_grid.set_cell_at(0, 1, terrain::Cell::from_be_bytes(0xE0, 0x01));
+        right_grid.set_cell_at(2, 1, terrain::Cell::from_be_bytes(0xE0, 0x01));
+        right_grid.set_cell_at(3, 1, terrain::Cell::from_be_bytes(0xE0, 0x01));
+        let mut right = DrillerDrillChildSub3BF72 {
+            x_pos: 31,
+            y_pos: 32,
+            wall_event: 0,
+        };
+        driller_child_move_and_collide_gfx_objects_collision(
+            &mut right,
+            DrillerDrillChildSide::Right,
+            &right_grid,
+        );
+        assert_eq!(
+            (right.x_pos, right.wall_event),
+            (0, DRILLER_COLID_RIGHTWALL),
+            "ASM unk_31A7A flipped box is exactly [x-16,x-1], so its first solid at x=31 is col 0"
+        );
+
+        let mut edge = DrillerDrillChildSub3BF72 {
+            x_pos: -1,
+            y_pos: 32,
+            wall_event: 0,
+        };
+        driller_child_move_and_collide_gfx_objects_collision(
+            &mut edge,
+            DrillerDrillChildSide::Left,
+            &mini_hopping_skull_test_grid(),
+        );
+        assert_eq!(
+            (edge.x_pos, edge.wall_event),
+            (-1, 0),
+            "ASM left-boundary branch is strict: a box whose left edge is exactly zero stays in bounds"
+        );
+    }
+
+    #[test]
+    fn driller_child_collision_pins_vertical_row_and_strict_wall_arm() {
+        let mut top_grid = mini_hopping_skull_test_grid();
+        top_grid.set_cell_at(2, 0, terrain::Cell::from_be_bytes(0xE0, 0x01));
+        let mut top = DrillerDrillChildSub3BF72 {
+            x_pos: 31,
+            y_pos: 11,
+            wall_event: 0,
+        };
+        driller_child_move_and_collide_gfx_objects_collision(
+            &mut top,
+            DrillerDrillChildSide::Left,
+            &top_grid,
+        );
+        assert_eq!(
+            (top.x_pos, top.wall_event),
+            (47, DRILLER_COLID_LEFTWALL),
+            "ASM GfxObjects_Collision accepts unk_31A7A box_top=0 and scans row 0"
+        );
+
+        let mut later_row_grid = mini_hopping_skull_test_grid();
+        later_row_grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0xE0, 0x01));
+        let mut row_one_only = DrillerDrillChildSub3BF72 {
+            x_pos: 31,
+            y_pos: 32,
+            wall_event: 0,
+        };
+        driller_child_move_and_collide_gfx_objects_collision(
+            &mut row_one_only,
+            DrillerDrillChildSide::Left,
+            &later_row_grid,
+        );
+        assert_eq!(
+            (row_one_only.x_pos, row_one_only.wall_event),
+            (31, 0),
+            "ASM unk_31A7A y span 21..30 scans row 1 only, not later solid rows"
+        );
+
+        let mut exact_edge_grid = mini_hopping_skull_test_grid();
+        exact_edge_grid.set_cell_at(2, 1, terrain::Cell::from_be_bytes(0xE0, 0x01));
+        for side in [DrillerDrillChildSide::Left, DrillerDrillChildSide::Right] {
+            let mut exact_edge = DrillerDrillChildSub3BF72 {
+                x_pos: if side == DrillerDrillChildSide::Left {
+                    31
+                } else {
+                    48
+                },
+                y_pos: 18,
+                wall_event: 0,
+            };
+            driller_child_move_and_collide_gfx_objects_collision(
+                &mut exact_edge,
+                side,
+                &exact_edge_grid,
+            );
+            assert_eq!(
+                exact_edge.wall_event, 0,
+                "ASM loc_19BA/loc_1966 require box_bottom > tile_y; equality is not a wall hit"
+            );
+        }
+    }
+
+    #[test]
+    fn driller_block_dispatch_requires_both_block_and_solid_flags_loc_3bede() {
+        assert_eq!(
+            driller_block_drill_action_loc_3bede(terrain::Cell {
+                has_block: false,
+                collision: terrain::CollisionKind::Solid,
+                block_type: terrain::BlockType::Smash,
+                ..terrain::Cell::from_be_bytes(0, 0)
+            }),
+            DrillerBlockDrillActionLoc3BEDE::None,
+            "ASM loc_3BE8E requires a negative block word as well as the solid collision class"
+        );
+        assert_eq!(
+            driller_block_drill_action_loc_3bede(terrain::Cell {
+                has_block: true,
+                collision: terrain::CollisionKind::Empty,
+                block_type: terrain::BlockType::Smash,
+                ..terrain::Cell::from_be_bytes(0, 0)
+            }),
+            DrillerBlockDrillActionLoc3BEDE::None,
+            "ASM loc_3BE8E only receives the wall event produced by a solid drill-child contact"
         );
     }
 
