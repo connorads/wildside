@@ -855,6 +855,66 @@ mod tests {
     }
 
     #[test]
+    fn archer_initial_hibernate_consumes_one_wake_without_advancing_loc_33fda() {
+        let mut archer = ActiveEnemy {
+            family: EnemyFamily::Archer,
+            wait_timer: 3,
+            dragon_script_cmd: ARCHER_PHASE_INITIAL_HIBERNATE_LOC_33FDA,
+            facing: Direction::Left,
+            hit_points: 1,
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        step_archer(
+            &mut archer,
+            &mut projectiles,
+            Some(200 << 16),
+            Some(100 << 16),
+            None,
+        );
+
+        assert_eq!(archer.wait_timer, 2);
+        assert_eq!(
+            archer.dragon_script_cmd, ARCHER_PHASE_INITIAL_HIBERNATE_LOC_33FDA,
+            "ASM Archer.asm Enemy07_Archer_Init loc_33FDA remains inside j_Hibernate_Object while more than one wake remains",
+        );
+        assert!(projectiles.is_empty());
+    }
+
+    #[test]
+    fn archer_aim_hibernate_consumes_one_wake_without_arming_table_loc_3408c() {
+        let mut archer = ActiveEnemy {
+            family: EnemyFamily::Archer,
+            wait_timer: 3,
+            dragon_script_cmd: ARCHER_PHASE_AIM_HIBERNATE_LOC_3408C,
+            facing: Direction::Left,
+            hit_points: 1,
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        step_archer(
+            &mut archer,
+            &mut projectiles,
+            Some(200 << 16),
+            Some(100 << 16),
+            None,
+        );
+
+        assert_eq!(archer.wait_timer, 2);
+        assert_eq!(
+            archer.dragon_script_cmd, ARCHER_PHASE_AIM_HIBERNATE_LOC_3408C,
+            "ASM Archer.asm loc_3408C must finish its hibernated wake before loc_3419A can arm the shooting table",
+        );
+        assert!(projectiles.is_empty());
+    }
+
+    #[test]
     fn archer_live_step_decrements_wait_timer_without_firing() {
         let mut archer = ActiveEnemy {
             family: EnemyFamily::Archer,

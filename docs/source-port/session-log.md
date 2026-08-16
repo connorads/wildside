@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-16 handoff (proactive Archer hibernate mutation refresh)
+
+- Refreshed `enemies/archer.rs`: the initial 153-site shard found six misses in
+  the two live hibernate countdowns before shooting-table entry.
+- Added ASM-cited exact multi-wake contracts for the random init hibernate at
+  `Enemy07_Archer_Init` and the aim hibernate at `loc_3408C`.
+- Focused `step_archer` recheck: 35 tested, 35 caught, zero survivors.
+
 ## 2026-08-16 handoff (proactive UFO beam mutation refresh)
 
 - Mutation-tested the post-#422 `Enemy0F_UFOBeam_Loop` movement, terrain,
