@@ -103,9 +103,13 @@ hooks {
                 fix = "python3 scripts/oracle_injection_ratchet.py --update"
             }
             ["verify-slice-fast"] {
+                // scripts/**/*.py is in the glob so measurement/gate script
+                // edits run their self-tests (script-tests dep); its absence
+                // is how the #409 units bug survived under a passing hook.
                 glob = List(
                     "crates/**/*.rs",
                     "tests/tas_frontier.json",
+                    "scripts/**/*.py",
                     "Cargo.toml",
                     "Cargo.lock",
                     ".mise.toml",

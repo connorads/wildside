@@ -86,6 +86,7 @@ depends = [
   "asm-coverage-check-required",
   "asm-coverage-check-no-new-test-only",
   "workspace-failing-test-ratchet",
+  "script-tests",
 ]
 # `check-hooks` makes the gate refuse to pass on a clone/worktree where the
 # pre-commit hook isn't wired (run: mise run setup) — fail-closed, near-instant.
@@ -109,6 +110,23 @@ description = "Canonical green-gate: wildside-core unit sweep + wildside-cli gam
 [tasks.workspace-failing-test-ratchet]
 run = "python3 scripts/test_core_test_exclusions.py && python3 scripts/test_workspace_failing_test_ratchet.py && python3 scripts/workspace_failing_test_ratchet.py"
 description = "Fail on new named failures in md/frame/data/render/web; baseline may only shrink (#445)"
+
+# Discovery, not enumeration: every scripts/test_*.py runs, so a new
+# measurement script's tests are gated the day the file exists. Enumeration is
+# what left test_raster_span_replay.py ungated while its fixture locked in a
+# units bug (#409). All suites are offline and stdlib-only (~5s warm); a few
+# also run inside other tasks — cheap duplication, kept for one-home coverage.
+[tasks.script-tests]
+run = """
+sh -ec '
+status=0
+for test in scripts/test_*.py; do
+  python3 "$test" >/dev/null 2>&1 || { echo "FAILED: $test" >&2; python3 "$test" || true; status=1; }
+done
+exit $status
+'
+"""
+description = "Run every scripts/test_*.py suite (measurement/gate script self-tests; runs in verify-slice-fast)"
 
 [tasks.verify-1p-playable]
 run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- release-gate --target 1p-playable"
