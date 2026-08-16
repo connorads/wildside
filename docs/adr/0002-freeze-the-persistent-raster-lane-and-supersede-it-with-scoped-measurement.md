@@ -1,6 +1,6 @@
 # ADR 0002: Freeze the persistent-raster lane; supersede it with scoped measurement
 
-Status: accepted
+Status: accepted (Scoped-measurement outcome section superseded by ADR 0003)
 Date: 2026-08-01
 Scope: #406 (persistent CPU/VDP/GEMS timing), #409 (raster recurrence), the
 241-frame HUD pixel residue
@@ -95,6 +95,12 @@ Apply the #416 precedent to the visual lane.
   payoff surface this decision is priced against.
 
 ## Scoped-measurement outcome
+
+> **Superseded by [ADR 0003](./0003-corrected-hud-raster-span-measurement-reopens-the-bounded-entry-phase.md).**
+> The NO-GO below rests on a pixel-index/mclk units bug in
+> `raster_span_replay.py`; the corrected replay reports 241/241 exact CPU
+> spans. The freeze decision above is unaffected. The prose is left intact
+> as the record of what was believed at the time.
 
 The 2026-08-11 bounded spike completed both decision actions without promoting
 a new implementation lane. The census now covers both clusters by default:

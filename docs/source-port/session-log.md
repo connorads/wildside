@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-16 handoff (raster-span units correction, ADR 0003)
+
+- Audited the frozen #409 scoped measurement and found the recorded NO-GO
+  rested on an instrument units bug: `raster_span_replay.py` added H40 pixel
+  indices (0..419) to an mclk accumulator, so 197/241 replayed pixels in the
+  accepted artefact were physically impossible (max 3413 on a 420-pixel line).
+- Fixed test-first (real-capture fixtures for frames 1730/1754, ±1-cycle
+  discrimination), closed the gate holes that let it survive (`script-tests`
+  discovery task in `verify-slice-fast`; `scripts/**/*.py` in the hk glob),
+  checked in the probe recipe (`hud-timing-probe`; oracle-probe
+  `--no-frame-captures`, full span ~67s), and regenerated the whole evidence
+  chain. The fresh census matches the 08-11 wait profile exactly (204/241
+  zero-wait); the corrected replay reports 241/241 exact CPU spans.
+- ADR 0003 supersedes ADR 0002's scoped-measurement outcome only; the freeze,
+  cost case, and ratchets stand. The `$7C8` entry beam is a bounded
+  WaitForVint poll-exit phase (scanline 224 on all 241 frames; pixel 193-213
+  on 236/241; outliers on frames 11885/13995/14061/33571/33637). Spike #459
+  opened: GO/NO-GO analysis of frame-local entry-phase derivability,
+  analysis-only. The replay tool is now a Rust subcommand against the engine
+  divider, byte-identical to the retired Python on the fresh census.
+- The 2026-08-12 7-session plan bullet leaves NOW: all four numbered sessions
+  completed (see the prior handoffs below).
+
 ## 2026-08-16 handoff (unchecked enemy-status layout count)
 
 - Traced the 0x24/0x40 missing opening rosters to layout entries 36/37. ASM

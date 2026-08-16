@@ -13,6 +13,37 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+Correction 2026-08-16 (ADR 0003): the 2026-08-11 NO-GO below rests on a units
+bug in `raster_span_replay.py`, which added the census' H40 pixel index
+(0..419) to an mclk accumulator (3,420 mclk/scanline). The accepted artefact
+was self-refuting: 197/241 `replayed_update_hud.pixel` values exceeded 419
+(max 3413); frame 7698's "880 mclk residual" was a replayed pixel of 1205,
+frame 1730's "6 mclk" the same artefact. The old unit test pinned the bug
+with an impossible `"pixel": 3400` fixture and no gate ran it (the hk
+verify-slice-fast glob skipped `scripts/**/*.py` — both holes now closed).
+`hud_timing_census.py` was never defective; only the replay misused its
+`pixel` field. Fix landed test-first (real-capture fixtures for frames
+1730/1754, ±1-cycle discrimination, out-of-range rejection); evidence chain
+regenerated from the new recorded recipe `mise run hud-timing-probe`
+(mismatch report from the 2026-08-16 verify-tas-full run, 241 frames /
+2,391 px matching the ratchet; full-span trace-only probe ~67s wall with the
+new `--no-frame-captures`; 1,733-frame timing slice 106s cold). Fresh census
+reproduces the 08-11 wait profile exactly (204/241 zero-wait; Diamond
+137/170, life 67/71). Corrected interval semantics (pixel index =
+8/9/10-mclk interval under the H40 divider; exact = intersection):
+**241/241 cpu_span_exact**, and the predicate discriminates at one 68000
+cycle (+1 → 165/241, −1 → 110/241, +10 → 0/241). Entry finding: `$7C8`
+entry beam is scanline 224 on all 241 frames, pixel 193..213 on 236/241
+(≤168 mclk window); outliers {215, 217, 235, 239, 251} on frames
+{11885, 13995, 14061, 33571, 33637} (full spread 464 mclk) — a bounded
+WaitForVint poll-exit phase, not a boot-continuous unknown. What reopens:
+only the measurement question, as spike row #459 (GO/NO-GO analysis,
+deliverable is written analysis only). What does NOT reopen: the ADR 0002
+freeze, cost case, ratchets (241 frames / 2,391 px stay authoritative
+debt), and the fitted-constant ban. The replay tool is ported to Rust
+(`raster-span-replay` subcommand) against the engine's own divider so the
+constants cannot be re-derived wrongly again; the Python pair is deleted.
+
 Investigation 2026-08-11: completed ADR 0002's scoped measurement and rejected
 a dedicated frame-local exact-reconstruction lane. `hud-timing-census` now
 selects both residual regions by default and filters the oracle manifest by
