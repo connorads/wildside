@@ -7,7 +7,8 @@ This repo keeps source-port research material in cache-local checkouts and repo 
 If your prompt mentions a loop session (or you're asked to "take the next item"),
 follow `docs/source-port/loop.md`; it is the whole loop. The backlog is sharded by
 reader: `docs/source-port/backlog.md` holds the NOW handoff and the open queue
-(`[ ]`/`[~]` rows); `backlog-awaiting-human.md` holds the `[?]`/`[b]` rows you skip;
+(`[ ]`/`[~]` rows, plus never-selectable frozen `[f]` lanes);
+`backlog-awaiting-human.md` holds the `[?]`/`[b]` rows you skip;
 `backlog-archive.md` holds resolved rows and per-issue history (grep by `#NNN`);
 `session-log.md` is the past-handoff log. Select the next item with
 `mise run project-status` (it is priority-ordered across the live lanes; file order
@@ -153,7 +154,8 @@ cargo run -p wildside-cli -- asm-coverage --update           # regenerate .cache
 ## Iteration workflow
 
 Canonical bug/feature backlog, sharded by reader (one row per issue):
-- `docs/source-port/backlog.md`: NOW handoff + the **open queue** (`[ ]`/`[~]`). Keep
+- `docs/source-port/backlog.md`: NOW handoff + the **open queue** (`[ ]`/`[~]`; frozen
+  `[f]` lanes stay here but are never selectable). Keep
   Verify cells short here; table shape is status, priority, system, summary, verify.
 - `docs/source-port/backlog-awaiting-human.md`: `[?]`/`[b]` rows. The agent skips them;
   only a human promotes `[?]`→`[x]` or unblocks `[b]`. Its table adds `Target` and

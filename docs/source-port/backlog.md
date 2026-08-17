@@ -12,7 +12,7 @@ Progress language uses the evidence ladder from `methodology.md`:
 `stubbed`, `boots`, `replay-matched`, `branch-matched`, `mechanic-swept`, `human-play-stable`.
 A closed TAS frontier proves `replay-matched` on that route, not `human-play-stable`.
 
-Status: `[ ]` open, `[~]` in progress, `[?]` agent proposes fix complete — **human must validate before closing**, `[x]` done, `[-]` won't fix / not a bug, `[b]` blocked / needs human repro
+Status: `[ ]` open, `[~]` in progress, `[f]` frozen lane (standing decision; never selectable, do not extend), `[?]` agent proposes fix complete — **human must validate before closing**, `[x]` done, `[-]` won't fix / not a bug, `[b]` blocked / needs human repro
 Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 
 `[?]` items carry an evidence block recording the investigation outcome: repro
@@ -66,7 +66,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 406 | [~] | P1 | rendering | FROZEN with #409 per ADR 0002: the lane stops accruing sessions; the march stays metered as ADR 0001 left it (frontier 995, injection ratchet). Residue authority moves to census-scoped reconstruction + raster-span-replay. | Do not extend the march; ratchets stay green; take #442-#450 instead. See ADR 0002. |
-| 409 | [~] | P1 | rendering | FROZEN per ADR 0002: the recurrence is a downward-only witness (scheduled-frames ratchet 736 / boundary 1657; tas-pixel-baseline). Measurement corrected by ADR 0003 (241/241 exact spans); residue stays 2,391 px ratcheted; follow-up is spike #459. | Do not extend or promote the lane; keep the pixel and scheduled-frame ratchets green. Evidence: archive #409 correction. |
-| 416 | [~] | P2 | audio | Frontier FROZEN at frames 0..922 (decision in archive #416): `gems_frame_signature_v1` is a regression witness only; command parity (#435) supersedes it as audio authority. | Never advance `modelled_frames`; #434-#438 closed, remaining audio debt tracked via #439-#441; keep verify-tas-full green. |
+| 406 | [f] | P1 | rendering | FROZEN with #409 per ADR 0002: the lane stops accruing sessions; the march stays metered as ADR 0001 left it (frontier 995, injection ratchet). Residue authority moves to census-scoped reconstruction + raster-span-replay. | Do not extend the march; ratchets stay green; take #442-#450 instead. See ADR 0002. |
+| 409 | [f] | P1 | rendering | FROZEN per ADR 0002: the recurrence is a downward-only witness (scheduled-frames ratchet 736 / boundary 1657; tas-pixel-baseline). Measurement corrected by ADR 0003 (241/241 exact spans); residue stays 2,391 px ratcheted; follow-up is spike #459. | Do not extend or promote the lane; keep the pixel and scheduled-frame ratchets green. Evidence: archive #409 correction. |
+| 416 | [f] | P2 | audio | Frontier FROZEN at frames 0..922 (decision in archive #416): `gems_frame_signature_v1` is a regression witness only; command parity (#435) supersedes it as audio authority. | Never advance `modelled_frames`; #434-#438 closed, remaining audio debt tracked via #439-#441; keep verify-tas-full green. |
 | 459 | [ ] | P2 | rendering | Bounded HUD entry-phase spike (ADR 0003): GO/NO-GO analysis only. Propagate measured `$7C8` entry intervals through the engine's own commit chain (slot uniqueness), and assess WaitForVint poll-exit decomposition into ASM-cited terms. No engine code. | Deliverable is written GO/NO-GO in archive #459 citing ADR 0003; #409 stays frozen; all ratchets stay green. |

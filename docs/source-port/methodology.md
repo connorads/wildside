@@ -82,6 +82,7 @@ Status transitions:
 
 - `[ ]` open. Selector picks from here by priority.
 - `[~]` agent investigating. Set on entry to the lane. Evidence accumulates under the backlog row.
+- `[f]` frozen lane. A standing decision (with its ADR) kept visible for its ratchets and bans; never selectable, never extended by the loop, and only a human unfreezes.
 - `[?]` agent proposes a fix complete. Evidence block lists repro scenario path, cited ASM labels, oracle-parity result, and the commit hash of the proposed fix. Human must validate before promoting to `[x]`.
 - `[x]` closed by a human.
 - `[b]` blocked: needs human repro or external artefact.

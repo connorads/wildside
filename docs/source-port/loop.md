@@ -2,7 +2,9 @@
 
 The whole loop. The backlog is sharded by reader:
 
-- `backlog.md`: the NOW handoff and the **open queue** (`[ ]`/`[~]` rows). Your file.
+- `backlog.md`: the NOW handoff, the **open queue** (`[ ]`/`[~]` rows), and frozen
+  `[f]` lanes (standing decisions kept visible; `project-status` lists them under
+  "frozen lanes" and never offers them). Your file.
 - `backlog-awaiting-human.md`: `[?]`/`[b]` rows. **Skip these**; only a human closes them.
   Rows use `Target` and `Check` so `project-status` can print the validation surface.
 - `backlog-archive.md`: resolved rows and per-issue evidence, keyed by `#NNN`.
@@ -25,7 +27,8 @@ The whole loop. The backlog is sharded by reader:
 2. **Check history before forming a hypothesis:** `grep -n '#NNN'
    docs/source-port/backlog-archive.md` and `git log --oneline --grep '#NNN'`.
    Dead ends and rejected hypotheses live there; do not retry them.
-3. Mark the row `[~]` in `backlog.md`.
+3. Mark the row `[~]` in `backlog.md`. Never flip an `[f]` row: freezes are standing
+   decisions with their own ADRs; only a human unfreezes.
 4. Read the owning ASM routine in `.cache/upstream/kid-chameleon-disasm/` before
    touching native code; cite the label in code and tests.
 5. Write the narrowest failing regression that proves the bug, then fix it.
@@ -64,7 +67,9 @@ one lane, rows in the lane their status implies, and a `Verify` that is not just
 ## Fallback: proactive verification
 
 `project-status` shows no `ready` and no open risks (every open row is gone or the
-queue is empty)? Discover bugs before the next playtest does:
+queue is empty)? Frozen `[f]` rows are never selectable, so they do not block the
+fallback. Discover bugs before the next playtest does — preferring targets whose
+hardening could plausibly move a live gate or ratchet:
 
 - **Mutation-test one file**: `FILE=<module.rs> mise run mutants-file`; every
   surviving mutant is a test blind spot. Pair loose proptests with exact-value

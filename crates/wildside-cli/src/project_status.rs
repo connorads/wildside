@@ -21,6 +21,7 @@ pub(crate) struct ProjectStatusReport {
     ready_to_implement_items: Vec<BacklogItem>,
     top_open_playability_items: Vec<BacklogItem>,
     top_open_visual_items: Vec<BacklogItem>,
+    frozen_items: Vec<BacklogItem>,
     human_validation_blockers: Vec<HumanValidationBlocker>,
     warnings: Vec<String>,
 }
@@ -101,9 +102,13 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
     let ready_to_implement_items = load_ready_to_implement_items(repo_root, 5)?;
     let top_open_playability_items = load_top_open_items(repo_root, 5, BacklogFocus::Playability)?;
     let top_open_visual_items = load_top_open_items(repo_root, 5, BacklogFocus::VisualParity)?;
+    let frozen_items = load_frozen_items(repo_root)?;
     let human_validation_blockers = load_human_validation_blockers(repo_root);
 
     let mut warnings = Vec::new();
+    if let Some(warning) = now_staleness_warning(repo_root) {
+        warnings.push(warning);
+    }
     if !playable_gate.passed {
         warnings.push(format!(
             "headline gate `{}` is missing or failing: {}",
@@ -139,6 +144,7 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
         ready_to_implement_items,
         top_open_playability_items,
         top_open_visual_items,
+        frozen_items,
         human_validation_blockers,
         warnings,
     })
@@ -234,6 +240,88 @@ pub(crate) fn open_row_priorities(repo_root: &Path) -> Result<Vec<(String, Strin
         rows.push((columns[0].to_owned(), priority.to_owned()));
     }
     Ok(rows)
+}
+
+/// Frozen `[f]` lanes: standing decisions kept visible so their ratchets and
+/// bans stay findable, but never selectable and never blocking the fallback.
+fn load_frozen_items(repo_root: &Path) -> Result<Vec<BacklogItem>> {
+    let contents = read_live_lanes(repo_root)?;
+    let mut items = Vec::new();
+    for line in contents.lines() {
+        if !line.starts_with('|') {
+            continue;
+        }
+        let columns = line
+            .split('|')
+            .map(str::trim)
+            .filter(|column| !column.is_empty())
+            .collect::<Vec<_>>();
+        if columns.len() < 5 || columns[1] != "[f]" {
+            continue;
+        }
+        items.push(BacklogItem {
+            id: columns[0].to_owned(),
+            priority: columns[2].to_owned(),
+            system: columns[3].to_owned(),
+            summary: columns[4].to_owned(),
+        });
+    }
+    items.sort_by(|left, right| left.id.cmp(&right.id));
+    Ok(items)
+}
+
+/// Every `YYYY-MM-DD` date in `text`, as ISO strings (lexicographic order is
+/// chronological order).
+fn iso_dates(text: &str) -> Vec<String> {
+    let bytes = text.as_bytes();
+    let mut dates = Vec::new();
+    for start in 0..bytes.len().saturating_sub(9) {
+        let candidate = &bytes[start..start + 10];
+        let shaped = candidate.iter().enumerate().all(|(offset, byte)| {
+            if offset == 4 || offset == 7 {
+                *byte == b'-'
+            } else {
+                byte.is_ascii_digit()
+            }
+        });
+        let bounded = (start == 0 || !bytes[start - 1].is_ascii_digit())
+            && (start + 10 == bytes.len() || !bytes[start + 10].is_ascii_digit());
+        if shaped && bounded {
+            dates.push(String::from_utf8_lossy(candidate).into_owned());
+        }
+    }
+    dates
+}
+
+/// Advisory (not a lint): warn when session-log's newest handoff heading is
+/// newer than every date in the NOW block, i.e. a session logged its handoff
+/// but never rewrote NOW (loop step 8). Freshness is advisory because a
+/// same-day session legitimately shares the date.
+fn now_staleness_warning(repo_root: &Path) -> Option<String> {
+    let backlog = fs::read_to_string(repo_root.join(crate::backlog::BACKLOG_PATH)).ok()?;
+    let session_log = fs::read_to_string(repo_root.join("docs/source-port/session-log.md")).ok()?;
+    let newest_handoff = session_log.lines().find_map(|line| {
+        let rest = line.trim_start().strip_prefix("## ")?;
+        rest.contains("handoff")
+            .then(|| iso_dates(rest))?
+            .into_iter()
+            .next()
+    })?;
+    let (start, end) = crate::backlog::now_block_range(&backlog)?;
+    let now_block = backlog
+        .lines()
+        .skip(start)
+        .take(end - start)
+        .collect::<Vec<_>>()
+        .join("\n");
+    let newest_in_now = iso_dates(&now_block).into_iter().max();
+    match newest_in_now {
+        Some(now_date) if now_date >= newest_handoff => None,
+        _ => Some(format!(
+            "NOW block looks stale: session-log's newest handoff is {newest_handoff} but the NOW block's newest date is {}; rewrite NOW at session end (loop step 8)",
+            newest_in_now.unwrap_or_else(|| "absent".to_owned())
+        )),
+    }
 }
 
 fn classify_backlog_focus(system: &str, summary: &str) -> BacklogFocus {
@@ -473,6 +561,18 @@ fn render_project_status(report: &ProjectStatusReport) -> String {
             );
         }
     }
+    let _ = writeln!(output, "  frozen lanes (not selectable; do not extend):");
+    if report.frozen_items.is_empty() {
+        let _ = writeln!(output, "    - none");
+    } else {
+        for item in &report.frozen_items {
+            let _ = writeln!(
+                output,
+                "    - #{} {} {}: {}",
+                item.id, item.priority, item.system, item.summary
+            );
+        }
+    }
     let _ = writeln!(output, "  human validation/repro blockers:");
     if report.human_validation_blockers.is_empty() {
         let _ = writeln!(output, "    - none");
@@ -508,9 +608,10 @@ fn render_project_status(report: &ProjectStatusReport) -> String {
 mod tests {
     use super::{
         BacklogFocus, BacklogItem, GateSignal, HumanValidationBlocker, ProjectStatusFormat,
-        ProjectStatusReport, build_project_status_report, classify_backlog_focus,
-        load_human_validation_blockers, load_ready_to_implement_items, load_top_open_items,
-        print_project_status, render_project_status, run_project_status,
+        ProjectStatusReport, build_project_status_report, classify_backlog_focus, iso_dates,
+        load_frozen_items, load_human_validation_blockers, load_ready_to_implement_items,
+        load_top_open_items, now_staleness_warning, print_project_status, render_project_status,
+        run_project_status,
     };
     use std::fs;
     use tempfile::TempDir;
@@ -911,6 +1012,79 @@ not a table row
     }
 
     #[test]
+    fn frozen_rows_are_unselectable_and_listed_separately() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        fs::create_dir_all(temp_dir.path().join("docs/source-port")).expect("docs dir");
+        fs::write(
+            temp_dir.path().join("docs/source-port/backlog.md"),
+            "# Backlog\n\n\
+| # | Status | Pri | System | Summary | Verify |\n\
+|---|--------|-----|--------|---------|--------|\n\
+| 406 | [f] | P1 | rendering | FROZEN timing lane | hold |\n\
+| 409 | [f] | P1 | rendering | FROZEN pixel lane | hold |\n\
+| 459 | [ ] | P2 | rendering | entry-phase spike | analysis |\n",
+        )
+        .expect("backlog");
+
+        // System "rendering" classifies as Playability (the focus split
+        // matches the exact system name "render", not substrings).
+        let open =
+            load_top_open_items(temp_dir.path(), 5, BacklogFocus::Playability).expect("open items");
+        assert_eq!(
+            open.len(),
+            1,
+            "frozen rows must not be selectable: {open:?}"
+        );
+        assert_eq!(open[0].id, "459");
+
+        let frozen = load_frozen_items(temp_dir.path()).expect("frozen items");
+        assert_eq!(
+            frozen
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["406", "409"]
+        );
+    }
+
+    #[test]
+    fn iso_dates_finds_bounded_dates_only() {
+        assert_eq!(
+            iso_dates("## 2026-08-16 handoff and 2026-08-01 too"),
+            vec!["2026-08-16".to_owned(), "2026-08-01".to_owned()]
+        );
+        assert!(iso_dates("12026-08-16 not a date 2026-08-161").is_empty());
+        assert!(iso_dates("no dates here").is_empty());
+    }
+
+    #[test]
+    fn now_staleness_warns_only_when_session_log_outruns_now() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        fs::create_dir_all(temp_dir.path().join("docs/source-port")).expect("docs dir");
+        let backlog = "# Backlog\n\n## NOW\n\n- **Current work:** state as of 2026-08-10.\n\n\
+| # | Status | Pri | System | Summary | Verify |\n\
+|---|--------|-----|--------|---------|--------|\n";
+        fs::write(temp_dir.path().join("docs/source-port/backlog.md"), backlog).expect("backlog");
+        fs::write(
+            temp_dir.path().join("docs/source-port/session-log.md"),
+            "# Log\n\n## 2026-08-16 handoff (newer session)\n\n- did things\n",
+        )
+        .expect("session log");
+
+        let warning = now_staleness_warning(temp_dir.path()).expect("stale NOW must warn");
+        assert!(warning.contains("2026-08-16"));
+        assert!(warning.contains("2026-08-10"));
+
+        // NOW carrying the same (or newer) date is quiet.
+        fs::write(
+            temp_dir.path().join("docs/source-port/backlog.md"),
+            backlog.replace("2026-08-10", "2026-08-16"),
+        )
+        .expect("backlog rewrite");
+        assert_eq!(now_staleness_warning(temp_dir.path()), None);
+    }
+
+    #[test]
     fn render_project_status_includes_all_sections_and_review_hint() {
         let report = ProjectStatusReport {
             headline_gate: "1p-playable".to_owned(),
@@ -940,6 +1114,12 @@ not a table row
                 system: "render".to_owned(),
                 summary: "visual row".to_owned(),
             }],
+            frozen_items: vec![BacklogItem {
+                id: "409".to_owned(),
+                priority: "P1".to_owned(),
+                system: "rendering".to_owned(),
+                summary: "frozen lane".to_owned(),
+            }],
             human_validation_blockers: vec![HumanValidationBlocker {
                 id: "013".to_owned(),
                 status: "[?]".to_owned(),
@@ -960,6 +1140,8 @@ not a table row
         assert!(text.contains("#010 P0 enemy: ready row"));
         assert!(text.contains("#011 P1 player: play row"));
         assert!(text.contains("#012 P1 render: visual row"));
+        assert!(text.contains("frozen lanes (not selectable; do not extend):"));
+        assert!(text.contains("#409 P1 rendering: frozen lane"));
         assert!(text.contains("#013 [?] P0 audio [audio-device]: Confirm the audio row."));
         assert!(text.contains("how to use: run `mise run play-native`"));
         assert!(text.contains("review: human playtest required to close [?]/[b] rows"));

@@ -1,7 +1,8 @@
 //! Shared accessors for the source-port playtest backlog.
 //!
 //! The backlog is sharded by reader into lane files:
-//! - `backlog.md` holds the NOW handoff and the live queue (open `[ ]`/`[~]` rows).
+//! - `backlog.md` holds the NOW handoff and the live queue (open `[ ]`/`[~]` rows,
+//!   plus frozen `[f]` lanes that are never selectable).
 //! - `backlog-awaiting-human.md` holds `[?]`/`[b]` rows that only a human can close.
 //! - resolved rows (`[x]`/`[-]`) live in `backlog-archive.md` as history, keyed by `#NNN`.
 //!
@@ -127,7 +128,7 @@ fn parse_rows(contents: &str, lane: BacklogLane) -> Vec<LintRow> {
 /// Line range `[start, end)` of the `## NOW` block plus preamble. `start` is the `## NOW`
 /// heading; `end` is the table header, next section heading, or EOF (so an empty open queue
 /// with no table still resolves).
-fn now_block_range(backlog: &str) -> Option<(usize, usize)> {
+pub(crate) fn now_block_range(backlog: &str) -> Option<(usize, usize)> {
     let lines: Vec<&str> = backlog.lines().collect();
     let start = lines
         .iter()
@@ -408,7 +409,7 @@ pub(crate) fn run_backlog_lint(repo_root: &Path) -> Result<()> {
                 row.id
             ));
         }
-        if !matches!(row.status.as_str(), "[ ]" | "[~]") {
+        if !matches!(row.status.as_str(), "[ ]" | "[~]" | "[f]") {
             problems.push(format!(
                 "#{} has status {} in backlog.md (open queue); move it to its lane",
                 row.id, row.status
