@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-17 handoff (pixel-gate region ratchet, loop hygiene)
+
+- Hardened the TAS pixel gate against silent regressions: the mismatch digest
+  now hashes bboxes (intra-frame relocation is evidence change), the report
+  carries an always-on `regions` partition, and the baseline ratchets two
+  rows per region key — a swap at constant totals now exits 1. One-shot
+  fail-closed migration minted the regions block from a fresh full run
+  (241 frames / 2,391 px; hud_diamond 170/1651 + hud_life_icon 71/740).
+- All three TAS ratchets refuse `--update` on a Regression without an
+  explicit `--force` (the old path wrote behind a printed warning).
+- Loop hygiene: new `[f]` frozen status moves #406/#409/#416 out of every
+  selector list (project-status renders them under "frozen lanes"), which
+  unjammed the open lane — #459 is now the top offered item; project-status
+  warns when session-log outruns the NOW block; the fallback prefers
+  live-path modules over frozen-lane feeders; a tracked commit-msg hook
+  demands subject / blank / body on every commit, human commits included.
+
 ## 2026-08-16 handoff (raster-span units correction, ADR 0003)
 
 - Audited the frozen #409 scoped measurement and found the recorded NO-GO
