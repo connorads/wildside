@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-17 handoff (#459 bounded HUD entry-phase NO-GO)
+
+- Baseline review found a clean worktree and no defect in the landed pixel
+  ratchet/selector/hook changes. `verify-slice-fast` and `verify-tas-full`
+  pass; the full route retains 241 divergent HUD frames / 2,391 pixels and
+  zero authoritative gameplay or enemy differences.
+- #459 propagated ADR 0003's measured `$7C8` interval through the engine
+  divider to `sub_E12` and `sub_44DC`: both spans intersect on 241/241 frames.
+  The result is nevertheless NO-GO. Life-icon frames 7878 and 14094 each
+  retain two possible FIFO commit slots after measured-boundary intersection.
+- ASM `WaitForVint $93A..$954` and the typed engine decomposition show why:
+  the `$7C8` pixel collapses interrupt-sample residue, refresh waits,
+  `$93E`/stale-`$942` resume, and ordered Z80 bus steals. Frame-local state
+  lacks the poll seed needed to invert that sum. #409 remains frozen; no
+  fitted constants, engine code, renderer change, or ratchet change landed.
+- `project-status` should now offer no ready/open risk. Use the proactive
+  verification fallback, preferring a live gameplay or sweep-path module.
+
 ## 2026-08-17 handoff (pixel-gate region ratchet, loop hygiene)
 
 - Hardened the TAS pixel gate against silent regressions: the mismatch digest

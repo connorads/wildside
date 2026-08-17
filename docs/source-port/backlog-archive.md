@@ -11,6 +11,48 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #459
+
+Resolved 2026-08-17 - **NO-GO** for a frame-local HUD entry-phase seed. ADR
+0003's corrected census remains valid: treating each captured H40 pixel as
+the engine divider's 8-mclk interval, the measured `$7C8 -> sub_E12` span
+intersects the observed `sub_E12` interval on 241/241 frames. Propagating the
+same interval through the measured `sub_E12 -> sub_44DC` span also intersects
+the observed `sub_44DC` interval on 241/241. This confirms the measured CPU
+spans, but does not make their unknown entry phase derivable.
+
+Slot-uniqueness check: the propagation used the engine's
+`h40_pixel_mclk_bounds`, then the `life_icon_first_commit_loc_4586` chain
+(ASM `sub_44DC loc_4586`: 236 raw cycles with carried refresh phase, followed
+by the next H40 VRAM access slot). Intersecting at the measured `sub_E12` and
+`sub_44DC` boundaries narrows most frames, but two of 71 life-icon frames
+still straddle an access-slot boundary: frame 7878 admits 15:108 or 15:140,
+and frame 14094 admits 19:44 or 19:76. The observed commits choose the later
+slot in each case, but using that oracle choice would be the forbidden fitted
+correction. Therefore the bounded entry interval is not sufficient to select
+one commit slot for the complete residue.
+
+Poll-exit decomposition is also non-invertible from frame-local state. ASM
+`WaitForVint $93A..$954` clears `V_Int_Done`, repeats `tst.b $93E` (12 raw
+cycles) / taken `beq.s $942` (10), and returns after VINT. The engine's typed
+`wait_for_vint_mclk_from_vint_assertion_to_mode_level` then composes: partial
+mclk to the next interrupt sample; the 54-cycle interrupt-entry sequence;
+interrupt-entry refresh waits; either the `$93E` resume (162 source cycles
+through `V_Int`/`MainGameLoop`) or stale `$942` resume (172); handler-path
+refresh waits; and ordered 11-cycle Z80 68k-bus steals. A captured `$7C8`
+pixel interval records only the sum. It does not carry the first-poll beam,
+poll refresh phase, saved-PC resume path, or ordered Z80 access offsets that
+`wait_for_vint_sample_with_z80_bus_accesses` requires. Different term tuples
+can produce the same quantised entry interval, so the sum cannot recover its
+inputs without persistent pre-VINT state or oracle-derived choices.
+
+Decision: do not reopen #409, add fitted frame constants, or change the
+renderer. ADR 0002's freeze and recurrence ban stand; the 736-frame schedule
+and 241-frame / 2,391-pixel ratchets remain authoritative. Reconsider only if
+a future live execution-shell owner naturally exposes the complete typed poll
+seed and ordered arbitration state for another reason; this spike does not
+create that lane.
+
 ### #409
 
 Correction 2026-08-16 (ADR 0003): the 2026-08-11 NO-GO below rests on a units
@@ -23279,6 +23321,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 459 | [x] | P2 | rendering | NO-GO: corrected `$7C8` intervals replay both measured CPU spans, but two life-icon frames retain multiple H40 commit slots and the quantised entry cannot invert `WaitForVint` poll/arbitration state. | Written analysis above cites ADR 0003, ASM `$93A..$954`, and the typed engine chain; no engine/renderer change; ratchets green. |
 | 456 | [x] | P2 | enemy | Every Lion-lineage family now uses the ASM-selected cliff-fall walker after its companion state was modelled. | Per-family focused sweeps, full sweep `1786798696`, and both mandatory gates show zero regression; 0x40 retains identical unrelated blockers. See archive #456. |
 | 455 | [x] | P2 | verification | Retired all settled-warp phase stand-ins: Level-1 RNG is natural, Island shore replays the measured hidden object window, and oracle RAM proves 0x06/0x38/0x47 have no SolidGhost descriptors to tick. | Focused sweep `1786796443`; full sweep `1786796452` unchanged at 65/69 with 14 blockers. See archive #455. |
 | 432 | [x] | P2 | level | 0x42's high-skin terrain was correct but falsely rejected by the copied-background/solid-ghost count mix-up fixed with #431. | Full sweep `1786731170` and focused sweep `1786732273` pass with zero 0x42 differences. See archive #432. |
