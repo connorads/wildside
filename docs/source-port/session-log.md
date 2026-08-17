@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-17 handoff (proactive Spinning Twins mutation refresh)
+
+- `project-status` still offered no ready/open risk, so the loop mutation-tested
+  the live Spinning Twins family module after its #419 walker-selection change.
+- `enemies/spinning_twins.rs` is clean: 126 mutants tested in 15 minutes, 105
+  caught, 21 unviable, zero missed, and zero timed out. Orbit contact, split
+  materialisation, walking gates, settle/collision routing, falling visuals,
+  death status, and live phase transitions all rejected their mutations.
+- This result proves the family-local contract only. The #419 diff passes a new
+  selector argument into `step_pacer`; the shard does not mutate the shared
+  walker implementation in `enemies.rs` and makes no broader claim about it.
+- The fresh pre-work `verify-slice-fast` baseline passes. No gameplay or test
+  change was warranted; continue with the proactive fallback.
+
 ## 2026-08-17 handoff (proactive Fire Demon mutation refresh)
 
 - `project-status` offered no ready/open risk after #459, so the loop used its
