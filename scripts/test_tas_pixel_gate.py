@@ -84,7 +84,44 @@ def main() -> int:
         if frontier.read_bytes() != original_frontier:
             raise RuntimeError("read-only pixel gate mutated the frontier fixture")
 
-    print("TAS pixel gate self-check: baseline green; +1 changed pixel rejected")
+        # Region swap at constant totals: every aggregate identical, the debt
+        # merely relocated between two region keys. Must fail as Regression.
+        regions = baseline["regions"]
+        if len(regions) < 2:
+            raise RuntimeError(
+                "committed baseline needs >=2 regions for the swap self-check"
+            )
+        swapped = copy.deepcopy(baseline)
+        first_key, second_key = sorted(regions)[:2]
+        swapped["regions"][first_key] = regions[second_key]
+        swapped["regions"][second_key] = regions[first_key]
+        report.write_text(json.dumps(report_for(swapped, total_frames)))
+        swap = run_gate(report, frontier)
+        if swap.returncode != 1 or "FAIL — REGRESSION" not in swap.stdout:
+            raise RuntimeError(
+                f"pixel gate did not reject a region swap at constant totals ({swap.returncode}):\n{swap.stdout}\n{swap.stderr}"
+            )
+
+        # A frontier whose baseline block predates the region ratchet must
+        # fail closed naming the one-shot migration command.
+        stripped_payload = copy.deepcopy(frontier_payload)
+        del stripped_payload["recordings"][SLUG]["full_expected_pixel_comparison"][
+            "regions"
+        ]
+        stripped_frontier = directory / "legacy_frontier.json"
+        stripped_frontier.write_text(json.dumps(stripped_payload))
+        report.write_text(json.dumps(report_for(baseline, total_frames)))
+        legacy = run_gate(report, stripped_frontier)
+        combined = legacy.stdout + legacy.stderr
+        if legacy.returncode == 0 or "--update --force" not in combined:
+            raise RuntimeError(
+                f"pixel gate did not fail closed on a pre-region baseline ({legacy.returncode}):\n{combined}"
+            )
+
+    print(
+        "TAS pixel gate self-check: baseline green; +1 changed pixel, region swap, "
+        "and pre-region baseline all rejected"
+    )
     return 0
 
 

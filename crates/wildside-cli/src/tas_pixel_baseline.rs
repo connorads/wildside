@@ -14,6 +14,7 @@
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
@@ -32,6 +33,25 @@ struct PixelMismatchEvidence {
     changed_pixels: u64,
 }
 
+/// Per-region slice of the mismatch aggregates, mirroring the report's
+/// always-on `regions` map (an exact partition of the totals).
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+struct RegionBaseline {
+    mismatch_frames: u64,
+    changed_pixels: u64,
+}
+
+/// Baselines minted before the region ratchet lack `regions`; reads fail
+/// closed with the migration command, and only a deliberate one-shot
+/// `--update --force` may classify on the legacy metrics and mint the block.
+const REGION_MIGRATION_HINT: &str =
+    "migrate once with: tas-pixel-baseline --report <report.json> --update --force";
+
+/// More named regions than this on a plain `--update` means the grid-key
+/// bucketing exploded (e.g. a renderer break scattering mismatches across
+/// the playfield); minting such a baseline needs an explicit `--force`.
+const MAX_BASELINE_REGIONS: usize = 64;
+
 /// Field order mirrors the on-disk `full_expected_pixel_comparison` block in
 /// the frontier file; `--update` serialises this struct directly into it.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -39,6 +59,10 @@ struct PixelBaseline {
     exact_match_frames: u64,
     mismatch_frames: u64,
     total_changed_pixels: u64,
+    /// `None` only on legacy pre-region baselines (see
+    /// [`REGION_MIGRATION_HINT`]); every minted block carries the map.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    regions: Option<BTreeMap<String, RegionBaseline>>,
     mismatch_digest: String,
     first_mismatch: Option<PixelMismatchEvidence>,
     worst_mismatch: Option<PixelMismatchEvidence>,
@@ -65,6 +89,10 @@ struct ReportPixelComparison {
     exact_match_frames: u64,
     mismatch_frames: u64,
     total_changed_pixels: u64,
+    /// Required on the report side: `Option` only so the missing-field error
+    /// can name the fix instead of a bare serde message.
+    #[serde(default)]
+    regions: Option<BTreeMap<String, RegionBaseline>>,
     mismatch_digest: String,
     first_mismatch: Option<PixelMismatchEvidence>,
     worst_mismatch: Option<PixelMismatchEvidence>,
@@ -76,6 +104,7 @@ impl ReportPixelComparison {
             exact_match_frames: self.exact_match_frames,
             mismatch_frames: self.mismatch_frames,
             total_changed_pixels: self.total_changed_pixels,
+            regions: self.regions.clone(),
             mismatch_digest: self.mismatch_digest.clone(),
             first_mismatch: self.first_mismatch.clone(),
             worst_mismatch: self.worst_mismatch.clone(),
@@ -211,12 +240,63 @@ fn metric_optional(
     }
 }
 
-/// Pareto classification over the five ratchet metrics. The digest is
-/// deliberately NOT a metric (digest-neutral): it participates only in Match
-/// detection, so a pure reshuffle of the same totals cannot count as an
-/// improvement. Mixed win/lose trades classify as Regression.
+/// Two `lower_better` rows per region key across the union of both maps,
+/// missing key = 0. A retired region ranks Better, a new key ranks Worse,
+/// and a swap at constant totals is one Better plus one Worse — mixed, so
+/// the Pareto rule classifies it Regression (the hole the location-blind
+/// aggregates left open).
+fn region_metric_rows(
+    expected: &BTreeMap<String, RegionBaseline>,
+    actual: &BTreeMap<String, RegionBaseline>,
+) -> Vec<MetricRow> {
+    let keys: BTreeSet<&String> = expected.keys().chain(actual.keys()).collect();
+    keys.into_iter()
+        .flat_map(|key| {
+            let expected_region = expected.get(key).copied().unwrap_or_default();
+            let actual_region = actual.get(key).copied().unwrap_or_default();
+            [
+                metric_lower_better(
+                    format!("region:{key}:frames"),
+                    expected_region.mismatch_frames,
+                    actual_region.mismatch_frames,
+                ),
+                metric_lower_better(
+                    format!("region:{key}:pixels"),
+                    expected_region.changed_pixels,
+                    actual_region.changed_pixels,
+                ),
+            ]
+        })
+        .collect()
+}
+
+/// Keys present on only one side, for the human-facing report.
+fn region_key_changes(
+    expected: &BTreeMap<String, RegionBaseline>,
+    actual: &BTreeMap<String, RegionBaseline>,
+) -> (Vec<String>, Vec<String>) {
+    let added = actual
+        .keys()
+        .filter(|key| !expected.contains_key(*key))
+        .cloned()
+        .collect();
+    let retired = expected
+        .keys()
+        .filter(|key| !actual.contains_key(*key))
+        .cloned()
+        .collect();
+    (added, retired)
+}
+
+/// Pareto classification over the ratchet metrics: the five aggregates plus
+/// two rows per region key. The digest is deliberately NOT a metric
+/// (digest-neutral): it participates only in Match detection, so a pure
+/// reshuffle of the same totals cannot count as an improvement. Mixed
+/// win/lose trades classify as Regression. A legacy expected baseline
+/// (no regions) classifies on the aggregates alone — reachable only via the
+/// forced migration path.
 fn classify(expected: &PixelBaseline, actual: &PixelBaseline) -> (Classification, Vec<MetricRow>) {
-    let rows = vec![
+    let mut rows = vec![
         metric_higher_better(
             "exact_match_frames",
             expected.exact_match_frames,
@@ -247,6 +327,9 @@ fn classify(expected: &PixelBaseline, actual: &PixelBaseline) -> (Classification
             false,
         ),
     ];
+    if let (Some(expected_regions), Some(actual_regions)) = (&expected.regions, &actual.regions) {
+        rows.extend(region_metric_rows(expected_regions, actual_regions));
+    }
     let classification = pareto_classification(expected == actual, &rows);
     (classification, rows)
 }
@@ -485,8 +568,38 @@ pub(crate) fn run_tas_pixel_baseline(
 
     enforce_pixel_coverage(&pixel, total_frames)?;
     let actual = pixel.baseline();
+    let Some(actual_regions) = &actual.regions else {
+        bail!(
+            "{} pixel_comparison has no regions map; the report predates the region-aware verifier — re-run verify-tas with the current binary",
+            report_path.display()
+        );
+    };
+    if expected.regions.is_none() && !(update && force) {
+        bail!(
+            "{} baseline for {slug} predates the region ratchet; {REGION_MIGRATION_HINT}",
+            frontier_path.display()
+        );
+    }
+    if update && !force && actual_regions.len() > MAX_BASELINE_REGIONS {
+        bail!(
+            "report carries {} mismatch regions (cap {MAX_BASELINE_REGIONS} without --force); a scattered mismatch field is a renderer break, not a baseline",
+            actual_regions.len()
+        );
+    }
     let (classification, rows) = classify(&expected, &actual);
     guard_baseline_update("tas-pixel-baseline", classification, &rows, update, force)?;
+    let (added_regions, retired_regions) = region_key_changes(
+        expected.regions.as_ref().unwrap_or(&BTreeMap::new()),
+        actual_regions,
+    );
+    let print_region_changes = || {
+        for key in &added_regions {
+            println!("  region added:   {key}");
+        }
+        for key in &retired_regions {
+            println!("  region retired: {key}");
+        }
+    };
 
     if update {
         let spliced = splice_pixel_baseline(&frontier_content, slug, &actual)?;
@@ -530,6 +643,7 @@ pub(crate) fn run_tas_pixel_baseline(
                 frontier_path.display()
             );
             print_metric_table(&rows);
+            print_region_changes();
             println!("  Review the delta, then ratchet the baseline with:");
             println!(
                 "  cargo run --release -q -p wildside-cli -- tas-pixel-baseline --report {} --frontier {} --slug {} --update",
@@ -546,6 +660,7 @@ pub(crate) fn run_tas_pixel_baseline(
                 frontier_path.display()
             );
             print_metric_table(&rows);
+            print_region_changes();
             if actual.mismatch_digest != expected.mismatch_digest {
                 println!(
                     "  mismatch_digest changed: {} -> {}",
@@ -568,11 +683,33 @@ mod tests {
         }
     }
 
+    #[allow(clippy::unnecessary_wraps)] // fixtures assign into an Option field
+    fn regions(entries: &[(&str, u64, u64)]) -> Option<BTreeMap<String, RegionBaseline>> {
+        Some(
+            entries
+                .iter()
+                .map(|(key, mismatch_frames, changed_pixels)| {
+                    (
+                        (*key).to_owned(),
+                        RegionBaseline {
+                            mismatch_frames: *mismatch_frames,
+                            changed_pixels: *changed_pixels,
+                        },
+                    )
+                })
+                .collect(),
+        )
+    }
+
     fn baseline() -> PixelBaseline {
         PixelBaseline {
             exact_match_frames: 24310,
             mismatch_frames: 13449,
             total_changed_pixels: 8408626,
+            regions: regions(&[
+                ("hud_diamond", 449, 408626),
+                ("hud_life_icon", 13000, 8000000),
+            ]),
             mismatch_digest: "aec5d5040dd4050565b0055501de47cd087e66e6".to_owned(),
             first_mismatch: Some(evidence(963, 59)),
             worst_mismatch: Some(evidence(22511, 2595)),
@@ -657,11 +794,59 @@ mod tests {
             exact_match_frames: 37759,
             mismatch_frames: 0,
             total_changed_pixels: 0,
+            regions: Some(BTreeMap::new()),
             mismatch_digest: "da39a3ee5e6b4b0d3255bfef95601890afd80709".to_owned(),
             first_mismatch: None,
             worst_mismatch: None,
         };
         let (classification, _) = classify(&baseline(), &actual);
+        assert_eq!(classification, Classification::Improvement);
+    }
+
+    #[test]
+    fn classify_region_swap_at_constant_totals_is_regression() {
+        // Every aggregate identical; the debt just moved between regions.
+        // One region ranks Better, the other Worse: mixed, so Regression —
+        // the exact hole the location-blind aggregates left open.
+        let mut actual = baseline();
+        actual.regions = regions(&[
+            ("hud_diamond", 13000, 8000000),
+            ("hud_life_icon", 449, 408626),
+        ]);
+        let (classification, rows) = classify(&baseline(), &actual);
+        assert_eq!(classification, Classification::Regression);
+        assert!(
+            rows.iter()
+                .any(|row| row.name.starts_with("region:hud_diamond")
+                    && row.direction == MetricDirection::Worse)
+        );
+        assert!(
+            rows.iter()
+                .any(|row| row.name.starts_with("region:hud_life_icon")
+                    && row.direction == MetricDirection::Better)
+        );
+    }
+
+    #[test]
+    fn classify_new_region_key_is_regression_and_retired_key_improves() {
+        // New key at constant totals: worse somewhere, better elsewhere.
+        let mut moved = baseline();
+        moved.regions = regions(&[
+            ("hud_diamond", 449, 408626),
+            ("hud_life_icon", 12990, 7999000),
+            ("grid:1,1-2,2", 10, 1000),
+        ]);
+        let (classification, _) = classify(&baseline(), &moved);
+        assert_eq!(classification, Classification::Regression);
+
+        // A retired key with the freed debt genuinely gone is an improvement.
+        let mut cleared = baseline();
+        cleared.mismatch_frames -= 449;
+        cleared.exact_match_frames += 449;
+        cleared.total_changed_pixels -= 408626;
+        cleared.regions = regions(&[("hud_life_icon", 13000, 8000000)]);
+        cleared.mismatch_digest = "2222222222222222222222222222222222222222".to_owned();
+        let (classification, _) = classify(&baseline(), &cleared);
         assert_eq!(classification, Classification::Improvement);
     }
 
@@ -685,6 +870,10 @@ mod tests {
                 "exact_match_frames": 24310,
                 "mismatch_frames": 13449,
                 "total_changed_pixels": 8408626,
+                "regions": {
+                    "hud_diamond": {"mismatch_frames": 449, "changed_pixels": 408626},
+                    "hud_life_icon": {"mismatch_frames": 13000, "changed_pixels": 8000000}
+                },
                 "mismatch_digest": "aec5d5040dd4050565b0055501de47cd087e66e6",
                 "first_mismatch": {
                     "frame_index": 963,
@@ -722,6 +911,7 @@ mod tests {
             exact_match_frames: 100,
             mismatch_frames: 0,
             total_changed_pixels: 0,
+            regions: Some(BTreeMap::new()),
             mismatch_digest: String::new(),
             first_mismatch: None,
             worst_mismatch: None,
@@ -902,6 +1092,7 @@ mod tests {
         regressed.exact_match_frames = base.exact_match_frames;
         regressed.mismatch_frames = base.mismatch_frames;
         regressed.total_changed_pixels = base.total_changed_pixels + 1;
+        regressed.regions = base.regions.clone();
         regressed.mismatch_digest = base.mismatch_digest.clone();
         regressed.first_mismatch = base.first_mismatch.clone();
         regressed.worst_mismatch = base.worst_mismatch.clone();
@@ -960,6 +1151,7 @@ mod tests {
         matching.exact_match_frames = base.exact_match_frames;
         matching.mismatch_frames = base.mismatch_frames;
         matching.total_changed_pixels = base.total_changed_pixels;
+        matching.regions = base.regions.clone();
         matching.mismatch_digest = base.mismatch_digest.clone();
         matching.first_mismatch = base.first_mismatch.clone();
         matching.worst_mismatch = base.worst_mismatch.clone();
@@ -974,6 +1166,159 @@ mod tests {
         )
         .expect_err("--force without --update is a usage error");
         assert!(error.to_string().contains("--update"));
+    }
+
+    /// Frontier fixture whose baseline block predates the region ratchet.
+    fn legacy_frontier_fixture() -> String {
+        let mut legacy = baseline();
+        legacy.regions = None;
+        let block = reindent(
+            &serde_json::to_string_pretty(&legacy).expect("serialise legacy baseline"),
+            "      ",
+        );
+        format!(
+            r#"{{
+  "recordings": {{
+    "any-percent-published": {{
+      "scenario": "tests/data/tas/any-percent-published/scenario.json",
+      "total_frames": 37759,
+      "full_expected_pixel_comparison": {block},
+      "status": "verified"
+    }}
+  }}
+}}
+"#
+        )
+    }
+
+    fn full_coverage_report(base: &PixelBaseline) -> ReportPixelComparison {
+        let mut comparison = coverage_fixture();
+        comparison.frame_counts = ReportFrameCounts {
+            requested: 37759,
+            native: 37759,
+            oracle: 37759,
+            compared: 37759,
+        };
+        comparison.exact_match_frames = base.exact_match_frames;
+        comparison.mismatch_frames = base.mismatch_frames;
+        comparison.total_changed_pixels = base.total_changed_pixels;
+        comparison.regions = base.regions.clone();
+        comparison.mismatch_digest = base.mismatch_digest.clone();
+        comparison.first_mismatch = base.first_mismatch.clone();
+        comparison.worst_mismatch = base.worst_mismatch.clone();
+        comparison
+    }
+
+    #[test]
+    fn legacy_baseline_fails_closed_and_migrates_only_under_forced_update() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let frontier_path = dir.path().join("tas_frontier.json");
+        fs::write(&frontier_path, legacy_frontier_fixture()).expect("write fixture");
+        let original = fs::read(&frontier_path).expect("original bytes");
+        let report_path = report_from(&full_coverage_report(&baseline()), dir.path());
+
+        // Read-only run on a legacy baseline names the migration.
+        let error = run_tas_pixel_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            false,
+            false,
+        )
+        .expect_err("legacy baseline must fail closed");
+        assert!(error.to_string().contains("--update --force"));
+        assert_eq!(fs::read(&frontier_path).expect("after"), original);
+
+        // Plain --update is refused the same way.
+        let error = run_tas_pixel_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            true,
+            false,
+        )
+        .expect_err("legacy baseline must not migrate without --force");
+        assert!(error.to_string().contains("--update --force"));
+        assert_eq!(fs::read(&frontier_path).expect("after"), original);
+
+        // The one-shot forced migration mints the regions block...
+        let code = run_tas_pixel_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            true,
+            true,
+        )
+        .expect("forced migration");
+        assert_eq!(code, 0);
+        let migrated = fs::read_to_string(&frontier_path).expect("migrated");
+        assert!(migrated.contains("\"regions\""));
+
+        // ...and the migrated baseline classifies as Match read-only.
+        let code = run_tas_pixel_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            false,
+            false,
+        )
+        .expect("post-migration run");
+        assert_eq!(code, 0);
+    }
+
+    #[test]
+    fn report_without_regions_is_rejected() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let frontier_path = dir.path().join("tas_frontier.json");
+        fs::write(&frontier_path, frontier_fixture()).expect("write fixture");
+        let mut legacy_report = full_coverage_report(&baseline());
+        legacy_report.regions = None;
+        let report_path = report_from(&legacy_report, dir.path());
+
+        let error = run_tas_pixel_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            false,
+            false,
+        )
+        .expect_err("report without regions must be rejected");
+        assert!(error.to_string().contains("no regions map"));
+    }
+
+    #[test]
+    fn update_caps_region_count_without_force() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let frontier_path = dir.path().join("tas_frontier.json");
+        fs::write(&frontier_path, frontier_fixture()).expect("write fixture");
+        let original = fs::read(&frontier_path).expect("original bytes");
+
+        let mut scattered = baseline();
+        let entries: Vec<(String, RegionBaseline)> = (0..=MAX_BASELINE_REGIONS)
+            .map(|index| {
+                (
+                    format!("grid:{index},0-{index},0"),
+                    RegionBaseline {
+                        mismatch_frames: 1,
+                        changed_pixels: 1,
+                    },
+                )
+            })
+            .collect();
+        scattered.regions = Some(entries.into_iter().collect());
+        scattered.mismatch_digest = "3333333333333333333333333333333333333333".to_owned();
+        let report_path = report_from(&full_coverage_report(&scattered), dir.path());
+
+        let error = run_tas_pixel_baseline(
+            &report_path,
+            &frontier_path,
+            "any-percent-published",
+            true,
+            false,
+        )
+        .expect_err("scattered regions must not be baselined without --force");
+        assert!(error.to_string().contains("cap"));
+        assert_eq!(fs::read(&frontier_path).expect("after"), original);
     }
 
     #[test]
@@ -992,6 +1337,10 @@ mod tests {
         improved.exact_match_frames = 24400;
         improved.mismatch_frames = 13359;
         improved.total_changed_pixels = 8_300_000;
+        improved.regions = regions(&[
+            ("hud_diamond", 359, 300000),
+            ("hud_life_icon", 13000, 8000000),
+        ]);
         improved.mismatch_digest = "feedfacefeedfacefeedfacefeedfacefeedface".to_owned();
         improved.first_mismatch = Some(evidence(1042, 12));
         improved.worst_mismatch = Some(evidence(22511, 2595));

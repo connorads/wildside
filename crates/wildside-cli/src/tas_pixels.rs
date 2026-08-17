@@ -377,8 +377,14 @@ impl PixelComparisonAccumulator {
             .or_default();
         slot.mismatch_frames += 1;
         slot.changed_pixels += changed_pixels as u64;
+        // The digest carries the bbox so intra-frame relocation at a constant
+        // count reads as evidence change (not Match) in the ratchet.
         self.digest.update(frame_index.to_le_bytes());
         self.digest.update(changed_pixels.to_le_bytes());
+        self.digest.update(bbox.min_x.to_le_bytes());
+        self.digest.update(bbox.min_y.to_le_bytes());
+        self.digest.update(bbox.max_x.to_le_bytes());
+        self.digest.update(bbox.max_y.to_le_bytes());
         let evidence = TasPixelFrameEvidence {
             frame_index,
             label: label.to_owned(),
@@ -892,12 +898,10 @@ mod tests {
     }
 
     #[test]
-    fn mismatch_digest_is_location_blind() {
-        // Characterisation, not endorsement: the digest hashes only
-        // (frame_index, changed_pixels), so the same count at a completely
-        // different screen location produces the SAME digest — the ratchet
-        // cannot see intra-frame relocation. The regions/bbox work closes
-        // this hole; this test pins the pre-existing behaviour it fixes.
+    fn mismatch_digest_sees_intra_frame_relocation() {
+        // The digest hashes (frame_index, changed_pixels, bbox), so the same
+        // count at a different screen location digests differently and the
+        // ratchet reads relocation as evidence change instead of Match.
         let native = [0u8; 12];
         let mut left_edge = [0u8; 12];
         left_edge[0] = 0xFF; // pixel (0,0) of a 2x2 frame
@@ -919,9 +923,9 @@ mod tests {
         );
         let first_report = first.finish([5, 6], 1, 1, 1).expect("report");
         let second_report = second.finish([5, 6], 1, 1, 1).expect("report");
-        assert_eq!(
+        assert_ne!(
             first_report.mismatch_digest, second_report.mismatch_digest,
-            "same (frame, count) at different bboxes digests identically"
+            "same (frame, count) at different bboxes must digest differently"
         );
     }
 

@@ -71,7 +71,17 @@
         "exact_match_frames": 37518,
         "mismatch_frames": 241,
         "total_changed_pixels": 2391,
-        "mismatch_digest": "efef833b96b67f01902fc3148f1a9376fb71af90",
+        "regions": {
+          "hud_diamond": {
+            "mismatch_frames": 170,
+            "changed_pixels": 1651
+          },
+          "hud_life_icon": {
+            "mismatch_frames": 71,
+            "changed_pixels": 740
+          }
+        },
+        "mismatch_digest": "3fc7f3115e84a57d3496428d3a4893dd6cebb14f",
         "first_mismatch": {
           "frame_index": 1730,
           "changed_pixels": 2
