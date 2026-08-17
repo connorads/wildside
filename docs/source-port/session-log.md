@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-17 handoff (proactive shared-walker trace hardening)
+
+- `project-status` still offered no ready/open risk. Tornado and Orca were
+  rejected as fresh audit targets because their ASM branches and viable mutants
+  already have recent exhaustive evidence.
+- The sole ordinary ASM-coverage residue, Tar Monster `loc_32454`, remains the
+  documented `CollisionSize_Index` code-as-data alias with no control-flow
+  predecessor. The fallback therefore targeted the shared `step_pacer` body
+  that the preceding Spinning Twins family shard could not mutate.
+- The bounded run tested 51 mutations: 25 caught and 26 missed. Cargo-mutants
+  included unrelated field-deletion mutations despite the line filter. Within
+  `step_pacer`, replacement and airborne-branch mutants were caught; deleting
+  `SharedWalkerGroundedScanTrace::turn_plan` was the sole survivor.
+- The existing #331 `loc_3C04E`/`loc_3C0D2` wall-turn regression now checks the
+  live typed trace retains `RightBoundaryAtCurrentPosition`. Applying the exact
+  generated deletion makes that focused test fail; restoring the field makes it
+  pass. Both pre-work and final `verify-slice-fast` gates pass.
+- The unrelated survivors identify later focused work in Fireball trail and
+  boss projectile constructors; they are not evidence against shared-walker
+  behaviour.
+
 ## 2026-08-17 handoff (proactive Spinning Twins mutation refresh)
 
 - `project-status` still offered no ready/open risk, so the loop mutation-tested

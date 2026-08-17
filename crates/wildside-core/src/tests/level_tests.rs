@@ -27012,6 +27012,16 @@ mod chunk_10 {
             Some(SharedWalkerGroundedTurn::RightBoundaryAtCurrentPosition),
             "ASM loc_3C0D2 (#331): a rightward Tank crossing a tile boundary into a wall (d7 bit 1, narrow span) must reverse in place, not take the cliff-edge RightBoundaryAfterExtraAdvance that advances the body into the wall column and triggers the bit-2 terrain self-kill",
         );
+
+        step_pacer(&mut enemy, Some(&grid), None);
+
+        assert_eq!(
+            enemy
+                .shared_walker_grounded_scan_trace
+                .and_then(|trace| trace.turn_plan),
+            Some(SharedWalkerGroundedTurn::RightBoundaryAtCurrentPosition),
+            "ASM loc_3C04E/loc_3C0D2 (#331): the live shared-walker step must retain its selected boundary turn in the typed grounded-scan frontier trace",
+        );
     }
 
     #[test]
