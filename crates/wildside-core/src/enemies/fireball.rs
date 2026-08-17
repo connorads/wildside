@@ -641,6 +641,23 @@ mod tests {
     }
 
     #[test]
+    fn fireball_trail_projectile_loc_330d0_copies_nonzero_worker_position() {
+        let projectile = fireball_trail_projectile_from_loc_330d0(0xFF, 0x0123, 0x0456);
+
+        assert_eq!(
+            (projectile.x_pos, projectile.y_pos),
+            (0x0123_0000, 0x0456_0000),
+            "ASM Fireball.asm loc_330D0 copies `$46/$48(a5)` into the trail child's x/y words",
+        );
+        assert_eq!((projectile.x_velocity, projectile.y_velocity), (0, 0));
+        assert_eq!(projectile.gravity, 0);
+        assert!(!projectile.friendly);
+        assert!(!projectile.terrain_kill);
+        assert_eq!(projectile.kind, EnemyProjectileKind::FireballTrail);
+        assert_eq!(projectile.lifetime, 0x96);
+    }
+
+    #[test]
     fn fireball_trail_loop_loc_33110_prioritises_flag_then_countdown() {
         assert_eq!(
             fireball_trail_loop_step_loc_33110(true, 0x96),

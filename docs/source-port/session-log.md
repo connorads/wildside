@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive Fireball trail constructor hardening)
+
+- `project-status` still offered no ready/open risk, so the fallback took the
+  live Fireball trail constructor survivor exposed by the shared-walker run.
+- Fireball.asm `loc_330D0` copies worker words `$46/$48(a5)` into the stationary
+  trail child's X/Y positions. The existing descriptor test and live slope test
+  asserted kind/lifetime but never observed a non-zero copied X carrier value.
+- Added an exact carrier regression for X `$0123_0000`, Y `$0456_0000`, zero
+  velocity/gravity, hostile ownership, terrain persistence, kind, and `$96`
+  lifetime. Applying the exact `x_pos` deletion fails with X zero; restoring the
+  field passes.
+- The other Fireball constructor survivors delete explicit zero/false values
+  that are identical to `EnemyProjectile::default()` and therefore do not alter
+  behaviour. The fast gate passes with 7,198 core tests. This hardens the typed
+  projectile state consumed by gameplay, trace, and rendering without changing
+  production behaviour.
+
 ## 2026-08-17 handoff (proactive shared-walker trace hardening)
 
 - `project-status` still offered no ready/open risk. Tornado and Orca were
