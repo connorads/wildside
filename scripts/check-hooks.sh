@@ -15,3 +15,7 @@ if [ "$hooks_path" != ".hk-hooks" ] || [ ! -x "${root:-.}/.hk-hooks/pre-commit" 
   echo "pre-commit hook not wired (core.hooksPath='$hooks_path'); run: mise run setup" >&2
   exit 1
 fi
+if [ ! -x "${root:-.}/.hk-hooks/commit-msg" ]; then
+  echo "commit-msg hook not executable (.hk-hooks/commit-msg); run: chmod +x .hk-hooks/commit-msg" >&2
+  exit 1
+fi

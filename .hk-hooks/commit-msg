@@ -1,0 +1,5 @@
+#!/bin/sh
+# commit-msg hook: subject / blank / body shape (scripts/check_commit_message.py).
+# A forcing function for loop.md step 7's "commit with the why", human commits
+# included; the python script owns the rules and its tests.
+exec python3 "$(git rev-parse --show-toplevel)/scripts/check_commit_message.py" "$1"
