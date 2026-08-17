@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-17 handoff (proactive Fire Demon mutation refresh)
+
+- `project-status` offered no ready/open risk after #459, so the loop used its
+  proactive-verification fallback on the live Fire Demon family module.
+- The sole ordinary ASM-coverage residue remains Tar Monster `loc_32454`, the
+  documented `CollisionSize_Index` code-as-data alias with no control-flow
+  predecessor; the uncovered `sub_E155A` is an emulated GEMS wrapper.
+- `enemies/fire_demon.rs` mutation testing is clean: 48 mutants tested in six
+  minutes, 30 caught, 18 unviable, zero missed, and zero timed out.
+- The fresh pre-work `verify-slice-fast` baseline passes. No gameplay, test, or
+  ASM-coverage change was warranted; continue with the proactive fallback.
+
 ## 2026-08-17 handoff (#459 bounded HUD entry-phase NO-GO)
 
 - Baseline review found a clean worktree and no defect in the landed pixel
