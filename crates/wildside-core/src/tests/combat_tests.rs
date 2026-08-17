@@ -2877,6 +2877,14 @@ fn live_heady_metal_normal_fire_spawns_death_burst_sub_370d2() {
         "ASM sub_370D2 seeds the death-burst sprite mapping before `stru_37BD8`"
     );
     assert_eq!(
+        projectile.x_pos, 0x0060_0000,
+        "ASM sub_370D2 copies parent `$44(a5)` into child x_pos(a3)"
+    );
+    assert_eq!(
+        projectile.y_pos, 0x0046_0000,
+        "ASM sub_370D2 copies parent `$46(a5)` into child y_pos(a3)"
+    );
+    assert_eq!(
         projectile.x_velocity, 0,
         "ASM sub_370D2 starts with cleared x_vel before the landing/homing loops"
     );
@@ -2895,6 +2903,15 @@ fn live_heady_metal_normal_fire_spawns_death_burst_sub_370d2() {
     assert_eq!(
         projectile.lifetime, 0x0078,
         "ASM sub_370D2 seeds `d0=$78` for the grounded chase timer"
+    );
+    assert_eq!(
+        projectile.animation_elapsed_frames, BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8,
+        "ASM sub_370D2 starts `stru_37BD8` before entering loc_3712E"
+    );
+    assert_eq!(
+        projectile.boss_death_burst_state,
+        BossDeathBurstState::FallingLoc3712E,
+        "ASM sub_370D2 enters loc_3712E's falling loop before the grounded chase"
     );
     assert_eq!(
         sound_effects,

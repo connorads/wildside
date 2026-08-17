@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive HeadyMetal projectile constructor hardening)
+
+- `project-status` still offered no ready/open risk, so the fallback took the
+  already-landed HeadyMetal normal-fire constructor survivor rather than the
+  blocked #301 boss umbrella.
+- ASM `sub_370D2` copies parent words `$44/$46(a5)` into the child, starts
+  `stru_37BD8`, then enters the `loc_3712E` falling loop. The live constructor
+  test covered its type, motion constants, sprite link, lifetime, and sound but
+  did not observe those four non-default seeds.
+- Added exact assertions for X `$0060_0000`, Y `$0046_0000`, the entry animation
+  duration, and `FallingLoc3712E`. Applying the exact copied-X deletion fails
+  with zero against `$0060_0000`; restoring the field passes.
+- This is test-only hardening of typed projectile state consumed by gameplay,
+  trace, and rendering. It does not claim progress on #301's oracle-blocked
+  composite boss lifecycle.
+
 ## 2026-08-18 handoff (proactive Fireball trail constructor hardening)
 
 - `project-status` still offered no ready/open risk, so the fallback took the
