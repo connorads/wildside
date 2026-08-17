@@ -13,6 +13,7 @@
 
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::fs;
 use std::path::Path;
 
@@ -103,7 +104,9 @@ pub(crate) enum MetricDirection {
 
 #[derive(Debug, Clone)]
 pub(crate) struct MetricRow {
-    pub(crate) name: &'static str,
+    /// `Cow` so per-region rows can carry computed keys while the fixed
+    /// metrics stay allocation-free literals.
+    pub(crate) name: Cow<'static, str>,
     pub(crate) expected: String,
     pub(crate) actual: String,
     pub(crate) direction: MetricDirection,
@@ -117,9 +120,13 @@ fn direction_marker(direction: MetricDirection) -> &'static str {
     }
 }
 
-pub(crate) fn metric_higher_better(name: &'static str, expected: u64, actual: u64) -> MetricRow {
+pub(crate) fn metric_higher_better(
+    name: impl Into<Cow<'static, str>>,
+    expected: u64,
+    actual: u64,
+) -> MetricRow {
     MetricRow {
-        name,
+        name: name.into(),
         expected: expected.to_string(),
         actual: actual.to_string(),
         direction: match actual.cmp(&expected) {
@@ -130,9 +137,13 @@ pub(crate) fn metric_higher_better(name: &'static str, expected: u64, actual: u6
     }
 }
 
-pub(crate) fn metric_lower_better(name: &'static str, expected: u64, actual: u64) -> MetricRow {
+pub(crate) fn metric_lower_better(
+    name: impl Into<Cow<'static, str>>,
+    expected: u64,
+    actual: u64,
+) -> MetricRow {
     MetricRow {
-        name,
+        name: name.into(),
         expected: expected.to_string(),
         actual: actual.to_string(),
         direction: match actual.cmp(&expected) {
@@ -168,7 +179,7 @@ pub(crate) fn pareto_classification(baseline_matches: bool, rows: &[MetricRow]) 
 /// `None` (no mismatch at all) is the best possible value for both optional
 /// metrics; `map_value` picks which evidence field the metric ranks on.
 fn metric_optional(
-    name: &'static str,
+    name: impl Into<Cow<'static, str>>,
     expected: Option<&PixelMismatchEvidence>,
     actual: Option<&PixelMismatchEvidence>,
     map_value: fn(&PixelMismatchEvidence) -> u64,
@@ -193,7 +204,7 @@ fn metric_optional(
         }
     };
     MetricRow {
-        name,
+        name: name.into(),
         expected: display(expected),
         actual: display(actual),
         direction,
@@ -433,9 +444,15 @@ pub(crate) fn guard_baseline_update(
 }
 
 pub(crate) fn print_metric_table(rows: &[MetricRow]) {
+    let name_width = rows
+        .iter()
+        .map(|row| row.name.len())
+        .max()
+        .unwrap_or(0)
+        .max(22);
     for row in rows {
         println!(
-            "  {:<22} {:>10} -> {:>10}  [{}]",
+            "  {:<name_width$} {:>10} -> {:>10}  [{}]",
             row.name,
             row.expected,
             row.actual,

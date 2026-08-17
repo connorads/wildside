@@ -107,7 +107,7 @@ fn metric_first_mismatch_guard(expected: Option<u64>, actual: Option<u64>) -> Me
         _ => MetricDirection::Same,
     };
     MetricRow {
-        name: "first_mismatch_frame",
+        name: "first_mismatch_frame".into(),
         expected: display(expected),
         actual: display(actual),
         direction,

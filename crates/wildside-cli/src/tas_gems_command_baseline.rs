@@ -116,7 +116,7 @@ fn metric_first_mismatch(expected: Option<u64>, actual: Option<u64>) -> MetricRo
         },
     };
     MetricRow {
-        name: "first_mismatch_frame",
+        name: "first_mismatch_frame".into(),
         expected: display(expected),
         actual: display(actual),
         direction,
