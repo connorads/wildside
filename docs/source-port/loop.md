@@ -71,6 +71,14 @@ queue is empty)? Frozen `[f]` rows are never selectable, so they do not block th
 fallback. Discover bugs before the next playtest does — preferring targets whose
 hardening could plausibly move a live gate or ratchet:
 
+- **Prefer live gameplay/sweep-path modules over frozen-lane feeders.** Modules
+  that exist to feed a frozen lane (`saxman_timing.rs`, `enigma_timing.rs`,
+  `intro_timing.rs`, `vdp.rs` raster scheduling, `mode_level_timing.rs`) harden a
+  surface nothing ships through; enemy families, physics, collision, and sweep-path
+  rendering harden what the sweep and playtests actually exercise. The handoff must
+  name which gate or ratchet the session's hardening could plausibly move — "more
+  tests in a frozen feeder" names none. Preference, not mechanism: an allowlist
+  lint would fight legitimate work when a frozen lane thaws.
 - **Mutation-test one file**: `FILE=<module.rs> mise run mutants-file`; every
   surviving mutant is a test blind spot. Pair loose proptests with exact-value
   unit tests; left-facing paths are systematically undertested. Keep runs to one
