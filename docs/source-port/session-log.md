@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive Orca mutation refresh)
+
+- `project-status` still offered no ready/open risk, so the fallback refreshed
+  `enemies/orca.rs`. Its last whole-file audit predated the Lion-lineage
+  shared-walker routing added to `step_orca`; Orca.asm `loc_3D466` resumes
+  through `loc_3E566`/`loc_3E3B2` from that same library.
+- `env FILE=crates/wildside-core/src/enemies/orca.rs
+  OUTPUT=/tmp/mutants-orca-20260818-refresh TMPDIR=/tmp mise run mutants-file`
+  tests all 91 mutations in 11 minutes: 74 caught and 17 compile-unviable,
+  with zero missed or timed out. This exactly matches the 2026-07-07 count.
+- No source edit or new regression is warranted. Existing ASM-cited tests kill
+  every viable mutation across pacing, collision/damage/death routing,
+  Berzerker knockback, resume dispatch, and the complete lunge lifecycle; the
+  live family can affect the whole-level sweep and enemy-frontier gates.
+- NEXT: rerun `project-status`; if no eligible row appears, mutation-test a
+  different live-path file whose implementation changed after its last pass.
+
 ## 2026-08-18 handoff (proactive Ninja mutation refresh)
 
 - `project-status` still offered no ready/open risk, so the fallback refreshed
