@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive Robot mutation refresh)
+
+- `project-status` still offered no ready/open risk, so the fallback refreshed
+  `enemies/robot.rs`, a live sweep-path family whose last recorded mutation run
+  predated later shared-enemy changes.
+- `env FILE=crates/wildside-core/src/enemies/robot.rs
+  OUTPUT=/tmp/mutants-robot-20260818-refresh TMPDIR=/tmp mise run mutants-file`
+  tests all 105 mutations in 12 minutes: 93 caught and 12 compile-unviable,
+  with zero missed or timed out.
+- No source edit or new regression is warranted. Existing ASM-cited tests kill
+  every viable mutation across walk speed, collision/charge/destroy routing,
+  shooting windup and recovery, shot spawn/flight/impact, RNG reload, and
+  wall/edge exits.
+- NEXT: rerun `project-status`; if no eligible row appears, mutation-test a
+  different live-path file whose implementation changed after its last pass.
+
 ## 2026-08-18 handoff (proactive platform-loader slice-transfer hardening)
 
 - `project-status` still offered no ready/open risk, so the fallback closed the
