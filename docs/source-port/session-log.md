@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive damage-flash worker mutation refresh)
+
+- `project-status` still offered no ready/open risk, so the fallback selected
+  `NativeRuntime::step_damage_flash_thread_loc_bc5c` in `boot.rs`. This live
+  worker was extracted after the earlier Boot mutation work and advances in
+  ordinary gameplay plus the measured settled-warp shell used by the sweep.
+- Re-read ASM `loc_BC5C/loc_BC6E`: the object coroutine hibernates for the
+  2+4-frame flash cycle, repeats it 11 times, then clears
+  `Just_received_damage`; Kid transform suspends the object pass.
+- Focused census `/tmp/mutants-boot-damage-flash-20260818-initial` tests all
+  nine selected sites in two minutes: nine caught, with no misses, timeouts,
+  or compile failures. Existing contracts therefore protect the countdown,
+  transform pause, and final latch clear that feed the 0x30/0x50 hidden-contact
+  sweep witness. No production or test edit is warranted. NEXT: rerun
+  `project-status`; if no eligible row appears, mutation-test another live
+  gameplay/sweep-path module outside blocked #301.
+
 ## 2026-08-18 handoff (proactive SAT compositor mutation closure)
 
 - `project-status` still offered no ready/open risk. The first candidate,
