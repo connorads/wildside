@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive demo mutation refresh)
+
+- `project-status` still offered no ready/open risk, so the fallback refreshed
+  `demo.rs`. Its last complete audit predated the later live-frame tail, demo
+  HUD bootstrap, and final GEMS command-schedule changes.
+- `env FILE=crates/wildside-core/src/demo.rs
+  OUTPUT=/tmp/mutants-demo-20260818-initial TMPDIR=/tmp mise run mutants-file`
+  tests all 85 mutations in eleven minutes: 67 caught and 18 compile-unviable,
+  with no survivors or timeouts. Existing ASM-labelled demo contracts reject
+  every viable mutation, so no source or test edit is warranted. NEXT: rerun
+  `project-status`; if no eligible row appears, mutation-test another live
+  gameplay/sweep-path module outside blocked #301.
+
 ## 2026-08-18 handoff (proactive transform-presentation mutation audit)
 
 - `project-status` still offered no ready/open risk, so the fallback selected
