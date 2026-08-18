@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive UFO mutation closure)
+
+- `project-status` still offered no ready/open risk, so the fallback revisited
+  `enemies/ufo.rs`. Its last complete audit predated the terrain coroutine and
+  #422 collision/beam changes; the later beam audit covered only that shard.
+- Read the complete `UFO.asm` routine, then ran a fresh 296-site census at
+  `/tmp/mutants-ufo-20260818-full`: 232 caught, 41 compile-unviable, and 23
+  missed, with zero timed out.
+- Added ASM-cited contracts for collision-box edges, row classification, floor
+  and ceiling snaps, strict stationary velocity boundaries, the idle beam
+  return, and zero-velocity bounce tails. No production behaviour changed.
+- Fresh whole-file closure at `/tmp/mutants-ufo-20260818-final`: 296 tested in
+  36 minutes, 255 caught, 41 compile-unviable, zero missed, and zero timed out.
+- NEXT: rerun `project-status`; if no eligible row appears, mutation-test a
+  different live-path file whose implementation changed after its last full
+  pass.
+
 ## 2026-08-18 handoff (proactive Driller mutation closure)
 
 - `project-status` still offered no ready/open risk, so the fallback revisited

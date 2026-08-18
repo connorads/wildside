@@ -2081,6 +2081,33 @@ mod tests {
         );
     }
 
+    #[test]
+    fn ufo_idle_beam_state_does_not_tick_loc_34f8e() {
+        let mut enemy = ufo_test_enemy(40, 78);
+        enemy.ufo_beam_segments = 0;
+        enemy.ufo_beam_interval = 7;
+        let mut projectiles = Vec::new();
+        let mut rng = RomRandomState::default();
+
+        let some_ufo_shooting = step_ufo_beam_with_rng(
+            &mut enemy,
+            &mut projectiles,
+            None,
+            &mut rng,
+            false,
+            false,
+            None,
+        );
+
+        assert_eq!(
+            (enemy.ufo_beam_segments, enemy.ufo_beam_interval),
+            (0, 7),
+            "ASM UFO.asm Enemy0F_UFO_ChkLoadBeam returns before loc_34FD6 while `$46(a5)` is clear",
+        );
+        assert!(!some_ufo_shooting);
+        assert!(projectiles.is_empty());
+    }
+
     fn ufo_test_enemy(x_px: u32, y_px: u32) -> ActiveEnemy {
         ActiveEnemy {
             family: EnemyFamily::UFO,
@@ -2862,6 +2889,39 @@ mod tests {
     }
 
     #[test]
+    fn ufo_wall_probe_pins_unk_31ce0_edges_rows_and_surfaces_loc_16f0() {
+        let middle_row = ufo_test_grid(8, 8, &[(4, 3, 0x60, 0x00)]);
+        let middle_hit = ufo_probe_wall_loc_16f0(&middle_row, 50, 64, -1, true)
+            .expect("the ascending UFO scans the middle row after its ceiling row");
+        assert_eq!(
+            (middle_hit.wall_x_px, middle_hit.cell_x, middle_hit.cell_y,),
+            (64, 4, 3),
+            "ASM GfxObjects_Collision loc_173E..loc_1796 scans unk_31CE0's right edge at x+14 and reports the tile's 16px left surface",
+        );
+
+        let top_row = ufo_test_grid(8, 8, &[(4, 2, 0x60, 0x00)]);
+        assert_eq!(
+            ufo_probe_wall_loc_16f0(&top_row, 50, 64, -1, true),
+            None,
+            "ASM loc_16F0 classifies an ascending UFO's first unk_31CE0 row as ceiling rather than side wall",
+        );
+
+        let bottom_row = ufo_test_grid(8, 8, &[(4, 3, 0x60, 0x00)]);
+        assert_eq!(
+            ufo_probe_wall_loc_16f0(&bottom_row, 50, 64, 0, true),
+            None,
+            "ASM loc_16F0 classifies a non-ascending UFO's last unk_31CE0 row as floor rather than side wall",
+        );
+
+        let beyond_bottom = ufo_test_grid(8, 8, &[(4, 4, 0x60, 0x00)]);
+        assert_eq!(
+            ufo_probe_wall_loc_16f0(&beyond_bottom, 50, 61, -1, true),
+            None,
+            "ASM unk_31CE0 ends at anchor y-3, so anchor y=61 does not scan tile row 4",
+        );
+    }
+
+    #[test]
     fn ufo_wall_collision_snaps_and_hibernates_before_loc_35120_bounce() {
         let grid = ufo_test_grid(8, 8, &[(4, 3, 0x60, 0x00)]);
         let mut ufo = ufo_test_enemy(96, 80);
@@ -2883,6 +2943,24 @@ mod tests {
         assert!(
             ufo.x_velocity > 0,
             "ASM UFO.asm Enemy0F_UFO_Loop resumes at loc_35056/Enemy0F_UFO_BounceWall before the next acceleration and movement pass"
+        );
+    }
+
+    #[test]
+    fn ufo_right_wall_collision_snaps_unk_31ce0_right_edge_loc_197e() {
+        let grid = ufo_test_grid(8, 8, &[(5, 3, 0x60, 0x00)]);
+        let mut ufo = ufo_test_enemy(64, 80);
+        ufo.x_velocity = 0x0003_0000;
+        ufo.x_acceleration = 0;
+        ufo.target_x_velocity = 0x0003_0000;
+        let mut rng = RomRandomState::default();
+
+        step_ufo_with_player(&mut ufo, Some(&grid), None, None, &mut rng);
+
+        assert_eq!(
+            (ufo.x_pos, ufo.dragon_phase_frames),
+            (66 << 16, 0x0004),
+            "ASM GfxObjects_Collision loc_197E snaps unk_31CE0's +14px right edge to the wall and latches rightwall `$04`",
         );
     }
 
@@ -2953,9 +3031,49 @@ mod tests {
     }
 
     #[test]
+    fn ufo_floor_probe_uses_bottom_offset_and_only_flat_floor_snaps_loc_1a44() {
+        let flat_grid = ufo_test_grid(8, 8, &[(5, 5, 0x60, 0x00)]);
+        let mut above_flat = ufo_test_enemy(80, 79);
+        above_flat.y_velocity = 0x0001_0000;
+        above_flat.y_acceleration = 0;
+        above_flat.target_y_velocity = 0x0001_0000;
+        let mut rng = RomRandomState::default();
+        step_ufo_with_player(&mut above_flat, Some(&flat_grid), None, None, &mut rng);
+        assert_eq!(
+            above_flat.dragon_phase_frames, 0,
+            "ASM unk_31CE0 probes its y-3 bottom: anchor y=80 remains above the row-5 flat floor",
+        );
+
+        let mut inside_flat = ufo_test_enemy(80, 82);
+        inside_flat.y_velocity = 0x0002_0000;
+        inside_flat.y_acceleration = 0;
+        inside_flat.target_y_velocity = 0x0002_0000;
+        let mut rng = RomRandomState::default();
+        step_ufo_with_player(&mut inside_flat, Some(&flat_grid), None, None, &mut rng);
+        assert_eq!(
+            (inside_flat.y_pos, inside_flat.dragon_phase_frames),
+            (82 << 16, 0x000C),
+            "ASM loc_1A44 snaps a descending flat-floor overlap to surface y+2 before latching `$0C`",
+        );
+
+        let slope_grid = ufo_test_grid(8, 8, &[(5, 5, 0x40, 0x00)]);
+        let mut on_slope = ufo_test_enemy(80, 97);
+        on_slope.y_velocity = 0x0001_0000;
+        on_slope.y_acceleration = 0;
+        on_slope.target_y_velocity = 0x0001_0000;
+        let mut rng = RomRandomState::default();
+        step_ufo_with_player(&mut on_slope, Some(&slope_grid), None, None, &mut rng);
+        assert_eq!(
+            (on_slope.y_pos, on_slope.dragon_phase_frames),
+            (98 << 16, 0x0014),
+            "ASM GfxObjects_Collision leaves slope position for UFO.asm loc_350AA rollback; only flat `$0C` uses the loc_1A44 snap",
+        );
+    }
+
+    #[test]
     fn ufo_live_flat_floor_collision_requires_downward_y_velocity() {
         let grid = ufo_test_grid(8, 8, &[(5, 5, 0x60, 0x00)]);
-        let mut ufo = ufo_test_enemy(80, 80);
+        let mut ufo = ufo_test_enemy(80, 83);
         ufo.y_velocity = 0;
         ufo.y_acceleration = 0x0000_1000;
         ufo.target_y_velocity = 0;
@@ -2964,16 +3082,39 @@ mod tests {
         step_ufo_with_player(&mut ufo, Some(&grid), None, None, &mut rng);
 
         assert_eq!(
-            (ufo.y_velocity, ufo.y_acceleration, ufo.target_y_velocity),
-            (0, 0x0000_1000, 0),
+            (
+                ufo.y_velocity,
+                ufo.y_acceleration,
+                ufo.target_y_velocity,
+                ufo.dragon_phase_frames,
+            ),
+            (0, 0x0000_1000, 0, 0),
             "ASM UFO.asm loc_35056 should only see flat-floor `$0C` when movement produced a positive downward collision word"
+        );
+    }
+
+    #[test]
+    fn ufo_ceiling_probe_uses_unk_31ce0_top_offset_loc_91ac() {
+        let grid = ufo_test_grid(8, 8, &[(2, 0, 0x60, 0x00)]);
+        let mut ufo = ufo_test_enemy(40, 38);
+        ufo.y_velocity = -0x0001_0000;
+        ufo.y_acceleration = 0;
+        ufo.target_y_velocity = -0x0001_0000;
+        let mut rng = RomRandomState::default();
+
+        step_ufo_with_player(&mut ufo, Some(&grid), None, None, &mut rng);
+
+        assert_eq!(
+            (ufo.y_pos, ufo.dragon_phase_frames),
+            (43 << 16, 0x0010),
+            "ASM unk_31CE0 places the UFO top at anchor y-27; loc_91AC snaps that top below row 0 and latches ceiling `$10`",
         );
     }
 
     #[test]
     fn ufo_live_ceiling_collision_requires_upward_y_velocity_and_hit() {
         let ceiling_grid = ufo_test_grid(8, 8, &[(4, 3, 0x60, 0x00)]);
-        let mut ufo = ufo_test_enemy(82, 64);
+        let mut ufo = ufo_test_enemy(82, 75);
         ufo.y_velocity = 0;
         ufo.y_acceleration = 0x0000_1000;
         ufo.target_y_velocity = 0;
@@ -2982,8 +3123,13 @@ mod tests {
         step_ufo_with_player(&mut ufo, Some(&ceiling_grid), None, None, &mut rng);
 
         assert_eq!(
-            (ufo.y_velocity, ufo.y_acceleration, ufo.target_y_velocity),
-            (0, 0x0000_1000, 0),
+            (
+                ufo.y_velocity,
+                ufo.y_acceleration,
+                ufo.target_y_velocity,
+                ufo.dragon_phase_frames,
+            ),
+            (0, 0x0000_1000, 0, 0),
             "ASM UFO.asm loc_35056 should only see ceiling `$10` from an upward collision word, not stationary ceiling overlap"
         );
 
@@ -3042,6 +3188,15 @@ mod tests {
             },
             "ASM UFO.asm loc_35104 preserves negative `d0` while the bounced velocity is positive"
         );
+
+        assert_eq!(
+            ufo_bounce_wall_tail_loc_35120(0, 0x0200_0000),
+            UfoWallBounceLoc35120 {
+                x_velocity: 0,
+                d0: -0x0200_0000,
+            },
+            "ASM UFO.asm loc_35104 treats zero bounced x velocity as non-negative and negates positive d0",
+        );
     }
 
     #[test]
@@ -3062,6 +3217,15 @@ mod tests {
                 d2: -0x0200_0000,
             },
             "ASM UFO.asm loc_3512A preserves negative `d2` while the bounced velocity is positive"
+        );
+
+        assert_eq!(
+            ufo_bounce_floor_ceil_tail_loc_35146(0, 0x0200_0000),
+            UfoFloorCeilBounceLoc35146 {
+                y_velocity: 0,
+                d2: -0x0200_0000,
+            },
+            "ASM UFO.asm loc_3512A treats zero bounced y velocity as non-negative and negates positive d2",
         );
     }
 
