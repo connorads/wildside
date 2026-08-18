@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive Tornado mutation refresh)
+
+- `project-status` still offered no ready/open risk. Inspection corrected the
+  previous handoff: every remaining `apply_pending_enemy_collisions` and
+  `process_stomps` projectile-construction survivor belongs to HeadyMetal,
+  Shishkaboss, BoomerangBosses, or BagelBrothers retaliation, so all remain
+  inside blocked boss umbrella #301 rather than forming a non-boss cluster.
+- The fallback therefore refreshed `enemies/tornado.rs`, a live sweep-path
+  collision module whose prior complete mutation evidence predated recent
+  shared-bounce work.
+- `env FILE=crates/wildside-core/src/enemies/tornado.rs
+  OUTPUT=/tmp/mutants-tornado-20260818 TMPDIR=/tmp mise run mutants-file`
+  tests all 68 mutations in nine minutes: 60 caught and 8 compile-unviable,
+  with no survivors or timeouts. Existing ASM-cited coverage rejects every
+  viable mutation, so no source or test edit is warranted. NEXT: rerun
+  `project-status`; if no eligible row appears, mutation-test another live
+  gameplay/sweep-path module outside blocked #301.
+
 ## 2026-08-18 handoff (hidden-shell contact mutation closure)
 
 - `project-status` still offered no ready/open risk, so the fallback selected
