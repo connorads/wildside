@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive Tank mutation refresh)
+
+- `project-status` still offered no ready/open risk, so the fallback revisited
+  `enemies/tank.rs`. Its last complete audit was 2026-07-07, before the shared
+  walker rewrite and later Tank shooting-bullet hardening; the 2026-08-16 check
+  covered only the projectile constructor.
+- Read the complete `Tank.asm` and `Tank_Shooting.asm` routines, then ran
+  `env FILE=crates/wildside-core/src/enemies/tank.rs
+  OUTPUT=/tmp/mutants-tank-20260818-refresh TMPDIR=/tmp mise run mutants-file`.
+  All 28 current mutations complete in four minutes: 21 caught and 7
+  compile-unviable, with zero missed or timed out.
+- No source edit or new regression is warranted. Existing ASM-cited coverage
+  kills every viable mutation across both init/art-slot paths, HP and speed
+  tiers, collision/damage/death/walk routing, and the shooting bullet's signed
+  camera bounds. This live family can affect sweep and enemy-frontier gates.
+- NEXT: rerun `project-status`; if no eligible row appears, mutation-test a
+  different live-path file whose implementation changed after its last full
+  pass.
+
 ## 2026-08-18 handoff (proactive Tar Monster mutation closure)
 
 - `project-status` still offered no ready/open risk, so the fallback revisited
