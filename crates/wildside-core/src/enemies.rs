@@ -4383,6 +4383,11 @@ fn manage_enemy_loading_status_step_loc_36840(
         return Some(ManageEnemyLoadingSpawnStateLoc36840::ForcedReload);
     }
 
+    // ASM loc_3686E (kid.asm:37999): a reload word whose phase bits are both
+    // set branches to loc_36962 before either the word or `d0` is decremented.
+    if *status_word & 0x0C00 == 0x0C00 {
+        return None;
+    }
     *status_word = status_word.wrapping_sub(1);
     if *status_word & 0x03FF != 0 {
         return None;
@@ -11998,6 +12003,21 @@ mod tests {
         assert_eq!(
             status_words[0], 0xC4F0,
             "ASM loc_3686E rebuilds the reload word then loc_36900 adds `$400`"
+        );
+    }
+
+    #[test]
+    fn manage_enemy_loading_loc_3686e_freezes_completed_reload_phase() {
+        let mut status_word = 0x4C01;
+
+        assert_eq!(
+            manage_enemy_loading_status_step_loc_36840(&mut status_word),
+            None,
+            "ASM loc_3686E skips the spawn window while `d0 & $0C00 == $0C00`"
+        );
+        assert_eq!(
+            status_word, 0x4C01,
+            "ASM loc_3686E branches to loc_36962 before decrementing a completed reload phase"
         );
     }
 

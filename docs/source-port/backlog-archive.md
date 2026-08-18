@@ -11,6 +11,20 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #460
+
+Closed [x] 2026-08-18. Proactive ASM review of the live enemy-status loader
+found that native decremented every bit-14 reload word. ASM
+`Manage_EnemyLoading loc_3686E` first checks `d0 & $0C00 == $0C00` and branches
+to `loc_36962` without changing the word or entering the spatial spawn window.
+Native now preserves that completed reload phase. Regression
+`manage_enemy_loading_loc_3686e_freezes_completed_reload_phase` failed before
+the fix with `Some(CountdownReload)` and pins both the skip result and unchanged
+`$4C01` status word. Focused enemy-loader tests pass. The live citations remove
+`loc_3686E` and `loc_36962` from the test-only ASM baseline.
+`verify-slice-fast` and all 37,759 full TAS frames
+pass with zero authoritative gameplay or enemy-frontier differences.
+
 ### #459
 
 Resolved 2026-08-17 - **NO-GO** for a frame-local HUD entry-phase seed. ADR
@@ -23321,6 +23335,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 460 | [x] | P2 | enemy | `Manage_EnemyLoading loc_3686E` now preserves completed `$0C00` reload phases instead of decrementing them back towards the spatial spawn window. | Red/green exact-word regression plus required fast/full TAS gates. See archive #460. |
 | 459 | [x] | P2 | rendering | NO-GO: corrected `$7C8` intervals replay both measured CPU spans, but two life-icon frames retain multiple H40 commit slots and the quantised entry cannot invert `WaitForVint` poll/arbitration state. | Written analysis above cites ADR 0003, ASM `$93A..$954`, and the typed engine chain; no engine/renderer change; ratchets green. |
 | 456 | [x] | P2 | enemy | Every Lion-lineage family now uses the ASM-selected cliff-fall walker after its companion state was modelled. | Per-family focused sweeps, full sweep `1786798696`, and both mandatory gates show zero regression; 0x40 retains identical unrelated blockers. See archive #456. |
 | 455 | [x] | P2 | verification | Retired all settled-warp phase stand-ins: Level-1 RNG is natural, Island shore replays the measured hidden object window, and oracle RAM proves 0x06/0x38/0x47 have no SolidGhost descriptors to tick. | Focused sweep `1786796443`; full sweep `1786796452` unchanged at 65/69 with 14 blockers. See archive #455. |

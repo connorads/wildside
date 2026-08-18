@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (#460 closed)
+
+- `project-status` offered no ready/open risk, so the proactive fallback audited
+  the recently landed live enemy-status loader against ASM `Manage_EnemyLoading`.
+- Native omitted `loc_3686E`'s early exit when `d0 & $0C00 == $0C00`, allowing a
+  completed reload phase to decrement and eventually re-enter the spawn window.
+  The guard is restored and the focused regression was red before the fix.
+- The production citation burns `loc_3686E` and `loc_36962` out of test-only
+  ASM debt. `verify-slice-fast` and all 37,759 full TAS frames pass. NEXT: rerun
+  `project-status`; if no eligible row appears, audit another live
+  gameplay/sweep path outside blocked #301.
+
 ## 2026-08-18 handoff (proactive damage-flash worker mutation refresh)
 
 - `project-status` still offered no ready/open risk, so the fallback selected
