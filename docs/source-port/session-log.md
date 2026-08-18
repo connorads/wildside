@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (#190 Robot shoot coroutine dead end)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  traced Robot's test-only shoot labels against `Enemy03_Robot_Shoot` and the
+  live `RobotState` implementation.
+- Corrected the stale "no known gaps" conclusion: native's 26-frame `Aiming`
+  state collapses the ROM's preceding head turn and separate 9+5+11-frame
+  shoot coroutine, then makes the shot active at the collapsed tail. The ROM
+  allocates the worker at shoot entry and activates it after its own initial
+  hibernate while the parent coroutine continues.
+- No gameplay patch landed. A faithful change needs explicit shooting/head-pose
+  state and delayed projectile activation, while current oracle routes do not
+  isolate the relevant frames. NEXT: take another proactive live-path audit;
+  return to #190 only with a narrow Robot shoot oracle route.
+
 ## 2026-08-18 handoff (#460 blank-row window boundary)
 
 - `project-status` again offered no ready/open risk, so the proactive fallback
