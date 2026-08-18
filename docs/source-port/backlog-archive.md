@@ -25,6 +25,16 @@ the fix with `Some(CountdownReload)` and pins both the skip result and unchanged
 `verify-slice-fast` and all 37,759 full TAS frames
 pass with zero authoritative gameplay or enemy-frontier differences.
 
+Mutation follow-up 2026-08-18: a focused census of the live
+`manage_enemy_loading_status_step_loc_36840` state machine initially caught 18
+mutations, missed three, and found one compile-unviable whole-function
+replacement. All three survivors changed ASM `loc_3685E`'s `d0 & $03FF == 0`
+decision. Regression
+`manage_enemy_loading_loc_3685e_only_decrements_active_non_zero_countdown`
+pins `$2000` as an unchanged fresh-spawn state and `$2001` as a decrementing
+skip state. The closure rerun catches all three survivors, leaving every one of
+the 21 viable loader mutations caught.
+
 ### #459
 
 Resolved 2026-08-17 - **NO-GO** for a frame-local HUD entry-phase seed. ADR

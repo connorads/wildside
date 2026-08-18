@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (#460 mutation closure)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  mutation-audited the live `Manage_EnemyLoading loc_36840..loc_368A8` status
+  machine corrected by #460.
+- The initial focused result was 18 caught, three missed, and one
+  compile-unviable mutation. All survivors changed `loc_3685E`'s low-ten-bit
+  zero test, which no live-helper regression distinguished.
+- Added an exact `$2000`-versus-`$2001` transition contract. The closure rerun
+  catches all three survivors, leaving 21 caught and one compile-unviable
+  loader mutation. NEXT: rerun `project-status`; if no eligible row appears,
+  audit another live gameplay/sweep path outside blocked #301.
+
 ## 2026-08-18 handoff (#460 closed)
 
 - `project-status` offered no ready/open risk, so the proactive fallback audited

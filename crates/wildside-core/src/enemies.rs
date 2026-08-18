@@ -12022,6 +12022,28 @@ mod tests {
     }
 
     #[test]
+    fn manage_enemy_loading_loc_3685e_only_decrements_active_non_zero_countdown() {
+        let mut expired_status_word = 0x2000;
+        assert_eq!(
+            manage_enemy_loading_status_step_loc_36840(&mut expired_status_word),
+            Some(ManageEnemyLoadingSpawnStateLoc36840::Fresh),
+            "ASM loc_3685E reaches loc_368A8 when the active word's low ten bits are zero"
+        );
+        assert_eq!(expired_status_word, 0x2000);
+
+        let mut active_status_word = 0x2001;
+        assert_eq!(
+            manage_enemy_loading_status_step_loc_36840(&mut active_status_word),
+            None,
+            "ASM loc_3685E skips the spawn window while the active countdown remains non-zero"
+        );
+        assert_eq!(
+            active_status_word, 0x2000,
+            "ASM loc_3685E decrements only the non-zero active countdown"
+        );
+    }
+
+    #[test]
     fn tornado_init_uses_loc_35326_motion_picker_and_one_rng_byte_per_spawn() {
         // ASM Tornado.asm Enemy18_Tornado_Init: `bsr.w loc_35326` draws one
         // Get_RandomNumber_byte per tornado and picks the first motion vector
