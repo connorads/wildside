@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive Ninja mutation refresh)
+
+- `project-status` still offered no ready/open risk, so the fallback refreshed
+  `enemies/ninja.rs`. Its last whole-file audit predated the Lion-lineage
+  shared-walker routing added to `step_ninja` for Ninja.asm
+  `loc_3E3B2`/`loc_3E566`.
+- `env FILE=crates/wildside-core/src/enemies/ninja.rs
+  OUTPUT=/tmp/mutants-ninja-20260818-refresh TMPDIR=/tmp mise run mutants-file`
+  tests all 189 mutations in 21 minutes: 156 caught and 33 compile-unviable,
+  with zero missed or timed out. This exactly matches the 2026-07-07 count.
+- No source edit or new regression is warranted. Existing ASM-cited tests kill
+  every viable mutation across threat routing, guard/reset pacing, jump and
+  contact physics, death sequencing, and cadence timers; the live family can
+  affect the whole-level sweep and enemy-frontier gates.
+- NEXT: rerun `project-status`; if no eligible row appears, mutation-test a
+  different live-path file whose implementation changed after its last pass.
+
 ## 2026-08-18 handoff (proactive Robot mutation refresh)
 
 - `project-status` still offered no ready/open risk, so the fallback refreshed
