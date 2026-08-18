@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (hidden-shell contact mutation closure)
+
+- `project-status` still offered no ready/open risk, so the fallback selected
+  the live `combat.rs` hidden-shell contact hand-off added by the 0x30/0x50
+  sweep fix. Read `GfxObjects_CollisionKid loc_1CF2` and
+  `Check_for_recent_damge loc_B700` before testing.
+- Cargo-mutants' documented large-file regex bug broadened the intended
+  eight-site slice to 59 sites. Initial census
+  `/tmp/mutants-combat-hidden-contact-20260818-initial` found all eight selected
+  mutations surviving, alongside 24 unrelated projectile-construction misses.
+- Added public-runtime contracts proving the overlapping UFO latch and every
+  independent invulnerability, recent-damage, lifecycle, and missing-slice
+  consume gate. No production behaviour changed.
+- Closure census `/tmp/mutants-combat-hidden-contact-20260818-final` improves
+  from 32 missed/27 caught to 24 missed/35 caught: all eight selected mutations
+  are caught. NEXT: take one non-boss survivor cluster in
+  `apply_pending_enemy_collisions` or `process_stomps`; leave Shishka/Boss Eye
+  work under blocked umbrella #301.
+
 ## 2026-08-18 handoff (proactive UFO mutation closure)
 
 - `project-status` still offered no ready/open risk, so the fallback revisited

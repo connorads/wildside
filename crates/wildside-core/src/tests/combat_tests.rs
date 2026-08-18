@@ -2110,6 +2110,106 @@ fn pending_contact_damage_spends_before_motion_loc_b700() {
 }
 
 #[test]
+fn hidden_shell_contact_latches_loc_1cf2_for_the_next_object_pass() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.current_form = PlayerForm::TheKid;
+    runtime.frame_index = 47;
+    runtime.active_enemies = vec![test_enemy(EnemyFamily::UFO, 0x0080_0000, 0x0100_0000, 1)];
+    let slice = runtime
+        .opening_slice
+        .as_mut()
+        .expect("level start should seed a slice");
+    slice.player.x_pos = 0x0080_0000;
+    slice.player.y_pos = 0x0100_0000;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    runtime.latch_hidden_shell_player_contact_damage_loc_1cf2();
+
+    let pending = runtime
+        .pending_player_contact_damage
+        .expect("ASM GfxObjects_CollisionKid loc_1CF2 should latch the overlapping UFO");
+    assert_eq!(pending.enemy_x, 0x0080_0000);
+    assert_eq!(pending.enemy_family, EnemyFamily::UFO);
+    assert_eq!(
+        runtime.hidden_shell_contact_latched_frame_loc_1cf2,
+        Some(47),
+        "the decomposed hidden shell must retain the producer frame so its gameplay tail cannot consume loc_1CF2 early",
+    );
+}
+
+#[test]
+fn hidden_shell_contact_consume_obeys_each_loc_1d00_b700_damage_gate() {
+    #[derive(Clone, Copy)]
+    enum Blocker {
+        None,
+        ProgressionInvulnerability,
+        RecentDamageHold,
+        KidInvulnerability,
+        NonAliveLifecycle,
+        MissingSlice,
+    }
+
+    for blocker in [
+        Blocker::None,
+        Blocker::ProgressionInvulnerability,
+        Blocker::RecentDamageHold,
+        Blocker::KidInvulnerability,
+        Blocker::NonAliveLifecycle,
+        Blocker::MissingSlice,
+    ] {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::TheKid;
+        runtime.progression.number_hitpoints = 2;
+        runtime.progression.invulnerable_frames = 0;
+        runtime.recent_damage_gate_held_this_frame_loc_bc6e = false;
+        runtime.kid_is_invulnerable = false;
+        runtime.pending_player_contact_damage = Some(PendingPlayerContactDamage {
+            enemy_x: 0x0090_0000,
+            enemy_family: EnemyFamily::UFO,
+        });
+
+        match blocker {
+            Blocker::None => {}
+            Blocker::ProgressionInvulnerability => {
+                runtime.progression.invulnerable_frames = 1;
+            }
+            Blocker::RecentDamageHold => {
+                runtime.recent_damage_gate_held_this_frame_loc_bc6e = true;
+            }
+            Blocker::KidInvulnerability => {
+                runtime.kid_is_invulnerable = true;
+            }
+            Blocker::NonAliveLifecycle => {
+                runtime.player_lifecycle = PlayerLifecycle::DeathWindup {
+                    remaining_frames: 1,
+                };
+            }
+            Blocker::MissingSlice => runtime.opening_slice = None,
+        }
+
+        runtime.consume_hidden_shell_player_contact_damage_loc_b700();
+
+        let expected_hp = if matches!(blocker, Blocker::None) {
+            1
+        } else {
+            2
+        };
+        assert_eq!(
+            runtime.progression.number_hitpoints, expected_hp,
+            "ASM GfxObjects_CollisionKid loc_1D00 and Check_for_recent_damge loc_B700 independently reject every invulnerability/lifecycle blocker before spending HP",
+        );
+        assert!(
+            runtime.pending_player_contact_damage.is_none(),
+            "Character_CheckCollision consumes the preceding collision word even when loc_1D00 rejects damage",
+        );
+    }
+}
+
+#[test]
 fn drips_falling_drop_kid_above_does_not_advance_crawler_table_loc_3345c() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
