@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (Emo Rock hover-target word wrap)
+
+- `project-status` offered no ready/open risk. A fresh live Emo Rock audit found
+  native saturated its hover-height subtraction, while ASM `loc_3621A` uses a
+  word subtraction on Kid's integer Y coordinate.
+- The live hover target now wraps that 16-bit word and preserves the fractional
+  word, with an exact underflow regression. Ordinary route values and behaviour
+  remain unchanged.
+- NEXT: continue auditing fresh live gameplay paths; avoid frozen timing feeders
+  and blocked boss umbrella #301.
+
 ## 2026-08-18 handoff (walking Dragon ledge-nudge word wrap)
 
 - `project-status` offered no ready/open risk. A fresh live walking Dragon audit

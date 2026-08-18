@@ -56,11 +56,13 @@ pub(crate) fn emo_rock_hover_target_loc_3621a(
     hover_height_px: i32,
 ) -> EmoRockHoverTargetLoc3621A {
     // ASM Emo_Rock.asm loc_3621A: after hibernating, copy Kid X into x_pos,
-    // subtract d1 from Kid Y for y_pos, then probe a `$1C` by `$E` clearance box.
+    // then `sub.w d1,d7` and store that integer word into y_pos. Subtracting
+    // the shifted FP16.16 height therefore wraps the word and preserves the
+    // fractional half before the `$1C` by `$E` clearance probe.
     let hover_height_fp = (hover_height_px as u32) << 16;
     EmoRockHoverTargetLoc3621A {
         x_pos: player_x_pos,
-        y_pos: player_y_pos.saturating_sub(hover_height_fp),
+        y_pos: player_y_pos.wrapping_sub(hover_height_fp),
         clearance_height_px: 0x001C,
         clearance_half_width_px: 0x000E,
     }
@@ -461,7 +463,7 @@ pub(crate) fn step_emo_rock_with_rng(
                 enemy.x_pos = px;
             }
             if let Some(py) = player_y_pos {
-                enemy.y_pos = py.saturating_sub(hover_height_fp);
+                enemy.y_pos = py.wrapping_sub(hover_height_fp);
             }
         }
         enemy.wait_timer = emo_rock_wait_countdown_loc_36212(enemy.wait_timer).remaining_wait_timer;
@@ -699,6 +701,12 @@ mod tests {
                 clearance_half_width_px: 0x000E,
             },
             "ASM Emo_Rock.asm loc_3621A copies Kid X, stores Kid Y minus d1, then calls the clearance probe with d6=$1C and d7=$E"
+        );
+
+        assert_eq!(
+            emo_rock_hover_target_loc_3621a(0x0123_0000, 0x0020_8000, 0x50).y_pos,
+            0xffd0_8000,
+            "ASM Emo_Rock.asm loc_3621A `sub.w d1,d7` should wrap the integer word while preserving Kid Y's fractional word"
         );
     }
 
