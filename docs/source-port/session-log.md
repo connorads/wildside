@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (#460 blank-row window boundary)
+
+- `project-status` again offered no ready/open risk, so the proactive fallback
+  revisited the live loader arithmetic added with #460's wider status table.
+- The settled 0x24/0x40 witnesses did not state `Manage_EnemyLoading loc_368A8`'s
+  blank-row conversion as a narrow contract. Added a direct boundary where a
+  Y=0 Sphere enters the activation window only after two blank rows add exactly
+  16 pixels before the window test.
+- The regression distinguishes each of the four arithmetic mutations on
+  `object_y + blank_top_rows * 8`. NEXT: rerun `project-status`; if no eligible
+  row appears, audit another live gameplay/sweep path outside blocked #301.
+
 ## 2026-08-18 handoff (#460 mutation closure)
 
 - `project-status` offered no ready/open risk, so the proactive fallback

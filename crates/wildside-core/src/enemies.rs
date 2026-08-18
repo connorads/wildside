@@ -12044,6 +12044,68 @@ mod tests {
     }
 
     #[test]
+    fn manage_enemy_loading_loc_368a8_applies_blank_rows_before_window_test() {
+        let object = wildside_data::EnemyLayoutObject {
+            object_type: 0x06,
+            flags: 0,
+            hit_points_plus_one: 0,
+            x: 32,
+            y: 0,
+        };
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![0x0006, 0xFFFF, 0xFFFF],
+            unknown_word: 0x7D00,
+            header_byte: 0x80,
+            object_count: 1,
+            objects: vec![object.clone()],
+            segments: vec![wildside_data::EnemyLayoutSegment {
+                lower_bound: 0,
+                upper_bound: 0x7D00,
+                enemy_type_slots: vec![0x0006, 0xFFFF, 0xFFFF],
+                object_batch_flags: 0x80,
+                object_count: 1,
+                objects: vec![object],
+            }],
+        };
+        let mut active = Vec::new();
+        let mut status_words = [0; 0x0040];
+        let mut rng = RomRandomState::default();
+
+        activate_enemies_with_rng(
+            &mut active,
+            &layout,
+            ActivationWindow {
+                x_min: 0,
+                x_max: 64,
+                y_min: 16,
+                y_max: 16,
+            },
+            0,
+            0,
+            physics::LevelBounds {
+                width_pixels: 4096,
+                height_pixels: 512,
+            },
+            0,
+            0,
+            2,
+            false,
+            &std::collections::HashSet::new(),
+            &mut status_words,
+            &mut rng,
+        );
+
+        assert_eq!(
+            active.len(),
+            1,
+            "ASM Manage_EnemyLoading loc_368A8 adds Number_blank_top_rows * 8 before testing the activation window"
+        );
+        assert_eq!(active[0].family, EnemyFamily::Sphere);
+    }
+
+    #[test]
     fn tornado_init_uses_loc_35326_motion_picker_and_one_rng_byte_per_spawn() {
         // ASM Tornado.asm Enemy18_Tornado_Init: `bsr.w loc_35326` draws one
         // Get_RandomNumber_byte per tornado and picks the first motion vector

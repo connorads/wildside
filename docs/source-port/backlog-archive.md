@@ -35,6 +35,15 @@ pins `$2000` as an unchanged fresh-spawn state and `$2001` as a decrementing
 skip state. The closure rerun catches all three survivors, leaving every one of
 the 21 viable loader mutations caught.
 
+Activation-window follow-up 2026-08-18: regression
+`manage_enemy_loading_loc_368a8_applies_blank_rows_before_window_test` pins the
+separate loader arithmetic added with the unchecked status-slot fix. A layout
+enemy at Y=0 enters a window whose sole Y coordinate is 16 only when
+`Number_blank_top_rows=2` is converted to exactly 16 pixels before the
+`loc_368A8` window test. This closes the four arithmetic mutation sites on the
+`object_y + blank_top_rows * 8` expression without relying only on the settled
+0x24/0x40 roster witnesses.
+
 ### #459
 
 Resolved 2026-08-17 - **NO-GO** for a frame-local HUD entry-phase seed. ADR
