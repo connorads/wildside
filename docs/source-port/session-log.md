@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive Drips mutation refresh)
+
+- `project-status` still offered no ready/open risk, so the fallback refreshed
+  `enemies/drips.rs`. Its last whole-file audit predated the `loc_33424`
+  35-frame pre-drop animation correction and the `loc_333F6 -> loc_3340E`
+  one-resume RNG bridge used by recorded and title-card routes.
+- `env FILE=crates/wildside-core/src/enemies/drips.rs
+  OUTPUT=/tmp/mutants-drips-20260818-refresh TMPDIR=/tmp mise run mutants-file`
+  tests all 294 current mutations in 33 minutes: 230 caught and 64
+  compile-unviable, with zero missed or timed out.
+- No source edit or new regression is warranted. Existing ASM-cited tests kill
+  every viable mutation across ceiling/drop timing, splash reset, crawler
+  init/movement/turn routing, collision and bounds dispatch, and delete/idle
+  tails; this live family can affect the whole-level sweep and enemy-frontier
+  gates.
+- NEXT: rerun `project-status`; if no eligible row appears, mutation-test a
+  different live-path file whose implementation changed after its last pass.
+
 ## 2026-08-18 handoff (proactive Cloud mutation refresh)
 
 - `project-status` still offered no ready/open risk, so the fallback refreshed
