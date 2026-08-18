@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive Archer mutation closure)
+
+- `project-status` still offered no ready/open risk, so the fallback revisited
+  `enemies/archer.rs`. Its current implementation changed after the 2026-07-07
+  whole-file audit; the 2026-08-16 audit found six hibernate misses but rechecked
+  only the 35-site `step_archer` slice after fixing them.
+- Read the complete `Archer.asm` routine, then ran
+  `env FILE=crates/wildside-core/src/enemies/archer.rs
+  OUTPUT=/tmp/mutants-archer-20260818-refresh TMPDIR=/tmp mise run
+  mutants-file`. All 153 current mutations complete in 18 minutes: 142 caught
+  and 11 compile-unviable, with zero missed or timed out.
+- No source edit or new regression is warranted. The exact multi-wake contracts
+  kill the former init and aim countdown misses across the whole file, while
+  existing ASM-cited coverage kills every viable mutation across shot-table
+  selection, held-arrow poses, arrow spawn/re-aim/delete, collision death, and
+  status cleanup. This live family can affect sweep and enemy-frontier gates.
+- NEXT: rerun `project-status`; if no eligible row appears, mutation-test a
+  different live-path file whose implementation changed after its last full
+  pass.
+
 ## 2026-08-18 handoff (proactive Diamond mutation refresh)
 
 - `project-status` still offered no ready/open risk, so the fallback revisited
