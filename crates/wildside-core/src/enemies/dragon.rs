@@ -69,10 +69,21 @@ const DRAGON_TERRAIN_REBOUND_Y_ACCEL: i32 = 0x2000;
 
 const DRAGON_TERRAIN_REBOUND_START_WAIT_FRAMES: u16 = 2;
 
+pub(crate) fn dragon_drift_positive_velocity_loc_3478c(x_velocity: i32) -> i32 {
+    // ASM Dragon_Flying.asm loc_3478C: positive drift adds `$200` to d7 and
+    // clamps at `$18000`; the long-word addition wraps before that comparison.
+    x_velocity
+        .wrapping_add(DRAGON_DRIFT_ACCEL)
+        .min(DRAGON_DRIFT_SPEED_CAP)
+}
+
 pub(crate) fn dragon_drift_negative_velocity_loc_347b2(x_velocity: i32) -> i32 {
     // ASM Dragon_Flying.asm loc_347B2: negative drift subtracts `$200`
-    // from d7 and clamps at `$FFFE8000` (-$18000).
-    (x_velocity - DRAGON_DRIFT_ACCEL).max(-DRAGON_DRIFT_SPEED_CAP)
+    // from d7 and clamps at `$FFFE8000` (-$18000); the long-word subtraction
+    // wraps before that comparison.
+    x_velocity
+        .wrapping_sub(DRAGON_DRIFT_ACCEL)
+        .max(-DRAGON_DRIFT_SPEED_CAP)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1217,8 +1228,7 @@ pub(crate) fn step_dragon(
             // Drift: accelerate x_velocity toward cap, count down frames.
             // ASM loc_3478C: add/sub $200 per frame, cap at ±$18000.
             if enemy.x_velocity > 0 {
-                enemy.x_velocity =
-                    (enemy.x_velocity + DRAGON_DRIFT_ACCEL).min(DRAGON_DRIFT_SPEED_CAP);
+                enemy.x_velocity = dragon_drift_positive_velocity_loc_3478c(enemy.x_velocity);
             } else if enemy.x_velocity < 0 {
                 enemy.x_velocity = dragon_drift_negative_velocity_loc_347b2(enemy.x_velocity);
             }
@@ -1881,6 +1891,30 @@ mod tests {
             dragon_drift_negative_velocity_loc_347b2(-0x18000),
             -0x18000,
             "ASM Dragon_Flying.asm loc_347B2 preserves the `$FFFE8000` negative speed cap"
+        );
+        assert_eq!(
+            dragon_drift_negative_velocity_loc_347b2(i32::MIN),
+            i32::MAX - DRAGON_DRIFT_ACCEL + 1,
+            "ASM Dragon_Flying.asm loc_347B2 `subi.l #$200,d7` wraps before the signed cap comparison"
+        );
+    }
+
+    #[test]
+    fn dragon_positive_drift_acceleration_matches_loc_3478c() {
+        assert_eq!(
+            dragon_drift_positive_velocity_loc_3478c(0x800),
+            0xA00,
+            "ASM Dragon_Flying.asm loc_3478C adds `$200` to a positive drift velocity"
+        );
+        assert_eq!(
+            dragon_drift_positive_velocity_loc_3478c(0x17F00),
+            0x18000,
+            "ASM Dragon_Flying.asm loc_3478C clamps when adding `$200` would pass `$18000`"
+        );
+        assert_eq!(
+            dragon_drift_positive_velocity_loc_3478c(i32::MAX),
+            i32::MIN + DRAGON_DRIFT_ACCEL - 1,
+            "ASM Dragon_Flying.asm loc_3478C `addi.l #$200,d7` wraps before the signed cap comparison"
         );
     }
 

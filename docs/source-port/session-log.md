@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (Flying Dragon drift long-word wrap)
+
+- `project-status` offered no ready/open risk. A fresh live Flying Dragon audit
+  found both drift branches used debug-overflow-prone plain arithmetic, while
+  ASM `loc_3478C`/`loc_347B2` wraps long-word add/subtract before signed caps.
+- Both live branches now preserve that ordering. Exact positive and negative
+  overflow regressions first failed on the old panics and now pass, alongside
+  `verify-slice-fast` and `verify-tas-full`.
+- NEXT: continue auditing fresh live gameplay paths; avoid frozen timing feeders
+  and blocked boss umbrella #301.
+
 ## 2026-08-18 handoff (Emo Rock Berzerker-airborne gravity wrap)
 
 - `project-status` offered no ready/open risk. A fresh live Emo Rock audit found
