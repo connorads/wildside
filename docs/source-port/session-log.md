@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive Fireball mutation closure)
+
+- `project-status` still offered no ready/open risk, so the fallback revisited
+  `enemies/fireball.rs`. Its last complete audit was 2026-07-07, before the
+  shared-walker changes; the recent `loc_330D0` trail-position regression was
+  checked only against the exact copied-X survivor.
+- Read the complete `Fireball.asm` routine, then ran
+  `env FILE=crates/wildside-core/src/enemies/fireball.rs
+  OUTPUT=/tmp/mutants-fireball-20260818-refresh TMPDIR=/tmp mise run
+  mutants-file`. All 60 current mutations complete in seven minutes: 47 caught
+  and 13 compile-unviable, with zero missed or timed out.
+- No source edit or new regression is warranted. The non-zero worker-position
+  contract kills the former constructor survivor across the whole file, while
+  existing ASM-cited coverage kills every viable mutation across bounce/trail
+  dispatch, collision/death tails, sprite quadrant selection, and trail
+  lifetime cleanup. This live family can affect sweep and enemy-frontier gates.
+- NEXT: rerun `project-status`; if no eligible row appears, mutation-test a
+  different live-path file whose implementation changed after its last full
+  pass.
+
 ## 2026-08-18 handoff (proactive Tank mutation refresh)
 
 - `project-status` still offered no ready/open risk, so the fallback revisited
