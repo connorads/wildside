@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (asm-coverage uncovered loc visibility)
+
+- `project-status` again offered no ready/open risk. The proactive ASM-coverage
+  fallback found that the headline counted one ordinary uncovered label while
+  `--uncovered` only printed uncited `sub_` labels.
+- The report now selects by coverage state, so text and JSON both expose Tar
+  Monster `loc_32454` while preserving the existing out-of-scope GEMS
+  `sub_E155A` entry. A focused regression pins `loc_` inclusion without
+  admitting test-only debt.
+- ASM triage found `CollisionSize_Index` entries 612-614 alias `loc_32454`'s
+  instruction bytes. No static control-flow edge enters the surrounding orphan
+  loop, so no gameplay citation or speculative port was added. NEXT: take
+  another proactive live-path audit; revisit `loc_32454` only with a dynamic
+  entry witness.
+
 ## 2026-08-18 handoff (#190 Robot shoot coroutine dead end)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

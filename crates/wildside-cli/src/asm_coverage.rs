@@ -442,6 +442,12 @@ fn label_address(label: &str) -> Option<u32> {
         .and_then(|hex| u32::from_str_radix(hex, 16).ok())
 }
 
+fn appears_in_uncovered_report(label: &AsmLabel) -> bool {
+    label.coverage_state == Some(CoverageState::Uncovered)
+        || (label.kind == LabelKind::Sub
+            && label.coverage_state == Some(CoverageState::EmulatedGems))
+}
+
 fn build_coverage_map(
     asm_labels: Vec<AsmLabel>,
     citations: &BTreeMap<String, BTreeSet<String>>,
@@ -1030,7 +1036,7 @@ pub(crate) fn run_asm_coverage(
                     let uncov: Vec<&AsmLabel> = sub
                         .labels
                         .iter()
-                        .filter(|l| l.kind == LabelKind::Sub && l.cited_in.is_empty())
+                        .filter(|label| appears_in_uncovered_report(label))
                         .collect();
                     if uncov.is_empty() {
                         None
@@ -1090,7 +1096,7 @@ pub(crate) fn run_asm_coverage(
     });
 
     for (name, sub) in &sorted_subsystems {
-        if uncovered_only && sub.sub_cited == sub.sub_total {
+        if uncovered_only && !sub.labels.iter().any(appears_in_uncovered_report) {
             continue;
         }
         println!(
@@ -1100,7 +1106,7 @@ pub(crate) fn run_asm_coverage(
 
         if uncovered_only {
             for label in &sub.labels {
-                if label.kind == LabelKind::Sub && label.cited_in.is_empty() {
+                if appears_in_uncovered_report(label) {
                     let suffix = if label.coverage_state == Some(CoverageState::EmulatedGems) {
                         " [emulated GEMS out-of-scope]"
                     } else {
@@ -1609,6 +1615,20 @@ labels:
             coverage_state_for_label(&citation_breakdowns, &overlay, "sub_E1416", &[]),
             CoverageState::EmulatedGems
         );
+    }
+
+    #[test]
+    fn uncovered_report_includes_loc_gaps_and_out_of_scope_gems_labels() {
+        let uncovered_loc = make_label_with_state("loc_32454", CoverageState::Uncovered);
+        let test_only_loc = make_label_with_state("loc_3AA4C", CoverageState::TestOnlyDebt);
+        let mut gems_sub = make_label_with_state("sub_E1416", CoverageState::EmulatedGems);
+        gems_sub.kind = LabelKind::Sub;
+        let gems_loc = make_label_with_state("loc_E136C", CoverageState::EmulatedGems);
+
+        assert!(appears_in_uncovered_report(&uncovered_loc));
+        assert!(!appears_in_uncovered_report(&test_only_loc));
+        assert!(appears_in_uncovered_report(&gems_sub));
+        assert!(!appears_in_uncovered_report(&gems_loc));
     }
 
     #[test]

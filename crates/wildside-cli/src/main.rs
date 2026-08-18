@@ -1514,7 +1514,7 @@ enum Commands {
         /// Filter to subsystems matching this substring (e.g. "enemy").
         #[arg(long)]
         subsystem: Option<String>,
-        /// List only uncovered sub_ labels.
+        /// List ordinary uncovered labels and uncited emulated GEMS sub_ labels.
         #[arg(long, default_value_t = false)]
         uncovered: bool,
         /// Machine-readable JSON output.

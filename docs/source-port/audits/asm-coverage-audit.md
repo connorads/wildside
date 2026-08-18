@@ -19,12 +19,12 @@ were fixed after it was written.
 
 - 2026-07-02: `asm-coverage` now reports the remaining emulated GEMS wrappers
   as their own out-of-scope bucket instead of counting them as ordinary
-  uncovered labels. `--uncovered` still lists the uncited `sub_` labels and
-  tags the GEMS wrappers explicitly so they stay visible.
-- Current `asm-coverage` reports **3855 reachable / 241 test-only debt / 0
-  ordinary uncovered / 21 emulated GEMS**.
-- Legacy citation presence is now **sub_ 291/293 (99.3%)** and **loc_
-  3805/3824 (99.5%)**.
+  uncovered labels. `--uncovered` lists ordinary uncited labels plus uncited
+  emulated-GEMS `sub_` labels and tags those wrappers explicitly.
+- Current `asm-coverage` reports **3942 reachable / 160 test-only debt / 1
+  ordinary uncovered / 14 emulated GEMS**.
+- Legacy citation presence is now **sub_ 292/293 (99.7%)** and **loc_
+  3810/3824 (99.6%)**.
 - The scanner now reads `crates/wildside-core/src`, `crates/wildside-data/src`,
   and `crates/wildside-md/src`. `wildside-cli`, `wildside-frame`, and
   `wildside-render` remain outside the metric unless they are added explicitly.
@@ -134,13 +134,13 @@ stale/typo'd citations are invisible. A naive reverse-diff *looks* alarming
 
 ### D. Uncovered-label triage
 
-21 genuinely-uncovered labels (2 sub_ + 19 loc_); **0 are gameplay porting
-gaps.**
+15 uncited labels (1 ordinary + 14 emulated GEMS); **0 are proven gameplay
+porting gaps.**
 
 | # | Sev | Finding | Evidence |
 |---|-----|---------|----------|
-| D1 | Info | **21 are the remaining GEMS sound-driver M68k↔Z80 interface labels** (`sub_E133C..loc_E15E8`, kid.asm ~49508-49910): Z80 bus arbitration wrappers and mailbox primitives not modelled as native Rust behaviours. `wildside-md::GemsAudioEngine` now cites the modelled driver load/reset/FIFO marker/start/stop/tempo helpers. The remaining `sub_` labels are `sub_E133C` (open/close wrapper with no command) and `sub_E155A` (queues `FF 0C` only). | kid.asm:49508-49910; `doc/sound.txt:1`; `wildside-md/src/lib.rs`; 2026-06-30 `asm-coverage --uncovered`. |
-| D2 | Info | **0 non-GEMS loc_ citation-granularity gaps remain.** The parser credits only exact label-string matches, so a parent being cited did not credit its internal branch targets. Former gaps `loc_1F56`, `loc_8370/837C`, `loc_8456/8460/8470`, and `loc_349C0` are now cited inline; the `sub_8446` labels are explicitly marked as visual-only `off_84A2` sprite-table TODO debt rather than completed behaviour. | `--json`; parents cited in combat/movement/platforms; `combat.rs:14022`; `platforms.rs` stored-platform carry notes; `movement.rs` sub_8446 TODO; `dragon.rs` delete-tail note. |
+| D1 | Info | **14 are the remaining GEMS sound-driver M68k↔Z80 interface labels** (`loc_E136C..loc_E15E8` plus `sub_E155A`, kid.asm ~49540-49910): Z80 bus arbitration wrappers and mailbox primitives not modelled as native Rust behaviours. `wildside-md::GemsAudioEngine` cites the modelled driver load/reset/FIFO marker/start/stop/tempo helpers. The remaining `sub_` label queues `FF 0C` only. | kid.asm:49540-49910; `doc/sound.txt:1`; `wildside-md/src/lib.rs`; current `asm-coverage --uncovered`. |
+| D2 | Info | **The sole ordinary uncited label is not proven gameplay debt.** `CollisionSize_Index` entries 612-614 point at `loc_32454`, interpreting its instruction bytes as a collision row. The label also heads an orphan Tar Monster hibernate/check loop, but no static control-flow edge enters the preceding post-`rts` block. Keep it visible rather than adding a false implementation citation; prove a dynamic entry before porting it. | `kid.asm:36038-36040`; `Tar_Monster.asm:270-285`; ROM bytes at `$32454`; current `asm-coverage --uncovered`. |
 
 ### E. Debug-field registry (reference-accuracy adjacent)
 

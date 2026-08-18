@@ -127,7 +127,7 @@ cargo run -p wildside-cli -- inspect-level --level 00
 cargo run -p wildside-cli -- inspect-enemy --enemy 01
 cargo run -p wildside-cli -- compare-native-oracle --scenario boot-title-start-level1
 cargo run -p wildside-cli -- asm-coverage                    # coverage summary
-cargo run -p wildside-cli -- asm-coverage --uncovered        # uncovered sub_ labels
+cargo run -p wildside-cli -- asm-coverage --uncovered        # uncovered labels
 cargo run -p wildside-cli -- asm-coverage --json             # machine-readable summary
 cargo run -p wildside-cli -- asm-coverage --check-required   # fast-gate required-label citations
 cargo run -p wildside-cli -- asm-coverage --check-no-new-test-only  # ratchet new test-only debt
