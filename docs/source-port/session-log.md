@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive Diamond mutation refresh)
+
+- `project-status` still offered no ready/open risk, so the fallback revisited
+  `enemies/diamond.rs`. Its last complete audit was 2026-07-07; the live module
+  then changed in both #419's shared-walker scheduling work and #420's Driller
+  phase alignment.
+- Read the complete `Diamond.asm` routine, then ran
+  `env FILE=crates/wildside-core/src/enemies/diamond.rs
+  OUTPUT=/tmp/mutants-diamond-20260818-refresh TMPDIR=/tmp mise run
+  mutants-file`. All 72 current mutations complete in nine minutes: 62 caught
+  and 10 compile-unviable, with zero missed or timed out.
+- No source edit or new regression is warranted. Existing ASM-cited coverage
+  kills every viable mutation across high-HP init and terrain dispatch,
+  damage/death routing, Berzerker launch, low-HP shared-walker resume, and slope
+  velocity selection. This live family can affect sweep and enemy-frontier gates.
+- NEXT: rerun `project-status`; if no eligible row appears, mutation-test a
+  different live-path file whose implementation changed after its last full
+  pass.
+
 ## 2026-08-18 handoff (proactive Fireball mutation closure)
 
 - `project-status` still offered no ready/open risk, so the fallback revisited
