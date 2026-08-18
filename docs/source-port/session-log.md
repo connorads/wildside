@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (ASM test-only promotion dead end)
+
+- `project-status` offered no ready/open risk. Test-only-debt screening rejected
+  `loc_964`: it is the VDP DMA-busy wait, and native has no VDP timing model.
+  Nearby object/Gfx-list citations are confined to `#[cfg(test)]` reconstruction
+  helpers, so promoting their comments would falsely claim live reachability.
+- A fallback `gfx_animation.rs` mutation rerun was clean at 18 mutants - 16
+  caught, 2 unviable - but duplicated the 12 July audit and changed no code.
+- NEXT: take a fresh live gameplay/sweep-path module. Revisit these labels only
+  with a live caller or a VDP timing model.
+
 ## 2026-08-18 handoff (asm-coverage uncovered loc visibility)
 
 - `project-status` again offered no ready/open risk. The proactive ASM-coverage

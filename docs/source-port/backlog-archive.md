@@ -24745,6 +24745,15 @@ remains exact, with the known state-report divergences still first authoritative
   `asm-coverage --update`, JSON/YAML `oracle_backed` absence checks, and `verify-slice-fast` exit
   0. `verify-tas-full` was not required for tooling-only coverage classification.
 
+  2026-08-18 proactive dead end: test-only-debt screening rejected `loc_964` as a production
+  promotion. ASM `loc_964` is the `WaitForDMA` loop over VDP status bit 1; native has no VDP DMA
+  timing model, and the existing test explicitly records the routine as a no-op boundary. The
+  nearby `loc_E0C` and `loc_FFE`/`loc_1004` citations live in `#[cfg(test)]` reconstruction
+  helpers, not runtime paths, so moving their comments would falsely claim shipped reachability.
+  A fallback mutation rerun of `gfx_animation.rs` found 18 mutants: 16 caught, 2 unviable, 0
+  missed, duplicating the 2026-07-12 result and yielding no code change. Do not repeat either path
+  without a live caller or a VDP timing model.
+
 - **#366 (asm-coverage test-only ratchet, P2 infra).** Fixed 2026-06-29 (`[~]` -> `[x]`).
   Added checked-in `docs/source-port/asm-coverage-test-only-baseline.yaml` with the current 242
   `test_only_debt` labels and `asm-coverage --check-no-new-test-only`. The ratchet compares the
