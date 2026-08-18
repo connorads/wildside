@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive transform-presentation mutation audit)
+
+- `project-status` still offered no ready/open risk, so the fallback selected
+  `transform_presentation.rs`: a live player/render path whose July
+  `Kid_Transform` presentation and raster-resume work had no recorded complete
+  file mutation census.
+- `env FILE=crates/wildside-core/src/transform_presentation.rs
+  OUTPUT=/tmp/mutants-transform-presentation-20260818-initial TMPDIR=/tmp mise
+  run mutants-file` tests all 32 mutations in five minutes: 26 caught and 6
+  compile-unviable, with no survivors or timeouts. Existing ASM-cited
+  presentation contracts reject every viable mutation, so no source or test
+  edit is warranted. NEXT: rerun `project-status`; if no eligible row appears,
+  mutation-test another live gameplay/sweep-path module outside blocked #301.
+
 ## 2026-08-18 handoff (proactive Tornado mutation refresh)
 
 - `project-status` still offered no ready/open risk. Inspection corrected the
