@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (Orca uncapped lunge gravity)
+
+- `project-status` offered no ready/open risk. A fresh live Orca audit found
+  native clamped lunge gravity to the generic player fall-speed limit, while
+  ASM `loc_3D3B4` uses an uncapped wrapping long-word addition.
+- The live lunge now preserves that uncapped addition, with exact cap-boundary
+  and signed-overflow regressions. Ordinary short-lunge behaviour is unchanged.
+- NEXT: continue auditing fresh live gameplay paths; avoid frozen timing feeders
+  and blocked boss umbrella #301.
+
 ## 2026-08-18 handoff (Emo Rock drop-gravity long-word wrap)
 
 - `project-status` offered no ready/open risk. A fresh live Emo Rock drop-loop

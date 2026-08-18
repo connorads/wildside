@@ -522,6 +522,12 @@ pub(crate) const ORCA_LUNGE_Y_SPEED: i32 = -0x2_8000;
 /// Orca lunge gravity (Orca.asm line loc_3D3B4: $1800 per frame).
 pub(crate) const ORCA_LUNGE_GRAVITY: i32 = 0x1800;
 
+pub(crate) fn orca_lunge_y_velocity_loc_3d3b4(y_velocity: i32) -> i32 {
+    // ASM Orca.asm loc_3D3B4: `addi.l #$1800,y_vel(a3)` wraps the long word.
+    // Unlike the player gravity path, the Orca loop performs no speed clamp.
+    y_velocity.wrapping_add(ORCA_LUNGE_GRAVITY)
+}
+
 /// Orca lunge X acceleration (Orca.asm loc_3D3A2: $200 per frame in facing dir).
 pub(crate) const ORCA_LUNGE_X_ACCEL: i32 = 0x200;
 
@@ -575,7 +581,7 @@ pub(crate) fn step_orca(
         }
         OrcaState::Lunging => {
             // Gravity (Orca.asm loc_3D3B4: $1800 per frame)
-            enemy.y_velocity = (enemy.y_velocity + ORCA_LUNGE_GRAVITY).min(physics::MAX_FALL_SPEED);
+            enemy.y_velocity = orca_lunge_y_velocity_loc_3d3b4(enemy.y_velocity);
 
             // X acceleration during lunge unless wall-pinned via `$5C(a5)`.
             if !enemy.wall_pinned {
@@ -954,6 +960,20 @@ mod tests {
             orca_lunge_right_x_velocity_loc_3d3d2(ORCA_LUNGE_X_SPEED),
             ORCA_LUNGE_X_SPEED + ORCA_LUNGE_X_ACCEL,
             "ASM Orca.asm loc_3D3D2 should add `$200` to the right-facing lunge velocity"
+        );
+    }
+
+    #[test]
+    fn orca_lunge_gravity_is_uncapped_wrapping_long_add_loc_3d3b4() {
+        assert_eq!(
+            orca_lunge_y_velocity_loc_3d3b4(physics::MAX_FALL_SPEED),
+            physics::MAX_FALL_SPEED + ORCA_LUNGE_GRAVITY,
+            "ASM Orca.asm loc_3D3B4 has no generic player fall-speed cap after `addi.l #$1800,y_vel(a3)`"
+        );
+        assert_eq!(
+            orca_lunge_y_velocity_loc_3d3b4(i32::MAX),
+            i32::MIN + ORCA_LUNGE_GRAVITY - 1,
+            "ASM Orca.asm loc_3D3B4 long-word addition should wrap at the signed boundary"
         );
     }
 

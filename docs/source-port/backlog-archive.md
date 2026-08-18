@@ -22950,6 +22950,14 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #315
 
 - Filed 2026-06-11 umbrella: audits/enemy-fidelity-audit.md, 25 of 67 still open plus 9 partial remainders after the staleness check (e.g. Big Hopping Skull patrol x-bounds reachable only via test-only entry; Ninja `loc_3D8A8`/`loc_3D8BC` knockdown branch). Staleness report lists each remainder with current file:line.
+- Proactive follow-up 2026-08-18: the live Orca lunge audit found native applied
+  the generic player `MAX_FALL_SPEED` clamp where ASM `Orca.asm loc_3D3B4`
+  executes only `addi.l #$1800,y_vel(a3)`. Native now uses the ROM's uncapped
+  wrapping long-word addition;
+  `orca_lunge_gravity_is_uncapped_wrapping_long_add_loc_3d3b4` pins both the
+  first value above the old cap and signed overflow. Ordinary short-lunge values
+  are unchanged; focused Orca tests, `verify-slice-fast`, and
+  `verify-tas-full` pass.
 - Proactive follow-up 2026-08-18: the live Emo Rock hover-target audit found native
   used `saturating_sub(hover_height_fp)` where ASM `Emo_Rock.asm loc_3621A`
   executes `sub.w d1,d7` before storing the result in `y_pos(a3)`. Native now
