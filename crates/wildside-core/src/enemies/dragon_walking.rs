@@ -724,7 +724,9 @@ fn step_dragon_walking_walk(
             enemy.on_ground = false;
             enemy.x_velocity = walk_delta;
             enemy.y_velocity = 0;
-            enemy.y_pos = enemy.y_pos.saturating_add(1 << 16);
+            // ASM Lion.asm loc_3E694: `addq.w #1,y_pos(a3)` wraps the
+            // 16-bit integer word while leaving the fractional word intact.
+            enemy.y_pos = enemy.y_pos.wrapping_add(1 << 16);
             enemy.shared_walker_debug_branch = Some("patrol_airborne_start");
             return DragonWalkingWalkStep::StartedAirborne;
         }
@@ -1461,6 +1463,23 @@ mod tests {
         assert_eq!(
             dragon.shared_walker_debug_branch,
             Some("patrol_airborne_start")
+        );
+    }
+
+    #[test]
+    fn dragon_walking_ledge_nudge_wraps_integer_word_loc_3e694() {
+        let grid = dragon_walking_grid(8, 4, &[]);
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.x_pos = 0x0020 << 16;
+        dragon.y_pos = 0xffff_8000;
+        dragon.facing = Direction::Right;
+
+        let step = step_dragon_walking_walk(&mut dragon, Some(&grid), None);
+
+        assert!(matches!(step, DragonWalkingWalkStep::StartedAirborne));
+        assert_eq!(
+            dragon.y_pos, 0x0000_8000,
+            "ASM Lion.asm loc_3E694 `addq.w #1,y_pos(a3)` should wrap only the integer word and preserve the fractional word"
         );
     }
 

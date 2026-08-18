@@ -22943,6 +22943,13 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #315
 
 - Filed 2026-06-11 umbrella: audits/enemy-fidelity-audit.md, 25 of 67 still open plus 9 partial remainders after the staleness check (e.g. Big Hopping Skull patrol x-bounds reachable only via test-only entry; Ninja `loc_3D8A8`/`loc_3D8BC` knockdown branch). Staleness report lists each remainder with current file:line.
+- Proactive follow-up 2026-08-18: the live walking Dragon ledge-transition audit found
+  native used `saturating_add(1 << 16)` where ASM `Lion.asm loc_3E694` executes
+  `addq.w #1,y_pos(a3)`. Native now uses wrapping addition, which wraps the
+  16-bit integer word and preserves the fractional word;
+  `dragon_walking_ledge_nudge_wraps_integer_word_loc_3e694` pins that boundary.
+  Normal route values are unchanged; focused walking Dragon tests,
+  `verify-slice-fast`, and `verify-tas-full` pass.
 - Proactive follow-up 2026-08-18: the live Big Hopping Skull audit found native used
   `saturating_add(BIG_SKULL_GRAVITY)` where ASM `loc_36540` executes
   `addi.l #$FA0,y_vel(a3)`. Native now uses 32-bit wrapping addition, and

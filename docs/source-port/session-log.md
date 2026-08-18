@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (walking Dragon ledge-nudge word wrap)
+
+- `project-status` offered no ready/open risk. A fresh live walking Dragon audit
+  found native saturated its one-pixel ledge nudge, while ASM `loc_3E694` uses
+  `addq.w` on the integer half of FP16.16 `y_pos`.
+- The live ledge transition now wraps that 16-bit word and preserves the
+  fractional word, with an exact overflow regression. Ordinary route values
+  and behaviour remain unchanged.
+- NEXT: continue auditing fresh live gameplay paths; avoid frozen timing feeders
+  and blocked boss umbrella #301.
+
 ## 2026-08-18 handoff (Big Hopping Skull gravity wrap)
 
 - `project-status` offered no ready/open risk. A fresh live Big Hopping Skull
