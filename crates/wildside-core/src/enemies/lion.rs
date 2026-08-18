@@ -2696,6 +2696,37 @@ mod tests {
     }
 
     #[test]
+    fn lion_grounded_left_charge_uses_integer_x_word_for_boundary_loc_3e566() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
+        grid.set_cell_at(0, 2, terrain::Cell::from_be_bytes(0x40, 0x00));
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            lion_state: LionState::Charging,
+            on_ground: true,
+            facing: Direction::Left,
+            hit_points: 6,
+            wait_timer: 12,
+            x_pos: 37 << 16,
+            y_pos: 32 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_lion_charge_movement_loc_3e11e(&mut lion, Some(&grid), None);
+
+        let wall = lion
+            .shared_walker_terrain_trace
+            .wall
+            .expect("grounded Lion charge should record the wall probe");
+        assert!(
+            wall.hit,
+            "ASM Lion.asm loc_3E566 -> sub_36A58 compares the integer X word, so the three-pixel left step crosses the `$48(a5)=20` leading boundary"
+        );
+        assert_eq!((wall.cell_x, wall.cell_y), (0, 2));
+        assert_eq!(lion.lion_state, LionState::Walking);
+        assert!(lion.scorpion_tracking_lock);
+    }
+
+    #[test]
     fn lion_grounded_right_charge_wall_hit_exits_via_loc_3e406() {
         let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
         grid.set_cell_at(2, 1, terrain::Cell::from_be_bytes(0x60, 0x00));

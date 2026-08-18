@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive Lion mutation hardening)
+
+- `project-status` still offered no ready/open risk, so the fallback refreshed
+  `enemies/lion.rs`. Its last whole-file audit predated the Lion-lineage
+  shared-walker split and subsequent charge/collision corrections.
+- The first 251-mutant run caught 205 and found one viable survivor: replacing
+  the integer X extraction in `step_lion_charge_movement_loc_3e11e` with a
+  left shift. The other 45 mutations were compile-unviable; none timed out.
+- A focused left-charge slope case now pins Lion.asm `loc_3E566 -> sub_36A58`:
+  the three-pixel step crosses the `$48(a5)=20` leading boundary only when the
+  current and next fixed-point positions use their integer X words. The test
+  passes normally and fails under the exact surviving mutation.
+- `env FILE=crates/wildside-core/src/enemies/lion.rs
+  OUTPUT=/tmp/mutants-lion-20260818-hardened TMPDIR=/tmp mise run mutants-file`
+  tests all 251 mutations in 29 minutes: 206 caught and 45 compile-unviable,
+  with zero missed or timed out.
+- NEXT: rerun `project-status`; if no eligible row appears, mutation-test a
+  different live-path file whose implementation changed after its last pass.
+
 ## 2026-08-18 handoff (proactive Orca mutation refresh)
 
 - `project-status` still offered no ready/open risk, so the fallback refreshed
