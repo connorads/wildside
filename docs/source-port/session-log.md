@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive Tar Monster mutation closure)
+
+- `project-status` still offered no ready/open risk, so the fallback revisited
+  `enemies/tar_monster.rs`. Its 2026-07-13 post-rewrite whole-file audit found
+  two misses and one timeout; the fixes were proven only by a selected
+  16-mutant rerun, leaving the other current branches without a clean census.
+- `env FILE=crates/wildside-core/src/enemies/tar_monster.rs
+  OUTPUT=/tmp/mutants-tar-monster-20260818-refresh TMPDIR=/tmp mise run
+  mutants-file` tests all 144 current mutations in 16 minutes: 110 caught and
+  34 compile-unviable, with zero missed or timed out.
+- No source edit or new regression is warranted. The complete rerun proves the
+  prior glob-speed miss, redundant-default equivalent, and relational timeout
+  stay closed across the whole file. Existing ASM-cited coverage kills every
+  viable mutation across the control script, emerge/attack/submerge timing,
+  collision and death routing, glob spawn/motion/impact, burst children, and
+  cleanup; this live family can affect sweep and enemy-frontier gates.
+- NEXT: rerun `project-status`; if no eligible row appears, mutation-test a
+  different live-path file whose implementation changed after its last pass.
+
 ## 2026-08-18 handoff (proactive Drips mutation refresh)
 
 - `project-status` still offered no ready/open risk, so the fallback refreshed
