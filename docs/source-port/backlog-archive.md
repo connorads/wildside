@@ -20892,6 +20892,13 @@ Column of origin shown in brackets; text is verbatim.
 ### #52
 
 - [Summary] EmoRock velocity cap logic wrong ($60000 threshold → $40000 reset)
+- Proactive follow-up 2026-08-18: the live drop-loop audit found native used
+  checked `i32` addition where ASM `Emo_Rock.asm loc_3625E` executes
+  `add.l d2,d7` before the signed `cmpi.l #$60000,d7; ble`. Native now uses
+  wrapping long-word addition before the existing signed cap comparison;
+  `emo_rock_drop_velocity_loc_3625e_wraps_before_signed_cap_compare` pins the
+  overflow-to-negative branch. Normal route values are unchanged; focused Emo
+  Rock tests, `verify-slice-fast`, and `verify-tas-full` pass.
 
 ### #56
 

@@ -69,9 +69,10 @@ pub(crate) fn emo_rock_hover_target_loc_3621a(
 }
 
 pub(crate) fn emo_rock_drop_velocity_loc_3625e(y_velocity: i32, gravity: i32) -> i32 {
-    // ASM Emo_Rock.asm loc_3625E: add d2 gravity to y_vel, keep the result when
-    // it is <= `$60000`, otherwise snap the falling speed back to `$40000`.
-    let accelerated_y_velocity = y_velocity + gravity;
+    // ASM Emo_Rock.asm loc_3625E: `add.l d2,d7` wraps the long-word gravity
+    // addition, then the signed `ble` keeps results <= `$60000`; larger results
+    // snap the falling speed back to `$40000`.
+    let accelerated_y_velocity = y_velocity.wrapping_add(gravity);
     if accelerated_y_velocity > EMO_ROCK_VELOCITY_THRESHOLD {
         EMO_ROCK_VELOCITY_CAP
     } else {
@@ -721,6 +722,15 @@ mod tests {
             emo_rock_drop_velocity_loc_3625e(0x0006_0000, 0x0000_4000),
             0x0004_0000,
             "ASM Emo_Rock.asm loc_3625E snaps y velocity to `$40000` only when the accelerated value is greater than `$60000`"
+        );
+    }
+
+    #[test]
+    fn emo_rock_drop_velocity_loc_3625e_wraps_before_signed_cap_compare() {
+        assert_eq!(
+            emo_rock_drop_velocity_loc_3625e(i32::MAX, 0x0000_4000),
+            i32::MIN + 0x3fff,
+            "ASM Emo_Rock.asm loc_3625E `add.l d2,d7` should wrap to a signed-negative result that passes the following `ble` cap check"
         );
     }
 

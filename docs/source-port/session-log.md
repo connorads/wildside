@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (Emo Rock drop-gravity long-word wrap)
+
+- `project-status` offered no ready/open risk. A fresh live Emo Rock drop-loop
+  audit found native could panic on signed overflow, while ASM `loc_3625E` uses
+  wrapping long-word addition before its signed speed-cap comparison.
+- The live gravity step now wraps before that comparison, with an exact
+  overflow regression. Ordinary route values and behaviour remain unchanged.
+- NEXT: continue auditing fresh live gameplay paths; avoid frozen timing feeders
+  and blocked boss umbrella #301.
+
 ## 2026-08-18 handoff (Emo Rock hover-target word wrap)
 
 - `project-status` offered no ready/open risk. A fresh live Emo Rock audit found
