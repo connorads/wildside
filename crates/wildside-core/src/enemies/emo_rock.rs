@@ -259,7 +259,8 @@ pub(crate) fn emo_rock_berzerker_airborne_frame_loc_3630a(
     }
 
     EmoRockBerzerkerAirborneFrameLoc3630A {
-        y_velocity: y_velocity + EMO_ROCK_BERZERKER_AIRBORNE_GRAVITY,
+        // ASM Emo_Rock.asm loc_3630A: `addi.l #$6000,y_vel(a3)` wraps the long word.
+        y_velocity: y_velocity.wrapping_add(EMO_ROCK_BERZERKER_AIRBORNE_GRAVITY),
         hibernates_one_frame: true,
         route: EmoRockBerzerkerAirborneRouteLoc3630A::ContinueAirborne,
     }
@@ -886,6 +887,11 @@ mod tests {
                 route: EmoRockBerzerkerAirborneRouteLoc3630A::Death,
             },
             "ASM Emo_Rock.asm loc_3630A branches to death before adding gravity when `$19(a3)` is set"
+        );
+        assert_eq!(
+            emo_rock_berzerker_airborne_frame_loc_3630a(i32::MAX, false).y_velocity,
+            i32::MIN + EMO_ROCK_BERZERKER_AIRBORNE_GRAVITY - 1,
+            "ASM Emo_Rock.asm loc_3630A `addi.l #$6000,y_vel(a3)` wraps at the long-word boundary"
         );
     }
 

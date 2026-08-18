@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (Emo Rock Berzerker-airborne gravity wrap)
+
+- `project-status` offered no ready/open risk. A fresh live Emo Rock audit found
+  native used a debug-overflow-prone plain addition in its airborne Berzerker
+  loop, while ASM `loc_3630A` uses wrapping long-word `addi.l`.
+- The live gravity step now wraps at the signed boundary, with a regression
+  that first failed on the old overflow panic. All 38 Emo Rock tests,
+  `verify-slice-fast`, and `verify-tas-full` pass.
+- NEXT: continue auditing fresh live gameplay paths; avoid frozen timing feeders
+  and blocked boss umbrella #301.
+
 ## 2026-08-18 handoff (Orca uncapped lunge gravity)
 
 - `project-status` offered no ready/open risk. A fresh live Orca audit found
