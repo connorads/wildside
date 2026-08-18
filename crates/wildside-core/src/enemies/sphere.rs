@@ -359,6 +359,20 @@ mod tests {
     }
 
     #[test]
+    fn sphere_gravity_wraps_as_long_word_addition_loc_35f70() {
+        let mut enemy = sphere_test_enemy();
+        enemy.y_velocity = i32::MAX - (SPHERE_GRAVITY - 1);
+
+        step_bouncer(&mut enemy, None);
+
+        assert_eq!(
+            enemy.y_velocity,
+            i32::MIN,
+            "ASM Sphere.asm loc_35F70 uses `addi.l #$800,y_vel(a3)`, whose 32-bit result wraps instead of saturating"
+        );
+    }
+
+    #[test]
     fn sphere_right_wall_bounce_snaps_active_collision_row_loc_19a8() {
         let data = vec![0u8; 8 * 4 * 2];
         let mut grid = terrain::BlockGrid::from_level_layout(&data, 8, 4);

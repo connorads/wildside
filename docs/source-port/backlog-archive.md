@@ -24518,6 +24518,13 @@ and must not vanish/die immediately.
   `mise run verify-tas-full` exit 0 (CRC exact; known full-report divergences still start at
   `transition_15_to_00_post`).
 
+  2026-08-18 proactive follow-up: the live Sphere audit found native used
+  `saturating_add(SPHERE_GRAVITY)` where ASM `loc_35F70` executes `addi.l #$800,y_vel(a3)`.
+  Native now uses 32-bit wrapping addition, and
+  `sphere_gravity_wraps_as_long_word_addition_loc_35f70` pins the signed-overflow boundary. Normal
+  route values are unchanged; this closes the CPU-semantics mismatch rather than fitting observed
+  gameplay. Focused Sphere tests, `verify-slice-fast`, and `verify-tas-full` pass.
+
 - **#360 (record-inputs capture flow, P1 infra).** Requested by the human as the enabler for the
   route-blocked items rather than something to build inline. Gap: `play-native --settled --record
   <slug>` (recording.rs) already emits oracle-comparable DynamicScenario bundles, but only from a

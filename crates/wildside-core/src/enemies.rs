@@ -6535,7 +6535,9 @@ fn step_sphere_bouncer_loc_35f70(
     set_sphere_pending_collision_type_loc_171c(enemy, colid::EMPTY);
     let mut bounce_sound_queued = false;
 
-    enemy.y_velocity = enemy.y_velocity.saturating_add(SPHERE_GRAVITY);
+    // ASM Sphere.asm loc_35F70: `addi.l #$800,y_vel(a3)` wraps as a 68000
+    // long-word addition; it does not clamp at the signed Rust boundary.
+    enemy.y_velocity = enemy.y_velocity.wrapping_add(SPHERE_GRAVITY);
     sphere_apply_pending_collision_loc_35f9e(
         enemy,
         pending_collision_type,
