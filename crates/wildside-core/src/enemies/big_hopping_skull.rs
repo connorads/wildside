@@ -563,8 +563,9 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
         return;
     }
 
-    // Apply gravity (ASM loc_36540: addi.l #$FA0,y_vel)
-    enemy.y_velocity = enemy.y_velocity.saturating_add(BIG_SKULL_GRAVITY);
+    // ASM Big_Hopping_Skull.asm loc_36540: `addi.l #$FA0,y_vel(a3)` wraps as
+    // a 68000 long-word addition rather than clamping at the signed boundary.
+    enemy.y_velocity = enemy.y_velocity.wrapping_add(BIG_SKULL_GRAVITY);
 
     // Advance position
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
@@ -775,6 +776,20 @@ mod tests {
         );
         assert_eq!(skull.y_velocity, BIG_SKULL_GRAVITY);
         assert_eq!(skull.y_pos, (32 << 16) + BIG_SKULL_GRAVITY as u32);
+    }
+
+    #[test]
+    fn big_hopping_skull_gravity_wraps_as_long_word_addition_loc_36540() {
+        let mut skull = big_skull_at(32 << 16, 32 << 16);
+        skull.y_velocity = i32::MAX - (BIG_SKULL_GRAVITY - 1);
+
+        step_big_hopping_skull(&mut skull, None);
+
+        assert_eq!(
+            skull.y_velocity,
+            i32::MIN,
+            "ASM Big_Hopping_Skull.asm loc_36540 uses `addi.l #$FA0,y_vel(a3)`, whose 32-bit result wraps instead of saturating",
+        );
     }
 
     #[test]

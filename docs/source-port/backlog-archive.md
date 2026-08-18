@@ -22943,6 +22943,12 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #315
 
 - Filed 2026-06-11 umbrella: audits/enemy-fidelity-audit.md, 25 of 67 still open plus 9 partial remainders after the staleness check (e.g. Big Hopping Skull patrol x-bounds reachable only via test-only entry; Ninja `loc_3D8A8`/`loc_3D8BC` knockdown branch). Staleness report lists each remainder with current file:line.
+- Proactive follow-up 2026-08-18: the live Big Hopping Skull audit found native used
+  `saturating_add(BIG_SKULL_GRAVITY)` where ASM `loc_36540` executes
+  `addi.l #$FA0,y_vel(a3)`. Native now uses 32-bit wrapping addition, and
+  `big_hopping_skull_gravity_wraps_as_long_word_addition_loc_36540` pins the signed-overflow
+  boundary. Normal route values are unchanged; focused Big Hopping Skull tests,
+  `verify-slice-fast`, and `verify-tas-full` pass.
 - Progress 2026-06-19: wired the live Ninja Red Stealth side-threat guard branch for `loc_3D734` -> `loc_3D826`, adding `NinjaState::Guard` and holding/releasing it through the negative `$4C(a5)` `loc_3D79C`/`loc_3D7CA` rule. Regressions: `ninja_red_stealth_side_threat_enters_guard_pose_loc_3d734_3d826`, `ninja_red_stealth_guard_releases_when_kid_leaves_band_loc_3d79c_3d7ca`, plus the existing `ninja_red_stealth_still_triggers_overhead_jump_loc_3d706` ordering guard. Remaining Ninja #315 work includes the full `$44` block counter, blocking SFX, cadence `$54/$6E`, and knockdown/airborne contact branches.
 - Progress 2026-06-19: wired Ninja jump-attack ceiling contact from ASM `loc_3DA0C` to `loc_3DAB0`; live `step_ninja` now probes the ceiling during `NinjaState::JumpAttack` and negates `y_vel` instead of continuing upward through solid cells. Regression: `ninja_jump_attack_ceiling_contact_negates_y_velocity_loc_3da0c_3dab0`. Remaining jump-attack contact debt: Kid-above `loc_3DA98` / knockdown `loc_3D8BC` and side-contact Berzerker branch.
 - Progress 2026-06-20: wired Ninja far-Kid facing during Stealth pacing from ASM `loc_3D92A` -> `loc_3D978`/`loc_3D98A`; live `step_ninja` now turns toward Kid when he is beyond the inclusive +/-$80 px band before normal pacing continues. Regressions: `ninja_far_kid_turns_right_during_pacing_loc_3d92a_3d978`, `ninja_far_kid_turns_left_during_pacing_loc_3d92a_3d98a`. Remaining Ninja #315 work includes `$44` block counter/SFX/cadence and knockdown/airborne contact branches.

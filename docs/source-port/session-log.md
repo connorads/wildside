@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (Big Hopping Skull gravity wrap)
+
+- `project-status` offered no ready/open risk. A fresh live Big Hopping Skull
+  audit found native saturated gravity at Rust's signed boundary, while ASM
+  `loc_36540` uses wrapping 68000 long-word addition.
+- The live step now uses `wrapping_add`, with an exact overflow regression.
+  Ordinary route values and behaviour remain unchanged.
+- NEXT: continue auditing fresh live gameplay paths; avoid frozen timing feeders
+  and blocked boss umbrella #301.
+
 ## 2026-08-18 handoff (Sphere gravity long-word wrap)
 
 - `project-status` offered no ready/open risk. A fresh live Sphere audit found
