@@ -427,16 +427,9 @@ fn driller_consume_drilled_block_loc_3be78(
     // ORIGINAL_QUIRK: loc_3BE8E computes the column with `lsr.w #4`, so a
     // boundary-clamped child at x=-1 indexes far outside the layout row and
     // reads unrelated RAM (observed on 0x55: never a smashable word). Native
-    // bounds-checks instead of modelling the out-of-range read.
-    if probe_x < 0 || probe_y < 0 {
-        return Vec::new();
-    }
-    let col = terrain::pixel_to_cell(probe_x);
-    let row = terrain::pixel_to_cell(probe_y);
-    if col >= i32::from(grid.width_cells) || row >= i32::from(grid.height_cells) {
-        return Vec::new();
-    }
-    let (col, row) = (col as u16, row as u16);
+    // maps that wrapped index to BlockGrid's empty out-of-range cell instead.
+    let col = terrain::pixel_to_cell(probe_x) as u16;
+    let row = terrain::pixel_to_cell(probe_y) as u16;
     let cell = grid.cell_at(col, row);
 
     let action = driller_block_drill_action_loc_3bede(cell);
@@ -1040,6 +1033,40 @@ mod tests {
             "ASM loc_3BE8E `cmp.w d1,d4; bne` skips without clearing on a non-matching word",
         );
         assert_eq!(children.left.wall_event, DRILLER_COLID_RIGHTWALL);
+    }
+
+    #[test]
+    fn driller_drill_probe_distinguishes_zero_and_out_of_range_axes_loc_3be8e() {
+        let mut grid = mini_hopping_skull_test_grid();
+        grid.set_cell_at(0, 0, terrain::Cell::from_be_bytes(0xE0, 0x01));
+
+        for (probe_x, probe_y, expected) in [
+            (
+                0,
+                0,
+                vec![DrilledBlockLoc3BE78 {
+                    col: 0,
+                    row: 0,
+                    action: DrillerBlockDrillActionLoc3BEDE::SmashBits,
+                    direction: 1,
+                }],
+            ),
+            (-1, 0, Vec::new()),
+            (0, -1, Vec::new()),
+            (i32::from(grid.width_cells) * 16, 0, Vec::new()),
+            (0, i32::from(grid.height_cells) * 16, Vec::new()),
+        ] {
+            let mut children = driller_spawn_children_enemy1a_init(0, 0);
+            children.left.x_pos = probe_x;
+            children.left.y_pos = probe_y + 0x10;
+            children.left.wall_event = DRILLER_COLID_LEFTWALL;
+
+            assert_eq!(
+                driller_consume_drilled_block_loc_3be78(&mut children, Direction::Left, &grid,),
+                expected,
+                "ASM Driller.asm loc_3BE8E probes exact cell zero, while native BlockGrid maps each out-of-range axis to the empty cell",
+            );
+        }
     }
 
     /// Oracle-probe run 2026-08-14 on level 0x68 (watches on row-4 cells

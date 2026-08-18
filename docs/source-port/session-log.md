@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive Driller mutation closure)
+
+- `project-status` still offered no ready/open risk, so the fallback revisited
+  `enemies/driller.rs`. Its last whole-file audit predated #420 and covered only
+  24 sites; the 2026-08-16 audit was explicitly limited to the new live-helper
+  shard.
+- Read the complete `Driller.asm` routine, then ran
+  `env FILE=crates/wildside-core/src/enemies/driller.rs
+  OUTPUT=/tmp/mutants-driller-20260818-full TMPDIR=/tmp mise run mutants-file`.
+  The initial 106-site census found six survivors in the negative and upper
+  probe-coordinate guards at `loc_3BE8E`.
+- All six guards duplicated `BlockGrid::cell_at`, which already returns the
+  empty cell when either axis is out of range; negative arithmetic-shifted
+  indices wrap to an out-of-range `u16`. Removed the duplicate checks and added
+  an ASM-cited matrix proving exact `(0,0)` remains drillable while independent
+  negative and too-large X/Y probes remain inert.
+- Fresh whole-file closure at
+  `/tmp/mutants-driller-20260818-closure`: 96 tested in 13 minutes, 90 caught,
+  six compile-unviable, zero missed, and zero timed out.
+- NEXT: rerun `project-status`; if no eligible row appears, mutation-test a
+  different live-path file whose implementation changed after its last full
+  pass.
+
 ## 2026-08-18 handoff (proactive Archer mutation closure)
 
 - `project-status` still offered no ready/open risk, so the fallback revisited
