@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (Flying Dragon return-velocity wrap)
+
+- `project-status` offered no ready/open risk. A fresh return-to-anchor audit
+  found native used debug-overflow-prone plain subtraction, while ASM
+  `loc_34B4C` wraps `subi.l #$400,d7` before its signed threshold.
+- The live coroutine now preserves that ordering. An exact underflow regression
+  first failed on the old panic and now passes, alongside `verify-slice-fast`
+  and `verify-tas-full`.
+- NEXT: continue auditing fresh live gameplay paths; avoid frozen timing feeders
+  and blocked boss umbrella #301.
+
 ## 2026-08-18 handoff (Flying Dragon drift long-word wrap)
 
 - `project-status` offered no ready/open risk. A fresh live Flying Dragon audit

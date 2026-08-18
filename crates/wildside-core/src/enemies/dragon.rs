@@ -107,7 +107,8 @@ pub(crate) fn dragon_drift_store_loc_347c8(
 pub(crate) fn dragon_return_y_velocity_loc_34b4c(y_velocity: i32) -> i32 {
     // ASM Dragon_Flying.asm loc_34B4C: subtract `$400`, keep values at or above
     // `$FFFF1000`, otherwise store the hard `$FFFF8000` upward cap at loc_34B70.
-    let y_velocity = y_velocity - DRAGON_RETURN_DECEL;
+    // The long-word subtraction wraps before the signed comparison.
+    let y_velocity = y_velocity.wrapping_sub(DRAGON_RETURN_DECEL);
     if y_velocity < DRAGON_RETURN_VEL_CAP_SOFT {
         DRAGON_RETURN_VEL_CAP_HARD
     } else {
@@ -1949,6 +1950,11 @@ mod tests {
             dragon_return_y_velocity_loc_34b4c(-0xED00),
             -0x8000,
             "ASM Dragon_Flying.asm loc_34B4C/loc_34B70 replaces values below `$FFFF1000` with the signed hard cap `$FFFF8000`"
+        );
+        assert_eq!(
+            dragon_return_y_velocity_loc_34b4c(i32::MIN),
+            i32::MAX - DRAGON_RETURN_DECEL + 1,
+            "ASM Dragon_Flying.asm loc_34B4C `subi.l #$400,d7` wraps before the signed `$FFFF1000` comparison"
         );
     }
 
