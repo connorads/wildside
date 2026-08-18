@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive SAT compositor mutation closure)
+
+- `project-status` still offered no ready/open risk. The first candidate,
+  `wildside-render/src/player.rs`, contains only visual DTOs and correctly
+  exposed zero executable mutation sites, so the fallback pivoted to the live
+  pixel compositor in `wildside-frame/src/render.rs`.
+- The complete 317-site census used the exact reviewed workspace-baseline
+  exclusion for
+  `select_player_frame_uses_accumulator_for_ground_slope_and_walk_poses`; it
+  found 295 caught, 7 compile-unviable, and 15 missed. Every miss was in
+  `draw_sat_sprite_first_opaque`.
+- Added one public `render_scene` contract citing
+  `Make_SpritesFromGfxObjects loc_14A4`. It combines a sparse tile flipped on
+  both axes, non-zero piece offsets, one-axis offscreen clipping, and four
+  independent framebuffer coordinates chosen to expose wrong SAT-mask index
+  formulae. The full recheck caught 14 former misses; only row-major `+x` to
+  `-x` survived because either expression remained a private one-to-one key.
+- Replaced that ambiguous linear mask with explicit `[y][x]` hardware
+  coordinates. Focused closure census
+  `/tmp/mutants-frame-render-sat-20260818-final` tests all 20 selected sites:
+  20 caught, no misses, timeouts, or compile failures. NEXT: rerun
+  `project-status`; if no eligible row appears, mutation-test another live
+  gameplay/sweep-path module outside blocked #301.
+
 ## 2026-08-18 handoff (proactive demo mutation refresh)
 
 - `project-status` still offered no ready/open risk, so the fallback refreshed

@@ -54,7 +54,7 @@ pub fn render_scene(scene: &Scene, rgb: &mut [u8]) {
 /// `render_scene` without the backdrop fill or pause darken.
 pub fn render_scene_overlay(scene: &Scene, rgb: &mut [u8]) {
     let mut high_priority_pixels = vec![false; (FRAME_WIDTH * FRAME_HEIGHT) as usize];
-    let mut sat_opaque_pixels = vec![false; (FRAME_WIDTH * FRAME_HEIGHT) as usize];
+    let mut sat_opaque_pixels = vec![[false; FRAME_WIDTH as usize]; FRAME_HEIGHT as usize];
     for command in &scene.commands {
         match command {
             DrawCommand::Rect {
@@ -864,7 +864,7 @@ pub fn draw_sprite(
 fn draw_sat_sprite_first_opaque(
     rgb: &mut [u8],
     high_priority_pixels: &mut [bool],
-    sat_opaque_pixels: &mut [bool],
+    sat_opaque_pixels: &mut [[bool; FRAME_WIDTH as usize]],
     x: i32,
     y: i32,
     tile_sheet: &TileSheet,
@@ -903,11 +903,11 @@ fn draw_sat_sprite_first_opaque(
                 {
                     continue;
                 }
-                let pixel_index = (pixel_y as u32 * FRAME_WIDTH + pixel_x as u32) as usize;
-                if sat_opaque_pixels[pixel_index] {
+                let sat_opaque = &mut sat_opaque_pixels[pixel_y as usize][pixel_x as usize];
+                if *sat_opaque {
                     continue;
                 }
-                sat_opaque_pixels[pixel_index] = true;
+                *sat_opaque = true;
                 set_pixel(
                     rgb,
                     high_priority_pixels,
@@ -1513,6 +1513,70 @@ mod tests {
         );
 
         assert_eq!(pixel_rgb(&rgb, 10, 10), [1, 2, 3]);
+    }
+
+    #[test]
+    fn sat_sprites_map_flipped_offset_pixels_and_clip_each_axis_loc_14a4() {
+        // ASM Make_SpritesFromGfxObjects loc_14A4 emits source-ordered SAT
+        // entries. Mega Drive SAT tiles are 8x8; flipped source coordinates,
+        // per-piece offsets, screen clipping, and the first-opaque mask must
+        // therefore all refer to the same final framebuffer coordinate.
+        let mut pixels = [0; 64];
+        pixels[3 * 8 + 2] = 9;
+        let tile_sheet = Arc::new(TileSheet {
+            tiles: vec![Tile { pixels }],
+        });
+        let tile = TileRef {
+            flip_x: true,
+            flip_y: true,
+            ..test_tile_ref(false)
+        };
+        let sprite_tile = SpriteTile {
+            offset_x: 4,
+            offset_y: 6,
+            tile,
+        };
+        let palette = test_palette(16);
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+
+        // The sparse source pixel lands at local (5,4) after both flips.
+        // A, B, C, and D are deliberately distinct but alias under the
+        // plausible `y / width + x`, `y + width + x`, and `y * width * x`
+        // mutations of the private first-opaque mask index.
+        let origins = [
+            (-20, 46), // Entirely off the left edge while Y remains visible.
+            (1, 10),   // A -> (10,20)
+            (1, 11),   // B -> (10,21), same X as A.
+            (2, 9),    // C -> (11,19), same X+Y as A.
+            (11, 0),   // D -> (20,10), same X*Y as A.
+        ];
+        render_scene(
+            &Scene {
+                background: [3, 4, 5],
+                commands: origins
+                    .into_iter()
+                    .map(|(x, y)| DrawCommand::SatSprite {
+                        x,
+                        y,
+                        tile_sheet: Arc::clone(&tile_sheet),
+                        palette: Arc::clone(&palette),
+                        tiles: vec![sprite_tile],
+                    })
+                    .collect(),
+                pause_palette_darken: false,
+            },
+            &mut rgb,
+        );
+
+        for (x, y) in [(10, 20), (10, 21), (11, 19), (20, 10)] {
+            assert_eq!(
+                pixel_rgb(&rgb, x, y),
+                [9, 18, 27],
+                "ASM loc_14A4 SAT pixel at ({x},{y}) must retain its flipped source, piece offset, and independent first-opaque coordinate"
+            );
+        }
+        assert_eq!(pixel_rgb(&rgb, 9, 20), [3, 4, 5]);
+        assert_eq!(pixel_rgb(&rgb, 10, 19), [3, 4, 5]);
     }
 
     #[test]
