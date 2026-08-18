@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive platform-loader slice-transfer hardening)
+
+- `project-status` still offered no ready/open risk, so the fallback closed the
+  two remaining opening-slice object-transfer survivors from the bounded
+  `enemies.rs` mutation run.
+- Both `refresh_active_roster` and the `Kid_Transform loc_7E90` resume path copy
+  `PlatformLoaderState`, run `Manage_PlatformLoading loc_2744`, then rebuild
+  `OpeningSliceState`. Deleting the explicit `objects` field silently restored
+  the stale pre-loader cursor. The existing generated-cache coverage could
+  return early and did not guard either transfer.
+- Added two always-running synthetic runtime regressions. Deleting the
+  active-roster transfer loses the persisted `$C` offset; deleting the
+  transform-cleanup transfer changes `(index, offset, mask)` from `(1,$C,1)` to
+  `(0,0,0)`. Restoring each field makes both focused tests pass.
+- This is test-only hardening of the live platform-loading state consumed by
+  collision and tracing. The broad-run residue is now limited to explicit
+  zero/false boss-projectile fields equivalent to `EnemyProjectile::default()`.
+
 ## 2026-08-18 handoff (proactive HeadyMetal projectile constructor hardening)
 
 - `project-status` still offered no ready/open risk, so the fallback took the

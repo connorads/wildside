@@ -152,6 +152,60 @@ fn manifest_with_levels_and_playable_spawn(count: u8) -> AssetManifest {
     manifest
 }
 
+#[test]
+fn live_platform_loader_cursor_survives_active_roster_opening_slice_transfer_loc_2744() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.enter_level_playtest(LevelId(0));
+    let mut slice = runtime
+        .opening_slice
+        .expect("synthetic level should expose an opening slice");
+    assert_eq!(slice.objects.platform_loader.offset_words, 0x000C);
+    // Level entry has consumed fixture record 0. Put Kid inside its window so
+    // the explicit refresh exercises record 1.
+    slice.player.x_pos = (4 * 32) << 16;
+    slice.player.y_pos = (8 * 32) << 16;
+    runtime.opening_slice = Some(slice);
+
+    runtime.refresh_active_roster();
+
+    let loader = runtime
+        .opening_slice
+        .expect("active-roster refresh should retain the opening slice")
+        .objects
+        .platform_loader;
+    assert_eq!(
+        (loader.next_index, loader.offset_words, loader.loaded_mask),
+        (1, 0x0018, 0),
+        "ASM loc_2744..loc_286E should persist record 1's advanced offset through the opening-slice rebuild",
+    );
+}
+
+#[test]
+fn live_platform_loader_cursor_survives_transform_cleanup_opening_slice_transfer_loc_7e90() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.enter_level_playtest(LevelId(0));
+    let mut slice = runtime
+        .opening_slice
+        .expect("synthetic level should expose an opening slice");
+    slice.objects.platform_loader = PlatformLoaderState::default();
+    slice.player.x_pos = (4 * 32) << 16;
+    slice.player.y_pos = (8 * 32) << 16;
+    runtime.opening_slice = Some(slice);
+
+    runtime.manage_platform_loading_after_transform_cleanup_loc_7e90();
+
+    let loader = runtime
+        .opening_slice
+        .expect("transform cleanup should retain the opening slice")
+        .objects
+        .platform_loader;
+    assert_eq!(
+        (loader.next_index, loader.offset_words, loader.loaded_mask),
+        (1, 0x000C, 0b1),
+        "ASM Kid_Transform loc_7E90 resumes Manage_PlatformLoading record 0 and must persist its `$C` offset and allocation",
+    );
+}
+
 fn press_skip_cheat(runtime: &mut NativeRuntime) -> NativeTraceFrame {
     runtime.step_frame(FrameInput {
         a: true,
