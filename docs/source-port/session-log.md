@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-18 handoff (proactive Cloud mutation refresh)
+
+- `project-status` still offered no ready/open risk, so the fallback refreshed
+  `enemies/cloud.rs`. Its last whole-file audit predated the `loc_35C54`
+  command-resume correction that preserves the post-incremented script cursor
+  across each hibernating wait.
+- `env FILE=crates/wildside-core/src/enemies/cloud.rs
+  OUTPUT=/tmp/mutants-cloud-20260818-refresh TMPDIR=/tmp mise run mutants-file`
+  tests all 133 current mutations in 16 minutes: 117 caught and 16
+  compile-unviable, with zero missed or timed out.
+- No source edit or new regression is warranted. Existing ASM-cited tests kill
+  every viable mutation across command waits/status transitions, idle and
+  attack gates, lightning spawn/flight/delete, collision reversal, and
+  death/respawn routing; this live family can affect the whole-level sweep and
+  enemy-frontier gates.
+- NEXT: rerun `project-status`; if no eligible row appears, mutation-test a
+  different live-path file whose implementation changed after its last pass.
+
 ## 2026-08-18 handoff (proactive Lion mutation hardening)
 
 - `project-status` still offered no ready/open risk, so the fallback refreshed
