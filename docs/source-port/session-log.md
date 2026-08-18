@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (proactive Big Hopping Skull mutation refresh)
+
+- `project-status` still offered no ready/open risk, so the fallback revisited
+  `enemies/big_hopping_skull.rs`. Its last complete audit was 2026-07-07,
+  before the `loc_36540` long-word gravity-wrap correction.
+- Read the complete `Big_Hopping_Skull.asm` routine, then ran
+  `env FILE=crates/wildside-core/src/enemies/big_hopping_skull.rs
+  OUTPUT=/tmp/mutants-big-hopping-skull-20260819-refresh TMPDIR=/tmp mise run
+  mutants-file`. All 71 current mutations complete in eight minutes: 56
+  caught and 15 compile-unviable, with zero missed or timed out.
+- No source edit or new regression is warranted. The exact signed-overflow
+  contract kills the changed gravity path, while existing ASM-cited coverage
+  kills every viable mutation across startup, contact and damage waits,
+  death/status tails, relaunch, bounds correction, and terrain deflection.
+- NEXT: rerun `project-status`; if no eligible row appears, mutation-test a
+  different live-path file whose implementation changed after its last pass.
+
 ## 2026-08-18 handoff (Flying Dragon return-velocity wrap)
 
 - `project-status` offered no ready/open risk. A fresh return-to-anchor audit
