@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Tar Monster burst ordering)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found Tar Monster burst children applied gravity and collision reflection
+  before movement instead of after the hibernated `is_moved` step.
+- The live regression first moved with the reflected X velocity and the newly
+  incremented Y velocity. Burst children now move with the old velocity before
+  `loc_3263C` adds `$1000` gravity and dispatches the previous collision latch,
+  matching the ROM coroutine order. All 68 Tar Monster-labelled tests,
+  `verify-slice-fast` (7,237 tests), and `verify-tas-full` (all 37,759 frames
+  checked; gameplay/enemy/RNG green, existing pixel/audio ratchets unchanged)
+  pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Diamond init-selected movement mode)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback

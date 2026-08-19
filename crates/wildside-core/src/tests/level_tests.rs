@@ -25978,12 +25978,28 @@ mod chunk_10 {
             rt.projectiles[0].collision_type, 0x04,
             "kid.asm loc_16F0 should latch the Gfx collision after the Object callback"
         );
+        let x_pos_before_collision_response = rt.projectiles[0].x_pos;
+        let y_pos_before_collision_response = rt.projectiles[0].y_pos;
+        let x_velocity_before_collision_response = rt.projectiles[0].x_velocity;
+        let y_velocity_before_collision_response = rt.projectiles[0].y_velocity;
         rt.step_projectiles();
 
         assert_eq!(rt.projectiles.len(), 1);
         assert_eq!(
             rt.projectiles[0].x_velocity, -0x1_0000,
             "loc_326AA should arithmetic-shift x_vel right once, then negate it"
+        );
+        assert_eq!(
+            rt.projectiles[0].x_pos,
+            x_pos_before_collision_response
+                .wrapping_add(x_velocity_before_collision_response as u32),
+            "ASM loc_3263C hibernates and moves with the old +2px x_vel before loc_32682 reflects it for the next frame",
+        );
+        assert_eq!(
+            rt.projectiles[0].y_pos,
+            y_pos_before_collision_response
+                .wrapping_add(y_velocity_before_collision_response as u32),
+            "ASM loc_3263C moves before adding gravity, so only the first callback's `$1000` affects the second movement",
         );
         assert_eq!(
             rt.projectiles[0].y_velocity, 0x2000,
