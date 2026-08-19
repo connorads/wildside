@@ -720,8 +720,8 @@ mod tests {
         );
 
         assert_eq!(
-            enemies[0].x_velocity, -0x0003_0000,
-            "ASM Crab.asm loc_3B1DA should route a right-wall Berzerker knockback contact to loc_3B24C x-velocity reversal"
+            enemies[0].x_velocity, -0x0002_C000,
+            "ASM Crab.asm loc_3B1A6/loc_3B1DA decelerates `$30000` to `$2C000`, then routes a right-wall contact directly to loc_3B24C without the zero-collision gravity tail"
         );
     }
 
@@ -733,7 +733,7 @@ mod tests {
         enemy.family = EnemyFamily::Crab;
         enemy.facing = Direction::Right;
         enemy.x_pos = 72 << 16;
-        enemy.y_pos = 53 << 16;
+        enemy.y_pos = 54 << 16;
         enemy.x_velocity = 0x0001_4000;
         enemy.y_velocity = 0;
         enemy.on_ground = false;
@@ -755,8 +755,8 @@ mod tests {
 
         assert!(enemies[0].crab_berzerker_knockback);
         assert_eq!(
-            enemies[0].x_velocity, -0x0001_4000,
-            "ASM Crab.asm loc_3B1DA -> loc_3B1F8 -> loc_3B24C should reverse positive slope-up knockback"
+            enemies[0].x_velocity, -0x0001_0000,
+            "ASM Crab.asm loc_3B1A6 decelerates `$14000` to `$10000` before loc_3B1DA -> loc_3B1F8 -> loc_3B24C reverses a positive slope-up knockback without the gravity tail"
         );
     }
 

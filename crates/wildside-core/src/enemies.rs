@@ -9643,6 +9643,39 @@ fn step_crab_berzerker_knockback(enemy: &mut ActiveEnemy, block_grid: Option<&te
     // ASM Crab.asm loc_3B1A6-loc_3B254: the Berzerker side-contact launch
     // owns movement until x_vel decelerates into the settle window, then
     // clears movement/level-collision flags and resumes loc_3B0BE.
+    // Hibernate applies the current velocities before the callback resumes.
+    enemy.x_pos = enemy.x_pos.wrapping_add_signed(enemy.x_velocity);
+    enemy.y_pos = enemy.y_pos.wrapping_add_signed(enemy.y_velocity);
+    enemy.on_ground = false;
+
+    let collision_type = block_grid.and_then(|grid| {
+        let cx = (enemy.x_pos >> 16) as i32;
+        let cy = (enemy.y_pos >> 16) as i32;
+        let moving_right = enemy.x_velocity >= 0;
+        let wall = terrain::probe_wall(
+            grid,
+            cx,
+            cy,
+            ENEMY_PROBE_HALF_WIDTH,
+            ENEMY_PROBE_HEIGHT,
+            moving_right,
+        );
+        if wall.hit {
+            return Some(if moving_right {
+                CRAB_COLID_RIGHTWALL
+            } else {
+                CRAB_COLID_LEFTWALL
+            });
+        }
+
+        let floor = terrain::probe_floor(grid, cx, cy);
+        match floor.cell.collision {
+            terrain::CollisionKind::SlopeUp if floor.on_ground => Some(CRAB_COLID_SLOPEUP),
+            terrain::CollisionKind::SlopeDown if floor.on_ground => Some(CRAB_COLID_SLOPEDOWN),
+            _ => None,
+        }
+    });
+
     let deceleration = crab_airborne_deceleration_frame_loc_3b1a6(enemy.x_velocity);
     enemy.x_velocity = match deceleration.route {
         CrabAirborneDecelerationRouteLoc3B1A6::NonNegativeXVelocity { x_velocity } => x_velocity,
@@ -9663,78 +9696,38 @@ fn step_crab_berzerker_knockback(enemy: &mut ActiveEnemy, block_grid: Option<&te
         return;
     }
 
-    let gravity = crab_gravity_tail_loc_3b218(enemy.x_velocity, enemy.y_velocity);
-    enemy.x_velocity = gravity.x_velocity;
-    enemy.y_velocity = gravity.y_velocity;
-    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
-    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
-    enemy.on_ground = false;
-
-    let Some(grid) = block_grid else {
-        return;
-    };
-
-    let cx = (enemy.x_pos >> 16) as i32;
-    let cy = (enemy.y_pos >> 16) as i32;
-    let moving_right = enemy.x_velocity >= 0;
-    let wall = terrain::probe_wall(
-        grid,
-        cx,
-        cy,
-        ENEMY_PROBE_HALF_WIDTH,
-        ENEMY_PROBE_HEIGHT,
-        moving_right,
-    );
-    if wall.hit {
-        let collision_type = if moving_right {
-            CRAB_COLID_RIGHTWALL
-        } else {
-            CRAB_COLID_LEFTWALL
-        };
-        // ASM Crab.asm loc_3B1DA: Berzerker knockback wall contacts route
-        // through the airborne collision dispatch before loc_3B24C reverses x_vel.
-        if matches!(
-            crab_airborne_collision_dispatch_loc_3b1da(collision_type),
-            CrabAirborneCollisionRouteLoc3B1DA::ReverseXVelocity
-        ) {
+    let collision_type = collision_type.unwrap_or(0);
+    match crab_airborne_collision_dispatch_loc_3b1da(collision_type) {
+        CrabAirborneCollisionRouteLoc3B1DA::GravityTail => {
+            let gravity = crab_gravity_tail_loc_3b218(enemy.x_velocity, enemy.y_velocity);
+            enemy.x_velocity = gravity.x_velocity;
+            enemy.y_velocity = gravity.y_velocity;
+        }
+        CrabAirborneCollisionRouteLoc3B1DA::ReverseXVelocity => {
+            // ASM Crab.asm loc_3B1DA -> loc_3B24C: wall contacts reverse the
+            // already-decelerated velocity without visiting loc_3B218.
             enemy.x_velocity = crab_reverse_x_velocity_loc_3b24c(enemy.x_velocity);
         }
-        return;
-    }
-
-    let floor = terrain::probe_floor(grid, cx, cy);
-    let slope_collision_type = match floor.cell.collision {
-        terrain::CollisionKind::SlopeUp if floor.on_ground => Some(CRAB_COLID_SLOPEUP),
-        terrain::CollisionKind::SlopeDown if floor.on_ground => Some(CRAB_COLID_SLOPEDOWN),
-        _ => None,
-    };
-    let Some(collision_type) = slope_collision_type else {
-        return;
-    };
-
-    // ASM Crab.asm loc_3B1DA: slope contacts fall through the airborne
-    // collision dispatch before loc_3B1F8 chooses the response.
-    let CrabAirborneCollisionRouteLoc3B1DA::SlopeTail { collision_type } =
-        crab_airborne_collision_dispatch_loc_3b1da(collision_type)
-    else {
-        return;
-    };
-
-    match crab_slope_collision_response_loc_3b1f8(
-        collision_type,
-        enemy.x_velocity,
-        enemy.y_velocity,
-    ) {
-        CrabSlopeCollisionRouteLoc3B1F8::ReverseXVelocity { x_velocity } => {
-            enemy.x_velocity = x_velocity;
+        CrabAirborneCollisionRouteLoc3B1DA::SlopeTail { collision_type } => {
+            match crab_slope_collision_response_loc_3b1f8(
+                collision_type,
+                enemy.x_velocity,
+                enemy.y_velocity,
+            ) {
+                CrabSlopeCollisionRouteLoc3B1F8::ReverseXVelocity { x_velocity } => {
+                    enemy.x_velocity = x_velocity;
+                }
+                CrabSlopeCollisionRouteLoc3B1F8::ReflectYVelocity { y_velocity } => {
+                    enemy.y_velocity = y_velocity;
+                }
+                CrabSlopeCollisionRouteLoc3B1F8::GravityTail => {
+                    let gravity = crab_gravity_tail_loc_3b218(enemy.x_velocity, enemy.y_velocity);
+                    enemy.x_velocity = gravity.x_velocity;
+                    enemy.y_velocity = gravity.y_velocity;
+                }
+            }
         }
-        CrabSlopeCollisionRouteLoc3B1F8::ReflectYVelocity { y_velocity } => {
-            enemy.y_velocity = y_velocity;
-        }
-        CrabSlopeCollisionRouteLoc3B1F8::GravityTail => {
-            // Native has already applied the collapsed loc_3B218 gravity tail
-            // before this terrain probe in the current airborne frame.
-        }
+        CrabAirborneCollisionRouteLoc3B1DA::Loop => {}
     }
 }
 

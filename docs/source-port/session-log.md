@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Crab knockback callback order)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found Crab's live Berzerker knockback ran `loc_3B218`'s zero-collision
+  gravity tail before terrain dispatch, cancelling `loc_3B1A6` deceleration
+  on wall and slope contacts.
+- The wall regression first produced `-$30000` instead of `-$2C000` after a
+  `+$30000` launch. Hibernated movement now precedes the resumed callback;
+  wall and slope routes dispatch at `loc_3B1DA` without gravity, while only
+  the ASM routes that reach `loc_3B218` apply it. All 42 Crab-labelled tests,
+  `verify-slice-fast` (7,226 tests), and `verify-tas-full` (all 37,759 frames
+  checked; gameplay/enemy/RNG green, existing pixel/audio ratchets unchanged)
+  pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Flying Dragon breath-cone words)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback
