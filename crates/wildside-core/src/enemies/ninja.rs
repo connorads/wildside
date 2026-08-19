@@ -44,9 +44,9 @@ fn ninja_position_word_delta_px_loc_3d706(lhs_pos: u32, rhs_pos: u32) -> i16 {
     // fractional halves before subtracting.
     let lhs_bytes = lhs_pos.to_be_bytes();
     let rhs_bytes = rhs_pos.to_be_bytes();
-    let lhs_word = i32::from(u16::from_be_bytes([lhs_bytes[0], lhs_bytes[1]]));
-    let rhs_word = i32::from(u16::from_be_bytes([rhs_bytes[0], rhs_bytes[1]]));
-    (lhs_word - rhs_word).clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16
+    let lhs_word = u16::from_be_bytes([lhs_bytes[0], lhs_bytes[1]]);
+    let rhs_word = u16::from_be_bytes([rhs_bytes[0], rhs_bytes[1]]);
+    lhs_word.wrapping_sub(rhs_word) as i16
 }
 
 fn ninja_position_integer_px_loc_3d878(pos: u32) -> i32 {
@@ -1198,7 +1198,7 @@ pub(crate) fn step_ninja(
             let kid_minus_ninja_x = ninja_position_word_delta_px_loc_3d706(px, enemy.x_pos);
             let kid_minus_ninja_y = ninja_position_word_delta_px_loc_3d706(py, enemy.y_pos);
             let dx = i64::from(kid_minus_ninja_x);
-            let dy = i64::from(-kid_minus_ninja_y);
+            let dy = -i64::from(kid_minus_ninja_y);
 
             // ASM Ninja.asm loc_3D706 checks the overhead threat window before
             // loc_3D734's later Red Stealth guard-pose branch, then enters the
@@ -1594,6 +1594,15 @@ mod tests {
     }
 
     #[test]
+    fn ninja_position_word_delta_wraps_sub_w_loc_3d706() {
+        assert_eq!(
+            ninja_position_word_delta_px_loc_3d706(0x0000_0000, 0xFFFF_0000),
+            1,
+            "ASM Ninja.asm loc_3D706 uses SUB.W, so 0 - $FFFF wraps to +1 rather than saturating at the signed boundary",
+        );
+    }
+
+    #[test]
     fn ninja_position_integer_px_uses_high_word_loc_3d878() {
         assert_eq!(
             ninja_position_integer_px_loc_3d878(0x0030_F000),
@@ -1668,6 +1677,29 @@ mod tests {
         assert_eq!(
             enemy.x_velocity, 0,
             "ASM Ninja.asm loc_3D706 only enters the jump branch when kid_x - ninja_x < $10; the +$10 edge must stay in stealth"
+        );
+    }
+
+    #[test]
+    fn ninja_live_stealth_detection_wraps_position_words_loc_3d706() {
+        let mut enemy = ninja_test_enemy();
+        enemy.x_pos = 0x0100_0000;
+        enemy.y_pos = 0xFFFF_0000;
+        let player_x = enemy.x_pos;
+
+        step_ninja(
+            &mut enemy,
+            None,
+            Some(player_x),
+            Some(0x0000_0000),
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(
+            enemy.ninja_state,
+            NinjaState::Stealth,
+            "ASM Ninja.asm loc_3D706 wraps Kid Y - Ninja Y to +1 before the signed threat-window comparisons",
         );
     }
 

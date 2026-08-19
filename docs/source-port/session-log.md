@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Ninja position-word wrap)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found native clamped Ninja's `loc_3D706`/`loc_3D734` `SUB.W` position deltas
+  instead of wrapping them; one wrapped edge also caused a live debug panic.
+- Position-word subtraction now wraps at 16 bits, and the overhead-distance
+  conversion widens before changing sign. The exact helper and live regressions
+  first failed on the old paths and now pass with all 62 focused Ninja tests,
+  `verify-slice-fast` (7,223 tests), and all 37,759 full TAS frames; existing
+  pixel/audio ratchets remain unchanged.
+- NEXT: continue auditing fresh live gameplay paths; avoid frozen timing
+  feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Diamond collision-velocity wrap)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback
