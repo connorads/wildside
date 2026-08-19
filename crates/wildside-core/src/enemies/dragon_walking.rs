@@ -607,6 +607,13 @@ enum DragonWalkingWalkStep {
     StartedAirborne,
 }
 
+/// ASM Lion.asm loc_3E450/loc_3E476: shared walker Kid-X band delta.
+fn shared_walker_position_word_delta_px(lhs_pos: u32, rhs_pos: u32) -> i16 {
+    // The left-facing mirrors at loc_3E604/loc_3E62A also subtract the integer
+    // position words with SUB.W.
+    ((lhs_pos >> 16) as u16).wrapping_sub((rhs_pos >> 16) as u16) as i16
+}
+
 fn dragon_walking_blocked(enemy: &ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) -> bool {
     let Some(grid) = block_grid else {
         return false;
@@ -739,9 +746,9 @@ fn step_dragon_walking_walk(
         enemy.shared_walker_state += 1;
     } else if enemy.shared_walker_state == 0 {
         if let Some(player_x_pos) = player_x_pos {
-            let dx = ((player_x_pos as i64 - enemy.x_pos as i64) >> 16) as i32;
-            enemy.shared_walker_dx_to_kid_px =
-                Some(dx.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16);
+            let dx_word = shared_walker_position_word_delta_px(player_x_pos, enemy.x_pos);
+            let dx = i32::from(dx_word);
+            enemy.shared_walker_dx_to_kid_px = Some(dx_word);
             if dx.abs() <= SHARED_WALKER_DETECT_RANGE {
                 if dx >= 0 {
                     enemy.facing = Direction::Right;
@@ -759,9 +766,9 @@ fn step_dragon_walking_walk(
     } else if enemy.shared_walker_state != SHARED_WALKER_STATE_PATROL
         && let Some(player_x_pos) = player_x_pos
     {
-        let dx = ((player_x_pos as i64 - enemy.x_pos as i64) >> 16) as i32;
-        enemy.shared_walker_dx_to_kid_px =
-            Some(dx.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16);
+        let dx_word = shared_walker_position_word_delta_px(player_x_pos, enemy.x_pos);
+        let dx = i32::from(dx_word);
+        enemy.shared_walker_dx_to_kid_px = Some(dx_word);
         if dx.abs() > SHARED_WALKER_RELEASE_RANGE {
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
@@ -1432,6 +1439,44 @@ mod tests {
         assert_eq!(
             released.shared_walker_debug_branch,
             Some("alert_release_turn")
+        );
+    }
+
+    #[test]
+    fn dragon_walking_shared_walker_bands_wrap_position_words_loc_3e450_3e476() {
+        let mut calm = dragon_walking_test_enemy();
+        calm.x_pos = 0xFFFF_0000;
+        calm.shared_walker_state = 0;
+
+        let step = step_dragon_walking_walk(&mut calm, None, Some(0x0000_0000));
+
+        assert!(matches!(step, DragonWalkingWalkStep::Idled));
+        assert_eq!(
+            (
+                calm.shared_walker_state,
+                calm.facing,
+                calm.shared_walker_dx_to_kid_px,
+            ),
+            (SHARED_WALKER_STATE_FACE_RIGHT, Direction::Right, Some(1)),
+            "ASM Lion.asm loc_3E450 wraps Kid X - enemy X as SUB.W, so $0000 - $FFFF enters the right-facing alert band at +1",
+        );
+
+        let mut held = dragon_walking_test_enemy();
+        held.x_pos = 0xFFFF_0000;
+        held.shared_walker_state = SHARED_WALKER_STATE_FACE_RIGHT;
+        held.facing = Direction::Right;
+
+        let step = step_dragon_walking_walk(&mut held, None, Some(0x0000_0000));
+
+        assert!(matches!(step, DragonWalkingWalkStep::Walked));
+        assert_eq!(
+            (
+                held.shared_walker_state,
+                held.facing,
+                held.shared_walker_dx_to_kid_px,
+            ),
+            (SHARED_WALKER_STATE_FACE_RIGHT, Direction::Right, Some(1)),
+            "ASM Lion.asm loc_3E476 uses the same wrapped word delta, so +1 stays inside the alert release band",
         );
     }
 

@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Walking Dragon shared-word wrap)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found Walking Dragon used a mathematical Kid-X distance for Lion's shared
+  `loc_3E450`/`loc_3E476` bands instead of the ROM's wrapped `SUB.W` result.
+- Calm detection, alert release and the typed debug field now share the wrapped
+  position-word delta, including the left-facing mirror labels. The live
+  regression first failed on `$0000 - $FFFF` and now passes with all 44 focused
+  Walking Dragon tests, `verify-slice-fast` (7,224 tests), and `verify-tas-full`
+  (all 37,759 frames checked; gameplay/enemy/RNG green, existing pixel/audio
+  ratchets unchanged).
+- NEXT: continue auditing fresh live gameplay paths; avoid frozen timing
+  feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Ninja position-word wrap)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback
