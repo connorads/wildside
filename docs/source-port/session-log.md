@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Big Hopping Skull rollback wrap)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found Big Hopping Skull's live `loc_366EC` wall rollback clamped a negative
+  mathematical result instead of preserving the ROM's two wrapping `SUB.L`s.
+- The live boundary regression first produced `0` instead of `0xFFFF0000` after
+  a one-pixel wall bounce. Both position subtractions now wrap independently,
+  and all 14 focused Big Hopping Skull tests, `verify-slice-fast` (7,225 tests),
+  and `verify-tas-full` (all 37,759 frames checked; gameplay/enemy/RNG green,
+  existing pixel/audio ratchets unchanged) pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Walking Dragon shared-word wrap)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback

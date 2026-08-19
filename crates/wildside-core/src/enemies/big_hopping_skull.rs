@@ -616,9 +616,13 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
                 BigHoppingSkullCollisionActionLoc3674E::WallBounce,
                 "ASM Big_Hopping_Skull.asm loc_3674E should route wall collision to loc_366EC",
             );
-            // Backup position by 2x x_velocity
-            let backup = 2 * i64::from(enemy.x_velocity);
-            enemy.x_pos = (enemy.x_pos as i64 - backup).max(0) as u32;
+            // ASM Big_Hopping_Skull.asm loc_366EC subtracts the same long-word
+            // velocity twice, preserving 68000 wrap at either boundary.
+            let x_velocity_word = enemy.x_velocity as u32;
+            enemy.x_pos = enemy
+                .x_pos
+                .wrapping_sub(x_velocity_word)
+                .wrapping_sub(x_velocity_word);
             enemy.y_velocity = 0;
             enemy.x_velocity = big_hopping_skull_wall_bounce_velocity_loc_366ec(enemy.x_velocity);
             enemy.facing = opposite_direction(enemy.facing);
@@ -852,6 +856,24 @@ mod tests {
         );
         assert_eq!(skull.x_velocity, -0x0001_0000);
         assert_eq!(skull.y_velocity, 0);
+        assert_eq!(skull.facing, Direction::Left);
+    }
+
+    #[test]
+    fn big_hopping_skull_wall_bounce_wraps_position_subtractions_loc_366ec() {
+        let grid = grid_with_cell(0, 3, solid_cell());
+        let mut skull = big_skull_at(0, 64 << 16);
+        skull.x_velocity = 0x0001_0000;
+        skull.y_velocity = 0;
+        skull.facing = Direction::Right;
+
+        step_big_hopping_skull(&mut skull, Some(&grid));
+
+        assert_eq!(
+            skull.x_pos, 0xFFFF_0000,
+            "ASM Big_Hopping_Skull.asm loc_366EC subtracts x_vel twice as wrapping long-word operations after the initial movement",
+        );
+        assert_eq!(skull.x_velocity, -0x0001_0000);
         assert_eq!(skull.facing, Direction::Left);
     }
 
