@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (proactive Flying Dragon mutation refresh)
+
+- `project-status` still offered no ready/open risk, so the fallback revisited
+  `enemies/dragon.rs`. Its last complete audit was 2026-07-07, before the
+  `loc_3478C`/`loc_347B2` drift and `loc_34B4C` return-speed wrap corrections.
+- Read the complete `Dragon_Flying.asm` routine, then ran
+  `env FILE=crates/wildside-core/src/enemies/dragon.rs
+  OUTPUT=/tmp/mutants-dragon-20260819-refresh TMPDIR=/tmp mise run
+  mutants-file`. All 261 current mutations complete in 31 minutes: 219 caught
+  and 42 compile-unviable, with zero missed or timed out.
+- No source edit or new regression is warranted. The exact signed-overflow
+  contracts kill all three changed arithmetic paths, while existing ASM-cited
+  coverage kills every viable mutation across command dispatch, drift and
+  hover motion, terrain response, death/status tails, descent fire, and breath
+  collision.
+- NEXT: rerun `project-status`; if no eligible row appears, mutation-test a
+  different live-path file whose implementation changed after its last pass.
+
 ## 2026-08-19 handoff (proactive Big Hopping Skull mutation refresh)
 
 - `project-status` still offered no ready/open risk, so the fallback revisited
