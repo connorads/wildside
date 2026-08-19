@@ -1,6 +1,6 @@
 use super::*;
 
-/// EmoRock hover height above player, indexed by enemy_level (derived from HP).
+/// EmoRock hover height above player, indexed by immutable enemy_level.
 /// Level 0: 80px, Level 1: 60px, Level 2: 40px.
 pub(crate) const EMO_ROCK_HOVER_HEIGHT: [i32; 3] = [0x50, 0x3C, 0x28];
 
@@ -407,6 +407,11 @@ pub(crate) fn step_emo_rock_with_rng(
         return;
     }
 
+    // ASM Emo_Rock.asm Enemy1B_EmoRock_Init loc_361AE indexes the interleaved
+    // height/gravity table from the layout level and retains d1/d2 throughout
+    // the coroutine. Damage never changes either selected value.
+    let level_index = usize::from(enemy.enemy_level).min(2);
+
     if enemy.on_ground {
         // ASM Emo_Rock.asm loc_362A4/loc_362B6: after landing, the rock clears
         // vertical motion and waits in place for the landing animation instead
@@ -453,7 +458,6 @@ pub(crate) fn step_emo_rock_with_rng(
 
     if enemy.wait_timer > 0 {
         // Hovering phase: track player position, count down.
-        let level_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
         if let (Some(px), Some(py)) = (player_x_pos, player_y_pos) {
             let target =
                 emo_rock_hover_target_loc_3621a(px, py, EMO_ROCK_HOVER_HEIGHT[level_index]);
@@ -480,7 +484,6 @@ pub(crate) fn step_emo_rock_with_rng(
             return;
         }
     } else if let (Some(grid), Some(px), Some(py)) = (block_grid, player_x_pos, player_y_pos) {
-        let level_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
         let target = emo_rock_hover_target_loc_3621a(px, py, EMO_ROCK_HOVER_HEIGHT[level_index]);
         enemy.x_pos = target.x_pos;
         enemy.y_pos = target.y_pos;
@@ -507,7 +510,6 @@ pub(crate) fn step_emo_rock_with_rng(
     }
 
     // Dropping phase: apply gravity, check floor.
-    let level_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
     let gravity = EMO_ROCK_GRAVITY[level_index];
     enemy.y_velocity = emo_rock_drop_velocity_loc_3625e(enemy.y_velocity, gravity);
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
@@ -1004,6 +1006,7 @@ mod tests {
     #[test]
     fn step_emo_rock_hover_partial_y_update_uses_fp_height_loc_3621a() {
         let mut enemy = emo_rock_test_enemy(0x0040_0000, 0x0010_0000, 2);
+        enemy.enemy_level = 1;
         enemy.wait_timer = 2;
 
         step_emo_rock_with_rng(
@@ -1024,6 +1027,42 @@ mod tests {
             "ASM Emo_Rock.asm loc_3621A stores Kid Y minus the level-1 `$3C` hover height as FP16.16"
         );
         assert_eq!(enemy.wait_timer, 1);
+    }
+
+    #[test]
+    fn step_emo_rock_preserves_level_hover_height_after_damage_loc_361ae() {
+        let mut enemy = emo_rock_test_enemy(0x0040_0000, 0x0010_0000, 1);
+        enemy.enemy_level = 2;
+        enemy.wait_timer = 2;
+
+        step_emo_rock_with_rng(
+            &mut enemy,
+            None,
+            Some(0x0060_0000),
+            Some(0x00C8_0000),
+            &mut RomRandomState::default(),
+            None,
+        );
+
+        assert_eq!(
+            enemy.y_pos, 0x00A0_0000,
+            "ASM Emo_Rock.asm Enemy1B_EmoRock_Init loc_361AE caches the level-2 `$28` hover height in d1, so damage must not restore the level-0 `$50` offset",
+        );
+
+        let mut dropping = emo_rock_test_enemy(0x0040_0000, 0x0010_0000, 1);
+        dropping.enemy_level = 2;
+        step_emo_rock_with_rng(
+            &mut dropping,
+            None,
+            None,
+            None,
+            &mut RomRandomState::default(),
+            None,
+        );
+        assert_eq!(
+            dropping.y_velocity, EMO_ROCK_GRAVITY[2],
+            "ASM Emo_Rock.asm Enemy1B_EmoRock_Init loc_361AE caches the level-2 `$8000` gravity in d2, so damage must not restore level-0 gravity",
+        );
     }
 
     #[test]

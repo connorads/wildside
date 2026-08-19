@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Emo Rock cached level motion)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found Emo Rock's live hover, clearance and drop paths recalculated the
+  init-time height and gravity from mutable current HP.
+- The damaged-state regression first placed a level-2 Emo Rock 80px above Kid
+  instead of 40px and selected `$4000` rather than `$8000` gravity. The live
+  coroutine now reads immutable `enemy_level`, matching
+  `Enemy1B_EmoRock_Init`'s retained d1/d2 values. All 39 Emo Rock-labelled
+  tests, `verify-slice-fast` (7,230 tests), and `verify-tas-full` (all 37,759
+  frames checked; gameplay/enemy/RNG green, existing pixel/audio ratchets
+  unchanged) pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Robot immutable walk speed)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback
