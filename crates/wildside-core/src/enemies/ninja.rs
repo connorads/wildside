@@ -22,6 +22,12 @@ pub(crate) fn ninja_init_state_loc_3d554(enemy_level: u8) -> NinjaInitState {
     }
 }
 
+fn ninja_saved_walk_speed_loc_3d7ca(enemy_level: u8) -> i32 {
+    // ASM Ninja.asm loc_3D670/loc_3D7CA: threat and hurt recovery copy the
+    // level-selected speed retained in `$5E(a5)` back into `$50(a5)`.
+    ninja_init_state_loc_3d554(enemy_level).walk_speed_override
+}
+
 /// Ninja jump-threat cone: player must be 0x20–0x50 pixels above and in the
 /// half-open X range [-0x10, +0x10) (Ninja.asm loc_3D706 -> loc_3D84E).
 pub(crate) const NINJA_DETECT_Y_MIN: i32 = 0x20;
@@ -1297,7 +1303,7 @@ pub(crate) fn step_ninja(
                 }
                 NinjaPostThreatRouteLoc3D79C::ResetStealthPacing => {
                     let reset = ninja_reset_stealth_pacing_loc_3d7ca(
-                        pacer_walk_speed(enemy.family, enemy.hit_points),
+                        ninja_saved_walk_speed_loc_3d7ca(enemy.enemy_level),
                         matches!(enemy.facing, Direction::Right),
                     );
                     enemy.ninja_state = NinjaState::Stealth;
@@ -1310,7 +1316,7 @@ pub(crate) fn step_ninja(
         NinjaState::JumpThreat => {
             let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
                 let reset = ninja_reset_stealth_pacing_loc_3d7ca(
-                    pacer_walk_speed(enemy.family, enemy.hit_points),
+                    ninja_saved_walk_speed_loc_3d7ca(enemy.enemy_level),
                     matches!(enemy.facing, Direction::Right),
                 );
                 enemy.ninja_state = NinjaState::Stealth;
@@ -1334,7 +1340,7 @@ pub(crate) fn step_ninja(
                 }
                 NinjaPositiveStateRouteLoc3D7FA::ResetStealthPacing { .. } => {
                     let reset = ninja_reset_stealth_pacing_loc_3d7ca(
-                        pacer_walk_speed(enemy.family, enemy.hit_points),
+                        ninja_saved_walk_speed_loc_3d7ca(enemy.enemy_level),
                         matches!(enemy.facing, Direction::Right),
                     );
                     enemy.ninja_state = NinjaState::Stealth;
@@ -1799,6 +1805,33 @@ mod tests {
                 pacer_walk_speed(enemy.family, enemy.hit_points)
             ),
             "ASM Ninja.asm loc_3D79C branches to loc_3D7CA once Red Stealth moves beyond the inclusive +$30 guard persistence band"
+        );
+    }
+
+    #[test]
+    fn damaged_level_three_ninja_restores_saved_speed_loc_3d7ca() {
+        let mut enemy = ninja_test_enemy();
+        enemy.enemy_level = 2;
+        enemy.hit_points = 1;
+        enemy.ninja_state = NinjaState::Guard;
+        enemy.shared_walker_state = -1;
+        enemy.walk_speed_override = 0;
+        enemy.facing = Direction::Right;
+        let player_x = enemy.x_pos + (0x31 << 16);
+        let player_y = enemy.y_pos;
+
+        step_ninja(
+            &mut enemy,
+            None,
+            Some(player_x),
+            Some(player_y),
+            PlayerForm::RedStealth,
+            None,
+        );
+        assert_eq!(
+            enemy.walk_speed_override,
+            ninja_init_state_loc_3d554(2).walk_speed_override,
+            "ASM Ninja.asm loc_3D670/loc_3D7CA restores the level-three `$18000` speed saved in `$5E(a5)`, so damage does not reduce resumed pacing"
         );
     }
 

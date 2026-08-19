@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Ninja cached speed restore)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found Ninja's guard and jump-threat exits rebuilt the init-time patrol speed
+  from mutable current HP.
+- The damaged-state regression first restored `$8000` for a level-3 Ninja
+  instead of `$18000`. All three threat exits now read immutable `enemy_level`,
+  matching `Enemy11_Ninja_Init`/`loc_3D7CA`'s retained `$5E(a5)` value. All 99
+  Ninja-labelled tests, `verify-slice-fast` (7,233 tests), and
+  `verify-tas-full` (all 37,759 frames checked; gameplay/enemy/RNG green,
+  existing pixel/audio ratchets unchanged) pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Walking Dragon cached speed)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback
