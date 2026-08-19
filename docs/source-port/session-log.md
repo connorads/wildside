@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Tornado collision and pattern order)
+
+- `project-status` again offered no ready/open risk. The fresh Tornado fallback
+  audited `loc_35908` and the dedicated module; its initial mutation run caught
+  all 60 viable mutants (8 unviable).
+- ASM dispatches `loc_35948` terrain collision before decrementing `$44(a5)`
+  and reloading through `loc_359F2`. Native did those in reverse order, so a
+  wall hit on the expiry frame cleared the newly loaded target. The live
+  regression failed before the fix and now pins the callback order. All 41
+  Tornado-labelled tests, `verify-slice-fast` (7,239 tests), and
+  `verify-tas-full` (all 37,759 frames checked; gameplay/enemy/RNG green,
+  existing pixel/audio ratchets unchanged) pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Goat capped patrol speed)
 
 - `project-status` again offered no ready/open risk. The fresh Goat fallback

@@ -233,16 +233,6 @@ pub(crate) fn step_tornado_with_rng(
         enemy.grounded_frames = (enemy.grounded_frames + 1) % TORNADO_LIVE_ANIMATION_TICKS;
     }
 
-    // ASM Tornado.asm loc_35908: the main flight loop decrements `$44(a5)`;
-    // only the post-decrement zero result falls through to loc_359F2 and
-    // resets from `unk_3588C`.
-    enemy.wait_timer = enemy.wait_timer.wrapping_sub(1);
-    if enemy.wait_timer == 0 {
-        let level = usize::from(enemy.enemy_level).min(2);
-        enemy.wait_timer = TORNADO_PATTERN_FRAMES[level];
-        reload_tornado_pattern_script(enemy);
-    }
-
     // ASM Tornado.asm loc_35948 uses Tornado's `off_35950` table, then shares
     // UFO.asm loc_35056 terrain responses for wall/floor/ceiling/slope hits.
     if let Some(grid) = block_grid {
@@ -257,31 +247,44 @@ pub(crate) fn step_tornado_with_rng(
             ENEMY_PROBE_HEIGHT,
             moving_right,
         );
+        let mut handled_collision = false;
         if wall.hit {
             let collision_type = if moving_right { 0x0004 } else { 0x0008 };
             apply_tornado_terrain_collision_loc_35948(enemy, collision_type);
-            return;
+            handled_collision = true;
         }
-
-        let floor = terrain::probe_floor(grid, cx, cy);
-        if floor.on_ground {
-            let collision_type = match floor.cell.collision {
-                terrain::CollisionKind::SlopeUp => 0x0014,
-                terrain::CollisionKind::SlopeDown => 0x0018,
-                _ if enemy.y_velocity > 0 => 0x000C,
-                _ => 0,
-            };
-            if collision_type != 0 {
-                apply_tornado_terrain_collision_loc_35948(enemy, collision_type);
-                return;
+        if !handled_collision {
+            let floor = terrain::probe_floor(grid, cx, cy);
+            if floor.on_ground {
+                let collision_type = match floor.cell.collision {
+                    terrain::CollisionKind::SlopeUp => 0x0014,
+                    terrain::CollisionKind::SlopeDown => 0x0018,
+                    _ if enemy.y_velocity > 0 => 0x000C,
+                    _ => 0,
+                };
+                if collision_type != 0 {
+                    apply_tornado_terrain_collision_loc_35948(enemy, collision_type);
+                    handled_collision = true;
+                }
             }
         }
-
-        let ceiling =
-            terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
-        if ceiling.hit && enemy.y_velocity < 0 {
-            apply_tornado_terrain_collision_loc_35948(enemy, 0x0010);
+        if !handled_collision {
+            let ceiling =
+                terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
+            if ceiling.hit && enemy.y_velocity < 0 {
+                apply_tornado_terrain_collision_loc_35948(enemy, 0x0010);
+            }
         }
+    }
+
+    // ASM Tornado.asm loc_35908 dispatches collision before decrementing
+    // `$44(a5)`. Only the post-decrement zero result falls through to
+    // loc_359F2 and resets from `unk_3588C`.
+    enemy.wait_timer = enemy.wait_timer.wrapping_sub(1);
+    if enemy.wait_timer == 0 {
+        let level = usize::from(enemy.enemy_level).min(2);
+        enemy.wait_timer = TORNADO_PATTERN_FRAMES[level];
+        reload_tornado_pattern_script(enemy);
     }
 }
 

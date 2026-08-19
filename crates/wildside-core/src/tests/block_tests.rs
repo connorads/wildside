@@ -11170,6 +11170,30 @@ mod chunk_04 {
     }
 
     #[test]
+    fn tornado_collision_precedes_pattern_reload_loc_35908_359f2() {
+        let mut enemy = test_enemy(EnemyFamily::Tornado, 40 << 16, 48 << 16, 1);
+        enemy.x_velocity = 0x0002_0000;
+        enemy.target_x_velocity = enemy.x_velocity;
+        enemy.x_acceleration = 0x0000_0800;
+        enemy.wait_timer = 1;
+        enemy.dragon_script_cmd = 8;
+        let grid = bounce_grid(&[(3, 2)]);
+
+        step_tornado(&mut enemy, Some(&grid));
+
+        // ASM Tornado.asm loc_35908 dispatches loc_35948 before decrementing
+        // `$44(a5)` and loading the next pattern through loc_359F2. The new
+        // pattern therefore replaces the wall response's cleared target on a
+        // frame where both events occur.
+        assert_eq!(enemy.x_velocity, -0x0002_0000);
+        assert_eq!(enemy.target_x_velocity, -0x0001_8000);
+        assert_eq!(enemy.x_acceleration, 0x0000_1800);
+        assert_eq!(enemy.facing, Direction::Left);
+        assert_eq!(enemy.wait_timer, TORNADO_PATTERN_FRAMES[0]);
+        assert_eq!(enemy.dragon_script_cmd, 9);
+    }
+
+    #[test]
     fn tornado_floor_collision_bounces_only_while_falling_loc_35948() {
         let grid = bounce_grid(&[(2, 3)]);
 
