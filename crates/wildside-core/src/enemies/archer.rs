@@ -1,8 +1,8 @@
 use super::*;
 
-/// Archer fire interval indexed by enemy_level (HP 1/2/3).
+/// Archer arrow re-aim interval indexed by immutable enemy_level.
 /// From Archer.asm `arrow_accuracy`: $1E=30, $14=20, $0A=10 frames.
-pub(crate) const ARCHER_FIRE_TIMER: [u16; 3] = [0x1E, 0x14, 0x0A];
+pub(crate) const ARCHER_ARROW_REAIM_INTERVAL: [u16; 3] = [0x1E, 0x14, 0x0A];
 
 pub(crate) const ARCHER_KILL_BOUNCE_Y_VELOCITY_LOC_3414A: i32 = -0x0004_0000;
 
@@ -513,7 +513,10 @@ pub(crate) fn step_archer(
 
     // Reset timer for the next shooting-table cycle. `arrow_accuracy` below is
     // only the fired arrow's re-aim cadence, not the archer's shot cadence.
-    let level = enemy.hit_points.saturating_sub(1).min(2) as usize;
+    // ASM Archer.asm Enemy07_Archer_Init loc_33FDA indexes `arrow_accuracy`
+    // from the layout's enemy level and stores the selected word in `$4A(a5)`.
+    // Every arrow inherits that cached word at loc_341BE, even after damage.
+    let level = usize::from(enemy.enemy_level).min(2);
     enemy.wait_timer = ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE - 1;
 
     // Need player position to compute angle.
@@ -542,7 +545,7 @@ pub(crate) fn step_archer(
     enemy.facing = shot_selection.facing;
     let angle = shot_selection.initial_angle;
     let arrow_setup = archer_arrow_setup_loc_341AA(angle, enemy.facing);
-    let reaim = ARCHER_FIRE_TIMER[level];
+    let reaim = ARCHER_ARROW_REAIM_INTERVAL[level];
 
     // ASM loc_341BE's zero sentinel advances past the fire sprite word, then
     // copies that row's `$FFF2,$FFEF`/`$FFF2,$FFE2` object offsets. These are
@@ -1008,6 +1011,35 @@ mod tests {
         assert_eq!(
             projectiles[0].current_angle, 0x0A,
             "ASM Archer.asm loc_3419A selects the left-facing vertical opening angle"
+        );
+    }
+
+    #[test]
+    fn archer_live_step_preserves_level_accuracy_after_damage_loc_33fda() {
+        let mut archer = ActiveEnemy {
+            family: EnemyFamily::Archer,
+            enemy_level: 2,
+            hit_points: 1,
+            wait_timer: 0,
+            facing: Direction::Left,
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        step_archer(
+            &mut archer,
+            &mut projectiles,
+            Some(36 << 16),
+            Some(62 << 16),
+            None,
+        );
+
+        assert_eq!(projectiles.len(), 1);
+        assert_eq!(
+            projectiles[0].reaim_interval, ARCHER_ARROW_REAIM_INTERVAL[2],
+            "ASM Archer.asm Enemy07_Archer_Init loc_33FDA stores arrow_accuracy[enemy_level] once, so damage must not reduce later arrows' re-aim cadence",
         );
     }
 

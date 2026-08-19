@@ -8756,10 +8756,10 @@ mod chunk_04 {
     }
 
     #[test]
-    fn archer_fire_timer_varies_by_hp() {
-        assert_eq!(ARCHER_FIRE_TIMER[0], 0x1E, "HP 1: 30 frames");
-        assert_eq!(ARCHER_FIRE_TIMER[1], 0x14, "HP 2: 20 frames");
-        assert_eq!(ARCHER_FIRE_TIMER[2], 0x0A, "HP 3: 10 frames");
+    fn archer_reaim_interval_varies_by_enemy_level_loc_33fda() {
+        assert_eq!(ARCHER_ARROW_REAIM_INTERVAL[0], 0x1E, "level 0: 30 frames");
+        assert_eq!(ARCHER_ARROW_REAIM_INTERVAL[1], 0x14, "level 1: 20 frames");
+        assert_eq!(ARCHER_ARROW_REAIM_INTERVAL[2], 0x0A, "level 2: 10 frames");
     }
 
     #[test]
@@ -8774,7 +8774,7 @@ mod chunk_04 {
             archer_shooting_cycle_delay_frames_loc_341BE()
         );
         assert!(
-            ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE > ARCHER_FIRE_TIMER[0],
+            ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE > ARCHER_ARROW_REAIM_INTERVAL[0],
             "arrow_accuracy must stay an arrow re-aim cadence, not the archer firing cadence"
         );
     }
@@ -9171,7 +9171,7 @@ mod chunk_04 {
         assert!(arrow.terrain_kill, "arrows die on terrain collision");
         assert!(arrow.reaim_interval > 0, "arrows re-aim periodically");
         assert_eq!(
-            arrow.reaim_interval, ARCHER_FIRE_TIMER[0],
+            arrow.reaim_interval, ARCHER_ARROW_REAIM_INTERVAL[0],
             "re-aim interval matches Archer.asm arrow_accuracy"
         );
     }
@@ -9179,10 +9179,10 @@ mod chunk_04 {
     #[test]
     fn archer_live_step_waits_pose_table_delay_between_arrows_loc_341be() {
         let mut enemy = test_enemy(EnemyFamily::Archer, 100 << 16, 100 << 16, 1);
-        enemy.wait_timer = ARCHER_FIRE_TIMER[0];
+        enemy.wait_timer = ARCHER_ARROW_REAIM_INTERVAL[0];
         let mut projs = Vec::new();
 
-        for _ in 0..ARCHER_FIRE_TIMER[0] {
+        for _ in 0..ARCHER_ARROW_REAIM_INTERVAL[0] {
             step_archer(
                 &mut enemy,
                 &mut projs,

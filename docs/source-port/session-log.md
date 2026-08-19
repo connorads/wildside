@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Archer immutable arrow accuracy)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found Archer's live arrow spawn recalculated the level-indexed
+  `arrow_accuracy` word from mutable current HP.
+- The damaged-state regression first produced a 30-frame re-aim interval for
+  a level-2 Archer instead of 10. Arrow spawn now indexes immutable
+  `enemy_level`, matching `Enemy07_Archer_Init`'s cached `$4A(a5)` word and
+  `loc_341BE`'s copy to each arrow. All 58 Archer-labelled tests,
+  `verify-slice-fast` (7,228 tests), and `verify-tas-full` (all 37,759 frames
+  checked; gameplay/enemy/RNG green, existing pixel/audio ratchets unchanged)
+  pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Scorpion tracking level word)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback
