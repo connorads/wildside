@@ -15406,7 +15406,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn spinning_twins_live_airborne_child_floor_probe_uses_moved_pixel_position_loc_3bb6e() {
+    fn spinning_twins_live_child_floor_landing_keeps_launch_drag_loop_loc_3bb8a_3bb5a() {
         let grid = grid_with_solid_cells(8, 5, &[(2, 3)]);
         let mut enemy = test_enemy(EnemyFamily::SpinningTwins, 27 << 16, 47 << 16, 1);
         enemy.spinning_twins_phase = SpinningTwinsPhase::Walking;
@@ -15426,8 +15426,23 @@ mod chunk_04 {
             48 << 16,
             "native floor probe should use the moved integer Y and snap back to the solid cell top"
         );
-        assert!(enemy.on_ground);
+        assert!(
+            !enemy.on_ground,
+            "ASM Spinning_Twins.asm loc_3BB8A clears y_vel then branches to loc_3BB2C; only loc_3BB94 enters the shared grounded walker"
+        );
         assert_eq!(enemy.y_velocity, 0);
+
+        let x_after_landing = enemy.x_pos;
+        let x_velocity_after_landing = enemy.x_velocity;
+        step_spinning_twins(&mut enemy, Some(&grid), None, None);
+
+        assert_eq!(
+            enemy.x_pos,
+            (i64::from(x_after_landing) + i64::from(x_velocity_after_landing)) as u32,
+            "ASM loc_3BB2C keeps applying the launch X velocity after loc_3BB8A floor contact"
+        );
+        assert_eq!(enemy.y_pos, 48 << 16);
+        assert!(!enemy.on_ground);
     }
 
     #[test]

@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Spinning Twins post-landing drag)
+
+- `project-status` again offered no ready/open risk. The fresh Spinning Twins
+  fallback audited the full enemy ASM and its live orbit, split-launch, walker,
+  collision, and falling-visual paths.
+- `loc_3BB8A` clears the landing collision and Y velocity, then branches back
+  to `loc_3BB2C`; horizontal split-launch motion and `$1200` drag continue
+  until `loc_3BB5A` reaches the `loc_3BB94` shared-walker entry. Native instead
+  marked the child grounded on first floor contact and switched to generic
+  pacing on the next frame. The live regression now pins the landing snap,
+  zero Y velocity, continued X movement, and ungrounded launch phase. All 47
+  Spinning Twins-labelled tests pass.
+- Final `verify-slice-fast` passed 7,243 core tests plus the workspace and
+  pixel-gate checks. `verify-tas-full` passed all 37,759 gameplay, enemy, RNG,
+  and player/camera checkpoints; the existing 241-frame HUD-pixel and GEMS
+  signature ratchets remain unchanged.
+- NEXT: audit a different fresh live gameplay path; avoid frozen timing feeders
+  and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Tar Monster hurt hibernate)
 
 - `project-status` again offered no ready/open risk. The fresh Tar Monster

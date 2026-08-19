@@ -833,7 +833,9 @@ pub(crate) fn step_spinning_twins(
                             debug_assert_eq!(landing.next_collision_type, 0);
                             enemy.y_pos = (probe.floor_y_px as u32) << 16;
                             enemy.y_velocity = landing.y_velocity;
-                            enemy.on_ground = true;
+                            // ASM Spinning_Twins.asm loc_3BB8A branches back
+                            // to loc_3BB2C after clearing y_vel. The launch X
+                            // drag continues until loc_3BB5A reaches loc_3BB94.
                         }
                         SpinningTwinsWalkingCollisionRouteLoc3BB6E::WallSettle
                         | SpinningTwinsWalkingCollisionRouteLoc3BB6E::ContinueAirborne => {}
