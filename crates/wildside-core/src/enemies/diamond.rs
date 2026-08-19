@@ -67,8 +67,8 @@ pub(crate) fn diamond_high_hp_collision_dispatch_loc_3ada4(
             // ASM Diamond.asm loc_3AE3E: wall and ceiling contacts negate both
             // velocity axes before returning to the high-HP collision loop.
             DiamondHighHpCollisionRouteLoc3ADA4::Bounce {
-                x_velocity: -x_velocity,
-                y_velocity: -y_velocity,
+                x_velocity: x_velocity.wrapping_neg(),
+                y_velocity: y_velocity.wrapping_neg(),
             }
         }
         DIAMOND_COLID_SLOPEUP => DiamondHighHpCollisionRouteLoc3ADA4::Slope {
@@ -890,6 +890,23 @@ mod tests {
                 "ASM Diamond.asm loc_3AE3E should negate both x_vel and y_vel for wall/ceiling collision {collision_type:#06X}",
             );
         }
+    }
+
+    #[test]
+    fn diamond_high_hp_bounce_loc_3ae3e_wraps_both_signed_boundaries() {
+        assert_eq!(
+            diamond_high_hp_collision_dispatch_loc_3ada4(
+                DIAMOND_COLID_RIGHTWALL,
+                i32::MIN,
+                i32::MIN,
+            )
+            .route,
+            DiamondHighHpCollisionRouteLoc3ADA4::Bounce {
+                x_velocity: i32::MIN,
+                y_velocity: i32::MIN,
+            },
+            "ASM Diamond.asm loc_3AE3E uses 68k NEG.L on both velocity axes, so native keeps long-word wrapping semantics",
+        );
     }
 
     #[test]

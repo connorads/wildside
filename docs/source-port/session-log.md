@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Diamond collision-velocity wrap)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found native translated Diamond's `loc_3AE3E` wall/ceiling `neg.l` pair as
+  Rust unary negation, which panicked on the most-negative signed long word.
+- Both live velocity axes now use 32-bit wrapping negation. The exact boundary
+  regression first failed on the old X-axis path and now passes with all 28
+  focused Diamond tests, `verify-slice-fast` (7,221 tests), and all 37,759 full
+  TAS frames; existing pixel/audio ratchets remain unchanged.
+- NEXT: continue auditing fresh live gameplay paths; avoid frozen timing
+  feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Cloud wall-velocity wrap)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback
