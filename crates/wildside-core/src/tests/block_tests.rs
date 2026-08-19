@@ -4258,6 +4258,22 @@ mod chunk_04 {
     }
 
     #[test]
+    fn damaged_level_two_fire_demon_preserves_init_walk_speed_loc_3a414() {
+        let grid = grid_with_floor_at_row(14);
+        let mut enemy = make_pacer(EnemyFamily::FireDemon, 4, 100, 224);
+        enemy.enemy_level = 2;
+        enemy.facing = Direction::Right;
+
+        step_pacer(&mut enemy, Some(&grid), None);
+
+        assert_eq!(
+            enemy.x_pos,
+            (101 << 16) + 0x8000,
+            "ASM Fire_Demon.asm loc_3A3D2/loc_3A414 stores the level-2 `$18000` speed once at init, so later HP loss must not reduce the walking step",
+        );
+    }
+
+    #[test]
     fn fire_demon_animation_loc_3a444_selects_hp5_walk_script() {
         assert_eq!(
             fire_demon_hp5_animation_loc_3a444(5),

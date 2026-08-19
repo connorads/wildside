@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Fire Demon cached speed)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found Fire Demon walking rebuilt the init-time speed from mutable current HP.
+- The damaged-state regression first moved a level-2 Fire Demon 1px instead of
+  1.5px. Shared walking now derives `$50(a5)` from immutable `enemy_level + 3`,
+  matching `Enemy00_FireDemon_Init`/`loc_3A414`. Three terrain fixtures now
+  declare their ROM-consistent level word. All 75 Fire Demon-labelled tests,
+  `verify-slice-fast` (7,234 tests), and `verify-tas-full` (all 37,759 frames
+  checked; gameplay/enemy/RNG green, existing pixel/audio ratchets unchanged)
+  pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Ninja cached speed restore)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback

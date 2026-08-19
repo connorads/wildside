@@ -27121,6 +27121,7 @@ mod chunk_10 {
         // Enemy00_FireDemon_Init loc_3A414 seeds `$48(a5)=$B`, so centre
         // x=100 puts the 11px right probe one pixel before the boundary.
         let mut enemy = make_pacer(EnemyFamily::FireDemon, 4, 100, 208);
+        enemy.enemy_level = 1;
         enemy.facing = Direction::Right;
 
         step_pacer(&mut enemy, Some(&grid), None);
@@ -27158,6 +27159,7 @@ mod chunk_10 {
             ],
         );
         let mut enemy = make_pacer(EnemyFamily::FireDemon, 4, 119, 208);
+        enemy.enemy_level = 1;
         enemy.facing = Direction::Right;
 
         step_pacer(&mut enemy, Some(&grid), None);
@@ -27189,6 +27191,7 @@ mod chunk_10 {
             ],
         );
         let mut enemy = make_pacer(EnemyFamily::FireDemon, 4, 121, 208);
+        enemy.enemy_level = 1;
         enemy.facing = Direction::Left;
 
         step_pacer(&mut enemy, Some(&grid), None);
