@@ -17465,6 +17465,7 @@ mod chunk_03 {
     fn diamond_high_hp_pending_hurt_collision_enters_loc_3adfa() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut diamond = test_enemy(EnemyFamily::Diamond, 0x0080_0000, 0x0040_0000, 5);
+        diamond.enemy_level = 3;
         diamond.layout_index = 116;
         diamond.x_velocity = 0x0001_8000;
         diamond.y_velocity = 0x0000_8000;
@@ -17530,6 +17531,7 @@ mod chunk_03 {
         runtime.progression.current_form = PlayerForm::Berzerker;
         runtime.helmet.berzerker_charging = true;
         let mut diamond = test_enemy(EnemyFamily::Diamond, 0x0080_0000, 0x0040_0000, 5);
+        diamond.enemy_level = 3;
         diamond.layout_index = 118;
         diamond.x_velocity = 0x0001_8000;
         diamond.y_velocity = 0;

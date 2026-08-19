@@ -8728,7 +8728,7 @@ impl NativeRuntime {
             }
 
             if matches!(enemy.family, EnemyFamily::Diamond) {
-                if enemy.hit_points > 3 {
+                if diamond_uses_physics_loop_loc_3ad7c(enemy.enemy_level) {
                     match diamond_high_hp_collision_dispatch_loc_3ada4(
                         collision.collision_type,
                         enemy.x_velocity,

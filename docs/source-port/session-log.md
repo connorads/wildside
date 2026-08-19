@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Diamond init-selected movement mode)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found Diamond movement reselected its coroutine and low-level speed from
+  mutable current HP.
+- A damaged level-2 Diamond first switched from the physics-ball loop to the
+  shared walker instead of returning from `loc_3ADFA` to `loc_3ADA4`. Native
+  now retains the init-selected movement and Berzerker launch loops from
+  immutable `enemy_level`; low-level Diamonds likewise retain `$50(a5)` after
+  damage. All 286 Diamond-labelled tests, `verify-slice-fast` (7,237 tests),
+  and `verify-tas-full` (all 37,759 frames checked; gameplay/enemy/RNG green,
+  existing pixel/audio ratchets unchanged) pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Fire Demon cached speed)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback

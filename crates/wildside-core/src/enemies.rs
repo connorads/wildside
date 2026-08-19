@@ -2146,6 +2146,21 @@ impl ActiveEnemy {
 
     pub(crate) fn take_colid_hurt_or_queue_death(&mut self, player_x_pos: Option<u32>) -> bool {
         if matches!(self.family, EnemyFamily::Diamond) {
+            if diamond_uses_physics_loop_loc_3ad7c(self.enemy_level) {
+                let damage = diamond_high_hp_damage_loc_3adfa(u16::from(self.hit_points));
+                self.hit_points = damage.remaining_hitpoints.min(u16::from(u8::MAX)) as u8;
+                return match damage.route {
+                    DiamondHighHpDamageRouteLoc3ADFA::HurtAnimation => {
+                        // ASM Diamond.asm loc_3ADFA restores `stru_3ACA8` and
+                        // returns to loc_3ADA4 after the hurt hibernate.
+                        self.x_velocity = 0;
+                        self.y_velocity = 0;
+                        self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                        false
+                    }
+                    DiamondHighHpDamageRouteLoc3ADFA::DeathAnimation => true,
+                };
+            }
             match diamond_low_hp_collision_dispatch_loc_3aec4(
                 DIAMOND_COLID_HURT as i16,
                 u16::from(self.hit_points),
@@ -4292,7 +4307,9 @@ fn activate_enemies_with_rng_inner(
                 shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
                 shared_walker_grounded_scan_trace: None,
             };
-            if matches!(family, EnemyFamily::Diamond) && hit_points > 3 {
+            if matches!(family, EnemyFamily::Diamond)
+                && diamond_uses_physics_loop_loc_3ad7c(enemy_level)
+            {
                 // ASM Diamond.asm loc_3AD7C: HP above 3 bypasses the low-HP
                 // shared-walker setup and seeds a Kid-facing physics velocity.
                 let init =
@@ -5142,7 +5159,9 @@ pub(crate) fn step_active_enemies_with_rng(
                         enemy.y_velocity = 0;
                         continue;
                     }
-                    if matches!(enemy.family, EnemyFamily::Diamond) && enemy.hit_points > 3 {
+                    if matches!(enemy.family, EnemyFamily::Diamond)
+                        && diamond_uses_physics_loop_loc_3ad7c(enemy.enemy_level)
+                    {
                         // ASM Diamond.asm loc_3ADA4: high-HP Diamonds run
                         // their physics-ball collision loop, not loc_3AF14.
                         step_diamond_high_hp(enemy, block_grid);
@@ -8172,15 +8191,19 @@ fn shared_walker_walk_speed(enemy: &ActiveEnemy) -> i32 {
         0
     } else if enemy.walk_speed_override != 0 {
         enemy.walk_speed_override
-    } else if matches!(enemy.family, EnemyFamily::Driller | EnemyFamily::FireDemon) {
-        let base_hit_points = if matches!(enemy.family, EnemyFamily::FireDemon) {
-            3
-        } else {
-            2
+    } else if matches!(
+        enemy.family,
+        EnemyFamily::Diamond | EnemyFamily::Driller | EnemyFamily::FireDemon
+    ) {
+        let base_hit_points = match enemy.family {
+            EnemyFamily::FireDemon => 3,
+            EnemyFamily::Diamond | EnemyFamily::Driller => 2,
+            _ => unreachable!(),
         };
-        // ASM Driller.asm loc_3BD6C/loc_3BD74 and Fire_Demon.asm
-        // loc_3A3D2/loc_3A414 compute `$50(a5)` once from enemy_level plus
-        // the family's base HP. Neither damage path rewrites that saved speed.
+        // ASM Diamond.asm loc_3AD16/loc_3AD4C, Driller.asm
+        // loc_3BD6C/loc_3BD74, and Fire_Demon.asm loc_3A3D2/loc_3A414 compute
+        // `$50(a5)` once from enemy_level plus the family's base HP. Their
+        // damage paths do not rewrite that saved speed.
         // Oracle 0x55 likewise keeps the HP-1 Driller at 1px/frame (#420).
         pacer_walk_speed(
             enemy.family,

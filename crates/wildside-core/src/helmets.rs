@@ -7491,20 +7491,41 @@ impl NativeRuntime {
                     changed_enemy_state = true;
                     continue;
                 }
-                if matches!(enemy.family, EnemyFamily::Diamond)
-                    && let DiamondLowHpBerzerkerSideGateRouteLoc3AF24::Launch(launch) =
-                        diamond_low_hp_berzerker_side_gate_loc_3af24(
-                            true,
-                            matches!(enemy.facing, Direction::Right),
-                        )
-                {
-                    // ASM Diamond.asm loc_3AF24: charging Berzerker side
-                    // contact disables level collision, keeps Kid collision,
-                    // freezes the displayed Diamond frame, and enters the
-                    // upward loc_3AF50 loop instead of generic HP damage.
-                    enemy.x_velocity = launch.x_velocity;
-                    enemy.y_velocity = launch.y_velocity;
+                if matches!(enemy.family, EnemyFamily::Diamond) {
+                    let (x_velocity, y_velocity, wait_timer) =
+                        if diamond_uses_physics_loop_loc_3ad7c(enemy.enemy_level) {
+                            let DiamondHighHpBerzerkerSideGateRouteLoc3AE84::Launch(launch) =
+                                diamond_high_hp_berzerker_side_gate_loc_3ae84(true)
+                            else {
+                                unreachable!("charging Berzerker must launch high-level Diamond")
+                            };
+                            (
+                                launch.x_velocity,
+                                launch.y_velocity,
+                                DIAMOND_HIGH_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AEB2,
+                            )
+                        } else {
+                            let DiamondLowHpBerzerkerSideGateRouteLoc3AF24::Launch(launch) =
+                                diamond_low_hp_berzerker_side_gate_loc_3af24(
+                                    true,
+                                    matches!(enemy.facing, Direction::Right),
+                                )
+                            else {
+                                unreachable!("charging Berzerker must launch low-level Diamond")
+                            };
+                            (
+                                launch.x_velocity,
+                                launch.y_velocity,
+                                DIAMOND_LOW_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AF50,
+                            )
+                        };
+                    // ASM Diamond.asm loc_3AE84/loc_3AF24: charging Berzerker
+                    // side contact resumes the launch loop selected at init,
+                    // rather than routing through generic HP damage.
+                    enemy.x_velocity = x_velocity;
+                    enemy.y_velocity = y_velocity;
                     enemy.on_ground = false;
+                    enemy.wait_timer = wait_timer;
                     enemy.damage_flash_frames = 0;
                     changed_enemy_state = true;
                     continue;

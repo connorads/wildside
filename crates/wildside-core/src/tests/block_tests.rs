@@ -4943,6 +4943,22 @@ mod chunk_04 {
     }
 
     #[test]
+    fn damaged_level_one_diamond_preserves_init_walk_speed_loc_3ad4c() {
+        let grid = grid_with_floor_at_row(14);
+        let mut enemy = make_pacer(EnemyFamily::Diamond, 2, 100, 224);
+        enemy.enemy_level = 1;
+        enemy.facing = Direction::Right;
+
+        step_pacer(&mut enemy, Some(&grid), None);
+
+        assert_eq!(
+            enemy.x_pos,
+            (101 << 16) + 0x8000,
+            "ASM Diamond.asm loc_3AD16/loc_3AD4C stores the level-1 `$18000` speed once at init, so later HP loss must not reduce the shared-walker step",
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_orca_is_fixed() {
         assert_eq!(pacer_walk_speed(EnemyFamily::Orca, 4), 0x0000_8000);
         assert_eq!(pacer_walk_speed(EnemyFamily::Orca, 5), 0x0000_8000);

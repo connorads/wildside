@@ -1,5 +1,12 @@
 use super::*;
 
+pub(crate) fn diamond_uses_physics_loop_loc_3ad7c(enemy_level: u8) -> bool {
+    // ASM Diamond.asm loc_3AD16/loc_3AD7C: init adds two to immutable
+    // enemy_level and selects the physics-ball coroutine when that value is
+    // greater than three. Damage returns to loc_3ADA4 without reselecting it.
+    enemy_level >= 2
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct DiamondHighHpInitLoc3AD7C {
     pub(crate) is_moved: bool,
@@ -473,6 +480,7 @@ mod tests {
     fn diamond_test_enemy(x_px: u32, y_px: u32, x_velocity: i32, y_velocity: i32) -> ActiveEnemy {
         ActiveEnemy {
             family: EnemyFamily::Diamond,
+            enemy_level: 2,
             hit_points: 4,
             x_pos: x_px << 16,
             y_pos: y_px << 16,
@@ -581,6 +589,50 @@ mod tests {
         assert_eq!(
             diamond.y_velocity, 0x0001_C000,
             "ASM Diamond.asm loc_3AE78 should store +$1C000 when loc_3ADA4 observes no collision",
+        );
+    }
+
+    #[test]
+    fn damaged_high_level_diamond_stays_in_physics_loop_loc_3adfa() {
+        let mut diamond = diamond_test_enemy(
+            80,
+            112,
+            diamond_high_hp_init_loc_3ad7c(80, 112).x_velocity,
+            0,
+        );
+        diamond.hit_points = 3;
+        let mut enemies = [diamond];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            Some(112 << 16),
+            Some(112 << 16),
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            None,
+            &mut std::collections::HashMap::new(),
+        );
+
+        assert_eq!(
+            enemies[0].x_pos,
+            (80 << 16) + 0x0001_8000,
+            "ASM Diamond.asm loc_3ADFA restores the loc_3ADA4 physics-ball loop after damage; current HP must not switch a level-2 Diamond into loc_3AF14",
+        );
+        assert_eq!(
+            enemies[0].y_velocity, 0x0001_C000,
+            "ASM Diamond.asm loc_3ADFA resumes loc_3ADA4, whose no-collision path stores `$1C000` y_vel",
         );
     }
 

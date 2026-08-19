@@ -10043,6 +10043,38 @@ mod chunk_06 {
         assert_eq!(diamond.y_velocity, -0x0004_8000);
         assert!(!diamond.on_ground);
         assert!(!diamond.death_animation_active);
+        assert_eq!(
+            diamond.wait_timer, DIAMOND_LOW_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AF50,
+            "ASM Diamond.asm loc_3AF24 enters the low-level loc_3AF50 launch loop",
+        );
+    }
+
+    /// ASM Diamond.asm loc_3AE84: Diamonds whose init selected loc_3AD7C enter
+    /// the distinct loc_3AEB2 launch loop even after later HP loss.
+    #[test]
+    fn berzerker_charge_keeps_damaged_high_level_diamond_on_loc_3aeb2() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0001_8000;
+
+        let mut diamond = test_enemy(EnemyFamily::Diamond, 0x0040_0000, 0x0040_0000, 3);
+        diamond.enemy_level = 2;
+        rt.active_enemies.push(diamond);
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        let diamond = rt.active_enemies[0];
+        assert_eq!(diamond.hit_points, 3);
+        assert_eq!(diamond.x_velocity, 0);
+        assert_eq!(diamond.y_velocity, -0x0004_8000);
+        assert_eq!(
+            diamond.wait_timer, DIAMOND_HIGH_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AEB2,
+            "ASM Diamond.asm loc_3AE84 resumes the init-selected high-level loc_3AEB2 launch loop",
+        );
     }
 
     /// ASM Fire_Demon.asm loc_3A5E4: charging Berzerker side contact disables
