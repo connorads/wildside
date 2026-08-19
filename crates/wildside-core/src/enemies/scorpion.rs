@@ -451,8 +451,9 @@ pub(crate) fn step_scorpion_tracking(
         return;
     }
 
-    // ASM line 162-164: if enemy_level > 1 (HP >= 5 since HP = level + 3), boost speed.
-    if enemy.hit_points >= 5 {
+    // ASM Scorpion.asm loc_3DDC8 compares immutable `enemy_level(a3)`, not
+    // current HP, so damage cannot remove the high-level tracking boost.
+    if enemy.enemy_level > 1 {
         enemy.walk_speed_override = SCORPION_BOOST_SPEED;
     }
 
@@ -621,6 +622,20 @@ mod tests {
         );
         assert_eq!(scorpion.x_velocity, 0);
         assert_eq!(scorpion.y_velocity, 0);
+    }
+
+    #[test]
+    fn step_scorpion_tracking_uses_enemy_level_after_damage_loc_3ddc8() {
+        let mut scorpion = scorpion_tracking_enemy(0x0120, 0x0040, Direction::Left);
+        scorpion.hit_points = 4;
+        scorpion.walk_speed_override = SCORPION_BASE_SPEED;
+
+        step_scorpion_tracking(&mut scorpion, Some(0x00C0_0000), Some(0x0040_0000), Some(0));
+
+        assert_eq!(
+            scorpion.walk_speed_override, SCORPION_BOOST_SPEED,
+            "ASM Scorpion.asm loc_3DDC8 compares immutable enemy_level, so a level-2 Scorpion still restores `$38000` tracking speed after damage reduces current HP"
+        );
     }
 
     #[test]

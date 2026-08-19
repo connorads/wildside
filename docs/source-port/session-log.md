@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Scorpion tracking level word)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found Scorpion's live `loc_3DDC8` tracking boost used mutable current HP as
+  a proxy for immutable `enemy_level`.
+- The damaged-state regression first kept a level-2 Scorpion at base `$18000`
+  after HP fell below five. Tracking now reads `enemy_level(a3)` like the ROM
+  and reapplies `$38000` after damage or sting recovery. The older tier tests
+  now pin the actual level word. All 54 Scorpion-labelled tests,
+  `verify-slice-fast` (7,227 tests), and `verify-tas-full` (all 37,759 frames
+  checked; gameplay/enemy/RNG green, existing pixel/audio ratchets unchanged)
+  pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Crab knockback callback order)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback

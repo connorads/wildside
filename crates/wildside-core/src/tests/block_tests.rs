@@ -3824,16 +3824,17 @@ mod chunk_04 {
     }
 
     #[test]
-    fn scorpion_tracking_boosts_speed_at_high_hp() {
-        // Scorpion.asm loc_3DD7E: within 170px and enemy_level > 1 (HP >= 5),
-        // walk_speed_override set to $38000.
+    fn scorpion_tracking_boosts_speed_at_high_enemy_level() {
+        // Scorpion.asm loc_3DDC8: within 170px and enemy_level > 1,
+        // walk_speed_override is set to $38000 independently of current HP.
         use enemies::step_scorpion_tracking;
         let mut enemy = make_pacer(EnemyFamily::Scorpion, 5, 100, 224);
+        enemy.enemy_level = 2;
         let player_x = Some(150u32 << 16); // 50px away (within 170px range)
         step_scorpion_tracking(&mut enemy, player_x, None, None);
         assert_eq!(
             enemy.walk_speed_override, 0x3_8000,
-            "HP>=5 within range should boost"
+            "ASM Scorpion.asm loc_3DDC8 boosts when enemy_level is greater than one"
         );
         assert_eq!(enemy.facing, Direction::Right, "should face toward player");
     }
@@ -3855,13 +3856,18 @@ mod chunk_04 {
     }
 
     #[test]
-    fn scorpion_tracking_no_boost_at_low_hp() {
-        // HP 3-4 (enemy_level 0-1): no speed boost even within range.
+    fn scorpion_tracking_no_boost_at_low_enemy_level() {
+        // Scorpion.asm loc_3DDC8: enemy_level 0-1 does not boost, regardless
+        // of current HP.
         use enemies::step_scorpion_tracking;
-        let mut enemy = make_pacer(EnemyFamily::Scorpion, 4, 100, 224);
+        let mut enemy = make_pacer(EnemyFamily::Scorpion, 5, 100, 224);
+        enemy.enemy_level = 1;
         let player_x = Some(150u32 << 16);
         step_scorpion_tracking(&mut enemy, player_x, None, None);
-        assert_eq!(enemy.walk_speed_override, 0, "HP<5 should not boost");
+        assert_eq!(
+            enemy.walk_speed_override, 0,
+            "ASM Scorpion.asm loc_3DDC8 does not boost at enemy_level one"
+        );
     }
 
     #[test]
