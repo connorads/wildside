@@ -1809,33 +1809,31 @@ fn dragon_fire_breath_cone(
     let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
         return false;
     };
-    let dragon_x = (enemy.x_pos >> 16) as i32;
-    let dragon_y = (enemy.y_pos >> 16) as i32;
-    let player_x = (px >> 16) as i32;
-    let player_y = (py >> 16) as i32;
+    let dragon_x = (enemy.x_pos >> 16) as i16;
+    let dragon_y = (enemy.y_pos >> 16) as i16;
+    let player_x = (px >> 16) as i16;
+    let player_y = (py >> 16) as i16;
 
     // Player must be at or below dragon. ASM: cmp.w y_pos(a4),y_pos(a3) / blt return.
     if player_y < dragon_y {
         return false;
     }
 
-    // Compute lateral distance and cone threshold.
-    // ASM: d7 = dragon_x - player_x, then d7 = d7*3 (or d7*2+abs for facing).
-    // The exact ASM: d7=dx, d6=dx, d7=d7+d7+d6=3*dx.
-    // If facing right: d7 = d7 - d6 then neg → d7 = -(3*dx - dx) = -2*dx.
-    // Wait, re-reading: d7=dx, d6=dx, d7+=d7 (d7=2*dx), d7+=d6 (d7=3*dx).
-    // If facing right (x_direction set): sub d6 from d7 → d7=2*dx, then neg → -2*dx.
-    let dx = dragon_x - player_x;
-    let d7 = if enemy.facing == Direction::Right {
-        -(dx * 2)
+    // ASM Dragon_Flying.asm loc_34836 keeps every lateral operation in d7.w:
+    // subtract once, add the result twice, then subtract/negate for the
+    // right-facing branch. Each instruction wraps independently.
+    let dx = dragon_x.wrapping_sub(player_x);
+    let three_dx = dx.wrapping_add(dx).wrapping_add(dx);
+    let cone_delta = if enemy.facing == Direction::Right {
+        three_dx.wrapping_sub(dx).wrapping_neg()
     } else {
-        dx * 3
+        three_dx
     };
 
-    // Cone Y range: [d7 + dragon_y - 8, d7 + dragon_y].
-    // Player Y must be within this range. ASM loc_34860-34878.
-    let cone_y = d7 + dragon_y;
-    player_y >= (cone_y - 8) && player_y <= cone_y
+    // ASM Dragon_Flying.asm loc_34860 adds and subtracts the Y bounds as words
+    // before applying signed BGT/BLT comparisons.
+    let cone_y = cone_delta.wrapping_add(dragon_y);
+    player_y >= cone_y.wrapping_sub(8) && player_y <= cone_y
 }
 
 #[cfg(test)]
@@ -2290,6 +2288,24 @@ mod tests {
         assert!(
             dragon_fire_breath_cone(&dragon, Some(102 << 16), Some(84 << 16)),
             "ASM Dragon_Flying.asm loc_34836 negates `2 * dx` for the right-facing cone"
+        );
+    }
+
+    #[test]
+    fn dragon_fire_breath_cone_wraps_word_arithmetic_loc_34836() {
+        let mut dragon = dragon_flying_test_enemy(0x5556, 100, 0, 0);
+        dragon.facing = Direction::Left;
+
+        assert!(
+            dragon_fire_breath_cone(&dragon, Some(0), Some(100 << 16)),
+            "ASM Dragon_Flying.asm loc_34836 wraps three word-width copies of $5556 to +2 before adding dragon Y",
+        );
+
+        dragon.x_pos = 0x7FFF_0000;
+        dragon.facing = Direction::Right;
+        assert!(
+            dragon_fire_breath_cone(&dragon, Some(0), Some(100 << 16)),
+            "ASM Dragon_Flying.asm loc_34836 wraps and negates 2 * $7FFF to +2 for the right-facing cone",
         );
     }
 

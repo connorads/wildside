@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Flying Dragon breath-cone words)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found Flying Dragon widened `loc_34836`'s word-width breath-cone arithmetic
+  to mathematical `i32` multiplication.
+- The live regression first rejected the left-facing `$5556 * 3 -> +2` wrap.
+  The gate now preserves every signed word comparison and wrapping arithmetic
+  instruction through `loc_34860`, with both facing branches pinned. All 18
+  focused Flying Dragon tests, `verify-slice-fast` (7,226 tests), and
+  `verify-tas-full` (all 37,759 frames checked; gameplay/enemy/RNG green,
+  existing pixel/audio ratchets unchanged) pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Big Hopping Skull rollback wrap)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback
