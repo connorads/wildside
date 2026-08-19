@@ -19676,6 +19676,75 @@ mod chunk_03 {
     }
 
     #[test]
+    fn tar_monster_nonfatal_hurt_abandons_interrupted_wait_for_stru_326ee_loc_323c0_323d6() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut tar = test_enemy(EnemyFamily::TarMonster, 0x0080_0000, 0x0040_0000, 2);
+        tar.layout_index = 25;
+        tar.tar_monster_state = TarMonsterState::Attacking;
+        tar.dragon_script_cmd = 24;
+        tar.wait_timer = 11;
+        runtime.active_enemies = vec![tar];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: tar.segment_index,
+                layout_index: tar.layout_index,
+                collision_type: 0x001C,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let tar = &runtime.active_enemies[0];
+        assert_eq!(
+            tar.tar_monster_state,
+            TarMonsterState::Visible,
+            "ASM Tar_Monster.asm loc_323C0 leaves the interrupted attack and loc_323D6 restores the idle body animation"
+        );
+        assert_eq!(
+            tar.wait_timer, 0,
+            "ASM Tar_Monster.asm loc_323C0 removes the wait-loop return and loc_323D6 resumes at loc_3224E instead of finishing the interrupted DBF loop"
+        );
+        assert_eq!(
+            tar.damage_flash_frames, 6,
+            "ASM Tar_Monster.asm stru_326EE has two three-frame entries before loc_323D6 resumes the control script"
+        );
+
+        for _ in 0..5 {
+            step_active_enemies(
+                &mut runtime.active_enemies,
+                None,
+                None,
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+                &mut Vec::new(),
+            );
+        }
+        assert_eq!(runtime.active_enemies[0].dragon_script_cmd, 24);
+        assert_eq!(runtime.active_enemies[0].wait_timer, 0);
+
+        step_active_enemies(
+            &mut runtime.active_enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut Vec::new(),
+        );
+        assert_eq!(
+            runtime.active_enemies[0].dragon_script_cmd, 28,
+            "ASM loc_323D6 resumes loc_3224E only after stru_326EE finishes"
+        );
+        assert_eq!(runtime.active_enemies[0].wait_timer, 31);
+    }
+
+    #[test]
     fn tar_monster_terminal_hurt_spawns_death_burst_loc_323e6_324f8() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut tar = test_enemy(EnemyFamily::TarMonster, 0x0080_0000, 0x0040_0000, 1);

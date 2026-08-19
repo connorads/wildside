@@ -2,6 +2,8 @@ use super::*;
 
 /// Emerge animation duration (`stru_3272E`: seven four-frame entries).
 pub(crate) const TAR_MONSTER_EMERGE_FRAMES: u16 = 28;
+/// Hurt animation duration (`stru_326EE`: two three-frame entries).
+pub(crate) const TAR_MONSTER_HURT_FRAMES: u8 = 6;
 /// Attack sequence duration. ASM loc_32310/loc_3231C/loc_32348/loc_32360:
 /// three `moveq #8,d0` + `dbf` loops, so each phase lasts 9 frames.
 pub(crate) const TAR_MONSTER_ATTACK_FRAMES: u16 = 27;

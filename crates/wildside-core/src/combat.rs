@@ -9570,10 +9570,12 @@ impl NativeRuntime {
                                         debug_assert!(hurt_animation.resumes_control_script);
                                         // ASM Tar_Monster.asm loc_323D6:
                                         // nonterminal hurt runs `stru_326EE`
-                                        // and resumes the control script
-                                        // without allocating loc_32468.
+                                        // and resumes the next control-script
+                                        // word without allocating loc_32468.
                                         enemy.hit_points = hurt.remaining_hitpoints as u8;
-                                        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                                        enemy.tar_monster_state = TarMonsterState::Visible;
+                                        enemy.wait_timer = 0;
+                                        enemy.damage_flash_frames = TAR_MONSTER_HURT_FRAMES;
                                         changed_enemy_state = true;
                                     }
                                 }

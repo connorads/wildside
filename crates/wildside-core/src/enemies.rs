@@ -5238,6 +5238,13 @@ pub(crate) fn step_active_enemies_with_rng(
             }
             EnemyArchetype::Stationary => {
                 if matches!(enemy.family, EnemyFamily::TarMonster) {
+                    if enemy.damage_flash_frames > 0 {
+                        // ASM Tar_Monster.asm loc_323C0/loc_323D6: ordinary
+                        // hurt abandons the active wait loop and hibernates
+                        // until `stru_326EE` finishes before loc_3224E resumes
+                        // the next control-script word.
+                        continue;
+                    }
                     let mut discarded_sound_effects = Vec::new();
                     let tar_monster_sound_effects = played_sound_effects
                         .as_deref_mut()

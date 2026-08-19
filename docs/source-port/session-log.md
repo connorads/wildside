@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Tar Monster hurt hibernate)
+
+- `project-status` again offered no ready/open risk. The fresh Tar Monster
+  fallback audited the complete enemy ASM and its live control-script, combat,
+  and projectile paths.
+- `loc_323C0` removes the interrupted wait-loop return before `loc_323D6`
+  hibernates on the two three-frame `stru_326EE` entries and resumes at
+  `loc_3224E`. Native instead retained the old wait, used the generic
+  eight-frame damage flash, and continued the control script during hurt. The
+  live scheduler regression now pins the six-frame hold, cancelled attack
+  remainder, idle state, and next-word resume. All 69 Tar Monster-labelled
+  tests pass. `verify-slice-fast` is green (7,242 tests); `verify-tas-full`
+  checks all 37,759 frames with gameplay/enemy/RNG green and the existing
+  pixel/audio ratchets unchanged.
+- NEXT: audit a different fresh live gameplay path; avoid frozen timing feeders
+  and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Mini Hopping Skull windup hurt hibernate)
 
 - `project-status` again offered no ready/open risk. The fresh Mini Hopping
