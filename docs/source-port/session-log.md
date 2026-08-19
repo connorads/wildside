@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Orca wall-latched fall)
+
+- Independent review of the preceding Orca commit found that its zero X
+  velocity still re-probed the same wall, repeatedly taking `loc_3D40C` before
+  gravity could run.
+- The two-frame live regression first retained zero Y velocity after wall
+  contact. Wall dispatch now requires non-zero X movement, so `$5C(a5)` keeps X
+  acceleration suppressed while `loc_3D3B4` adds `$1800` gravity. All 48
+  Orca-labelled tests, `verify-slice-fast` (7,238 tests), and
+  `verify-tas-full` (all 37,759 frames checked; gameplay/enemy/RNG green,
+  existing pixel/audio ratchets unchanged) pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Orca lunge callback order)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback

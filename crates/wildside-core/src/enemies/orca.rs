@@ -616,7 +616,7 @@ pub(crate) fn step_orca(
                     ENEMY_PROBE_HEIGHT,
                     moving_right,
                 );
-                if wall.hit {
+                if enemy.x_velocity != 0 && wall.hit {
                     enemy.x_velocity = 0;
                     enemy.wall_pinned = true;
                     return;

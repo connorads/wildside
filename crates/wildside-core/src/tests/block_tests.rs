@@ -14124,7 +14124,7 @@ mod chunk_04 {
         let mut enemy = test_enemy(EnemyFamily::Orca, 71 << 16, 56 << 16, 4);
         enemy.orca_state = OrcaState::Lunging;
         enemy.facing = Direction::Right;
-        enemy.x_velocity = 0;
+        enemy.x_velocity = 0x0001_0000;
         enemy.y_velocity = 0;
         enemy.on_ground = false;
         enemy.wall_pinned = false;
@@ -14145,6 +14145,18 @@ mod chunk_04 {
             "ASM Orca.asm loc_3D40C does not change x_direction on wall contact"
         );
         assert_eq!(enemy.orca_state, OrcaState::Lunging);
+
+        let y_before = enemy.y_pos;
+        step_orca(&mut enemy, Some(&grid), None);
+
+        assert_eq!(
+            enemy.y_pos, y_before,
+            "ASM Orca.asm loc_3D35A applies the current zero Y velocity before the resumed callback"
+        );
+        assert_eq!(
+            enemy.y_velocity, ORCA_LUNGE_GRAVITY,
+            "ASM Orca.asm loc_3D3B4 skips X acceleration while `$5C(a5)` is set but still adds gravity for the next frame"
+        );
     }
 
     #[test]
