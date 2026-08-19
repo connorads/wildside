@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Mini Hopping Skull windup hurt hibernate)
+
+- `project-status` again offered no ready/open risk. The fresh Mini Hopping
+  Skull fallback audited the complete enemy ASM and its live hopper path.
+- `loc_3EBE4`/`loc_3ED1E` decrements HP, starts the single `$14`-tick
+  `stru_3E9C2` hurt frame, and blocks in `Hibernate_UntilAnimFinished` before
+  returning to the current windup DBF loop. Native instead used the generic
+  eight-frame flash and kept consuming the windup countdown. The live hopper
+  regression now pins the exact 20-tick duration, suspended countdown, and
+  next-step resume. All 100 Mini Hopping Skull-labelled tests pass.
+- NEXT: audit a different fresh live gameplay path; avoid frozen timing feeders
+  and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Fire Demon hurt hibernate movement)
 
 - `project-status` again offered no ready/open risk. The fresh Fire Demon

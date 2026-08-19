@@ -131,6 +131,9 @@ pub(crate) const MINI_SKULL_INITIAL_Y_SPEED_FP: i32 = 0x0002_8000;
 pub(crate) const MINI_SKULL_LEVEL_INITIAL_Y_SPEED_BONUS_FP: i32 = 0x0000_1000;
 pub(crate) const MINI_SKULL_GROUND_DELAY_FRAMES: u8 = 21; // ASM Mini_Hopping_Skull.asm:99,141 — dbf #$14 = 21 iterations
 pub(crate) const MINI_SKULL_FACING_MATCHED_PAUSE_FRAMES_LOC_3F09E: u16 = 11;
+/// ASM Mini_Hopping_Skull.asm loc_3EBE4/loc_3ED1E plays `stru_3E9C2`, whose
+/// single hurt frame lasts `$14` ticks before the windup coroutine resumes.
+pub(crate) const MINI_SKULL_HURT_ANIMATION_FRAMES_STRU_3E9C2: u8 = 0x14;
 pub(crate) const MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E: u16 = 0x8000;
 pub(crate) const MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92: u16 = 0x4000;
 pub(crate) const MINI_SKULL_SLOPE_WAIT_TIMER_FLAG_LOC_3EB00: u16 = 0x2000;
@@ -2426,7 +2429,7 @@ impl ActiveEnemy {
                     debug_assert_eq!(animation, "stru_3E9C2");
                     debug_assert!(hibernate_until_finished);
                     self.hit_points = remaining_hits as u8;
-                    self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    self.damage_flash_frames = MINI_SKULL_HURT_ANIMATION_FRAMES_STRU_3E9C2;
                     return false;
                 }
             }
@@ -7414,6 +7417,16 @@ pub(crate) fn step_hopper(
     block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
 ) {
+    if matches!(enemy.family, EnemyFamily::MiniHoppingSkull)
+        && enemy.damage_flash_frames > 0
+        && enemy.wait_timer & MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 != 0
+    {
+        // ASM Mini_Hopping_Skull.asm loc_3EBE4/loc_3ED1E blocks the current
+        // windup DBF loop in Hibernate_UntilAnimFinished until the single
+        // `$14`-tick `stru_3E9C2` frame ends.
+        return;
+    }
+
     let Some(grid) = block_grid else {
         return;
     };
@@ -12777,8 +12790,47 @@ mod tests {
                 MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 | 5,
                 "ASM loc_3EBE4/loc_3ED1E replays `stru_3E9C2` then returns to the active windup loop",
             );
-            assert_eq!(enemy.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES);
+            assert_eq!(
+                enemy.damage_flash_frames,
+                MINI_SKULL_HURT_ANIMATION_FRAMES_STRU_3E9C2
+            );
         }
+    }
+
+    #[test]
+    fn mini_hopping_skull_windup_damage_hibernates_until_stru_3e9c2_finishes() {
+        let mut enemy = ActiveEnemy {
+            facing: Direction::Right,
+            hit_points: 3,
+            on_ground: true,
+            wait_timer: MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 | 5,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        assert!(!enemy.take_damage_or_queue_death());
+        assert_eq!(
+            enemy.damage_flash_frames, MINI_SKULL_HURT_ANIMATION_FRAMES_STRU_3E9C2,
+            "ASM Mini_Hopping_Skull.asm loc_3EBE4 plays the single $14-tick stru_3E9C2 frame"
+        );
+
+        let grid = mini_hopping_skull_test_grid();
+        for _ in 1..MINI_SKULL_HURT_ANIMATION_FRAMES_STRU_3E9C2 {
+            enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
+            step_hopper(&mut enemy, Some(&grid), Some(0x0100_0000));
+            assert_eq!(
+                enemy.wait_timer,
+                MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 | 5,
+                "ASM loc_3EBE4 Hibernate_UntilAnimFinished suspends the windup DBF loop"
+            );
+        }
+
+        enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
+        step_hopper(&mut enemy, Some(&grid), Some(0x0100_0000));
+        assert_eq!(
+            enemy.wait_timer,
+            MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 | 4,
+            "ASM loc_3EBE4 resumes the windup DBF loop after stru_3E9C2 finishes"
+        );
     }
 
     #[test]
