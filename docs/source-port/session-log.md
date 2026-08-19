@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Sphere slope back-out arithmetic)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found Sphere slope collision back-outs clamped negative positions to zero
+  instead of preserving the 68000's long-word wraparound.
+- The boundary regression first produced X position zero after backing a
+  one-pixel velocity out of zero. Both slope routes now use wrapping
+  subtraction, matching `loc_36012`/`loc_36032`. All 39 Sphere-labelled tests,
+  `verify-slice-fast` (7,238 tests), and `verify-tas-full` (all 37,759 frames
+  checked; gameplay/enemy/RNG green, existing pixel/audio ratchets unchanged)
+  pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Tar Monster burst ordering)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback

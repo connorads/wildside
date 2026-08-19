@@ -592,6 +592,30 @@ mod tests {
     }
 
     #[test]
+    fn sphere_slope_backouts_wrap_sub_l_loc_36012_36032() {
+        for (collision_type, expected_y_velocity) in [
+            (colid::SLOPEUP, -0x0001_0000),
+            (colid::SLOPEDOWN, 0x0001_0000),
+        ] {
+            let mut enemy = sphere_test_enemy();
+            enemy.x_pos = 0;
+            enemy.y_pos = 10 << 16;
+            enemy.x_velocity = 0x0001_0000;
+            enemy.y_velocity = -SPHERE_GRAVITY;
+            set_sphere_pending_collision_type_loc_171c(&mut enemy, collision_type);
+
+            step_bouncer(&mut enemy, None);
+
+            assert_eq!(
+                enemy.x_pos, 0xFFFF_0000,
+                "ASM Sphere.asm loc_36012/loc_36032 back out x_vel with long-word arithmetic, so zero minus one pixel wraps for collision {collision_type:#06X}",
+            );
+            assert_eq!(enemy.x_velocity, 0);
+            assert_eq!(enemy.y_velocity, expected_y_velocity);
+        }
+    }
+
+    #[test]
     fn sphere_slope_down_backs_out_motion_per_loc_36164() {
         let data = vec![0u8; 10 * 10 * 2];
         let mut grid = terrain::BlockGrid::from_level_layout(&data, 10, 10);

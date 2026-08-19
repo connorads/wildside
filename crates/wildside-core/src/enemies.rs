@@ -6240,20 +6240,20 @@ fn sphere_apply_pending_collision_loc_35f9e(
         colid::SLOPEUP => {
             let old_x = enemy.x_velocity;
             let old_y = enemy.y_velocity;
-            // ASM Sphere.asm loc_3614E backs the object out by the current
+            // ASM Sphere.asm loc_36012 backs the object out by the current
             // post-gravity vector before swapping/negating it.
-            enemy.x_pos = (enemy.x_pos as i64 - i64::from(old_x)).max(0) as u32;
-            enemy.y_pos = (enemy.y_pos as i64 - i64::from(old_y)).max(0) as u32;
+            enemy.x_pos = enemy.x_pos.wrapping_sub(old_x as u32);
+            enemy.y_pos = enemy.y_pos.wrapping_sub(old_y as u32);
             enemy.y_velocity = old_x.wrapping_neg();
             enemy.x_velocity = old_y.wrapping_neg();
         }
         colid::SLOPEDOWN => {
             let old_x = enemy.x_velocity;
             let old_y = enemy.y_velocity;
-            // ASM Sphere.asm loc_36164 backs out by the current vector, then
+            // ASM Sphere.asm loc_36032 backs out by the current vector, then
             // swaps velocities without changing facing.
-            enemy.x_pos = (enemy.x_pos as i64 - i64::from(old_x)).max(0) as u32;
-            enemy.y_pos = (enemy.y_pos as i64 - i64::from(old_y)).max(0) as u32;
+            enemy.x_pos = enemy.x_pos.wrapping_sub(old_x as u32);
+            enemy.y_pos = enemy.y_pos.wrapping_sub(old_y as u32);
             enemy.y_velocity = old_x;
             enemy.x_velocity = old_y;
         }
