@@ -443,6 +443,27 @@ pub(crate) fn big_hopping_skull_collision_dispatch_loc_3674e(
     }
 }
 
+pub(crate) fn big_hopping_skull_wall_bounce_velocity_loc_366ec(x_velocity: i32) -> i32 {
+    // ASM Big_Hopping_Skull.asm loc_366EC: `neg.l x_vel(a3)` negates the
+    // complete 32-bit fixed-point velocity.
+    x_velocity.wrapping_neg()
+}
+
+pub(crate) fn big_hopping_skull_ceiling_bounce_velocity_loc_366e6(y_velocity: i32) -> i32 {
+    // ASM Big_Hopping_Skull.asm loc_366E6: `neg.l y_vel(a3)` negates the
+    // complete 32-bit fixed-point velocity.
+    y_velocity.wrapping_neg()
+}
+
+pub(crate) fn big_hopping_skull_slope_up_velocity_loc_36706(
+    x_velocity: i32,
+    y_velocity: i32,
+) -> (i32, i32) {
+    // ASM Big_Hopping_Skull.asm loc_36706: copy and negate x_vel into y_vel,
+    // then copy and negate y_vel into x_vel.
+    (y_velocity.wrapping_neg(), x_velocity.wrapping_neg())
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum BigHoppingSkullBoundsRouteLoc36770 {
     Unchanged,
@@ -599,7 +620,7 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
             let backup = 2 * i64::from(enemy.x_velocity);
             enemy.x_pos = (enemy.x_pos as i64 - backup).max(0) as u32;
             enemy.y_velocity = 0;
-            enemy.x_velocity = -enemy.x_velocity;
+            enemy.x_velocity = big_hopping_skull_wall_bounce_velocity_loc_366ec(enemy.x_velocity);
             enemy.facing = opposite_direction(enemy.facing);
         }
 
@@ -637,10 +658,12 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
                 }
                 BigHoppingSkullCollisionActionLoc3674E::SlopeUpDeflect => {
                     // ASM loc_36706: swap and negate both
-                    let old_x = enemy.x_velocity;
-                    let old_y = enemy.y_velocity;
-                    enemy.y_velocity = -old_x;
-                    enemy.x_velocity = -old_y;
+                    let (x_velocity, y_velocity) = big_hopping_skull_slope_up_velocity_loc_36706(
+                        enemy.x_velocity,
+                        enemy.y_velocity,
+                    );
+                    enemy.x_velocity = x_velocity;
+                    enemy.y_velocity = y_velocity;
                     enemy.facing = opposite_direction(enemy.facing);
                 }
                 BigHoppingSkullCollisionActionLoc3674E::SlopeDownDeflect => {
@@ -668,7 +691,8 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
                 BigHoppingSkullCollisionActionLoc3674E::CeilingBounce,
                 "ASM Big_Hopping_Skull.asm loc_3674E should route ceiling collision to loc_366E6",
             );
-            enemy.y_velocity = -enemy.y_velocity;
+            enemy.y_velocity =
+                big_hopping_skull_ceiling_bounce_velocity_loc_366e6(enemy.y_velocity);
         }
     }
 }
@@ -789,6 +813,25 @@ mod tests {
             skull.y_velocity,
             i32::MIN,
             "ASM Big_Hopping_Skull.asm loc_36540 uses `addi.l #$FA0,y_vel(a3)`, whose 32-bit result wraps instead of saturating",
+        );
+    }
+
+    #[test]
+    fn big_hopping_skull_collision_negations_wrap_as_long_words_loc_366e6_366ec_36706() {
+        assert_eq!(
+            big_hopping_skull_wall_bounce_velocity_loc_366ec(i32::MIN),
+            i32::MIN,
+            "ASM Big_Hopping_Skull.asm loc_366EC `neg.l x_vel(a3)` wraps the most-negative long word",
+        );
+        assert_eq!(
+            big_hopping_skull_ceiling_bounce_velocity_loc_366e6(i32::MIN),
+            i32::MIN,
+            "ASM Big_Hopping_Skull.asm loc_366E6 `neg.l y_vel(a3)` wraps the most-negative long word",
+        );
+        assert_eq!(
+            big_hopping_skull_slope_up_velocity_loc_36706(i32::MIN, i32::MIN),
+            (i32::MIN, i32::MIN),
+            "ASM Big_Hopping_Skull.asm loc_36706 negates both copied long-word velocities with 68000 wrap semantics",
         );
     }
 

@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Big Hopping Skull collision-negation wrap)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found native translated Big Hopping Skull's `neg.l` collision responses as
+  Rust unary negation, which panicked on the most-negative signed long word.
+- Wall `loc_366EC`, ceiling `loc_366E6`, and both slope-up `loc_36706` velocity
+  copies now use 32-bit wrapping negation. The exact boundary regression first
+  failed on the wall path and now covers all four negated copies; all 13 focused
+  family tests, `verify-slice-fast`, and all 37,759 full TAS frames pass.
+- NEXT: continue auditing fresh live gameplay paths; avoid frozen timing
+  feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (proactive Flying Dragon mutation refresh)
 
 - `project-status` still offered no ready/open risk, so the fallback revisited
