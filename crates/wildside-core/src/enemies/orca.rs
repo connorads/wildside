@@ -580,95 +580,95 @@ pub(crate) fn step_orca(
             enemy.y_velocity = orca_lunge_launch_tail_loc_3d348().y_velocity;
         }
         OrcaState::Lunging => {
-            // Gravity (Orca.asm loc_3D3B4: $1800 per frame)
-            enemy.y_velocity = orca_lunge_y_velocity_loc_3d3b4(enemy.y_velocity);
-
-            // X acceleration during lunge unless wall-pinned via `$5C(a5)`.
-            if !enemy.wall_pinned {
-                enemy.x_velocity = match enemy.facing {
-                    Direction::Right => orca_lunge_right_x_velocity_loc_3d3d2(enemy.x_velocity),
-                    // ASM Orca.asm loc_3D3B4: clear `x_direction(a3)` subtracts
-                    // `$200` from `x_vel(a3)` before looping to loc_3D35A.
-                    Direction::Left => enemy.x_velocity.wrapping_sub(ORCA_LUNGE_X_ACCEL),
-                };
-            }
-
-            // Move
+            // ASM Orca.asm loc_3D35A: Hibernate_Object_1Frame applies the
+            // current velocity before the resumed callback handles collision
+            // and loc_3D3B4/loc_3D3D2 prepare velocity for the next frame.
             enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
             enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
-            let Some(grid) = block_grid else {
-                return;
-            };
-            let cx = (enemy.x_pos >> 16) as i32;
-            let cy = (enemy.y_pos >> 16) as i32;
+            if let Some(grid) = block_grid {
+                let cx = (enemy.x_pos >> 16) as i32;
+                let cy = (enemy.y_pos >> 16) as i32;
 
-            // Slope collision → flip direction and re-lunge (Orca.asm loc_3D3DE)
-            let floor = terrain::probe_floor(grid, cx, cy);
-            if floor.on_ground
-                && (floor.cell.collision == terrain::CollisionKind::SlopeUp
-                    || floor.cell.collision == terrain::CollisionKind::SlopeDown)
-            {
-                enemy.x_velocity = 0;
-                enemy.y_velocity = 0;
-                enemy.facing = opposite_direction(enemy.facing);
-                enemy.wall_pinned = false;
-                // Re-lunge in opposite direction
-                enemy.x_velocity = orca_lunge_x_velocity_loc_3d340(enemy.facing);
-                enemy.y_velocity = orca_lunge_launch_tail_loc_3d348().y_velocity;
-                return;
-            }
+                // Slope collision → flip direction and re-lunge (Orca.asm loc_3D3DE)
+                let floor = terrain::probe_floor(grid, cx, cy);
+                if floor.on_ground
+                    && (floor.cell.collision == terrain::CollisionKind::SlopeUp
+                        || floor.cell.collision == terrain::CollisionKind::SlopeDown)
+                {
+                    enemy.x_velocity = 0;
+                    enemy.y_velocity = 0;
+                    enemy.facing = opposite_direction(enemy.facing);
+                    enemy.wall_pinned = false;
+                    // Re-lunge in opposite direction
+                    enemy.x_velocity = orca_lunge_x_velocity_loc_3d340(enemy.facing);
+                    enemy.y_velocity = orca_lunge_launch_tail_loc_3d348().y_velocity;
+                    return;
+                }
 
-            // Wall bounce — ASM Orca.asm loc_3D40C: zero x_vel, set wall-pinned flag.
-            let moving_right = enemy.x_velocity >= 0;
-            let wall = terrain::probe_wall(
-                grid,
-                cx,
-                cy,
-                ENEMY_PROBE_HALF_WIDTH,
-                ENEMY_PROBE_HEIGHT,
-                moving_right,
-            );
-            if wall.hit {
-                enemy.x_velocity = 0;
-                enemy.wall_pinned = true;
-                enemy.facing = opposite_direction(enemy.facing);
-            }
-
-            // Ceiling bounce — ASM Orca.asm loc_3D47A: y_vel = $18000
-            if enemy.y_velocity < 0 {
-                let ceil = terrain::probe_ceiling(
+                // Wall bounce — ASM Orca.asm loc_3D40C: zero x_vel, set wall-pinned flag.
+                let moving_right = enemy.x_velocity >= 0;
+                let wall = terrain::probe_wall(
                     grid,
                     cx,
                     cy,
                     ENEMY_PROBE_HALF_WIDTH,
                     ENEMY_PROBE_HEIGHT,
+                    moving_right,
                 );
-                if ceil.hit {
-                    enemy.y_velocity = 0x1_8000; // bounce down
+                if wall.hit {
+                    enemy.x_velocity = 0;
+                    enemy.wall_pinned = true;
+                    return;
+                }
+
+                // Ceiling bounce — ASM Orca.asm loc_3D47A: y_vel = $18000
+                if enemy.y_velocity < 0 {
+                    let ceil = terrain::probe_ceiling(
+                        grid,
+                        cx,
+                        cy,
+                        ENEMY_PROBE_HALF_WIDTH,
+                        ENEMY_PROBE_HEIGHT,
+                    );
+                    if ceil.hit {
+                        enemy.y_velocity = 0x1_8000; // bounce down
+                        return;
+                    }
+                }
+
+                // Floor landing (Orca.asm loc_3D420)
+                if enemy.y_velocity > 0 {
+                    let floor = terrain::probe_floor(grid, cx, cy);
+                    if floor.on_ground {
+                        let floor_y_fp = (floor.floor_y_px as u32) << 16;
+                        if enemy.y_pos >= floor_y_fp {
+                            let landing_wait =
+                                orca_landing_wait_loc_3d44a(ORCA_LANDING_WAIT_DBF_SEED_LOC_3D44A);
+                            debug_assert!(landing_wait.is_animated);
+                            debug_assert_eq!(landing_wait.animation_script, "stru_3D0A2");
+                            debug_assert_eq!(landing_wait.next_worker, "loc_3D21E");
+                            enemy.y_pos = floor_y_fp;
+                            enemy.x_velocity = 0;
+                            enemy.y_velocity = 0;
+                            enemy.on_ground = true;
+                            enemy.wall_pinned = false;
+                            enemy.orca_state = OrcaState::LandingWait;
+                            enemy.wait_timer = u16::from(landing_wait.hibernate_frames);
+                            return;
+                        }
+                    }
                 }
             }
 
-            // Floor landing (Orca.asm loc_3D420)
-            if enemy.y_velocity > 0 {
-                let floor = terrain::probe_floor(grid, cx, cy);
-                if floor.on_ground {
-                    let floor_y_fp = (floor.floor_y_px as u32) << 16;
-                    if enemy.y_pos >= floor_y_fp {
-                        let landing_wait =
-                            orca_landing_wait_loc_3d44a(ORCA_LANDING_WAIT_DBF_SEED_LOC_3D44A);
-                        debug_assert!(landing_wait.is_animated);
-                        debug_assert_eq!(landing_wait.animation_script, "stru_3D0A2");
-                        debug_assert_eq!(landing_wait.next_worker, "loc_3D21E");
-                        enemy.y_pos = floor_y_fp;
-                        enemy.x_velocity = 0;
-                        enemy.y_velocity = 0;
-                        enemy.on_ground = true;
-                        enemy.wall_pinned = false;
-                        enemy.orca_state = OrcaState::LandingWait;
-                        enemy.wait_timer = u16::from(landing_wait.hibernate_frames);
-                    }
-                }
+            // ASM Orca.asm loc_3D3B4/loc_3D3D2: no collision response ran,
+            // so gravity and facing acceleration prepare the next movement.
+            enemy.y_velocity = orca_lunge_y_velocity_loc_3d3b4(enemy.y_velocity);
+            if !enemy.wall_pinned {
+                enemy.x_velocity = match enemy.facing {
+                    Direction::Right => orca_lunge_right_x_velocity_loc_3d3d2(enemy.x_velocity),
+                    Direction::Left => enemy.x_velocity.wrapping_sub(ORCA_LUNGE_X_ACCEL),
+                };
             }
         }
         OrcaState::LandingWait => {

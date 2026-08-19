@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Orca lunge callback order)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found Orca lunges applied gravity and facing acceleration before the
+  hibernated movement instead of after it.
+- The live regression first moved 512 subpixels too far on X and 6,144 too far
+  on Y. Lunges now move with the active velocity before `loc_3D3B4`/`loc_3D3D2`
+  prepare the next frame. Wall contact at `loc_3D40C` also retains facing. All
+  48 Orca-labelled tests, `verify-slice-fast` (7,238 tests), and
+  `verify-tas-full` (all 37,759 frames checked; gameplay/enemy/RNG green,
+  existing pixel/audio ratchets unchanged) pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Sphere slope back-out arithmetic)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback

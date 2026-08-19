@@ -14063,7 +14063,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn orca_lunge_frame_moves_by_updated_velocity_loc_3d35a() {
+    fn orca_lunge_frame_moves_before_velocity_update_loc_3d35a_3d3b4() {
         let mut enemy = test_enemy(EnemyFamily::Orca, 60 << 16, 80 << 16, 4);
         enemy.orca_state = OrcaState::Lunging;
         enemy.facing = Direction::Right;
@@ -14083,13 +14083,13 @@ mod chunk_04 {
         assert_eq!(enemy.y_velocity, expected_y_velocity);
         assert_eq!(
             enemy.x_pos,
-            (i64::from(x_before) + i64::from(expected_x_velocity)) as u32,
-            "ASM Orca.asm loc_3D35A applies sub_3E8BA motion before the lunge loop continues"
+            (i64::from(x_before) + i64::from(ORCA_LUNGE_X_SPEED)) as u32,
+            "ASM Orca.asm loc_3D35A moves during hibernation before loc_3D3D2 adds the next-frame X acceleration"
         );
         assert_eq!(
             enemy.y_pos,
-            (i64::from(y_before) + i64::from(expected_y_velocity)) as u32,
-            "ASM Orca.asm loc_3D35A should move by the signed upward lunge velocity"
+            (i64::from(y_before) + i64::from(ORCA_LUNGE_Y_SPEED)) as u32,
+            "ASM Orca.asm loc_3D35A moves during hibernation before loc_3D3B4 adds the next-frame gravity"
         );
         assert_eq!(enemy.orca_state, OrcaState::Lunging);
     }
@@ -14139,7 +14139,11 @@ mod chunk_04 {
             enemy.wall_pinned,
             "ASM Orca.asm loc_3D40C sets `$5C(a5)` so later lunge frames suppress X acceleration"
         );
-        assert_eq!(enemy.facing, Direction::Left);
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM Orca.asm loc_3D40C does not change x_direction on wall contact"
+        );
         assert_eq!(enemy.orca_state, OrcaState::Lunging);
     }
 
