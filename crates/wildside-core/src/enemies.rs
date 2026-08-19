@@ -8834,13 +8834,13 @@ fn asr4_word(value: u16) -> i16 {
 
 #[allow(non_snake_case)]
 pub(crate) fn hand_initial_motion_loc_327f2(
-    hit_points: u8,
+    enemy_level: u8,
     x_direction_flag: bool,
 ) -> HandInitialMotionLoc327F2 {
     // ASM Hand.asm loc_327F2: store d7 into x_vel, initialise `stru_32B6A`,
     // then clear has_kid_collision before entering the patrol loop.
     HandInitialMotionLoc327F2 {
-        x_velocity: hand_velocity_candidate_loc_327e4(hit_points, x_direction_flag),
+        x_velocity: hand_velocity_candidate_loc_327e4(enemy_level, x_direction_flag),
         animation_label: "stru_32B6A",
         has_kid_collision: false,
     }
@@ -10952,10 +10952,7 @@ pub(crate) fn spawn_x_velocity(family: EnemyFamily, enemy_level: u8) -> i32 {
         EnemyFamily::BigHoppingSkull => BIG_SKULL_INIT_X_SPEED,
         // ASM Hand.asm loc_327F2 stores the direction-gated table velocity
         // into x_vel before the first patrol hibernate.
-        EnemyFamily::Hand => {
-            let hit_points = spawn_hit_points(EnemyFamily::Hand, enemy_level);
-            hand_initial_motion_loc_327f2(hit_points, false).x_velocity
-        }
+        EnemyFamily::Hand => hand_initial_motion_loc_327f2(enemy_level, false).x_velocity,
         _ => 0,
     }
 }

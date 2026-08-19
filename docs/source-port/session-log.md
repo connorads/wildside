@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Hand cached level motion)
+
+- `project-status` still offered no ready/open risk. An Orca ASM audit found no
+  defect; the next fresh audit found Hand's live patrol, detection, jump and
+  landing-reset paths recalculated init-time table values from mutable HP.
+- The damaged-state regression first moved a level-3 Hand at `$3000` instead
+  of `$6000`. Native now reads immutable `enemy_level`, matching
+  `Enemy17_Hand_Init`'s saved `$44/$46/$48(a5)` values. All 153 Hand-labelled
+  tests, `verify-slice-fast` (7,231 tests), and `verify-tas-full` (all 37,759
+  frames checked; gameplay/enemy/RNG green, existing pixel/audio ratchets
+  unchanged) pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Emo Rock cached level motion)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback

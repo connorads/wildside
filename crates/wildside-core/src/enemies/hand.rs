@@ -1,20 +1,19 @@
 use super::*;
 
-/// Hand detection ranges by HP tier (Hand.asm unk_3276A table).
-/// HP 1 = 64px, HP 2 = 80px, HP 3+ = 100px.
+/// Hand detection ranges by enemy level (Hand.asm unk_3276A table).
 pub(crate) const HAND_DETECT_RANGE: [i32; 3] = [0x40, 0x50, 0x64];
 
-/// Hand walk velocities by HP tier (Hand.asm unk_3276A table).
+/// Hand walk velocities by enemy level (Hand.asm unk_3276A table).
 pub(crate) const HAND_WALK_SPEED: [i32; 3] = [0x3000, 0x4800, 0x6000];
 
 /// Hand jump-attack gravity (Hand.asm line 130: $4000 per frame).
 pub(crate) const HAND_GRAVITY: i32 = 0x4000;
 
 #[allow(non_snake_case)]
-pub(crate) fn hand_jump_seed_loc_328a6(hit_points: u8) -> i16 {
+pub(crate) fn hand_jump_seed_loc_328a6(enemy_level: u8) -> i16 {
     // ASM Hand.asm loc_328A6: `move.w $46(a5),d5` loads the table's
-    // HP-derived attack-speed seed: HP 1 => 1, HP 2 => 2, HP 3+ => 3.
-    i16::from(hit_points.clamp(1, 3))
+    // level-selected attack-speed seed saved by Enemy17_Hand_Init.
+    i16::from(enemy_level.min(2)) + 1
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -392,7 +391,7 @@ pub(crate) struct HandJumpCollisionResetLoc32A4A {
 
 #[allow(non_snake_case)]
 pub(crate) fn hand_jump_collision_reset_loc_32a4a(
-    hit_points: u8,
+    enemy_level: u8,
     x_direction_flag: bool,
 ) -> HandJumpCollisionResetLoc32A4A {
     // ASM Hand.asm loc_32A4A: clear both velocity longs, drop the collision
@@ -400,7 +399,7 @@ pub(crate) fn hand_jump_collision_reset_loc_32a4a(
     HandJumpCollisionResetLoc32A4A {
         x_velocity: 0,
         y_velocity: 0,
-        initial_motion: hand_initial_motion_loc_327f2(hit_points, x_direction_flag),
+        initial_motion: hand_initial_motion_loc_327f2(enemy_level, x_direction_flag),
     }
 }
 
@@ -616,10 +615,10 @@ pub(crate) fn hand_init_loc_327b6() -> HandInitLoc327B6 {
 }
 
 #[allow(non_snake_case)]
-pub(crate) fn hand_velocity_candidate_loc_327e4(hit_points: u8, x_direction_flag: bool) -> i32 {
+pub(crate) fn hand_velocity_candidate_loc_327e4(enemy_level: u8, x_direction_flag: bool) -> i32 {
     // ASM Hand.asm loc_327E4: load the negative `$48(a5)` table velocity,
     // then negate it only when raw x_direction is non-zero.
-    let tier = usize::from(hit_points.saturating_sub(1)).min(2);
+    let tier = usize::from(enemy_level).min(2);
     let table_velocity = -HAND_WALK_SPEED[tier];
     if x_direction_flag {
         table_velocity.saturating_neg()
@@ -755,11 +754,11 @@ fn reverse_hand_loc_32840(enemy: &mut ActiveEnemy) {
 }
 
 fn start_hand_jump_attack_loc_328a6(enemy: &mut ActiveEnemy, player_x_pos: u32, player_y_pos: u32) {
-    // ASM Hand.asm loc_328A6/loc_328AA: load the HP-tier speed seed, mix each
+    // ASM Hand.asm loc_328A6/loc_328AA: load the saved level-selected speed seed, mix each
     // random byte with Kid's low position byte, then store the prepared X/Y velocities.
     enemy.hand_state = HandState::Jumping;
     enemy.on_ground = false;
-    let speed_seed = hand_jump_seed_loc_328a6(enemy.hit_points);
+    let speed_seed = hand_jump_seed_loc_328a6(enemy.enemy_level);
     let jump = hand_jump_components_loc_328aa(
         speed_seed,
         hand_x_direction_flag(enemy.facing),
@@ -848,7 +847,9 @@ pub(crate) fn step_hand_with_form(
     player_facing: Option<Direction>,
     player_form: PlayerForm,
 ) {
-    let tier = (enemy.hit_points.saturating_sub(1) as usize).min(2);
+    // ASM Hand.asm Enemy17_Hand_Init saves all three level-selected table values
+    // in parent scratch fields; damage never changes them.
+    let tier = usize::from(enemy.enemy_level).min(2);
 
     match enemy.hand_state {
         HandState::Walking => {
@@ -1063,31 +1064,31 @@ mod tests {
     #[test]
     fn hand_velocity_candidate_matches_loc_327e4_direction_gate() {
         assert_eq!(
-            hand_velocity_candidate_loc_327e4(1, false),
+            hand_velocity_candidate_loc_327e4(0, false),
             -0x0000_3000,
             "ASM Hand.asm loc_327E4 leaves the negative tier-1 table velocity unchanged when raw x_direction is clear"
         );
         assert_eq!(
-            hand_velocity_candidate_loc_327e4(2, false),
+            hand_velocity_candidate_loc_327e4(1, false),
             -0x0000_4800,
-            "ASM Hand.asm loc_327E4 reads the second HP tier from `$48(a5)` before testing x_direction"
+            "ASM Hand.asm loc_327E4 reads the level-two value saved in `$48(a5)` before testing x_direction"
         );
         assert_eq!(
-            hand_velocity_candidate_loc_327e4(3, true),
+            hand_velocity_candidate_loc_327e4(2, true),
             0x0000_6000,
             "ASM Hand.asm loc_327E4 negates the tier-3 table velocity only when raw x_direction is set"
         );
     }
 
     #[test]
-    fn hand_jump_seed_loc_328a6_clamps_hp_tiers() {
-        let cases = [(0, 1), (1, 1), (2, 2), (3, 3), (4, 3)];
+    fn hand_jump_seed_loc_328a6_clamps_enemy_levels() {
+        let cases = [(0, 1), (1, 2), (2, 3), (3, 3), (4, 3)];
 
-        for (hit_points, expected_seed) in cases {
+        for (enemy_level, expected_seed) in cases {
             assert_eq!(
-                hand_jump_seed_loc_328a6(hit_points),
+                hand_jump_seed_loc_328a6(enemy_level),
                 expected_seed,
-                "ASM Hand.asm loc_328A6 loads the HP-tier speed seed from `$46(a5)`"
+                "ASM Hand.asm loc_328A6 loads the level-selected speed seed saved in `$46(a5)`"
             );
         }
     }
@@ -1292,7 +1293,7 @@ mod tests {
     #[test]
     fn hand_initial_motion_matches_loc_327f2_store_and_collision_clear() {
         assert_eq!(
-            hand_initial_motion_loc_327f2(1, false),
+            hand_initial_motion_loc_327f2(0, false),
             HandInitialMotionLoc327F2 {
                 x_velocity: -0x0000_3000,
                 animation_label: "stru_32B6A",
@@ -1301,7 +1302,7 @@ mod tests {
             "ASM Hand.asm loc_327F2 stores the prepared d7 velocity, starts `stru_32B6A`, and clears has_kid_collision"
         );
         assert_eq!(
-            hand_initial_motion_loc_327f2(2, true).x_velocity,
+            hand_initial_motion_loc_327f2(1, true).x_velocity,
             0x0000_4800,
             "ASM Hand.asm loc_327F2 preserves the direction-gated d7 value when writing x_vel"
         );

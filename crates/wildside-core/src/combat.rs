@@ -8358,7 +8358,7 @@ impl NativeRuntime {
                             Some(HandJumpCollisionBehaviorLoc329F8::ResetToPatrol) => {
                                 let enemy = &mut self.active_enemies[active_idx];
                                 let reset = hand_jump_collision_reset_loc_32a4a(
-                                    enemy.hit_points,
+                                    enemy.enemy_level,
                                     matches!(enemy.facing, Direction::Right),
                                 );
                                 enemy.x_velocity = reset.initial_motion.x_velocity;

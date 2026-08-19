@@ -12093,26 +12093,26 @@ mod chunk_04 {
     }
 
     #[test]
-    fn hand_jump_seed_loc_328a6_loads_hp_tier_attack_seed() {
+    fn hand_jump_seed_loc_328a6_loads_level_selected_attack_seed() {
+        assert_eq!(
+            hand_jump_seed_loc_328a6(0),
+            1,
+            "ASM Hand.asm loc_328A6 loads the base-level seed saved in `$46(a5)`"
+        );
         assert_eq!(
             hand_jump_seed_loc_328a6(1),
-            1,
-            "ASM Hand.asm loc_328A6 loads `$46(a5)` as the jump speed seed for HP=1"
+            2,
+            "ASM Hand.asm loc_328A6 preserves the level-two table seed"
         );
         assert_eq!(
             hand_jump_seed_loc_328a6(2),
-            2,
-            "ASM Hand.asm loc_328A6 preserves the HP=2 table seed"
-        );
-        assert_eq!(
-            hand_jump_seed_loc_328a6(3),
             3,
-            "ASM Hand.asm loc_328A6 preserves the HP=3 table seed"
+            "ASM Hand.asm loc_328A6 preserves the level-three table seed"
         );
         assert_eq!(
             hand_jump_seed_loc_328a6(8),
             3,
-            "native clamps oversized HP to the final Hand.asm attack tier"
+            "native clamps oversized enemy levels to the final Hand.asm attack tier"
         );
     }
 
@@ -12386,7 +12386,7 @@ mod chunk_04 {
     #[test]
     fn hand_jump_collision_loc_32a4a_resets_to_initial_patrol_motion() {
         assert_eq!(
-            hand_jump_collision_reset_loc_32a4a(2, false),
+            hand_jump_collision_reset_loc_32a4a(1, false),
             HandJumpCollisionResetLoc32A4A {
                 x_velocity: 0,
                 y_velocity: 0,
@@ -12696,6 +12696,22 @@ mod chunk_04 {
     }
 
     #[test]
+    fn damaged_level_three_hand_keeps_table_walk_speed_loc_327e4() {
+        let grid = grid_with_platform(3, 0, 20);
+        let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, 48 << 16, 1);
+        enemy.enemy_level = 2;
+        enemy.hand_state = HandState::Walking;
+        enemy.facing = Direction::Right;
+
+        step_hand(&mut enemy, Some(&grid), None, None, None);
+
+        assert_eq!(
+            enemy.x_velocity, HAND_WALK_SPEED[2],
+            "ASM Hand.asm Enemy17_Hand_Init saves the level-three table velocity in `$48(a5)`, so damage does not reduce patrol speed"
+        );
+    }
+
+    #[test]
     fn hand_walking_loc_32840_reverses_at_right_floor_edge() {
         let grid = grid_with_platform(3, 0, 4);
         let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, 48 << 16, 1);
@@ -12982,7 +12998,7 @@ mod chunk_04 {
         enemy.hand_state = HandState::Walking;
         enemy.on_ground = true;
         enemy.facing = Direction::Right;
-        // Player 0x50 px ahead (beyond 0x40 range for HP=1)
+        // Player 0x50 px ahead (beyond the base level's 0x40 range).
         let player_x = Some((60 + 0x50) << 16);
         let player_y = Some(((17 * 16) - 8) << 16);
         step_hand(&mut enemy, Some(&grid), player_x, player_y, None);
@@ -12994,21 +13010,22 @@ mod chunk_04 {
     }
 
     #[test]
-    fn hand_higher_hp_has_longer_detection_range() {
+    fn hand_higher_enemy_level_has_longer_detection_range() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
         let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, floor_y, 3);
+        enemy.enemy_level = 2;
         enemy.hand_state = HandState::Walking;
         enemy.on_ground = true;
         enemy.facing = Direction::Right;
-        // Player 0x50 px ahead — beyond HP=1 range (0x40) but within HP=3 range (0x64)
+        // Player 0x50 px ahead is beyond level one's 0x40 range but within level three's 0x64 range.
         let player_x = Some((60 + 0x50) << 16);
         let player_y = Some(((17 * 16) - 8) << 16);
         step_hand(&mut enemy, Some(&grid), player_x, player_y, None);
         assert_eq!(
             enemy.hand_state,
             HandState::Jumping,
-            "HP=3 hand should detect player at 0x50 range"
+            "level-three Hand should detect player at 0x50 range"
         );
     }
 
