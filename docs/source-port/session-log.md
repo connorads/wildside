@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Walking Dragon cached speed)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found Walking Dragon's live movement and blocked-path prediction recalculated
+  the init-time speed from mutable current HP.
+- The damaged-state regression first moved a level-3 Dragon by `$8000` instead
+  of `$18000`. Both paths now read immutable `enemy_level`, matching
+  `Enemy0D_Dragon_Init`/`loc_3CDFC`'s retained `$50(a5)` value. All 74
+  DragonWalking-labelled tests, `verify-slice-fast` (7,232 tests), and
+  `verify-tas-full` (all 37,759 frames checked; gameplay/enemy/RNG green,
+  existing pixel/audio ratchets unchanged) pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Hand cached level motion)
 
 - `project-status` still offered no ready/open risk. An Orca ASM audit found no

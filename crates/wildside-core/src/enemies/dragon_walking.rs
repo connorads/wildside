@@ -607,6 +607,12 @@ enum DragonWalkingWalkStep {
     StartedAirborne,
 }
 
+fn dragon_walking_saved_walk_speed_loc_3cdfc(enemy_level: u8) -> i32 {
+    // ASM Dragon.asm Enemy0D_Dragon_Init/loc_3CDFC: current_hp is derived from
+    // immutable enemy_level, then the selected speed is retained in `$50(a5)`.
+    dragon_walking_setup_loc_3cdfc(u16::from(enemy_level) + 1).speed_slot_50
+}
+
 /// ASM Lion.asm loc_3E450/loc_3E476: shared walker Kid-X band delta.
 fn shared_walker_position_word_delta_px(lhs_pos: u32, rhs_pos: u32) -> i16 {
     // The left-facing mirrors at loc_3E604/loc_3E62A also subtract the integer
@@ -618,7 +624,7 @@ fn dragon_walking_blocked(enemy: &ActiveEnemy, block_grid: Option<&terrain::Bloc
     let Some(grid) = block_grid else {
         return false;
     };
-    let walk_speed = pacer_walk_speed(enemy.family, enemy.hit_points);
+    let walk_speed = dragon_walking_saved_walk_speed_loc_3cdfc(enemy.enemy_level);
     let x_velocity = horizontal_velocity(enemy.facing, walk_speed);
     let moving_right = x_velocity >= 0;
     let next_x = (enemy.x_pos as i64 + i64::from(x_velocity)) as u32;
@@ -656,7 +662,7 @@ fn step_dragon_walking_walk(
     {
         0
     } else {
-        pacer_walk_speed(enemy.family, enemy.hit_points)
+        dragon_walking_saved_walk_speed_loc_3cdfc(enemy.enemy_level)
     };
     let walk_delta = horizontal_velocity(enemy.facing, walk_speed);
     let moving_right = walk_delta >= 0;
@@ -1022,6 +1028,7 @@ mod tests {
     fn dragon_walking_test_enemy() -> ActiveEnemy {
         ActiveEnemy {
             family: EnemyFamily::DragonWalking,
+            enemy_level: 2,
             hit_points: 3,
             facing: Direction::Right,
             on_ground: true,
@@ -1308,6 +1315,24 @@ mod tests {
     }
 
     #[test]
+    fn damaged_level_three_dragon_keeps_saved_walk_speed_loc_3cdfc() {
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.enemy_level = 2;
+        dragon.hit_points = 1;
+        dragon.x_pos = 0x0100 << 16;
+        dragon.shared_walker_state = 0;
+
+        let step = step_dragon_walking_walk(&mut dragon, None, None);
+
+        assert!(matches!(step, DragonWalkingWalkStep::Walked));
+        assert_eq!(
+            dragon.x_pos,
+            (0x0100 << 16) + dragon_walking_setup_loc_3cdfc(3).speed_slot_50 as u32,
+            "ASM Dragon.asm Enemy0D_Dragon_Init/loc_3CDFC saves the level-three `$18000` speed in `$50(a5)`, so damage does not reduce walking speed"
+        );
+    }
+
+    #[test]
     fn dragon_walking_grounded_walk_applies_left_signed_speed_loc_3e566_3e67a() {
         let mut dragon = dragon_walking_test_enemy();
         dragon.x_pos = 0x0100 << 16;
@@ -1330,6 +1355,7 @@ mod tests {
         solid_cells.push((34, 27));
         let grid = dragon_walking_grid(40, 30, &solid_cells);
         let mut dragon = dragon_walking_test_enemy();
+        dragon.enemy_level = 0;
         dragon.hit_points = 1;
         dragon.x_pos = 0x0216_8000;
         dragon.y_pos = 0x01C0_0000;
@@ -1532,6 +1558,7 @@ mod tests {
     fn dragon_walking_scans_current_x_before_projected_step_loc_3e3b2() {
         let grid = dragon_walking_grid(32, 32, &[(22, 25)]);
         let mut dragon = dragon_walking_test_enemy();
+        dragon.enemy_level = 1;
         dragon.hit_points = 2;
         dragon.x_pos = (376 << 16) + 0x8000;
         dragon.y_pos = 400 << 16;
