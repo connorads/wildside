@@ -3818,6 +3818,41 @@ mod chunk_04 {
     }
 
     #[test]
+    fn armadillo_hurt_hibernate_moves_without_ticking_patrol_loc_3c848() {
+        let mut enemy = make_pacer(EnemyFamily::Armadillo, 3, 100, 224);
+        enemy.facing = Direction::Right;
+        enemy.x_velocity = 0x0002_8000;
+        enemy.y_velocity = -0x0000_8000;
+        enemy.shared_walker_patrol_timer = 1;
+        enemy.damage_flash_frames = 2;
+        let start_x = enemy.x_pos;
+        let start_y = enemy.y_pos;
+        let mut active = vec![enemy];
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies(
+            &mut active,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut drilled_blocks,
+        );
+
+        // ASM Armadillo.asm loc_3C848 hibernates the object coroutine on
+        // `stru_3C6D0`; kid.asm sub_1444/sub_1120 still moves its GfxObject.
+        // The loc_3DEA0 patrol callback cannot run until the animation ends.
+        assert_eq!(active[0].x_pos, start_x + 0x0002_8000);
+        assert_eq!(active[0].y_pos, start_y - 0x0000_8000);
+        assert_eq!(active[0].facing, Direction::Right);
+        assert_eq!(active[0].shared_walker_patrol_timer, 1);
+        assert_eq!(active[0].damage_flash_frames, 1);
+    }
+
+    #[test]
     fn pacer_walk_speed_scorpion_is_fixed() {
         // Scorpion: fixed $18000 regardless of HP.
         assert_eq!(pacer_walk_speed(EnemyFamily::Scorpion, 3), 0x0001_8000);

@@ -5082,6 +5082,22 @@ pub(crate) fn step_active_enemies_with_rng(
                         step_armadillo_spawned_child_fall_wait_loc_3c954(enemy, block_grid);
                         continue;
                     }
+                    if matches!(enemy.family, EnemyFamily::Armadillo)
+                        && enemy.damage_flash_frames > 0
+                    {
+                        // ASM Armadillo.asm loc_3C848: the hurt coroutine is
+                        // suspended, but sub_1444/sub_1120 still moves the
+                        // GfxObject without advancing loc_3DEA0 patrol state.
+                        let moved = armadillo_hurt_hibernate_move_loc_3c848(
+                            enemy.x_pos,
+                            enemy.y_pos,
+                            enemy.x_velocity,
+                            enemy.y_velocity,
+                        );
+                        enemy.x_pos = moved.x_position;
+                        enemy.y_pos = moved.y_position;
+                        continue;
+                    }
                     if matches!(enemy.family, EnemyFamily::Scorpion)
                         && enemy.wait_timer == SCORPION_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3DD4A
                     {

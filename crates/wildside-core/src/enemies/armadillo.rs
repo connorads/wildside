@@ -62,6 +62,27 @@ pub(crate) fn armadillo_object_meta_sync_loc_3c810(object_meta: u16) -> u16 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct ArmadilloHurtHibernateMoveLoc3C848 {
+    pub(crate) x_position: u32,
+    pub(crate) y_position: u32,
+}
+
+pub(crate) fn armadillo_hurt_hibernate_move_loc_3c848(
+    x_position: u32,
+    y_position: u32,
+    x_velocity: i32,
+    y_velocity: i32,
+) -> ArmadilloHurtHibernateMoveLoc3C848 {
+    // ASM Armadillo.asm loc_3C848 waits in Hibernate_UntilAnimFinished while
+    // kid.asm sub_1444 still calls GfxObject_Move sub_1120 once per frame.
+    // The Armadillo moves, but its loc_3DEA0 patrol callback stays suspended.
+    ArmadilloHurtHibernateMoveLoc3C848 {
+        x_position: (i64::from(x_position) + i64::from(x_velocity)) as u32,
+        y_position: (i64::from(y_position) + i64::from(y_velocity)) as u32,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ArmadilloCollisionRouteLoc3C824 {
     ContinueSharedWalker,
     Damage,

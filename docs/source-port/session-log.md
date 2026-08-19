@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Armadillo hurt hibernate movement)
+
+- `project-status` again offered no ready/open risk. The fresh Armadillo fallback
+  audited `loc_3C848` and the dedicated module; its initial mutation run caught
+  all 34 viable mutants (12 unviable).
+- ASM hibernates the hurt coroutine on `stru_3C6D0`, but global
+  `sub_1444`/`sub_1120` still moves the GfxObject each frame. Native instead ran
+  the full `loc_3DEA0` patrol callback, so an expiring patrol timer could turn
+  Armadillo and suppress that frame's movement. The live regression failed
+  before the fix and now pins velocity movement with facing and patrol state
+  suspended. The revised module catches all 38 viable mutants (13 unviable).
+  `verify-slice-fast` passes 7,240 tests. `verify-tas-full` checks all 37,759
+  frames with gameplay/enemy/RNG green and the existing pixel/audio ratchets
+  unchanged.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Tornado collision and pattern order)
 
 - `project-status` again offered no ready/open risk. The fresh Tornado fallback
