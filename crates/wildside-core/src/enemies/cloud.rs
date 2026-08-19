@@ -530,6 +530,12 @@ pub(crate) fn step_cloud(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     step_cloud_with_rng(enemy, block_grid, &mut rng);
 }
 
+pub(crate) fn cloud_wall_bounce_velocity_loc_35bde(x_velocity: i32) -> i32 {
+    // ASM Cloud.asm loc_35BDE: `neg.l x_vel(a3)` negates the complete 32-bit
+    // fixed-point velocity before toggling x_direction.
+    x_velocity.wrapping_neg()
+}
+
 pub(crate) fn step_cloud_with_rng(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
@@ -585,7 +591,7 @@ pub(crate) fn step_cloud_with_rng(
             moving_right,
         );
         if wall.hit {
-            enemy.x_velocity = -enemy.x_velocity;
+            enemy.x_velocity = cloud_wall_bounce_velocity_loc_35bde(enemy.x_velocity);
             enemy.facing = opposite_direction(enemy.facing);
         }
     }
@@ -998,6 +1004,15 @@ mod tests {
             enemy.facing,
             Direction::Right,
             "ASM Cloud.asm loc_35BDE treats zero x_vel as the right-facing wall probe before toggling x_direction on contact"
+        );
+    }
+
+    #[test]
+    fn cloud_wall_bounce_negates_wrapping_long_word_loc_35bde() {
+        assert_eq!(
+            cloud_wall_bounce_velocity_loc_35bde(i32::MIN),
+            i32::MIN,
+            "ASM Cloud.asm loc_35BDE `neg.l x_vel(a3)` wraps the most-negative long word",
         );
     }
 

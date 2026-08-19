@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Cloud wall-velocity wrap)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found native translated Cloud's `loc_35BDE` `neg.l x_vel(a3)` wall response
+  as Rust unary negation, which panicked on the most-negative signed long word.
+- The live wall branch now uses 32-bit wrapping negation. The exact boundary
+  regression first failed on the old path and now passes with all 15 focused
+  Cloud tests, `verify-slice-fast`, and all 37,759 full TAS frames.
+- NEXT: continue auditing fresh live gameplay paths; avoid frozen timing
+  feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Big Hopping Skull collision-negation wrap)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback
