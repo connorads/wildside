@@ -4792,6 +4792,7 @@ mod chunk_04 {
         let grid = grid_with_floor_at_row(14);
         let mut demon = make_pacer(EnemyFamily::FireDemon, 4, 0x80, 0xE0);
         demon.x_velocity = -0x0001_8000;
+        demon.y_velocity = 0x0000_4000;
         demon.damage_flash_frames = 3;
         let mut active = vec![demon];
         let mut drilled_blocks = Vec::new();
@@ -4810,11 +4811,13 @@ mod chunk_04 {
         );
 
         assert_eq!(
-            active[0].x_pos, 0x0080_0000,
-            "ASM Fire_Demon.asm loc_3A5BE should hibernate during the nonfatal hurt animation instead of pacing"
+            active[0].x_pos,
+            0x0080_0000u32.wrapping_sub(0x0001_8000),
+            "ASM Fire_Demon.asm loc_3A5BE hibernates the AI coroutine while kid.asm sub_1444/sub_1120 still moves the GfxObject"
         );
-        assert_eq!(active[0].x_velocity, 0);
-        assert_eq!(active[0].y_velocity, 0);
+        assert_eq!(active[0].x_velocity, -0x0001_8000);
+        assert_eq!(active[0].y_pos, 0x00E0_4000);
+        assert_eq!(active[0].y_velocity, 0x0000_4000);
     }
 
     #[test]
@@ -4844,14 +4847,15 @@ mod chunk_04 {
         }
 
         assert_eq!(
-            active[0].x_pos, 0x0080_0000,
-            "ASM Fire_Demon.asm loc_3A5BE should still hibernate after the old generic damage-flash window"
+            active[0].x_pos,
+            0x0080_0000u32.wrapping_sub(0x0001_8000 * u32::from(ENEMY_DAMAGE_FLASH_FRAMES)),
+            "ASM Fire_Demon.asm loc_3A5BE should still hibernate its AI after the old generic damage-flash window while sub_1444/sub_1120 keeps moving it"
         );
         assert_eq!(
             active[0].damage_flash_frames,
             FIRE_DEMON_HURT_ANIMATION_FRAMES_LOC_3A5BE - ENEMY_DAMAGE_FLASH_FRAMES
         );
-        assert_eq!(active[0].x_velocity, 0);
+        assert_eq!(active[0].x_velocity, -0x0001_8000);
         assert_eq!(active[0].y_velocity, 0);
     }
 

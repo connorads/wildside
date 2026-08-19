@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Fire Demon hurt hibernate movement)
+
+- `project-status` again offered no ready/open risk. The fresh Fire Demon
+  fallback audited `loc_3A5BE`, `sub_1444`/`sub_1120`, and the dedicated module;
+  its initial mutation run caught all 30 viable mutants (18 unviable).
+- ASM changes only the animation before hibernating the object coroutine, while
+  the global GfxObject pass continues applying the existing X/Y velocities.
+  Native instead zeroed both velocities and froze position for the full 24-tick
+  hurt animation. The pending-collision and live scheduler regressions now pin
+  preserved velocity and continued X/Y movement while shared-walker AI is
+  suspended. The revised module catches all 34 viable mutants (19 unviable).
+  All 74 Fire Demon-labelled tests and `verify-slice-fast` (7,240 tests) pass.
+  `verify-tas-full` checks all 37,759 frames with gameplay/enemy/RNG green and
+  the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different fresh live gameplay path; avoid frozen timing feeders
+  and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Armadillo hurt hibernate movement)
 
 - `project-status` again offered no ready/open risk. The fresh Armadillo fallback

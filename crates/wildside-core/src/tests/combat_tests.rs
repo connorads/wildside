@@ -15990,8 +15990,14 @@ mod chunk_03 {
             demon.damage_flash_frames, FIRE_DEMON_HURT_ANIMATION_FRAMES_LOC_3A5BE,
             "ASM Fire_Demon.asm loc_3A5BE hibernates for the full `stru_3A34E` duration, not the generic damage-flash window"
         );
-        assert_eq!(demon.x_velocity, 0);
-        assert_eq!(demon.y_velocity, 0);
+        assert_eq!(
+            demon.x_velocity, 0x0001_8000,
+            "ASM Fire_Demon.asm loc_3A5BE changes animation state but leaves x_vel for kid.asm sub_1444/sub_1120 movement"
+        );
+        assert_eq!(
+            demon.y_velocity, 0x0000_4000,
+            "ASM Fire_Demon.asm loc_3A5BE changes animation state but leaves y_vel for kid.asm sub_1444/sub_1120 movement"
+        );
         assert!(!demon.death_animation_active);
     }
 

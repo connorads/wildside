@@ -344,6 +344,26 @@ pub(crate) fn fire_demon_hurt_recovery_loc_3a5be(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct FireDemonHurtHibernateMoveLoc3A5BE {
+    pub(crate) x_position: u32,
+    pub(crate) y_position: u32,
+}
+
+pub(crate) fn fire_demon_hurt_hibernate_move_loc_3a5be(
+    x_position: u32,
+    y_position: u32,
+    x_velocity: i32,
+    y_velocity: i32,
+) -> FireDemonHurtHibernateMoveLoc3A5BE {
+    // ASM Fire_Demon.asm loc_3A5BE changes only the animation before
+    // hibernating. kid.asm sub_1444/sub_1120 still moves the GfxObject.
+    FireDemonHurtHibernateMoveLoc3A5BE {
+        x_position: (i64::from(x_position) + i64::from(x_velocity)) as u32,
+        y_position: (i64::from(y_position) + i64::from(y_velocity)) as u32,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum FireDemonResumeSharedWalkerBranchLoc3A5D4 {
     LeftSharedWalker,
     RightSharedWalker,

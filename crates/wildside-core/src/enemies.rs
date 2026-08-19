@@ -5051,11 +5051,17 @@ pub(crate) fn step_active_enemies_with_rng(
                     if matches!(enemy.family, EnemyFamily::FireDemon)
                         && enemy.damage_flash_frames > 0
                     {
-                        // ASM Fire_Demon.asm loc_3A5BE hibernates on
-                        // `stru_3A34E` after a nonfatal hurt collision before
-                        // restoring the saved walk animation.
-                        enemy.x_velocity = 0;
-                        enemy.y_velocity = 0;
+                        // ASM Fire_Demon.asm loc_3A5BE hibernates the AI on
+                        // `stru_3A34E`, while kid.asm sub_1444/sub_1120 keeps
+                        // applying the GfxObject's existing velocity.
+                        let moved = fire_demon_hurt_hibernate_move_loc_3a5be(
+                            enemy.x_pos,
+                            enemy.y_pos,
+                            enemy.x_velocity,
+                            enemy.y_velocity,
+                        );
+                        enemy.x_pos = moved.x_position;
+                        enemy.y_pos = moved.y_position;
                         continue;
                     }
                     if matches!(enemy.family, EnemyFamily::Goat)
