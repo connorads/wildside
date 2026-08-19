@@ -1,10 +1,10 @@
 use super::*;
 
-/// Robot walk speed: HP 2 = $8000, HP 3+ = $10000.
-/// ASM Robot.asm loc_3A7EE always adds one `$8000`, with a second `$8000`
-/// preloaded only when `current_hp >= 3`.
-pub(crate) fn robot_walk_speed(hit_points: u8) -> i32 {
-    if hit_points >= 3 { 0x1_0000 } else { 0x8000 }
+/// Robot walk speed selected once from immutable enemy_level at init.
+/// ASM Robot.asm loc_3A7AC/loc_3A7EE derives current_hp as enemy_level + 2,
+/// then stores `$8000` for level 0 or `$10000` for every higher level.
+pub(crate) fn robot_walk_speed(enemy_level: u8) -> i32 {
+    if enemy_level >= 1 { 0x1_0000 } else { 0x8000 }
 }
 
 /// Robot shoot interval: ASM Robot.asm init sets $4A(a5) = $20 = 32 frames.
@@ -597,7 +597,7 @@ fn push_robot_shot(
     }
 }
 
-/// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
+/// Step a Robot enemy: paces at level-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]
 pub(crate) fn step_robot(
@@ -620,7 +620,9 @@ pub(crate) fn step_robot_with_rng(
 ) {
     match enemy.robot_state {
         RobotState::Walking => {
-            let walk_speed = robot_walk_speed(enemy.hit_points);
+            // ASM Robot.asm loc_3A7AC/loc_3A7EE stores `$50(a5)` from the
+            // immutable layout level during init; damage never changes it.
+            let walk_speed = robot_walk_speed(enemy.enemy_level);
             // ASM Robot.asm loc_3A884 enters the shared walker left/right branch
             // from x_direction; native `facing` is that decoded branch choice.
             if let Some(grid) = block_grid {
@@ -942,6 +944,32 @@ mod tests {
                 "ASM Robot.asm loc_3A884 shared walker should reverse at the {label}",
             );
         }
+    }
+
+    #[test]
+    fn robot_walk_preserves_level_speed_after_damage_loc_3a7ee() {
+        let floor = &[
+            (0, 2),
+            (1, 2),
+            (2, 2),
+            (3, 2),
+            (4, 2),
+            (5, 2),
+            (6, 2),
+            (7, 2),
+        ];
+        let grid = grid_with_solid_cells(floor);
+        let mut robot = robot_test_enemy(RobotState::Walking, Direction::Right, 48, 32, 10);
+        robot.enemy_level = 1;
+        robot.hit_points = 2;
+
+        step_robot(&mut robot, Some(&grid), None, &mut None);
+
+        assert_eq!(
+            robot.x_pos,
+            49 << 16,
+            "ASM Robot.asm loc_3A7AC/loc_3A7EE stores the level-1 `$10000` speed at init, so damage must not reduce later walking steps",
+        );
     }
 
     #[test]

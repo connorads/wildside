@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Robot immutable walk speed)
+
+- `project-status` still offered no ready/open risk. The ASM-first fallback
+  found Robot's live walking path recalculated its init-time speed from mutable
+  current HP.
+- The damaged-state regression first moved a level-1 Robot by `$8000` instead
+  of `$10000`. Walking now reads immutable `enemy_level`, matching
+  `loc_3A7AC`/`loc_3A7EE`'s one-time `$50(a5)` seed. The older speed tests now
+  pin the actual level threshold. All 70 Robot-labelled tests,
+  `verify-slice-fast` (7,229 tests), and `verify-tas-full` (all 37,759 frames
+  checked; gameplay/enemy/RNG green, existing pixel/audio ratchets unchanged)
+  pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Archer immutable arrow accuracy)
 
 - `project-status` still offered no ready/open risk. The ASM-first fallback

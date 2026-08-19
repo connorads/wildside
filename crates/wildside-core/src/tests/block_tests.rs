@@ -13467,21 +13467,21 @@ mod chunk_04 {
     }
 
     #[test]
-    fn robot_walk_speed_loc_3a7ee_uses_binary_hp_threshold() {
+    fn robot_walk_speed_loc_3a7ee_uses_binary_level_threshold() {
+        assert_eq!(
+            robot_walk_speed(0),
+            0x8000,
+            "ASM Robot.asm loc_3A7AC/loc_3A7EE stores `$8000` for enemy level 0"
+        );
+        assert_eq!(
+            robot_walk_speed(1),
+            0x1_0000,
+            "ASM Robot.asm loc_3A7AC/loc_3A7EE stores `$10000` for enemy level 1"
+        );
         assert_eq!(
             robot_walk_speed(2),
-            0x8000,
-            "ASM Robot.asm loc_3A7EE adds one `$8000` for HP 2"
-        );
-        assert_eq!(
-            robot_walk_speed(3),
             0x1_0000,
-            "ASM Robot.asm loc_3A7EE preloads `$8000` before the shared add at HP 3"
-        );
-        assert_eq!(
-            robot_walk_speed(4),
-            0x1_0000,
-            "ASM Robot.asm loc_3A7EE does not add extra speed tiers above HP 3"
+            "ASM Robot.asm loc_3A7EE does not add extra speed tiers above enemy level 1"
         );
     }
 
@@ -13499,7 +13499,7 @@ mod chunk_04 {
 
         assert_eq!(
             left.x_velocity,
-            -robot_walk_speed(2),
+            -robot_walk_speed(0),
             "ASM Robot.asm loc_3A884 x_direction=0 branches to the leftward shared walker"
         );
         assert!(left.x_pos < left_start);
@@ -13514,7 +13514,7 @@ mod chunk_04 {
 
         assert_eq!(
             right.x_velocity,
-            robot_walk_speed(2),
+            robot_walk_speed(0),
             "ASM Robot.asm loc_3A884 x_direction=$FF branches to the rightward shared walker"
         );
         assert!(right.x_pos > right_start);
