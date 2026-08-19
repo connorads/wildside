@@ -3203,11 +3203,13 @@ mod chunk_04 {
     // -----------------------------------------------------------------------
 
     #[test]
-    fn pacer_walk_speed_goat_scales_with_hp() {
-        // Goat: base_hp=3, base_speed=$8000, step=$10000
+    fn goat_walk_speed_uses_capped_hp_bands_loc_3ca6e_3ca7e() {
+        // ASM Goat.asm loc_3CA6E/loc_3CA7E: the high-HP branch is selected
+        // once for every HP above 4; it does not add another tier per HP.
         assert_eq!(pacer_walk_speed(EnemyFamily::Goat, 3), 0x0000_8000);
         assert_eq!(pacer_walk_speed(EnemyFamily::Goat, 4), 0x0001_8000);
         assert_eq!(pacer_walk_speed(EnemyFamily::Goat, 5), 0x0002_8000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Goat, 6), 0x0002_8000);
     }
 
     #[test]

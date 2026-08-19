@@ -420,11 +420,9 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
     }
 
     let (base_hp, base_speed, speed_step) = match family {
-        // Goat.asm loc_3CA6E: HP 4+ reaches the `$10000` speed-tier add.
-        // Goat.asm loc_3CA7E: every tier then receives the final `$8000`.
-        // HP = enemy_level + 3 (min 3). Base speed $8000, step $10000.
-        // Player-tracking callback (Goat.asm loc_3CC18) wired in step dispatch.
-        EnemyFamily::Goat => (3u8, 0x0000_8000i32, 0x0001_0000i32),
+        // Goat.asm loc_3CA6E/loc_3CA7E has three capped HP bands rather than
+        // the unbounded tier formula shared by several other pacers.
+        EnemyFamily::Goat => return goat_walk_speed(hit_points),
         // Armadillo.asm loc_3C756/loc_3C766: HP 1 gets only `$8000`, HP 2
         // reaches one `$10000` add, and HP above 2 reaches the two-add high
         // path before the final `$8000`, so speed caps at `$28000`.

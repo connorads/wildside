@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-19 handoff (Goat capped patrol speed)
+
+- `project-status` again offered no ready/open risk. The fresh Goat fallback
+  audited `Enemy10_Goat_Init` and the dedicated module; its initial mutation
+  run caught all 15 viable mutants (8 unviable).
+- ASM `loc_3CA6E`/`loc_3CA7E` selects three capped patrol-speed bands. Native's
+  unbounded tier formula returned `$38000` for HP 6 instead of the high-band
+  `$28000`. The manifest confirms raw Goat levels 0/1/2 exercise HP 3/4/5,
+  including the live high branch. The exact regression failed before the fix;
+  the revised module catches all 20 viable mutants (8 unviable). All 40
+  Goat-labelled tests, `verify-slice-fast` (7,238 tests), and
+  `verify-tas-full` (all 37,759 frames checked; gameplay/enemy/RNG green,
+  existing pixel/audio ratchets unchanged) pass.
+- NEXT: continue auditing a different fresh live gameplay path; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-19 handoff (Orca wall-latched fall)
 
 - Independent review of the preceding Orca commit found that its zero X

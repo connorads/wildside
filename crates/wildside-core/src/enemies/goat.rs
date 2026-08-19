@@ -5,6 +5,15 @@ pub(crate) const GOAT_COLID_KIDRIGHT: i16 = colid::KIDRIGHT as i16;
 pub(crate) const GOAT_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
 pub(crate) const GOAT_COLID_KIDABOVE: i16 = colid::KIDABOVE as i16;
 
+/// ASM Goat.asm loc_3CA6E/loc_3CA7E: select the saved patrol speed.
+pub(crate) fn goat_walk_speed(current_hp: u8) -> i32 {
+    match current_hp {
+        0..=3 => 0x0000_8000,
+        4 => 0x0001_8000,
+        _ => 0x0002_8000,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct GoatInitAnimationProfile {
     pub(crate) initial_animation_script: &'static str,
