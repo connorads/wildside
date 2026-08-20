@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Archer aiming word deltas)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  moved to Archer and found widened coordinate subtraction in the live aiming
+  quadrant calculation.
+- ASM `loc_34458` uses wrapping `SUB.W` for both deltas; native widened the
+  fixed-point integer words before subtraction and selected the opposite
+  quadrant across `$FFFF` to `$0000`. X and Y deltas now retain word width.
+- All 58 Archer-labelled tests pass. Final verification:
+  `mise run verify-slice-fast` passes 7,253 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further
+  Archer work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Diamond spawn word comparison)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

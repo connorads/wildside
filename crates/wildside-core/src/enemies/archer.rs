@@ -308,9 +308,14 @@ pub(crate) fn archer_angle_loc_34458(
     player_x: u32,
     player_y: u32,
 ) -> ArcherAngleLoc34458 {
-    let dx = (player_x >> 16) as i32 - (archer_x >> 16) as i32;
-    // Archer aims 16px above player centre (subi.w #$10,d7 in ASM).
-    let dy = ((player_y >> 16) as i32 - 0x10) - (archer_y >> 16) as i32;
+    let archer_x_word = (archer_x >> 16) as i16;
+    let archer_y_word = (archer_y >> 16) as i16;
+    let player_x_word = (player_x >> 16) as i16;
+    let player_y_word = (player_y >> 16) as i16;
+    // ASM Archer.asm loc_34458 computes both deltas as signed wrapping words.
+    let dx = i32::from(player_x_word.wrapping_sub(archer_x_word));
+    // Archer aims 16px above player centre (`subi.w #$10,d7`).
+    let dy = i32::from(player_y_word.wrapping_sub(0x10).wrapping_sub(archer_y_word));
 
     // Ratio lookup table from unk_34404 (84 entries). Maps (abs_dy*8/abs_dx) to sub-angle 0-5.
     const RATIO_TABLE: [u8; 84] = [
@@ -764,6 +769,14 @@ mod tests {
                 quadrant_selector: 3,
             },
             "ASM Archer.asm loc_34546 switches to down-vertical overflow when d4 is non-negative"
+        );
+        assert_eq!(
+            archer_angle_loc_34458(0xFFFF_0000, 100 << 16, 0, 116 << 16),
+            ArcherAngleLoc34458 {
+                angle: 0x1B,
+                quadrant_selector: 3,
+            },
+            "ASM Archer.asm loc_34458 uses wrapping SUB.W for the horizontal quadrant at the coordinate-word boundary",
         );
     }
 
