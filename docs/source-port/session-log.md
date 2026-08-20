@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Shooting Tank bullet position words)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  moved to Shooting Tank and found widened fixed-point arithmetic in its live
+  bullet-spawn path.
+- ASM `loc_3B77E` copies the turret child's X word before applying the signed
+  facing-specific muzzle offset. `loc_3B786` copies its Y word before applying
+  the turret-height offset. Native retained fractional walking position bits;
+  bullets now construct both coordinates from wrapping integer words.
+- All 24 Shooting-Tank-labelled tests pass. Final verification:
+  `mise run verify-slice-fast` passes 7,261 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further Tank
+  work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Tar Monster shot position words)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

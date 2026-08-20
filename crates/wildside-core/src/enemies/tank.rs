@@ -1160,6 +1160,38 @@ mod tests {
     }
 
     #[test]
+    fn tank_shooting_fire_loc_3b77e_3b786_copies_and_wraps_position_words() {
+        for (facing, expected_x_pos) in [
+            (Direction::Left, 0xFFF9_0000),
+            (Direction::Right, 0x0017_0000),
+        ] {
+            let mut enemy = ActiveEnemy {
+                family: EnemyFamily::TankShooting,
+                hit_points: 4,
+                death_animation_active: false,
+                facing,
+                x_pos: 0x0008_BEEF,
+                y_pos: 0x0005_CAFE,
+                wait_timer: 0,
+                ..mini_hopping_skull_test_enemy()
+            };
+            let mut projectiles = Vec::new();
+
+            step_tank_shooting_fire(&mut enemy, &mut projectiles, None);
+
+            assert_eq!(projectiles.len(), 1);
+            assert_eq!(
+                projectiles[0].x_pos, expected_x_pos,
+                "ASM Tank_Shooting.asm loc_3B77E copies the X word before applying the facing-specific muzzle offset"
+            );
+            assert_eq!(
+                projectiles[0].y_pos, 0xFFF7_0000,
+                "ASM Tank_Shooting.asm loc_3B786 copies the Y word before subtracting the turret height"
+            );
+        }
+    }
+
+    #[test]
     fn tank_shooting_fire_queues_tank_shoots_sfx_loc_3b730() {
         // ASM Tank_Shooting.asm loc_3B730 (line 190): one hibernate frame after
         // the bullet worker spawns, `moveq #sfx_Tank_shoots,d0; jsr j_PlaySound`

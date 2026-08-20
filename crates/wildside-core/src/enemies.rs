@@ -10356,14 +10356,19 @@ pub(crate) fn step_tank_shooting_fire(
     }
 
     let x_velocity = horizontal_velocity(enemy.facing, TANK_BULLET_SPEED);
-    let x_offset = horizontal_velocity(enemy.facing, TANK_BULLET_SPAWN_X_OFFSET_PX << 16);
+    let x_offset_px = if enemy.facing == Direction::Right {
+        TANK_BULLET_SPAWN_X_OFFSET_PX as i16
+    } else {
+        -(TANK_BULLET_SPAWN_X_OFFSET_PX as i16)
+    };
+    let x_pos_word = ((enemy.x_pos >> 16) as u16).wrapping_add_signed(x_offset_px);
+    let y_pos_word =
+        ((enemy.y_pos >> 16) as u16).wrapping_sub(TANK_BULLET_SPAWN_Y_OFFSET_PX as u16);
     projectiles.push(EnemyProjectile {
-        // ASM loc_3B75A/loc_3B786: start from the turret child and offset to
-        // the muzzle instead of the body centre.
-        x_pos: enemy.x_pos.wrapping_add_signed(x_offset),
-        y_pos: enemy
-            .y_pos
-            .wrapping_sub((TANK_BULLET_SPAWN_Y_OFFSET_PX as u32) << 16),
+        // ASM Tank_Shooting.asm loc_3B77E/loc_3B786: copy the turret child's
+        // coordinate words, then apply the muzzle offsets with word wrapping.
+        x_pos: u32::from(x_pos_word) << 16,
+        y_pos: u32::from(y_pos_word) << 16,
         x_velocity,
         lifetime: TANK_BULLET_LIFETIME,
         kind: EnemyProjectileKind::TankBullet,
