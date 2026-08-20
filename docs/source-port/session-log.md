@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Mini Hopping Skull gravity wrap)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  refreshed `enemies/mini_hopping_skull.rs`: all 146 mutations completed in
+  16 minutes, with 90 caught and 56 compile-unviable. The pure helper surface
+  had no survivor, so the audit continued through the live runtime wiring.
+- ASM `loc_3EA88` applies `$1200` gravity with `add.l`. Native instead used
+  checked Rust addition followed by the player fall-speed clamp, panicking at
+  the signed long-word boundary. The live regression failed on that panic;
+  `step_hopper` now uses `wrapping_add`, and all 101 Mini Hopping Skull-labelled
+  tests pass. Ordinary route values are unchanged.
+- Final verification: `mise run verify-slice-fast` passes 7,244 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different live gameplay family or mutation target; avoid frozen
+  timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Sphere parent callback attribution)
 
 - `project-status` again offered no ready/open risk. The coverage fallback's

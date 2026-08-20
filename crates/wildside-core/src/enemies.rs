@@ -7786,7 +7786,7 @@ pub(crate) fn step_hopper(
     // ASM Mini_Hopping_Skull.asm loc_3EA88: after the hibernated frame and
     // retention check, `add.l d3,y_vel(a3)` applies `$1200` gravity before the
     // collision-type dispatch.
-    enemy.y_velocity = (enemy.y_velocity + hc.gravity).min(physics::MAX_FALL_SPEED);
+    enemy.y_velocity = enemy.y_velocity.wrapping_add(hc.gravity);
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
@@ -12850,6 +12850,26 @@ mod tests {
             enemy.wait_timer,
             MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 | 4,
             "ASM loc_3EBE4 resumes the windup DBF loop after stru_3E9C2 finishes"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_gravity_wraps_as_long_word_addition_loc_3ea88() {
+        let grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 4 * 2], 8, 4);
+        let mut enemy = ActiveEnemy {
+            on_ground: false,
+            x_pos: 32 << 16,
+            y_pos: 8 << 16,
+            y_velocity: i32::MAX - (MINI_SKULL_GRAVITY_FP - 1),
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_hopper(&mut enemy, Some(&grid), Some(40 << 16));
+
+        assert_eq!(
+            enemy.y_velocity,
+            i32::MIN,
+            "ASM Mini_Hopping_Skull.asm loc_3EA88 uses ADD.L, so gravity wraps at the signed long-word boundary without a fall-speed clamp"
         );
     }
 
