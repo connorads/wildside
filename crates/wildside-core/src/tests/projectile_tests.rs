@@ -10211,6 +10211,8 @@ mod chunk_06 {
         let mut goat = test_enemy(EnemyFamily::Goat, 0x0040_0000, 0x0040_0000, 2);
         goat.facing = Direction::Left;
         goat.shared_walker_state = 1;
+        goat.x_velocity = 0x0000_8000;
+        goat.y_velocity = 0x0000_4000;
         rt.active_enemies.push(goat);
 
         rt.process_berzerker_charge_hits(&mut slice);
@@ -10224,14 +10226,14 @@ mod chunk_06 {
             goat.x_pos, 0x0054_0000,
             "ASM Goat.asm loc_3CBBA adds `$14` pixels when x_direction is clear"
         );
-        assert_eq!(goat.x_velocity, 0);
-        assert_eq!(goat.y_velocity, 0);
+        assert_eq!(goat.x_velocity, 0x0000_8000);
+        assert_eq!(goat.y_velocity, 0x0000_4000);
         assert_eq!(goat.shared_walker_state, -0x0078);
         assert_eq!(
             goat.walk_speed_override,
             pacer_walk_speed(EnemyFamily::Goat, 2)
         );
-        assert_eq!(goat.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES);
+        assert_eq!(goat.damage_flash_frames, GOAT_HURT_ANIMATION_FRAMES);
         assert_eq!(goat.wait_timer, 0);
     }
 

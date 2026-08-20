@@ -7575,11 +7575,9 @@ impl NativeRuntime {
                             // animation, restores saved walker speed, and
                             // resumes without decrementing HP.
                             enemy.x_pos = shove.x_position as u32;
-                            enemy.x_velocity = 0;
-                            enemy.y_velocity = 0;
                             enemy.shared_walker_state = shove.recoil_state_word;
                             enemy.walk_speed_override = shove.restored_walk_speed;
-                            enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                            enemy.damage_flash_frames = GOAT_HURT_ANIMATION_FRAMES;
                             changed_enemy_state = true;
                             continue;
                         }

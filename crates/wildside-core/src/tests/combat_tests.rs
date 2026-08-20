@@ -16421,10 +16421,33 @@ mod chunk_03 {
             pacer_walk_speed(EnemyFamily::Goat, 4),
             "ASM Goat.asm loc_3CB38 restores `$50(a5)` from the saved Goat walk speed"
         );
-        assert_eq!(goat.x_velocity, 0);
-        assert_eq!(goat.y_velocity, 0);
-        assert_eq!(goat.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES);
+        assert_eq!(goat.x_velocity, 0x0001_8000);
+        assert_eq!(goat.y_velocity, 0x0000_4000);
+        assert_eq!(
+            goat.damage_flash_frames, GOAT_HURT_ANIMATION_FRAMES,
+            "ASM Goat.asm loc_3CB38 hibernates through the single $14-tick stru_3C9E4 hurt frame"
+        );
         assert!(!goat.death_animation_active);
+
+        let start_x = goat.x_pos;
+        let start_y = goat.y_pos;
+        step_active_enemies(
+            &mut runtime.active_enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut Vec::new(),
+        );
+
+        let goat = runtime.active_enemies[0];
+        assert_eq!(goat.x_pos, start_x.wrapping_add_signed(0x0001_8000));
+        assert_eq!(goat.y_pos, start_y.wrapping_add_signed(0x0000_4000));
+        assert_eq!(goat.x_velocity, 0x0001_8000);
+        assert_eq!(goat.y_velocity, 0x0000_4000);
     }
 
     #[test]

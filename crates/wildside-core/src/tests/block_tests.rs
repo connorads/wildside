@@ -3387,10 +3387,10 @@ mod chunk_04 {
         );
 
         assert_eq!(
-            active[0].x_pos, 0x0080_0000,
-            "ASM Goat.asm loc_3CB38 hibernates through `stru_3C9E4` before resuming the shared walker",
+            active[0].x_pos, 0x007F_8000,
+            "ASM Goat.asm loc_3CB38 hibernates the coroutine while kid.asm sub_1444/sub_1120 applies the existing velocity",
         );
-        assert_eq!(active[0].x_velocity, 0);
+        assert_eq!(active[0].x_velocity, -0x0000_8000);
         assert_eq!(active[0].y_velocity, 0);
     }
 

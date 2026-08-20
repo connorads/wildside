@@ -1693,6 +1693,9 @@ pub(crate) const UFO_DEATH_ANIMATION_FRAMES: u16 = 7 + 7 + 7;
 /// frames before the loc_36096 delete tail.
 pub(crate) const SPHERE_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x0A + 0x0A;
 const SPHERE_LIVE_ANIMATION_FRAMES: u16 = 0x09 + 0x09 + 0x09;
+/// ASM Goat.asm loc_3CB38 / stru_3C9E4: the nonfatal hurt animation is one
+/// `$14`-tick frame.
+pub(crate) const GOAT_HURT_ANIMATION_FRAMES: u8 = 0x14;
 /// ASM Goat.asm loc_3CB64 plays `stru_3C9EA`: $1E, $0A, then $37 ticks
 /// before the shared delete tail at loc_3E956.
 pub(crate) const GOAT_DEATH_ANIMATION_FRAMES: u16 = 0x1E + 0x0A + 0x37;
@@ -2513,7 +2516,7 @@ impl ActiveEnemy {
                     self.hit_points = remaining_hp as u8;
                     self.shared_walker_state = recoil_state_word;
                     self.walk_speed_override = restored_walk_speed;
-                    self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    self.damage_flash_frames = GOAT_HURT_ANIMATION_FRAMES;
                     return false;
                 }
             }
@@ -5078,10 +5081,11 @@ pub(crate) fn step_active_enemies_with_rng(
                     }
                     if matches!(enemy.family, EnemyFamily::Goat) && enemy.damage_flash_frames > 0 {
                         // ASM Goat.asm loc_3CB38 plays `stru_3C9E4` and
-                        // hibernates before restoring the saved patrol
-                        // animation and resuming the shared walker.
-                        enemy.x_velocity = 0;
-                        enemy.y_velocity = 0;
+                        // hibernates the coroutine, while kid.asm
+                        // sub_1444/sub_1120 keeps applying the GfxObject's
+                        // existing velocity.
+                        enemy.x_pos = enemy.x_pos.wrapping_add_signed(enemy.x_velocity);
+                        enemy.y_pos = enemy.y_pos.wrapping_add_signed(enemy.y_velocity);
                         continue;
                     }
                     if matches!(enemy.family, EnemyFamily::Armadillo)

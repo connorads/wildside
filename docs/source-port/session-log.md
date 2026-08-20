@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Goat hurt hibernate movement)
+
+- `project-status` again offered no ready/open risk. The fresh Goat fallback
+  audited the complete enemy ASM and its live initialisation, collision,
+  tracking, Berzerker, damage, and animation paths.
+- `loc_3CB38` and `loc_3CBCE` install the single `$14`-tick `stru_3C9E4` hurt
+  frame and hibernate the object coroutine while global `sub_1444`/`sub_1120`
+  continues applying the GfxObject velocity. Native instead used the generic
+  eight-frame flash and cleared movement. Pending-collision, shared-walker,
+  and positive-recoil Berzerker regressions now pin the exact 20-tick duration,
+  preserved X/Y velocity, and continued movement. All 39 Goat-labelled tests
+  pass.
+- Final `verify-slice-fast` passed 7,242 core tests plus the workspace and
+  pixel-gate checks. `verify-tas-full` passed all 37,759 gameplay, enemy, RNG,
+  and player/camera checkpoints; the existing 241-frame HUD-pixel and GEMS
+  signature ratchets remain unchanged.
+- NEXT: audit a different fresh live gameplay path; avoid frozen timing feeders
+  and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Scorpion hurt hibernate movement)
 
 - `project-status` again offered no ready/open risk. The fresh Scorpion

@@ -9648,8 +9648,6 @@ impl NativeRuntime {
                         if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
                             kill_indices.push(active_idx);
                         } else {
-                            enemy.x_velocity = 0;
-                            enemy.y_velocity = 0;
                             changed_enemy_state = true;
                         }
                     }
@@ -9681,11 +9679,9 @@ impl NativeRuntime {
                                     saved_walk_speed,
                                 );
                                 enemy.x_pos = shove.x_position as u32;
-                                enemy.x_velocity = 0;
-                                enemy.y_velocity = 0;
                                 enemy.shared_walker_state = shove.recoil_state_word;
                                 enemy.walk_speed_override = shove.restored_walk_speed;
-                                enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                                enemy.damage_flash_frames = GOAT_HURT_ANIMATION_FRAMES;
                                 enemy.wait_timer = 0;
                                 changed_enemy_state = true;
                             }
