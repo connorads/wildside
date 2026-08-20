@@ -855,14 +855,16 @@ pub(crate) fn step_ufo_beam_with_rng(
             // ASM UFO.asm Enemy0F_UFOBeam_Init: start at the UFO X, subtract 4,
             // then add 8 when `x_direction` is set. Native Direction::Right
             // represents that set/flipped byte for this enemy.
-            let x_offset_px = if matches!(enemy.facing, Direction::Right) {
+            let x_offset_px: i16 = if matches!(enemy.facing, Direction::Right) {
                 4
             } else {
                 -4
             };
+            let x_pos_word = ((enemy.x_pos >> 16) as u16).wrapping_add_signed(x_offset_px);
+            let y_pos_word = ((enemy.y_pos >> 16) as u16).wrapping_add(10);
             projectiles.push(EnemyProjectile {
-                x_pos: (enemy.x_pos as i64 + (i64::from(x_offset_px) << 16)) as u32,
-                y_pos: (enemy.y_pos as i64 + (10 << 16)) as u32,
+                x_pos: u32::from(x_pos_word) << 16,
+                y_pos: u32::from(y_pos_word) << 16,
                 y_velocity: UFO_BEAM_Y_VELOCITY,
                 // ASM Enemy0F_UFOBeam_Loop has no timer: the beam lives until
                 // a collision word (terrain, Kid, or the level's bottom
@@ -2106,6 +2108,37 @@ mod tests {
         );
         assert!(!some_ufo_shooting);
         assert!(projectiles.is_empty());
+    }
+
+    #[test]
+    fn ufo_beam_init_copies_and_wraps_position_words() {
+        let mut enemy = ufo_test_enemy(0, 0);
+        enemy.x_pos = (0xFFFE << 16) | 0xBEEF;
+        enemy.y_pos = (0xFFFA << 16) | 0xCAFE;
+        enemy.facing = Direction::Right;
+        enemy.ufo_beam_segments = 2;
+        enemy.ufo_beam_interval = 1;
+        let mut projectiles = Vec::new();
+        let mut rng = RomRandomState::default();
+
+        step_ufo_beam_with_rng(
+            &mut enemy,
+            &mut projectiles,
+            None,
+            &mut rng,
+            true,
+            false,
+            None,
+        );
+
+        assert_eq!(
+            projectiles[0].x_pos, 0x0002_0000,
+            "ASM UFO.asm Enemy0F_UFOBeam_Init copies X as a word and wraps the facing offset"
+        );
+        assert_eq!(
+            projectiles[0].y_pos, 0x0004_0000,
+            "ASM UFO.asm Enemy0F_UFOBeam_Init copies Y as a word and wraps ADDI.W #$A"
+        );
     }
 
     fn ufo_test_enemy(x_px: u32, y_px: u32) -> ActiveEnemy {

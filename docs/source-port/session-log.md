@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (UFO beam position words)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  moved to UFO and found widened fixed-point arithmetic in its live beam
+  segment spawn.
+- ASM `Enemy0F_UFOBeam_Init` copies the parent's X/Y words, adds ten to Y,
+  then applies the facing-specific X offset with word arithmetic. Native
+  retained the parent's fractional low words; beam segments now construct
+  both coordinates from wrapping integer words.
+- All 72 UFO-labelled tests pass. Final verification:
+  `mise run verify-slice-fast` passes 7,257 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further UFO
+  work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Robot shot position words)
 
 - `project-status` again offered no ready/open risk. The proactive fallback
