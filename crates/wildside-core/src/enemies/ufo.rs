@@ -3975,6 +3975,35 @@ mod tests {
     }
 
     #[test]
+    fn ufo_live_acceleration_wraps_before_signed_target_compare_loc_3501e_3502a() {
+        let mut positive = ufo_test_enemy(100, 80);
+        positive.x_velocity = i32::MAX - 0x0FFF;
+        positive.x_acceleration = 0x1000;
+        positive.target_x_velocity = i32::MAX;
+
+        step_ufo(&mut positive, None);
+
+        assert_eq!(
+            positive.x_velocity,
+            i32::MIN,
+            "ASM UFO.asm Enemy_HandleAcceleration/loc_3502A performs wrapping ADD.L before its signed target comparison"
+        );
+
+        let mut negative = ufo_test_enemy(100, 80);
+        negative.x_velocity = i32::MIN + 0x0FFF;
+        negative.x_acceleration = -0x1000;
+        negative.target_x_velocity = i32::MIN;
+
+        step_ufo(&mut negative, None);
+
+        assert_eq!(
+            negative.x_velocity,
+            i32::MAX,
+            "ASM UFO.asm Enemy_HandleAcceleration/loc_3501E performs wrapping ADD.L before its signed target comparison"
+        );
+    }
+
+    #[test]
     fn ufo_beam_clear_state_matches_loc_34ffe() {
         assert_eq!(
             ufo_beam_clear_shooting_state_loc_34ffe(),

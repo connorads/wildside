@@ -5639,7 +5639,7 @@ pub(crate) fn ufo_apply_acceleration_axis_loc_3502a(
     acceleration: i32,
 ) -> i32 {
     // ASM UFO.asm loc_3502A: add positive acceleration and cap to desired axis speed.
-    let next_velocity = current_velocity.saturating_add(acceleration);
+    let next_velocity = current_velocity.wrapping_add(acceleration);
     ufo_apply_acceleration_axis_loc_35050(next_velocity.min(target_velocity))
 }
 
@@ -5659,7 +5659,7 @@ pub(crate) fn ufo_apply_acceleration_axis_loc_35044(
     acceleration: i32,
 ) -> i32 {
     // ASM UFO.asm loc_35044: keep the accelerated value while it stays above the target.
-    let next_velocity = current_velocity.saturating_add(acceleration);
+    let next_velocity = current_velocity.wrapping_add(acceleration);
     if next_velocity > target_velocity {
         ufo_apply_acceleration_axis_loc_35050(next_velocity)
     } else {

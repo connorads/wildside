@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (UFO acceleration wrap)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited UFO/Tornado's live shared acceleration path against
+  `UFO.asm Enemy_HandleAcceleration`.
+- ASM wraps `ADD.L` before the signed target-speed comparison in both positive
+  and negative acceleration branches. Native saturated at `i32::MAX`/`MIN`;
+  the live `step_ufo` regression failed at both boundaries and now observes the
+  wrapped results. All 108 UFO-labelled tests pass.
+- Final verification: `mise run verify-slice-fast` passes 7,247 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different fresh live gameplay family or mutation target; avoid
+  frozen timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Fireball gravity wrap)
 
 - `project-status` again offered no ready/open risk. The proactive fallback
