@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Cloud lightning position words)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  moved to Cloud and found clamped coordinates in its live lightning child
+  spawn.
+- ASM `loc_35DF0` copies X/Y words, wraps `SUBI.W #$B` on Y, and applies the
+  diagonal X offsets at word width. Native clamped both axes to zero at the
+  coordinate boundary; the spawn now retains the wrapped words.
+- All 48 Cloud-labelled tests pass. Final verification:
+  `mise run verify-slice-fast` passes 7,254 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further
+  Cloud work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Archer aiming word deltas)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

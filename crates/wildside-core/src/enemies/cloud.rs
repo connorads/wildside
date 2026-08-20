@@ -615,18 +615,18 @@ fn cloud_projectile_spawn_loc_35df0(
     // ASM Cloud.asm loc_35DF0: the projectile copies Cloud's x/y words,
     // subtracts 11px from Y, stores $44/$46 as x/y velocity words, and nudges
     // diagonal sprites by +4px or -4px depending on the copied direction.
-    let mut x_px = (enemy.x_pos >> 16) as i32;
-    let y_px = ((enemy.y_pos >> 16) as i32 - 0x0B).max(0);
+    let mut x_pos_word = (enemy.x_pos >> 16) as u16;
+    let y_pos_word = ((enemy.y_pos >> 16) as u16).wrapping_sub(0x000B);
     if x_word != 0 && y_word != 0 {
-        x_px += 4;
+        x_pos_word = x_pos_word.wrapping_add(4);
         if projectile_x_direction != 0 {
-            x_px -= 8;
+            x_pos_word = x_pos_word.wrapping_sub(8);
         }
     }
 
     EnemyProjectile {
-        x_pos: (x_px.max(0) as u32) << 16,
-        y_pos: (y_px as u32) << 16,
+        x_pos: u32::from(x_pos_word) << 16,
+        y_pos: u32::from(y_pos_word) << 16,
         x_velocity: i32::from(x_word) << 16,
         y_velocity: i32::from(y_word) << 16,
         // ASM loc_35E8A deletes on collision or the projectile animation's
@@ -1112,6 +1112,24 @@ mod tests {
         assert_eq!(diagonal_right.y_pos, 39 << 16);
         assert_eq!(diagonal_right.x_velocity, 0x3_0000);
         assert_eq!(diagonal_right.y_velocity, 0x3_0000);
+    }
+
+    #[test]
+    fn cloud_projectile_spawn_loc_35df0_wraps_position_words() {
+        let mut enemy = cloud_enemy_for_attack();
+        enemy.x_pos = 2 << 16;
+        enemy.y_pos = 5 << 16;
+
+        let projectile = cloud_projectile_spawn_loc_35df0(&enemy, -3, 3, 0xFF);
+
+        assert_eq!(
+            projectile.x_pos, 0xFFFE_0000,
+            "ASM Cloud.asm loc_35DF0 applies the diagonal X offsets to the copied position word"
+        );
+        assert_eq!(
+            projectile.y_pos, 0xFFFA_0000,
+            "ASM Cloud.asm loc_35DF0 wraps SUBI.W #$B at the top coordinate boundary"
+        );
     }
 
     #[test]
