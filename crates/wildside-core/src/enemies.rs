@@ -9437,7 +9437,7 @@ fn step_dragon_walking_airborne(enemy: &mut ActiveEnemy, block_grid: Option<&ter
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
     let Some(grid) = block_grid else {
-        enemy.y_velocity = (enemy.y_velocity + DRAGON_WALKING_GRAVITY).min(physics::MAX_FALL_SPEED);
+        enemy.y_velocity = shared_walker_airborne_gravity_loc_3e77e_3e89a(enemy.y_velocity);
         enemy.shared_walker_debug_branch = Some("airborne_fall");
         return;
     };
@@ -9488,7 +9488,7 @@ fn step_dragon_walking_airborne(enemy: &mut ActiveEnemy, block_grid: Option<&ter
         }
     }
 
-    enemy.y_velocity = (enemy.y_velocity + DRAGON_WALKING_GRAVITY).min(physics::MAX_FALL_SPEED);
+    enemy.y_velocity = shared_walker_airborne_gravity_loc_3e77e_3e89a(enemy.y_velocity);
     enemy.shared_walker_debug_branch = Some("airborne_fall");
 }
 
@@ -9499,7 +9499,7 @@ fn step_dragon_walking_airborne_after_x_commit(
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
     let Some(grid) = block_grid else {
-        enemy.y_velocity = (enemy.y_velocity + DRAGON_WALKING_GRAVITY).min(physics::MAX_FALL_SPEED);
+        enemy.y_velocity = shared_walker_airborne_gravity_loc_3e77e_3e89a(enemy.y_velocity);
         enemy.shared_walker_debug_branch = Some("airborne_fall");
         return;
     };
@@ -9535,9 +9535,18 @@ fn step_dragon_walking_airborne_after_x_commit(
         }
     }
 
-    enemy.y_velocity = (enemy.y_velocity + DRAGON_WALKING_GRAVITY).min(physics::MAX_FALL_SPEED);
+    enemy.y_velocity = shared_walker_airborne_gravity_loc_3e77e_3e89a(enemy.y_velocity);
     enemy.shared_walker_debug_branch = Some("airborne_fall");
 }
+
+fn shared_walker_airborne_gravity_loc_3e77e_3e89a(y_velocity: i32) -> i32 {
+    // ASM Lion.asm loc_3E77E/loc_3E89A: ADD.L wraps before the signed
+    // comparison clamps positive downward velocity to `$180000`.
+    y_velocity
+        .wrapping_add(DRAGON_WALKING_GRAVITY)
+        .min(physics::MAX_FALL_SPEED)
+}
+
 /// Native-only sentinel set at the ceiling-attach frame. The loc_3340E RNG
 /// byte is drawn in a post-pass over all same-frame attaches because ASM
 /// `Allocate_ObjectSlot` (kid.asm loc_DE0: `cmp.w $E(a1),d6; bhi.s loc_DE0`)
@@ -11219,6 +11228,24 @@ pub(crate) mod test_fixtures {
 mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
+
+    #[test]
+    fn shared_walker_gravity_wraps_before_terminal_speed_clamp_loc_3e77e_3e89a() {
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::DragonWalking,
+            on_ground: false,
+            y_velocity: i32::MAX - (DRAGON_WALKING_GRAVITY - 1),
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_dragon_walking_airborne(&mut enemy, None);
+
+        assert_eq!(
+            enemy.y_velocity,
+            i32::MIN,
+            "ASM Lion.asm loc_3E77E/loc_3E89A performs ADD.L before the signed terminal-speed comparison"
+        );
+    }
 
     #[test]
     fn ninja_uses_lion_walker_cliff_semantics_loc_3e3b2_3e566() {

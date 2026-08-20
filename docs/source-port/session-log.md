@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (shared walker gravity wrap)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited live saturating and clamped enemy arithmetic, then traced the shared
+  Walking Dragon/Lion airborne paths to `Lion.asm loc_3E77E` and `loc_3E89A`.
+- ASM performs wrapping `ADD.L #$4000` before its signed `$180000` terminal-speed
+  comparison. Native used checked Rust addition before the clamp, which panicked
+  at the signed long-word boundary. One ASM-cited helper now owns the rule for
+  both directions and terrain/no-terrain branches; the live boundary regression
+  passes.
+- Final verification: `mise run verify-slice-fast` passes 7,245 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different fresh live gameplay family or mutation target; avoid
+  frozen timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Mini Hopping Skull gravity wrap)
 
 - `project-status` again offered no ready/open risk. The proactive fallback
