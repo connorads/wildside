@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Fireball rebound arithmetic wrap)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited live enemy counters, rejected bounded timer/count candidates, then
+  traced Fireball floor/ceiling rebound to
+  `Enemy19_Fireball_BounceFloorCeiling`.
+- ASM wraps both `ADD.L` perturbation and `NEG.L` rebound operations before its
+  signed HP speed cap. Native saturated both. Boundary regressions distinguish
+  the wrapped-add sign and `NEG.L` of `$80000000`; all 63 Fireball-labelled
+  tests pass.
+- Final verification: `mise run verify-slice-fast` passes 7,249 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different fresh live gameplay family or mutation target; avoid
+  frozen timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (shared falling-loop gravity wrap)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

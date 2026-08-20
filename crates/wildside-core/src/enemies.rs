@@ -5778,10 +5778,12 @@ pub(crate) fn fireball_bounce_y_velocity_with_rng(
     rng: &mut RomRandomState,
     camera_x_px: u32,
 ) -> i32 {
+    // ASM Enemy19_Fireball_BounceFloorCeiling: both `add.l` and `neg.l`
+    // retain their low 32 bits before the signed rebound-cap branches.
     let perturbed = enemy
         .y_velocity
-        .saturating_add(fireball_bounce_perturbation_with_rng(rng, camera_x_px));
-    let mut rebound = perturbed.saturating_neg();
+        .wrapping_add(fireball_bounce_perturbation_with_rng(rng, camera_x_px));
+    let mut rebound = perturbed.wrapping_neg();
     if rebound < 0 {
         let hp_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
         let cap = FIREBALL_UPWARD_CAP_BY_HP[hp_index];
@@ -11255,6 +11257,38 @@ mod tests {
             enemy.y_velocity,
             i32::MIN,
             "ASM Lion.asm loc_3E77E/loc_3E89A performs ADD.L before the signed terminal-speed comparison"
+        );
+    }
+
+    #[test]
+    fn fireball_bounce_wraps_add_and_negate_enemy19_fireball_bounce_floor_ceiling() {
+        let mut rng_ram = [0; RomRandomRing::LENGTH];
+        rng_ram[1] = 3;
+        let mut rng = RomRandomState::from_raw_parts(rng_ram, 0xFFC9);
+        let enemy = ActiveEnemy {
+            family: EnemyFamily::Fireball,
+            hit_points: 1,
+            y_velocity: i32::MAX - 0x100,
+            ..fireball_test_enemy()
+        };
+
+        let add_wrap = fireball_floor_ceiling_bounce_loc_32ce4(&enemy, &mut rng, 0, 5);
+        let mut zero_rng = RomRandomState::from_raw_parts([0; RomRandomRing::LENGTH], 0xFFC9);
+        let min_velocity_enemy = ActiveEnemy {
+            y_velocity: i32::MIN,
+            ..enemy
+        };
+        let negate_wrap =
+            fireball_floor_ceiling_bounce_loc_32ce4(&min_velocity_enemy, &mut zero_rng, 0, 5);
+
+        assert_eq!(
+            add_wrap.y_velocity,
+            i32::MAX - 0x7E,
+            "ASM Enemy19_Fireball_BounceFloorCeiling wraps ADD.L before negating the perturbed velocity"
+        );
+        assert_eq!(
+            negate_wrap.y_velocity, FIREBALL_UPWARD_CAP_BY_HP[0],
+            "ASM Enemy19_Fireball_BounceFloorCeiling leaves NEG.L of i32::MIN negative before applying the HP-1 upward cap"
         );
     }
 
