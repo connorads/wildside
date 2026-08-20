@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Driller retract hibernate movement)
+
+- `project-status` again offered no ready/open risk. The fresh Driller fallback
+  audited the complete enemy ASM and its live initialisation, drill-child,
+  block, walker, collision, damage, and animation paths. This hardens the live
+  Driller sweep family rather than a frozen timing feeder.
+- `loc_3BF4E` installs the single `$1E`-tick `stru_3BCCE` retract frame and
+  hibernates the object coroutine, suspending the shared walker that commits
+  ground X directly through `d2 -> x_pos`; the detached drill children still
+  receive their own collision pass. Native pending collision instead used the
+  generic eight-frame flash. Pending-collision and shared-damage regressions now
+  pin the exact 30-tick duration and stationary body. The 0x55 shell regression
+  independently pins the oracle's live-59 x=12 retract position. All 40
+  Driller-labelled tests pass.
+- Final verification: `mise run verify-slice-fast` passed, including 7,242
+  core tests; `mise run verify-tas-full` passed all 37,759 frames with the
+  existing 241 HUD-pixel and GEMS ratchets unchanged.
+- NEXT: audit a different fresh live gameplay path; avoid frozen timing feeders
+  and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Goat hurt hibernate movement)
 
 - `project-status` again offered no ready/open risk. The fresh Goat fallback

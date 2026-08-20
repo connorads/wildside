@@ -4969,6 +4969,9 @@ pub(crate) fn step_active_enemies_with_rng(
                         // ASM Driller.asm loc_3BF4E plays `stru_3BCCE` and
                         // hibernates until it finishes before restoring
                         // `stru_3BCB2` and resuming loc_3BF66's walker branch.
+                        // The shared walker commits ground X directly through
+                        // d2 -> x_pos; native clears its walker-speed proxy
+                        // while that coroutine is suspended.
                         enemy.x_velocity = 0;
                         enemy.y_velocity = 0;
                         continue;

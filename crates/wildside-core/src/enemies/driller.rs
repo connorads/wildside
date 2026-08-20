@@ -679,9 +679,17 @@ mod tests {
         enemy.family = EnemyFamily::Driller;
         enemy.facing = Direction::Right;
         enemy.hit_points = 2;
-        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+        enemy.x_velocity = 0x0000_8000;
+        enemy.y_velocity = -0x0000_2000;
         enemy.shared_walker_patrol_short_next = true;
+        assert!(!enemy.take_damage_or_queue_death());
+        assert_eq!(enemy.hit_points, 1);
+        assert_eq!(
+            enemy.damage_flash_frames, DRILLER_RETRACT_FRAMES_STRU_3BCCE,
+            "ASM Driller.asm loc_3BF4E waits through the single $1E-tick stru_3BCCE frame"
+        );
         let start_x = enemy.x_pos;
+        let start_y = enemy.y_pos;
         let mut enemies = [enemy];
         let grid = mini_hopping_skull_test_grid();
         let mut rng = RomRandomState::default();
@@ -709,8 +717,9 @@ mod tests {
 
         assert_eq!(
             enemies[0].x_pos, start_x,
-            "ASM Driller.asm loc_3BF4E hibernates through `stru_3BCCE` before loc_3BF66 can resume the shared walker"
+            "ASM Driller.asm loc_3BF4E suspends loc_3BF66's shared walker until stru_3BCCE finishes"
         );
+        assert_eq!(enemies[0].y_pos, start_y);
         assert_eq!(enemies[0].x_velocity, 0);
         assert_eq!(enemies[0].y_velocity, 0);
         assert!(drilled_blocks.is_empty());

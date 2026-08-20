@@ -18759,6 +18759,8 @@ mod chunk_03 {
         let mut runtime = NativeRuntime::new(manifest());
         let mut driller = test_enemy(EnemyFamily::Driller, 0x0080_0000, 0x0040_0000, 2);
         driller.layout_index = 19;
+        driller.x_velocity = 0x0000_8000;
+        driller.y_velocity = -0x0000_2000;
         runtime.active_enemies = vec![driller];
         runtime
             .pending_enemy_collisions
@@ -18781,11 +18783,33 @@ mod chunk_03 {
             driller.hit_points, 1,
             "ASM Driller.asm loc_3BF02 decrements `$44(a3)` before the loc_3BF4E hurt animation"
         );
-        assert!(
-            driller.damage_flash_frames > 0,
-            "native should hibernate the Driller through the loc_3BF4E/stru_3BCCE hurt window"
+        assert_eq!(
+            driller.damage_flash_frames, DRILLER_RETRACT_FRAMES_STRU_3BCCE,
+            "ASM Driller.asm loc_3BF4E hibernates through the single $1E-tick stru_3BCCE retract frame"
         );
+        assert_eq!(driller.x_velocity, 0);
+        assert_eq!(driller.y_velocity, 0);
         assert!(!driller.death_animation_active);
+
+        let start_x = driller.x_pos;
+        let start_y = driller.y_pos;
+        step_active_enemies(
+            &mut runtime.active_enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut Vec::new(),
+        );
+
+        let driller = runtime.active_enemies[0];
+        assert_eq!(driller.x_pos, start_x);
+        assert_eq!(driller.y_pos, start_y);
+        assert_eq!(driller.x_velocity, 0);
+        assert_eq!(driller.y_velocity, 0);
     }
 
     #[test]
