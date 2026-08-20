@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Fireball gravity wrap)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  continued the live enemy arithmetic audit and traced Fireball's main loop to
+  `Fireball.asm loc_32C1A`.
+- ASM applies its HP-selected gravity with wrapping `ADD.L`. Native saturated
+  at `i32::MAX`; the live `step_bouncer` regression failed with that value and
+  now observes the ROM's `i32::MIN` result. All 60 Fireball-labelled tests pass.
+- Final verification: `mise run verify-slice-fast` passes 7,246 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different fresh live gameplay family or mutation target; avoid
+  frozen timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (shared walker gravity wrap)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

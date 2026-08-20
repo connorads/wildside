@@ -6177,7 +6177,7 @@ fn bouncer_wall_snap_x_pos_loc_19a8(
 pub(crate) fn fireball_main_loop_y_velocity_loc_32c1a(enemy: &ActiveEnemy) -> i32 {
     // ASM Fireball.asm loc_32C1A: after the one-frame hibernate and
     // `Object_CheckInRange`, add d0 gravity into `y_vel(a3)` before `loc_32C60`.
-    enemy.y_velocity.saturating_add(bouncer_gravity(enemy))
+    enemy.y_velocity.wrapping_add(bouncer_gravity(enemy))
 }
 
 const BIG_HOPPING_SKULL_UNBOUNDED_PATROL_BOUNDS: u32 = 0;

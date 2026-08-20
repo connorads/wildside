@@ -535,6 +535,21 @@ mod tests {
     }
 
     #[test]
+    fn fireball_main_loop_gravity_wraps_as_long_word_addition_loc_32c1a() {
+        let mut enemy = fireball_test_enemy();
+        let gravity = bouncer_gravity(&enemy);
+        enemy.y_velocity = i32::MAX - (gravity - 1);
+
+        step_bouncer(&mut enemy, None);
+
+        assert_eq!(
+            enemy.y_velocity,
+            i32::MIN,
+            "ASM Fireball.asm loc_32C1A uses ADD.L, so gravity wraps at the signed long-word boundary"
+        );
+    }
+
+    #[test]
     fn fireball_floor_ceiling_bounce_loc_32ce4_commits_velocity_and_gates_trails() {
         let mut enemy = fireball_test_enemy();
         enemy.x_pos = 0x0123_0000;
