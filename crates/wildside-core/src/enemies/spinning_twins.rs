@@ -518,9 +518,13 @@ pub(crate) fn spinning_twins_first_walking_child_init_loc_3bb0c(
     // x_direction, starts 32px left of the source object, then the shared
     // launch test assigns the negative X velocity. ASM loc_3BB24 then assigns
     // the shared upward Y velocity.
+    let parent_x_word = (parent_x_pos >> 16) as u16;
+    let parent_y_word = (parent_y_pos >> 16) as u16;
     SpinningTwinsFirstWalkingChildInitLoc3BB0C {
-        x_pos: parent_x_pos.wrapping_sub(SPINNING_TWINS_WALKING_CHILD_X_OFFSET_PX << 16),
-        y_pos: parent_y_pos,
+        x_pos: u32::from(
+            parent_x_word.wrapping_sub(SPINNING_TWINS_WALKING_CHILD_X_OFFSET_PX as u16),
+        ) << 16,
+        y_pos: u32::from(parent_y_word) << 16,
         x_direction_flipped: true,
         x_velocity: SPINNING_TWINS_DROP_X_VEL_LEFT,
         y_velocity: SPINNING_TWINS_DROP_Y_VEL,
@@ -543,9 +547,13 @@ pub(crate) fn spinning_twins_second_walking_child_init_loc_3bb06(
     // ASM Spinning_Twins.asm loc_3BB06: the second walking child sees the
     // parent marker already set, keeps x_direction clear, and starts 32px to
     // the right before ASM loc_3BB1C assigns rightward velocity.
+    let parent_x_word = (parent_x_pos >> 16) as u16;
+    let parent_y_word = (parent_y_pos >> 16) as u16;
     SpinningTwinsSecondWalkingChildInitLoc3BB06 {
-        x_pos: parent_x_pos.wrapping_add(SPINNING_TWINS_WALKING_CHILD_X_OFFSET_PX << 16),
-        y_pos: parent_y_pos,
+        x_pos: u32::from(
+            parent_x_word.wrapping_add(SPINNING_TWINS_WALKING_CHILD_X_OFFSET_PX as u16),
+        ) << 16,
+        y_pos: u32::from(parent_y_word) << 16,
         x_direction_flipped: false,
         x_velocity: SPINNING_TWINS_DROP_X_VEL_RIGHT,
         y_velocity: SPINNING_TWINS_DROP_Y_VEL,
@@ -601,9 +609,11 @@ pub(crate) fn spinning_twins_falling_visual_init_loc_3b9b0(
     // ASM Spinning_Twins.asm loc_3B9B0: copy the parent coordinates, bias the
     // falling visual 19px left and 64px up, make it visible at priority 1, and
     // seed the movement loop with d0=0/d1=4.
+    let parent_x_word = (parent_x_pos >> 16) as u16;
+    let parent_y_word = (parent_y_pos >> 16) as u16;
     SpinningTwinsFallingVisualInitLoc3B9B0 {
-        x_pos: parent_x_pos.wrapping_sub(0x13 << 16),
-        y_pos: parent_y_pos.wrapping_sub(0x40 << 16),
+        x_pos: u32::from(parent_x_word.wrapping_sub(0x13)) << 16,
+        y_pos: u32::from(parent_y_word.wrapping_sub(0x40)) << 16,
         priority: 1,
         display_enabled: true,
         step_index: 0,

@@ -15308,6 +15308,31 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_split_children_copy_and_wrap_position_words() {
+        let parent_x = (0x0010 << 16) | 0xBEEF;
+        let parent_y = (0x0005 << 16) | 0xCAFE;
+        let first = spinning_twins_first_walking_child_init_loc_3bb0c(parent_x, parent_y);
+        let second = spinning_twins_second_walking_child_init_loc_3bb06(parent_x, parent_y);
+        let visual = spinning_twins_falling_visual_init_loc_3b9b0(parent_x, parent_y);
+
+        assert_eq!(
+            (first.x_pos, first.y_pos),
+            (0xFFF0_0000, 0x0005_0000),
+            "ASM Spinning_Twins.asm loc_3BA74/loc_3BB0C copies position words and wraps SUBI.W #$20"
+        );
+        assert_eq!(
+            (second.x_pos, second.y_pos),
+            (0x0030_0000, 0x0005_0000),
+            "ASM Spinning_Twins.asm loc_3BA74/loc_3BB06 copies position words before ADDI.W #$20"
+        );
+        assert_eq!(
+            (visual.x_pos, visual.y_pos),
+            (0xFFFD_0000, 0xFFC5_0000),
+            "ASM Spinning_Twins.asm loc_3B9B0 copies position words before the falling-visual offsets"
+        );
+    }
+
+    #[test]
     fn spinning_twins_walking_child_gravity_loc_3bb2c_stops_when_y_velocity_zero() {
         assert_eq!(
             spinning_twins_walking_child_y_velocity_loc_3bb2c(SPINNING_TWINS_DROP_Y_VEL),

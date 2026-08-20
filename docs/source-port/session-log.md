@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Spinning Twins split position words)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  moved to Spinning Twins and found widened fixed-point arithmetic across all
+  three children created by the live split event.
+- ASM `loc_3BA74` copies the parent's X/Y words before `loc_3BB06`/`loc_3BB0C`
+  apply the two walking-child X offsets. `loc_3B9B0` separately copies the
+  words before the falling visual's X/Y offsets. Native retained the parent's
+  fractional low words; all three children now use wrapping integer words.
+- All 48 Spinning-Twins-labelled tests pass. Final verification:
+  `mise run verify-slice-fast` passes 7,259 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further
+  Spinning Twins work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Dragon Flying fire position words)
 
 - `project-status` again offered no ready/open risk. The proactive fallback
