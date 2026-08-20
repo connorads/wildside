@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Mini Hopping Skull collision negation wrap)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  moved to Mini Hopping Skull and found checked negation in its live wall and
+  ceiling collision branches.
+- ASM `loc_3F1AA` and `loc_3F1A2` use `NEG.L`; native unary negation panicked
+  at `$80000000`. Two live terrain regressions failed at the distinct call
+  sites; both now retain the wrapped long word. All 103 Mini Hopping
+  Skull-labelled tests pass.
+- Final verification: `mise run verify-slice-fast` passes 7,253 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further Mini
+  Hopping Skull work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Fireball collision negation wrap)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

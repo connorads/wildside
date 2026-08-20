@@ -3448,6 +3448,30 @@ mod tests {
     }
 
     #[test]
+    fn mini_hopping_skull_wall_bounce_wraps_neg_l_loc_3f1aa() {
+        let data = vec![0u8; 8 * 4 * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, 8, 4);
+        grid.set_cell_at(2, 0, terrain::Cell::from_be_bytes(0x60, 0x00));
+
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.on_ground = false;
+        enemy.facing = Direction::Left;
+        enemy.x_pos = 0x8028_0000;
+        enemy.y_pos = 16 << 16;
+        enemy.x_velocity = i32::MIN;
+        enemy.y_velocity = 0;
+
+        step_hopper(&mut enemy, Some(&grid), None);
+
+        assert_eq!(enemy.facing, Direction::Right);
+        assert_eq!(
+            enemy.x_velocity,
+            i32::MIN,
+            "ASM Mini_Hopping_Skull.asm loc_3F1AA leaves NEG.L of `$80000000` unchanged"
+        );
+    }
+
+    #[test]
     fn mini_hopping_skull_ceiling_bounce_negates_y_velocity_loc_3f1a2() {
         let data = vec![0u8; 8 * 4 * 2];
         let mut grid = terrain::BlockGrid::from_level_layout(&data, 8, 4);
@@ -3464,6 +3488,28 @@ mod tests {
         assert_eq!(
             enemy.y_velocity, 0x0001_EE00,
             "ASM Mini_Hopping_Skull.asm loc_3EA88 applies `$1200` gravity, then loc_3F1A2 negates y_vel on ceiling contact"
+        );
+        assert!(!enemy.on_ground);
+    }
+
+    #[test]
+    fn mini_hopping_skull_ceiling_bounce_wraps_neg_l_loc_3f1a2() {
+        let data = vec![0u8; 8 * 4 * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, 8, 4);
+        grid.set_cell_at(2, 1, terrain::Cell::from_be_bytes(0x60, 0x00));
+
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.on_ground = false;
+        enemy.x_pos = 40 << 16;
+        enemy.y_pos = 0x8022_0000;
+        enemy.y_velocity = i32::MAX - 0x11FF;
+
+        step_hopper(&mut enemy, Some(&grid), None);
+
+        assert_eq!(
+            enemy.y_velocity,
+            i32::MIN,
+            "ASM Mini_Hopping_Skull.asm loc_3EA88 wraps ADD.L gravity before loc_3F1A2 leaves NEG.L of `$80000000` unchanged"
         );
         assert!(!enemy.on_ground);
     }

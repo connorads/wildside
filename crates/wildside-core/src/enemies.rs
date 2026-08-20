@@ -7833,7 +7833,7 @@ pub(crate) fn step_hopper(
             } else if enemy.x_pos < wall_fp + edge_fp {
                 enemy.x_pos = wall_fp + edge_fp;
             }
-            enemy.x_velocity = -enemy.x_velocity;
+            enemy.x_velocity = enemy.x_velocity.wrapping_neg();
         }
     }
 
@@ -7848,7 +7848,7 @@ pub(crate) fn step_hopper(
         {
             // ASM Mini_Hopping_Skull.asm loc_3F1A2: `neg.l y_vel(a3)`;
             // execution then branches back to the airborne loc_3EA88 loop.
-            enemy.y_velocity = -enemy.y_velocity;
+            enemy.y_velocity = enemy.y_velocity.wrapping_neg();
         }
     }
 
