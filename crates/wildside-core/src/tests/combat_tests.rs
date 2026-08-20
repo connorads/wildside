@@ -18583,6 +18583,8 @@ mod chunk_03 {
         let mut runtime = NativeRuntime::new(manifest());
         let mut scorpion = test_enemy(EnemyFamily::Scorpion, 0x0080_0000, 0x0040_0000, 4);
         scorpion.layout_index = 19;
+        scorpion.x_velocity = 0x0001_8000;
+        scorpion.y_velocity = -0x0000_2000;
         runtime.active_enemies = vec![scorpion];
         runtime
             .pending_enemy_collisions
@@ -18604,10 +18606,12 @@ mod chunk_03 {
             runtime.active_enemies[0].hit_points, 3,
             "ASM Scorpion.asm loc_3DCD4 decrements `$44(a3)` once for a nonfatal hurt collision"
         );
-        assert!(
-            runtime.active_enemies[0].damage_flash_frames > 0,
-            "native should hibernate the Scorpion through the loc_3DCD4/stru_3DB7A hurt window"
+        assert_eq!(
+            runtime.active_enemies[0].damage_flash_frames, SCORPION_HURT_ANIMATION_FRAMES,
+            "ASM Scorpion.asm loc_3DCD4 hibernates through the single $19-tick stru_3DB7A hurt frame"
         );
+        assert_eq!(runtime.active_enemies[0].x_velocity, scorpion.x_velocity);
+        assert_eq!(runtime.active_enemies[0].y_velocity, scorpion.y_velocity);
         assert!(!runtime.active_enemies[0].death_animation_active);
     }
 

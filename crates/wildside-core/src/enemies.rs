@@ -1719,6 +1719,9 @@ pub(crate) const DRAGON_WALKING_DEATH_ANIMATION_FRAMES: u16 =
 /// ASM Scorpion.asm loc_3DCF4 plays `stru_3DB80`: $0A, $14, then $2D ticks
 /// before the shared delete tail at loc_3E956.
 pub(crate) const SCORPION_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x14 + 0x2D;
+/// ASM Scorpion.asm loc_3DCD4 plays the single `$19`-tick `stru_3DB7A`
+/// hurt frame before restoring `stru_3DB60` and resuming the walker.
+pub(crate) const SCORPION_HURT_ANIMATION_FRAMES: u8 = 0x19;
 /// ASM Driller.asm loc_3BF1C plays parent `stru_3BCD4`: $0A, $14, then
 /// $28 ticks before the shared delete tail at loc_3C46E.
 pub(crate) const DRILLER_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x14 + 0x28;
@@ -2488,7 +2491,7 @@ impl ActiveEnemy {
                 ScorpionDamageRouteLoc3DCD4::Death => return true,
                 ScorpionDamageRouteLoc3DCD4::Hurt { remaining_hp, .. } => {
                     self.hit_points = remaining_hp as u8;
-                    self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    self.damage_flash_frames = SCORPION_HURT_ANIMATION_FRAMES;
                     return false;
                 }
             }
@@ -5117,10 +5120,11 @@ pub(crate) fn step_active_enemies_with_rng(
                         && enemy.damage_flash_frames > 0
                     {
                         // ASM Scorpion.asm loc_3DCD4 plays `stru_3DB7A` and
-                        // hibernates until it finishes, then restores
-                        // `stru_3DB60` before resuming the shared walker.
-                        enemy.x_velocity = 0;
-                        enemy.y_velocity = 0;
+                        // hibernates the object coroutine until it finishes.
+                        // The global sub_1444/sub_1120 pass still applies the
+                        // GfxObject's existing velocity on every frame.
+                        enemy.x_pos = enemy.x_pos.wrapping_add_signed(enemy.x_velocity);
+                        enemy.y_pos = enemy.y_pos.wrapping_add_signed(enemy.y_velocity);
                         continue;
                     }
                     if matches!(enemy.family, EnemyFamily::Scorpion)

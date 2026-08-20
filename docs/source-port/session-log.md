@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Scorpion hurt hibernate movement)
+
+- `project-status` again offered no ready/open risk. The fresh Scorpion
+  fallback audited the complete enemy ASM and its live tracking, collision,
+  sting, damage, and linked-tail paths.
+- `loc_3DCD4` installs the single `$19`-tick `stru_3DB7A` hurt frame and
+  hibernates the object coroutine while global `sub_1444`/`sub_1120` continues
+  applying the GfxObject velocity. Native instead used the generic eight-frame
+  flash and stopped movement. Projectile and pending-collision regressions now
+  pin the exact 25-tick duration and preserved X/Y velocity; the live scheduler
+  pins continued movement. All 54 Scorpion-labelled tests pass.
+- Final `verify-slice-fast` passed 7,242 core tests plus the workspace and
+  pixel-gate checks. `verify-tas-full` passed all 37,759 gameplay, enemy, RNG,
+  and player/camera checkpoints; the existing 241-frame HUD-pixel and GEMS
+  signature ratchets remain unchanged.
+- NEXT: audit a different fresh live gameplay path; avoid frozen timing feeders
+  and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Spinning Twins post-landing drag)
 
 - `project-status` again offered no ready/open risk. The fresh Spinning Twins

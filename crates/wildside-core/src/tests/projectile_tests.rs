@@ -7694,18 +7694,20 @@ mod chunk_06 {
         let mut scorpion = test_enemy(EnemyFamily::Scorpion, 100 << 16, 96 << 16, 3);
         scorpion.on_ground = true;
         scorpion.facing = Direction::Right;
+        scorpion.x_velocity = 0x0001_8000;
         rt.active_enemies.push(scorpion);
 
         rt.process_friendly_projectile_hits();
 
         assert_eq!(rt.active_enemies[0].hit_points, 2);
         assert_eq!(
-            rt.active_enemies[0].damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES,
-            "ASM Scorpion.asm loc_3DCD4 hibernates through the hurt animation after nonfatal damage"
+            rt.active_enemies[0].damage_flash_frames, 0x19,
+            "ASM Scorpion.asm loc_3DCD4 hibernates through the single $19-tick stru_3DB7A hurt frame"
         );
 
         let floor = grid_with_floor_at_row(7);
         let start_x = rt.active_enemies[0].x_pos;
+        let start_velocity = rt.active_enemies[0].x_velocity;
         step_active_enemies(
             &mut rt.active_enemies,
             Some(&floor),
@@ -7719,9 +7721,11 @@ mod chunk_06 {
         );
 
         assert_eq!(
-            rt.active_enemies[0].x_pos, start_x,
-            "ASM Scorpion.asm loc_3DCD4 must not resume shared-walker motion until `stru_3DB7A` finishes"
+            rt.active_enemies[0].x_pos,
+            (i64::from(start_x) + i64::from(start_velocity)) as u32,
+            "ASM loc_3DCD4 hibernates the object coroutine while sub_1444/sub_1120 keeps applying the GfxObject velocity"
         );
+        assert_eq!(rt.active_enemies[0].x_velocity, start_velocity);
     }
 
     #[test]

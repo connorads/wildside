@@ -9031,9 +9031,7 @@ impl NativeRuntime {
                             }
                             ScorpionDamageRouteLoc3DCD4::Hurt { remaining_hp, .. } => {
                                 enemy.hit_points = remaining_hp as u8;
-                                enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
-                                enemy.x_velocity = 0;
-                                enemy.y_velocity = 0;
+                                enemy.damage_flash_frames = SCORPION_HURT_ANIMATION_FRAMES;
                                 changed_enemy_state = true;
                             }
                         }
