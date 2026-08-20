@@ -578,12 +578,15 @@ fn push_robot_shot(
     if let Some(projs) = projectiles {
         let child_x_direction = robot_x_direction_byte(enemy.facing);
         let spawn = robot_shot_spawn_loc_3ac0c(child_x_direction, 18);
+        // ASM Robot.asm Enemy03_Robot_Shot_Init/loc_3AC0C copies the parent's
+        // coordinate words before applying the signed muzzle offsets at word width.
+        let x_pos_word =
+            ((enemy.x_pos >> 16) as u16).wrapping_add_signed(spawn.projectile_x_delta_px);
+        let y_pos_word =
+            ((enemy.y_pos >> 16) as u16).wrapping_add_signed(spawn.projectile_y_delta_px);
         projs.push(EnemyProjectile {
-            // ASM Robot.asm loc_3AC0C: the allocated shot copies
-            // the child head direction and spawns from the muzzle
-            // offset, not the parent's origin.
-            x_pos: (enemy.x_pos as i64 + (i64::from(spawn.projectile_x_delta_px) << 16)) as u32,
-            y_pos: (enemy.y_pos as i64 + (i64::from(spawn.projectile_y_delta_px) << 16)) as u32,
+            x_pos: u32::from(x_pos_word) << 16,
+            y_pos: u32::from(y_pos_word) << 16,
             x_velocity: spawn.projectile_x_velocity,
             lifetime: 60,
             kind: EnemyProjectileKind::RobotShot,
@@ -882,6 +885,29 @@ mod tests {
             "ASM Robot.asm loc_3AC0C should play `sfx_Robot_shoots` after the spawned shot object's one-frame hibernate",
         );
         assert_eq!(sound_effects[0].sound_id(), 0x3A);
+    }
+
+    #[test]
+    fn robot_shot_spawn_loc_3ac0c_copies_and_wraps_position_words() {
+        let robot = ActiveEnemy {
+            family: EnemyFamily::Robot,
+            facing: Direction::Right,
+            x_pos: (0xFFF0 << 16) | 0xBEEF,
+            y_pos: (5 << 16) | 0xCAFE,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        push_robot_shot(&robot, &mut Some(&mut projectiles), None);
+
+        assert_eq!(
+            projectiles[0].x_pos, 0x000A_0000,
+            "ASM Robot.asm loc_3AC0C copies the X word and wraps ADD.W #$1A"
+        );
+        assert_eq!(
+            projectiles[0].y_pos, 0xFFF5_0000,
+            "ASM Robot.asm loc_3AC0C copies the Y word and wraps the muzzle-height SUB.W"
+        );
     }
 
     #[test]
