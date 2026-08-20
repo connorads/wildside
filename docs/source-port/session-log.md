@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Sphere parent callback attribution)
+
+- `project-status` again offered no ready/open risk. The coverage fallback's
+  sole ordinary label, Tar Monster `loc_32454`, remains the already documented
+  post-`rts` orphan with no static entry; the coverage audit explicitly forbids
+  adding a false implementation citation. The next mutation fallback targeted
+  Sphere because its live implementation changed after the last mutation pass.
+- The Sphere module census found only three typed-return replacement mutants;
+  all were compile-unviable because the result structs intentionally lack
+  `Default`, so it provided no live scheduler evidence. A complete `Sphere.asm`
+  versus native audit found no behaviour mismatch, but live parent tests and
+  comments incorrectly named equivalent spawned-child callbacks. They now cite
+  parent `loc_35FB8`/`loc_35FF4`/`loc_36002`/`loc_36012`/`loc_36032`, and a new
+  exact ceiling contract pins arithmetic shift then long-word negation at both
+  a normal velocity and `i32::MIN`. All 40 Sphere-labelled tests pass.
+- Final verification: `mise run verify-slice-fast` passed, including 7,243
+  core tests. Full TAS was not rerun because production behaviour is unchanged;
+  the same-turn baseline already passed all 37,759 frames before this
+  test/comment-only hardening.
+- NEXT: audit a different live gameplay family or mutation target whose
+  implementation changed after its last complete pass; avoid frozen timing
+  feeders and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Driller retract hibernate movement)
 
 - `project-status` again offered no ready/open risk. The fresh Driller fallback

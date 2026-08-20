@@ -6265,17 +6265,19 @@ fn sphere_apply_pending_collision_loc_35f9e(
 
     match collision_type {
         colid::RIGHTWALL | colid::LEFTWALL => {
-            // ASM Sphere.asm loc_36148: wall entries only negate `x_vel(a3)`;
+            // ASM Sphere.asm Enemy06_Sphere_BounceWall loc_35FB8: wall entries
+            // only negate `x_vel(a3)`;
             // `x_direction(a3)` keeps the value left by Enemy06_Sphere_Init.
             enemy.x_velocity = enemy.x_velocity.wrapping_neg();
         }
         colid::FLOOR => {
-            let bounce = sphere_child_vertical_bounce_loc_36142(enemy.y_velocity);
-            debug_assert!(bounce.resumes_child_loop);
+            let bounce = sphere_vertical_bounce_loc_35FF4_36142(enemy.y_velocity);
+            debug_assert!(bounce.resumes_sphere_loop);
             enemy.y_velocity = bounce.y_velocity;
         }
         colid::CEILING => {
-            // ASM Sphere.asm loc_36144: `asr.l #1,y_vel(a3)` then `neg.l`.
+            // ASM Sphere.asm Enemy06_Sphere_BounceCeiling loc_36002:
+            // `asr.l #1,d7` then `neg.l d7`.
             enemy.y_velocity = (enemy.y_velocity >> 1).wrapping_neg();
         }
         colid::SLOPEUP => {
@@ -6830,10 +6832,10 @@ pub(crate) fn step_bouncer_with_rng(
                         );
                     }
                 } else {
-                    let bounce = sphere_child_vertical_bounce_loc_36142(enemy.y_velocity);
+                    let bounce = sphere_vertical_bounce_loc_35FF4_36142(enemy.y_velocity);
                     // ASM Sphere.asm loc_35FF4 and child loc_36142 both use
                     // long-word negation before resuming the sphere loop.
-                    debug_assert!(bounce.resumes_child_loop);
+                    debug_assert!(bounce.resumes_sphere_loop);
                     enemy.y_velocity = bounce.y_velocity;
                 }
                 // Snap out of floor

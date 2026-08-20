@@ -131,18 +131,21 @@ pub(crate) fn sphere_collision_table_guard_loc_36128() -> SphereCollisionTableGu
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct SphereChildVerticalBounceLoc36142 {
+pub(crate) struct SphereVerticalBounceLoc35FF4Loc36142 {
     pub(crate) y_velocity: i32,
-    pub(crate) resumes_child_loop: bool,
+    pub(crate) resumes_sphere_loop: bool,
 }
 
-pub(crate) fn sphere_child_vertical_bounce_loc_36142(
+#[allow(non_snake_case)]
+pub(crate) fn sphere_vertical_bounce_loc_35FF4_36142(
     y_velocity: i32,
-) -> SphereChildVerticalBounceLoc36142 {
-    // ASM Sphere.asm loc_36142: `neg.l y_vel(a3)` then `bra.s loc_360F4`.
-    SphereChildVerticalBounceLoc36142 {
+) -> SphereVerticalBounceLoc35FF4Loc36142 {
+    // ASM Sphere.asm parent loc_35FF4 and spawned-child loc_36142 both execute
+    // `neg.l y_vel(a3)`; the child then branches to loc_360F4 while the parent
+    // resumes Enemy06_Sphere_Loop.
+    SphereVerticalBounceLoc35FF4Loc36142 {
         y_velocity: y_velocity.wrapping_neg(),
-        resumes_child_loop: true,
+        resumes_sphere_loop: true,
     }
 }
 
@@ -245,28 +248,28 @@ mod tests {
     }
 
     #[test]
-    fn sphere_child_vertical_bounce_loc_36142_negates_y_velocity_and_resumes() {
+    fn sphere_parent_and_child_vertical_bounce_negates_long_word_loc_35ff4_36142() {
         assert_eq!(
-            sphere_child_vertical_bounce_loc_36142(0x0002_8000),
-            SphereChildVerticalBounceLoc36142 {
+            sphere_vertical_bounce_loc_35FF4_36142(0x0002_8000),
+            SphereVerticalBounceLoc35FF4Loc36142 {
                 y_velocity: -0x0002_8000,
-                resumes_child_loop: true,
+                resumes_sphere_loop: true,
             },
-            "ASM Sphere.asm loc_36142 should `neg.l y_vel(a3)` before branching back to loc_360F4"
+            "ASM Sphere.asm parent loc_35FF4 and child loc_36142 both negate y_vel before resuming"
         );
 
         assert_eq!(
-            sphere_child_vertical_bounce_loc_36142(i32::MIN),
-            SphereChildVerticalBounceLoc36142 {
+            sphere_vertical_bounce_loc_35FF4_36142(i32::MIN),
+            SphereVerticalBounceLoc35FF4Loc36142 {
                 y_velocity: i32::MIN,
-                resumes_child_loop: true,
+                resumes_sphere_loop: true,
             },
-            "ASM Sphere.asm loc_36142 uses 68k long-word negation, so the two's-complement minimum wraps to itself"
+            "ASM Sphere.asm loc_35FF4/loc_36142 use 68k long-word negation, so the two's-complement minimum wraps to itself"
         );
     }
 
     #[test]
-    fn sphere_wall_bounce_keeps_facing_per_loc_36148() {
+    fn sphere_parent_wall_bounce_keeps_facing_per_loc_35fb8() {
         let mut grid = mini_hopping_skull_test_grid();
         grid.set_cell_at(2, 1, terrain::Cell::from_be_bytes(0x60, 0x00));
 
@@ -296,9 +299,25 @@ mod tests {
         assert_eq!(
             enemy.facing,
             Direction::Right,
-            "ASM Sphere.asm loc_36148 only negates `x_vel(a3)`, so wall hits must not rewrite x_direction"
+            "ASM Sphere.asm Enemy06_Sphere_BounceWall loc_35FB8 only negates `x_vel(a3)`, so wall hits must not rewrite x_direction"
         );
         assert_eq!(enemy.x_velocity, -0x0001_0000);
+    }
+
+    #[test]
+    fn sphere_parent_ceiling_bounce_halves_then_negates_loc_36002() {
+        for (incoming, expected) in [(-0x0002_8000, 0x0001_4000), (i32::MIN, 0x4000_0000)] {
+            let mut enemy = sphere_test_enemy();
+            enemy.y_velocity = incoming.wrapping_sub(SPHERE_GRAVITY);
+            set_sphere_pending_collision_type_loc_171c(&mut enemy, colid::CEILING);
+
+            step_bouncer(&mut enemy, None);
+
+            assert_eq!(
+                enemy.y_velocity, expected,
+                "ASM Sphere.asm Enemy06_Sphere_BounceCeiling loc_36002 applies gravity, arithmetic-shifts y_vel right once, then negates the long word"
+            );
+        }
     }
 
     #[test]
@@ -338,7 +357,7 @@ mod tests {
         assert_eq!(
             enemy.y_velocity,
             -(0x0001_0000 + SPHERE_GRAVITY + SPHERE_GRAVITY),
-            "ASM Sphere.asm loc_36142 consumes the previous GfxObjects_Collision floor type on the next object tick after applying gravity"
+            "ASM Sphere.asm Enemy06_Sphere_BounceFloor loc_35FF4 consumes the previous GfxObjects_Collision floor type on the next object tick after applying gravity"
         );
         assert!(
             enemy.y_pos < 152 << 16,
@@ -404,7 +423,7 @@ mod tests {
 
         assert_eq!(
             enemy.x_velocity, -0x0001_0000,
-            "ASM Sphere.asm loc_36148 negates x_vel when the next object tick consumes the right-wall collision"
+            "ASM Sphere.asm Enemy06_Sphere_BounceWall loc_35FB8 negates x_vel when the next object tick consumes the right-wall collision"
         );
     }
 
@@ -472,7 +491,7 @@ mod tests {
 
         assert_eq!(
             enemy.x_velocity, -0x0001_0000,
-            "ASM Sphere.asm loc_36148 consumes only the wall event recorded by the prior collision pass"
+            "ASM Sphere.asm Enemy06_Sphere_BounceWall loc_35FB8 consumes only the wall event recorded by the prior collision pass"
         );
         assert!(
             enemy.y_velocity > 0,
@@ -510,7 +529,7 @@ mod tests {
 
         assert_eq!(
             enemy.x_velocity, 0x0001_0000,
-            "ASM Sphere.asm loc_36148 negates x_vel when the next object tick consumes the left-boundary collision"
+            "ASM Sphere.asm Enemy06_Sphere_BounceWall loc_35FB8 negates x_vel when the next object tick consumes the left-boundary collision"
         );
     }
 
@@ -547,12 +566,12 @@ mod tests {
         assert_eq!(
             enemy.y_velocity,
             -(0x0001_0000 + SPHERE_GRAVITY + SPHERE_GRAVITY),
-            "ASM Sphere.asm loc_36142 negates the post-gravity y_vel on the next object tick"
+            "ASM Sphere.asm Enemy06_Sphere_BounceFloor loc_35FF4 negates the post-gravity y_vel on the next object tick"
         );
     }
 
     #[test]
-    fn sphere_slope_up_backs_out_motion_per_loc_3614e() {
+    fn sphere_parent_slope_up_backs_out_motion_per_loc_36012() {
         let data = vec![0u8; 10 * 10 * 2];
         let mut grid = terrain::BlockGrid::from_level_layout(&data, 10, 10);
         grid.set_cell_at(5, 5, terrain::Cell::from_be_bytes(0x40, 0x00));
@@ -578,11 +597,11 @@ mod tests {
         assert_eq!(
             enemy.x_pos,
             ((5 * 16 + 8) << 16) - (0x0002_0000 + SPHERE_GRAVITY + SPHERE_GRAVITY) as u32,
-            "ASM Sphere.asm loc_3614E subtracts the previous post-gravity vector before the next global motion pass applies the swapped vector"
+            "ASM Sphere.asm Enemy06_Sphere_SlopeUp loc_36012 subtracts the previous post-gravity vector before the next global motion pass applies the swapped vector"
         );
         assert_eq!(
             enemy.y_velocity, -0x0002_0000,
-            "ASM Sphere.asm loc_3614E sets y_vel to -old_x_vel"
+            "ASM Sphere.asm Enemy06_Sphere_SlopeUp loc_36012 sets y_vel to -old_x_vel"
         );
         assert_eq!(
             enemy.x_velocity,
@@ -616,7 +635,7 @@ mod tests {
     }
 
     #[test]
-    fn sphere_slope_down_backs_out_motion_per_loc_36164() {
+    fn sphere_parent_slope_down_backs_out_motion_per_loc_36032() {
         let data = vec![0u8; 10 * 10 * 2];
         let mut grid = terrain::BlockGrid::from_level_layout(&data, 10, 10);
         grid.set_cell_at(5, 5, terrain::Cell::from_be_bytes(0x50, 0x00));
@@ -642,7 +661,7 @@ mod tests {
         assert_eq!(
             enemy.x_pos,
             ((5 * 16 + 8) << 16) + (0x0001_0000 + SPHERE_GRAVITY + SPHERE_GRAVITY) as u32,
-            "ASM Sphere.asm loc_36164 backs out by the previous vector before the next global motion pass applies the swapped vector"
+            "ASM Sphere.asm Enemy06_Sphere_SlopeDown loc_36032 backs out by the previous vector before the next global motion pass applies the swapped vector"
         );
         assert_eq!(
             enemy.x_velocity,
