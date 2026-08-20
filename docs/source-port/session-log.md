@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Fireball obstacle-trail word arithmetic)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  moved to Fireball and found widened fixed-point arithmetic in its live
+  floor/ceiling-bounce trail spawn.
+- ASM `loc_33128` adds the parent X-position word and X-velocity word twice,
+  independently of the fractional halves, before copying the result into the
+  child. Native added two full 16.16 velocities before extracting X, allowing
+  fractional carries to displace the obstacle trail; it now mirrors the three
+  wrapping word operations.
+- All 66 Fireball-labelled tests pass. Final verification:
+  `mise run verify-slice-fast` passes 7,262 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further
+  Fireball work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Shooting Tank bullet position words)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

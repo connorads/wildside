@@ -715,6 +715,34 @@ mod tests {
     }
 
     #[test]
+    fn fireball_obstacle_trail_loc_33128_adds_position_and_velocity_words() {
+        let enemy = ActiveEnemy {
+            family: EnemyFamily::Fireball,
+            x_pos: 0x0008_F000,
+            y_pos: 0x0005_CAFE,
+            x_velocity: 0x0000_9000,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        spawn_fireball_obstacle_trail_projectile_loc_33128(Some(&mut projectiles), &enemy);
+
+        assert_eq!(projectiles.len(), 1);
+        assert_eq!(
+            projectiles[0].x_pos, 0x0008_0000,
+            "ASM Fireball.asm loc_33128 adds the X-position word and two X-velocity words without fractional carry"
+        );
+        assert_eq!(
+            projectiles[0].y_pos, 0x0010_0000,
+            "ASM Fireball.asm loc_33128 snaps the copied Y-position word after adding `$F`"
+        );
+        assert_eq!(
+            projectiles[0].kind,
+            EnemyProjectileKind::FireballObstacleTrail
+        );
+    }
+
+    #[test]
     fn fireball_trail_loop_loc_33110_prioritises_flag_then_countdown() {
         assert_eq!(
             fireball_trail_loop_step_loc_33110(true, 0x96),

@@ -5889,9 +5889,12 @@ fn spawn_fireball_obstacle_trail_projectile_loc_33128(
         return;
     }
 
-    // ASM Fireball.asm loc_33128: obstacle trails start at parent x + 2*x_vel,
-    // with Y aligned to the next 16px row after adding $F.
-    let x_px = ((enemy.x_pos as i64 + (i64::from(enemy.x_velocity) * 2)) >> 16) as i16;
+    // ASM Fireball.asm loc_33128: add the parent X word and X-velocity word
+    // twice, then align Y to the next 16px row after adding `$F`.
+    let x_velocity_word = ((enemy.x_velocity as u32) >> 16) as u16;
+    let x_px = ((enemy.x_pos >> 16) as u16)
+        .wrapping_add(x_velocity_word)
+        .wrapping_add(x_velocity_word) as i16;
     let y_px = ((((enemy.y_pos >> 16) as i32) + 0x0F) & !0x0F) as i16;
     let mut projectile = fireball_trail_projectile_from_loc_330d0(0, x_px, y_px);
     projectile.kind = EnemyProjectileKind::FireballObstacleTrail;
