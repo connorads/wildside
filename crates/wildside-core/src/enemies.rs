@@ -8763,7 +8763,13 @@ fn step_shared_walker_falling_loc_3c288(enemy: &mut ActiveEnemy, grid: &terrain:
         }
     }
 
-    enemy.y_velocity = (enemy.y_velocity + 0x2000).min(0x0008_0000);
+    enemy.y_velocity = shared_walker_falling_gravity_loc_3c246_3c332(enemy.y_velocity);
+}
+
+fn shared_walker_falling_gravity_loc_3c246_3c332(y_velocity: i32) -> i32 {
+    // ASM loc_3C246/loc_3C332: ADDI.L wraps before the signed comparison
+    // clamps positive downward velocity to `$80000`.
+    y_velocity.wrapping_add(0x2000).min(0x0008_0000)
 }
 
 /// ASM Lion.asm loc_3E6AE (#419): the Goat-lineage falling loop. X keeps the
@@ -8843,8 +8849,13 @@ fn step_lion_walker_falling_loc_3e6ae(enemy: &mut ActiveEnemy, grid: &terrain::B
         }
     }
 
-    // ASM loc_3E77E: `addi.l #$4000` capped at `$180000`.
-    enemy.y_velocity = (enemy.y_velocity + 0x4000).min(0x0018_0000);
+    enemy.y_velocity = lion_walker_falling_gravity_loc_3e77e(enemy.y_velocity);
+}
+
+fn lion_walker_falling_gravity_loc_3e77e(y_velocity: i32) -> i32 {
+    // ASM Lion.asm loc_3E77E: ADDI.L wraps before the signed comparison
+    // clamps positive downward velocity to `$180000`.
+    y_velocity.wrapping_add(0x4000).min(0x0018_0000)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -11244,6 +11255,43 @@ mod tests {
             enemy.y_velocity,
             i32::MIN,
             "ASM Lion.asm loc_3E77E/loc_3E89A performs ADD.L before the signed terminal-speed comparison"
+        );
+    }
+
+    #[test]
+    fn shared_walker_falling_loops_wrap_gravity_before_clamp_loc_3c246_3c332_3e77e() {
+        let grid = terrain::BlockGrid::from_level_layout(&[0; 16 * 16 * 2], 16, 16);
+        let mut tank = ActiveEnemy {
+            family: EnemyFamily::Tank,
+            x_pos: 0x0080_0000,
+            y_pos: 0x8080_2000,
+            x_velocity: 0,
+            y_velocity: i32::MAX - 0x1FFF,
+            on_ground: false,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut goat = ActiveEnemy {
+            family: EnemyFamily::Goat,
+            x_pos: 0x0080_0000,
+            y_pos: 0x8080_4000,
+            x_velocity: 0,
+            y_velocity: i32::MAX - 0x3FFF,
+            on_ground: false,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_shared_walker_falling_loc_3c288(&mut tank, &grid);
+        step_shared_walker_falling_loc_3c288(&mut goat, &grid);
+
+        assert_eq!(
+            tank.y_velocity,
+            i32::MIN,
+            "ASM loc_3C246/loc_3C332 performs ADDI.L #$2000 before the signed terminal-speed comparison"
+        );
+        assert_eq!(
+            goat.y_velocity,
+            i32::MIN,
+            "ASM Lion.asm loc_3E77E performs ADDI.L #$4000 before the signed terminal-speed comparison"
         );
     }
 

@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (shared falling-loop gravity wrap)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited the live Tank- and Goat-lineage falling loops against `loc_3C246`,
+  `loc_3C332`, and `Lion.asm loc_3E77E`.
+- ASM performs wrapping `ADDI.L` before each signed terminal-speed comparison.
+  Native used checked Rust addition in both loops. A live Tank/Goat boundary
+  regression failed on overflow; separate ASM-cited helpers preserve the generic
+  `$80000` and Lion-family `$180000` caps while wrapping explicitly.
+- Final verification: `mise run verify-slice-fast` passes 7,248 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different fresh live gameplay family or mutation target; avoid
+  frozen timing feeders and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (UFO acceleration wrap)
 
 - `project-status` again offered no ready/open risk. The proactive fallback
