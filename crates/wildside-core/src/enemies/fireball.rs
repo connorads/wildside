@@ -515,6 +515,48 @@ mod tests {
     }
 
     #[test]
+    fn fireball_wall_bounce_wraps_neg_l_enemy19_fireball_bounce_wall() {
+        let mut grid = mini_hopping_skull_test_grid();
+        grid.set_cell_at(1, 1, terrain::Cell::from_be_bytes(0x60, 0x00));
+
+        let mut enemy = fireball_test_enemy();
+        enemy.on_ground = false;
+        enemy.x_pos = 0x8027_8000;
+        enemy.y_pos = 24 << 16;
+        enemy.x_velocity = i32::MIN;
+        enemy.y_velocity = 0;
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_velocity,
+            i32::MIN,
+            "ASM Enemy19_Fireball_BounceWall leaves NEG.L of `$80000000` unchanged"
+        );
+    }
+
+    #[test]
+    fn fireball_slope_up_wraps_neg_l_enemy19_fireball_slope_up() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 10 * 10 * 2], 10, 10);
+        grid.set_cell_at(5, 5, terrain::Cell::from_be_bytes(0x40, 0x00));
+
+        let mut enemy = fireball_test_enemy();
+        enemy.on_ground = false;
+        enemy.x_pos = 0x8058_0000;
+        enemy.y_pos = 85 << 16;
+        enemy.x_velocity = i32::MIN;
+        enemy.y_velocity = 0x0002_0000;
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            (enemy.x_velocity, enemy.y_velocity),
+            (-0x0002_2000, i32::MIN),
+            "ASM Enemy19_Fireball_SlopeUp wraps both NEG.L results before swapping the velocities"
+        );
+    }
+
+    #[test]
     fn fireball_main_loop_loc_32c1a_adds_hp_gravity_before_collision_dispatch() {
         let mut hp1 = fireball_test_enemy();
         hp1.y_velocity = 0x0001_8000;

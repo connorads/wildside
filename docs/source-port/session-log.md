@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Fireball collision negation wrap)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  confirmed Big Hopping Skull already wraps every audited collision operation,
+  then found checked negation in Fireball's separate live wall/slope dispatcher.
+- ASM `Enemy19_Fireball_BounceWall` and `Enemy19_Fireball_SlopeUp` use
+  `NEG.L`; native unary negation panicked at `$80000000`. Two live terrain
+  regressions failed at the distinct call sites; both now retain the wrapped
+  long word. All 65 Fireball-labelled tests pass.
+- Final verification: `mise run verify-slice-fast` passes 7,251 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further
+  Fireball work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Fireball rebound arithmetic wrap)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

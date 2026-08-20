@@ -6700,7 +6700,9 @@ pub(crate) fn step_bouncer_with_rng(
                 &mut played_sound_effects,
                 &mut fireball_bounce_sound_queued,
             );
-            enemy.x_velocity = -enemy.x_velocity;
+            // ASM Fireball.asm Enemy19_Fireball_BounceWall and Sphere.asm
+            // loc_35FB8 use `neg.l`, retaining the low 32 bits on overflow.
+            enemy.x_velocity = enemy.x_velocity.wrapping_neg();
             if !matches!(enemy.family, EnemyFamily::Fireball | EnemyFamily::Sphere) {
                 // ASM Sphere.asm loc_36148 negates `x_vel(a3)` and immediately
                 // resumes the loop. The sphere family never flips x_direction on
@@ -6741,12 +6743,13 @@ pub(crate) fn step_bouncer_with_rng(
                     // frame along that vector, then swap into x/y velocity.
                     enemy.x_pos = (enemy.x_pos as i64 - i64::from(old_x)).max(0) as u32;
                     enemy.y_pos = (enemy.y_pos as i64 - i64::from(old_y)).max(0) as u32;
-                    enemy.y_velocity = -old_x;
-                    enemy.x_velocity = -old_y;
+                    enemy.y_velocity = old_x.wrapping_neg();
+                    enemy.x_velocity = old_y.wrapping_neg();
                 } else {
-                    // ASM: swap velocities, negate both
-                    enemy.y_velocity = -old_x;
-                    enemy.x_velocity = -old_y;
+                    // ASM Fireball.asm Enemy19_Fireball_SlopeUp: negate both
+                    // long words before swapping them into x/y velocity.
+                    enemy.y_velocity = old_x.wrapping_neg();
+                    enemy.x_velocity = old_y.wrapping_neg();
                     enemy.facing = opposite_direction(enemy.facing);
                     if matches!(enemy.family, EnemyFamily::Fireball) {
                         let tile_word = terrain_collision_tile_word(floor.cell);
