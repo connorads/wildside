@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Tar Monster shot position words)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  moved to Tar Monster and found widened fixed-point arithmetic in its live
+  straight-shot and retaliation-burst spawn paths.
+- ASM `loc_3247E` copies the parent's X/Y words before applying the straight
+  shot's X/Y offsets. `loc_325AC` applies the retaliation Y offset to those
+  copied words. Native retained the parent's fractional low words; both paths
+  now construct their coordinates from wrapping integer words.
+- All 70 Tar-Monster-labelled tests pass. Final verification:
+  `mise run verify-slice-fast` passes 7,260 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further Tar
+  Monster work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Spinning Twins split position words)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

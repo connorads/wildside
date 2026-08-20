@@ -665,9 +665,11 @@ pub(crate) fn tar_monster_shot_spawn_loc_3247E(
         };
     }
 
+    let source_x_word = (source_x_pos >> 16) as u16;
+    let source_y_word = (source_y_pos >> 16) as u16;
     TarMonsterShotSpawnRouteLoc3247E::StraightShot(TarMonsterShotSpawnLoc3247E {
-        x_pos: source_x_pos.wrapping_sub(0x19 << 16),
-        y_pos: source_y_pos.wrapping_sub(0x12 << 16),
+        x_pos: u32::from(source_x_word.wrapping_sub(0x19)) << 16,
+        y_pos: u32::from(source_y_word.wrapping_sub(0x12)) << 16,
         object_meta: 5,
         status_flag_13: true,
         is_moved: true,
@@ -685,9 +687,11 @@ pub(crate) fn tar_monster_retaliation_entry_loc_325AC(
 ) -> TarMonsterRetaliationEntryLoc325AC {
     // ASM loc_325AC subtracts `$10` from the copied y word, leaves x unchanged,
     // then branches directly into the shared burst cleanup at loc_324F8.
+    let source_x_word = (source_x_pos >> 16) as u16;
+    let source_y_word = (source_y_pos >> 16) as u16;
     TarMonsterRetaliationEntryLoc325AC {
-        x_pos: source_x_pos,
-        y_pos: source_y_pos.wrapping_sub(0x10 << 16),
+        x_pos: u32::from(source_x_word) << 16,
+        y_pos: u32::from(source_y_word.wrapping_sub(0x10)) << 16,
         proceeds_to_burst_cleanup: true,
     }
 }
@@ -1746,6 +1750,37 @@ mod tests {
                 proceeds_to_burst_cleanup: true,
             },
             "ASM Tar_Monster.asm loc_3247E branches when `$44(a5)` is non-zero, subtracting only $10 from y before the burst cleanup"
+        );
+    }
+
+    #[test]
+    fn tar_monster_shot_loc_3247e_325ac_copies_and_wraps_position_words() {
+        let source_x = (0x0010 << 16) | 0xBEEF;
+        let source_y = (0x0005 << 16) | 0xCAFE;
+
+        assert_eq!(
+            tar_monster_shot_spawn_loc_3247E(source_x, source_y, Direction::Left, false),
+            TarMonsterShotSpawnRouteLoc3247E::StraightShot(TarMonsterShotSpawnLoc3247E {
+                x_pos: 0xFFF7_0000,
+                y_pos: 0xFFF3_0000,
+                object_meta: 5,
+                status_flag_13: true,
+                is_moved: true,
+                priority: 0,
+                has_level_collision: true,
+                sprite_frame_link: "LnkTo_unk_C781E",
+                copied_x_direction: Direction::Left,
+            }),
+            "ASM Tar_Monster.asm loc_3247E copies position words before wrapping SUBI.W offsets"
+        );
+        assert_eq!(
+            tar_monster_shot_spawn_loc_3247E(source_x, source_y, Direction::Right, true),
+            TarMonsterShotSpawnRouteLoc3247E::RetaliationBurst {
+                x_pos: 0x0010_0000,
+                y_pos: 0xFFF5_0000,
+                proceeds_to_burst_cleanup: true,
+            },
+            "ASM Tar_Monster.asm loc_3247E/loc_325AC copies position words before the retaliation Y subtraction"
         );
     }
 
