@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Lion projectile position words)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  moved to Lion and found widened fixed-point arithmetic in its live homing
+  projectile spawn.
+- ASM `loc_3E12A` copies the parent's X/Y words; `loc_3E180` then applies the
+  facing-specific X offset at word width. Native retained the parent's
+  fractional low words while applying the offsets; the spawn now constructs
+  both coordinates from wrapping integer words.
+- All 81 Lion-labelled tests pass. Final verification:
+  `mise run verify-slice-fast` passes 7,255 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further Lion
+  work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Cloud lightning position words)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

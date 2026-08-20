@@ -1262,14 +1262,16 @@ fn fire_lion_projectile_loc_3e09e(
     enemy.facing = facing;
     if let Some(projs) = projectiles {
         let tail = lion_projectile_launch_tail_loc_3e180(enemy.facing);
-        let proj_x = (enemy.x_pos as i64
-            + ((i64::from(lion_projectile_x_offset_from_native_carrier_loc_3e12a(
-                enemy.facing,
-            ))) << 16)) as u32;
-        let proj_y = (enemy.y_pos as i64 - ((i64::from(LION_PROJECTILE_Y_OFFSET)) << 16)) as u32;
+        // ASM Lion.asm loc_3E12A/loc_3E180 copies the parent's position words,
+        // subtracts $18 from Y, then adds the facing-specific X word offset.
+        let proj_x_word = fixed_position_integer_word(enemy.x_pos).wrapping_add_signed(
+            lion_projectile_x_offset_from_native_carrier_loc_3e12a(enemy.facing),
+        );
+        let proj_y_word =
+            fixed_position_integer_word(enemy.y_pos).wrapping_sub(LION_PROJECTILE_Y_OFFSET as u16);
         projs.push(EnemyProjectile {
-            x_pos: proj_x,
-            y_pos: proj_y,
+            x_pos: u32::from(proj_x_word) << 16,
+            y_pos: u32::from(proj_y_word) << 16,
             x_velocity: tail.x_velocity,
             lifetime: 120,
             kind: EnemyProjectileKind::LionProjectile,
@@ -2445,6 +2447,32 @@ mod tests {
         assert_eq!(
             regular_lion.dragon_script_cmd, 0,
             "ASM ingame/anim/enemy/Lion.asm stru_3DEDA sums to 38 ticks for non-8 HP"
+        );
+    }
+
+    #[test]
+    fn lion_fire_projectile_loc_3e12a_copies_and_wraps_position_words() {
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            x_pos: (2 << 16) | 0xBEEF,
+            y_pos: (5 << 16) | 0xCAFE,
+            facing: Direction::Left,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        {
+            let mut projectile_sink = Some(&mut projectiles);
+            fire_lion_projectile_loc_3e09e(&mut lion, 0x20 << 16, &mut projectile_sink);
+        }
+
+        assert_eq!(
+            projectiles[0].x_pos, 0x000C_0000,
+            "ASM Lion.asm loc_3E12A/loc_3E180 copies the X word and applies ADD.W #$A"
+        );
+        assert_eq!(
+            projectiles[0].y_pos, 0xFFED_0000,
+            "ASM Lion.asm loc_3E12A wraps SUBI.W #$18 and does not copy fractional Y bits"
         );
     }
 
