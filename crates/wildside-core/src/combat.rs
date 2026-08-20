@@ -15766,18 +15766,35 @@ impl NativeRuntime {
                     continue;
                 }
                 let snapshot = enemy.snapshot();
-                if !player_touches_enemy_with_half_width(
+                let Some(relation) = classify_enemy_contact_relation_with_half_width_inner(
                     slice.player,
                     &snapshot,
+                    slice.player.y_velocity,
+                    slice.player.y_pos,
                     self.progression.current_form.half_width() as i64,
-                ) {
+                    false,
+                ) else {
                     continue;
-                }
-                let player_x = slice.player.x_pos as i64;
-                let tornado_x = enemy.x_pos as i64;
+                };
+                // ASM Tornado.asm off_35950 receives the exact relation latched
+                // by GfxObjects_CollisionKid loc_1C18. Vertical contacts do not
+                // enter the shared side-bounce routine at loc_35986.
+                let bounce = match relation {
+                    crate::trace::KidObjectRelation::Below => continue,
+                    crate::trace::KidObjectRelation::Above => {
+                        self.remove_dead_enemy(enemy_index);
+                        self.opening_slice = Some(*slice);
+                        return true;
+                    }
+                    crate::trace::KidObjectRelation::Right => {
+                        tornado_cyclone_bounce_kid_right_loc_3597e()
+                    }
+                    crate::trace::KidObjectRelation::Left => {
+                        tornado_cyclone_bounce_kid_left_loc_35984()
+                    }
+                };
                 let player_y = (slice.player.y_pos >> 16) as i16;
                 let tornado_y = (enemy.y_pos >> 16) as i16;
-                let bounce = tornado_cyclone_bounce_for_positions_loc_35986(player_x, tornado_x);
                 slice.player.x_velocity = bounce.player_x_velocity;
                 self.active_enemies[enemy_index].x_velocity = bounce.tornado_x_velocity;
                 if player_y < tornado_y {

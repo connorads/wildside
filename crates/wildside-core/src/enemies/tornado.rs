@@ -187,17 +187,6 @@ pub(crate) fn tornado_cyclone_bounce_kid_left_loc_35984() -> TornadoCycloneBounc
     tornado_cyclone_bounce_from_d7_loc_35986(-2)
 }
 
-pub(crate) fn tornado_cyclone_bounce_for_positions_loc_35986(
-    player_x: i64,
-    tornado_x: i64,
-) -> TornadoCycloneBounceLoc35986 {
-    if player_x < tornado_x {
-        tornado_cyclone_bounce_kid_left_loc_35984()
-    } else {
-        tornado_cyclone_bounce_kid_right_loc_3597e()
-    }
-}
-
 #[cfg(test)]
 pub(crate) fn step_tornado(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     let mut rng = RomRandomState::default();

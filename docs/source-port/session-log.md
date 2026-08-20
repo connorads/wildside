@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Tornado Cyclone-contact relation dispatch)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  moved to Tornado and found its Cyclone-contact path guessed side and vertical
+  outcome from player/Tornado centres instead of using the collision relation.
+- ASM `GfxObjects_CollisionKid loc_1C18` classifies contact from integer hitbox
+  overlap and relative X/Y velocity, then `off_35950` sends only `kidright` and
+  `kidleft` through `loc_35986`. Native now consumes that shared classifier;
+  `kidbelow` returns without a bounce and `kidabove` enters `loc_359B2`
+  directly. The rejected centre-word approach could not represent either
+  vertical route and has been removed.
+- All 41 Tornado-labelled tests pass. Final verification:
+  `mise run verify-slice-fast` passes 7,262 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further
+  Tornado work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Fireball obstacle-trail word arithmetic)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

@@ -11550,30 +11550,6 @@ mod chunk_04 {
         );
     }
 
-    #[test]
-    fn tornado_cyclone_bounce_for_positions_loc_35986_selects_side_branch() {
-        use enemies::tornado_cyclone_bounce_for_positions_loc_35986;
-
-        assert_eq!(
-            tornado_cyclone_bounce_for_positions_loc_35986(0x0100_0000, 0x0110_0000)
-                .player_x_velocity,
-            -0x0001_0001,
-            "ASM Tornado.asm loc_35986 should use the loc_35984 left-contact branch when Kid is left of the Tornado",
-        );
-        assert_eq!(
-            tornado_cyclone_bounce_for_positions_loc_35986(0x0120_0000, 0x0110_0000)
-                .player_x_velocity,
-            0x0002_0000,
-            "ASM Tornado.asm loc_35986 should use the loc_3597E right-contact branch when Kid is right of the Tornado",
-        );
-        assert_eq!(
-            tornado_cyclone_bounce_for_positions_loc_35986(0x0110_0000, 0x0110_0000)
-                .player_x_velocity,
-            0x0002_0000,
-            "Native side-branch derivation keeps the equal-X boundary with the right-contact loc_3597E path",
-        );
-    }
-
     /// Integration test: regular form takes damage from Tornado.
     #[test]
     fn regular_form_takes_damage_from_tornado() {

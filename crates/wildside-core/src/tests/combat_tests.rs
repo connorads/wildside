@@ -4598,6 +4598,7 @@ mod chunk_03 {
             0x00C0_0000,
             1,
         )];
+        runtime.active_enemies[0].x_velocity = 0x0001_0000;
 
         let mut slice = runtime
             .opening_slice
@@ -4629,7 +4630,7 @@ mod chunk_03 {
     }
 
     #[test]
-    fn loc_35986_cyclone_above_tornado_enters_loc_359b2_death() {
+    fn tornado_kidabove_contact_enters_loc_359b2_without_side_bounce() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
         runtime.progression.current_form = PlayerForm::Cyclone;
@@ -4640,6 +4641,7 @@ mod chunk_03 {
             0x00C0_0000,
             1,
         )];
+        runtime.active_enemies[0].y_velocity = -0x0001_0000;
 
         let mut slice = runtime
             .opening_slice
@@ -4658,11 +4660,11 @@ mod chunk_03 {
                 frame_start_x_pos,
                 frame_start_y_pos,
             ),
-            "ASM Tornado.asm loc_35986 should consume the frame before branching to loc_359B2",
+            "ASM Tornado.asm off_35950 routes `colid_kidabove` directly to loc_359B2",
         );
         assert_eq!(
-            slice.player.x_velocity, -0x0001_0001,
-            "ASM Tornado.asm loc_35986 writes Kid x_vel before the y_pos death compare",
+            slice.player.x_velocity, 0,
+            "ASM Tornado.asm off_35950 reaches loc_359B2 without executing either side-bounce seed or loc_35986",
         );
         assert_eq!(
             runtime.active_enemies.len(),
@@ -4676,7 +4678,50 @@ mod chunk_03 {
         );
         assert_ne!(
             runtime.last_kid_collision_type, 0x0028,
-            "ASM Tornado.asm loc_35986 branches to loc_359B2 before writing Kid collision_type=$28 when Kid is above",
+            "ASM Tornado.asm loc_359B2 starts death without writing Kid collision_type=$28 when Kid is above",
+        );
+    }
+
+    #[test]
+    fn tornado_kidbelow_contact_return_3597c_does_not_bounce_cyclone() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::Cyclone;
+        runtime.helmet.cyclone_flying = true;
+        runtime.active_enemies = vec![test_enemy(
+            EnemyFamily::Tornado,
+            0x0100_0000,
+            0x00C0_0000,
+            1,
+        )];
+        runtime.active_enemies[0].x_velocity = 0;
+        runtime.active_enemies[0].y_velocity = 0;
+
+        let mut slice = runtime
+            .opening_slice
+            .expect("level start should seed a slice");
+        slice.player.x_pos = 0x0100_0000;
+        slice.player.y_pos = 0x00C0_0000;
+        slice.player.x_velocity = 0;
+        slice.player.y_velocity = 0;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+
+        assert!(
+            !runtime.resolve_frame_hazards(
+                &mut slice,
+                FrameInput::default(),
+                0,
+                frame_start_y_pos,
+                frame_start_x_pos,
+                frame_start_y_pos,
+            ),
+            "ASM Tornado.asm off_35950 routes `colid_kidbelow` to return_3597C, so a flying Cyclone should receive no side bounce",
+        );
+        assert_eq!(slice.player.x_velocity, 0);
+        assert_ne!(
+            runtime.last_kid_frame_post_motion_mutator,
+            KidFramePostMotionMutator::CycloneTornadoBounce
         );
     }
 
