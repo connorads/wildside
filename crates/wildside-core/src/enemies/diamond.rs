@@ -16,14 +16,14 @@ pub(crate) struct DiamondHighHpInitLoc3AD7C {
 }
 
 pub(crate) fn diamond_high_hp_init_loc_3ad7c(
-    enemy_x_px: i32,
-    player_x_px: i32,
+    enemy_x_px: i16,
+    player_x_px: i16,
 ) -> DiamondHighHpInitLoc3AD7C {
     // ASM Diamond.asm loc_3AD7C: high-HP Diamonds enable movement and level
     // collision, initialise `stru_3ACA8`, then seed `x_vel` to `$18000`.
     // `move.w x_pos(a3),d7; sub.w x_pos(a4),d7; bmi.s <collision-loop>`
     // keeps positive velocity only when the Diamond is left of Kid.
-    let x_velocity = if enemy_x_px - player_x_px < 0 {
+    let x_velocity = if enemy_x_px.wrapping_sub(player_x_px) < 0 {
         0x0001_8000
     } else {
         -0x0001_8000
@@ -541,6 +541,11 @@ mod tests {
             diamond_high_hp_init_loc_3ad7c(96, 96).x_velocity,
             -0x0001_8000,
             "ASM Diamond.asm loc_3AD7C uses `bmi`, so exact alignment takes the negate path",
+        );
+        assert_eq!(
+            diamond_high_hp_init_loc_3ad7c(i16::MAX, i16::MIN).x_velocity,
+            0x0001_8000,
+            "ASM Diamond.asm loc_3AD7C uses wrapping SUB.W before BMI at the signed X-word boundary",
         );
     }
 

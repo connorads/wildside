@@ -4320,7 +4320,7 @@ fn activate_enemies_with_rng_inner(
                 // ASM Diamond.asm loc_3AD7C: HP above 3 bypasses the low-HP
                 // shared-walker setup and seeds a Kid-facing physics velocity.
                 let init =
-                    diamond_high_hp_init_loc_3ad7c((head_x >> 16) as i32, (player_x >> 16) as i32);
+                    diamond_high_hp_init_loc_3ad7c((head_x >> 16) as i16, (player_x >> 16) as i16);
                 enemy.x_velocity = init.x_velocity;
                 enemy.y_velocity = 0;
                 enemy.on_ground = false;

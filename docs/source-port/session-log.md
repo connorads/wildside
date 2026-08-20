@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Diamond spawn word comparison)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  moved to Diamond and found a widened subtraction in the live high-HP spawn
+  direction decision.
+- ASM `loc_3AD7C` performs `SUB.W` then `BMI`; native compared widened `i32`
+  positions and chose the opposite X velocity across the signed word boundary.
+  The helper now accepts word-sized coordinates and uses wrapping subtraction.
+- All 286 Diamond-labelled tests pass. Final verification:
+  `mise run verify-slice-fast` passes 7,253 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further
+  Diamond work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Mini Hopping Skull collision negation wrap)
 
 - `project-status` again offered no ready/open risk. The proactive fallback
