@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-20 handoff (Dragon Flying fire position words)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  moved to Dragon Flying and found widened fixed-point arithmetic in its live
+  descent-fire child spawn.
+- ASM `loc_34BAC` copies the parent's X/Y words and adds ten to Y;
+  `loc_34BE6` applies the facing-specific X offset with word arithmetic.
+  Native retained the parent's fractional low words; the fire child now
+  constructs both coordinates from wrapping integer words.
+- All 19 Dragon-labelled tests pass. Final verification:
+  `mise run verify-slice-fast` passes 7,258 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further
+  Dragon work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (UFO beam position words)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

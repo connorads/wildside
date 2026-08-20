@@ -673,18 +673,20 @@ pub(crate) fn dragon_flying_descent_fire_setup_loc_34BE6(
     fire_y_velocity_word: i16,
     facing: Direction,
 ) -> DragonFlyingDescentFireSetupLoc34BE6 {
-    let (x_offset_px, initial_x_velocity_word) = match facing {
+    let (x_offset_px, initial_x_velocity_word): (i16, i16) = match facing {
         Direction::Left => (-10, -1),
         Direction::Right => (10, 1),
     };
     let final_x_velocity_word = fp16_high_signed_word(dragon_x_velocity);
+    let x_pos_word = ((dragon_x_pos >> 16) as u16).wrapping_add_signed(x_offset_px);
+    let y_pos_word = ((dragon_y_pos >> 16) as u16).wrapping_add(10);
 
     // ASM Dragon_Flying.asm loc_34BE6: apply the signed mouth offset, seed
     // d1 into x_vel for animation setup, then overwrite x_vel/y_vel from the
     // parent-supplied words `$44/$46(a5)` before the first DBF loop.
     DragonFlyingDescentFireSetupLoc34BE6 {
-        x_pos: dragon_x_pos.wrapping_add_signed(x_offset_px << 16),
-        y_pos: dragon_y_pos.wrapping_add(10 << 16),
+        x_pos: u32::from(x_pos_word) << 16,
+        y_pos: u32::from(y_pos_word) << 16,
         initial_x_velocity: fp16_from_signed_word(initial_x_velocity_word),
         final_x_velocity: fp16_from_signed_word(final_x_velocity_word),
         y_velocity: fp16_from_signed_word(fire_y_velocity_word),
@@ -2259,6 +2261,26 @@ mod tests {
                 ..Default::default()
             },
             "ASM Dragon_Flying.asm loc_348A0/loc_34BE6 seeds the descent fire projectile without a generic DBF lifetime"
+        );
+    }
+
+    #[test]
+    fn dragon_flying_descent_fire_loc_34bac_34be6_copies_and_wraps_position_words() {
+        let setup = dragon_flying_descent_fire_setup_loc_34BE6(
+            (0xFFF8 << 16) | 0xBEEF,
+            (0xFFFA << 16) | 0xCAFE,
+            0,
+            3,
+            Direction::Right,
+        );
+
+        assert_eq!(
+            setup.x_pos, 0x0002_0000,
+            "ASM Dragon_Flying.asm loc_34BAC/loc_34BE6 copies X as a word and wraps ADD.W #$A"
+        );
+        assert_eq!(
+            setup.y_pos, 0x0004_0000,
+            "ASM Dragon_Flying.asm loc_34BAC copies Y as a word and wraps ADDI.W #$A"
         );
     }
 

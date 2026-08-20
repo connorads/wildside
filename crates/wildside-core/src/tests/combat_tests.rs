@@ -14086,7 +14086,7 @@ mod chunk_03 {
             ),
             DragonFlyingDescentFireSetupLoc34BE6 {
                 x_pos: 0x010A_0000,
-                y_pos: 0x020A_8000,
+                y_pos: 0x020A_0000,
                 initial_x_velocity: 0x0001_0000,
                 final_x_velocity: -0x0002_0000,
                 y_velocity: 0x0003_0000,
@@ -14098,7 +14098,7 @@ mod chunk_03 {
                 animation_label: "LnkTo_unk_C75CE",
                 first_animation_counter: 6,
             },
-            "ASM Dragon_Flying.asm loc_34BE6 seeds d1 into x_vel, then overwrites x_vel from the signed parent high word"
+            "ASM Dragon_Flying.asm loc_34BAC copies the parent position words; loc_34BE6 seeds d1 into x_vel, then overwrites x_vel from the signed parent high word"
         );
         assert_eq!(
             dragon_flying_descent_fire_setup_loc_34BE6(
