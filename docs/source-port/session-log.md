@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Orca live visual scripts)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Orca and found that native free-ran a partial live/death atlas,
+  omitted C769E from its walk script, and ignored every fixed lunge pose.
+- ASM `stru_3D0A2` uses twelve nine-tick walk entries. `loc_3D23E`,
+  `loc_3D27E`, and `loc_3D2F4` fix C7656 for hurt, Berzerker knockback, and
+  windup; `loc_3D348` advances to C765E for the airborne lunge; `loc_3D420`
+  advances to C7666 for landing. Core now exports those fixed phases, the
+  atlas appends the three missing live mappings without shifting death
+  indices, and the selector regression first failed by returning walk frame
+  C7686 for the lunge. Level 0x69 captures show intact Orca art.
+- `mise run verify-slice-fast` passes 7,268 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing 241-frame/2,391-pixel and audio ratchets
+  unchanged.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Orca work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Ninja live visual scripts)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

@@ -6997,6 +6997,9 @@ mod tests {
                     sample_object_frame_with_base(74, 0x1D, 0x1A, 0x000),
                     sample_object_frame_with_base(75, 0x1B, 0x13, 0x010),
                     sample_object_frame_with_base(76, 0x20, 0x0C, 0x01C),
+                    sample_object_frame_with_base(77, 0x1C, 0x26, 0x0D4),
+                    sample_object_frame_with_base(78, 0x23, 0x20, 0x034),
+                    sample_object_frame_with_base(79, 0x1D, 0x23, 0x048),
                 ],
                 frame_duration: 9,
             },
@@ -20063,6 +20066,34 @@ mod tests {
                 "ASM Orca.asm loc_3D268/loc_3D4BC should advance `stru_3D11E` death frames"
             );
         }
+    }
+
+    #[test]
+    fn live_orca_snapshot_selects_walk_and_fixed_lunge_poses() {
+        let visuals = sample_level_visuals();
+        let orca_visuals = visuals.enemies.families.get(&0x08).expect("orca visuals");
+        let mut object = sample_enemy_object(0x08, 0x0040_0000, 0x0010_0000);
+        object.hit_points = Some(1);
+        let mut trace = sample_trace(GameMode::InGame);
+
+        for (phase, signature, tile_base) in [(6, 72, 0x024), (12, 78, 0x034), (13, 79, 0x048)] {
+            object.sprite_animation_phase = Some(phase);
+            let frame = sprites::select_enemy_frame(&trace, orca_visuals, &object);
+            assert_eq!(
+                (frame.tile_sheet.tiles[0].pixels[0], frame.tile_base_index),
+                (signature, tile_base),
+                "ASM Orca.asm loc_3D2F4/loc_3D348/loc_3D420 should preserve each animation-disabled pose",
+            );
+        }
+
+        object.sprite_animation_phase = None;
+        trace.frame_index = 90;
+        let frame = sprites::select_enemy_frame(&trace, orca_visuals, &object);
+        assert_eq!(
+            (frame.tile_sheet.tiles[0].pixels[0], frame.tile_base_index),
+            (77, 0x0D4),
+            "ASM Orca.asm stru_3D0A2 entry ten should select walking mapping C769E",
+        );
     }
 
     #[test]

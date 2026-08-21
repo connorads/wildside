@@ -2683,6 +2683,12 @@ impl ActiveEnemy {
                 self.damage_flash_frames,
                 self.y_velocity,
             ))
+        } else if matches!(self.family, EnemyFamily::Orca) && !self.death_animation_active {
+            orca_fixed_sprite_animation_phase(
+                self.orca_state,
+                self.damage_flash_frames,
+                self.wait_timer,
+            )
         } else if matches!(self.family, EnemyFamily::DragonWalking) {
             Some(dragon_walking_sprite_animation_phase_stru_3cc5e(
                 self.dragon_descent_index,

@@ -534,6 +534,25 @@ pub(crate) fn orca_lunge_y_velocity_loc_3d3b4(y_velocity: i32) -> i32 {
 /// Orca lunge X acceleration (Orca.asm loc_3D3A2: $200 per frame in facing dir).
 pub(crate) const ORCA_LUNGE_X_ACCEL: i32 = 0x200;
 
+/// Returns the atlas index for Orca poses whose ROM animation is disabled.
+/// ASM Orca.asm loc_3D23E/loc_3D27E/loc_3D2F4/loc_3D348/loc_3D420.
+pub(crate) fn orca_fixed_sprite_animation_phase(
+    state: OrcaState,
+    damage_flash_frames: u8,
+    wait_timer: u16,
+) -> Option<u8> {
+    if damage_flash_frames != 0 || wait_timer == ORCA_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3D2AA {
+        return Some(6);
+    }
+
+    match state {
+        OrcaState::Windup => Some(6),
+        OrcaState::Lunging => Some(12),
+        OrcaState::LandingWait => Some(13),
+        OrcaState::Walking | OrcaState::FatalFall => None,
+    }
+}
+
 /// Step an Orca enemy: paces at $8000, detects nearby player, lunges in a
 /// ballistic arc, lands and resumes walking with a cooldown.
 pub(crate) fn step_orca(
@@ -726,6 +745,40 @@ pub(crate) fn step_orca(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fixed_sprite_animation_phase_tracks_orca_asm_poses() {
+        assert_eq!(
+            orca_fixed_sprite_animation_phase(OrcaState::Walking, 0, 0),
+            None
+        );
+        assert_eq!(
+            orca_fixed_sprite_animation_phase(OrcaState::Windup, 0, 0),
+            Some(6)
+        );
+        assert_eq!(
+            orca_fixed_sprite_animation_phase(OrcaState::Lunging, 0, 0),
+            Some(12)
+        );
+        assert_eq!(
+            orca_fixed_sprite_animation_phase(OrcaState::LandingWait, 0, 0),
+            Some(13)
+        );
+        assert_eq!(
+            orca_fixed_sprite_animation_phase(OrcaState::Walking, 1, 0),
+            Some(6),
+            "ASM Orca.asm loc_3D23E holds C7656 during non-terminal hurt"
+        );
+        assert_eq!(
+            orca_fixed_sprite_animation_phase(
+                OrcaState::Walking,
+                0,
+                ORCA_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3D2AA,
+            ),
+            Some(6),
+            "ASM Orca.asm loc_3D27E holds C7656 during Berzerker knockback"
+        );
+    }
 
     #[test]
     fn orca_init_state_matches_loc_3d194() {
