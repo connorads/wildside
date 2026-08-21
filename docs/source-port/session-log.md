@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Robot composite live visuals)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Robot because native exposes its linked head as a second object, but
+  both objects free-ran the six body and two death mappings in one atlas. The
+  rendering regression first selected body tile C82A8 for the live head where
+  ASM `loc_3A7EE`/`stru_3A716` requires C82D8.
+- ASM `stru_3A6E2`/`stru_3A6FC` drives the parent body's walk and charge loops.
+  The linked head independently runs `stru_3A716`/`stru_3A730`, uses C8308 on
+  a surviving hit, and selects C8338/C8340 while `sub_3C4F8` aims. Core now
+  exports separate typed phases and the atlas includes all cited mappings.
+- Woods of Despair 2 0x20 idle captures render intact terrain and player art;
+  the no-input route does not bring its first Robot on screen. Exact mapping
+  selection is pinned across core roster, atlas, fixture, and renderer tests.
+  #190's incomplete shooting coroutine remains unchanged pending its required
+  narrow Robot shoot oracle scenario.
+- `mise run verify-slice-fast` passes 7,277 core tests and reduces test-only
+  ASM debt from 159 to 158; `mise run verify-tas-full` checks all 37,759 frames
+  with gameplay, enemy and RNG parity green and the existing
+  241-frame/2,391-pixel and audio ratchets unchanged.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Robot or Armadillo work, frozen timing feeders, and blocked boss umbrella
+  #301.
+
 ## 2026-08-21 handoff (Armadillo charge and live visuals)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

@@ -17549,6 +17549,15 @@ mod chunk_03 {
             Some(Direction::Right),
             "ASM Robot.asm loc_3A820 copies parent x_direction to the child head"
         );
+        assert_eq!(
+            runtime.active_enemy_roster[0].sprite_animation_phase,
+            Some(0)
+        );
+        assert_eq!(
+            runtime.active_enemy_roster[1].sprite_animation_phase,
+            Some(10),
+            "ASM Robot.asm stru_3A6E2/stru_3A716 give the parent body and linked head independent mapping banks"
+        );
     }
 
     #[test]

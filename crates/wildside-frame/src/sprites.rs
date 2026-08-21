@@ -1461,6 +1461,23 @@ fn select_live_armadillo_frame<'a>(
         .get(usize::from(object.sprite_animation_phase?))
 }
 
+fn select_live_robot_frame<'a>(
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x03 })
+        || (object.wait_timer.is_some() && object.hit_points == Some(0))
+        || enemy_visuals.frames.len() < 23
+    {
+        return None;
+    }
+    // ASM Robot.asm stru_3A6E2/stru_3A6FC and stru_3A716/stru_3A730:
+    // core distinguishes the parent legs from the linked head by typed phase.
+    enemy_visuals
+        .frames
+        .get(usize::from(object.sprite_animation_phase?))
+}
+
 fn select_live_sphere_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
@@ -2211,6 +2228,9 @@ pub fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_armadillo_frame(enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_robot_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_sphere_frame(trace, enemy_visuals, object) {
@@ -3843,7 +3863,7 @@ mod tests {
     #[test]
     fn live_enemy_selectors_reject_wrong_family_dead_and_short_sheets() {
         let trace = NativeTraceFrame::default();
-        let full = labelled_enemy_visuals(15, 3);
+        let full = labelled_enemy_visuals(23, 3);
         let short = labelled_enemy_visuals(2, 3);
 
         // ASM Dragon.asm loc_3CE48/loc_3CEFC: live walking-dragon selector is
@@ -3887,6 +3907,12 @@ mod tests {
                 let mut armadillo = live_enemy_object(0x04);
                 armadillo.sprite_animation_phase = Some(0);
                 select_live_armadillo_frame(&full, &armadillo).is_some()
+            }),
+            (0x03, {
+                let mut robot_head = live_enemy_object(0x03);
+                robot_head.hit_points = Some(0);
+                robot_head.sprite_animation_phase = Some(10);
+                select_live_robot_frame(&full, &robot_head).is_some()
             }),
             (
                 0x06,
@@ -4216,6 +4242,20 @@ mod tests {
             selected_enemy_tile_base(&trace, &armadillo_visuals, &armadillo),
             0x010C,
             "ASM Armadillo.asm loc_3C848/stru_3C6D0 must hold C76D6"
+        );
+
+        // ASM Robot.asm loc_3A7EE/stru_3A716: the linked head owns a
+        // separate six-frame C82D8..C8300 walk script. It must not use the
+        // parent body's C82A8..C82D0 atlas phase.
+        let robot_visuals = labelled_enemy_visuals(23, 9);
+        let mut robot_head = live_enemy_object(0x03);
+        robot_head.hit_points = Some(0);
+        robot_head.sprite_animation_phase = Some(10);
+        trace.frame_index = 0;
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &robot_visuals, &robot_head),
+            0x010A,
+            "linked Robot head must select its typed C82D8 mapping instead of Robot legs"
         );
 
         // ASM Driller.asm stru_3BCB2 alternates only C80E0/C80E8 while

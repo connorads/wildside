@@ -1348,6 +1348,7 @@ pub(crate) struct ActiveEnemy {
     /// Dragon Flying: descent sub-script entry index.
     /// Dragon Walking keeps its independent `GfxObject_Animate` elapsed tick
     /// here because the two families never share an active object state.
+    /// Robot reuses it for the linked head's independent animation tick.
     pub(crate) dragon_descent_index: u8,
     /// Dragon Flying: frames remaining in current descent entry.
     /// Cloud reuses this for `stru_35EC8` ticks between Cloud.asm loc_35D9E
@@ -1356,6 +1357,7 @@ pub(crate) struct ActiveEnemy {
     /// Scorpion reuses it as the elapsed `stru_3DB60` walk-animation tick.
     /// Driller reuses it as the elapsed `stru_3BCB2` parent-animation tick.
     /// Armadillo reuses it as the elapsed live walk/charge animation tick.
+    /// Robot reuses it for the parent body's independent animation tick.
     pub(crate) dragon_descent_frames: u8,
     pub(crate) ninja_state: NinjaState,
     pub(crate) hand_state: HandState,
@@ -2724,6 +2726,12 @@ impl ActiveEnemy {
                 self.dragon_descent_frames,
                 self.damage_flash_frames,
             ))
+        } else if matches!(self.family, EnemyFamily::Robot) && !self.death_animation_active {
+            Some(robot_live_body_sprite_phase(
+                self.robot_state,
+                self.dragon_descent_frames,
+                self.damage_flash_frames,
+            ))
         } else {
             None
         };
@@ -3142,6 +3150,15 @@ impl ActiveEnemy {
             None
         };
 
+        let sprite_animation_phase = matches!(self.family, EnemyFamily::Robot).then(|| {
+            robot_live_head_sprite_phase(
+                self.robot_state,
+                self.dragon_descent_index,
+                self.damage_flash_frames,
+                self.wait_timer,
+            )
+        });
+
         Some(NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy {
                 object_type: self.family.object_type(),
@@ -3162,7 +3179,7 @@ impl ActiveEnemy {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
-            sprite_animation_phase: None,
+            sprite_animation_phase,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         })
@@ -4733,6 +4750,17 @@ pub(crate) fn step_active_enemies_with_rng(
                     enemy.shared_walker_state,
                 );
         }
+        if matches!(enemy.family, EnemyFamily::Robot)
+            && enemy.damage_flash_frames == 0
+            && !enemy.death_animation_active
+        {
+            // ASM Robot.asm stru_3A6E2/stru_3A6FC and stru_3A716/stru_3A730:
+            // parent body and linked head advance independent Gfx animations.
+            enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1)
+                % robot_live_body_animation_cycle_ticks(enemy.robot_state);
+            enemy.dragon_descent_index =
+                robot_next_head_animation_tick(enemy.robot_state, enemy.dragon_descent_index);
+        }
         if executable_enemy_indices.next_if_eq(&enemy_index).is_none() {
             continue;
         }
@@ -4766,6 +4794,8 @@ pub(crate) fn step_active_enemies_with_rng(
             matches!(enemy.family, EnemyFamily::Driller) && enemy.damage_flash_frames == 1;
         let restores_armadillo_animation =
             matches!(enemy.family, EnemyFamily::Armadillo) && enemy.damage_flash_frames == 1;
+        let restores_robot_animation =
+            matches!(enemy.family, EnemyFamily::Robot) && enemy.damage_flash_frames == 1;
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
         if restores_dragon_walking_animation {
             // ASM Dragon.asm loc_3CEBE restores `$62(a5)` through
@@ -4781,6 +4811,12 @@ pub(crate) fn step_active_enemies_with_rng(
             // ASM Armadillo.asm loc_3C848 restores `$62(a5)` through
             // Init_Animation after stru_3C6D0 completes.
             enemy.dragon_descent_frames = 0;
+        }
+        if restores_robot_animation {
+            // ASM Robot.asm loc_3A936/loc_3AB14 reinitialises parent
+            // stru_3A6E2 and linked-head stru_3A716 after a surviving hit.
+            enemy.dragon_descent_frames = 0;
+            enemy.dragon_descent_index = 0;
         }
         if matches!(enemy.family, EnemyFamily::FireDemon) {
             // ASM Fire_Demon.asm loc_3A48E allocates a separate palette helper
@@ -9190,6 +9226,8 @@ pub(crate) fn enter_robot_charge_loc_3a96c(enemy: &mut ActiveEnemy) {
     debug_assert_eq!(charge.next_parent_collision_type, 0x0800);
     debug_assert_eq!(charge.next_child_collision_type, 0x0800);
     enemy.robot_state = RobotState::Charging;
+    enemy.dragon_descent_frames = 0;
+    enemy.dragon_descent_index = 0;
     enemy.facing = charge.resume_walk_direction;
     enemy.wait_timer = charge.flip_timer;
     enemy.x_velocity = horizontal_velocity(charge.resume_walk_direction, charge.charge_speed);
