@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Driller live parent visuals)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Driller because its renderer free-ran the combined live/death atlas.
+  The regression first selected C80D8 from the death bank during ordinary
+  movement.
+- ASM `stru_3BCB2` alternates parent mappings C80E0/C80E8 for nine ticks each.
+  A surviving stomp at `loc_3BF4E` replaces that loop with the single C80D8
+  mapping for `stru_3BCCE`'s 30-tick hibernate, then re-installs the live loop.
+  Core now exports that object-local phase and the renderer requires it for a
+  live Driller, hardening Driller stages against future pixel/sweep coverage.
+- Diamond Edge 0x2B idle captures show intact level and player rendering; the
+  no-input route does not reach its first Driller. Exact mapping selection is
+  covered across the core tick/snapshot and composed renderer boundaries.
+- `mise run verify-slice-fast` passes 7,272 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing 241-frame/2,391-pixel and audio ratchets
+  unchanged.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Driller work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Emo Rock live visual scripts)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

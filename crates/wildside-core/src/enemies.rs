@@ -1354,6 +1354,7 @@ pub(crate) struct ActiveEnemy {
     /// and loc_35DB8 lightning allocation. Emo Rock reuses it for the
     /// Emo_Rock.asm loc_3621A `stru_3647E` pre-drop animation hibernate.
     /// Scorpion reuses it as the elapsed `stru_3DB60` walk-animation tick.
+    /// Driller reuses it as the elapsed `stru_3BCB2` parent-animation tick.
     pub(crate) dragon_descent_frames: u8,
     pub(crate) ninja_state: NinjaState,
     pub(crate) hand_state: HandState,
@@ -2709,6 +2710,11 @@ impl ActiveEnemy {
                 self.on_ground,
                 self.wait_timer,
                 self.grounded_frames,
+            ))
+        } else if matches!(self.family, EnemyFamily::Driller) && !self.death_animation_active {
+            Some(driller_live_sprite_phase_stru_3bcb2(
+                self.dragon_descent_frames,
+                self.damage_flash_frames,
             ))
         } else {
             None
@@ -4699,6 +4705,14 @@ pub(crate) fn step_active_enemies_with_rng(
             // six-tick mapping entries independently from the walker coroutine.
             enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1) % 36;
         }
+        if matches!(enemy.family, EnemyFamily::Driller)
+            && enemy.damage_flash_frames == 0
+            && !enemy.death_animation_active
+        {
+            // ASM Driller.asm stru_3BCB2: the parent GfxObject animation runs
+            // independently from the hibernating shared-walker Object.
+            enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1) % 18;
+        }
         if executable_enemy_indices.next_if_eq(&enemy_index).is_none() {
             continue;
         }
@@ -4728,11 +4742,18 @@ pub(crate) fn step_active_enemies_with_rng(
         }
         let restores_dragon_walking_animation =
             matches!(enemy.family, EnemyFamily::DragonWalking) && enemy.damage_flash_frames == 1;
+        let restores_driller_animation =
+            matches!(enemy.family, EnemyFamily::Driller) && enemy.damage_flash_frames == 1;
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
         if restores_dragon_walking_animation {
             // ASM Dragon.asm loc_3CEBE restores `$62(a5)` through
             // Init_Animation after the one-frame hurt script completes.
             enemy.dragon_descent_index = 0;
+        }
+        if restores_driller_animation {
+            // ASM Driller.asm loc_3BF4E re-installs stru_3BCB2 after the
+            // one-frame stru_3BCCE script finishes.
+            enemy.dragon_descent_frames = 0;
         }
         if matches!(enemy.family, EnemyFamily::FireDemon) {
             // ASM Fire_Demon.asm loc_3A48E allocates a separate palette helper

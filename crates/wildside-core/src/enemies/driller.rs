@@ -241,6 +241,17 @@ pub(crate) fn driller_child_move_and_collide_gfx_objects_collision(
 /// frame the surviving stomped Driller hibernates through (loc_3BF4E).
 pub(crate) const DRILLER_RETRACT_FRAMES_STRU_3BCCE: u8 = 0x1E;
 
+/// Atlas phase for the live Driller parent GfxObject.
+/// ASM `stru_3BCB2` alternates C80E0/C80E8 for nine ticks each; surviving
+/// stomp route `loc_3BF4E` replaces it with C80D8 for `stru_3BCCE`'s wait.
+pub(crate) fn driller_live_sprite_phase_stru_3bcb2(animation_tick: u8, hurt_remaining: u8) -> u8 {
+    if hurt_remaining > 0 {
+        2
+    } else {
+        (animation_tick / 9) % 2
+    }
+}
+
 pub(crate) const DRILLER_COLID_LEFTWALL: u16 = colid::LEFTWALL;
 pub(crate) const DRILLER_COLID_RIGHTWALL: u16 = colid::RIGHTWALL;
 
@@ -688,6 +699,11 @@ mod tests {
             enemy.damage_flash_frames, DRILLER_RETRACT_FRAMES_STRU_3BCCE,
             "ASM Driller.asm loc_3BF4E waits through the single $1E-tick stru_3BCCE frame"
         );
+        assert_eq!(
+            enemy.snapshot().sprite_animation_phase,
+            Some(2),
+            "ASM Driller.asm loc_3BF4E installs stru_3BCCE C80D8 while the parent hibernates"
+        );
         let start_x = enemy.x_pos;
         let start_y = enemy.y_pos;
         let mut enemies = [enemy];
@@ -723,6 +739,64 @@ mod tests {
         assert_eq!(enemies[0].x_velocity, 0);
         assert_eq!(enemies[0].y_velocity, 0);
         assert!(drilled_blocks.is_empty());
+    }
+
+    #[test]
+    fn driller_live_sprite_phase_follows_stru_3bcb2_and_hurt_replacement() {
+        // ASM Driller.asm stru_3BCB2: C80E0/C80E8 each last nine ticks and
+        // dispatch selector 2 rewinds to the first entry.
+        assert_eq!(driller_live_sprite_phase_stru_3bcb2(0, 0), 0);
+        assert_eq!(driller_live_sprite_phase_stru_3bcb2(8, 0), 0);
+        assert_eq!(driller_live_sprite_phase_stru_3bcb2(9, 0), 1);
+        assert_eq!(driller_live_sprite_phase_stru_3bcb2(17, 0), 1);
+        assert_eq!(driller_live_sprite_phase_stru_3bcb2(18, 0), 0);
+
+        // ASM Driller.asm loc_3BF4E/stru_3BCCE: C80D8 replaces that loop
+        // throughout the surviving-stomp hibernate.
+        assert_eq!(driller_live_sprite_phase_stru_3bcb2(9, 0x1E), 2);
+        assert_eq!(driller_live_sprite_phase_stru_3bcb2(9, 1), 2);
+    }
+
+    #[test]
+    fn driller_live_phase_ticks_and_restores_stru_3bcb2() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Driller;
+        enemy.hit_points = 2;
+        enemy.shared_walker_patrol_short_next = true;
+        enemy.dragon_descent_frames = 8;
+        let mut enemies = [enemy];
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies(
+            &mut enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut drilled_blocks,
+        );
+        assert_eq!(enemies[0].dragon_descent_frames, 9);
+        assert_eq!(enemies[0].snapshot().sprite_animation_phase, Some(1));
+
+        // ASM Driller.asm loc_3BF4E re-installs stru_3BCB2 at its first
+        // C80E0 entry after the C80D8 hurt wait finishes.
+        enemies[0].damage_flash_frames = 1;
+        step_active_enemies(
+            &mut enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut drilled_blocks,
+        );
+        assert_eq!(enemies[0].dragon_descent_frames, 0);
+        assert_eq!(enemies[0].snapshot().sprite_animation_phase, Some(0));
     }
 
     #[test]

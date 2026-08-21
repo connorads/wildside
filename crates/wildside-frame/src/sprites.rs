@@ -1482,6 +1482,23 @@ fn select_live_emo_rock_frame<'a>(
         .get(usize::from(object.sprite_animation_phase?))
 }
 
+fn select_live_driller_frame<'a>(
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x1A })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 5
+    {
+        return None;
+    }
+    // ASM Driller.asm stru_3BCB2/loc_3BF4E: core exports either the live
+    // C80E0/C80E8 parent phase or the fixed stru_3BCCE C80D8 hurt mapping.
+    enemy_visuals
+        .frames
+        .get(usize::from(object.sprite_animation_phase?))
+}
+
 fn select_live_hand_frame<'a>(
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
@@ -2180,6 +2197,9 @@ pub fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_emo_rock_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_driller_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_hand_frame(enemy_visuals, object) {
@@ -3852,6 +3872,11 @@ mod tests {
                 emo_rock.sprite_animation_phase = Some(10);
                 select_live_emo_rock_frame(&trace, &full, &emo_rock).is_some()
             }),
+            (0x1A, {
+                let mut driller = live_enemy_object(0x1A);
+                driller.sprite_animation_phase = Some(0);
+                select_live_driller_frame(&full, &driller).is_some()
+            }),
             (
                 0x12,
                 select_live_lion_frame(&trace, &full, &live_enemy_object(0x12)).is_some(),
@@ -3918,6 +3943,18 @@ mod tests {
         rejected.hit_points = Some(0);
         assert!(select_live_emo_rock_frame(&trace, &full, &rejected).is_none());
         assert!(select_live_emo_rock_frame(&trace, &short, &live_enemy_object(0x1B)).is_none());
+
+        let mut rejected = live_enemy_object(0x1A);
+        rejected.sprite_animation_phase = Some(0);
+        rejected.kind = NativeObjectKind::Enemy { object_type: 0x19 };
+        assert!(select_live_driller_frame(&full, &rejected).is_none());
+        rejected = live_enemy_object(0x1A);
+        rejected.sprite_animation_phase = Some(0);
+        rejected.hit_points = Some(0);
+        assert!(select_live_driller_frame(&full, &rejected).is_none());
+        let mut live_driller = live_enemy_object(0x1A);
+        live_driller.sprite_animation_phase = Some(0);
+        assert!(select_live_driller_frame(&short, &live_driller).is_none());
 
         let mut rejected = live_enemy_object(0x12);
         rejected.kind = NativeObjectKind::Enemy { object_type: 0x13 };
@@ -4010,6 +4047,15 @@ mod tests {
             )),
             0x0100
         );
+        let mut driller = live_enemy_object(0x1A);
+        driller.sprite_animation_phase = Some(0);
+        assert_eq!(
+            selected_live_tile_base(select_live_driller_frame(
+                &labelled_enemy_visuals(5, 3),
+                &driller
+            )),
+            0x0100
+        );
         assert_eq!(
             selected_live_tile_base(select_live_hand_frame(
                 &labelled_enemy_visuals(7, 3),
@@ -4098,6 +4144,25 @@ mod tests {
             selected_live_tile_base(select_live_emo_rock_frame(&trace, &emo_visuals, &emo_rock)),
             0x010A,
             "ASM Emo_Rock.asm stru_3647E final C7F38 mapping must hold during loc_3625E drop"
+        );
+
+        // ASM Driller.asm stru_3BCB2 alternates only C80E0/C80E8 while
+        // alive; loc_3BF4E temporarily replaces it with C80D8.
+        let driller_visuals = labelled_enemy_visuals(5, 9);
+        trace.frame_index = 18;
+        let mut driller = live_enemy_object(0x1A);
+        driller.sprite_animation_phase = Some(0);
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &driller_visuals, &driller),
+            0x0100,
+            "ASM Driller.asm stru_3BCB2 must not free-run into the stru_3BCD4 death bank"
+        );
+        driller.damage_flash = true;
+        driller.sprite_animation_phase = Some(2);
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &driller_visuals, &driller),
+            0x0102,
+            "ASM Driller.asm loc_3BF4E/stru_3BCCE holds C80D8 while hurt"
         );
 
         // ASM Dragon_Flying.asm loc_346DA/loc_348CE: the normal wing sequence
