@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Big Hopping Skull hurt duration)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Big Hopping Skull and found that native already suspended motion for
+  the complete hit animation but ended the hit-frame state after eight ticks.
+- ASM `loc_365D8` initialises `stru_367CC`; `loc_365F2` through `loc_36632`
+  hibernate across its eleven frames for `$7C` ticks before clearing Kid
+  collision and resuming through `loc_366B6`. Native now uses the existing
+  script-derived 124-tick duration for both hit state and suspension. The live
+  stomp regression failed with native 8 versus ROM-derived 124 before the fix;
+  all 47 Big Hopping Skull-labelled tests pass.
+- `mise run verify-slice-fast` passes 7,265 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Big Hopping Skull work, frozen timing feeders, and blocked boss umbrella
+  #301.
+
 ## 2026-08-21 handoff (Spinning Twins hurt duration)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

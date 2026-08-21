@@ -2456,7 +2456,7 @@ impl ActiveEnemy {
                 BigHoppingSkullDamageEntryRouteLoc365D8::HitAnimationThenWait
             );
             self.hit_points = damage_entry.remaining_hit_points as u8;
-            self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+            self.damage_flash_frames = BIG_HOPPING_SKULL_HIT_ANIMATION_FRAMES_LOC_365D8;
             // ASM Big_Hopping_Skull.asm loc_365D8: nonfatal damage starts
             // `stru_367CC`; loc_365F2/loc_36616 hibernate the object until
             // the hit animation finishes before returning to loc_366B6.

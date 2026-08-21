@@ -1576,6 +1576,11 @@ fn big_hopping_skull_stomp_uses_loc_365d8_kid_bounce_velocity() {
         runtime.active_enemies[0].grounded_frames,
         BIG_HOPPING_SKULL_HIT_ANIMATION_FRAMES_LOC_365D8
     );
+    assert_eq!(
+        runtime.active_enemies[0].damage_flash_frames,
+        BIG_HOPPING_SKULL_HIT_ANIMATION_FRAMES_LOC_365D8,
+        "ASM Big_Hopping_Skull.asm loc_365D8 retains `stru_367CC` for the complete `$7C`-tick hit hibernate"
+    );
 }
 
 #[test]
