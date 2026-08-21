@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Orca hurt duration)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Orca collision recovery and found its live non-terminal patrol hurt
+  route still seeded the generic eight-frame damage timer.
+- ASM `loc_3D23E` initialises `stru_3D118` and hibernates until its single
+  `$0F`-tick animation frame finishes before seeding `$42(a3)=$FF88` and
+  restoring patrol speed. Native now uses that exact 15-tick duration. The new
+  observable regression failed with native 8 versus ROM-derived 15 before the
+  fix; all 49 Orca-labelled tests now pass.
+- `mise run verify-slice-fast` passes 7,265 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further Orca
+  work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Lion hurt duration)
 
 - `project-status` again offered no ready/open risk. Crab was checked first, but

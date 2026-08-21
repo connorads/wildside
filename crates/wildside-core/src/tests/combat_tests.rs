@@ -16244,6 +16244,31 @@ mod chunk_03 {
     }
 
     #[test]
+    fn orca_pending_patrol_hurt_hibernates_for_stru_3d118_loc_3d23e() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut orca = test_enemy(EnemyFamily::Orca, 0x0080_0000, 0x0040_0000, 4);
+        orca.layout_index = 20;
+        orca.walk_speed_override = 0x0000_8000;
+        runtime.active_enemies = vec![orca];
+        let collision_target = runtime.active_enemies[0];
+
+        runtime.queue_pending_enemy_collision(&collision_target, ORCA_COLID_HURT as u16);
+        runtime.apply_pending_enemy_collisions();
+
+        let orca = runtime.active_enemies[0];
+        assert_eq!(
+            orca.hit_points, 3,
+            "ASM Orca.asm loc_3D23E decrements `$44(a3)` for non-terminal hurt"
+        );
+        assert_eq!(
+            orca.damage_flash_frames, ORCA_HURT_ANIMATION_FRAMES_STRU_3D118,
+            "ASM Orca.asm loc_3D23E hibernates for the full stru_3D118 animation"
+        );
+        assert_eq!(orca.shared_walker_state, -0x0078);
+        assert_eq!(orca.walk_speed_override, 0x0000_8000);
+    }
+
+    #[test]
     fn orca_pending_lunge_hurt_bounces_down_loc_3d35a_3d472() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut orca = test_enemy(EnemyFamily::Orca, 0x0080_0000, 0x0040_0000, 4);

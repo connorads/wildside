@@ -9415,7 +9415,7 @@ impl NativeRuntime {
                                 enemy.hit_points = remaining_hp as u8;
                                 enemy.shared_walker_state = recoil_state_word;
                                 enemy.walk_speed_override = restored_walk_speed;
-                                enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                                enemy.damage_flash_frames = ORCA_HURT_ANIMATION_FRAMES_STRU_3D118;
                                 // ASM Orca.asm loc_3D23E resumes through
                                 // loc_3D2BC after the nonterminal hurt
                                 // animation restores `$50(a5)`.

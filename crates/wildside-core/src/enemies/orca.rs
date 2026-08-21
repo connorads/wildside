@@ -35,6 +35,9 @@ pub(crate) const ORCA_COLID_KIDRIGHT: i16 = colid::KIDRIGHT as i16;
 pub(crate) const ORCA_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
 pub(crate) const ORCA_COLID_KIDABOVE: i16 = colid::KIDABOVE as i16;
 
+/// ASM Orca.asm `stru_3D118`: non-terminal patrol hurt holds its sole frame for `$0F` ticks.
+pub(crate) const ORCA_HURT_ANIMATION_FRAMES_STRU_3D118: u8 = 0x0F;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum OrcaCollisionRouteLoc3D21E {
     Kill,
