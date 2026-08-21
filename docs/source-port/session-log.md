@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Robot hurt duration)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Robot and found that its shared surviving-hit assignment still used
+  the generic eight-frame damage window.
+- ASM `loc_3A8FC` and shoot-time `loc_3AB04` both initialise `stru_3A744` and
+  hibernate until its sole `$09`-tick frame finishes. Native now records that
+  exact duration before either route resumes the shared walker. The live body
+  stomp regression failed with native 8 versus ROM-derived 9 before the fix;
+  both normal and shoot-time collision regressions cover the duration.
+- `mise run verify-slice-fast` passes 7,265 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Robot work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Mini Hopping Skull hurt duration)
 
 - `project-status` again offered no ready/open risk. Walking Dragon was audited

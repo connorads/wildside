@@ -18367,6 +18367,10 @@ mod chunk_03 {
             runtime.active_enemies[0].hit_points, 1,
             "ASM Robot.asm loc_3A8AE checks parent collision_type before the linked head collision word"
         );
+        assert_eq!(
+            runtime.active_enemies[0].damage_flash_frames, ROBOT_HURT_ANIMATION_FRAMES_STRU_3A744,
+            "ASM Robot.asm loc_3A8FC hibernates through the sole `$09`-tick frame in `stru_3A744`"
+        );
     }
 
     #[test]
@@ -18435,6 +18439,10 @@ mod chunk_03 {
         assert_eq!(
             runtime.active_enemies[0].wait_timer, ROBOT_SHOOT_INTERVAL,
             "native shoot-time restore should leave the Robot on the same walking shoot interval used after an uninterrupted shot"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].damage_flash_frames, ROBOT_HURT_ANIMATION_FRAMES_STRU_3A744,
+            "ASM Robot.asm loc_3AB04 uses the same `$09`-tick `stru_3A744` hurt hibernate during the shooting coroutine"
         );
     }
 

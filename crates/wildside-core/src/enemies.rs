@@ -1712,6 +1712,9 @@ pub(crate) const TANK_SHOOTING_DEATH_ANIMATION_FRAMES: u16 = 0x10 + 0x08 + 0x3C;
 /// ASM Robot.asm loc_3A9D2 plays `stru_3A74A`: two $09-tick frames before
 /// the shared delete tail at loc_3C46E.
 pub(crate) const ROBOT_DEATH_ANIMATION_FRAMES: u16 = 0x09 + 0x09;
+/// ASM Robot.asm loc_3A8FC / loc_3AB04 plays `stru_3A744`: one $09-tick
+/// frame before a surviving Robot resumes the shared walker.
+pub(crate) const ROBOT_HURT_ANIMATION_FRAMES_STRU_3A744: u8 = 0x09;
 /// ASM Diamond.asm loc_3AEE6 / loc_3AE28 plays `stru_3ACC4`: $08, $06,
 /// $03, $03, then $02 ticks before the shared delete tail at loc_3C46E.
 pub(crate) const DIAMOND_DEATH_ANIMATION_FRAMES: u16 = 0x08 + 0x06 + 0x03 + 0x03 + 0x02;
@@ -2326,7 +2329,7 @@ impl ActiveEnemy {
             }
             let reaction = robot_hit_reaction_loc_3a8fc(u16::from(self.hit_points), false, false);
             self.hit_points = reaction.remaining_hp as u8;
-            self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+            self.damage_flash_frames = ROBOT_HURT_ANIMATION_FRAMES_STRU_3A744;
             if matches!(reaction.route, RobotHitReactionRouteLoc3A8Fc::EnterCharge) {
                 // ASM Robot.asm loc_3A8FC -> loc_3A96C: a final hit does not
                 // delete the Robot; it enters the `$800` collision charge state.
