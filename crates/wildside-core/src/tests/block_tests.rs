@@ -13846,8 +13846,9 @@ mod chunk_04 {
     }
 
     #[test]
-    fn robot_charge_exits_on_edge() {
-        // ASM: edge during charge → return to walking
+    fn robot_charge_turns_at_edge_and_retains_state_loc_3a9f0() {
+        // ASM Robot.asm loc_3C04E/loc_3C0FA: an edge turns the shared walker;
+        // loc_3A890 retains `$800` and resumes the charge at loc_3A9F0.
         let grid = grid_with_platform(17, 0, 10); // short platform
         let floor_y = (17 * 16) << 16;
         let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, floor_y, 2);
@@ -13855,15 +13856,17 @@ mod chunk_04 {
         enemy.on_ground = true;
         enemy.facing = Direction::Right;
         enemy.wait_timer = 100;
-        // Step until edge detected
+        let mut turned_at_edge = false;
         for _ in 0..60 {
             step_robot(&mut enemy, Some(&grid), None, &mut None);
-            if matches!(enemy.robot_state, RobotState::Walking) {
+            assert_eq!(enemy.robot_state, RobotState::Charging);
+            if enemy.facing == Direction::Left {
+                turned_at_edge = true;
                 break;
             }
         }
-        assert_eq!(enemy.robot_state, RobotState::Walking);
-        assert_eq!(enemy.wait_timer, ROBOT_SHOOT_INTERVAL);
+        assert!(turned_at_edge, "Robot should reverse at the platform edge");
+        assert!(enemy.wait_timer < 100);
     }
 
     // --- Orca ---

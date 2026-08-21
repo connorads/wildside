@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Robot charge terrain turns)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Robot against its complete enemy ASM and found native terrain contact
+  ended the permanent charge by changing `RobotState::Charging` to `Walking`.
+- ASM `loc_3C04E`/`loc_3C0FA` turns at walls and ledges through
+  `loc_3C026`/`loc_3C0D2`, then `loc_3A890` observes the retained `$800`
+  collision word and resumes `loc_3A9F0`. Native now preserves charge and
+  continues its random direction-flip timer after either terrain turn. The two
+  live-step regressions failed before the fix and pin both routes.
+- Focused verification passes all 14 Robot module tests.
+  `mise run verify-slice-fast` passes 7,264 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further Robot
+  work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-20 handoff (Tornado Cyclone-contact relation dispatch)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

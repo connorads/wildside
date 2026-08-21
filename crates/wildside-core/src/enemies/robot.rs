@@ -716,8 +716,8 @@ pub(crate) fn step_robot_with_rng(
             }
         }
         RobotState::Charging => {
-            // ASM Robot.asm: charge is permanent until wall hit.
-            // Direction-flip timer fires periodically; Robot stays charging.
+            // ASM Robot.asm loc_3A9F0: charge persists across shared-walker
+            // terrain turns. The random timer also flips direction in place.
             enemy.x_velocity = horizontal_velocity(enemy.facing, ROBOT_CHARGE_SPEED);
             enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
 
@@ -730,23 +730,22 @@ pub(crate) fn step_robot_with_rng(
                 let wall =
                     terrain::probe_wall(grid, cx, cy, probe_half_width, probe_height, moving_right);
                 if wall.hit {
-                    // Wall hit ends charge → return to walking
+                    // ASM Robot.asm loc_3C04E/loc_3C0FA: the shared walker
+                    // turns at the wall, hibernates, then loc_3A890 observes
+                    // the retained `$800` collision word and resumes the
+                    // charge timer through loc_3A9F0.
                     reverse_enemy_direction(enemy);
-                    enemy.robot_state = RobotState::Walking;
-                    enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
-                    return;
-                }
-                let look_ahead_x = if moving_right {
-                    cx + probe_half_width
                 } else {
-                    cx - probe_half_width
-                };
-                if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
-                    // Edge → also exit charge
-                    reverse_enemy_direction(enemy);
-                    enemy.robot_state = RobotState::Walking;
-                    enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
-                    return;
+                    let look_ahead_x = if moving_right {
+                        cx + probe_half_width
+                    } else {
+                        cx - probe_half_width
+                    };
+                    if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+                        // ASM loc_3C04E/loc_3C0FA: ledges use the same shared
+                        // walker turn without clearing the charge collision.
+                        reverse_enemy_direction(enemy);
+                    }
                 }
             }
 
@@ -1070,6 +1069,41 @@ mod tests {
             "ASM Robot.asm loc_3A96C seeds `$50(a5)=$28000`, and the charge loop advances by that speed each frame",
         );
         assert_eq!(robot.robot_state, RobotState::Charging);
+    }
+
+    #[test]
+    fn robot_charge_wall_turn_retains_collision_state_loc_3a9f0() {
+        let grid = grid_with_solid_cells(&[(4, 1)]);
+        let mut robot = robot_test_enemy(RobotState::Charging, Direction::Right, 56, 32, 10);
+
+        step_robot(&mut robot, Some(&grid), None, &mut None);
+
+        assert_eq!(robot.facing, Direction::Left);
+        assert_eq!(
+            robot.robot_state,
+            RobotState::Charging,
+            "ASM Robot.asm loc_3C04E turns at the wall, then loc_3A890 retains `$800` and resumes the charge through loc_3A9F0",
+        );
+        assert_eq!(
+            robot.wait_timer, 9,
+            "ASM Robot.asm loc_3A9F0 should continue decrementing the charge flip timer after the shared-walker turn",
+        );
+    }
+
+    #[test]
+    fn robot_charge_ledge_turn_retains_collision_state_loc_3a9f0() {
+        let grid = grid_with_solid_cells(&[(4, 2)]);
+        let mut robot = robot_test_enemy(RobotState::Charging, Direction::Right, 80, 32, 10);
+
+        step_robot(&mut robot, Some(&grid), None, &mut None);
+
+        assert_eq!(robot.facing, Direction::Left);
+        assert_eq!(
+            robot.robot_state,
+            RobotState::Charging,
+            "ASM Robot.asm loc_3C04E turns at a ledge, then loc_3A890 retains `$800` and resumes the charge through loc_3A9F0",
+        );
+        assert_eq!(robot.wait_timer, 9);
     }
 
     #[test]

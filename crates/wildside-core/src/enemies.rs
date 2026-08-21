@@ -8973,7 +8973,7 @@ pub(crate) const ROBOT_CHARGE_SPEED: i32 = 0x2_8000;
 
 /// Robot charge direction-flip timer base: ASM Robot.asm sets $54(a5) = $F = 15.
 /// Reloads to (random_byte >> 1) + $F (range 15-142) on each flip.
-/// The charge is permanent until wall hit — no timed exit.
+/// The charge has no timed or terrain-contact exit; shared walker turns retain it.
 pub(crate) const ROBOT_CHARGE_FLIP_BASE: u16 = 15;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
