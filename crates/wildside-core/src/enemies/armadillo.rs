@@ -8,6 +8,62 @@ pub(crate) const ARMADILLO_COLID_KIDABOVE: i16 = colid::KIDABOVE as i16;
 /// ASM Armadillo animation `stru_3C6D0`: one frame held for `$14` ticks.
 pub(crate) const ARMADILLO_HURT_ANIMATION_FRAMES_STRU_3C6D0: u8 = 0x14;
 
+/// ASM Armadillo.asm loc_3C766/loc_3C7F8: `$4C(a5)` supplies the integer
+/// charge step while `$5E(a5)` retains the immutable init-tier walk fraction.
+pub(crate) fn armadillo_charge_step_loc_3e4ce(enemy_level: u8) -> i32 {
+    let charge_word = if enemy_level >= 2 { 4 } else { 3 };
+    let initial_hit_points = enemy_level.saturating_add(1);
+    (charge_word << 16) | (pacer_walk_speed(EnemyFamily::Armadillo, initial_hit_points) & 0xFFFF)
+}
+
+/// Atlas phase for the live Armadillo GfxObject.
+/// ASM `stru_3C632`/`stru_3C64C` use walk mappings C76EE..C7716;
+/// loc_3E4CE/loc_3E50A switch to `stru_3C666`/`stru_3C680` rolling mappings
+/// C76A6..C76CE; loc_3C848 temporarily replaces either with C76D6.
+pub(crate) fn armadillo_live_sprite_phase(
+    enemy_level: u8,
+    shared_walker_state: i16,
+    animation_tick: u8,
+    hurt_remaining: u8,
+) -> u8 {
+    if hurt_remaining > 0 {
+        return 12;
+    }
+
+    let charging = matches!(
+        shared_walker_state,
+        SHARED_WALKER_STATE_FACE_RIGHT | SHARED_WALKER_STATE_FACE_LEFT
+    );
+    let frame_ticks = if charging {
+        if enemy_level >= 2 { 2 } else { 4 }
+    } else if enemy_level == 0 {
+        0x0B
+    } else {
+        6
+    };
+    let first_frame = if charging { 6 } else { 0 };
+    first_frame + (animation_tick / frame_ticks) % 6
+}
+
+/// Full duration of the live animation script selected by Armadillo init or
+/// the shared charge controller.
+pub(crate) fn armadillo_live_animation_cycle_ticks(
+    enemy_level: u8,
+    shared_walker_state: i16,
+) -> u8 {
+    let charging = matches!(
+        shared_walker_state,
+        SHARED_WALKER_STATE_FACE_RIGHT | SHARED_WALKER_STATE_FACE_LEFT
+    );
+    if charging {
+        if enemy_level >= 2 { 12 } else { 24 }
+    } else if enemy_level == 0 {
+        66
+    } else {
+        36
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ArmadilloInitAnimationProfile {
     pub(crate) initial_animation_script: &'static str,
@@ -432,6 +488,53 @@ pub(crate) fn armadillo_spawned_child_fall_wait_loc_3c954(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn armadillo_charge_step_uses_init_tier_loc_3c766_3e4ce() {
+        assert_eq!(armadillo_charge_step_loc_3e4ce(0), 0x0003_8000);
+        assert_eq!(armadillo_charge_step_loc_3e4ce(1), 0x0003_8000);
+        assert_eq!(armadillo_charge_step_loc_3e4ce(2), 0x0004_8000);
+        assert_eq!(armadillo_charge_step_loc_3e4ce(3), 0x0004_8000);
+    }
+
+    #[test]
+    fn armadillo_live_sprite_phase_follows_walk_charge_and_hurt_scripts() {
+        // ASM stru_3C632/stru_3C64C: low-tier walk entries last 11 ticks;
+        // every higher-tier walk entry lasts six ticks.
+        assert_eq!(armadillo_live_sprite_phase(0, 0, 10, 0), 0);
+        assert_eq!(armadillo_live_sprite_phase(0, 0, 11, 0), 1);
+        assert_eq!(armadillo_live_sprite_phase(1, 0, 5, 0), 0);
+        assert_eq!(armadillo_live_sprite_phase(1, 0, 6, 0), 1);
+
+        // ASM loc_3E4CE/loc_3E50A install stru_3C666 (four ticks) below
+        // enemy level 2 and stru_3C680 (two ticks) at level 2+.
+        assert_eq!(
+            armadillo_live_sprite_phase(0, SHARED_WALKER_STATE_FACE_RIGHT, 3, 0),
+            6
+        );
+        assert_eq!(
+            armadillo_live_sprite_phase(0, SHARED_WALKER_STATE_FACE_RIGHT, 4, 0),
+            7
+        );
+        assert_eq!(
+            armadillo_live_sprite_phase(2, SHARED_WALKER_STATE_FACE_LEFT, 2, 0),
+            7
+        );
+
+        // ASM loc_3C848/stru_3C6D0 holds C76D6 for all 20 hurt ticks.
+        assert_eq!(armadillo_live_sprite_phase(2, 0, 41, 1), 12);
+
+        assert_eq!(armadillo_live_animation_cycle_ticks(0, 0), 66);
+        assert_eq!(armadillo_live_animation_cycle_ticks(1, 0), 36);
+        assert_eq!(
+            armadillo_live_animation_cycle_ticks(0, SHARED_WALKER_STATE_FACE_RIGHT),
+            24
+        );
+        assert_eq!(
+            armadillo_live_animation_cycle_ticks(2, SHARED_WALKER_STATE_FACE_LEFT),
+            12
+        );
+    }
 
     #[test]
     fn armadillo_spawn_faces_toward_player_per_loc_3c718() {

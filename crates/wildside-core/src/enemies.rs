@@ -1355,6 +1355,7 @@ pub(crate) struct ActiveEnemy {
     /// Emo_Rock.asm loc_3621A `stru_3647E` pre-drop animation hibernate.
     /// Scorpion reuses it as the elapsed `stru_3DB60` walk-animation tick.
     /// Driller reuses it as the elapsed `stru_3BCB2` parent-animation tick.
+    /// Armadillo reuses it as the elapsed live walk/charge animation tick.
     pub(crate) dragon_descent_frames: u8,
     pub(crate) ninja_state: NinjaState,
     pub(crate) hand_state: HandState,
@@ -2713,6 +2714,13 @@ impl ActiveEnemy {
             ))
         } else if matches!(self.family, EnemyFamily::Driller) && !self.death_animation_active {
             Some(driller_live_sprite_phase_stru_3bcb2(
+                self.dragon_descent_frames,
+                self.damage_flash_frames,
+            ))
+        } else if matches!(self.family, EnemyFamily::Armadillo) && !self.death_animation_active {
+            Some(armadillo_live_sprite_phase(
+                self.enemy_level,
+                self.shared_walker_state,
                 self.dragon_descent_frames,
                 self.damage_flash_frames,
             ))
@@ -4713,6 +4721,18 @@ pub(crate) fn step_active_enemies_with_rng(
             // independently from the hibernating shared-walker Object.
             enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1) % 18;
         }
+        if matches!(enemy.family, EnemyFamily::Armadillo)
+            && enemy.damage_flash_frames == 0
+            && !enemy.death_animation_active
+        {
+            // ASM Armadillo.asm stru_3C632/stru_3C64C/stru_3C666/stru_3C680:
+            // the GfxObject animation advances independently of Object waits.
+            enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1)
+                % armadillo_live_animation_cycle_ticks(
+                    enemy.enemy_level,
+                    enemy.shared_walker_state,
+                );
+        }
         if executable_enemy_indices.next_if_eq(&enemy_index).is_none() {
             continue;
         }
@@ -4744,6 +4764,8 @@ pub(crate) fn step_active_enemies_with_rng(
             matches!(enemy.family, EnemyFamily::DragonWalking) && enemy.damage_flash_frames == 1;
         let restores_driller_animation =
             matches!(enemy.family, EnemyFamily::Driller) && enemy.damage_flash_frames == 1;
+        let restores_armadillo_animation =
+            matches!(enemy.family, EnemyFamily::Armadillo) && enemy.damage_flash_frames == 1;
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
         if restores_dragon_walking_animation {
             // ASM Dragon.asm loc_3CEBE restores `$62(a5)` through
@@ -4753,6 +4775,11 @@ pub(crate) fn step_active_enemies_with_rng(
         if restores_driller_animation {
             // ASM Driller.asm loc_3BF4E re-installs stru_3BCB2 after the
             // one-frame stru_3BCCE script finishes.
+            enemy.dragon_descent_frames = 0;
+        }
+        if restores_armadillo_animation {
+            // ASM Armadillo.asm loc_3C848 restores `$62(a5)` through
+            // Init_Animation after stru_3C6D0 completes.
             enemy.dragon_descent_frames = 0;
         }
         if matches!(enemy.family, EnemyFamily::FireDemon) {
@@ -8174,9 +8201,9 @@ fn lion_landing_native_shared_state_loc_3e732(
     native_shared_state: i16,
 ) -> i16 {
     // ASM Lion.asm loc_3E732 writes -$78 to `$42(a3)`. Native's shared state
-    // represents that charge word only for Goat; for Ninja it represents the
-    // distinct `$4C(a5)` guard byte tested by Ninja.asm loc_3D960.
-    if matches!(family, EnemyFamily::Goat) && native_shared_state != 0xA {
+    // represents that charge word for Goat and Armadillo; for Ninja it
+    // represents the distinct `$4C(a5)` guard byte tested by Ninja.asm loc_3D960.
+    if matches!(family, EnemyFamily::Goat | EnemyFamily::Armadillo) && native_shared_state != 0xA {
         GOAT_CHARGE_COOLDOWN_LOC_3E48E
     } else {
         native_shared_state
@@ -8319,6 +8346,10 @@ fn shared_walker_walk_speed(enemy: &ActiveEnemy) -> i32 {
         0
     } else if enemy.walk_speed_override != 0 {
         enemy.walk_speed_override
+    } else if matches!(enemy.family, EnemyFamily::Armadillo) {
+        // ASM Armadillo.asm loc_3C756/loc_3C766 stores the init-tier walk
+        // speed in `$5E(a5)`; damage changes current_hp but never that slot.
+        pacer_walk_speed(enemy.family, enemy.enemy_level.saturating_add(1))
     } else if matches!(
         enemy.family,
         EnemyFamily::Diamond | EnemyFamily::Driller | EnemyFamily::FireDemon
@@ -8518,7 +8549,7 @@ pub(crate) fn step_pacer(
             // ASM loc_3E406 `btst #0,d7; beq.s loc_3E434`: a bit0-clear
             // crossing still runs the charge controller and commits the step.
         }
-        if matches!(enemy.family, EnemyFamily::Goat)
+        if matches!(enemy.family, EnemyFamily::Goat | EnemyFamily::Armadillo)
             && let Some(kid_x_px) = kid_x_px
         {
             match goat_charge_controller_loc_3e434(
@@ -8532,11 +8563,20 @@ pub(crate) fn step_pacer(
                     // hibernate without walking this frame.
                     enemy.facing = toward;
                     enemy.shared_walker_state = if matches!(toward, Direction::Right) {
-                        1
+                        SHARED_WALKER_STATE_FACE_RIGHT
                     } else {
-                        2
+                        SHARED_WALKER_STATE_FACE_LEFT
                     };
-                    enemy.walk_speed_override = goat_charge_step_loc_3e4ce(enemy.hit_points);
+                    enemy.walk_speed_override = if matches!(enemy.family, EnemyFamily::Armadillo) {
+                        armadillo_charge_step_loc_3e4ce(enemy.enemy_level)
+                    } else {
+                        goat_charge_step_loc_3e4ce(enemy.hit_points)
+                    };
+                    if matches!(enemy.family, EnemyFamily::Armadillo) {
+                        // ASM loc_3E4CE/loc_3E50A initialises the saved `$66`
+                        // rolling script at its first mapping.
+                        enemy.dragon_descent_frames = 0;
+                    }
                     enemy.x_velocity = 0;
                     return;
                 }
@@ -8545,7 +8585,19 @@ pub(crate) fn step_pacer(
                     // cooldown, bump the Lion-style $5A counter, and turn
                     // away (loc_3E546/loc_3E392) without walking.
                     enemy.shared_walker_state = GOAT_CHARGE_COOLDOWN_LOC_3E48E;
-                    enemy.walk_speed_override = 0;
+                    enemy.walk_speed_override = if matches!(enemy.family, EnemyFamily::Armadillo) {
+                        pacer_walk_speed(
+                            EnemyFamily::Armadillo,
+                            enemy.enemy_level.saturating_add(1),
+                        )
+                    } else {
+                        0
+                    };
+                    if matches!(enemy.family, EnemyFamily::Armadillo) {
+                        // ASM loc_3E48E restores `$62(a5)` through
+                        // Init_Animation before turning away.
+                        enemy.dragon_descent_frames = 0;
+                    }
                     reverse_enemy_direction(enemy);
                     enemy.x_velocity = 0;
                     let result =
@@ -8919,6 +8971,11 @@ fn step_lion_walker_falling_loc_3e6ae(enemy: &mut ActiveEnemy, grid: &terrain::B
             enemy.walk_speed_override = 0;
             enemy.shared_walker_state =
                 lion_landing_native_shared_state_loc_3e732(enemy.family, enemy.shared_walker_state);
+            if matches!(enemy.family, EnemyFamily::Armadillo) {
+                // ASM Lion.asm loc_3E76E restores Armadillo `$62(a5)` through
+                // Init_Animation before entering loc_3E392.
+                enemy.dragon_descent_frames = 0;
+            }
             enemy.facing = Direction::Right;
             return;
         }
@@ -11610,6 +11667,72 @@ mod tests {
         assert_eq!(goat_charge_step_loc_3e4ce(1), 0x0003_8000);
         assert_eq!(goat_charge_step_loc_3e4ce(4), 0x0003_8000);
         assert_eq!(goat_charge_step_loc_3e4ce(5), 0x0004_8000);
+    }
+
+    #[test]
+    fn armadillo_enters_shared_proximity_charge_loc_3e450() {
+        let grid = mini_hopping_skull_test_grid();
+        let mut armadillo = ActiveEnemy {
+            family: EnemyFamily::Armadillo,
+            enemy_level: 0,
+            hit_points: 1,
+            facing: Direction::Left,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            on_ground: true,
+            shared_walker_state: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        // ASM Armadillo.asm loc_3C7F8 enters Lion.asm loc_3E566; loc_3E450
+        // detects Kid within 96px and loc_3E4CE starts the rightward charge.
+        step_pacer(&mut armadillo, Some(&grid), Some(0x0040_0000));
+
+        assert_eq!(armadillo.facing, Direction::Right);
+        assert_eq!(
+            armadillo.shared_walker_state, SHARED_WALKER_STATE_FACE_RIGHT,
+            "ASM Lion.asm loc_3E4CE stores charge direction 1 in `$42(a3)`"
+        );
+        assert_eq!(
+            armadillo.walk_speed_override, 0x0003_8000,
+            "ASM Armadillo.asm loc_3C766 `$4C=3` replaces the high word of its `$8000` walk step"
+        );
+        assert_eq!(
+            armadillo.x_pos, 0x0020_0000,
+            "ASM Lion.asm loc_3E4CE enters loc_3E392 and hibernates without a walk step"
+        );
+    }
+
+    #[test]
+    fn armadillo_charge_abort_restores_init_walk_loc_3e48e() {
+        let grid = mini_hopping_skull_test_grid();
+        let mut armadillo = ActiveEnemy {
+            family: EnemyFamily::Armadillo,
+            enemy_level: 1,
+            hit_points: 1,
+            facing: Direction::Right,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            on_ground: true,
+            shared_walker_state: SHARED_WALKER_STATE_FACE_RIGHT,
+            walk_speed_override: 0x0003_8000,
+            dragon_descent_frames: 17,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        // ASM Lion.asm loc_3E476/loc_3E48E: once Kid exceeds ±$70, restore
+        // Armadillo's saved `$5E` walk step and `$62` animation, seed -$78,
+        // turn away, and hibernate without committing the charge step.
+        step_pacer(&mut armadillo, Some(&grid), Some(0x00A0_0000));
+
+        assert_eq!(
+            armadillo.shared_walker_state,
+            GOAT_CHARGE_COOLDOWN_LOC_3E48E
+        );
+        assert_eq!(armadillo.facing, Direction::Left);
+        assert_eq!(armadillo.walk_speed_override, 0x0001_8000);
+        assert_eq!(armadillo.dragon_descent_frames, 0);
+        assert_eq!(armadillo.x_pos, 0x0020_0000);
     }
 
     #[test]

@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Armadillo charge and live visuals)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Armadillo because its renderer free-ran six walk and three death
+  mappings, while native omitted Armadillo from the shared proximity-charge
+  controller. The charge regression first failed with the enemy still facing
+  left instead of entering `loc_3E4CE` toward nearby Kid.
+- ASM `stru_3C632`/`stru_3C64C` runs six walk mappings at 11 or six ticks;
+  `loc_3E4CE`/`loc_3E50A` installs six `stru_3C666`/`stru_3C680` rolling
+  mappings at four or two ticks; and `loc_3C848` holds C76D6 during surviving
+  damage. Core now exports that typed phase, restores the immutable init-tier
+  `$5E` walk step after charge, and applies the common `loc_3E434` controller.
+- A clean-HEAD replay proved the cached Level 0x11 idle recording's frame-0
+  enemy-position mismatch predates this change, so it is not used as acceptance
+  evidence. Level 0x11 idle captures show intact level and player rendering but
+  keep both Armadillos off-screen. Exact mapping selection is pinned across the
+  core timing, atlas descriptors, death sequence, and composed renderer.
+- `mise run verify-slice-fast` passes 7,276 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing 241-frame/2,391-pixel and audio ratchets
+  unchanged.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Armadillo work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Driller live parent visuals)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

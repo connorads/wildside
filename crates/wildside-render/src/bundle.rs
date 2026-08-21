@@ -1742,6 +1742,14 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x0D2, 0x15, 0x00, 0x28, 0x17),
             fd(0x0E1, 0x15, 0x00, 0x28, 0x18),
             fd(0x0F0, 0x15, 0x00, 0x28, 0x18),
+            // ASM Armadillo.asm loc_3E4CE/loc_3E50A switches the live body
+            // to stru_3C666/stru_3C680 mappings C76A6..C76CE while charging.
+            fd(0x000, 0x16, 0x00, 0x27, 0x1E),
+            fd(0x014, 0x15, 0x00, 0x26, 0x20),
+            fd(0x028, 0x14, 0x00, 0x26, 0x1F),
+            fd(0x03C, 0x14, 0x00, 0x26, 0x1E),
+            fd(0x050, 0x14, 0x00, 0x26, 0x20),
+            fd(0x064, 0x15, 0x00, 0x26, 0x1F),
             // ASM Armadillo.asm loc_3C886 / `stru_3C69A`: C76D6 and
             // C76DE flash repeatedly, then C76E6 finishes the delete tail.
             fd(0x078, 0x14, 0x00, 0x28, 0x14),
@@ -6120,7 +6128,7 @@ mod tests {
             "ASM Robot.asm loc_3A9D2 / stru_3A74A death frames C8318/C8320 must be selectable"
         );
         assert_eq!(
-            death_tiles(0x04, 6..9),
+            death_tiles(0x04, 12..15),
             vec![0x0078, 0x0087, 0x0096],
             "ASM Armadillo.asm loc_3C886 / stru_3C69A death frames C76D6/C76DE/C76E6 must be selectable"
         );

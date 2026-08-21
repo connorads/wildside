@@ -1444,6 +1444,23 @@ fn select_live_tar_monster_frame<'a>(
     Some(&enemy_visuals.frames[frame])
 }
 
+fn select_live_armadillo_frame<'a>(
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x04 })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 15
+    {
+        return None;
+    }
+    // ASM Armadillo.asm stru_3C632/stru_3C64C, loc_3E4CE/loc_3E50A and
+    // loc_3C848: core exports the exact walk, charge-roll, or hurt mapping.
+    enemy_visuals
+        .frames
+        .get(usize::from(object.sprite_animation_phase?))
+}
+
 fn select_live_sphere_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
@@ -1850,22 +1867,22 @@ pub fn select_enemy_frame<'a>(
             }
             // ASM Armadillo.asm loc_3C886 runs `stru_3C69A`: C76D6/C76DE
             // flash with shrinking delays, then C76E6 for $03 before delete.
-            0x04 if enemy_visuals.frames.len() >= 9 => select_waited_sequence_frame(
+            0x04 if enemy_visuals.frames.len() >= 15 => select_waited_sequence_frame(
                 remaining,
                 &[
-                    (0x16, 6),
-                    (0x04, 7),
-                    (0x04, 6),
-                    (0x03, 7),
-                    (0x03, 6),
-                    (0x02, 7),
-                    (0x02, 6),
-                    (0x01, 7),
-                    (0x01, 6),
-                    (0x01, 7),
-                    (0x01, 6),
-                    (0x01, 7),
-                    (0x03, 8),
+                    (0x16, 12),
+                    (0x04, 13),
+                    (0x04, 12),
+                    (0x03, 13),
+                    (0x03, 12),
+                    (0x02, 13),
+                    (0x02, 12),
+                    (0x01, 13),
+                    (0x01, 12),
+                    (0x01, 13),
+                    (0x01, 12),
+                    (0x01, 13),
+                    (0x03, 14),
                 ],
             ),
             // ASM Tar_Monster.asm loc_323E6 runs `stru_32700`: five
@@ -2191,6 +2208,9 @@ pub fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_tar_monster_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_armadillo_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_sphere_frame(trace, enemy_visuals, object) {
@@ -3823,7 +3843,7 @@ mod tests {
     #[test]
     fn live_enemy_selectors_reject_wrong_family_dead_and_short_sheets() {
         let trace = NativeTraceFrame::default();
-        let full = labelled_enemy_visuals(13, 3);
+        let full = labelled_enemy_visuals(15, 3);
         let short = labelled_enemy_visuals(2, 3);
 
         // ASM Dragon.asm loc_3CE48/loc_3CEFC: live walking-dragon selector is
@@ -3863,6 +3883,11 @@ mod tests {
                 0x0C,
                 select_live_flying_dragon_frame(&trace, &full, &live_enemy_object(0x0C)).is_some(),
             ),
+            (0x04, {
+                let mut armadillo = live_enemy_object(0x04);
+                armadillo.sprite_animation_phase = Some(0);
+                select_live_armadillo_frame(&full, &armadillo).is_some()
+            }),
             (
                 0x06,
                 select_live_sphere_frame(&trace, &full, &live_enemy_object(0x06)).is_some(),
@@ -3927,6 +3952,18 @@ mod tests {
             select_live_tar_monster_frame(&trace, &too_short_tar, &live_enemy_object(0x05))
                 .is_none()
         );
+
+        let mut rejected = live_enemy_object(0x04);
+        rejected.sprite_animation_phase = Some(0);
+        rejected.kind = NativeObjectKind::Enemy { object_type: 0x03 };
+        assert!(select_live_armadillo_frame(&full, &rejected).is_none());
+        rejected = live_enemy_object(0x04);
+        rejected.sprite_animation_phase = Some(0);
+        rejected.hit_points = Some(0);
+        assert!(select_live_armadillo_frame(&full, &rejected).is_none());
+        let mut live_armadillo = live_enemy_object(0x04);
+        live_armadillo.sprite_animation_phase = Some(0);
+        assert!(select_live_armadillo_frame(&short, &live_armadillo).is_none());
 
         let mut rejected = live_enemy_object(0x06);
         rejected.kind = NativeObjectKind::Enemy { object_type: 0x05 };
@@ -4028,6 +4065,15 @@ mod tests {
                 &live_enemy_object(0x05)
             )),
             0x0101
+        );
+        let mut armadillo = live_enemy_object(0x04);
+        armadillo.sprite_animation_phase = Some(0);
+        assert_eq!(
+            selected_live_tile_base(select_live_armadillo_frame(
+                &labelled_enemy_visuals(15, 3),
+                &armadillo
+            )),
+            0x0100
         );
         assert_eq!(
             selected_live_tile_base(select_live_sphere_frame(
@@ -4144,6 +4190,32 @@ mod tests {
             selected_live_tile_base(select_live_emo_rock_frame(&trace, &emo_visuals, &emo_rock)),
             0x010A,
             "ASM Emo_Rock.asm stru_3647E final C7F38 mapping must hold during loc_3625E drop"
+        );
+
+        // ASM Armadillo.asm stru_3C632/stru_3C64C use the first six walk
+        // mappings; loc_3E4CE switches to C76A6..C76CE rolling mappings and
+        // loc_3C848 temporarily holds C76D6.
+        let armadillo_visuals = labelled_enemy_visuals(15, 9);
+        let mut armadillo = live_enemy_object(0x04);
+        armadillo.sprite_animation_phase = Some(0);
+        trace.frame_index = 72;
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &armadillo_visuals, &armadillo),
+            0x0100,
+            "live Armadillo walk must not free-run into charge or death mappings"
+        );
+        armadillo.sprite_animation_phase = Some(6);
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &armadillo_visuals, &armadillo),
+            0x0106,
+            "ASM Lion.asm loc_3E4CE must select the Armadillo rolling bank"
+        );
+        armadillo.damage_flash = true;
+        armadillo.sprite_animation_phase = Some(12);
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &armadillo_visuals, &armadillo),
+            0x010C,
+            "ASM Armadillo.asm loc_3C848/stru_3C6D0 must hold C76D6"
         );
 
         // ASM Driller.asm stru_3BCB2 alternates only C80E0/C80E8 while
@@ -4948,7 +5020,7 @@ mod tests {
                 "ASM Sphere.asm Enemy06_Sphere_Kill `stru_36182`",
             ),
             (0x07, 12, 8, "ASM Archer.asm loc_3414A `stru_33FC2`"),
-            (0x04, 9, 6, "ASM Armadillo.asm loc_3C886 `stru_3C69A`"),
+            (0x04, 15, 12, "ASM Armadillo.asm loc_3C886 `stru_3C69A`"),
             (0x05, 7, 2, "ASM Tar_Monster.asm loc_323E6 `stru_32700`"),
             (0x08, 11, 6, "ASM Orca.asm loc_3D268/loc_3D4BC `stru_3D11E`"),
             (0x09, 9, 6, "ASM Crab.asm loc_3B094 `stru_3AF82`"),
@@ -5058,21 +5130,21 @@ mod tests {
         for (object_type, frame_count, cases, asm_label) in [
             (
                 0x04,
-                9,
+                15,
                 &[
-                    (48, 6),
-                    (26, 7),
-                    (22, 6),
-                    (18, 7),
-                    (15, 6),
-                    (12, 7),
-                    (10, 6),
-                    (8, 7),
-                    (7, 6),
-                    (6, 7),
-                    (5, 6),
-                    (4, 7),
-                    (3, 8),
+                    (48, 12),
+                    (26, 13),
+                    (22, 12),
+                    (18, 13),
+                    (15, 12),
+                    (12, 13),
+                    (10, 12),
+                    (8, 13),
+                    (7, 12),
+                    (6, 13),
+                    (5, 12),
+                    (4, 13),
+                    (3, 14),
                 ][..],
                 "ASM Armadillo.asm loc_3C886 `stru_3C69A`",
             ),
