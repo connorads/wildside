@@ -7068,6 +7068,8 @@ mod tests {
                     sample_object_frame_with_base(137, 0x30, 0x20, 0x034),
                     sample_object_frame_with_base(138, 0x30, 0x1F, 0x000),
                     sample_object_frame_with_base(139, 0x31, 0x1B, 0x018),
+                    sample_object_frame_with_base(140, 0x1F, 0x2F, 0x0DC),
+                    sample_object_frame_with_base(141, 0x28, 0x24, 0x0F4),
                 ],
                 frame_duration: 6,
             },
@@ -20097,6 +20099,29 @@ mod tests {
     }
 
     #[test]
+    fn live_scorpion_snapshot_selects_hurt_and_sting_scripts() {
+        let visuals = sample_level_visuals();
+        let scorpion_visuals = visuals
+            .enemies
+            .families
+            .get(&0x13)
+            .expect("scorpion visuals");
+        let mut object = sample_enemy_object(0x13, 0x0040_0000, 0x0010_0000);
+        object.hit_points = Some(1);
+        let trace = sample_trace(GameMode::InGame);
+
+        for (phase, signature, tile_base) in [(6, 137, 0x034), (9, 140, 0x0DC), (10, 141, 0x0F4)] {
+            object.sprite_animation_phase = Some(phase);
+            let frame = sprites::select_enemy_frame(&trace, scorpion_visuals, &object);
+            assert_eq!(
+                (frame.tile_sheet.tiles[0].pixels[0], frame.tile_base_index),
+                (signature, tile_base),
+                "ASM Scorpion.asm loc_3DCD4/loc_3DDEE should select the live hurt and sting mappings",
+            );
+        }
+    }
+
+    #[test]
     fn more_waited_death_snapshots_select_rom_frames() {
         let visuals = sample_level_visuals();
         let trace = sample_trace(GameMode::InGame);
@@ -20127,7 +20152,7 @@ mod tests {
             (
                 0x13,
                 &[(0x0A + 0x14 + 0x2D, 137), (0x14 + 0x2D, 138), (0x2D, 139)][..],
-                "ASM Scorpion.asm loc_3DDEE should advance `stru_3DB80` death frames",
+                "ASM Scorpion.asm loc_3DCF4 should advance `stru_3DB80` death frames",
             ),
             (
                 0x16,

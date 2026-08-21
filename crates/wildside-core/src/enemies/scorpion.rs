@@ -19,6 +19,28 @@ const SCORPION_STING_Y_MIN_LOC_3DDEE: i16 = -0x20;
 const SCORPION_STING_Y_MAX_LOC_3DDEE: i16 = 0x30;
 const SCORPION_STING_ANIMATION_FRAMES_LOC_3DDEE: u8 = 0x06 + 0x0F + 0x06;
 
+/// Returns the current Scorpion body mapping in the live atlas.
+/// ASM Scorpion.asm stru_3DB60/stru_3DB7A/stru_3DB8E and loc_3DD0E.
+pub(crate) fn scorpion_sprite_animation_phase(
+    walk_elapsed: u8,
+    damage_flash_frames: u8,
+    sting_frames: u8,
+    wait_timer: u16,
+) -> u8 {
+    if damage_flash_frames != 0 || wait_timer == SCORPION_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3DD4A {
+        return 6;
+    }
+
+    if sting_frames > 0x0F + 0x06 || (1..=0x06).contains(&sting_frames) {
+        return 9;
+    }
+    if sting_frames != 0 {
+        return 10;
+    }
+
+    (walk_elapsed / 6) % 6
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ScorpionCloseRangeRouteLoc3DDC8 {
     ContinueSharedWalker,
@@ -497,6 +519,28 @@ pub(crate) fn step_scorpion_tracking(
 mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
+
+    #[test]
+    fn sprite_animation_phase_tracks_live_scorpion_scripts() {
+        assert_eq!(scorpion_sprite_animation_phase(0, 0, 0, 0), 0);
+        assert_eq!(scorpion_sprite_animation_phase(35, 0, 0, 0), 5);
+        assert_eq!(scorpion_sprite_animation_phase(0, 1, 0, 0), 6);
+        assert_eq!(scorpion_sprite_animation_phase(0, 0, 27, 0), 9);
+        assert_eq!(scorpion_sprite_animation_phase(0, 0, 22, 0), 9);
+        assert_eq!(scorpion_sprite_animation_phase(0, 0, 21, 0), 10);
+        assert_eq!(scorpion_sprite_animation_phase(0, 0, 7, 0), 10);
+        assert_eq!(scorpion_sprite_animation_phase(0, 0, 6, 0), 9);
+        assert_eq!(scorpion_sprite_animation_phase(0, 0, 1, 0), 9);
+        assert_eq!(
+            scorpion_sprite_animation_phase(
+                0,
+                0,
+                0,
+                SCORPION_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3DD4A,
+            ),
+            6
+        );
+    }
 
     fn scorpion_tracking_enemy(x_px: u32, y_px: u32, facing: Direction) -> ActiveEnemy {
         ActiveEnemy {

@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Scorpion live visual scripts)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Scorpion because its live renderer is exercised by sweep-path levels
+  but free-ran the combined walk/death atlas during hurt, sting, and Berzerker
+  knockback.
+- ASM `stru_3DB60` holds six walking mappings for six ticks each;
+  `loc_3DCD4`/`stru_3DB7A` holds C7DD6 for hurt; `loc_3DDEE`/`stru_3DB8E`
+  plays C7E0E/C7E16/C7E0E for 6/15/6 ticks; and `loc_3DD0E` fixes C7DD6
+  during knockback. Core now exports those phases, the atlas appends both sting
+  mappings without shifting `loc_3DCF4` death indices, and the renderer
+  regression first failed by returning walking C7DF6 for hurt. Level 0x7D
+  captures show intact walk and tall sting art.
+- `mise run verify-slice-fast` passes 7,269 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing 241-frame/2,391-pixel and audio ratchets
+  unchanged.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Scorpion work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Orca live visual scripts)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

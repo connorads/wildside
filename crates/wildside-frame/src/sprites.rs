@@ -1701,6 +1701,24 @@ fn select_live_orca_frame<'a>(
     enemy_visuals.frames.get(script[entry])
 }
 
+fn select_live_scorpion_frame<'a>(
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x13 })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 11
+    {
+        return None;
+    }
+
+    // ASM Scorpion.asm stru_3DB60/stru_3DB7A/stru_3DB8E and loc_3DD0E:
+    // core exports the current walk, hurt, sting, or fixed knockback mapping.
+    enemy_visuals
+        .frames
+        .get(usize::from(object.sprite_animation_phase?))
+}
+
 pub fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
@@ -2147,6 +2165,9 @@ pub fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_orca_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_scorpion_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_fire_demon_frame(enemy_visuals, object) {

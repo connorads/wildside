@@ -2694,14 +2694,13 @@ impl ActiveEnemy {
                 self.dragon_descent_index,
                 self.hit_points,
             ))
-        } else if matches!(self.family, EnemyFamily::Scorpion)
-            && self.damage_flash_frames == 0
-            && self.scorpion_sting_frames == 0
-            && !self.death_animation_active
-        {
-            // ASM Scorpion.asm stru_3DB60: each of the six walking mappings
-            // remains live for six GfxObject_Animate ticks.
-            Some((self.dragon_descent_frames / 6) % 6)
+        } else if matches!(self.family, EnemyFamily::Scorpion) && !self.death_animation_active {
+            Some(scorpion_sprite_animation_phase(
+                self.dragon_descent_frames,
+                self.damage_flash_frames,
+                self.scorpion_sting_frames,
+                self.wait_timer,
+            ))
         } else {
             None
         };
