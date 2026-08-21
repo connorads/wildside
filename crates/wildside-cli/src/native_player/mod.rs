@@ -7235,6 +7235,11 @@ mod tests {
                     sample_object_frame_with_base(246, 0x2B, 0x26, 0x097),
                     sample_object_frame_with_base(247, 0x20, 0x20, 0x0B5),
                     sample_object_frame_with_base(248, 0x1C, 0x06, 0x0C5),
+                    sample_object_frame_with_base(249, 0x20, 0x1F, 0x020),
+                    sample_object_frame_with_base(250, 0x20, 0x1F, 0x030),
+                    sample_object_frame_with_base(251, 0x20, 0x1F, 0x000),
+                    sample_object_frame_with_base(252, 0x1F, 0x20, 0x0C9),
+                    sample_object_frame_with_base(253, 0x1F, 0x20, 0x0D9),
                 ],
                 frame_duration: 20,
             },
@@ -8002,24 +8007,24 @@ mod tests {
             "ASM Sphere.asm stru_36174: live sphere spins frames 0-2 only, not the stru_36182 disappear tail (got sig {sphere_sig})"
         );
 
-        // EmoRock 0x1B: live rock holds a body frame 0,1,2 (C7F40/C7F58/C7F60,
-        // sigs 241/242/243). Never the 244..=248 stru_36468 shatter tail the
-        // free-run was cycling. frame_index 60 makes the pre-fix free-run pick
-        // frame (60/20)%8 = 3 (sig 244, a shatter frame), so this fails without
-        // the helper.
+        // EmoRock 0x1B: the completed stru_3647E windup holds C7F38 (atlas
+        // frame 10, sig 251) through loc_3625E's drop. Never free-run the
+        // combined sheet through the stru_36468 shatter tail.
         trace.frame_index = 60;
         let emo = visuals
             .enemies
             .families
             .get(&0x1B)
             .expect("emo rock visuals");
-        let emo_sig = sprites::select_enemy_frame(&trace, emo, &base(0x1B))
+        let mut emo_rock = base(0x1B);
+        emo_rock.sprite_animation_phase = Some(10);
+        let emo_sig = sprites::select_enemy_frame(&trace, emo, &emo_rock)
             .tile_sheet
             .tiles[0]
             .pixels[0];
-        assert!(
-            matches!(emo_sig, 241..=243),
-            "ASM Emo_Rock.asm loc_3621A/loc_362A4: live emo rock shows a body frame, not the stru_36468 shatter tail (got sig {emo_sig})"
+        assert_eq!(
+            emo_sig, 251,
+            "ASM Emo_Rock.asm stru_3647E/loc_3625E: live Emo Rock retains C7F38 after windup"
         );
 
         // Hand 0x17: walking installs `stru_32B6A` (C79AE, frame 0), jump

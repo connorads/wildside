@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Emo Rock live visual scripts)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Emo Rock because its live selector still carried an explicit
+  fidelity approximation for ROM mappings absent from the extracted atlas.
+- ASM `stru_3647E` uses C7F48/C7F50/C7F38 for the 67-tick windup and retained
+  drop pose. `stru_363FE` runs the 136-tick landed script, then `stru_36456`
+  alternates C7F90/C7F98 before `loc_36320` clears the mapping offset. The
+  atlas now includes all five mappings, core exports their exact timer-derived
+  phase, and renderer tests pin the live selector and minimum sheet length.
+- Level 0x04 idle captures render intact terrain and player art, although that
+  short no-input route does not bring its Emo Rock on screen. Exact enemy art
+  selection is covered at the core snapshot, renderer selector, and bundle
+  descriptor boundaries.
+- `mise run verify-slice-fast` passes 7,270 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing 241-frame/2,391-pixel and audio ratchets
+  unchanged.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Emo Rock work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Goat live visual scripts)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

@@ -2703,6 +2703,13 @@ impl ActiveEnemy {
                 self.scorpion_sting_frames,
                 self.wait_timer,
             ))
+        } else if matches!(self.family, EnemyFamily::EmoRock) && !self.death_animation_active {
+            Some(emo_rock_live_sprite_phase(
+                self.dragon_descent_frames,
+                self.on_ground,
+                self.wait_timer,
+                self.grounded_frames,
+            ))
         } else {
             None
         };

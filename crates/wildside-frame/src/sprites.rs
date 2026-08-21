@@ -1465,27 +1465,21 @@ fn select_live_sphere_frame<'a>(
 }
 
 fn select_live_emo_rock_frame<'a>(
-    trace: &NativeTraceFrame,
+    _trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
 ) -> Option<&'a wildside_render::SpriteFrame> {
     if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x1B })
         || object.hit_points == Some(0)
-        || enemy_visuals.frames.len() < 3
+        || enemy_visuals.frames.len() < 13
     {
         return None;
     }
-    // ASM Emo_Rock.asm: loc_3621A hovers with stru_3647E (C7F48/C7F50/C7F38) and
-    // loc_362A4 drops with stru_363FE (C7F40/C7F58/C7F60 = atlas frames 0/1/2);
-    // loc_36346 installs the stru_36468 SHATTER death tail (atlas frames 3..7).
-    // The live bug was the generic free-run cycling those shatter frames on a
-    // live rock. Restrict a live Emo Rock to its body frames 0..2 so the death
-    // tail can never show. TODO(fidelity): the hover frames stru_3647E are not
-    // extracted into the atlas, so cycling the stru_363FE drop frames is an
-    // approximation of the hover phase; extract C7F48/C7F50/C7F38 and gate the
-    // drop animation on the landed phase for an exact match.
-    let phase = (trace.frame_index / enemy_visuals.frame_duration.max(1)) % 3;
-    Some(&enemy_visuals.frames[phase])
+    // ASM Emo_Rock.asm stru_3647E/stru_363FE/stru_36456: core exports the
+    // current windup, drop, settled, or disappear mapping from its live timers.
+    enemy_visuals
+        .frames
+        .get(usize::from(object.sprite_animation_phase?))
 }
 
 fn select_live_hand_frame<'a>(
@@ -3809,7 +3803,7 @@ mod tests {
     #[test]
     fn live_enemy_selectors_reject_wrong_family_dead_and_short_sheets() {
         let trace = NativeTraceFrame::default();
-        let full = labelled_enemy_visuals(12, 3);
+        let full = labelled_enemy_visuals(13, 3);
         let short = labelled_enemy_visuals(2, 3);
 
         // ASM Dragon.asm loc_3CE48/loc_3CEFC: live walking-dragon selector is
@@ -3853,10 +3847,11 @@ mod tests {
                 0x06,
                 select_live_sphere_frame(&trace, &full, &live_enemy_object(0x06)).is_some(),
             ),
-            (
-                0x1B,
-                select_live_emo_rock_frame(&trace, &full, &live_enemy_object(0x1B)).is_some(),
-            ),
+            (0x1B, {
+                let mut emo_rock = live_enemy_object(0x1B);
+                emo_rock.sprite_animation_phase = Some(10);
+                select_live_emo_rock_frame(&trace, &full, &emo_rock).is_some()
+            }),
             (
                 0x12,
                 select_live_lion_frame(&trace, &full, &live_enemy_object(0x12)).is_some(),
@@ -4005,11 +4000,13 @@ mod tests {
             )),
             0x0100
         );
+        let mut emo_rock = live_enemy_object(0x1B);
+        emo_rock.sprite_animation_phase = Some(0);
         assert_eq!(
             selected_live_tile_base(select_live_emo_rock_frame(
                 &trace,
-                &labelled_enemy_visuals(3, 3),
-                &live_enemy_object(0x1B)
+                &labelled_enemy_visuals(13, 3),
+                &emo_rock
             )),
             0x0100
         );
@@ -4094,15 +4091,13 @@ mod tests {
             )),
             0x0101
         );
-        let emo_visuals = labelled_enemy_visuals(8, 20);
-        trace.frame_index = 41;
+        let emo_visuals = labelled_enemy_visuals(13, 20);
+        let mut emo_rock = live_enemy_object(0x1B);
+        emo_rock.sprite_animation_phase = Some(10);
         assert_eq!(
-            selected_live_tile_base(select_live_emo_rock_frame(
-                &trace,
-                &emo_visuals,
-                &live_enemy_object(0x1B)
-            )),
-            0x0102
+            selected_live_tile_base(select_live_emo_rock_frame(&trace, &emo_visuals, &emo_rock)),
+            0x010A,
+            "ASM Emo_Rock.asm stru_3647E final C7F38 mapping must hold during loc_3625E drop"
         );
 
         // ASM Dragon_Flying.asm loc_346DA/loc_348CE: the normal wing sequence

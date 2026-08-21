@@ -26,6 +26,79 @@ pub(crate) const EMO_ROCK_DROP_WINDUP_ANIMATION_FRAMES_LOC_3621A: u8 =
 
 pub(crate) const EMO_ROCK_BERZERKER_AIRBORNE_WAIT_TIMER_LOC_3630A: u16 = 0x3630;
 
+fn waited_sprite_phase(remaining: u16, sequence: &[(u16, u8)]) -> u8 {
+    let mut rest = sequence.iter().map(|(duration, _)| *duration).sum::<u16>();
+    for &(duration, phase) in sequence {
+        if remaining > rest.saturating_sub(duration) {
+            return phase;
+        }
+        rest = rest.saturating_sub(duration);
+    }
+    sequence.last().map_or(0, |(_, phase)| *phase)
+}
+
+pub(crate) fn emo_rock_live_sprite_phase(
+    windup_remaining: u8,
+    on_ground: bool,
+    settled_remaining: u16,
+    disappear_remaining: u8,
+) -> u8 {
+    if windup_remaining > 0 {
+        // ASM Emo_Rock.asm stru_3647E: C7F48/C7F50 alternate, then C7F38
+        // holds for the last 40 ticks before the drop coroutine resumes.
+        return waited_sprite_phase(
+            u16::from(windup_remaining),
+            &[
+                (4, 8),
+                (4, 9),
+                (4, 8),
+                (4, 9),
+                (3, 10),
+                (4, 8),
+                (4, 9),
+                (40, 10),
+            ],
+        );
+    }
+    if on_ground && disappear_remaining > 0 {
+        // ASM Emo_Rock.asm stru_36456: four alternating four-tick entries.
+        return waited_sprite_phase(
+            u16::from(disappear_remaining),
+            &[(4, 11), (4, 12), (4, 11), (4, 12)],
+        );
+    }
+    if on_ground && settled_remaining > 0 {
+        // ASM Emo_Rock.asm stru_363FE: the complete 136-tick landing script.
+        return waited_sprite_phase(
+            settled_remaining,
+            &[
+                (20, 0),
+                (15, 1),
+                (15, 2),
+                (15, 1),
+                (15, 2),
+                (7, 1),
+                (7, 2),
+                (7, 1),
+                (7, 2),
+                (4, 1),
+                (4, 2),
+                (2, 1),
+                (2, 2),
+                (4, 11),
+                (4, 12),
+                (4, 11),
+                (4, 12),
+            ],
+        );
+    }
+
+    // ASM loc_3625E begins after stru_3647E finishes and retains C7F38 while
+    // the rock drops. ASM loc_36320 clears addroffset_sprite before returning
+    // to tracking; C7F38 is the offset-zero Data_Index mapping for this bank.
+    10
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EmoRockWaitCountdownLoc36212 {
     pub(crate) remaining_wait_timer: u16,
@@ -1096,6 +1169,7 @@ mod tests {
             enemy.dragon_descent_frames, EMO_ROCK_DROP_WINDUP_ANIMATION_FRAMES_LOC_3621A,
             "ASM Emo_Rock.asm loc_3621A hibernates until `stru_3647E` finishes before loc_3625E gravity"
         );
+        assert_eq!(enemy.snapshot().sprite_animation_phase, Some(8));
         assert_eq!(
             enemy.y_velocity, 0,
             "ASM Emo_Rock.asm loc_3621A should not fall on the same frame that starts `stru_3647E`"
@@ -1153,6 +1227,7 @@ mod tests {
             enemy.dragon_descent_frames, 0,
             "ASM Emo_Rock.asm loc_3621A resumes into loc_3625E after `stru_3647E` finishes"
         );
+        assert_eq!(enemy.snapshot().sprite_animation_phase, Some(10));
         assert_eq!(
             enemy.y_velocity, EMO_ROCK_GRAVITY[0],
             "ASM Emo_Rock.asm loc_3625E applies level-0 gravity on the resume frame"
@@ -1184,10 +1259,28 @@ mod tests {
             enemy.wait_timer,
             EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4
         );
+        assert_eq!(enemy.snapshot().sprite_animation_phase, Some(0));
         assert_eq!(
             enemy.facing,
             Direction::Right,
             "ASM Emo_Rock.asm loc_36274 sets x_direction when Kid is equal to or right of the rock"
         );
+    }
+
+    #[test]
+    fn live_sprite_phase_follows_windup_drop_settle_and_disappear_scripts() {
+        // ASM Emo_Rock.asm stru_3647E: C7F48/C7F50 alternate before C7F38.
+        assert_eq!(emo_rock_live_sprite_phase(67, false, 0, 0), 8);
+        assert_eq!(emo_rock_live_sprite_phase(63, false, 0, 0), 9);
+        assert_eq!(emo_rock_live_sprite_phase(40, false, 0, 0), 10);
+        assert_eq!(emo_rock_live_sprite_phase(0, false, 0, 0), 10);
+
+        // ASM Emo_Rock.asm stru_363FE and stru_36456 use the landing and
+        // disappear banks whose mappings are distinct from the death tail.
+        assert_eq!(emo_rock_live_sprite_phase(0, true, 136, 0), 0);
+        assert_eq!(emo_rock_live_sprite_phase(0, true, 116, 0), 1);
+        assert_eq!(emo_rock_live_sprite_phase(0, true, 16, 0), 11);
+        assert_eq!(emo_rock_live_sprite_phase(0, true, 0, 16), 11);
+        assert_eq!(emo_rock_live_sprite_phase(0, true, 0, 12), 12);
     }
 }

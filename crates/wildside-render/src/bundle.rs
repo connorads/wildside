@@ -2220,6 +2220,13 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x097, 0x10, 0x00, 0x2B, 0x26),
             fd(0x0B5, 0x10, 0x00, 0x20, 0x20),
             fd(0x0C5, 0x10, 0x00, 0x1C, 0x06),
+            // ASM Emo_Rock.asm stru_3647E: windup/drop mappings.
+            fd(0x020, 0x10, 0x00, 0x20, 0x1F),
+            fd(0x030, 0x10, 0x00, 0x20, 0x1F),
+            fd(0x000, 0x10, 0x00, 0x20, 0x1F),
+            // ASM Emo_Rock.asm stru_363FE/stru_36456: settle/disappear pair.
+            fd(0x0C9, 0x10, 0x00, 0x1F, 0x20),
+            fd(0x0D9, 0x10, 0x00, 0x1F, 0x20),
         ],
     },
     EnemyFamilySpec {
@@ -6241,6 +6248,11 @@ mod tests {
             death_tiles(0x1B, 3..8),
             vec![0x0060, 0x007E, 0x0097, 0x00B5, 0x00C5],
             "ASM Emo_Rock.asm loc_36346 / stru_36468 death frames C7F68/C7F70/C7F78/C7F80/C7F88 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x1B, 8..13),
+            vec![0x0020, 0x0030, 0x0000, 0x00C9, 0x00D9],
+            "ASM Emo_Rock.asm stru_3647E/stru_36456 live frames C7F48/C7F50/C7F38/C7F90/C7F98 must be selectable"
         );
         assert_eq!(
             death_tiles(0x1C, 6..8),
