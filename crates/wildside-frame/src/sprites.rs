@@ -1608,6 +1608,37 @@ fn select_live_crab_frame<'a>(
     enemy_visuals.frames.get(5)
 }
 
+fn select_live_fire_demon_frame<'a>(
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x00 })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 13
+    {
+        return None;
+    }
+
+    if object.wait_timer.is_some() {
+        // ASM Fire_Demon.asm loc_3A5E4 disables animation and fixes C773E
+        // throughout the Berzerker-launch loop at loc_3A610.
+        return enemy_visuals.frames.get(6);
+    }
+
+    let phase = usize::from(object.sprite_animation_phase?);
+    if object.damage_flash {
+        // ASM Fire_Demon.asm loc_3A5BE / `stru_3A34E` repeats walking
+        // mappings 0..3 plus C773E across its ten animation entries.
+        return [0, 1, 2, 3, 6, 0, 1, 2, 3, 6]
+            .get(phase)
+            .and_then(|frame| enemy_visuals.frames.get(*frame));
+    }
+
+    // ASM Fire_Demon.asm `stru_3A31A`/`stru_3A334` use the same six
+    // mappings; core exports their HP-selected animation phase.
+    enemy_visuals.frames.get(phase % 6)
+}
+
 pub fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
@@ -1620,19 +1651,19 @@ pub fn select_enemy_frame<'a>(
         let death_frame = match object_type {
             // ASM Fire_Demon.asm loc_3A5A6 runs `stru_3A378`: three
             // 3-tick frames, then three 4-tick frames before deletion.
-            0x00 if enemy_visuals.frames.len() >= 12 => {
+            0x00 if enemy_visuals.frames.len() >= 13 => {
                 if remaining > 0x03 + 0x03 + 0x04 + 0x04 + 0x04 {
-                    Some(6)
-                } else if remaining > 0x03 + 0x04 + 0x04 + 0x04 {
                     Some(7)
-                } else if remaining > 0x04 + 0x04 + 0x04 {
+                } else if remaining > 0x03 + 0x04 + 0x04 + 0x04 {
                     Some(8)
-                } else if remaining > 0x04 + 0x04 {
+                } else if remaining > 0x04 + 0x04 + 0x04 {
                     Some(9)
-                } else if remaining > 0x04 {
+                } else if remaining > 0x04 + 0x04 {
                     Some(10)
-                } else {
+                } else if remaining > 0x04 {
                     Some(11)
+                } else {
+                    Some(12)
                 }
             }
             // ASM Diamond.asm loc_3AE28/loc_3AEE6 runs `stru_3ACC4`:
@@ -2045,6 +2076,9 @@ pub fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_crab_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_fire_demon_frame(enemy_visuals, object) {
         return frame;
     }
     let keeps_base_animation = matches!(
@@ -4351,6 +4385,44 @@ mod tests {
     }
 
     #[test]
+    fn fire_demon_selector_keeps_normal_hurt_and_death_scripts_distinct() {
+        let visuals = labelled_enemy_visuals(13, 6);
+        let trace = NativeTraceFrame::default();
+        let mut demon = live_enemy_object(0x00);
+
+        demon.sprite_animation_phase = Some(3);
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &visuals, &demon),
+            0x0103,
+            "ASM Fire_Demon.asm stru_3A31A/stru_3A334 must select only the six walking mappings"
+        );
+
+        demon.damage_flash = true;
+        demon.sprite_animation_phase = Some(4);
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &visuals, &demon),
+            0x0106,
+            "ASM Fire_Demon.asm loc_3A5BE / stru_3A34E frame four must select hurt mapping C773E"
+        );
+
+        demon.damage_flash = false;
+        demon.sprite_animation_phase = None;
+        demon.wait_timer = Some(1);
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &visuals, &demon),
+            0x0106,
+            "ASM Fire_Demon.asm loc_3A5E4 / loc_3A610 must hold C773E with animation disabled during Berzerker launch"
+        );
+
+        let dying = dead_enemy_object(0x00, 21);
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &visuals, &dying),
+            0x0107,
+            "ASM Fire_Demon.asm loc_3A5A6 / stru_3A378 must start at C7746 after the hurt mapping"
+        );
+    }
+
+    #[test]
     fn enemy_palette_variant_indexes_extra_palettes_after_base_line() {
         let mut visuals = labelled_enemy_visuals(1, 1);
         visuals.palette = marked_palette(0x0100);
@@ -4404,8 +4476,8 @@ mod tests {
         for (object_type, frame_count, cases, asm_label) in [
             (
                 0x00,
-                12,
-                &[(21, 6), (18, 7), (15, 8), (12, 9), (8, 10), (4, 11)][..],
+                13,
+                &[(21, 7), (18, 8), (15, 9), (12, 10), (8, 11), (4, 12)][..],
                 "ASM Fire_Demon.asm loc_3A5A6 `stru_3A378`",
             ),
             (
@@ -4625,7 +4697,7 @@ mod tests {
         let trace = NativeTraceFrame::default();
 
         for (object_type, required_frames, death_frame, asm_label) in [
-            (0x00, 12, 6, "ASM Fire_Demon.asm loc_3A5A6 `stru_3A378`"),
+            (0x00, 13, 7, "ASM Fire_Demon.asm loc_3A5A6 `stru_3A378`"),
             (
                 0x01,
                 10,

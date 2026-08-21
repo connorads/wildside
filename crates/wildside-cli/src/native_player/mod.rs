@@ -6823,12 +6823,13 @@ mod tests {
                     sample_object_frame_with_base(4, 0x1E, 0x20, 0x030),
                     sample_object_frame_with_base(3, 0x1A, 0x20, 0x020),
                     sample_object_frame_with_base(2, 0x1A, 0x20, 0x010),
-                    sample_object_frame_with_base(5, 0x1E, 0x20, 0x050),
-                    sample_object_frame_with_base(6, 0x1E, 0x20, 0x060),
-                    sample_object_frame_with_base(7, 0x1E, 0x1F, 0x070),
-                    sample_object_frame_with_base(8, 0x1E, 0x20, 0x080),
-                    sample_object_frame_with_base(9, 0x20, 0x20, 0x090),
-                    sample_object_frame_with_base(10, 0x1E, 0x1F, 0x0A0),
+                    sample_object_frame_with_base(5, 0x1E, 0x20, 0x040),
+                    sample_object_frame_with_base(6, 0x1E, 0x20, 0x050),
+                    sample_object_frame_with_base(7, 0x1E, 0x20, 0x060),
+                    sample_object_frame_with_base(8, 0x1E, 0x1F, 0x070),
+                    sample_object_frame_with_base(9, 0x1E, 0x20, 0x080),
+                    sample_object_frame_with_base(10, 0x20, 0x20, 0x090),
+                    sample_object_frame_with_base(11, 0x1E, 0x1F, 0x0A0),
                 ],
                 frame_duration: 6,
             },
@@ -19115,7 +19116,7 @@ mod tests {
             .families
             .get(&0x00)
             .expect("fire demon visuals");
-        for (remaining, signature) in [(21, 5), (18, 6), (15, 7), (12, 8), (8, 9), (4, 10)] {
+        for (remaining, signature) in [(21, 6), (18, 7), (15, 8), (12, 9), (8, 10), (4, 11)] {
             object.wait_timer = Some(remaining);
             assert_eq!(
                 sprites::select_enemy_frame(&trace, fire_demon_visuals, &object)

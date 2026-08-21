@@ -1675,6 +1675,9 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x030, 0x0C, 0x00, 0x1E, 0x20),
             fd(0x020, 0x0C, 0x00, 0x1A, 0x20),
             fd(0x010, 0x0D, 0x00, 0x1A, 0x20),
+            // ASM Fire_Demon.asm loc_3A5BE / `stru_3A34E` and loc_3A5E4:
+            // C773E is the hurt peak and the fixed Berzerker-launch mapping.
+            fd(0x040, 0x10, 0x00, 0x1E, 0x20),
             // ASM Fire_Demon.asm loc_3A5A6 / `stru_3A378`: C7746,
             // C774E, C7756, C775E, C7766, C776E before deletion.
             fd(0x050, 0x10, 0x00, 0x1E, 0x20),
@@ -6063,9 +6066,15 @@ mod tests {
         };
 
         assert_eq!(
-            death_tiles(0x00, 6..12),
+            death_tiles(0x00, 7..13),
             vec![0x0050, 0x0060, 0x0070, 0x0080, 0x0090, 0x00A0],
             "ASM Fire_Demon.asm loc_3A5A6 / stru_3A378 death frames C7746/C774E/C7756/C775E/C7766/C776E must be selectable"
+        );
+
+        assert_eq!(
+            death_tiles(0x00, 6..7),
+            vec![0x0040],
+            "ASM Fire_Demon.asm loc_3A5BE / stru_3A34E and loc_3A5E4 must retain C773E outside the death bank"
         );
         assert_eq!(
             death_tiles(0x01, 5..10),
@@ -6253,6 +6262,24 @@ mod tests {
             frames.get(9).map(|frame| frame.tile_base_index),
             Some(0x0090),
             "ASM Crab.asm loc_3B104 must retain C7C4E for the unanimated proximity-frozen pose"
+        );
+    }
+
+    #[test]
+    fn fire_demon_visual_spec_separates_hurt_and_death_mappings() {
+        let frames = super::ENEMY_FAMILIES
+            .iter()
+            .find(|spec| spec.object_type == 0x00)
+            .expect("Fire Demon family spec")
+            .frames;
+
+        assert_eq!(
+            frames[6..13]
+                .iter()
+                .map(|frame| frame.tile_base_index)
+                .collect::<Vec<_>>(),
+            vec![0x0040, 0x0050, 0x0060, 0x0070, 0x0080, 0x0090, 0x00A0],
+            "ASM Fire_Demon.asm loc_3A5BE/loc_3A5E4 C773E must precede loc_3A5A6 / stru_3A378's six death mappings"
         );
     }
 

@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Fire Demon live visual scripts)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Fire Demon and found that native free-ran its six walking and six
+  death atlas frames while alive; C773E's hurt/launch mapping was not extracted.
+- ASM `loc_3A444` selects `stru_3A334`'s three-tick walk only for five-HP
+  demons, while `stru_3A31A` uses six ticks; `loc_3A5BE` runs `stru_3A34E`'s
+  ten-entry hurt script; `loc_3A5E4` fixes C773E during Berzerker launch; and
+  `loc_3A5A6` separately runs `stru_3A378` to death. Core now exports the active
+  script phase, the atlas retains C773E, and the selector keeps all four states
+  distinct. The red regression selected walking frame 0 for ASM phase 3.
+- `mise run verify-slice-fast` passes 7,266 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Fire Demon work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Crab live visual scripts)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

@@ -2658,7 +2658,16 @@ impl ActiveEnemy {
         } else {
             None
         };
-        let sprite_animation_phase = if matches!(self.family, EnemyFamily::DragonWalking) {
+        let sprite_animation_phase = if matches!(self.family, EnemyFamily::FireDemon)
+            && !self.death_animation_active
+            && self.wait_timer != FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610
+        {
+            Some(fire_demon_sprite_animation_phase(
+                self.enemy_level,
+                self.grounded_frames,
+                self.damage_flash_frames,
+            ))
+        } else if matches!(self.family, EnemyFamily::DragonWalking) {
             Some(dragon_walking_sprite_animation_phase_stru_3cc5e(
                 self.dragon_descent_index,
                 self.hit_points,
@@ -2681,12 +2690,15 @@ impl ActiveEnemy {
             // by the next host step; expose the pre-resume Object word that
             // the oracle samples while the coroutine sleeps.
             Some(self.wait_timer.saturating_add(1))
-        } else if matches!(
-            self.family,
-            EnemyFamily::DragonWalking | EnemyFamily::Lion | EnemyFamily::Drips
-        ) || (matches!(self.family, EnemyFamily::BigHoppingSkull)
-            && self.wait_timer > 0
-            && !self.death_animation_active)
+        } else if (matches!(self.family, EnemyFamily::FireDemon)
+            && self.wait_timer == FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610)
+            || matches!(
+                self.family,
+                EnemyFamily::DragonWalking | EnemyFamily::Lion | EnemyFamily::Drips
+            )
+            || (matches!(self.family, EnemyFamily::BigHoppingSkull)
+                && self.wait_timer > 0
+                && !self.death_animation_active)
             || (self.death_animation_active && enemy_death_animation_frames(self.family).is_some())
         {
             Some(self.wait_timer)

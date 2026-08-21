@@ -4907,6 +4907,39 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_sprite_phase_follows_active_asm_script() {
+        assert_eq!(
+            fire_demon_sprite_animation_phase(2, 8, 0),
+            2,
+            "ASM Fire_Demon.asm loc_3A444 selects `stru_3A334`'s three-tick mappings for enemy level two"
+        );
+        assert_eq!(
+            fire_demon_sprite_animation_phase(1, 8, 0),
+            1,
+            "ASM Fire_Demon.asm loc_3A464 selects `stru_3A31A`'s six-tick mappings for other levels"
+        );
+
+        for (remaining, phase) in [
+            (24, 0),
+            (22, 1),
+            (20, 2),
+            (18, 3),
+            (16, 4),
+            (12, 5),
+            (10, 6),
+            (8, 7),
+            (6, 8),
+            (4, 9),
+        ] {
+            assert_eq!(
+                fire_demon_sprite_animation_phase(1, 0, remaining),
+                phase,
+                "ASM Fire_Demon.asm loc_3A5BE / stru_3A34E boundary with {remaining} ticks remaining"
+            );
+        }
+    }
+
+    #[test]
     fn fire_demon_berzerker_launch_loop_loc_3a610_applies_gravity_and_loops() {
         assert_eq!(
             fire_demon_berzerker_launch_loop_tick_loc_3a610(-0x0004_8000),

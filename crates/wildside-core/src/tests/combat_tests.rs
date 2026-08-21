@@ -16041,6 +16041,11 @@ mod chunk_03 {
             "ASM Fire_Demon.asm loc_3A5BE hibernates for the full `stru_3A34E` duration, not the generic damage-flash window"
         );
         assert_eq!(
+            demon.snapshot().sprite_animation_phase,
+            Some(0),
+            "ASM Fire_Demon.asm loc_3A5BE must expose stru_3A34E's first mapping at hurt entry"
+        );
+        assert_eq!(
             demon.x_velocity, 0x0001_8000,
             "ASM Fire_Demon.asm loc_3A5BE changes animation state but leaves x_vel for kid.asm sub_1444/sub_1120 movement"
         );
@@ -16160,6 +16165,13 @@ mod chunk_03 {
             "pending side collision should enter the same loc_3A610 loop as direct Berzerker contact"
         );
         assert_eq!(demon.damage_flash_frames, 0);
+        let snapshot = demon.snapshot();
+        assert_eq!(
+            snapshot.wait_timer,
+            Some(FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610),
+            "ASM Fire_Demon.asm loc_3A5E4 / loc_3A610 must expose the fixed-mapping launch state to rendering"
+        );
+        assert_eq!(snapshot.sprite_animation_phase, None);
     }
 
     #[test]

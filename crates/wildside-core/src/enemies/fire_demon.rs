@@ -363,6 +363,32 @@ pub(crate) fn fire_demon_hurt_hibernate_move_loc_3a5be(
     }
 }
 
+pub(crate) fn fire_demon_sprite_animation_phase(
+    enemy_level: u8,
+    walking_tick: u8,
+    hurt_frames_remaining: u8,
+) -> u8 {
+    if hurt_frames_remaining == 0 {
+        // ASM Fire_Demon.asm loc_3A444 selects fast `stru_3A334` only when
+        // enemy_level + 3 gives five HP; otherwise `stru_3A31A` uses six ticks.
+        let duration = if enemy_level == 2 { 3 } else { 6 };
+        return (walking_tick / duration) % 6;
+    }
+
+    // ASM Fire_Demon.asm loc_3A5BE / `stru_3A34E`: four two-tick walking
+    // mappings and one four-tick C773E hurt mapping, repeated once.
+    let elapsed =
+        super::FIRE_DEMON_HURT_ANIMATION_FRAMES_LOC_3A5BE.saturating_sub(hurt_frames_remaining);
+    let mut boundary = 0;
+    for (frame, duration) in [2, 2, 2, 2, 4, 2, 2, 2, 2, 4].into_iter().enumerate() {
+        boundary += duration;
+        if elapsed < boundary {
+            return frame as u8;
+        }
+    }
+    9
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum FireDemonResumeSharedWalkerBranchLoc3A5D4 {
     LeftSharedWalker,
