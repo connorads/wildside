@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Crab live visual scripts)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Crab and found that native free-ran every extracted atlas frame while
+  the enemy was alive, crossing normal, hurt, and death mapping banks.
+- ASM `stru_3AF62` loops its six normal mappings for asymmetric 8/6/6/8/6/6
+  ticks; `loc_3B0A6` holds `stru_3AF7C`'s C7C16 mapping for the eight-tick hit;
+  `loc_3B104` disables animation and holds C7C4E until `loc_3B11E`. The atlas
+  now includes C7C4E, the snapshot exports the existing stationary state while
+  frozen, and the live selector keeps all three scripts distinct. The selector
+  regression first failed because frame 48 selected hurt frame C7C16 instead
+  of the normal loop's second frame.
+- `mise run verify-slice-fast` passes 7,265 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Crab work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (UFO hurt and death visuals)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

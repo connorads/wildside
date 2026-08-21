@@ -7005,7 +7005,7 @@ mod tests {
                     colours: vec![colour(0, 0, 0), colour(180, 140, 100)],
                 },
                 extra_palettes: vec![],
-                frames: (211..=219)
+                frames: (211..=220)
                     .map(|signature| sample_object_frame(signature, 16, 16))
                     .collect(),
                 frame_duration: 8,

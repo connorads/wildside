@@ -1573,6 +1573,41 @@ fn select_live_ufo_frame<'a>(
     enemy_visuals.frames.get(first_frame + phase)
 }
 
+fn select_live_crab_frame<'a>(
+    trace: &NativeTraceFrame,
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x09 })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 10
+    {
+        return None;
+    }
+
+    if object.stationary {
+        // ASM Crab.asm loc_3B104 disables animation and selects C7C4E until
+        // loc_3B11E restores the walking script.
+        return enemy_visuals.frames.get(9);
+    }
+    if object.damage_flash {
+        // ASM Crab.asm loc_3B0A6 holds the sole eight-tick `stru_3AF7C`
+        // mapping C7C16 before restoring `stru_3AF62`.
+        return enemy_visuals.frames.get(6);
+    }
+
+    // ASM Crab.asm `stru_3AF62`: C7C1E..C7C46 use asymmetric
+    // 8/6/6/8/6/6-tick spans before the animation command rewinds.
+    let mut phase = (trace.frame_index + object.layout_index.unwrap_or(0) * 3) % 40;
+    for (frame_index, duration) in [8, 6, 6, 8, 6, 6].into_iter().enumerate() {
+        if phase < duration {
+            return enemy_visuals.frames.get(frame_index);
+        }
+        phase -= duration;
+    }
+    enemy_visuals.frames.get(5)
+}
+
 pub fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
@@ -2007,6 +2042,9 @@ pub fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_ufo_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_crab_frame(trace, enemy_visuals, object) {
         return frame;
     }
     let keeps_base_animation = matches!(
@@ -4278,6 +4316,37 @@ mod tests {
                 &object
             )),
             0x0102
+        );
+    }
+
+    #[test]
+    fn crab_live_selector_keeps_normal_hurt_and_frozen_scripts_distinct() {
+        let visuals = labelled_enemy_visuals(10, 8);
+        let trace = NativeTraceFrame {
+            frame_index: 48,
+            ..NativeTraceFrame::default()
+        };
+        let mut crab = live_enemy_object(0x09);
+
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &visuals, &crab),
+            0x0101,
+            "ASM Crab.asm stru_3AF62 must cycle only C7C1E..C7C46 with its 8/6/6/8/6/6-tick timings"
+        );
+
+        crab.damage_flash = true;
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &visuals, &crab),
+            0x0106,
+            "ASM Crab.asm loc_3B0A6 / stru_3AF7C must hold C7C16 throughout the surviving-hit hibernate"
+        );
+
+        crab.damage_flash = false;
+        crab.stationary = true;
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &visuals, &crab),
+            0x0109,
+            "ASM Crab.asm loc_3B104 must hold the unanimated C7C4E proximity pose"
         );
     }
 

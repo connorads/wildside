@@ -1841,6 +1841,9 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x020, 0x00, 0x00, 0x1D, 0x1B),
             fd(0x000, 0x00, 0x00, 0x1E, 0x1D),
             fd(0x010, 0x00, 0x00, 0x20, 0x1C),
+            // ASM Crab.asm loc_3B104: proximity freeze holds C7C4E with
+            // animation disabled until loc_3B11E restores `stru_3AF62`.
+            fd(0x090, 0x10, 0x00, 0x20, 0x16),
         ],
     },
     EnemyFamilySpec {
@@ -6235,6 +6238,21 @@ mod tests {
             tile_bases(6..9),
             vec![0x00B7, 0x00CB, 0x00DF],
             "ASM UFO.asm loc_35174 / stru_34CA0 must retain the three terminal-hit mappings"
+        );
+    }
+
+    #[test]
+    fn crab_visual_spec_includes_proximity_frozen_mapping() {
+        let frames = super::ENEMY_FAMILIES
+            .iter()
+            .find(|spec| spec.object_type == 0x09)
+            .expect("Crab family spec")
+            .frames;
+
+        assert_eq!(
+            frames.get(9).map(|frame| frame.tile_base_index),
+            Some(0x0090),
+            "ASM Crab.asm loc_3B104 must retain C7C4E for the unanimated proximity-frozen pose"
         );
     }
 

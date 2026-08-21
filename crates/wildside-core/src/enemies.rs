@@ -2962,6 +2962,7 @@ impl ActiveEnemy {
             damage_flash: self.damage_flash_frames > 0,
             palette_variant: self.palette_variant,
             stationary: self.dragon_phase.is_stationary()
+                || (matches!(self.family, EnemyFamily::Crab) && self.crab_frozen)
                 || (self.death_animation_active
                     && enemy_death_animation_frames(self.family).is_some()),
             contact_phase,

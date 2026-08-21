@@ -1304,6 +1304,10 @@ mod tests {
                 enemy.crab_frozen,
                 "ASM Crab.asm loc_3B142/loc_3B16C should hold `$6E(a5)` unless close-range Kid x_vel points toward the crab; player_x={player_x:#010X}, player_x_velocity={player_x_velocity:#010X}"
             );
+            assert!(
+                enemy.snapshot().stationary,
+                "ASM Crab.asm loc_3B104 disables animation while `$6E(a5)` keeps the proximity-frozen C7C4E pose live"
+            );
         }
     }
 
