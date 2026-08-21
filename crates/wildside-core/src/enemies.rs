@@ -1034,6 +1034,7 @@ pub(crate) const ARCHER_PHASE_INITIAL_HIBERNATE_PENDING_LOC_33FDA: u8 = 1;
 pub(crate) const ARCHER_PHASE_INITIAL_HIBERNATE_LOC_33FDA: u8 = 2;
 pub(crate) const ARCHER_PHASE_INITIAL_HIBERNATE_SEEDED_LOC_33FDA: u8 = 3;
 pub(crate) const ARCHER_PHASE_AIM_HIBERNATE_LOC_3408C: u8 = 4;
+pub(crate) const ARCHER_PHASE_FIRE_HOLD_LOC_34248: u8 = 5;
 #[allow(non_snake_case)]
 pub(crate) const fn archer_shooting_cycle_delay_frames_loc_341BE() -> u16 {
     // ASM Archer.asm loc_341BE walks three delay words before the zero fire
@@ -1331,6 +1332,8 @@ pub(crate) struct ActiveEnemy {
     /// Dragon Walking reuses bit 7 for Dragon.asm loc_3CD16's `$5C(a5)`
     /// parent-spawned-child flag and bit 6 for Kid_Transform loc_7E90's retained
     /// callback phase; no layout walking-dragon variant uses either bit.
+    /// Archer reuses bit 7 for table-selection initialisation and bit 0 for
+    /// the cycle's selected vertical shooting table.
     pub(crate) dragon_script_variant: u8,
     /// Dragon Flying: current command index within the script.
     /// Tornado reuses this as the next `loc_359F2` pattern index from `unk_35A0C`.
@@ -2666,6 +2669,12 @@ impl ActiveEnemy {
                 self.enemy_level,
                 self.grounded_frames,
                 self.damage_flash_frames,
+            ))
+        } else if matches!(self.family, EnemyFamily::Archer) && !self.death_animation_active {
+            Some(archer_sprite_animation_phase_loc_341be(
+                self.dragon_script_cmd,
+                self.dragon_script_variant & 1 != 0,
+                self.wait_timer,
             ))
         } else if matches!(self.family, EnemyFamily::DragonWalking) {
             Some(dragon_walking_sprite_animation_phase_stru_3cc5e(

@@ -8667,9 +8667,8 @@ mod chunk_04 {
             "arrow should move toward player (right)"
         );
         assert_eq!(
-            enemy.wait_timer,
-            ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE - 1,
-            "ASM loc_341BE/loc_34248 counts the fire-entry hibernate as the first frame of the shooting-table pose delay"
+            enemy.wait_timer, 0x14,
+            "ASM loc_341BE/loc_34248 enters the `$14` DBF fire-pose hold after spawning the arrow"
         );
     }
 
@@ -9314,9 +9313,8 @@ mod chunk_04 {
 
         assert_eq!(projs.len(), 1);
         assert_eq!(
-            enemy.wait_timer,
-            ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE - 1,
-            "ASM loc_34248 reloads the pose-table delay after its entry-frame hibernate"
+            enemy.wait_timer, 0x14,
+            "ASM loc_341BE holds the zero-sentinel fire mapping for `$14` DBF wakes before restarting at loc_3408C"
         );
     }
 

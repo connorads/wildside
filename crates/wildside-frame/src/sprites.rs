@@ -1639,6 +1639,24 @@ fn select_live_fire_demon_frame<'a>(
     enemy_visuals.frames.get(phase % 6)
 }
 
+fn select_live_archer_frame<'a>(
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x07 })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 12
+    {
+        return None;
+    }
+
+    // ASM Archer.asm Shooting_Vertical/Shooting_Horizontal: core exports the
+    // current loc_341BE mapping as the eight-entry live atlas phase.
+    enemy_visuals
+        .frames
+        .get(usize::from(object.sprite_animation_phase?))
+}
+
 pub fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
@@ -1704,15 +1722,15 @@ pub fn select_enemy_frame<'a>(
             }
             // ASM Archer.asm loc_3414A runs `stru_33FC2`: C81B8 for $05,
             // C81F0 for $05, C81C8 for $05, then C81D0 for $23 before delete.
-            0x07 if enemy_visuals.frames.len() >= 10 => {
+            0x07 if enemy_visuals.frames.len() >= 12 => {
                 if remaining > 0x05 + 0x05 + 0x23 {
-                    Some(6)
-                } else if remaining > 0x05 + 0x23 {
-                    Some(7)
-                } else if remaining > 0x23 {
                     Some(8)
-                } else {
+                } else if remaining > 0x05 + 0x23 {
                     Some(9)
+                } else if remaining > 0x23 {
+                    Some(10)
+                } else {
+                    Some(11)
                 }
             }
             // ASM Armadillo.asm loc_3C886 runs `stru_3C69A`: C76D6/C76DE
@@ -2076,6 +2094,9 @@ pub fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_crab_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_archer_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_fire_demon_frame(enemy_visuals, object) {
@@ -4500,8 +4521,8 @@ mod tests {
             ),
             (
                 0x07,
-                10,
-                &[(50, 6), (45, 7), (40, 8), (35, 9)],
+                12,
+                &[(50, 8), (45, 9), (40, 10), (35, 11)],
                 "ASM Archer.asm loc_3414A `stru_33FC2`",
             ),
             (
@@ -4711,7 +4732,7 @@ mod tests {
                 3,
                 "ASM Sphere.asm Enemy06_Sphere_Kill `stru_36182`",
             ),
-            (0x07, 10, 6, "ASM Archer.asm loc_3414A `stru_33FC2`"),
+            (0x07, 12, 8, "ASM Archer.asm loc_3414A `stru_33FC2`"),
             (0x04, 9, 6, "ASM Armadillo.asm loc_3C886 `stru_3C69A`"),
             (0x05, 7, 2, "ASM Tar_Monster.asm loc_323E6 `stru_32700`"),
             (0x08, 11, 6, "ASM Orca.asm loc_3D268/loc_3D4BC `stru_3D11E`"),

@@ -1,5 +1,8 @@
 use super::*;
 
+const ARCHER_SHOOTING_TABLE_SELECTED_LOC_3419A: u8 = 0x80;
+const ARCHER_VERTICAL_SHOOTING_TABLE_LOC_3419A: u8 = 0x01;
+
 /// Archer arrow re-aim interval indexed by immutable enemy_level.
 /// From Archer.asm `arrow_accuracy`: $1E=30, $14=20, $0A=10 frames.
 pub(crate) const ARCHER_ARROW_REAIM_INTERVAL: [u16; 3] = [0x1E, 0x14, 0x0A];
@@ -438,22 +441,29 @@ pub(crate) fn arrow_velocity_from_angle(angle: usize) -> (i32, i32) {
     ((x_byte as i32) * 0x1000, (y_byte as i32) * 0x1000)
 }
 
-fn archer_live_facing_loc_3408c(
-    enemy_x: u32,
-    enemy_y: u32,
-    player_x: Option<u32>,
-    player_y: Option<u32>,
-) -> Option<Direction> {
-    let (Some(px), Some(py)) = (player_x, player_y) else {
-        return None;
-    };
+pub(crate) fn archer_sprite_animation_phase_loc_341be(
+    coroutine_phase: u8,
+    uses_vertical_table: bool,
+    remaining: u16,
+) -> u8 {
+    let table_base = if uses_vertical_table { 0 } else { 4 };
+    if coroutine_phase == ARCHER_PHASE_FIRE_HOLD_LOC_34248 {
+        return table_base + 3;
+    }
+    if coroutine_phase != ARCHER_PHASE_SHOOTING_TABLE_LOC_34248 {
+        return table_base;
+    }
 
-    // ASM Archer.asm loc_3408C temporarily subtracts `$1E` from y_pos(a3)
-    // before calling loc_34458, then uses loc_340C0's sector branch to set
-    // x_direction for the whole shooting table cycle.
-    let aim_origin_y = enemy_y.wrapping_sub(0x001E_0000);
-    let target_angle = archer_angle_to_player(enemy_x, aim_origin_y, px, py);
-    Some(archer_shot_selection_loc_340C0(target_angle).facing)
+    // ASM Archer.asm Shooting_Vertical/Shooting_Horizontal: loc_34248 holds
+    // the first mapping for 101 wakes, the next for 7, and the third for 13.
+    table_base
+        + if remaining >= 21 {
+            0
+        } else if remaining >= 14 {
+            1
+        } else {
+            2
+        }
 }
 
 /// Step Archer: stationary enemy that faces player and fires arrows at intervals.
@@ -498,15 +508,60 @@ pub(crate) fn step_archer(
         // spans total 121 visible frames, so the post-entry countdown stores
         // 120 further wakes before the zero sentinel fires.
         enemy.wait_timer = ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE - 1;
+        if let (Some(px), Some(py)) = (player_x_pos, player_y_pos) {
+            let aim_origin_y = enemy.y_pos.wrapping_sub(0x001E_0000);
+            let selection = archer_shot_selection_loc_340C0(archer_angle_to_player(
+                enemy.x_pos,
+                aim_origin_y,
+                px,
+                py,
+            ));
+            enemy.facing = selection.facing;
+            enemy.dragon_script_variant = ARCHER_SHOOTING_TABLE_SELECTED_LOC_3419A
+                | if selection.uses_vertical_table {
+                    ARCHER_VERTICAL_SHOOTING_TABLE_LOC_3419A
+                } else {
+                    0
+                };
+        }
         entered_shooting_table = true;
     }
 
-    if let Some(dir) =
-        archer_live_facing_loc_3408c(enemy.x_pos, enemy.y_pos, player_x_pos, player_y_pos)
-    {
-        enemy.facing = dir;
-    }
     if entered_shooting_table {
+        return;
+    }
+
+    if enemy.dragon_script_cmd == ARCHER_PHASE_SHOOTING_TABLE_LOC_34248
+        && enemy.dragon_script_variant & ARCHER_SHOOTING_TABLE_SELECTED_LOC_3419A == 0
+        && let (Some(px), Some(py)) = (player_x_pos, player_y_pos)
+    {
+        // Legacy/native fixtures may enter at loc_34248 directly. Initialise
+        // the same cycle-local table state that loc_3408C normally supplies.
+        let aim_origin_y = enemy.y_pos.wrapping_sub(0x001E_0000);
+        let selection = archer_shot_selection_loc_340C0(archer_angle_to_player(
+            enemy.x_pos,
+            aim_origin_y,
+            px,
+            py,
+        ));
+        enemy.facing = selection.facing;
+        enemy.dragon_script_variant = ARCHER_SHOOTING_TABLE_SELECTED_LOC_3419A
+            | if selection.uses_vertical_table {
+                ARCHER_VERTICAL_SHOOTING_TABLE_LOC_3419A
+            } else {
+                0
+            };
+    }
+
+    if enemy.dragon_script_cmd == ARCHER_PHASE_FIRE_HOLD_LOC_34248 {
+        if enemy.wait_timer > 0 {
+            enemy.wait_timer -= 1;
+            return;
+        }
+        // ASM loc_341BE reads the trailing -1 word, then loc_3408C performs
+        // its one-wake aim hibernate before selecting the next table.
+        enemy.dragon_script_cmd = ARCHER_PHASE_AIM_HIBERNATE_LOC_3408C;
+        enemy.wait_timer = 1;
         return;
     }
 
@@ -516,18 +571,16 @@ pub(crate) fn step_archer(
         return;
     }
 
-    // Reset timer for the next shooting-table cycle. `arrow_accuracy` below is
-    // only the fired arrow's re-aim cadence, not the archer's shot cadence.
+    // `arrow_accuracy` below is only the fired arrow's re-aim cadence, not the
+    // archer's shooting-table timing.
     // ASM Archer.asm Enemy07_Archer_Init loc_33FDA indexes `arrow_accuracy`
     // from the layout's enemy level and stores the selected word in `$4A(a5)`.
     // Every arrow inherits that cached word at loc_341BE, even after damage.
     let level = usize::from(enemy.enemy_level).min(2);
-    enemy.wait_timer = ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE - 1;
-
     // Need player position to compute angle.
-    let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
+    if player_x_pos.is_none() || player_y_pos.is_none() {
         return;
-    };
+    }
 
     // ASM loc_34248: `cmpi.w #2,(Number_of_Arrows).w; bge.w loc_3408C`.
     // Native represents `Number_of_Arrows` as live ArcherArrow projectiles,
@@ -537,6 +590,8 @@ pub(crate) fn step_archer(
         .filter(|projectile| projectile.kind == EnemyProjectileKind::ArcherArrow)
         .count() as u16;
     if archer_arrow_count >= 2 {
+        enemy.dragon_script_cmd = ARCHER_PHASE_AIM_HIBERNATE_LOC_3408C;
+        enemy.wait_timer = 1;
         return;
     }
     if projectiles.len() >= MAX_PROJECTILES {
@@ -544,11 +599,14 @@ pub(crate) fn step_archer(
     }
 
     // Compute initial angle and velocity.
-    let aim_origin_y = enemy.y_pos.wrapping_sub(0x001E_0000);
-    let target_angle = archer_angle_to_player(enemy.x_pos, aim_origin_y, px, py);
-    let shot_selection = archer_shot_selection_loc_340C0(target_angle);
-    enemy.facing = shot_selection.facing;
-    let angle = shot_selection.initial_angle;
+    let uses_vertical_table =
+        enemy.dragon_script_variant & ARCHER_VERTICAL_SHOOTING_TABLE_LOC_3419A != 0;
+    let table = if uses_vertical_table {
+        ArcherShootingTableLoc3419A::Vertical
+    } else {
+        ArcherShootingTableLoc3419A::Horizontal
+    };
+    let angle = archer_opening_angle_loc_3419A(table, enemy.facing);
     let arrow_setup = archer_arrow_setup_loc_341AA(angle, enemy.facing);
     let reaim = ARCHER_ARROW_REAIM_INTERVAL[level];
 
@@ -556,7 +614,7 @@ pub(crate) fn step_archer(
     // copies that row's `$FFF2,$FFEF`/`$FFF2,$FFE2` object offsets. These are
     // distinct from the preceding held-arrow pose at `$FFF8,$FFEF`/`$FFF8,$FFE8`.
     // X is negated when facing right at loc_34216.
-    let y_offset = if shot_selection.uses_vertical_table {
+    let y_offset = if uses_vertical_table {
         ARCHER_ARROW_Y_OFFSET_VERTICAL
     } else {
         ARCHER_ARROW_Y_OFFSET_HORIZONTAL
@@ -665,6 +723,8 @@ pub(crate) fn step_archer(
         // `sfx_Archer_shoots` before loading the arrow object.
         sound_effects.push(QueuedSoundEffect::ArcherShoots);
     }
+    enemy.dragon_script_cmd = ARCHER_PHASE_FIRE_HOLD_LOC_34248;
+    enemy.wait_timer = hold_frame_timer;
 }
 
 #[cfg(test)]

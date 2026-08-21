@@ -6962,16 +6962,18 @@ mod tests {
                 },
                 extra_palettes: vec![],
                 frames: vec![
-                    sample_object_frame_with_base(181, 0x1D, 0x1F, 0x030),
-                    sample_object_frame_with_base(182, 0x1B, 0x20, 0x040),
-                    sample_object_frame_with_base(183, 0x1B, 0x20, 0x050),
-                    sample_object_frame_with_base(184, 0x1B, 0x1F, 0x060),
-                    sample_object_frame_with_base(185, 0x1B, 0x20, 0x070),
-                    sample_object_frame_with_base(186, 0x1B, 0x20, 0x080),
+                    sample_object_frame_with_base(181, 0x1D, 0x20, 0x000),
+                    sample_object_frame_with_base(182, 0x1C, 0x1F, 0x010),
+                    sample_object_frame_with_base(183, 0x1C, 0x1F, 0x020),
+                    sample_object_frame_with_base(184, 0x1D, 0x20, 0x030),
+                    sample_object_frame_with_base(185, 0x1B, 0x20, 0x040),
+                    sample_object_frame_with_base(186, 0x1B, 0x20, 0x050),
                     sample_object_frame_with_base(187, 0x1E, 0x20, 0x060),
-                    sample_object_frame_with_base(188, 0x1B, 0x1E, 0x0A9),
-                    sample_object_frame_with_base(189, 0x1C, 0x1E, 0x080),
-                    sample_object_frame_with_base(190, 0x1F, 0x1E, 0x090),
+                    sample_object_frame_with_base(188, 0x1E, 0x20, 0x070),
+                    sample_object_frame_with_base(189, 0x1E, 0x20, 0x060),
+                    sample_object_frame_with_base(190, 0x1B, 0x1E, 0x0A9),
+                    sample_object_frame_with_base(191, 0x1C, 0x1E, 0x080),
+                    sample_object_frame_with_base(192, 0x1F, 0x1E, 0x090),
                 ],
                 frame_duration: 8,
             },
@@ -19501,7 +19503,7 @@ mod tests {
         };
         let trace = sample_trace(GameMode::InGame);
 
-        for (remaining, signature) in [(0x32, 187), (0x2D, 188), (0x28, 189), (0x23, 190)] {
+        for (remaining, signature) in [(0x32, 189), (0x2D, 190), (0x28, 191), (0x23, 192)] {
             object.wait_timer = Some(remaining);
             assert_eq!(
                 sprites::select_enemy_frame(&trace, archer_visuals, &object)
@@ -19510,6 +19512,34 @@ mod tests {
                     .pixels[0],
                 signature,
                 "ASM Archer.asm loc_3414A should advance `stru_33FC2` death frames"
+            );
+        }
+    }
+
+    #[test]
+    fn live_archer_snapshot_selects_shooting_table_frames_loc_341be() {
+        let visuals = sample_level_visuals();
+        let archer_visuals = visuals.enemies.families.get(&0x07).expect("archer visuals");
+        let mut object = sample_enemy_object(0x07, 0x0040_0000, 0x0010_0000);
+        object.hit_points = Some(1);
+        let trace = sample_trace(GameMode::InGame);
+
+        for (phase, signature, tile_base) in [
+            (0, 181, 0x000),
+            (1, 182, 0x010),
+            (2, 183, 0x020),
+            (3, 184, 0x030),
+            (4, 185, 0x040),
+            (5, 186, 0x050),
+            (6, 187, 0x060),
+            (7, 188, 0x070),
+        ] {
+            object.sprite_animation_phase = Some(phase);
+            let frame = sprites::select_enemy_frame(&trace, archer_visuals, &object);
+            assert_eq!(
+                (frame.tile_sheet.tiles[0].pixels[0], frame.tile_base_index),
+                (signature, tile_base),
+                "ASM Archer.asm Shooting_Vertical/Shooting_Horizontal should select the current loc_341BE body mapping",
             );
         }
     }

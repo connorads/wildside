@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Archer shooting-table visuals and cadence)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Archer and found that native free-ran a partial atlas containing
+  horizontal live and death mappings, recomputed facing during the active
+  table, and skipped the post-shot fire-pose hibernate.
+- ASM `loc_3408C` selects one `Shooting_Vertical`/`Shooting_Horizontal` table
+  for the cycle. `loc_341BE` holds its mappings for 101/7/13 wakes, fires at
+  the zero sentinel, holds the fourth mapping for `$14` DBF wakes, then reads
+  `-1` and re-enters the one-wake aim phase. Core now retains that table and
+  phase; the atlas and selector expose all eight live mappings separately from
+  `stru_33FC2` death. The renderer regression first failed on the missing
+  C8188 tile base. Cache-backed #384 still pins the first arrow at frame 132
+  and deletion at 133.
+- `mise run verify-slice-fast` passes 7,266 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Archer work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Fire Demon live visual scripts)
 
 - `project-status` again offered no ready/open risk. The proactive fallback
