@@ -4872,6 +4872,10 @@ mod chunk_06 {
             rt.active_enemies[0].hit_points, 2,
             "ASM Diamond.asm loc_3AEC4 should consume generic colid_hurt as Diamond HP damage"
         );
+        assert_eq!(
+            rt.active_enemies[0].damage_flash_frames, DIAMOND_HURT_ANIMATION_FRAMES_STRU_3ACBE,
+            "ASM Diamond.asm loc_3AEF8 hibernates for the full `stru_3ACBE` animation"
+        );
         assert!(!rt.active_enemies[0].death_animation_active);
     }
 

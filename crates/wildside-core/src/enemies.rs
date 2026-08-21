@@ -2162,7 +2162,7 @@ impl ActiveEnemy {
                         // returns to loc_3ADA4 after the hurt hibernate.
                         self.x_velocity = 0;
                         self.y_velocity = 0;
-                        self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                        self.damage_flash_frames = DIAMOND_HURT_ANIMATION_FRAMES_STRU_3ACBE;
                         false
                     }
                     DiamondHighHpDamageRouteLoc3ADFA::DeathAnimation => true,
@@ -2182,9 +2182,9 @@ impl ActiveEnemy {
                     // `colid_hurt` decrements `$44(a3)`, plays the Diamond
                     // hurt script, clears collision, and resumes the base
                     // walker path. Native records the observable hibernate
-                    // via the standard damage flash while preserving HP.
+                    // via the script-specific damage flash while preserving HP.
                     self.hit_points = remaining_hp as u8;
-                    self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    self.damage_flash_frames = DIAMOND_HURT_ANIMATION_FRAMES_STRU_3ACBE;
                     return false;
                 }
                 DiamondLowHpCollisionRouteLoc3AEC4::DeathAnimation => {

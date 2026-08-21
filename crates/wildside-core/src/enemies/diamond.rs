@@ -1,5 +1,8 @@
 use super::*;
 
+/// ASM Diamond.asm `stru_3ACBE`: non-terminal hurt holds its sole frame for `$0A` ticks.
+pub(crate) const DIAMOND_HURT_ANIMATION_FRAMES_STRU_3ACBE: u8 = 0x0A;
+
 pub(crate) fn diamond_uses_physics_loop_loc_3ad7c(enemy_level: u8) -> bool {
     // ASM Diamond.asm loc_3AD16/loc_3AD7C: init adds two to immutable
     // enemy_level and selects the physics-ball coroutine when that value is

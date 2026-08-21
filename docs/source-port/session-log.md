@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Diamond hurt duration)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Diamond collision recovery and found every live non-terminal hurt
+  route still seeded the generic eight-frame damage timer.
+- ASM `loc_3ADFA` and `loc_3AEF8` initialise `stru_3ACBE` and hibernate until
+  its single `$0A`-tick animation frame finishes. Native now uses that exact
+  ten-tick duration for queued high- and low-HP collisions and direct friendly
+  projectile hits. The live high-HP regression failed with native 8 versus
+  ROM-derived 10 before the fix; all 266 Diamond-labelled tests now pass.
+- `mise run verify-slice-fast` passes 7,265 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further
+  Diamond work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Orca hurt duration)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

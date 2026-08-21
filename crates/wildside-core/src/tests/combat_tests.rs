@@ -17588,8 +17588,8 @@ mod chunk_03 {
         assert_eq!(diamond.x_velocity, 0);
         assert_eq!(diamond.y_velocity, 0);
         assert_eq!(
-            diamond.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES,
-            "native damage flash represents loc_3ADFA hibernating on `stru_3ACBE` before restoring `stru_3ACA8`"
+            diamond.damage_flash_frames, DIAMOND_HURT_ANIMATION_FRAMES_STRU_3ACBE,
+            "ASM Diamond.asm loc_3ADFA hibernates for the full `stru_3ACBE` animation before restoring `stru_3ACA8`"
         );
         assert!(!diamond.death_animation_active);
     }

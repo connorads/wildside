@@ -8749,7 +8749,8 @@ impl NativeRuntime {
                                     // the physics-ball animation.
                                     enemy.x_velocity = 0;
                                     enemy.y_velocity = 0;
-                                    enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                                    enemy.damage_flash_frames =
+                                        DIAMOND_HURT_ANIMATION_FRAMES_STRU_3ACBE;
                                     changed_enemy_state = true;
                                 }
                                 DiamondHighHpDamageRouteLoc3ADFA::DeathAnimation => {
@@ -8795,7 +8796,7 @@ impl NativeRuntime {
                             enemy.hit_points = remaining_hp.min(u16::from(u8::MAX)) as u8;
                             enemy.x_velocity = 0;
                             enemy.y_velocity = 0;
-                            enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                            enemy.damage_flash_frames = DIAMOND_HURT_ANIMATION_FRAMES_STRU_3ACBE;
                             changed_enemy_state = true;
                         }
                         DiamondLowHpCollisionRouteLoc3AEC4::BerzerkerSideGate => {
