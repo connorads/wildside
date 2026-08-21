@@ -8941,7 +8941,8 @@ impl NativeRuntime {
                                     enemy.hit_points = remaining_hits.min(u16::from(u8::MAX)) as u8;
                                     enemy.x_velocity = 0;
                                     enemy.y_velocity = 0;
-                                    enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                                    enemy.damage_flash_frames =
+                                        MINI_SKULL_HURT_ANIMATION_FRAMES_STRU_3E9C2;
                                     changed_enemy_state = true;
                                 }
                             }

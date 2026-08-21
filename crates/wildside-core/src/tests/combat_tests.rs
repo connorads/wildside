@@ -16680,7 +16680,10 @@ mod chunk_03 {
         );
         assert_eq!(skull.x_velocity, 0);
         assert_eq!(skull.y_velocity, 0);
-        assert_eq!(skull.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES);
+        assert_eq!(
+            skull.damage_flash_frames, MINI_SKULL_HURT_ANIMATION_FRAMES_STRU_3E9C2,
+            "ASM Mini_Hopping_Skull.asm loc_3F05C hibernates for the full `stru_3E9C2` animation"
+        );
         assert_ne!(
             skull.wait_timer, MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200,
             "grounded hurt contact must not enter the airborne loc_3F1E6 landing loop"

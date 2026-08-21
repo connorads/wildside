@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Mini Hopping Skull hurt duration)
+
+- `project-status` again offered no ready/open risk. Walking Dragon was audited
+  first, but its live hurt route already carries `stru_3CCE6`'s `$19` ticks plus
+  the pending-collision scheduler handoff. The proactive fallback then found
+  Mini Hopping Skull's shared grounded hurt assignment still used eight ticks.
+- ASM `loc_3F05C` and `loc_3F0FA` initialise `stru_3E9C2` and hibernate until
+  its single `$14`-tick frame finishes. Native now uses that exact 20-tick
+  duration for both stopped-wait and matched-facing grounded contacts, while
+  the distinct `loc_3F1E6` airborne landing loop remains unchanged. The live
+  regression failed with native 8 versus ROM-derived 20 before the fix; all
+  103 Mini Hopping Skull-labelled tests now pass.
+- `mise run verify-slice-fast` passes 7,265 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further Mini
+  Hopping Skull work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Diamond hurt duration)
 
 - `project-status` again offered no ready/open risk. The proactive fallback
