@@ -8455,7 +8455,7 @@ impl NativeRuntime {
                         // the saved Lion animation, then resume by `$5C(a5)`
                         // and x_direction at loc_3E356.
                         enemy.hit_points = remaining_hp as u8;
-                        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                        enemy.damage_flash_frames = LION_HURT_ANIMATION_FRAMES_STRU_3DF42;
                         match lion_collision_response_loc_3e318(
                             0,
                             remaining_hp,
@@ -11945,7 +11945,7 @@ impl NativeRuntime {
                             // ordinary hurt path, subtracting one HP before
                             // resuming by `$5C(a5)` and x_direction.
                             enemy.hit_points = remaining_hp as u8;
-                            enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                            enemy.damage_flash_frames = LION_HURT_ANIMATION_FRAMES_STRU_3DF42;
                             if let LionCollisionLoc3E318::Continue { next } =
                                 lion_collision_response_loc_3e318(
                                     0,

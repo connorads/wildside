@@ -1,5 +1,8 @@
 use super::*;
 
+/// ASM Lion.asm `stru_3DF42`: non-terminal hurt holds its sole frame for `$0F` ticks.
+pub(crate) const LION_HURT_ANIMATION_FRAMES_STRU_3DF42: u8 = 0x0F;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct LionInitVisibleState {
     pub(crate) status_flag_13: bool,

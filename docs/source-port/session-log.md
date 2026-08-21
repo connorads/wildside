@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Lion hurt duration)
+
+- `project-status` again offered no ready/open risk. Crab was checked first, but
+  its `stru_3AF7C` hurt frame already matches native's eight ticks. The proactive
+  fallback then found both live Lion non-terminal hurt routes still seeded that
+  generic duration.
+- ASM `loc_3E32C` initialises `stru_3DF42` and hibernates until its single
+  `$0F`-tick animation frame finishes. Native now uses that exact 15-tick
+  duration for projectile/contact dispatch and Kid-above stomps. The observable
+  regression failed with native 8 versus ROM-derived 15 before the fix; all 131
+  Lion-labelled tests now pass.
+- `mise run verify-slice-fast` passes 7,264 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further Lion
+  work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Ninja hurt duration)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

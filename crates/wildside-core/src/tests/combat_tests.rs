@@ -18176,8 +18176,8 @@ mod chunk_03 {
             "ASM Lion.asm loc_3E32C subtracts exactly one HP for nonterminal Kid-above contact"
         );
         assert_eq!(
-            lion.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES,
-            "native damage flash represents the loc_3E32C `stru_3DF42` hibernate"
+            lion.damage_flash_frames, LION_HURT_ANIMATION_FRAMES_STRU_3DF42,
+            "ASM Lion.asm loc_3E32C hibernates for the full stru_3DF42 animation"
         );
         assert_eq!(
             lion.lion_state,
@@ -18997,8 +18997,8 @@ mod chunk_03 {
             "ASM Lion.asm loc_3E32C subtracts one HP for nonterminal colid_hurt"
         );
         assert_eq!(
-            lion.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES,
-            "native damage flash represents the loc_3E32C `stru_3DF42` hibernate"
+            lion.damage_flash_frames, LION_HURT_ANIMATION_FRAMES_STRU_3DF42,
+            "ASM Lion.asm loc_3E32C hibernates for the full stru_3DF42 animation"
         );
         assert_eq!(
             lion.lion_state,
@@ -19046,7 +19046,10 @@ mod chunk_03 {
             "loc_3E32C hibernates for the hit animation but does not clear the airborne charge velocity"
         );
         assert_eq!(lion.y_velocity, 0x0000_4000);
-        assert_eq!(lion.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES);
+        assert_eq!(
+            lion.damage_flash_frames, LION_HURT_ANIMATION_FRAMES_STRU_3DF42,
+            "ASM Lion.asm loc_3E32C hibernates for the full stru_3DF42 animation"
+        );
     }
 
     #[test]
