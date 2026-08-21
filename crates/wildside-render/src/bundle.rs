@@ -1952,9 +1952,19 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         extra_palette_paths: &["palette_enemy/UFO_2.bin", "palette_enemy/UFO_3.bin"],
         frame_duration: 5,
         frames: &[
+            // ASM UFO.asm `stru_34C7E`: normal flight C8418/C8420/C8428.
             fd(0x15A, 0x10, 0x00, 0x20, 0x1D),
             fd(0x16A, 0x10, 0x01, 0x20, 0x1E),
             fd(0x17A, 0x10, 0x02, 0x20, 0x1F),
+            // ASM UFO.asm loc_35228 / `stru_34C92`: the first-hit `$47`
+            // latch permanently replaces the normal flight animation.
+            fd(0x117, 0x10, 0x00, 0x1E, 0x1D),
+            fd(0x127, 0x10, 0x00, 0x1E, 0x1D),
+            fd(0x137, 0x10, 0x00, 0x1E, 0x1D),
+            // ASM UFO.asm loc_35174 / `stru_34CA0`: terminal-hit frames.
+            fd(0x0B7, 0x11, 0x00, 0x1F, 0x28),
+            fd(0x0CB, 0x11, 0x00, 0x1F, 0x28),
+            fd(0x0DF, 0x11, 0x00, 0x1F, 0x24),
         ],
     },
     EnemyFamilySpec {
@@ -6145,8 +6155,8 @@ mod tests {
             "ASM Cloud.asm loc_35C0E / stru_35EBA death frames C789E/C78A6/C78AE must be selectable"
         );
         assert_eq!(
-            death_tiles(0x0F, 0..3),
-            vec![0x015A, 0x016A, 0x017A],
+            death_tiles(0x0F, 6..9),
+            vec![0x00B7, 0x00CB, 0x00DF],
             "ASM UFO.asm loc_35174/loc_35180 / stru_34CA0 death frames C83B0/C83B8/C83C0 must be selectable"
         );
         assert_eq!(
@@ -6198,6 +6208,33 @@ mod tests {
             death_tiles(0x22, 0..5),
             vec![0x00A4, 0x00E4, 0x0124, 0x0164, 0x01A4],
             "ASM loc_39EBE/loc_39F7A boss-head death frames C8600/C8608/C8610/C8618/C8620 must be selectable"
+        );
+    }
+
+    #[test]
+    fn ufo_visual_spec_keeps_normal_hurt_and_death_scripts_distinct() {
+        let frames = super::ENEMY_FAMILIES
+            .iter()
+            .find(|spec| spec.object_type == 0x0F)
+            .expect("UFO family spec")
+            .frames;
+        let tile_bases = |range: std::ops::Range<usize>| {
+            frames[range]
+                .iter()
+                .map(|frame| frame.tile_base_index)
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(tile_bases(0..3), vec![0x015A, 0x016A, 0x017A]);
+        assert_eq!(
+            tile_bases(3..6),
+            vec![0x0117, 0x0127, 0x0137],
+            "ASM UFO.asm loc_35228 / stru_34C92 must retain the three first-hurt mappings"
+        );
+        assert_eq!(
+            tile_bases(6..9),
+            vec![0x00B7, 0x00CB, 0x00DF],
+            "ASM UFO.asm loc_35174 / stru_34CA0 must retain the three terminal-hit mappings"
         );
     }
 

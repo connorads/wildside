@@ -7166,6 +7166,12 @@ mod tests {
                     sample_object_frame_with_base(214, 0x20, 0x1D, 0x15A),
                     sample_object_frame_with_base(215, 0x20, 0x1E, 0x16A),
                     sample_object_frame_with_base(216, 0x20, 0x1F, 0x17A),
+                    sample_object_frame_with_base(217, 0x1E, 0x1D, 0x117),
+                    sample_object_frame_with_base(218, 0x1E, 0x1D, 0x127),
+                    sample_object_frame_with_base(219, 0x1E, 0x1D, 0x137),
+                    sample_object_frame_with_base(220, 0x1F, 0x28, 0x0B7),
+                    sample_object_frame_with_base(221, 0x1F, 0x28, 0x0CB),
+                    sample_object_frame_with_base(222, 0x1F, 0x24, 0x0DF),
                 ],
                 frame_duration: 5,
             },
@@ -19381,7 +19387,7 @@ mod tests {
         let trace = sample_trace(GameMode::InGame);
 
         for (remaining, signature, tile_base) in
-            [(0x15, 214, 0x15A), (0x0E, 215, 0x16A), (0x07, 216, 0x17A)]
+            [(0x15, 220, 0x0B7), (0x0E, 221, 0x0CB), (0x07, 222, 0x0DF)]
         {
             object.wait_timer = Some(remaining);
             let frame = sprites::select_enemy_frame(&trace, ufo_visuals, &object);
@@ -19393,6 +19399,31 @@ mod tests {
                 frame.tile_base_index, tile_base,
                 "ASM UFO.asm `stru_34CA0` should reuse the three parent UFO animation frames before loc_351B6 deletes it"
             );
+        }
+    }
+
+    #[test]
+    fn ufo_first_hurt_snapshot_keeps_stru_34c92_frames_after_flash() {
+        let visuals = sample_level_visuals();
+        let ufo_visuals = visuals.enemies.families.get(&0x0F).expect("ufo visuals");
+        let mut object = sample_enemy_object(0x0F, 0x0040_0000, 0x0010_0000);
+        object.hit_points = Some(1);
+        object.damage_flash = false;
+        let mut trace = sample_trace(GameMode::InGame);
+
+        for (frame_index, signature, tile_base) in [
+            (0, 217, 0x117),
+            (5, 218, 0x127),
+            (10, 219, 0x137),
+            (20, 218, 0x127),
+        ] {
+            trace.frame_index = frame_index;
+            let frame = sprites::select_enemy_frame(&trace, ufo_visuals, &object);
+            assert_eq!(
+                frame.tile_sheet.tiles[0].pixels[0], signature,
+                "ASM UFO.asm loc_35228 must keep the `$47(a5)` `stru_34C92` loop after the finite damage palette flash"
+            );
+            assert_eq!(frame.tile_base_index, tile_base);
         }
     }
 

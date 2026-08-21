@@ -1553,6 +1553,26 @@ fn select_live_lion_frame<'a>(
     enemy_visuals.frames.get(durations.len().saturating_sub(1))
 }
 
+fn select_live_ufo_frame<'a>(
+    trace: &NativeTraceFrame,
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x0F })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 6
+    {
+        return None;
+    }
+
+    // ASM UFO.asm Enemy0F_UFO_Hurt / loc_35228 sets `$47(a5)` on the first
+    // hit and permanently replaces `stru_34C7E` with `stru_34C92`. Native's
+    // surviving-hit state is HP 1; the terminal hit enters the death route.
+    let first_frame = if object.hit_points == Some(1) { 3 } else { 0 };
+    let phase = (trace.frame_index / 5) % 3;
+    enemy_visuals.frames.get(first_frame + phase)
+}
+
 pub fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
@@ -1844,13 +1864,13 @@ pub fn select_enemy_frame<'a>(
             }
             // ASM UFO.asm loc_35174/loc_35180 runs parent `stru_34CA0`:
             // C83B0, C83B8, C83C0 for 7 ticks each before loc_351B6 delete.
-            0x0F if enemy_visuals.frames.len() >= 3 => {
+            0x0F if enemy_visuals.frames.len() >= 9 => {
                 if remaining > 0x0E {
-                    Some(0)
+                    Some(6)
                 } else if remaining > 0x07 {
-                    Some(1)
+                    Some(7)
                 } else {
-                    Some(2)
+                    Some(8)
                 }
             }
             // ASM Dragon_Flying.asm loc_3492C runs shared `stru_345E4`:
@@ -1984,6 +2004,9 @@ pub fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_lion_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_ufo_frame(trace, enemy_visuals, object) {
         return frame;
     }
     let keeps_base_animation = matches!(
@@ -4466,8 +4489,8 @@ mod tests {
             }
         }
 
-        let ufo_visuals = labelled_enemy_visuals(3, 3);
-        for (remaining, frame_index) in [(21, 0), (14, 1), (7, 2)] {
+        let ufo_visuals = labelled_enemy_visuals(9, 3);
+        for (remaining, frame_index) in [(21, 6), (14, 7), (7, 8)] {
             let object = dead_enemy_object(0x0F, remaining);
             assert_eq!(
                 selected_enemy_tile_base(&trace, &ufo_visuals, &object),
@@ -4560,7 +4583,7 @@ mod tests {
             (0x11, 9, 6, "ASM Ninja.asm loc_3DB4E `stru_3D50A`"),
             (0x12, 9, 6, "ASM Lion.asm loc_3E378 `stru_3DF48`"),
             (0x13, 9, 6, "ASM Scorpion.asm loc_3DDEE `stru_3DB80`"),
-            (0x0F, 3, 0, "ASM UFO.asm loc_35174/loc_35180 `stru_34CA0`"),
+            (0x0F, 9, 6, "ASM UFO.asm loc_35174/loc_35180 `stru_34CA0`"),
             (0x0C, 4, 0, "ASM Dragon_Flying.asm loc_3492C `stru_345E4`"),
             (
                 0x19,
@@ -4597,7 +4620,7 @@ mod tests {
         let trace = NativeTraceFrame::default();
 
         for (object_type, frame_count, wait_timer, asm_label) in [
-            (0x0F, 2, 1, "ASM UFO.asm loc_35174/loc_35180 `stru_34CA0`"),
+            (0x0F, 8, 1, "ASM UFO.asm loc_35174/loc_35180 `stru_34CA0`"),
             (0x0C, 3, 1, "ASM Dragon_Flying.asm loc_3492C `stru_345E4`"),
             (
                 0x19,

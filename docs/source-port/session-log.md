@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (UFO hurt and death visuals)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited UFO and found that native loaded only `stru_34C7E`'s normal frames,
+  reused them for terminal death, and lost the permanent first-hit visual state
+  when the generic eight-frame palette flash expired.
+- ASM `loc_35228` sets `$47(a5)` and permanently replaces `stru_34C7E` with
+  `stru_34C92`; terminal `loc_35174` separately installs `stru_34CA0`. The UFO
+  atlas now contains all three mapping banks, the live selector uses the
+  surviving HP-1 state for `stru_34C92`, and the death selector uses the actual
+  `stru_34CA0` frames. Regressions cover the post-flash loop, all death
+  thresholds, and short-sheet guards.
+- `mise run verify-slice-fast` passes 7,265 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  UFO work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Big Hopping Skull hurt duration)
 
 - `project-status` again offered no ready/open risk. The proactive fallback
