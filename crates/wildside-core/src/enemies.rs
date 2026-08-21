@@ -2676,6 +2676,13 @@ impl ActiveEnemy {
                 self.dragon_script_variant & 1 != 0,
                 self.wait_timer,
             ))
+        } else if matches!(self.family, EnemyFamily::Ninja) && !self.death_animation_active {
+            Some(ninja_sprite_animation_phase(
+                self.ninja_state,
+                self.wait_timer,
+                self.damage_flash_frames,
+                self.y_velocity,
+            ))
         } else if matches!(self.family, EnemyFamily::DragonWalking) {
             Some(dragon_walking_sprite_animation_phase_stru_3cc5e(
                 self.dragon_descent_index,

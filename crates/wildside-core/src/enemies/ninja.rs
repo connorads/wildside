@@ -903,6 +903,48 @@ pub(crate) fn ninja_advance_walk_phase_loc_3d4ea(walk_phase: u16) -> u16 {
     (walk_phase + 1) % NINJA_WALK_ANIMATION_CYCLE_FRAMES_LOC_3D4EA
 }
 
+pub(crate) fn ninja_sprite_animation_phase(
+    state: NinjaState,
+    walk_phase: u16,
+    damage_flash_frames: u8,
+    y_velocity: i32,
+) -> u8 {
+    if damage_flash_frames != 0 {
+        // ASM Ninja.asm loc_3D670 installs the single-frame `stru_3D504`
+        // hurt animation, whose C7D56 mapping is shared with death frame 0.
+        return 6;
+    }
+
+    match state {
+        NinjaState::Stealth => {
+            // ASM Ninja.asm `stru_3D4EA`: C7D96..C7DBE use asymmetric
+            // 8/6/6/8/6/6-tick spans before command 2 rewinds the script.
+            let mut phase = walk_phase % NINJA_WALK_ANIMATION_CYCLE_FRAMES_LOC_3D4EA;
+            for (frame, duration) in [8, 6, 6, 8, 6, 6].into_iter().enumerate() {
+                if phase < duration {
+                    return frame as u8;
+                }
+                phase -= duration;
+            }
+            5
+        }
+        // Appended atlas indices preserve the existing six walk and three
+        // death indices: C7D6E, C7D76, C7D7E, C7D86, C7D8E.
+        NinjaState::Guard => 13,
+        NinjaState::JumpThreat => 12,
+        NinjaState::JumpAttack => {
+            if y_velocity < -0x0000_8000 {
+                9
+            } else if y_velocity > 0x0000_8000 {
+                11
+            } else {
+                10
+            }
+        }
+        NinjaState::KidAboveKnockdown | NinjaState::AirborneKnockdown => 11,
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum NinjaAttackCooldownRouteLoc3D942 {
     ContinuePacing,
@@ -2792,6 +2834,44 @@ mod tests {
                 sprite_link: Some("LnkTo_unk_C7D7E"),
             },
             "ASM Ninja.asm loc_3DA06 should select C7D7E only when y_vel > +$8000"
+        );
+    }
+
+    #[test]
+    fn ninja_sprite_animation_phase_tracks_asm_scripts_and_fixed_poses() {
+        assert_eq!(
+            ninja_sprite_animation_phase(NinjaState::Stealth, 0, 0, 0),
+            0
+        );
+        assert_eq!(
+            ninja_sprite_animation_phase(NinjaState::Stealth, 8, 0, 0),
+            1
+        );
+        assert_eq!(
+            ninja_sprite_animation_phase(NinjaState::Stealth, 39, 0, 0),
+            5
+        );
+        assert_eq!(ninja_sprite_animation_phase(NinjaState::Guard, 0, 0, 0), 13);
+        assert_eq!(
+            ninja_sprite_animation_phase(NinjaState::JumpThreat, 0, 0, 0),
+            12
+        );
+        assert_eq!(
+            ninja_sprite_animation_phase(NinjaState::JumpAttack, 0, 0, -0x8001),
+            9
+        );
+        assert_eq!(
+            ninja_sprite_animation_phase(NinjaState::JumpAttack, 0, 0, -0x8000),
+            10
+        );
+        assert_eq!(
+            ninja_sprite_animation_phase(NinjaState::JumpAttack, 0, 0, 0x8001),
+            11
+        );
+        assert_eq!(
+            ninja_sprite_animation_phase(NinjaState::Guard, 0, 1, 0),
+            6,
+            "ASM Ninja.asm loc_3D670 hurt animation should override the fixed guard pose"
         );
     }
 

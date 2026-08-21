@@ -1657,6 +1657,24 @@ fn select_live_archer_frame<'a>(
         .get(usize::from(object.sprite_animation_phase?))
 }
 
+fn select_live_ninja_frame<'a>(
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x11 })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 14
+    {
+        return None;
+    }
+
+    // ASM Ninja.asm stru_3D4EA and loc_3D670/loc_3D826/loc_3D84E/
+    // loc_3D9DA: core exports the current scripted or fixed mapping.
+    enemy_visuals
+        .frames
+        .get(usize::from(object.sprite_animation_phase?))
+}
+
 pub fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
@@ -2097,6 +2115,9 @@ pub fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_archer_frame(enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_ninja_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_fire_demon_frame(enemy_visuals, object) {

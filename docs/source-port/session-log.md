@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Ninja live visual scripts)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Ninja and found that native free-ran its walk and death atlas while
+  alive, ignoring every fixed pose selected by the state machine.
+- ASM `stru_3D4EA` holds its six walk mappings for asymmetric 8/6/6/8/6/6
+  ticks. `loc_3D670` uses C7D56 for hurt; `loc_3D826` fixes C7D8E for guard;
+  `loc_3D84E` fixes C7D86 for jump threat; and `loc_3D9DA` selects
+  C7D6E/C7D76/C7D7E by signed Y velocity. Core now exports those phases, the
+  atlas appends the five live-only mappings without shifting death indices,
+  and the selector regression first failed by returning walk frame C7D96 for
+  the jump-threat pose. Level 0x56 frame captures show the Ninja rendered with
+  the corrected live bank.
+- The same renderer audit exposed and corrected the Hand bundle test's stale
+  `1..8` range: its seven death frames follow seven live frames at `7..14`.
+  The workspace failing-test ratchet dropped that obsolete known failure.
+- `mise run verify-slice-fast` and `mise run verify-tas-full` pass with the
+  published-route gameplay, enemy, RNG, pixel and audio ratchets unchanged.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Ninja work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Archer shooting-table visuals and cadence)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

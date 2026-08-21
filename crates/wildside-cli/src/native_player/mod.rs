@@ -7042,7 +7042,7 @@ mod tests {
                     colours: vec![colour(0, 0, 0), colour(180, 180, 210)],
                 },
                 extra_palettes: vec![],
-                frames: (221..=229)
+                frames: (221..=234)
                     .map(|signature| sample_object_frame(signature, 16, 16))
                     .collect(),
                 frame_duration: 8,
@@ -18935,6 +18935,44 @@ mod tests {
                 "ASM Ninja.asm loc_3DB4E should step through stru_3D50A death frames"
             );
         }
+    }
+
+    #[test]
+    fn ninja_live_snapshot_selects_asm_fixed_pose() {
+        let visuals = sample_level_visuals();
+        let trace = sample_trace(GameMode::InGame);
+        let ninja_visuals = visuals.enemies.families.get(&0x11).expect("ninja visuals");
+        let object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x11 },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(1),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: true,
+            contact_phase: None,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            sprite_animation_phase: Some(12),
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, ninja_visuals, &object)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            233,
+            "ASM Ninja.asm loc_3D84E should hold LnkTo_unk_C7D86 during the jump-threat pose"
+        );
     }
 
     #[test]

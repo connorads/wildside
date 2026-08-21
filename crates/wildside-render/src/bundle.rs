@@ -2013,6 +2013,14 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x000, 0x11, 0x00, 0x1F, 0x1C),
             fd(0x010, 0x11, 0x00, 0x1D, 0x19),
             fd(0x020, 0x10, 0x00, 0x1D, 0x0F),
+            // ASM Ninja.asm loc_3D9A4/loc_3D9DA and loc_3D826/loc_3D84E
+            // disable animation and select fixed jump/guard/threat mappings.
+            // Append them so the established walk/death indices remain stable.
+            fd(0x028, 0x0F, 0x00, 0x1F, 0x1F),
+            fd(0x038, 0x0F, 0x00, 0x1C, 0x1F),
+            fd(0x048, 0x0F, 0x00, 0x1F, 0x1E),
+            fd(0x058, 0x0C, 0x00, 0x1F, 0x20),
+            fd(0x068, 0x0C, 0x00, 0x1A, 0x1C),
         ],
     },
     EnemyFamilySpec {
@@ -6152,6 +6160,11 @@ mod tests {
             death_tiles(0x11, 6..9),
             vec![0x0000, 0x0010, 0x0020],
             "ASM Ninja.asm loc_3DB4E / stru_3D50A death frames C7D56/C7D5E/C7D66 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x11, 9..14),
+            vec![0x0028, 0x0038, 0x0048, 0x0058, 0x0068],
+            "ASM Ninja.asm loc_3D9A4/loc_3D9DA/loc_3D826/loc_3D84E fixed live frames must be selectable"
         );
         assert_eq!(
             death_tiles(0x12, 6..9),
