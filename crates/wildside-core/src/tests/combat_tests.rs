@@ -19208,8 +19208,14 @@ mod chunk_03 {
             "ASM Spinning_Twins.asm loc_3BC34 decrements `$44(a3)` before choosing recovery or death"
         );
         assert_eq!(
-            runtime.active_enemies[0].wait_timer, SPINNING_TWINS_HURT_RECOVERY_FRAMES_LOC_3BC34,
+            runtime.active_enemies[0].wait_timer,
+            u16::from(SPINNING_TWINS_HURT_ANIMATION_FRAMES_STRU_3B836),
             "ASM Spinning_Twins.asm loc_3BC34 hibernates through stru_3B836 before restoring walk"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].damage_flash_frames,
+            SPINNING_TWINS_HURT_ANIMATION_FRAMES_STRU_3B836,
+            "the hit frame must remain visible for the full ASM Spinning_Twins.asm `stru_3B836` hibernate"
         );
         assert!(
             !runtime.active_enemies[0].death_animation_active,
@@ -19234,7 +19240,8 @@ mod chunk_03 {
             "ASM Spinning_Twins.asm loc_3BBC4 routes colid_hurt to loc_3BC34, which decrements `$44(a3)`"
         );
         assert_eq!(
-            runtime.active_enemies[0].wait_timer, SPINNING_TWINS_HURT_RECOVERY_FRAMES_LOC_3BC34,
+            runtime.active_enemies[0].wait_timer,
+            u16::from(SPINNING_TWINS_HURT_ANIMATION_FRAMES_STRU_3B836),
             "queued settled contact must hibernate through ASM Spinning_Twins.asm loc_3BC34 `stru_3B836`"
         );
         assert!(

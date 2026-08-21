@@ -2405,8 +2405,8 @@ impl ActiveEnemy {
                     // damage hibernates through `stru_3B836`, restores the
                     // walking animation, then resumes through loc_3BBE6.
                     self.hit_points = recovery.next_hit_points as u8;
-                    self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
-                    self.wait_timer = SPINNING_TWINS_HURT_RECOVERY_FRAMES_LOC_3BC34;
+                    self.damage_flash_frames = SPINNING_TWINS_HURT_ANIMATION_FRAMES_STRU_3B836;
+                    self.wait_timer = u16::from(SPINNING_TWINS_HURT_ANIMATION_FRAMES_STRU_3B836);
                     return false;
                 }
             }

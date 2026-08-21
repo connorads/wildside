@@ -30,7 +30,9 @@ pub(crate) const SPINNING_TWINS_COLID_HURT: u16 = colid::HURT;
 pub(crate) const SPINNING_TWINS_COLID_KIDRIGHT: u16 = colid::KIDRIGHT;
 pub(crate) const SPINNING_TWINS_COLID_KIDLEFT: u16 = colid::KIDLEFT;
 pub(crate) const SPINNING_TWINS_COLID_KIDABOVE: u16 = colid::KIDABOVE;
-pub(crate) const SPINNING_TWINS_HURT_RECOVERY_FRAMES_LOC_3BC34: u16 = 0x14;
+/// ASM Spinning_Twins.asm loc_3BC34 plays `stru_3B836`: one $14-tick frame
+/// before restoring `stru_3B81C` and resuming the shared walker.
+pub(crate) const SPINNING_TWINS_HURT_ANIMATION_FRAMES_STRU_3B836: u8 = 0x14;
 pub(crate) const SPINNING_TWINS_DROP_SPLIT_PENDING_LOC_3B93C: u16 = 0xB93C;
 pub(crate) const SPINNING_TWINS_PARTNER_DEATH_SIGNAL_LOC_3BCA6: i16 = -1;
 

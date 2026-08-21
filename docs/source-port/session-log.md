@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Spinning Twins hurt duration)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Spinning Twins and found that native already suspended surviving
+  settled hits for 20 ticks but stopped rendering the hit frame after eight.
+- ASM `loc_3BC34` hibernates through `stru_3B836`'s sole `$14`-tick frame,
+  then restores `stru_3B81C` and resumes at `loc_3BBE6`. Native now uses one
+  script-named 20-tick duration for both the recovery timer and hit-frame
+  state. The live projectile regression failed with native 8 versus
+  ROM-derived 20 before the fix; all 48 Spinning Twins-labelled tests pass.
+- `mise run verify-slice-fast` passes 7,265 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Spinning Twins work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Robot hurt duration)
 
 - `project-status` again offered no ready/open risk. The proactive fallback
