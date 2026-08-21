@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Goat live visual scripts)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Goat because its sweep-path renderer free-ran a combined patrol/death
+  atlas and omitted the separate charge bank.
+- ASM `stru_3C97C`/`stru_3C996` use six patrol mappings with HP-tiered
+  8/6/6/8/6/6 or 6/4/4/6/4/4 ticks. `stru_3C9B0`/`stru_3C9CA` use the six
+  alternate charge mappings, while `stru_3C9E4` and `loc_3CB76` hold C7C56
+  for hurt and airborne Berzerker knockback. Core now exports Goat's typed
+  charge word, the atlas appends all six charge mappings without shifting
+  death indices, and the selector regression first failed because no Goat
+  live selector existed. Level 0x60 captures show intact Goat art.
+- Required gates pass with published-route gameplay, enemy, RNG, pixel and
+  audio ratchets unchanged.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Goat work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Scorpion live visual scripts)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

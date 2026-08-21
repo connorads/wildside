@@ -1608,6 +1608,48 @@ fn select_live_crab_frame<'a>(
     enemy_visuals.frames.get(5)
 }
 
+fn select_live_goat_frame<'a>(
+    trace: &NativeTraceFrame,
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x10 })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 15
+    {
+        return None;
+    }
+
+    if object.damage_flash || object.wait_timer == Some(0xCBA8) {
+        // ASM Goat.asm stru_3C9E4 and loc_3CB76: hurt and airborne
+        // Berzerker knockback both disable the walk script and hold C7C56.
+        return enemy_visuals.frames.get(6);
+    }
+
+    let charging = object.shared_walker_state.is_some_and(|state| state > 0);
+    // ASM Goat.asm loc_3CA7E selects 8/6/6/8/6/6 for low-HP patrols;
+    // loc_3CACA/loc_3CAE8 selects 6/4/4/6/4/4 at HP 4+. HP 4 retains
+    // the slow alternate script, while HP 5+ uses the fast charge script.
+    let fast = object
+        .hit_points
+        .is_some_and(|hp| hp >= 4 + u8::from(charging));
+    let durations = if fast {
+        [6, 4, 4, 6, 4, 4]
+    } else {
+        [8, 6, 6, 8, 6, 6]
+    };
+    let cycle = durations.iter().sum::<usize>();
+    let mut phase = (trace.frame_index + object.layout_index.unwrap_or(0) * 3) % cycle;
+    let first_frame = if charging { 9 } else { 0 };
+    for (frame_index, duration) in durations.into_iter().enumerate() {
+        if phase < duration {
+            return enemy_visuals.frames.get(first_frame + frame_index);
+        }
+        phase -= duration;
+    }
+    enemy_visuals.frames.get(first_frame + 5)
+}
+
 fn select_live_fire_demon_frame<'a>(
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
@@ -2156,6 +2198,9 @@ pub fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_crab_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_goat_frame(trace, enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_archer_frame(enemy_visuals, object) {
@@ -4190,6 +4235,45 @@ mod tests {
             selected_live_tile_base(select_live_lion_frame(&trace, &lion_visuals, &lion)),
             0x0101,
             "ASM Lion.asm loc_3E0F4 walk phase wraps by the live duration cycle"
+        );
+    }
+
+    #[test]
+    fn goat_live_selector_follows_patrol_charge_and_fixed_pose_scripts() {
+        let visuals = labelled_enemy_visuals(15, 1);
+        let mut trace = NativeTraceFrame::default();
+        let mut goat = live_enemy_object(0x10);
+        goat.shared_walker_state = Some(0);
+
+        // ASM Goat.asm stru_3C97C: slow patrol uses 8/6/6/8/6/6 ticks.
+        for (frame, expected) in [(0, 0), (7, 0), (8, 1), (14, 2), (20, 3), (39, 5), (40, 0)] {
+            trace.frame_index = frame;
+            assert_eq!(
+                selected_live_tile_base(select_live_goat_frame(&trace, &visuals, &goat)),
+                0x0100 + expected,
+                "ASM Goat.asm stru_3C97C patrol boundary {frame}"
+            );
+        }
+
+        // ASM Goat.asm loc_3E4CE/loc_3E50A selects the alternate charge bank.
+        goat.shared_walker_state = Some(1);
+        trace.frame_index = 0;
+        assert_eq!(
+            selected_live_tile_base(select_live_goat_frame(&trace, &visuals, &goat)),
+            0x0109
+        );
+
+        // ASM Goat.asm stru_3C9E4 and loc_3CB76 hold C7C56.
+        goat.damage_flash = true;
+        assert_eq!(
+            selected_live_tile_base(select_live_goat_frame(&trace, &visuals, &goat)),
+            0x0106
+        );
+        goat.damage_flash = false;
+        goat.wait_timer = Some(0xCBA8);
+        assert_eq!(
+            selected_live_tile_base(select_live_goat_frame(&trace, &visuals, &goat)),
+            0x0106
         );
     }
 

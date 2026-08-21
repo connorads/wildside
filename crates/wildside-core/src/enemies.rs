@@ -2637,9 +2637,11 @@ impl ActiveEnemy {
     }
 
     pub(crate) fn snapshot(&self) -> NativeObjectSnapshot {
-        let shared_walker_state =
-            matches!(self.family, EnemyFamily::DragonWalking | EnemyFamily::Lion)
-                .then_some(self.shared_walker_state);
+        let shared_walker_state = matches!(
+            self.family,
+            EnemyFamily::DragonWalking | EnemyFamily::Goat | EnemyFamily::Lion
+        )
+        .then_some(self.shared_walker_state);
         let shared_walker_patrol_timer =
             matches!(self.family, EnemyFamily::DragonWalking | EnemyFamily::Lion)
                 .then_some(self.shared_walker_patrol_timer);
@@ -11489,6 +11491,12 @@ mod tests {
         assert_eq!(
             enemy.x_velocity, 0x0002_8000,
             "native keeps the patrol speed internally for the next shared-walker step"
+        );
+        enemy.shared_walker_state = 2;
+        assert_eq!(
+            enemy.snapshot().shared_walker_state,
+            Some(2),
+            "ASM Goat.asm loc_3E50A charge direction word must reach the live renderer"
         );
 
         enemy.on_ground = false;

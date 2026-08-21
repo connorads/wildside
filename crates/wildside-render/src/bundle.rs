@@ -1998,6 +1998,14 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x000, 0x10, 0x00, 0x1F, 0x20),
             fd(0x088, 0x0F, 0x00, 0x1E, 0x1E),
             fd(0x098, 0x10, 0x00, 0x1F, 0x1D),
+            // ASM Goat.asm stru_3C9B0/stru_3C9CA: alternate charge bank
+            // C7C5E..C7C86. Append it so the existing death indices stay stable.
+            fd(0x010, 0x12, 0x00, 0x26, 0x20),
+            fd(0x024, 0x12, 0x00, 0x26, 0x1F),
+            fd(0x038, 0x10, 0x00, 0x24, 0x1F),
+            fd(0x04C, 0x11, 0x00, 0x25, 0x1F),
+            fd(0x060, 0x11, 0x00, 0x25, 0x1E),
+            fd(0x074, 0x0F, 0x00, 0x23, 0x1F),
         ],
     },
     EnemyFamilySpec {
@@ -6163,6 +6171,11 @@ mod tests {
             death_tiles(0x10, 6..9),
             vec![0x0000, 0x0088, 0x0098],
             "ASM Goat.asm loc_3CB64 / stru_3C9EA death frames C7C56/C7C8E/C7C96 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x10, 9..15),
+            vec![0x0010, 0x0024, 0x0038, 0x004C, 0x0060, 0x0074],
+            "ASM Goat.asm stru_3C9B0/stru_3C9CA charge frames C7C5E..C7C86 must be selectable"
         );
         assert_eq!(
             death_tiles(0x11, 6..9),
