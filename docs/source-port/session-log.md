@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Armadillo hurt duration)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Armadillo against its complete enemy ASM and found both live nonfatal
+  hurt routes seeded the generic eight-frame damage timer.
+- ASM `loc_3C848` initialises `stru_3C6D0` and hibernates until its single
+  `$14`-tick animation frame finishes. Native now uses that exact 20-tick
+  duration for projectile `colid_hurt` and Kid-above/stomp contacts. Both
+  observable regressions failed before the fix and now pin the family-specific
+  value; all 38 Armadillo-labelled tests pass.
+- `mise run verify-slice-fast` passes 7,264 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further
+  Armadillo work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Robot charge terrain turns)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

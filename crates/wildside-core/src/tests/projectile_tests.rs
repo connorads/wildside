@@ -4988,8 +4988,8 @@ mod chunk_06 {
             "ASM Armadillo.asm loc_3C848 restores patrol speed from `$5E(a5)`"
         );
         assert_eq!(
-            rt.active_enemies[0].damage_flash_frames,
-            ENEMY_DAMAGE_FLASH_FRAMES
+            rt.active_enemies[0].damage_flash_frames, ARMADILLO_HURT_ANIMATION_FRAMES_STRU_3C6D0,
+            "ASM Armadillo.asm loc_3C848 waits for the single `$14`-tick stru_3C6D0 hurt frame",
         );
         assert!(!rt.active_enemies[0].death_animation_active);
     }

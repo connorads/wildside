@@ -5,6 +5,8 @@ pub(crate) const ARMADILLO_COLID_HURT: i16 = colid::HURT as i16;
 pub(crate) const ARMADILLO_COLID_KIDRIGHT: i16 = colid::KIDRIGHT as i16;
 pub(crate) const ARMADILLO_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
 pub(crate) const ARMADILLO_COLID_KIDABOVE: i16 = colid::KIDABOVE as i16;
+/// ASM Armadillo animation `stru_3C6D0`: one frame held for `$14` ticks.
+pub(crate) const ARMADILLO_HURT_ANIMATION_FRAMES_STRU_3C6D0: u8 = 0x14;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ArmadilloInitAnimationProfile {

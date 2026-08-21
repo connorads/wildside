@@ -2242,7 +2242,7 @@ impl ActiveEnemy {
                     self.hit_points = remaining_hp as u8;
                     self.shared_walker_state = recoil_state_word;
                     self.walk_speed_override = restored_walk_speed;
-                    self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    self.damage_flash_frames = ARMADILLO_HURT_ANIMATION_FRAMES_STRU_3C6D0;
                     return false;
                 }
             }
@@ -2381,7 +2381,7 @@ impl ActiveEnemy {
                     self.hit_points = remaining_hp as u8;
                     self.shared_walker_state = recoil_state_word;
                     self.walk_speed_override = restored_walk_speed;
-                    self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    self.damage_flash_frames = ARMADILLO_HURT_ANIMATION_FRAMES_STRU_3C6D0;
                     return false;
                 }
             }
