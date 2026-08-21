@@ -16959,9 +16959,9 @@ mod chunk_03 {
             runtime.active_enemies[0].hit_points, 2,
             "ASM Ninja.asm loc_3D670 decrements `$44(a3)` for ordinary hurt contact"
         );
-        assert!(
-            runtime.active_enemies[0].damage_flash_frames > 0,
-            "native damage flash represents the loc_3D670 blocking animation hibernate"
+        assert_eq!(
+            runtime.active_enemies[0].damage_flash_frames, NINJA_HURT_ANIMATION_FRAMES_STRU_3D504,
+            "ASM Ninja.asm loc_3D670 hibernates for the full stru_3D504 animation"
         );
         assert_eq!(runtime.active_enemies[0].x_velocity, 0);
         assert_eq!(runtime.active_enemies[0].y_velocity, 0);

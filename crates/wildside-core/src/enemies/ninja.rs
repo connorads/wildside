@@ -34,6 +34,9 @@ pub(crate) const NINJA_DETECT_Y_MIN: i32 = 0x20;
 pub(crate) const NINJA_DETECT_Y_MAX: i32 = 0x50;
 pub(crate) const NINJA_DETECT_X_RANGE: i32 = 0x10;
 
+/// ASM Ninja.asm `stru_3D504`: non-terminal hurt holds its sole frame for `$14` ticks.
+pub(crate) const NINJA_HURT_ANIMATION_FRAMES_STRU_3D504: u8 = 0x14;
+
 fn ninja_detects_player_while_stealthed(dx_px: i64, dy_px: i64) -> bool {
     // ASM loc_3D706: attack only when kid_y - ninja_y is in [-$50, -$20] and
     // kid_x - ninja_x is in [-$10, +$10). The right edge is exclusive because

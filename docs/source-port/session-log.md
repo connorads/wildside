@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-21 handoff (Ninja hurt duration)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  audited Ninja collision recovery against its ASM and found the live
+  non-terminal hurt route seeded the generic eight-frame damage timer.
+- ASM `loc_3D670` initialises `stru_3D504` and hibernates until its single
+  `$14`-tick animation frame finishes. Native now uses that exact 20-tick
+  duration before restoring the saved walk animation. The observable regression
+  failed with native 8 versus ROM-derived 20 before the fix and now passes.
+- `mise run verify-slice-fast` passes 7,264 core tests;
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy and
+  RNG parity green and the existing pixel/audio ratchets unchanged.
+- NEXT: audit a different enemy family or mutation target; avoid further Ninja
+  work, frozen timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-21 handoff (Armadillo hurt duration)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

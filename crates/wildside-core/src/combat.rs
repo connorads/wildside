@@ -9220,7 +9220,8 @@ impl NativeRuntime {
                                     // through `stru_3D504`, then restores the
                                     // saved walk animation before resuming.
                                     enemy.hit_points = block.remaining_block_timer as u8;
-                                    enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                                    enemy.damage_flash_frames =
+                                        NINJA_HURT_ANIMATION_FRAMES_STRU_3D504;
                                     enemy.x_velocity = 0;
                                     enemy.y_velocity = 0;
                                     changed_enemy_state = true;
