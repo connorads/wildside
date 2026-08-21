@@ -6184,7 +6184,7 @@ mod tests {
             "ASM Drips.asm loc_3392C / stru_33F06 death frames C7BC6/C7BCE/C7BD6 must be selectable"
         );
         assert_eq!(
-            death_tiles(0x17, 1..8),
+            death_tiles(0x17, 7..14),
             vec![0x004B, 0x0055, 0x005F, 0x0064, 0x0069, 0x006E, 0x0073],
             "ASM Hand.asm loc_32AA2 / stru_32B78 death frames C79E6/C79EE/C79F6/C79FE/C7A06/C7A0E/C7A16 must be selectable"
         );
