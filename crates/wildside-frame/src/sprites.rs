@@ -1481,6 +1481,25 @@ fn select_live_spinning_twins_frame<'a>(
     }
 }
 
+fn select_live_fireball_frame<'a>(
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x19 })
+        || enemy_visuals.frames.len() < 24
+    {
+        return None;
+    }
+
+    // ASM Fireball.asm loc_32F3E/loc_3304A/loc_33072: core exports the
+    // exact live `off_33026` link as atlas phase 6..23. Death snapshots have
+    // no typed phase and remain routed through `stru_345E4` above.
+    match object.sprite_animation_phase? {
+        phase @ 6..=23 => enemy_visuals.frames.get(usize::from(phase)),
+        _ => None,
+    }
+}
+
 fn select_live_armadillo_frame<'a>(
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
@@ -2268,6 +2287,9 @@ pub fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_cloud_attack_frame(enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_fireball_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_armadillo_frame(enemy_visuals, object) {
@@ -4859,6 +4881,20 @@ mod tests {
             selected_enemy_tile_base(&trace, &visuals, &dying),
             0x0107,
             "ASM Fire_Demon.asm loc_3A5A6 / stru_3A378 must start at C7746 after the hurt mapping"
+        );
+    }
+
+    #[test]
+    fn fireball_live_snapshot_selects_loc_33072_angle_frame() {
+        let visuals = labelled_enemy_visuals(24, 6);
+        let trace = NativeTraceFrame::default();
+        let mut fireball = live_enemy_object(0x19);
+        fireball.sprite_animation_phase = Some(14);
+
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &visuals, &fireball),
+            0x010E,
+            "ASM Fireball.asm loc_32F3E/loc_3304A/loc_33072 must render the selected live angle mapping instead of cycling death art"
         );
     }
 

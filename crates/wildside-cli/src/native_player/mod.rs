@@ -7223,6 +7223,24 @@ mod tests {
                     sample_object_frame(174, 24, 24),
                     sample_object_frame(175, 16, 16),
                     sample_object_frame(176, 16, 16),
+                    sample_object_frame_with_base(177, 0x0B, 0x15, 0x000),
+                    sample_object_frame_with_base(178, 0x0B, 0x15, 0x006),
+                    sample_object_frame_with_base(179, 0x0E, 0x13, 0x00C),
+                    sample_object_frame_with_base(180, 0x0D, 0x14, 0x012),
+                    sample_object_frame_with_base(181, 0x10, 0x10, 0x018),
+                    sample_object_frame_with_base(182, 0x10, 0x10, 0x01C),
+                    sample_object_frame_with_base(183, 0x14, 0x0E, 0x020),
+                    sample_object_frame_with_base(184, 0x13, 0x0D, 0x026),
+                    sample_object_frame_with_base(185, 0x15, 0x0B, 0x02C),
+                    sample_object_frame_with_base(186, 0x15, 0x0B, 0x032),
+                    sample_object_frame_with_base(187, 0x13, 0x0D, 0x038),
+                    sample_object_frame_with_base(188, 0x14, 0x0E, 0x03E),
+                    sample_object_frame_with_base(189, 0x10, 0x10, 0x044),
+                    sample_object_frame_with_base(190, 0x10, 0x10, 0x048),
+                    sample_object_frame_with_base(191, 0x0D, 0x14, 0x04C),
+                    sample_object_frame_with_base(192, 0x0E, 0x13, 0x052),
+                    sample_object_frame_with_base(193, 0x0B, 0x15, 0x058),
+                    sample_object_frame_with_base(194, 0x0B, 0x15, 0x05E),
                 ],
                 frame_duration: 6,
             },
@@ -19553,6 +19571,16 @@ mod tests {
                 "ASM Fireball.asm Enemy19_Fireball_Kill should advance `stru_345E4` every two ticks"
             );
         }
+
+        object.hit_points = Some(1);
+        object.wait_timer = None;
+        object.sprite_animation_phase = Some(14);
+        let frame = sprites::select_enemy_frame(&trace, fireball_visuals, &object);
+        assert_eq!(
+            frame.tile_sheet.tiles[0].pixels[0], 185,
+            "ASM Fireball.asm loc_32F3E/loc_3304A/loc_33072 must select the typed live angle mapping"
+        );
+        assert_eq!(frame.tile_base_index, 0x02C);
     }
 
     #[test]

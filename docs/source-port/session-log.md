@@ -7,6 +7,31 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (Fireball live angle visuals)
+
+- `project-status` again offered no ready/open risk, so the proactive fallback
+  audited Fireball after rejecting Crab and Big Hopping Skull as already
+  typed and recently exhausted. Core already computed the exact
+  `loc_32F3E`/`loc_3304A` angle and animation phase, but discarded the selected
+  `off_33026` index before snapshots. Rendering therefore cycled live
+  Fireballs through the six `stru_345E4` death mappings.
+- The composed-renderer regression first selected atlas frame 0 instead of
+  frame 14 for the rightward phase. Core now retains the selected index,
+  snapshots export the disjoint live range, and the atlas carries all 18 exact
+  C78D6..C795E descriptors selected by `loc_33072`. The existing death range
+  remains at indices 0..5, and movement, collision, and damage are unchanged.
+- A direct Devil's Marsh 1 0x13 enemy-layer probe at the first Fireball changes
+  frames 0 and 20 from tiny generic flames to the expected directional
+  sprites. Before/after PNGs are under
+  `.cache/debug/fireball-live-visual/`.
+- `mise run verify-slice-fast` passes (7,281 core tests; all lint, audit,
+  frontier, workspace-ratchet, and pixel self-check gates green).
+  `mise run verify-tas-full` passes all 37,759 frames with unchanged
+  player/camera CRC, enemy frontier, RNG, pixel, and GEMS baselines.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Fireball, Spinning Twins, Cloud, Robot, or Armadillo work, frozen timing
+  feeders, and blocked boss umbrella #301.
+
 ## 2026-08-22 handoff (Spinning Twins post-split visuals)
 
 - `project-status` again offered no ready/open risk, so the proactive fallback

@@ -1349,6 +1349,7 @@ pub(crate) struct ActiveEnemy {
     /// Dragon Walking keeps its independent `GfxObject_Animate` elapsed tick
     /// here because the two families never share an active object state.
     /// Robot reuses it for the linked head's independent animation tick.
+    /// Fireball reuses it for the current `off_33026` live sprite-link index.
     pub(crate) dragon_descent_index: u8,
     /// Dragon Flying: frames remaining in current descent entry.
     /// Cloud reuses this for `stru_35EC8` ticks between Cloud.asm loc_35D9E
@@ -2745,6 +2746,12 @@ impl ActiveEnemy {
                 self.dragon_descent_frames,
                 self.damage_flash_frames,
             ))
+        } else if matches!(self.family, EnemyFamily::Fireball) && !self.death_animation_active {
+            // ASM Fireball.asm loc_33072 writes the selected `off_33026`
+            // link after loc_32F3E chooses the velocity angle and loc_3304A
+            // applies its two-frame phase. Atlas slots 0..5 remain the
+            // shared death animation; live links occupy slots 6..23.
+            Some(6 + self.dragon_descent_index)
         } else {
             None
         };
@@ -4306,6 +4313,11 @@ fn activate_enemies_with_rng_inner(
                 },
                 dragon_descent_index: if matches!(family, EnemyFamily::DragonWalking) {
                     dragon_walking_spawn_animation_seed_loc_3cd46(hit_points)
+                } else if matches!(family, EnemyFamily::Fireball) {
+                    // ASM Enemy19_Fireball_Init selects C7906 before the
+                    // first loc_32C1A sprite-angle update. C7906 is entry 6
+                    // in Fireball.asm `off_33026`.
+                    6
                 } else {
                     0
                 },
@@ -6795,6 +6807,7 @@ fn update_fireball_sprite_state_loc_32f3e_3304a(enemy: &mut ActiveEnemy) {
         };
         enemy.dragon_script_cmd = commit.next_animation_phase as u8;
         enemy.dragon_phase_frames = commit.next_animation_countdown;
+        enemy.dragon_descent_index = commit.sprite_table_index;
     }
 }
 
@@ -11475,6 +11488,22 @@ mod tests {
         assert_eq!(
             negate_wrap.y_velocity, FIREBALL_UPWARD_CAP_BY_HP[0],
             "ASM Enemy19_Fireball_BounceFloorCeiling leaves NEG.L of i32::MIN negative before applying the HP-1 upward cap"
+        );
+    }
+
+    #[test]
+    fn fireball_exports_loc_33072_live_angle_mapping() {
+        let mut enemy = fireball_test_enemy();
+        enemy.x_velocity = 0x0001_0000;
+        enemy.y_velocity = 0;
+
+        update_fireball_sprite_state_loc_32f3e_3304a(&mut enemy);
+
+        assert_eq!(enemy.dragon_descent_index, 8);
+        assert_eq!(
+            enemy.snapshot().sprite_animation_phase,
+            Some(14),
+            "ASM Fireball.asm loc_32F3E/loc_3304A/loc_33072 must expose off_33026 entry 8 after the six stable death-atlas slots"
         );
     }
 
