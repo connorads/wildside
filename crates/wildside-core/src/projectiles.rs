@@ -705,6 +705,21 @@ fn tar_monster_gfx_collision_loc_16f0(
                 }
                 return 0x0C;
             }
+            if projectile.x_velocity >= 0
+                && projectile.y_velocity < 0
+                && cell.collision == terrain::CollisionKind::Solid
+            {
+                // ASM GfxObjects_Collision_Solid loc_18AA (kid.asm): compare
+                // the negative corner travel products after `lsr.l #8`.
+                let x_speed = i32::from((projectile.x_velocity >> 8) as i16);
+                let y_speed = i32::from((projectile.y_velocity >> 8) as i16);
+                let x_penetration = x + extent - cell_left;
+                let y_offset = y - extent - (cell_top + 16);
+                if y_offset * x_speed < x_penetration * y_speed {
+                    return 0x04;
+                }
+                return 0x10;
+            }
             lion_projectile_terrain_collision_id_loc_3e260(
                 crossed_horizontally,
                 crossed_vertically,
@@ -5739,6 +5754,38 @@ mod loc_3e266_tests {
                 y_pos: (start_y << 16) | 0x8000,
                 x_velocity: 1 << 16,
                 y_velocity: -(1 << 16),
+                ..Default::default()
+            };
+
+            assert_eq!(
+                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3),
+                expected_collision
+            );
+            assert_eq!(projectile.x_pos >> 16, expected_x);
+            assert_eq!(projectile.y_pos >> 16, expected_y);
+        }
+    }
+
+    #[test]
+    fn tar_right_up_corner_uses_travel_ratio_loc_18aa() {
+        let grid = grid_with_cells(6, 5, &[(3, 2, terrain::CollisionKind::Solid)]);
+        let cases = [
+            (44, 2 << 16, -(1 << 16), 0x04, 44, 44),
+            (44, 1 << 16, -(2 << 16), 0x10, 51, 51),
+            (45, 1 << 16, -(1 << 16), 0x10, 51, 51),
+        ];
+
+        // ASM kid.asm loc_18AA compares
+        // `(top - (tile_top + $10)) * x_vel` with
+        // `(right - tile_left) * y_vel`. Because both products are negative,
+        // `blt loc_1966` selects right wall only when upward penetration times
+        // x speed is greater; equality resolves ceiling through loc_1A6C.
+        for (start_y, x_velocity, y_velocity, expected_collision, expected_x, expected_y) in cases {
+            let mut projectile = EnemyProjectile {
+                x_pos: (51 << 16) | 0x4000,
+                y_pos: (start_y << 16) | 0x8000,
+                x_velocity,
+                y_velocity,
                 ..Default::default()
             };
 

@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive loc_16F0 right/up corner ratio)
+
+- `project-status` offered no ready/open risk, so the proactive fallback took
+  one bounded `loc_16F0` corner-ratio branch.
+- Read ASM `GfxObjects_Collision_Solid_MovingRightUp` at `loc_18AA`. The ROM
+  compares two negative signed products after `lsr.l #8`; strict `blt` resolves
+  right wall through `loc_1966`, while greater-than or equality resolves
+  ceiling through `loc_1A6C`.
+- Native previously reduced this corner to crossing booleans and returned no
+  collision once both axes already overlapped. The regression failed with
+  `$00`, then pins wall, ceiling, and equality-to-ceiling outcomes plus exact
+  centre clamps.
+- A changed-line mutation run against the full core unit surface caught all 26
+  quadrant-guard, fixed-point extraction, penetration, product, comparison,
+  and tie-rule mutations.
+- The required starting `mise run verify-slice-fast` passed with 7,292 tests.
+  The final fast gate passes with 7,293 tests. The full TAS gate also passes:
+  all 37,759 player/camera, gameplay, enemy, RNG, pixel, and GEMS-signature
+  frames were checked against their established authorities and ratchets.
+- NEXT: rerun `project-status`; if no eligible row appears, choose a different
+  live gameplay module or one of the two untouched leftward `loc_16F0`
+  corner-ratio branches. Do not extend either closed rightward corner branch or
+  any continuous-face selector.
+
 ## 2026-08-22 handoff (proactive loc_16F0 right/down corner ratio)
 
 - `project-status` offered no ready/open risk, so the proactive fallback took
