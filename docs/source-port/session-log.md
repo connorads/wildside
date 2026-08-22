@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive Scorpion mutation refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  revisited `enemies/scorpion.rs`. Its 7 July complete census predated the
+  immutable enemy-level speed correction and live pose export.
+- Read the complete `Scorpion.asm`, including `loc_3DDC8` level-selected speed
+  and the walk, sting, hurt, and Berzerker animation paths. The fresh whole-file
+  census accounts for all 75 current mutations: 64 caught and 11
+  compile-unviable, with no missed or timed-out site.
+- Existing tests kill every viable mutation across the newer pose and level
+  branches plus tracking, sting recovery, timer pacing, collision dispatch,
+  Berzerker knockback, and direction resume. No source edit or extra regression
+  is warranted.
+- Final verification: `mise run verify-slice-fast` passes. This docs-only
+  evidence refresh does not require the full TAS gate.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live enemy family or mutation target. Avoid Scorpion and the families
+  excluded by the NOW handoff.
+
 ## 2026-08-22 handoff (proactive Emo Rock mutation hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
