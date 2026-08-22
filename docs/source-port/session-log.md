@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive Crab mutation refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  revisited `enemies/crab.rs`. Its 7 July complete census predated exact
+  knockback callback-order and frozen live-pose regressions.
+- Read the complete `Crab.asm`, including `loc_3B1A6` deceleration before
+  `loc_3B1DA` collision dispatch and the `loc_3B104` frozen pose. The fresh
+  whole-file census accounts for all 87 mutations: 71 caught and 16
+  compile-unviable, with no missed or timed-out site.
+- Existing tests kill every viable mutation across init, damage, freeze,
+  Berzerker knockback, airborne deceleration, wall/slope response, gravity,
+  reflection, and settle tails. No source edit or extra regression is
+  warranted.
+- Final verification: `mise run verify-slice-fast` passes. This docs-only
+  evidence refresh does not require the full TAS gate.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live enemy family or mutation target. Avoid Crab and the families excluded
+  by the NOW handoff.
+
 ## 2026-08-22 handoff (proactive Scorpion mutation refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
