@@ -51,8 +51,7 @@ use crate::enemies::{
     fireball_trail_loop_step_loc_33110, robot_shot_flight_loop_loc_3ac48,
     robot_shot_impact_prep_loc_3ac7e, spawn_tar_monster_retaliation,
     tank_bullet_loop_route_loc_3b7ba, tar_monster_projectile_collision_loc_32682,
-    tar_monster_projectile_delete_loc_32652, tar_monster_projectile_loop_loc_3263C,
-    tar_monster_projectile_negated_velocity_swap_loc_326C6,
+    tar_monster_projectile_loop_loc_3263C, tar_monster_projectile_negated_velocity_swap_loc_326C6,
     tar_monster_projectile_reflect_x_loc_326AA, tar_monster_projectile_reflect_y_loc_326B8,
     tar_monster_projectile_velocity_swap_loc_326DC, tar_monster_seeded_shot_loc_325B6,
     tar_monster_shot_wait_loc_324E6, ufo_beam_child_gravity_gate_loc_3555a,
@@ -499,9 +498,8 @@ fn apply_tar_monster_burst_child_collision_loc_32682(
 
     match collision.route {
         TarMonsterProjectileCollisionRouteLoc32682::ReturnOnly => true,
-        TarMonsterProjectileCollisionRouteLoc32682::DeleteCurrentObject => {
-            tar_monster_projectile_keep_after_delete_loc_32652()
-        }
+        // ASM Tar_Monster.asm loc_32652 unconditionally deletes the Object.
+        TarMonsterProjectileCollisionRouteLoc32682::DeleteCurrentObject => false,
         TarMonsterProjectileCollisionRouteLoc32682::Dispatch(dispatch) => {
             projectile.tar_monster_collision_response_budget = dispatch.remaining_collision_budget;
             match dispatch.target {
@@ -534,17 +532,10 @@ fn apply_tar_monster_burst_child_collision_loc_32682(
                     true
                 }
                 TarMonsterProjectileCollisionTargetLoc32682::Loc32652
-                | TarMonsterProjectileCollisionTargetLoc32682::UnknownOffset(_) => {
-                    tar_monster_projectile_keep_after_delete_loc_32652()
-                }
+                | TarMonsterProjectileCollisionTargetLoc32682::UnknownOffset(_) => false,
             }
         }
     }
-}
-
-fn tar_monster_projectile_keep_after_delete_loc_32652() -> bool {
-    let delete = tar_monster_projectile_delete_loc_32652();
-    !delete.deletes_current_object
 }
 
 fn step_tar_monster_burst_child_loop_loc_3263c(
@@ -566,14 +557,11 @@ fn step_tar_monster_burst_child_loop_loc_3263c(
     projectile.collision_type = 0;
 
     match step.route {
-        TarMonsterProjectileLoopRouteLoc3263C::DeleteCurrentObject => {
-            tar_monster_projectile_keep_after_delete_loc_32652()
-        }
+        // ASM Tar_Monster.asm loc_32652 unconditionally deletes the Object.
+        TarMonsterProjectileLoopRouteLoc3263C::DeleteCurrentObject => false,
         TarMonsterProjectileLoopRouteLoc3263C::ContinueLoop => match step.collision.route {
             TarMonsterProjectileCollisionRouteLoc32682::ReturnOnly => true,
-            TarMonsterProjectileCollisionRouteLoc32682::DeleteCurrentObject => {
-                tar_monster_projectile_keep_after_delete_loc_32652()
-            }
+            TarMonsterProjectileCollisionRouteLoc32682::DeleteCurrentObject => false,
             TarMonsterProjectileCollisionRouteLoc32682::Dispatch(dispatch) => {
                 projectile.tar_monster_collision_response_budget =
                     dispatch.remaining_collision_budget;
@@ -607,9 +595,7 @@ fn step_tar_monster_burst_child_loop_loc_3263c(
                         true
                     }
                     TarMonsterProjectileCollisionTargetLoc32682::Loc32652
-                    | TarMonsterProjectileCollisionTargetLoc32682::UnknownOffset(_) => {
-                        tar_monster_projectile_keep_after_delete_loc_32652()
-                    }
+                    | TarMonsterProjectileCollisionTargetLoc32682::UnknownOffset(_) => false,
                 }
             }
         },
@@ -5430,6 +5416,152 @@ mod loc_3e266_tests {
             data[offset] = (collision as u8) << 4;
         }
         terrain::BlockGrid::from_level_layout(&data, width, height)
+    }
+
+    fn grid_with_block_cells(
+        width: u16,
+        height: u16,
+        cells: &[(u16, u16, terrain::CollisionKind)],
+    ) -> terrain::BlockGrid {
+        let mut data = vec![0u8; usize::from(width) * usize::from(height) * 2];
+        for &(col, row, collision) in cells {
+            let offset = (usize::from(row) * usize::from(width) + usize::from(col)) * 2;
+            data[offset] = 0x80 | (collision as u8) << 4;
+        }
+        terrain::BlockGrid::from_level_layout(&data, width, height)
+    }
+
+    fn grid_with_raw_cells(
+        width: u16,
+        height: u16,
+        cells: &[(u16, u16, u8)],
+    ) -> terrain::BlockGrid {
+        let mut data = vec![0u8; usize::from(width) * usize::from(height) * 2];
+        for &(col, row, hi) in cells {
+            let offset = (usize::from(row) * usize::from(width) + usize::from(col)) * 2;
+            data[offset] = hi;
+        }
+        terrain::BlockGrid::from_level_layout(&data, width, height)
+    }
+
+    #[test]
+    fn tar_burst_loc_32682_distinguishes_empty_and_right_wall_contacts() {
+        let empty = grid_with_block_cells(4, 4, &[]);
+        let solid = (terrain::CollisionKind::Solid as u8) << 4;
+        let populated_solid = 0x80 | solid;
+        let wall = grid_with_raw_cells(
+            4,
+            4,
+            &[
+                (0, 1, populated_solid),
+                (1, 1, solid),
+                (2, 1, populated_solid),
+            ],
+        );
+        let collision_only = grid_with_cells(4, 4, &[(2, 1, terrain::CollisionKind::SlopeUp)]);
+        let original = EnemyProjectile {
+            x_pos: 33 << 16,
+            y_pos: 20 << 16,
+            x_velocity: 2 << 16,
+            y_velocity: 0,
+            tar_monster_collision_response_budget: 2,
+            ..Default::default()
+        };
+
+        let mut unobstructed = original;
+        assert!(super::apply_tar_monster_burst_child_collision_loc_32682(
+            &mut unobstructed,
+            &empty
+        ));
+        assert_eq!(unobstructed.x_velocity, 2 << 16);
+        assert_eq!(unobstructed.tar_monster_collision_response_budget, 2);
+
+        let mut unpopulated = original;
+        assert!(super::apply_tar_monster_burst_child_collision_loc_32682(
+            &mut unpopulated,
+            &collision_only
+        ));
+        assert_eq!(unpopulated.x_velocity, 2 << 16);
+        assert_eq!(unpopulated.tar_monster_collision_response_budget, 2);
+
+        // ASM Tar_Monster.asm loc_32682 -> loc_326AA: the first solid
+        // right-wall contact spends one of d3's two responses, halves and
+        // negates x_vel, and keeps the burst child alive.
+        let mut reflected = original;
+        assert!(super::apply_tar_monster_burst_child_collision_loc_32682(
+            &mut reflected,
+            &wall
+        ));
+        assert_eq!(reflected.x_velocity, -(1 << 16));
+        assert_eq!(reflected.y_velocity, 0);
+        assert_eq!(reflected.tar_monster_collision_response_budget, 1);
+
+        reflected.x_velocity = 2 << 16;
+        reflected.tar_monster_collision_response_budget = 0;
+        assert!(
+            !super::apply_tar_monster_burst_child_collision_loc_32682(&mut reflected, &wall),
+            "ASM loc_32682 deletes when `subq.w #1,d3` makes the response budget negative"
+        );
+
+        let floor = grid_with_raw_cells(
+            4,
+            4,
+            &[
+                (2, 0, populated_solid),
+                (2, 1, solid),
+                (2, 2, populated_solid),
+            ],
+        );
+        let mut falling = EnemyProjectile {
+            x_pos: 33 << 16,
+            y_pos: 33 << 16,
+            x_velocity: 0,
+            y_velocity: 2 << 16,
+            tar_monster_collision_response_budget: 2,
+            ..Default::default()
+        };
+        assert!(super::apply_tar_monster_burst_child_collision_loc_32682(
+            &mut falling,
+            &floor
+        ));
+        assert_eq!(falling.x_velocity, 0);
+        assert_eq!(falling.y_velocity, -(1 << 16));
+        assert_eq!(falling.tar_monster_collision_response_budget, 1);
+    }
+
+    #[test]
+    fn tar_burst_loc_3263c_applies_gravity_dispatch_and_byte_19_delete() {
+        let mut projectile = EnemyProjectile {
+            x_velocity: 2 << 16,
+            y_velocity: 0x2000,
+            collision_type: 0x04,
+            tar_monster_collision_response_budget: 2,
+            ..Default::default()
+        };
+
+        // ASM Tar_Monster.asm loc_3263C adds $1000 gravity before loc_32682
+        // consumes the latched right-wall collision through loc_326AA.
+        assert!(super::step_tar_monster_burst_child_loop_loc_3263c(
+            &mut projectile,
+            false
+        ));
+        assert_eq!(projectile.y_velocity, 0x3000);
+        assert_eq!(projectile.x_velocity, -(1 << 16));
+        assert_eq!(projectile.collision_type, 0);
+        assert_eq!(projectile.tar_monster_collision_response_budget, 1);
+
+        let mut finished = EnemyProjectile {
+            y_velocity: -0x2000,
+            collision_type: 0,
+            tar_monster_collision_response_budget: 2,
+            ..Default::default()
+        };
+        assert!(
+            !super::step_tar_monster_burst_child_loop_loc_3263c(&mut finished, true),
+            "ASM loc_3263C exits through loc_32652 when byte $19 is non-zero"
+        );
+        assert_eq!(finished.y_velocity, -0x1000);
+        assert_eq!(finished.collision_type, 0);
     }
 
     #[test]

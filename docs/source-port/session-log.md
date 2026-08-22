@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive Tar burst-child lifecycle hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  targeted the live Tar Monster burst-child loop and collision dispatch.
+- Read the complete `Tar_Monster.asm` and animation include. ASM `loc_3263C`
+  applies `$1000` gravity before `loc_32682`; the collision dispatcher spends
+  d3 before selecting reflection/swap handlers and deletes on exhaustion.
+- The initial 52-site focused census caught 43, found seven survivors, and
+  classified two compile-unviable. New direct regressions pin empty,
+  collision-only, horizontal-wall, vertical-floor, exhausted-budget, gravity,
+  collision-clear, and byte `$19` deletion cases.
+- Removed the obsolete always-true deletion value object. The live routes now
+  express ASM `loc_32652`'s unconditional object deletion directly.
+- The closure accounts for all 49 remaining mutations: 47 caught and two
+  compile-unviable, with no survivor or timeout. This cargo-mutants version
+  needs an explicit `--cargo-test-arg=--` before repeated skip arguments.
+- An exploratory wider run including `loc_16F0` was stopped after 61 survivors.
+  That GfxObject collision scan is a separate large subsystem, not evidence
+  against the closed `loc_3263C`/`loc_32682` slice.
+- Final verification: focused tests pass; `mise run verify-slice-fast` and
+  `mise run verify-tas-full` pass. The full route retains zero authoritative
+  gameplay or enemy divergences and matches all established ratchets.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay module or scope `loc_16F0` as its own investigation. Avoid the
+  Tar burst-child lifecycle and the families excluded by the NOW handoff.
+
 ## 2026-08-22 handoff (proactive enemy-frame dispatch mutation refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
