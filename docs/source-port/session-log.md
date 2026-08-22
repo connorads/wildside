@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive loc_16F0 boundary hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback took
+  the prior handoff's deliberately scoped `loc_16F0` level-boundary branch.
+- Read `GfxObjects_Collision_ChkBoundaries` and the complete boundary handlers
+  at ASM `loc_1AEA`, `loc_1B0A`, `loc_1B30`, and `loc_1B50`. Left/top branch
+  on a negative edge; right/bottom branch when the outer edge equals the level
+  size; every handler clamps the centre to the last in-bounds pixel.
+- One direct table regression pins all four first-outside cases, collision IDs,
+  exact centre clamps, and all four just-inside non-collision cases on an empty
+  64x64 level.
+- The focused boundary census accounts for all 24 generated mutations: all 24
+  caught, with no survivor, timeout, or compile-unviable case. The filter also
+  selected 30 unrelated line-number matches; those were caught but are not
+  claimed as part of this boundary result.
+- The required starting and final `mise run verify-slice-fast` runs pass. This
+  unit changes only tests and handoff docs, so the full TAS gate is not required.
+- NEXT: rerun `project-status`; if no eligible row appears, choose a different
+  live gameplay module or one narrow `loc_16F0` interior branch. Do not rerun
+  the closed boundary slice or treat the whole interior scan as one target.
+
 ## 2026-08-22 handoff (proactive Tar burst-child lifecycle hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback

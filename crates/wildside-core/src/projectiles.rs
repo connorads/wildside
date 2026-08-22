@@ -5636,6 +5636,52 @@ mod loc_3e266_tests {
     }
 
     #[test]
+    fn tar_level_boundaries_clamp_at_the_first_outside_pixel_loc_1aea() {
+        let grid = grid_with_block_cells(4, 4, &[]);
+        let cases = [
+            (2, 20, 0x08, 3, 20),
+            (61, 20, 0x04, 60, 20),
+            (20, 2, 0x10, 20, 3),
+            (20, 61, 0x0C, 20, 60),
+        ];
+
+        // ASM kid.asm GfxObjects_Collision_ChkBoundaries branches on a
+        // negative left/top edge and an inclusive right/bottom level edge.
+        // loc_1AEA/loc_1B0A/loc_1B30/loc_1B50 then clamp the centre so the
+        // extent's outer pixel is exactly inside the 64x64 level.
+        for (x, y, expected_collision, expected_x, expected_y) in cases {
+            let mut projectile = EnemyProjectile {
+                x_pos: (x << 16) | 0x4000,
+                y_pos: (y << 16) | 0x8000,
+                ..Default::default()
+            };
+
+            assert_eq!(
+                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3),
+                expected_collision
+            );
+            assert_eq!(projectile.x_pos >> 16, expected_x);
+            assert_eq!(projectile.y_pos >> 16, expected_y);
+        }
+
+        for (x, y) in [(3, 20), (60, 20), (20, 3), (20, 60)] {
+            let mut projectile = EnemyProjectile {
+                x_pos: x << 16,
+                y_pos: y << 16,
+                ..Default::default()
+            };
+
+            assert_eq!(
+                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3),
+                0,
+                "an edge exactly on the level boundary remains in bounds"
+            );
+            assert_eq!(projectile.x_pos, x << 16);
+            assert_eq!(projectile.y_pos, y << 16);
+        }
+    }
+
+    #[test]
     fn loc_3e2a4_reflection_negates_x_velocity() {
         assert_eq!(
             super::lion_projectile_x_reflection_vel_loc_3e2a4(0x2_0000),
