@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive Driller mutation hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  revisited `enemies/driller.rs`. Its 18 August complete census predated the
+  retract-hibernate and live parent-frame changes.
+- Read the complete `Driller.asm`, including `loc_3BF4E` replacing the live
+  `stru_3BCB2` loop with `stru_3BCCE` during a surviving stomp. The fresh
+  105-mutant census caught 98, found one viable survivor, and classified six
+  compile-unviable; none timed out.
+- The survivor changed the live phase calculation from `animation_tick / 9`
+  to `animation_tick * 9`. Existing boundary samples shared the same parity;
+  an exact tick-10 assertion now pins the second nine-tick `stru_3BCB2` frame.
+  It fails under the surviving mutation and passes on the production formula.
+- A focused closure rerun catches all nine mutations in
+  `driller_live_sprite_phase_stru_3bcb2`. Combined with the complete census,
+  all 105 sites are accounted for with no remaining viable survivor.
+- Final verification: `mise run verify-slice-fast` passes. Only a test and
+  handoff docs changed, so the full TAS gate is not required for this unit.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live enemy family or mutation target. Avoid Driller and the families
+  excluded by the NOW handoff.
+
 ## 2026-08-22 handoff (proactive Crab mutation refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback

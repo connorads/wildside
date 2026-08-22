@@ -748,6 +748,7 @@ mod tests {
         assert_eq!(driller_live_sprite_phase_stru_3bcb2(0, 0), 0);
         assert_eq!(driller_live_sprite_phase_stru_3bcb2(8, 0), 0);
         assert_eq!(driller_live_sprite_phase_stru_3bcb2(9, 0), 1);
+        assert_eq!(driller_live_sprite_phase_stru_3bcb2(10, 0), 1);
         assert_eq!(driller_live_sprite_phase_stru_3bcb2(17, 0), 1);
         assert_eq!(driller_live_sprite_phase_stru_3bcb2(18, 0), 0);
 
