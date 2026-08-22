@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive live UFO selector hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  targeted `select_live_ufo_frame`. This sweep-path selector was added after
+  UFO's complete 296-site module census and had no direct mutation evidence.
+- Read the complete `UFO.asm` and its animation include. `stru_34C7E` is the
+  healthy three-frame/five-tick loop; first-hit `loc_35228` permanently installs
+  the corresponding `stru_34C92` hurt loop, while the terminal hit enters
+  `stru_34CA0`.
+- The initial 16-site census caught two, found 13 survivors, and classified one
+  compile-unviable. The survivors covered total selector removal, lifecycle and
+  sheet guards, healthy/hurt bank selection, every phase operator, and final
+  frame-index arithmetic.
+- One direct ASM-cited table now pins both live loops at frames 0, 4, 5, 14,
+  and 15, plus exact/oversized atlas acceptance, five-frame rejection,
+  wrong-family routing, and terminal death. The closure accounts for all 16
+  mutations: 15 caught and one compile-unviable, with no survivor or timeout.
+- The focused command excludes the existing ratcheted
+  `select_player_frame_uses_accumulator_for_ground_slope_and_walk_poses`
+  failure so cargo-mutants can establish its package baseline.
+- Final verification: `mise run verify-slice-fast` passes. Only a test and
+  handoff docs changed, so the full TAS gate is not required for this unit.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live enemy family or mutation target. Avoid UFO and the families excluded by
+  the NOW handoff.
+
 ## 2026-08-22 handoff (proactive live Archer selector hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback

@@ -4647,6 +4647,48 @@ mod tests {
     }
 
     #[test]
+    fn ufo_live_selector_pins_healthy_hurt_loops_and_guards() {
+        let exact_visuals = labelled_enemy_visuals(6, 1);
+        let short_visuals = labelled_enemy_visuals(5, 1);
+        let long_visuals = labelled_enemy_visuals(7, 1);
+        let mut trace = NativeTraceFrame::default();
+        let mut ufo = live_enemy_object(0x0F);
+        ufo.hit_points = Some(2);
+
+        // ASM UFO.asm `stru_34C7E` and `stru_34C92`: healthy and surviving-hit
+        // loops each hold three mappings for five ticks before rewinding.
+        for (frame, healthy, hurt) in [(0, 0, 3), (4, 0, 3), (5, 1, 4), (14, 2, 5), (15, 0, 3)] {
+            trace.frame_index = frame;
+            assert_eq!(
+                selected_live_tile_base(select_live_ufo_frame(&trace, &exact_visuals, &ufo)),
+                0x0100 + healthy,
+                "ASM UFO.asm stru_34C7E healthy boundary {frame}"
+            );
+            ufo.hit_points = Some(1);
+            assert_eq!(
+                selected_live_tile_base(select_live_ufo_frame(&trace, &exact_visuals, &ufo)),
+                0x0100 + hurt,
+                "ASM UFO.asm loc_35228/stru_34C92 hurt boundary {frame}"
+            );
+            ufo.hit_points = Some(2);
+        }
+
+        assert_eq!(
+            selected_live_tile_base(select_live_ufo_frame(&trace, &long_visuals, &ufo)),
+            0x0100
+        );
+        assert!(select_live_ufo_frame(&trace, &short_visuals, &ufo).is_none());
+
+        // ASM UFO.asm Enemy0F_UFO_Init/Enemy0F_UFO_Hurt: only a live type-$0F
+        // parent uses these loops; the terminal hit enters `stru_34CA0`.
+        let mut wrong_family = ufo.clone();
+        wrong_family.kind = NativeObjectKind::Enemy { object_type: 0x0E };
+        assert!(select_live_ufo_frame(&trace, &exact_visuals, &wrong_family).is_none());
+        ufo.hit_points = Some(0);
+        assert!(select_live_ufo_frame(&trace, &exact_visuals, &ufo).is_none());
+    }
+
+    #[test]
     fn rock_tank_child_helpers_classify_loc_3b372_snapshots_and_flash() {
         let mut parent = live_enemy_object(0x0B);
         parent.layout_index = Some(7);
