@@ -2139,6 +2139,17 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x012, 0x0F, 0x00, 0x1C, 0x20),
             fd(0x022, 0x0F, 0x00, 0x1F, 0x1E),
             fd(0x032, 0x10, 0x00, 0x20, 0x12),
+            // ASM Spinning_Twins.asm loc_3B9B0: the falling transition
+            // worker uses fixed mapping C7D26 outside the orbit animation.
+            fd(0x09E, 0x08, 0x00, 0x10, 0x05),
+            // ASM Spinning_Twins.asm loc_3BB94 / `stru_3B81C`: settled
+            // walking loop C7CF6/C7CFE/C7D06/C7D0E/C7D16/C7D1E.
+            fd(0x03E, 0x0F, 0x00, 0x1B, 0x1F),
+            fd(0x04E, 0x0F, 0x00, 0x1C, 0x20),
+            fd(0x05E, 0x0F, 0x00, 0x1B, 0x20),
+            fd(0x06E, 0x0F, 0x00, 0x1A, 0x1F),
+            fd(0x07E, 0x0F, 0x00, 0x1A, 0x20),
+            fd(0x08E, 0x0F, 0x00, 0x1B, 0x20),
         ],
     },
     EnemyFamilySpec {
@@ -6266,6 +6277,16 @@ mod tests {
             death_tiles(0x14, 4..7),
             vec![0x0012, 0x0022, 0x0032],
             "ASM Spinning_Twins.asm loc_3BC56 / stru_3B83C death frames C7CDE/C7CE6/C7CEE must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x14, 7..8),
+            vec![0x009E],
+            "ASM Spinning_Twins.asm loc_3B9B0 fixed falling visual C7D26 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x14, 8..14),
+            vec![0x003E, 0x004E, 0x005E, 0x006E, 0x007E, 0x008E],
+            "ASM Spinning_Twins.asm loc_3BB94 / stru_3B81C settled walk mappings must be selectable"
         );
         assert_eq!(
             death_tiles(0x16, 3..6),

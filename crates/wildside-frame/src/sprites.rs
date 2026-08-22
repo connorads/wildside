@@ -1461,6 +1461,26 @@ fn select_live_cloud_attack_frame<'a>(
         .get(usize::from(object.sprite_animation_phase?))
 }
 
+fn select_live_spinning_twins_frame<'a>(
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x14 })
+        || enemy_visuals.frames.len() < 14
+    {
+        return None;
+    }
+
+    // ASM Spinning_Twins.asm loc_3BA74/loc_3B9B0/loc_3BB94: core exports
+    // the fixed launch/falling mappings and the settled `stru_3B81C` loop;
+    // a true loc_3BC56 death has no typed phase and remains routed through
+    // the waited death selector below.
+    match object.sprite_animation_phase? {
+        phase @ (4 | 7..=13) => enemy_visuals.frames.get(usize::from(phase)),
+        _ => None,
+    }
+}
+
 fn select_live_armadillo_frame<'a>(
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
@@ -1828,6 +1848,9 @@ pub fn select_enemy_frame<'a>(
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
 ) -> &'a wildside_render::SpriteFrame {
+    if let Some(frame) = select_live_spinning_twins_frame(enemy_visuals, object) {
+        return frame;
+    }
     if object.hit_points == Some(0)
         && let NativeObjectKind::Enemy { object_type } = object.kind
         && let Some(remaining) = object.wait_timer
@@ -3939,6 +3962,11 @@ mod tests {
                 cloud.sprite_animation_phase = Some(9);
                 select_live_cloud_attack_frame(&full, &cloud).is_some()
             }),
+            (0x14, {
+                let mut twin = live_enemy_object(0x14);
+                twin.sprite_animation_phase = Some(4);
+                select_live_spinning_twins_frame(&full, &twin).is_some()
+            }),
             (
                 0x06,
                 select_live_sphere_frame(&trace, &full, &live_enemy_object(0x06)).is_some(),
@@ -4294,6 +4322,32 @@ mod tests {
             selected_enemy_tile_base(&trace, &cloud_visuals, &cloud),
             0x0109,
             "Cloud attack wind-up must select typed C787E instead of continuing the normal flight loop"
+        );
+
+        // ASM Spinning_Twins.asm loc_3BA74/loc_3B9B0: split walking
+        // children use fixed C7CDE, while the falling visual worker uses
+        // fixed C7D26 instead of the four-frame orbit parent bank.
+        let spinning_twins_visuals = labelled_enemy_visuals(14, 6);
+        let mut spinning_twin = live_enemy_object(0x14);
+        spinning_twin.sprite_animation_phase = Some(4);
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &spinning_twins_visuals, &spinning_twin),
+            0x0104,
+            "walking Spinning Twin must select fixed C7CDE instead of the orbit parent"
+        );
+        spinning_twin.hit_points = Some(0);
+        spinning_twin.sprite_animation_phase = Some(7);
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &spinning_twins_visuals, &spinning_twin),
+            0x0107,
+            "Spinning Twins falling visual must select fixed C7D26 instead of the orbit parent"
+        );
+        spinning_twin.hit_points = Some(1);
+        spinning_twin.sprite_animation_phase = Some(8);
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &spinning_twins_visuals, &spinning_twin),
+            0x0108,
+            "settled Spinning Twin must select typed stru_3B81C instead of the orbit parent"
         );
 
         // ASM Driller.asm stru_3BCB2 alternates only C80E0/C80E8 while

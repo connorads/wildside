@@ -2724,6 +2724,14 @@ impl ActiveEnemy {
                 self.dragon_descent_frames,
                 self.damage_flash_frames,
             ))
+        } else if matches!(self.family, EnemyFamily::SpinningTwins) && !self.death_animation_active
+        {
+            spinning_twins_live_sprite_phase(
+                self.spinning_twins_phase,
+                self.on_ground,
+                self.damage_flash_frames,
+                self.grounded_frames,
+            )
         } else if matches!(self.family, EnemyFamily::Armadillo) && !self.death_animation_active {
             Some(armadillo_live_sprite_phase(
                 self.enemy_level,

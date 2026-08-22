@@ -7284,6 +7284,13 @@ mod tests {
                     sample_object_frame_with_base(206, 0x1C, 0x20, 0x012),
                     sample_object_frame_with_base(207, 0x1F, 0x1E, 0x022),
                     sample_object_frame_with_base(208, 0x20, 0x12, 0x032),
+                    sample_object_frame_with_base(209, 0x10, 0x05, 0x09E),
+                    sample_object_frame_with_base(216, 0x1B, 0x1F, 0x03E),
+                    sample_object_frame_with_base(217, 0x1C, 0x20, 0x04E),
+                    sample_object_frame_with_base(218, 0x1B, 0x20, 0x05E),
+                    sample_object_frame_with_base(219, 0x1A, 0x1F, 0x06E),
+                    sample_object_frame_with_base(220, 0x1A, 0x20, 0x07E),
+                    sample_object_frame_with_base(221, 0x1B, 0x20, 0x08E),
                 ],
                 frame_duration: 6,
             },
@@ -20343,7 +20350,7 @@ mod tests {
     }
 
     #[test]
-    fn spinning_twins_death_snapshot_selects_loc_3bc56_frames() {
+    fn spinning_twins_trace_selects_live_and_death_frames() {
         let visuals = sample_level_visuals();
         let twins_visuals = visuals
             .enemies
@@ -20383,6 +20390,47 @@ mod tests {
                     .pixels[0],
                 signature,
                 "ASM Spinning_Twins.asm loc_3BC56 should step through `stru_3B83C` death frames"
+            );
+        }
+
+        object.hit_points = Some(1);
+        object.wait_timer = Some(0);
+        object.sprite_animation_phase = Some(4);
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, twins_visuals, &object)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            206,
+            "ASM Spinning_Twins.asm loc_3BA74 walking child must use fixed C7CDE"
+        );
+        object.hit_points = Some(0);
+        object.sprite_animation_phase = Some(7);
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, twins_visuals, &object)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            209,
+            "ASM Spinning_Twins.asm loc_3B9B0 falling visual must use fixed C7D26"
+        );
+        object.hit_points = Some(1);
+        for (phase, signature) in [
+            (8, 216),
+            (9, 217),
+            (10, 218),
+            (11, 219),
+            (12, 220),
+            (13, 221),
+        ] {
+            object.sprite_animation_phase = Some(phase);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, twins_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Spinning_Twins.asm loc_3BB94 should select the typed `stru_3B81C` walk mapping"
             );
         }
     }

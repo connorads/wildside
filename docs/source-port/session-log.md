@@ -7,6 +7,33 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (Spinning Twins post-split visuals)
+
+- `project-status` again offered no ready/open risk, so the proactive fallback
+  audited Spinning Twins. ASM confines the four large `stru_3B7F0` mappings to
+  the orbit parent: each `loc_3BA74` child launches on C7CDE, the separate
+  `loc_3B9B0` falling worker fixes C7D26, and `loc_3BB94` installs the six-frame
+  `stru_3B81C` loop after settlement. Native previously free-ran every
+  post-split object through the large orbit bank.
+- The composed-renderer regression first selected orbit frame C7D36 for a
+  launched child instead of C7CDE. Core now exports typed launch, falling,
+  hurt, and settled-walk phases; the atlas includes the exact C7D26 and
+  C7CF6..C7D1E descriptors; rendering routes them before the waited
+  `loc_3BC56` death sequence. Movement, collision, damage, and death timing are
+  unchanged.
+- A direct Bloody Swamp 0x3E scene probe at the sole Spinning Twins placement
+  changes sampled frames 0,1,2,3,5,8,12,20,30,40,50. Before, the split route
+  draws several overlapping oversized orbit clusters; after, it draws two
+  individual blue walkers. Before/after PNGs are under
+  `.cache/debug/spinning-twins-live-visual/`.
+- `mise run verify-slice-fast` passes (7,280 core tests; all lint, audit,
+  frontier, workspace-ratchet, and pixel self-check gates green).
+  `mise run verify-tas-full` passes all 37,759 frames with unchanged
+  player/camera CRC, enemy frontier, RNG, pixel, and GEMS baselines.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Spinning Twins, Cloud, Robot, or Armadillo work, frozen timing feeders, and
+  blocked boss umbrella #301.
+
 ## 2026-08-22 handoff (Cloud lightning wind-up visuals)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

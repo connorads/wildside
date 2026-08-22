@@ -15189,6 +15189,60 @@ mod chunk_04 {
         assert_eq!(enemies[0].y_velocity, SPINNING_TWINS_DROP_Y_VEL);
         assert_eq!(enemies[1].y_velocity, SPINNING_TWINS_DROP_Y_VEL);
         assert!(!enemies[2].is_vulnerable());
+        assert_eq!(
+            enemies[0].snapshot().sprite_animation_phase,
+            Some(4),
+            "ASM loc_3BA74 walking child must export fixed C7CDE"
+        );
+        assert_eq!(
+            enemies[2].snapshot().sprite_animation_phase,
+            Some(7),
+            "ASM loc_3B9B0 falling visual must export fixed C7D26"
+        );
+    }
+
+    #[test]
+    fn spinning_twins_live_sprite_phase_follows_launch_fall_and_stru_3b81c_walk() {
+        assert_eq!(
+            spinning_twins_live_sprite_phase(SpinningTwinsPhase::Orbiting, false, 0, 0),
+            None
+        );
+        assert_eq!(
+            spinning_twins_live_sprite_phase(SpinningTwinsPhase::Walking, false, 0, 0),
+            Some(4),
+            "ASM loc_3BA74 holds C7CDE throughout the launch"
+        );
+        assert_eq!(
+            spinning_twins_live_sprite_phase(SpinningTwinsPhase::FallingVisual, false, 0, 0),
+            Some(7),
+            "ASM loc_3B9B0 fixes the falling worker on C7D26"
+        );
+        for (elapsed, expected) in [
+            (0, 8),
+            (5, 8),
+            (6, 9),
+            (10, 9),
+            (11, 10),
+            (15, 10),
+            (16, 11),
+            (21, 11),
+            (22, 12),
+            (26, 12),
+            (27, 13),
+            (31, 13),
+            (32, 8),
+        ] {
+            assert_eq!(
+                spinning_twins_live_sprite_phase(SpinningTwinsPhase::Walking, true, 0, elapsed),
+                Some(expected),
+                "ASM loc_3BB94 / stru_3B81C elapsed tick {elapsed}"
+            );
+        }
+        assert_eq!(
+            spinning_twins_live_sprite_phase(SpinningTwinsPhase::Walking, true, 1, 17),
+            Some(4),
+            "ASM loc_3BC34 / stru_3B836 holds C7CDE while hurt"
+        );
     }
 
     #[test]

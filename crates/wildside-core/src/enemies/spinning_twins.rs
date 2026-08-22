@@ -36,6 +36,32 @@ pub(crate) const SPINNING_TWINS_HURT_ANIMATION_FRAMES_STRU_3B836: u8 = 0x14;
 pub(crate) const SPINNING_TWINS_DROP_SPLIT_PENDING_LOC_3B93C: u16 = 0xB93C;
 pub(crate) const SPINNING_TWINS_PARTNER_DEATH_SIGNAL_LOC_3BCA6: i16 = -1;
 
+/// Atlas phase for the visible object after the orbit parent splits.
+pub(crate) fn spinning_twins_live_sprite_phase(
+    phase: SpinningTwinsPhase,
+    on_ground: bool,
+    hurt_frames: u8,
+    animation_elapsed: u8,
+) -> Option<u8> {
+    // ASM Spinning_Twins.asm loc_3BA74 fixes each launched child on C7CDE;
+    // loc_3B9B0 fixes the falling transition worker on C7D26; loc_3BB94
+    // installs the 32-tick `stru_3B81C` walk loop after settlement.
+    match phase {
+        SpinningTwinsPhase::Orbiting => None,
+        SpinningTwinsPhase::Walking if !on_ground || hurt_frames > 0 => Some(4),
+        SpinningTwinsPhase::Walking => Some(match animation_elapsed % 32 {
+            0..=5 => 8,
+            6..=10 => 9,
+            11..=15 => 10,
+            16..=21 => 11,
+            22..=26 => 12,
+            27..=31 => 13,
+            _ => unreachable!("modulo-32 Spinning Twins animation phase"),
+        }),
+        SpinningTwinsPhase::FallingVisual => Some(7),
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SpinningTwinsOrbitTickLoc3B904 {
     pub(crate) next_animation_timer: u16,
@@ -800,6 +826,7 @@ pub(crate) fn step_spinning_twins(
             // Apply gravity while airborne until grounded, then walk as pacer
             if enemy.on_ground {
                 step_pacer(enemy, block_grid, None);
+                enemy.grounded_frames = enemy.grounded_frames.wrapping_add(1);
             } else {
                 enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
                 enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
@@ -821,6 +848,7 @@ pub(crate) fn step_spinning_twins(
                     enemy.x_velocity = 0;
                     enemy.y_velocity = 0;
                     enemy.on_ground = true;
+                    enemy.grounded_frames = 0;
                     return;
                 }
                 // Check floor
