@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive Emo Rock mutation hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  refreshed `enemies/emo_rock.rs`. Its last complete census predated five live
+  production changes: hover targeting, both gravity paths, level motion, and
+  live renderer scripts.
+- Read the complete `Emo_Rock.asm`. The 106-mutant census caught 92, found two
+  viable survivors, and classified 12 compile-unviable; none timed out. Both
+  survivors weakened the `emo_rock_live_sprite_phase` landing-script guard:
+  `on_ground && settled_remaining > 0` became `||` or `>= 0`.
+- Two exact script-state assertions now pin ASM `loc_3625E` and `stru_363FE`:
+  an airborne rock retains C7F38 even if a stale landing timer is non-zero, and
+  a grounded rock with zero remaining ticks has completed the landing script.
+  Each assertion fails under its exact surviving mutation and passes on the
+  production guard.
+- A focused closure rerun exercises every mutation in
+  `emo_rock_live_sprite_phase`: all 13 are caught. Combined with the complete
+  first census, all 106 sites are accounted for with no remaining survivor.
+- Final verification: `mise run verify-slice-fast` passes. Only tests and
+  handoff docs changed, so the full TAS gate is not required for this unit.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live enemy family or mutation target. Avoid Emo Rock and the families
+  excluded by the NOW handoff.
+
 ## 2026-08-22 handoff (proactive Orca mutation hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback

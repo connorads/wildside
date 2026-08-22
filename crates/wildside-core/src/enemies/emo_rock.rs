@@ -1274,12 +1274,22 @@ mod tests {
         assert_eq!(emo_rock_live_sprite_phase(63, false, 0, 0), 9);
         assert_eq!(emo_rock_live_sprite_phase(40, false, 0, 0), 10);
         assert_eq!(emo_rock_live_sprite_phase(0, false, 0, 0), 10);
+        assert_eq!(
+            emo_rock_live_sprite_phase(0, false, 136, 0),
+            10,
+            "ASM Emo_Rock.asm loc_3625E retains C7F38 while airborne; a retained landing timer must not start stru_363FE"
+        );
 
         // ASM Emo_Rock.asm stru_363FE and stru_36456 use the landing and
         // disappear banks whose mappings are distinct from the death tail.
         assert_eq!(emo_rock_live_sprite_phase(0, true, 136, 0), 0);
         assert_eq!(emo_rock_live_sprite_phase(0, true, 116, 0), 1);
         assert_eq!(emo_rock_live_sprite_phase(0, true, 16, 0), 11);
+        assert_eq!(
+            emo_rock_live_sprite_phase(0, true, 0, 0),
+            10,
+            "ASM Emo_Rock.asm stru_363FE is complete when its remaining timer is zero"
+        );
         assert_eq!(emo_rock_live_sprite_phase(0, true, 0, 16), 11);
         assert_eq!(emo_rock_live_sprite_phase(0, true, 0, 12), 12);
     }
