@@ -1444,6 +1444,23 @@ fn select_live_tar_monster_frame<'a>(
     Some(&enemy_visuals.frames[frame])
 }
 
+fn select_live_cloud_attack_frame<'a>(
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x0E })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 13
+    {
+        return None;
+    }
+    // ASM Cloud.asm loc_35D9E/stru_35EC8: core exports the exact parent
+    // mapping while the attack animation prepares its linked lightning.
+    enemy_visuals
+        .frames
+        .get(usize::from(object.sprite_animation_phase?))
+}
+
 fn select_live_armadillo_frame<'a>(
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
@@ -2225,6 +2242,9 @@ pub fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_tar_monster_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_cloud_attack_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_armadillo_frame(enemy_visuals, object) {
@@ -3914,6 +3934,11 @@ mod tests {
                 robot_head.sprite_animation_phase = Some(10);
                 select_live_robot_frame(&full, &robot_head).is_some()
             }),
+            (0x0E, {
+                let mut cloud = live_enemy_object(0x0E);
+                cloud.sprite_animation_phase = Some(9);
+                select_live_cloud_attack_frame(&full, &cloud).is_some()
+            }),
             (
                 0x06,
                 select_live_sphere_frame(&trace, &full, &live_enemy_object(0x06)).is_some(),
@@ -4256,6 +4281,19 @@ mod tests {
             selected_enemy_tile_base(&trace, &robot_visuals, &robot_head),
             0x010A,
             "linked Robot head must select its typed C82D8 mapping instead of Robot legs"
+        );
+
+        // ASM Cloud.asm loc_35D9E/stru_35EC8: an attacking Cloud replaces
+        // its six-frame flight loop with C787E/C7886/C788E/C7896 while the
+        // linked lightning worker is prepared.
+        let cloud_visuals = labelled_enemy_visuals(13, 11);
+        let mut cloud = live_enemy_object(0x0E);
+        cloud.sprite_animation_phase = Some(9);
+        trace.frame_index = 0;
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &cloud_visuals, &cloud),
+            0x0109,
+            "Cloud attack wind-up must select typed C787E instead of continuing the normal flight loop"
         );
 
         // ASM Driller.asm stru_3BCB2 alternates only C80E0/C80E8 while

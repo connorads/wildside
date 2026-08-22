@@ -208,6 +208,24 @@ const CLOUD_IDLE_SPRITES_LOC_35CA2: [&str; 6] = [
 
 pub(crate) const CLOUD_ATTACK_ANIMATION_FRAMES_LOC_35D9E: u8 = 25;
 
+/// Atlas phase for the Cloud parent while `stru_35EC8` prepares lightning.
+pub(crate) fn cloud_attack_sprite_phase_stru_35ec8(remaining_frames: u8) -> Option<u8> {
+    if remaining_frames == 0 || remaining_frames > CLOUD_ATTACK_ANIMATION_FRAMES_LOC_35D9E {
+        return None;
+    }
+
+    // ASM Cloud.asm stru_35EC8: C787E/C7886/C787E/C7886/C787E/C7886/
+    // C788E/C7886/C788E/C7896 with durations 3,3,2,1,1,2,2,1,2,8.
+    let elapsed = CLOUD_ATTACK_ANIMATION_FRAMES_LOC_35D9E - remaining_frames;
+    Some(match elapsed {
+        0..=2 | 6..=7 | 9 => 9,
+        3..=5 | 8 | 10..=11 | 14 => 10,
+        12..=13 | 15..=16 => 11,
+        17..=24 => 12,
+        _ => unreachable!("validated 25-frame Cloud attack animation"),
+    })
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CloudIdleSpriteGateLoc35CA2 {
     pub(crate) d2_after_subq: u16,
@@ -949,6 +967,36 @@ mod tests {
         assert_eq!(
             CLOUD_ATTACK_ANIMATION_FRAMES_LOC_35D9E, 25,
             "ASM Cloud.asm loc_35D9E starts stru_35EC8, whose frame durations are 3+3+2+1+1+2+2+1+2+8"
+        );
+    }
+
+    #[test]
+    fn cloud_attack_sprite_phase_follows_every_stru_35ec8_entry() {
+        assert_eq!(cloud_attack_sprite_phase_stru_35ec8(25), Some(9));
+        assert_eq!(cloud_attack_sprite_phase_stru_35ec8(22), Some(10));
+        assert_eq!(cloud_attack_sprite_phase_stru_35ec8(19), Some(9));
+        assert_eq!(cloud_attack_sprite_phase_stru_35ec8(17), Some(10));
+        assert_eq!(cloud_attack_sprite_phase_stru_35ec8(16), Some(9));
+        assert_eq!(cloud_attack_sprite_phase_stru_35ec8(15), Some(10));
+        assert_eq!(cloud_attack_sprite_phase_stru_35ec8(13), Some(11));
+        assert_eq!(cloud_attack_sprite_phase_stru_35ec8(11), Some(10));
+        assert_eq!(cloud_attack_sprite_phase_stru_35ec8(10), Some(11));
+        assert_eq!(cloud_attack_sprite_phase_stru_35ec8(8), Some(12));
+        assert_eq!(cloud_attack_sprite_phase_stru_35ec8(1), Some(12));
+        assert_eq!(cloud_attack_sprite_phase_stru_35ec8(0), None);
+        assert_eq!(cloud_attack_sprite_phase_stru_35ec8(26), None);
+    }
+
+    #[test]
+    fn cloud_attack_trace_exports_stru_35ec8_mapping_phase() {
+        let mut enemy = cloud_enemy_for_attack();
+        enemy.ufo_beam_segments = 1;
+        enemy.dragon_descent_frames = CLOUD_ATTACK_ANIMATION_FRAMES_LOC_35D9E;
+
+        assert_eq!(
+            enemy.snapshot().sprite_animation_phase,
+            Some(9),
+            "ASM Cloud.asm loc_35D9E must expose C787E while the linked lightning attack is being prepared"
         );
     }
 

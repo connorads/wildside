@@ -7180,6 +7180,10 @@ mod tests {
                     sample_object_frame_with_base(255, 0x20, 0x1E, 0x065),
                     sample_object_frame_with_base(200, 0x20, 0x20, 0x075),
                     sample_object_frame_with_base(201, 0x1D, 0x1D, 0x085),
+                    sample_object_frame_with_base(202, 0x1F, 0x20, 0x025),
+                    sample_object_frame_with_base(203, 0x20, 0x1F, 0x035),
+                    sample_object_frame_with_base(204, 0x20, 0x1E, 0x045),
+                    sample_object_frame_with_base(205, 0x20, 0x1D, 0x055),
                 ],
                 frame_duration: 11,
             },
@@ -20284,7 +20288,7 @@ mod tests {
     }
 
     #[test]
-    fn cloud_death_snapshot_selects_loc_35c0e_frames() {
+    fn cloud_snapshot_selects_loc_35d9e_attack_and_loc_35c0e_death_frames() {
         let visuals = sample_level_visuals();
         let cloud_visuals = visuals.enemies.families.get(&0x0E).expect("cloud visuals");
         let mut object = NativeObjectSnapshot {
@@ -20320,6 +20324,20 @@ mod tests {
                     .pixels[0],
                 signature,
                 "ASM Cloud.asm loc_35C0E should step through `stru_35EBA` death frames"
+            );
+        }
+
+        object.hit_points = Some(1);
+        object.wait_timer = None;
+        for (phase, signature) in [(9, 202), (10, 203), (11, 204), (12, 205)] {
+            object.sprite_animation_phase = Some(phase);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, cloud_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Cloud.asm loc_35D9E should select the typed `stru_35EC8` attack mapping"
             );
         }
     }

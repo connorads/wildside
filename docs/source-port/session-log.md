@@ -7,6 +7,31 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (Cloud lightning wind-up visuals)
+
+- `project-status` again offered no ready/open risk. The proactive fallback
+  first rejected Tar Monster `loc_32454` as an orphaned block after
+  `return_3243E`, where adding a citation would move coverage without shipping
+  behaviour. A live Cloud audit instead found that core modelled
+  `loc_35D9E`'s 25-frame attack wait but rendering continued the normal flight
+  loop throughout it.
+- The composed-renderer regression first selected normal C78B6 instead of
+  C787E. Core now maps every `stru_35EC8` duration to its exact
+  C787E/C7886/C788E/C7896 phase, snapshots expose that phase only while the
+  lightning attack is armed, and the atlas plus native-player fixture carry
+  the four ROM descriptors. Gameplay timing and projectile behaviour are
+  unchanged.
+- A direct Level 0x18 scene probe at Kid/Cloud position 152,79 changes every
+  sampled attack frame 0,1,2,3,5,8,12 from the old normal-flight selection;
+  before/after PNGs are under `.cache/debug/cloud-attack-visual/`.
+- `mise run verify-slice-fast` passes (7,279 core tests; all lint,
+  audit, frontier, workspace-ratchet, and pixel self-check gates green).
+  `mise run verify-tas-full` passes all 37,759 frames with unchanged
+  player/camera CRC, enemy frontier, RNG, pixel, and GEMS baselines.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Cloud, Robot, or Armadillo work, frozen timing feeders, and blocked boss
+  umbrella #301.
+
 ## 2026-08-21 handoff (Robot composite live visuals)
 
 - `project-status` again offered no ready/open risk. The proactive fallback

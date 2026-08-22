@@ -2667,7 +2667,12 @@ impl ActiveEnemy {
         } else {
             None
         };
-        let sprite_animation_phase = if matches!(self.family, EnemyFamily::FireDemon)
+        let sprite_animation_phase = if matches!(self.family, EnemyFamily::Cloud)
+            && !self.death_animation_active
+            && self.ufo_beam_segments != 0
+        {
+            cloud_attack_sprite_phase_stru_35ec8(self.dragon_descent_frames)
+        } else if matches!(self.family, EnemyFamily::FireDemon)
             && !self.death_animation_active
             && self.wait_timer != FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610
         {

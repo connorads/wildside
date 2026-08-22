@@ -582,8 +582,8 @@ mod tests {
                 .iter()
                 .map(|frame| frame.origin_y)
                 .collect::<Vec<_>>(),
-            vec![0, -1, -1, -2, -1, -1, -1, 0, -2],
-            "ASM Enemy0E Cloud live and death frame tables keep the bobbing offsets in the sprite descriptors"
+            vec![0, -1, -1, -2, -1, -1, -1, 0, -2, 0, -1, -1, -2],
+            "ASM Enemy0E Cloud live, death, and attack frame tables keep the bobbing offsets in the sprite descriptors"
         );
         let hand = visuals.enemies.families.get(&0x17).expect("hand visuals");
         assert_eq!(

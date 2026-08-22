@@ -1984,6 +1984,13 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x065, 0x10, -1, 0x20, 0x1E),
             fd(0x075, 0x10, 0x00, 0x20, 0x20),
             fd(0x085, 0x0F, -2, 0x1D, 0x1D),
+            // ASM Cloud.asm loc_35D9E / `stru_35EC8`: attack wind-up
+            // mappings C787E/C7886/C788E/C7896. Append after the stable
+            // death bank so existing death indices remain unchanged.
+            fd(0x025, 0x10, 0x00, 0x1F, 0x20),
+            fd(0x035, 0x10, -1, 0x20, 0x1F),
+            fd(0x045, 0x10, -1, 0x20, 0x1E),
+            fd(0x055, 0x10, -2, 0x20, 0x1D),
         ],
     },
     EnemyFamilySpec {
@@ -6244,6 +6251,11 @@ mod tests {
             death_tiles(0x0E, 6..9),
             vec![0x0065, 0x0075, 0x0085],
             "ASM Cloud.asm loc_35C0E / stru_35EBA death frames C789E/C78A6/C78AE must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x0E, 9..13),
+            vec![0x0025, 0x0035, 0x0045, 0x0055],
+            "ASM Cloud.asm loc_35D9E / stru_35EC8 attack mappings C787E/C7886/C788E/C7896 must be selectable"
         );
         assert_eq!(
             death_tiles(0x0F, 6..9),
