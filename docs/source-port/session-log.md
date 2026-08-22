@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive loc_16F0 left/up face hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback took
+  the last untouched `loc_16F0` continuous-face quadrant.
+- Read `GfxObjects_Collision_Solid_MovingLeftUp` at ASM `loc_1928`. The ROM
+  checks the solid tile to the right first and resolves ceiling; only without
+  it does the solid tile below resolve a left wall.
+- One table regression pins right-only, below-only, both-solid priority, exact
+  centre clamps, and a neighbour-free corner that must remain ceiling.
+- The focused census caught all 10 mutations in the left/up selector and its
+  two neighbour guards, with no survivor, timeout, or compile-unviable case.
+  The line filter also selected 30 unrelated mutations; those were caught but
+  are not claimed as part of this result.
+- The required starting `mise run verify-slice-fast` passes with 7,290 tests.
+  The final fast gate also passes after the regression. This unit changes only
+  tests and handoff docs, so the full TAS gate is not required.
+- NEXT: rerun `project-status`; if no eligible row appears, choose a different
+  live gameplay module or one narrow `loc_16F0` corner-ratio branch. All four
+  continuous-face selectors are closed and must not be rerun.
+
 ## 2026-08-22 handoff (proactive loc_16F0 left/down face hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback took
