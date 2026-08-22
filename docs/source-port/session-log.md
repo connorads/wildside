@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive loc_16F0 right/down face hardening)
+
+- `project-status` offered no ready/open risk. The proactive fallback rejected
+  the sole ordinary uncovered label, Tar `loc_32454`, because the handoff
+  excludes more Tar-family work, then selected one permitted `loc_16F0`
+  interior branch rather than the whole collision helper.
+- Read `GfxObjects_Collision_Solid` through `loc_1966` and `loc_1A12`. For a
+  right/down mover the ROM checks the solid tile to the left first and resolves
+  floor; only without it does the solid tile above resolve a right wall.
+- One table regression keeps both neighbour tiles outside the hitbox overlap
+  scan, then pins left-only, above-only, and both-solid priority outcomes plus
+  their exact centre clamps.
+- The focused census caught all 10 mutations in the right/down selector and
+  its two neighbour guards, with no survivor, timeout, or compile-unviable
+  case. The line filter also selected 30 unrelated mutations; those were caught
+  but are not claimed as part of this result.
+- The required starting `mise run verify-slice-fast` passes with 7,287 tests.
+  The final fast gate also passes after the regression. This unit changes only
+  tests and handoff docs, so the full TAS gate is not required.
+- NEXT: rerun `project-status`; if no eligible row appears, choose a different
+  live gameplay module or one untouched `loc_16F0` quadrant/corner branch. Do
+  not rerun the right/down branch or combine the remaining interior scan.
+
 ## 2026-08-22 handoff (proactive loc_16F0 boundary hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback took

@@ -5636,6 +5636,40 @@ mod loc_3e266_tests {
     }
 
     #[test]
+    fn tar_right_down_continuous_face_prefers_left_then_above_gfxobjects_collision_solid() {
+        let cases = [
+            (&[(2, 2), (3, 2)][..], 0x0C, 51, 28),
+            (&[(3, 1), (3, 2)][..], 0x04, 44, 35),
+            (&[(2, 2), (3, 1), (3, 2)][..], 0x0C, 51, 28),
+        ];
+
+        // ASM GfxObjects_Collision_Solid (kid.asm) checks the tile to the
+        // left first for a right/down mover and routes it to floor loc_1A12;
+        // only without that face does the tile above route to wall loc_1966.
+        for (solid_cells, expected_collision, expected_x, expected_y) in cases {
+            let cells = solid_cells
+                .iter()
+                .map(|&(col, row)| (col, row, terrain::CollisionKind::Solid))
+                .collect::<Vec<_>>();
+            let grid = grid_with_cells(6, 5, &cells);
+            let mut projectile = EnemyProjectile {
+                x_pos: (51 << 16) | 0x4000,
+                y_pos: (35 << 16) | 0x8000,
+                x_velocity: 1 << 16,
+                y_velocity: 1 << 16,
+                ..Default::default()
+            };
+
+            assert_eq!(
+                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3),
+                expected_collision
+            );
+            assert_eq!(projectile.x_pos >> 16, expected_x);
+            assert_eq!(projectile.y_pos >> 16, expected_y);
+        }
+    }
+
+    #[test]
     fn tar_level_boundaries_clamp_at_the_first_outside_pixel_loc_1aea() {
         let grid = grid_with_block_cells(4, 4, &[]);
         let cases = [
