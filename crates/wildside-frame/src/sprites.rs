@@ -4614,6 +4614,39 @@ mod tests {
     }
 
     #[test]
+    fn archer_live_selector_pins_shooting_atlas_and_guards() {
+        let exact_visuals = labelled_enemy_visuals(12, 1);
+        let short_visuals = labelled_enemy_visuals(11, 1);
+        let long_visuals = labelled_enemy_visuals(13, 1);
+        let mut archer = live_enemy_object(0x07);
+        archer.sprite_animation_phase = Some(7);
+
+        // ASM Archer.asm Shooting_Vertical/Shooting_Horizontal and loc_341BE:
+        // the live parent holds one of the eight shooting mappings at indices
+        // 0..7; `stru_33FC2` death mappings occupy the remaining four frames.
+        assert_eq!(
+            selected_live_tile_base(select_live_archer_frame(&exact_visuals, &archer)),
+            0x0107
+        );
+        assert_eq!(
+            selected_live_tile_base(select_live_archer_frame(&long_visuals, &archer)),
+            0x0107
+        );
+        assert!(select_live_archer_frame(&short_visuals, &archer).is_none());
+
+        // ASM Archer.asm Enemy07_Archer_Init/loc_3414A: only the live type-$07
+        // parent uses the shooting tables; killed parents enter `stru_33FC2`.
+        let mut wrong_family = archer.clone();
+        wrong_family.kind = NativeObjectKind::Enemy { object_type: 0x06 };
+        assert!(select_live_archer_frame(&exact_visuals, &wrong_family).is_none());
+        let mut dead = archer.clone();
+        dead.hit_points = Some(0);
+        assert!(select_live_archer_frame(&exact_visuals, &dead).is_none());
+        archer.sprite_animation_phase = None;
+        assert!(select_live_archer_frame(&exact_visuals, &archer).is_none());
+    }
+
+    #[test]
     fn rock_tank_child_helpers_classify_loc_3b372_snapshots_and_flash() {
         let mut parent = live_enemy_object(0x0B);
         parent.layout_index = Some(7);

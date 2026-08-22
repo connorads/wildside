@@ -7,6 +7,31 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive live Archer selector hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  targeted `select_live_archer_frame`. This sweep-path selector was added after
+  Archer's complete module census and had no direct test.
+- Read the complete `Archer.asm`, including the `Shooting_Vertical` and
+  `Shooting_Horizontal` mappings, `loc_341BE` hold loop, and `loc_3414A`
+  transition into the four-frame `stru_33FC2` death script.
+- The initial nine-site census caught two, found six survivors, and classified
+  one compile-unviable. The survivors could remove the selector, weaken its
+  family/death join, invert death routing, or change each side of the 12-frame
+  minimum-sheet boundary.
+- One direct ASM-cited contract now pins live phase 7, exact and oversized
+  atlas acceptance, 11-frame rejection, wrong-family and dead snapshots, and
+  absent phase. The closure accounts for all nine mutations: eight caught and
+  one compile-unviable, with no survivor or timeout.
+- The focused command excludes the existing ratcheted
+  `select_player_frame_uses_accumulator_for_ground_slope_and_walk_poses`
+  failure so cargo-mutants can establish its package baseline.
+- Final verification: `mise run verify-slice-fast` passes. Only a test and
+  handoff docs changed, so the full TAS gate is not required for this unit.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live enemy family or mutation target. Avoid Archer and the families excluded
+  by the NOW handoff.
+
 ## 2026-08-22 handoff (proactive live Goat selector hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
