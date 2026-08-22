@@ -7,6 +7,31 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive Hand mutation refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback first
+  audited Mini Hopping Skull rendering. ASM `loc_3EA48`/`loc_3EA88` and
+  `stru_3E98E` suggested isolating C8058/C8060 from the death mappings, but a
+  live Hills of Forever 0x44 route exposed airborne snapshots while scene PNGs
+  remained byte-identical with and without the selector. The synthetic-only
+  patch was discarded; do not retry it before proving which live renderer path
+  consumes this atlas.
+- Read the complete `Hand.asm`, then ran
+  `env FILE=crates/wildside-core/src/enemies/hand.rs
+  OUTPUT=/tmp/mutants-hand-20260822 TMPDIR=/tmp mise run mutants-file`.
+  All 169 mutations completed in 20 minutes: 147 caught and 22
+  compile-unviable, with zero missed or timed out.
+- No source edit or new regression is warranted. Existing ASM-cited tests kill
+  every viable mutation across detection, attack launch, terrain collision,
+  grab/release, deletion, animation, and live scheduler behaviour.
+- `mise run verify-slice-fast` passes 7,282 core tests and every lint, audit,
+  hook, frontier, workspace-ratchet, and pixel self-check gate.
+  `mise run verify-tas-full` checks all 37,759 frames with gameplay, enemy,
+  player/camera CRC, RNG, pixel, and GEMS command baselines green.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live enemy family or mutation target. Avoid Hand and the families excluded
+  by the NOW handoff.
+
 ## 2026-08-22 handoff (proactive Big Hopping Skull mutation refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
