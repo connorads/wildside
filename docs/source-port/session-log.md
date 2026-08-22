@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive Diamond mutation refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  revisited `enemies/diamond.rs`. Its 18 August census predated four gameplay
+  fixes: movement-mode preservation, wrapping collision negation, wrapping
+  spawn comparison, and hurt-animation duration.
+- Read the complete `Diamond.asm`, then ran
+  `env FILE=crates/wildside-core/src/enemies/diamond.rs
+  OUTPUT=/tmp/mutants-diamond-20260822 TMPDIR=/tmp mise run mutants-file`.
+  All 71 mutations completed in nine minutes: 61 caught and 10
+  compile-unviable, with zero missed or timed out.
+- No source edit or new regression is warranted. Existing ASM-cited tests kill
+  every viable mutation across HP-tier selection, high- and low-HP collision
+  dispatch, slope response, hurt waits, Berzerker launch, and terrain-event
+  translation. This hardens the Diamond family exercised by whole-level sweeps.
+- `mise run verify-slice-fast` passes 7,282 core tests and every lint, audit,
+  hook, frontier, workspace-ratchet, and pixel self-check gate. No gameplay or
+  rendering source changed, so the full TAS gate is not required for this unit.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live enemy family or mutation target. Avoid Diamond and the families excluded
+  by the NOW handoff.
+
 ## 2026-08-22 handoff (proactive Fire Demon mutation refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
