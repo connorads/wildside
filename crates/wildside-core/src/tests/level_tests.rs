@@ -25982,6 +25982,11 @@ mod chunk_10 {
         let y_pos_before_collision_response = rt.projectiles[0].y_pos;
         let x_velocity_before_collision_response = rt.projectiles[0].x_velocity;
         let y_velocity_before_collision_response = rt.projectiles[0].y_velocity;
+        // ASM Mode_Level runs GfxObjects_Collision after Execute_Objects. This
+        // regression isolates Tar_Monster.asm loc_3263C callback ordering, so
+        // remove the wall after its `$04` latch rather than let the following
+        // collision pass overwrite the old-velocity position under test.
+        rt.set_block_grid(bounce_grid(&[]));
         rt.step_projectiles();
 
         assert_eq!(rt.projectiles.len(), 1);

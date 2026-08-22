@@ -7,6 +7,37 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive loc_16F0 left/down corner ratio)
+
+- `project-status` offered no ready/open risk, so the proactive fallback took
+  one bounded `loc_16F0` corner-ratio branch.
+- Read ASM `GfxObjects_Collision_Solid_MovingLeftDown` at `loc_18E4`. The ROM
+  compares two negative signed products after `lsr.l #8`; strict `blt` resolves
+  left wall through `loc_19BA`, while greater-than or equality resolves floor
+  through `loc_1A12`.
+- Native previously reduced this corner to crossing booleans and returned no
+  collision once both axes already overlapped. The regression failed with
+  `$00`, then pins wall, floor, and equality-to-floor outcomes plus exact
+  centre clamps.
+- The earlier right/down and right/up mutation commands omitted cargo's second
+  `--`, so their 22/22 and 26/26 claims were invalid. A corrected combined
+  full-core census caught 71/74 mutations across all three ratio branches. Two
+  survivors are equivalent zero-velocity quadrant guards; the third crosses
+  into the intentionally untouched left/up ratio branch. No ratio arithmetic,
+  comparison, or tie-rule mutation survived.
+- The corrected census exposed an existing Tar burst-child lifecycle test that
+  still left its wall active after latching `$04`. The test now removes that
+  wall before the next `Mode_Level` collision pass, preserving its intended
+  isolation of `loc_3263C` old-velocity callback ordering.
+- The required starting `mise run verify-slice-fast` passed with 7,293 tests.
+  The final fast gate passes with 7,294 tests. The full TAS gate also passes:
+  all 37,759 player/camera, gameplay, enemy, RNG, pixel, and GEMS-signature
+  frames were checked against their established authorities and ratchets.
+- NEXT: rerun `project-status`; if no eligible row appears, choose a different
+  live gameplay module or the sole untouched left/up corner-ratio branch at
+  `loc_1928`. Do not extend the three closed ratio branches or any
+  continuous-face selector.
+
 ## 2026-08-22 handoff (proactive loc_16F0 right/up corner ratio)
 
 - `project-status` offered no ready/open risk, so the proactive fallback took
