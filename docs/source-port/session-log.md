@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive Fire Demon mutation refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  revisited `enemies/fire_demon.rs`. Its 17 August census predated both the
+  hurt-motion preservation and typed live-render state changes.
+- Read the complete `Fire_Demon.asm`, then ran
+  `env FILE=crates/wildside-core/src/enemies/fire_demon.rs
+  OUTPUT=/tmp/mutants-fire-demon-20260822 TMPDIR=/tmp mise run mutants-file`.
+  All 66 mutations completed in eight minutes: 47 caught and 19
+  compile-unviable, with zero missed or timed out.
+- No source edit or new regression is warranted. Existing ASM-cited tests kill
+  every viable mutation across init tiers, direction, hurt motion, palette
+  phases, fire-trail lifecycle, and the live snapshot phase consumed by the
+  renderer. This hardens the Fire Demon family exercised by whole-level sweeps.
+- `mise run verify-slice-fast` passes 7,282 core tests and every lint, audit,
+  hook, frontier, workspace-ratchet, and pixel self-check gate. No gameplay or
+  rendering source changed, so the full TAS gate is not required for this unit.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live enemy family or mutation target. Avoid Fire Demon and the families
+  excluded by the NOW handoff.
+
 ## 2026-08-22 handoff (proactive Hand mutation refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback first
