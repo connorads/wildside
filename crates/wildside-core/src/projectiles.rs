@@ -690,6 +690,21 @@ fn tar_monster_gfx_collision_loc_16f0(
             prev_y - extent > cell_bottom
         };
         let collision_type = continuous_face.unwrap_or_else(|| {
+            if projectile.x_velocity >= 0
+                && projectile.y_velocity >= 0
+                && cell.collision == terrain::CollisionKind::Solid
+            {
+                // ASM GfxObjects_Collision_Solid (kid.asm, before loc_18AA):
+                // compare the two corner travel ratios after `lsr.l #8`.
+                let x_speed = i32::from((projectile.x_velocity >> 8) as i16);
+                let y_speed = i32::from((projectile.y_velocity >> 8) as i16);
+                let x_penetration = x + extent - cell_left;
+                let y_penetration = y + extent - cell_top;
+                if y_penetration * x_speed > x_penetration * y_speed {
+                    return 0x04;
+                }
+                return 0x0C;
+            }
             lion_projectile_terrain_collision_id_loc_3e260(
                 crossed_horizontally,
                 crossed_vertically,
@@ -5657,6 +5672,37 @@ mod loc_3e266_tests {
                 y_pos: (35 << 16) | 0x8000,
                 x_velocity: 1 << 16,
                 y_velocity: 1 << 16,
+                ..Default::default()
+            };
+
+            assert_eq!(
+                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3),
+                expected_collision
+            );
+            assert_eq!(projectile.x_pos >> 16, expected_x);
+            assert_eq!(projectile.y_pos >> 16, expected_y);
+        }
+    }
+
+    #[test]
+    fn tar_right_down_corner_uses_travel_ratio_gfxobjects_collision_solid() {
+        let grid = grid_with_cells(6, 5, &[(3, 2, terrain::CollisionKind::Solid)]);
+        let cases = [
+            (2 << 16, 1 << 16, 0x04, 44, 35),
+            (1 << 16, 2 << 16, 0x0C, 51, 28),
+            (1 << 16, 1 << 16, 0x0C, 51, 28),
+        ];
+
+        // ASM GfxObjects_Collision_Solid (kid.asm, before loc_18AA) compares
+        // `(bottom - tile_top) * x_vel` with
+        // `(right - tile_left) * y_vel`. Greater selects right wall
+        // loc_1966; less-than or equal selects floor loc_1A12.
+        for (x_velocity, y_velocity, expected_collision, expected_x, expected_y) in cases {
+            let mut projectile = EnemyProjectile {
+                x_pos: (51 << 16) | 0x4000,
+                y_pos: (35 << 16) | 0x8000,
+                x_velocity,
+                y_velocity,
                 ..Default::default()
             };
 
