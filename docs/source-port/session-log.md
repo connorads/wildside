@@ -7,6 +7,31 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive live Goat selector hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  targeted `select_live_goat_frame`. This sweep-path renderer was added after
+  the earlier Goat mutation work and had no focused census.
+- Read the complete `Goat.asm` and its animation include. The initial 32-site
+  census found eight survivors: two selector-guard joins, the minimum-sheet
+  comparison, HP threshold addition, three layout-phase operators, and two
+  operators in the terminal fallback.
+- Exact cases now isolate wrong-family and 14-frame rejection, HP 4's slow
+  ASM `stru_3C9B0` charge script, and a non-zero layout phase. The closure
+  catches all six behaviour-changing survivors and reports 29 caught plus one
+  compile-unviable site.
+- The two remaining mutations alter only `first_frame + 5` after the duration
+  loop. They are equivalent: `phase` is reduced modulo the sum of six positive
+  durations, so one of those six loop iterations always returns.
+- The focused command excludes the existing ratcheted
+  `select_player_frame_uses_accumulator_for_ground_slope_and_walk_poses`
+  failure so cargo-mutants can establish its package baseline.
+- Final verification: `mise run verify-slice-fast` passes. Only tests and
+  handoff docs changed, so the full TAS gate is not required for this unit.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live enemy family or mutation target. Avoid Goat and the families excluded
+  by the NOW handoff.
+
 ## 2026-08-22 handoff (proactive Driller mutation hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback

@@ -4549,9 +4549,17 @@ mod tests {
     #[test]
     fn goat_live_selector_follows_patrol_charge_and_fixed_pose_scripts() {
         let visuals = labelled_enemy_visuals(15, 1);
+        let short_visuals = labelled_enemy_visuals(14, 1);
         let mut trace = NativeTraceFrame::default();
         let mut goat = live_enemy_object(0x10);
         goat.shared_walker_state = Some(0);
+
+        // ASM Goat.asm Enemy10_Goat_Init/loc_3CB64: only a live Goat with
+        // every patrol, fixed-pose, and charge descriptor uses this selector.
+        let mut wrong_family = goat.clone();
+        wrong_family.kind = NativeObjectKind::Enemy { object_type: 0x0F };
+        assert!(select_live_goat_frame(&trace, &visuals, &wrong_family).is_none());
+        assert!(select_live_goat_frame(&trace, &short_visuals, &goat).is_none());
 
         // ASM Goat.asm stru_3C97C: slow patrol uses 8/6/6/8/6/6 ticks.
         for (frame, expected) in [(0, 0), (7, 0), (8, 1), (14, 2), (20, 3), (39, 5), (40, 0)] {
@@ -4569,6 +4577,26 @@ mod tests {
         assert_eq!(
             selected_live_tile_base(select_live_goat_frame(&trace, &visuals, &goat)),
             0x0109
+        );
+
+        // ASM Goat.asm loc_3CACA keeps HP 4 on slow stru_3C9B0 while charging;
+        // loc_3CAE8 selects fast stru_3C9CA only above that boundary.
+        goat.hit_points = Some(4);
+        trace.frame_index = 6;
+        assert_eq!(
+            selected_live_tile_base(select_live_goat_frame(&trace, &visuals, &goat)),
+            0x0109
+        );
+
+        // ASM Goat.asm loc_3CA7E installs the six-frame patrol loop; the live
+        // renderer offsets otherwise-identical layout entries to avoid lockstep.
+        goat.hit_points = Some(1);
+        goat.shared_walker_state = Some(0);
+        goat.layout_index = Some(2);
+        trace.frame_index = 7;
+        assert_eq!(
+            selected_live_tile_base(select_live_goat_frame(&trace, &visuals, &goat)),
+            0x0101
         );
 
         // ASM Goat.asm stru_3C9E4 and loc_3CB76 hold C7C56.
