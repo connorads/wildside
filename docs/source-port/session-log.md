@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (Tornado live animation isolation)
+
+- `project-status` again offered no ready/open risk, so the proactive fallback
+  audited Tornado after rejecting Tank and Hand as already state-routed. ASM
+  `loc_35908` advances the three-frame `stru_35B10` loop independently while
+  alive, but rendering ignored native's existing per-object tick and free-ran
+  through all five atlas frames, including `loc_359B2` death art.
+- The composed-renderer regression first selected death frame C783E at typed
+  live phase 2 instead of C785E. Core now exports the three live phases from
+  the existing 15-tick clock, and rendering routes phases 0..2 before generic
+  selection. The C783E/C7846 death sequence remains unchanged.
+- A direct Skydragon Castle 2 0x1A enemy-layer probe changes frames 0, 5, 10,
+  and 15. Baseline frame 15 draws a sparse death-script swirl; the corrected
+  build loops to the solid live Tornado. Before/after PNGs are under
+  `.cache/debug/tornado-live-visual/`.
+- `mise run verify-slice-fast` passes (7,282 core tests; all lint, audit,
+  frontier, workspace-ratchet, and pixel self-check gates green).
+  `mise run verify-tas-full` passes all 37,759 frames with unchanged
+  player/camera CRC, enemy frontier, RNG, pixel, and GEMS baselines.
+- NEXT: audit a different live enemy family or mutation target; avoid further
+  Tornado, Fireball, Spinning Twins, Cloud, Robot, or Armadillo work, frozen
+  timing feeders, and blocked boss umbrella #301.
+
 ## 2026-08-22 handoff (Fireball live angle visuals)
 
 - `project-status` again offered no ready/open risk, so the proactive fallback

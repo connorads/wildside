@@ -1500,6 +1500,25 @@ fn select_live_fireball_frame<'a>(
     }
 }
 
+fn select_live_tornado_frame<'a>(
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x18 })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 5
+    {
+        return None;
+    }
+
+    // ASM Tornado.asm loc_35908 / `stru_35B10`: core exports only the three
+    // live mappings. Atlas frames 3..4 are reserved for loc_359B2 death.
+    match object.sprite_animation_phase? {
+        phase @ 0..=2 => enemy_visuals.frames.get(usize::from(phase)),
+        _ => None,
+    }
+}
+
 fn select_live_armadillo_frame<'a>(
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
@@ -2290,6 +2309,9 @@ pub fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_fireball_frame(enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_tornado_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_armadillo_frame(enemy_visuals, object) {
@@ -4895,6 +4917,23 @@ mod tests {
             selected_enemy_tile_base(&trace, &visuals, &fireball),
             0x010E,
             "ASM Fireball.asm loc_32F3E/loc_3304A/loc_33072 must render the selected live angle mapping instead of cycling death art"
+        );
+    }
+
+    #[test]
+    fn tornado_live_snapshot_excludes_loc_359b2_death_frames() {
+        let visuals = labelled_enemy_visuals(5, 5);
+        let trace = NativeTraceFrame {
+            frame_index: 15,
+            ..NativeTraceFrame::default()
+        };
+        let mut tornado = live_enemy_object(0x18);
+        tornado.sprite_animation_phase = Some(2);
+
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &visuals, &tornado),
+            0x0102,
+            "ASM Tornado.asm loc_35908 / stru_35B10 must render C785E instead of free-running into loc_359B2 death frame C783E"
         );
     }
 

@@ -2752,6 +2752,14 @@ impl ActiveEnemy {
             // applies its two-frame phase. Atlas slots 0..5 remain the
             // shared death animation; live links occupy slots 6..23.
             Some(6 + self.dragon_descent_index)
+        } else if matches!(self.family, EnemyFamily::Tornado) && !self.death_animation_active {
+            // ASM Tornado.asm loc_35908 lets `stru_35B10` advance while the
+            // object hibernates: C784E, C7856, and C785E each hold for five
+            // ticks. Atlas slots 3..4 belong only to loc_359B2's death script.
+            Some(
+                (self.grounded_frames % TORNADO_LIVE_ANIMATION_TICKS)
+                    / TORNADO_LIVE_ANIMATION_FRAME_TICKS,
+            )
         } else {
             None
         };
@@ -11504,6 +11512,19 @@ mod tests {
             enemy.snapshot().sprite_animation_phase,
             Some(14),
             "ASM Fireball.asm loc_32F3E/loc_3304A/loc_33072 must expose off_33026 entry 8 after the six stable death-atlas slots"
+        );
+    }
+
+    #[test]
+    fn tornado_exports_stru_35b10_live_animation_phase() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Tornado;
+        enemy.grounded_frames = 10;
+
+        assert_eq!(
+            enemy.snapshot().sprite_animation_phase,
+            Some(2),
+            "ASM Tornado.asm loc_35908 / stru_35B10 must export C785E for per-object animation ticks 10..14"
         );
     }
 
