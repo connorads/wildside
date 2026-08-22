@@ -745,6 +745,27 @@ pub(crate) fn step_orca(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::enemies::test_fixtures::mini_hopping_skull_test_enemy;
+
+    fn lunging_orca_at(x_pos: u32, y_pos: u32, y_velocity: i32) -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::Orca,
+            x_pos,
+            y_pos,
+            x_velocity: 0,
+            y_velocity,
+            facing: Direction::Right,
+            on_ground: false,
+            orca_state: OrcaState::Lunging,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
+
+    fn orca_grid_with_solid_cell(col: u16, row: u16) -> terrain::BlockGrid {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 8 * 2], 8, 8);
+        grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0x60, 0x00));
+        grid
+    }
 
     #[test]
     fn fixed_sprite_animation_phase_tracks_orca_asm_poses() {
@@ -1031,6 +1052,50 @@ mod tests {
             i32::MIN + ORCA_LUNGE_GRAVITY - 1,
             "ASM Orca.asm loc_3D3B4 long-word addition should wrap at the signed boundary"
         );
+    }
+
+    #[test]
+    fn orca_zero_vertical_velocity_does_not_probe_ceiling_loc_3d35a_3d3b4() {
+        let grid = orca_grid_with_solid_cell(3, 1);
+        let mut enemy = lunging_orca_at(48 << 16, 32 << 16, 0);
+
+        step_orca(&mut enemy, Some(&grid), None);
+
+        assert_eq!(
+            enemy.y_velocity, ORCA_LUNGE_GRAVITY,
+            "ASM Orca.asm loc_3D35A falls through to loc_3D3B4 when the prior collision word is clear; zero y_vel must not synthesise a ceiling hit"
+        );
+        assert_eq!(enemy.orca_state, OrcaState::Lunging);
+    }
+
+    #[test]
+    fn orca_zero_vertical_velocity_does_not_land_loc_3d35a_3d3b4() {
+        let grid = orca_grid_with_solid_cell(3, 2);
+        let mut enemy = lunging_orca_at(48 << 16, 32 << 16, 0);
+
+        step_orca(&mut enemy, Some(&grid), None);
+
+        assert_eq!(
+            enemy.y_velocity, ORCA_LUNGE_GRAVITY,
+            "ASM Orca.asm loc_3D35A falls through to loc_3D3B4 when the prior collision word is clear; zero y_vel must not synthesise a floor hit"
+        );
+        assert_eq!(enemy.orca_state, OrcaState::Lunging);
+    }
+
+    #[test]
+    fn orca_descent_one_pixel_above_floor_keeps_lunging_loc_3d35a_3d3b4() {
+        let grid = orca_grid_with_solid_cell(3, 2);
+        let mut enemy = lunging_orca_at(48 << 16, (30 << 16) + 0x8000, 0x8000);
+
+        step_orca(&mut enemy, Some(&grid), None);
+
+        assert_eq!(enemy.y_pos, 31 << 16);
+        assert_eq!(
+            enemy.y_velocity,
+            0x8000 + ORCA_LUNGE_GRAVITY,
+            "ASM Orca.asm loc_3D35A must not consume a floor collision until motion reaches the floor surface"
+        );
+        assert_eq!(enemy.orca_state, OrcaState::Lunging);
     }
 
     #[test]

@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive Orca mutation hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  revisited `enemies/orca.rs`. Its 18 August census predated lunge callback
+  ordering, wall-latch release, hurt-duration, and typed live-pose changes.
+- Read the complete `Orca.asm`. The first 100-mutant run caught 80, found three
+  viable survivors, and classified 17 compile-unviable; none timed out. The
+  survivors changed the `step_orca` ceiling guard `< 0` to `<= 0`, floor guard
+  `> 0` to `>= 0`, and final floor threshold `>= floor_y` to `< floor_y`.
+- Three step-level regressions now pin ASM `loc_3D35A` -> `loc_3D3B4`: zero
+  vertical velocity must fall through to gravity beside a ceiling or floor,
+  while a descending Orca one pixel above the floor must remain lunging. Each
+  test fails under its exact surviving mutation and passes on production code.
+- `env FILE=crates/wildside-core/src/enemies/orca.rs
+  OUTPUT=/tmp/mutants-orca-20260822-hardened TMPDIR=/tmp mise run
+  mutants-file` accounts for all 100 mutations in 12 minutes: 83 caught and 17
+  compile-unviable, with zero missed or timed out. No gameplay source changed;
+  this hardens Orca behaviour exercised by whole-level sweep and enemy-frontier
+  gates.
+- `mise run verify-slice-fast` passes 7,285 core tests and every lint, audit,
+  hook, frontier, workspace-ratchet, and pixel self-check gate. Only tests and
+  handoff docs changed, so the full TAS gate is not required for this unit.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live enemy family or mutation target. Avoid Orca and the families excluded by
+  the NOW handoff.
+
 ## 2026-08-22 handoff (proactive Diamond mutation refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
