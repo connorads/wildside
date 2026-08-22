@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive Big Hopping Skull mutation refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  revisited `enemies/big_hopping_skull.rs`. Two wrapping fixes had landed since
+  the 19 August census: `loc_366EC` wall rollback and collision negation.
+- Read the complete `Big_Hopping_Skull.asm` routine, then ran
+  `env FILE=crates/wildside-core/src/enemies/big_hopping_skull.rs
+  OUTPUT=/tmp/mutants-big-hopping-skull-20260822 TMPDIR=/tmp mise run
+  mutants-file`. All 78 current mutations completed in nine minutes: 63
+  caught and 15 compile-unviable, with zero missed or timed out.
+- No source edit or new regression is warranted. Existing ASM-cited tests kill
+  every viable mutation across startup, damage and animation waits, relaunch,
+  collision dispatch, wrapping wall rollback, bounds correction, and terrain
+  deflection.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live enemy family or mutation target. Avoid Big Hopping Skull and the other
+  families excluded by the NOW handoff.
+
 ## 2026-08-22 handoff (Tornado live animation isolation)
 
 - `project-status` again offered no ready/open risk, so the proactive fallback
