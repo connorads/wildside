@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-22 handoff (proactive enemy-frame dispatch mutation refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  targeted the public `select_enemy_frame` sweep-render dispatch after two
+  smaller candidates proved already closed.
+- Read both complete Rock Tank routines and animation includes. Their shared
+  three-frame body selector accounts for all 13 focused mutations: 12 caught
+  and one compile-unviable. Read the complete walking Dragon routine and
+  animation include; its selector accounts for all 19 mutations: 18 caught
+  and one compile-unviable.
+- Ninja was considered next, but its 2026-08-21 handoff explicitly excludes
+  further work, so the audit did not repeat that family.
+- The current public dispatch census covers death-script selection, every live
+  family selector route, stationary fallback, layout staggering, and generic
+  animation arithmetic. All 389 mutations completed in ten minutes: 368
+  caught and 21 compile-unviable, with no survivor or timeout. No redundant
+  regression or production edit was justified.
+- The focused commands excluded the existing ratcheted
+  `select_player_frame_uses_accumulator_for_ground_slope_and_walk_poses`
+  failure so cargo-mutants could establish the package baseline.
+- Final verification: `mise run verify-slice-fast` passes. Only handoff docs
+  changed, so the full TAS gate is not required for this unit.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay module or mutation target. Avoid the enemy-frame dispatch and
+  selectors excluded by the NOW handoff.
+
 ## 2026-08-22 handoff (proactive live UFO selector hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
