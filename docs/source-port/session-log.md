@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive palette-provenance mutation refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected the renderer palette-provenance path added after its last mutation
+  campaign. This path supports exact visual-debt diagnosis without changing
+  the live framebuffer.
+- The bounded `indexed_tile_source_pixel_write`/`resolve_palette_entry` census
+  under `/tmp/mutants-frame-palette-provenance-20260823` catches all 17
+  selected mutations. Existing tests independently observe source-pixel
+  indexing, transparent pixels, compact/full palette routing, palette-line
+  offsets, resolved slots, palette counts, and raw words.
+- The first isolated baseline stopped on the reviewed workspace failure
+  `select_player_frame_uses_accumulator_for_ground_slope_and_walk_poses`.
+  Rerunning with only that exact baseline entry skipped produced the clean
+  census. No source edit or duplicate regression is warranted.
+- Starting verification: `mise run verify-slice-fast` passes with 7,311 tests.
+  Full TAS was not required because the preceding and current changes are docs
+  or diagnostic-audit only. Final `mise run verify-slice-fast` also passes.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this palette-provenance
+  slice.
+
 ## 2026-08-23 handoff (proactive damage-flash mutation refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
