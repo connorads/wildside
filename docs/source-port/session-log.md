@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive layered-background routing hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected the live layered-background Enigma base-word router in
+  `wildside-render`.
+- Re-read ASM `Load_BackgroundMappings_Layered loc_128BA` through `loc_12988`:
+  Mountain uses `$2780` base planes plus `$07E5/$27E5` follow-up art, Hills
+  uses `$2780/$2780/$07C0`, and every Desert plane uses `$2780`.
+- Initial census
+  `/tmp/mutants-render-layered-background-routing-20260823-initial` found three
+  survivors among 14 selected mutations: Mountain plane 4, Hills planes 0/1,
+  and every Desert plane could fall through to base word zero.
+- Extended the existing ASM-cited asset-routing regression with those exact
+  cases. Final census
+  `/tmp/mutants-render-layered-background-routing-20260823-final` catches all
+  14 mutations with no miss, timeout, or compile failure.
+- The focused render test passes. Starting `mise run verify-slice-fast` passes
+  with 7,311 tests. Full TAS is not required because production rendering is
+  unchanged. Final fast verification is the landing gate.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this layered-background
+  routing slice.
+
 ## 2026-08-23 handoff (proactive Island Shore DMA-band mutation hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback

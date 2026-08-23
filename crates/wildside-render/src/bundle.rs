@@ -5782,9 +5782,29 @@ mod tests {
             "ASM loc_1294A storm Mountain follow-up plane uses d0=$27E5"
         );
         assert_eq!(
+            layered_background_enigma_base_word_loc_128ba("mountain", 4, 0),
+            0x27E5,
+            "ASM loc_1294A decodes Mountain's explicit hail-overlay plane with d0=$27E5"
+        );
+        assert_eq!(
+            layered_background_enigma_base_word_loc_128ba("hill", 0, 0),
+            0x2780,
+            "ASM loc_1295E decodes the first two Hill planes with d0=$2780"
+        );
+        assert_eq!(
+            layered_background_enigma_base_word_loc_128ba("hill", 1, 0),
+            0x2780,
+            "ASM loc_1295E keeps d0=$2780 for the second Hill plane"
+        );
+        assert_eq!(
             layered_background_enigma_base_word_loc_128ba("hill", 2, 0),
             0x07C0,
             "ASM loc_1295E Hill alt plane uses d0=$07C0"
+        );
+        assert_eq!(
+            layered_background_enigma_base_word_loc_128ba("desert", 7, 0),
+            0x2780,
+            "ASM loc_12988 decodes every Desert plane with d0=$2780"
         );
     }
 
