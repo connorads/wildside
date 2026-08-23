@@ -906,15 +906,16 @@ pub fn select_player_dynamic_art_frame_loc_141a<'a>(
 
 /// Resolve the transform frame and palette for one displayed frame.
 ///
-/// Ported path: ASM Kid_Transform loc_7D0A (kid.asm) — when the trace carries
+/// Ported path: ASM Kid_Transform loc_7CA6/loc_7D0A (kid.asm) — when the trace carries
 /// the transform source helmet and `presented_transform_phase` covers the
 /// (old, new) pair, resolve art positionally from the phase's descriptor index
 /// (the bundle's `transform_steps` mirror the `off_7EE2` descriptor order) and
 /// the palette from the `off_7D34` handler: HelmetArt → sub_8106 transform
 /// palette, HelmetDefault (and the loc_7E90 cleanup frame) → sub_80D0 form
-/// palette on the form's default/idle art. Helmet-to-helmet reverse walks and
-/// selector-$C spark passes fall back to the legacy duration-sum walk until
-/// their additional presentation state is represented.
+/// palette on the form's default/idle art. Reverse phases resolve those assets
+/// from the old helmet until loc_7CD0 switches to the new one. Selector-$C
+/// spark passes fall back to the legacy duration-sum walk until the companion
+/// sprite is represented.
 pub fn select_player_transform_render<'a>(
     trace: &NativeTraceFrame,
     player_visuals: &'a wildside_render::PlayerVisuals,
@@ -929,8 +930,7 @@ pub fn select_player_transform_render<'a>(
             trace.current_helmet_id,
             trace.form_change_flash_frames,
         )
-        && let Some(resolved) =
-            phase_transform_render_loc_7d0a(&phase, player_visuals, form_visuals)
+        && let Some(resolved) = phase_transform_render_loc_7d0a(&phase, player_visuals)
     {
         return Some(resolved);
     }
@@ -945,8 +945,10 @@ pub fn select_player_transform_render<'a>(
 fn phase_transform_render_loc_7d0a<'a>(
     phase: &wildside_core::PresentedTransformPhase,
     player_visuals: &'a wildside_render::PlayerVisuals,
-    form_visuals: &'a wildside_render::PlayerFormVisuals,
 ) -> Option<(&'a wildside_render::SpriteFrame, &'a Palette)> {
+    // ASM loc_7D44/loc_7D5A read Current_Helmet. It remains the old helmet
+    // throughout loc_7CA6 and changes at loc_7CD0 before loc_7D0A.
+    let form_visuals = player_visuals.forms.get(&phase.palette_helmet_id)?;
     match phase.handler {
         TransformHandler::HelmetArt => {
             // ASM loc_7D44 (kid.asm): descriptor art link on the sub_8106
@@ -6266,6 +6268,73 @@ mod tests {
             palette.colours, cyclone_visuals.palette.colours,
             "selector 8 runs loc_7D5A's form palette path"
         );
+    }
+
+    /// ASM Kid_Transform loc_7CA6/loc_7CD0/loc_7D0A (kid.asm): reverse
+    /// descriptors use the old helmet's art and palettes until Current_Helmet
+    /// switches, then forward descriptors use the new helmet's assets.
+    #[test]
+    fn select_player_transform_render_switches_assets_after_old_reverse_loc_7cd0() {
+        let mut cyclone = labelled_player_visuals();
+        cyclone.idle = labelled_frame(0x2200);
+        cyclone.palette = marked_palette(0x2200);
+        cyclone.transform_palette = Some(marked_palette(0x2201));
+        cyclone.transform_steps = (0u16..10)
+            .map(|index| wildside_render::PlayerTransformStep {
+                duration_frames: 1,
+                frame: Some(labelled_frame(0x2200 + index)),
+            })
+            .collect();
+
+        let mut iron_knight = labelled_player_visuals();
+        iron_knight.idle = labelled_frame(0x6600);
+        iron_knight.palette = marked_palette(0x6600);
+        iron_knight.transform_palette = Some(marked_palette(0x6601));
+        iron_knight.transform_steps = (0u16..16)
+            .map(|index| wildside_render::PlayerTransformStep {
+                duration_frames: 1,
+                frame: Some(labelled_frame(0x6600 + index)),
+            })
+            .collect();
+
+        let mut forms = std::collections::HashMap::new();
+        forms.insert(0u16, labelled_player_visuals());
+        forms.insert(2, cyclone);
+        forms.insert(6, iron_knight);
+        let player_visuals = wildside_render::PlayerVisuals { forms };
+        let target_visuals = &player_visuals.forms[&6];
+
+        let reverse_default = NativeTraceFrame {
+            form_change_flash_frames: 154,
+            current_helmet_id: 6,
+            transform_source_helmet_id_loc_7ca6: Some(2),
+            ..NativeTraceFrame::default()
+        };
+        let (frame, palette) =
+            select_player_transform_render(&reverse_default, &player_visuals, target_visuals)
+                .expect("ASM loc_7CA6 reverse default descriptor");
+        assert_eq!(frame.tile_base_index, 0x2200);
+        assert_eq!(palette.colours, marked_palette(0x2200).colours);
+
+        let reverse_art = NativeTraceFrame {
+            form_change_flash_frames: 138,
+            ..reverse_default.clone()
+        };
+        let (frame, palette) =
+            select_player_transform_render(&reverse_art, &player_visuals, target_visuals)
+                .expect("ASM loc_7CA6 reverse transform-art descriptor");
+        assert_eq!(frame.tile_base_index, 0x2208);
+        assert_eq!(palette.colours, marked_palette(0x2201).colours);
+
+        let forward_art = NativeTraceFrame {
+            form_change_flash_frames: 82,
+            ..reverse_default
+        };
+        let (frame, palette) =
+            select_player_transform_render(&forward_art, &player_visuals, target_visuals)
+                .expect("ASM loc_7D0A forward transform-art descriptor");
+        assert_eq!(frame.tile_base_index, 0x6600);
+        assert_eq!(palette.colours, marked_palette(0x6601).colours);
     }
 
     /// ASM off_7EE2/loc_7D0A (kid.asm): every remaining helmet table reaches

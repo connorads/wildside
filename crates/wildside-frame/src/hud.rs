@@ -188,17 +188,21 @@ fn hud_hitpoints_visible_loc_bdc0(
         .hud_transform_target_helmet_id
         .unwrap_or(trace.current_helmet_id);
     if let Some(source_helmet_id) = trace.transform_source_helmet_id_loc_7ca6
-        && let Some(phase) = wildside_core::presented_transform_phase(
+        && wildside_core::presented_transform_phase(
             source_helmet_id,
             hud_helmet_id,
             trace.form_change_flash_frames,
         )
+        .is_some()
     {
         // ASM Kid_Transform loc_7CA6/loc_7D0A: the table built before
         // loc_BDC0 remains displayed for transform pass 0. Use the
         // ROM table walk, not the bundle frame durations, which describe art
         // extraction and do not equal the descriptor DBF counts.
-        return phase.descriptor_index == 0 && phase.pass_within_descriptor == 0;
+        let old_passes =
+            wildside_core::ported_forward_transform_passes(source_helmet_id).unwrap_or(0);
+        let new_passes = wildside_core::ported_forward_transform_passes(hud_helmet_id).unwrap_or(0);
+        return u32::from(trace.form_change_flash_frames) == old_passes + new_passes + 1;
     }
     let Some(form_visuals) = level_visuals.player.forms.get(&hud_helmet_id) else {
         return true;
@@ -1446,6 +1450,26 @@ mod tests {
             &NativeTraceFrame {
                 form_change_flash_frames: 4,
                 current_helmet_id: 0,
+                ..NativeTraceFrame::default()
+            },
+            &visuals
+        ));
+        assert!(hud_hitpoints_visible_loc_bdc0(
+            &NativeTraceFrame {
+                form_change_flash_frames: 154,
+                current_helmet_id: 6,
+                hud_transform_target_helmet_id: Some(6),
+                transform_source_helmet_id_loc_7ca6: Some(2),
+                ..NativeTraceFrame::default()
+            },
+            &visuals
+        ));
+        assert!(!hud_hitpoints_visible_loc_bdc0(
+            &NativeTraceFrame {
+                form_change_flash_frames: 153,
+                current_helmet_id: 6,
+                hud_transform_target_helmet_id: Some(6),
+                transform_source_helmet_id_loc_7ca6: Some(2),
                 ..NativeTraceFrame::default()
             },
             &visuals

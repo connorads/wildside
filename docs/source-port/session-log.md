@@ -7,6 +7,34 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive reverse transform presentation)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected helmet-to-helmet reverse transform presentation. It feeds live
+  form-change pixels and was the explicit remaining boundary after the
+  complete forward-table slice.
+- ASM `loc_7C96`/`loc_7CA6` walks the source helmet table backwards,
+  `loc_7CD0` switches `Current_Helmet`, and `loc_7D0A` begins the target table
+  forwards. Native previously returned no presented phase for a non-Kid
+  source and the renderer consequently used target-form assets too early.
+- The pure presenter now enumerates reverse(old) then forward(new) passes,
+  including transforms back to Kid. The frame renderer uses source art and
+  palettes before `loc_7CD0`, then target assets after it. HUD first-pass
+  retention uses the combined descriptor count.
+- Exact Cyclone-to-Iron-Knight and Cyclone-to-Kid regressions cover the table
+  boundary, raster resume, asset switch, and HUD lifetime. The focused
+  mutation run under `/tmp/mutants-reverse-transform-20260823` accounts for
+  all 51 mutations: 44 caught and seven compiler-unviable, with no survivor
+  or timeout.
+- Selector-`$C` companion-spark passes retain the documented fallback until
+  that separate GfxObject is represented. Final `mise run verify-slice-fast`
+  passes with 7,311 tests. The sequential `mise run verify-tas-full` is green
+  across all 37,759 frames with the existing 241-frame/2,391-pixel and audio
+  ratchets unchanged.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this reverse transform
+  presentation slice.
+
 ## 2026-08-23 handoff (proactive Flying Dragon mutation refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback

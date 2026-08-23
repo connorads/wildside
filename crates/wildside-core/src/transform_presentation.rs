@@ -288,21 +288,39 @@ fn forward_table_off_7ee2(new_helmet_id: u16) -> Option<&'static [TransformDescr
 /// counts through reverse(old table) ++ forward(new table); an index at or past
 /// the pass total is the finished cleanup frame.
 ///
-/// Scope: only old-form-Kid forward transforms into transformable helmets
-/// return a phase. ASM loc_7C76 (kid.asm): `move.w (Current_Helmet).w,d7; beq.w
-/// loc_7CD0` — old form Kid skips the backward walk entirely, so the ordered
-/// pass list is the forward table alone. Helmet→helmet backward walks need the
-/// old table's art stamped from core state and are not ported yet.
+/// ASM loc_7C76 skips the backward walk when the old form is Kid. Otherwise
+/// loc_7C96/loc_7CA6 walks the old table backwards before loc_7CD0 switches
+/// Current_Helmet and loc_7D0A walks the new table forwards. A transform to Kid
+/// has no forward table; a transform from Kid has no reverse table.
 pub fn presented_transform_phase(
     old_helmet_id: u16,
     new_helmet_id: u16,
     frames_remaining: u8,
 ) -> Option<PresentedTransformPhase> {
-    if frames_remaining == 0 || old_helmet_id != HELMET_THE_KID {
+    if frames_remaining == 0 || old_helmet_id == new_helmet_id {
         return None;
     }
-    let table = forward_table_off_7ee2(new_helmet_id)?;
-    let total_passes: u32 = table.iter().map(|d| u32::from(d.pass_count)).sum();
+    let old_table = if old_helmet_id == HELMET_THE_KID {
+        None
+    } else {
+        Some(forward_table_off_7ee2(old_helmet_id)?)
+    };
+    let new_table = if new_helmet_id == HELMET_THE_KID {
+        None
+    } else {
+        Some(forward_table_off_7ee2(new_helmet_id)?)
+    };
+    let old_passes: u32 = old_table
+        .into_iter()
+        .flatten()
+        .map(|descriptor| u32::from(descriptor.pass_count))
+        .sum();
+    let new_passes: u32 = new_table
+        .into_iter()
+        .flatten()
+        .map(|descriptor| u32::from(descriptor.pass_count))
+        .sum();
+    let total_passes = old_passes + new_passes;
     let seeded = total_passes + 1;
     let remaining = u32::from(frames_remaining);
     if remaining > seeded {
@@ -312,7 +330,7 @@ pub fn presented_transform_phase(
     if index >= total_passes {
         return Some(PresentedTransformPhase {
             table: TransformTableSource::NewForward,
-            descriptor_index: table.len(),
+            descriptor_index: new_table.map_or(0, <[TransformDescriptor]>::len),
             pass_within_descriptor: 0,
             handler: TransformHandler::HelmetDefault,
             art_link: 0,
@@ -321,6 +339,31 @@ pub fn presented_transform_phase(
         });
     }
     let mut pass_index = index;
+    if let Some(table) = old_table {
+        for (descriptor_index, descriptor) in table.iter().enumerate().rev() {
+            let passes = u32::from(descriptor.pass_count);
+            if pass_index < passes {
+                let palette_helmet_id = match descriptor.handler {
+                    // ASM loc_7D44/loc_7D5A read Current_Helmet before
+                    // loc_7CD0 changes it, so reverse helmet art uses the old
+                    // form's transform/default palette.
+                    TransformHandler::HelmetArt | TransformHandler::HelmetDefault => old_helmet_id,
+                    TransformHandler::KidWithSpark { .. } => HELMET_THE_KID,
+                };
+                return Some(PresentedTransformPhase {
+                    table: TransformTableSource::OldReverse,
+                    descriptor_index,
+                    pass_within_descriptor: pass_index as u8,
+                    handler: descriptor.handler,
+                    art_link: descriptor.art_link,
+                    palette_helmet_id,
+                    finished: false,
+                });
+            }
+            pass_index -= passes;
+        }
+    }
+    let table = new_table?;
     for (descriptor_index, descriptor) in table.iter().enumerate() {
         let passes = u32::from(descriptor.pass_count);
         if pass_index < passes {
@@ -378,7 +421,7 @@ pub fn transform_raster_resume_after_sub_8e0(
     if next.finished {
         return Some(TransformRasterResume::FinishLoc7e14);
     }
-    if next.descriptor_index == current.descriptor_index {
+    if next.table == current.table && next.descriptor_index == current.descriptor_index {
         Some(TransformRasterResume::RepeatDescriptor)
     } else {
         Some(TransformRasterResume::AdvanceDescriptor {
@@ -628,14 +671,60 @@ mod tests {
         );
     }
 
-    /// ASM loc_7C76 (kid.asm): `move.w (Current_Helmet).w,d7; beq.w loc_7CD0`
-    /// — only old-form-Kid transforms skip the backward walk; helmet→helmet
-    /// transforms are not ported and must fall back.
+    /// ASM Kid_Transform loc_7C96/loc_7CA6/loc_7CD0 (kid.asm): a
+    /// helmet-to-helmet transform walks the old table backwards before
+    /// switching Current_Helmet and entering the new table forwards.
     #[test]
-    fn non_kid_old_form_returns_none_loc_7c76() {
-        assert!(presented_transform_phase(2, 6, 82).is_none());
-        assert!(presented_transform_phase(6, 6, 82).is_none());
-        assert!(presented_transform_phase(0, 6, 82).is_some());
+    fn cyclone_to_iron_knight_presents_old_reverse_then_new_forward() {
+        let first = presented_transform_phase(HELMET_CYCLONE, HELMET_IRON_KNIGHT, 154)
+            .expect("ASM loc_7CA6 should begin at Cyclone's final descriptor");
+        assert_eq!(first.table, TransformTableSource::OldReverse);
+        assert_eq!(first.descriptor_index, 9);
+        assert_eq!(first.pass_within_descriptor, 0);
+        assert_eq!(first.handler, TransformHandler::HelmetDefault);
+        assert_eq!(first.palette_helmet_id, HELMET_CYCLONE);
+
+        let reverse_tail = presented_transform_phase(HELMET_CYCLONE, HELMET_IRON_KNIGHT, 83)
+            .expect("ASM loc_7CA6 should finish on Cyclone descriptor zero");
+        assert_eq!(reverse_tail.table, TransformTableSource::OldReverse);
+        assert_eq!(reverse_tail.descriptor_index, 0);
+        assert_eq!(reverse_tail.pass_within_descriptor, 15);
+        assert_eq!(
+            reverse_tail.handler,
+            TransformHandler::KidWithSpark { spark: false }
+        );
+        assert_eq!(reverse_tail.palette_helmet_id, HELMET_THE_KID);
+
+        let forward_first = presented_transform_phase(HELMET_CYCLONE, HELMET_IRON_KNIGHT, 82)
+            .expect("ASM loc_7CD0/loc_7D0A should enter Iron Knight descriptor zero");
+        assert_eq!(forward_first.table, TransformTableSource::NewForward);
+        assert_eq!(forward_first.descriptor_index, 0);
+        assert_eq!(forward_first.pass_within_descriptor, 0);
+        assert_eq!(forward_first.palette_helmet_id, HELMET_IRON_KNIGHT);
+        assert_eq!(
+            transform_raster_resume_after_sub_8e0(HELMET_CYCLONE, HELMET_IRON_KNIGHT, 83,),
+            Some(TransformRasterResume::AdvanceDescriptor {
+                descriptor_index: 0,
+                handler: TransformHandler::HelmetArt,
+            }),
+            "ASM loc_7CA6 sentinel reaches loc_7CD0/loc_7D0A instead of repeating old descriptor zero",
+        );
+    }
+
+    /// ASM loc_B786 -> Kid_Transform loc_7CA6/loc_7CD0 (kid.asm): losing a
+    /// helmet walks only the old table backwards, then cleans up as The Kid.
+    #[test]
+    fn cyclone_to_kid_presents_reverse_table_and_kid_cleanup() {
+        let first = presented_transform_phase(HELMET_CYCLONE, HELMET_THE_KID, 73)
+            .expect("ASM loc_7CA6 should enter Cyclone's reverse table");
+        assert_eq!(first.table, TransformTableSource::OldReverse);
+        assert_eq!(first.descriptor_index, 9);
+        assert_eq!(first.palette_helmet_id, HELMET_CYCLONE);
+
+        let cleanup = presented_transform_phase(HELMET_CYCLONE, HELMET_THE_KID, 1)
+            .expect("ASM loc_7CD0 should clean up as The Kid");
+        assert!(cleanup.finished);
+        assert_eq!(cleanup.palette_helmet_id, HELMET_THE_KID);
     }
 
     /// Invalid target helmets and out-of-range countdowns fall back.
