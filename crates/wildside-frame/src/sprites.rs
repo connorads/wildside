@@ -5914,6 +5914,26 @@ mod tests {
     }
 
     #[test]
+    fn select_player_frame_uses_loc_95da_walk_accumulator_phase() {
+        let visuals = labelled_player_visuals();
+
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    kid_on_ground: Some(true),
+                    kid_x_velocity: Some(0x1000),
+                    kid_facing: Some(Direction::Right),
+                    walk_visual_accumulator: 0x0500,
+                    ..NativeTraceFrame::default()
+                },
+                &visuals,
+            ),
+            0x0202,
+            "ASM sub_942A loc_95DA/loc_9600 selects the ordinary walk mapping from `$FFFFF8F0 >> 8`"
+        );
+    }
+
+    #[test]
     fn select_player_frame_uses_accumulator_for_ground_slope_and_walk_poses() {
         let visuals = labelled_player_visuals();
 

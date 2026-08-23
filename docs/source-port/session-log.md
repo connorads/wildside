@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (proactive ordinary player-walk phase hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected the shipped `select_player_frame` skid, airborne, and ordinary-walk
+  routes that feed the published-TAS pixel ratchet.
+- Re-read ASM `sub_942A loc_9580/loc_959C/loc_95DA/loc_9600` and `sub_B270
+  loc_B334/loc_B350`: the fixed skid depends on motion opposing facing, while
+  ordinary walking indexes its mapping from `$FFFFF8F0 >> 8`.
+- Broad census `/tmp/mutants-frame-player-selector-20260824-initial` found 50
+  survivors among 113 mutations. Most lie in the reviewed failing aggregate
+  test's slope/walk branches or defensive unclassified fallbacks; the skid and
+  four typed airborne states already catch their generated mutations. The
+  ordinary walk phase's three arithmetic mutations were genuine green-suite
+  gaps because its only assertion was inside that excluded aggregate.
+- Added one standalone ASM-cited ordinary-walk phase regression. Focused final
+  census `/tmp/mutants-frame-player-walk-phase-20260824-final2` catches all
+  three selected mutations with no miss, timeout, or compile failure.
+- Focused test and formatting pass. Starting and final
+  `mise run verify-slice-fast` pass. Full TAS is not required because runtime
+  rendering is unchanged.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this player-walk phase
+  slice.
+
 ## 2026-08-23 handoff (proactive block-destruction worker hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
