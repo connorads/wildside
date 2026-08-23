@@ -9805,6 +9805,30 @@ mod tests {
     }
 
     #[test]
+    fn block_destroy_initial_worker_origin_reverses_direction_nudge_sub_10eda_or_10f9c() {
+        let origins = (0..=3)
+            .map(|direction| {
+                initial_block_destroy_worker_origin_sub_10eda_or_10f9c(direction, 80, 96)
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            origins,
+            vec![(80, 92), (84, 96), (80, 100), (76, 96)],
+            "ASM sub_10EDA/sub_10F9C nudges the live worker +Y, -X, -Y, or +X; the first displayed source frame reverses that nudge"
+        );
+    }
+
+    #[test]
+    fn block_destroy_initial_debris_positions_match_sub_292e_tables() {
+        assert_eq!(
+            block_destroy_initial_debris_positions_sub_292e(80, 96, 2),
+            [(79, 92), (79, 101), (89, 101), (89, 92), (85, 95)],
+            "ASM sub_292E loc_2988/loc_2994 adds the direction-2 velocity tables to each of the five base positions"
+        );
+    }
+
+    #[test]
     fn mode_level_loc_901_latches_previous_sprite_sources() {
         let mut render_trace = NativeTraceFrame {
             active_objects: vec![NativeObjectSnapshot {

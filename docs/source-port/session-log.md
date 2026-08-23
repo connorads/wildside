@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive block-destruction worker hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected the live block-destruction worker/debris transformations in
+  `wildside-frame`.
+- Re-read ASM `sub_10EDA`/`sub_10F9C` and `sub_292E`: the first displayed
+  worker source reverses the direction nudge applied to the live worker, and
+  debris positions add one of four exact velocity tables to five base points.
+- Initial census
+  `/tmp/mutants-frame-block-destroy-workers-20260823-initial` found 24
+  survivors among 38 selected mutations. The worker renderer was already
+  covered, but the origin reversal and initial debris positions were not.
+- Added direct ASM-cited regressions for all four worker directions and the
+  exact direction-2 five-piece debris seed. Final census
+  `/tmp/mutants-frame-block-destroy-workers-20260823-final` catches all 38
+  mutations with no miss, timeout, or compile failure.
+- Focused tests and formatting pass. Starting and final
+  `mise run verify-slice-fast` pass. Full TAS is not required because runtime
+  behaviour is unchanged.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this block-destruction
+  slice.
+
 ## 2026-08-23 handoff (proactive block-mapping decoder hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
