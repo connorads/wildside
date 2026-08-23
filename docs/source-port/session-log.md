@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive Island Shore DMA-band mutation hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected the live Island Shore background-art bridge.
+- Re-read ASM `loc_1202A` through `loc_12188` and `off_1220E`: the animation
+  uploads six tiles from offset 0 to `$F600`, five from `$C2` to `$F6C0`, and
+  twelve from `$162` to `$F760`, with a six-entry `0,1,2,3,2,1` frame table.
+- The initial isolated census at
+  `/tmp/mutants-frame-island-shore-bands-20260823-initial` found 19 survivors
+  among 28 selected mutations. Added one direct ASM-cited regression covering
+  all destinations, sources, lengths, frame aliases, missing frames, short
+  art, destination growth, and non-truncation.
+- Final census
+  `/tmp/mutants-frame-island-shore-bands-20260823-final3` catches 25/28; two
+  mutations are unviable and the remaining `<` to `<=` resize mutation is
+  equivalent because resizing to the current length has no observable effect.
+- The focused regression passes. Starting `mise run verify-slice-fast` passes
+  with 7,311 tests. Full TAS is not required because production rendering is
+  unchanged. Final fast verification is the landing gate.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this Island Shore slice.
+
 ## 2026-08-23 handoff (proactive pause-palette mutation refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback

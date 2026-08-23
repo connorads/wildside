@@ -9457,6 +9457,75 @@ mod tests {
     }
 
     #[test]
+    fn island_shore_background_tiles_follow_loc_12098_12110_12188_dma_bands() {
+        let shore = wildside_render::IslandShoreVisualsLoc1202A {
+            frames: std::array::from_fn(|frame_index| TileSheet {
+                tiles: (0..23)
+                    .map(|tile_index| Tile {
+                        pixels: [(frame_index * 40 + tile_index) as u8; 64],
+                    })
+                    .collect(),
+            }),
+        };
+        let mut level_visuals = sample_level_visuals(1);
+        level_visuals.background_tiles = sample_tile_sheet_with_pixel(2, 0xEE);
+        level_visuals.island_shore_tiles_loc_1202a = Some(shore.clone());
+        let trace = NativeTraceFrame {
+            island_shore_vram_frames_loc_1202a: Some((0, 1, 5)),
+            ..NativeTraceFrame::default()
+        };
+
+        let tiles = background_tiles_for_trace_loc_1202a(&trace, &level_visuals);
+        let pixels = |range: std::ops::Range<usize>| {
+            tiles.tiles[range]
+                .iter()
+                .map(|tile| tile.pixels[0])
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(
+            pixels(0x30..0x36),
+            (0..6).collect::<Vec<_>>(),
+            "ASM loc_12098 uploads six tiles from frame offset 0 to VRAM `$F600`"
+        );
+        assert_eq!(
+            pixels(0x36..0x3B),
+            (46..51).collect::<Vec<_>>(),
+            "ASM loc_12110 uploads five tiles from frame offset `$C2`/tile 6 to VRAM `$F6C0`"
+        );
+        assert_eq!(
+            pixels(0x3B..0x47),
+            (51..63).collect::<Vec<_>>(),
+            "ASM loc_12188 uploads twelve tiles from frame offset `$162`/tile 11 to VRAM `$F760`; off_1220E entry 5 aliases frame 1"
+        );
+
+        let mut short_destination = sample_tile_sheet_with_pixel(1, 0xEE);
+        let mut short_shore = shore;
+        short_shore.frames[0].tiles.truncate(3);
+        patch_island_shore_band_loc_1202a(&mut short_destination, &short_shore, 0, 1, 4, 3);
+        assert_eq!(short_destination.tiles.len(), 7);
+        assert_eq!(
+            short_destination.tiles[4..7]
+                .iter()
+                .map(|tile| tile.pixels[0])
+                .collect::<Vec<_>>(),
+            vec![1, 2, 0]
+        );
+
+        let mut ample_destination = sample_tile_sheet_with_pixel(8, 0xEE);
+        patch_island_shore_band_loc_1202a(&mut ample_destination, &short_shore, 0, 1, 4, 3);
+        assert_eq!(
+            ample_destination.tiles.len(),
+            8,
+            "an already large enough resident background sheet must not be truncated"
+        );
+
+        let before_invalid_frame = short_destination.clone();
+        patch_island_shore_band_loc_1202a(&mut short_destination, &short_shore, 6, 0, 0, 1);
+        assert_eq!(short_destination, before_invalid_frame);
+    }
+
+    #[test]
     fn transform_cleanup_retains_resident_island_shore_bands_loc_7e90_1202a() {
         let previous = NativeTraceFrame {
             game_mode: GameMode::DemoPlay,
