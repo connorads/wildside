@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive floating-prize long-word wrap)
+
+- `project-status` offered no ready/open risk. The proactive arithmetic audit
+  moved to the live floating-prize fall path, which feeds every spawned block
+  prize and the published object/gameplay trace gates.
+- ASM `loc_103DE`/`loc_10C50` performs `addi.l #$1388,d1` followed by
+  `add.l d1,d2`; both values are GfxObject long words. Native saturated the
+  velocity and kept position arithmetic unbounded in `i64`. The boundary
+  regression failed with `$7FFFFFFF` instead of the ROM's `$80000000`.
+- Gameplay and typed trace classification now share one 32-bit wrapping step.
+  All ten floating-prize tests pass. The narrow census catches all 19 selected
+  helper and caller mutants.
+- The required starting `mise run verify-slice-fast` passed with 7,306 tests.
+  The final fast gate passes with 7,307 tests. `mise run verify-tas-full` is
+  green across all 37,759 frames with every ratchet unchanged.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this floating-prize
+  long-word slice.
+
 ## 2026-08-23 handoff (proactive player gravity long-word wrap)
 
 - `project-status` offered no ready/open risk. The sole ordinary uncovered ASM

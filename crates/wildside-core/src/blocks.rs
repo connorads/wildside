@@ -263,6 +263,14 @@ pub(crate) struct FloatingPrizeFallStepLoc10C50 {
     pub(crate) next_level_layout_offset: u32,
 }
 
+/// ASM loc_103DE/loc_10C50 (kid.asm): advance a floating prize using the
+/// GfxObject's 32-bit velocity and position fields.
+pub(crate) fn floating_prize_long_step_loc_103de(y_pos: i64, y_velocity: i32) -> (i64, i32) {
+    let next_y_velocity = y_velocity.wrapping_add(0x1388);
+    let next_y_pos = i64::from((y_pos as u32).wrapping_add(next_y_velocity as u32));
+    (next_y_pos, next_y_velocity)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg(test)]
 pub(crate) struct ShooterHorizontalSpriteCellLocF808 {
@@ -773,8 +781,7 @@ impl NativeRuntime {
         // clear bit `$10` in `d3` and advance `a2` by `Level_width_tiles`
         // before the shared tail at loc_10C74 stores the new aligned row back
         // into `d0`.
-        let next_y_velocity = y_velocity.saturating_add(0x1388);
-        let next_y_pos = y_pos.saturating_add(i64::from(next_y_velocity));
+        let (next_y_pos, next_y_velocity) = floating_prize_long_step_loc_103de(y_pos, y_velocity);
         let integer_y = (next_y_pos >> 16) as i32;
         let next_aligned_y = integer_y & !0xF;
         let crossed_row_boundary = next_aligned_y != aligned_y;
@@ -6242,6 +6249,37 @@ mod tests {
             ),
             crossed
         );
+    }
+
+    /// ASM loc_103DE/loc_10C50: both `addi.l #$1388,d1` and
+    /// `add.l d1,d2` wrap at 32 bits before the updated velocity and position
+    /// are stored. Native represents the position in `i64`, but the value must
+    /// retain the GfxObject long-word bit pattern.
+    #[test]
+    fn floating_prize_fall_wraps_long_word_velocity_and_position() {
+        let velocity_wrap = NativeRuntime::floating_prize_fall_step_loc_10C50(
+            0,
+            0,
+            i32::MAX - 0x1387,
+            true,
+            0,
+            0,
+            0,
+        );
+        assert_eq!(velocity_wrap.next_y_velocity, i32::MIN);
+        assert_eq!(velocity_wrap.next_y_pos, 0x8000_0000);
+
+        let position_wrap = NativeRuntime::floating_prize_fall_step_loc_10C50(
+            0xFFF0,
+            0xFFFF_F000,
+            0x0C78,
+            true,
+            0,
+            0,
+            0,
+        );
+        assert_eq!(position_wrap.next_y_velocity, 0x2000);
+        assert_eq!(position_wrap.next_y_pos, 0x1000);
     }
 
     #[test]

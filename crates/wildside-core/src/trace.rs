@@ -1,5 +1,5 @@
 use super::*;
-use crate::blocks::PrizeCollectedArcHibernateStepLocFEEE;
+use crate::blocks::{PrizeCollectedArcHibernateStepLocFEEE, floating_prize_long_step_loc_103de};
 use crate::combat::{
     BossEyeSpriteRefreshSlotSub37ABC, HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266,
     boss_eye_refresh_attack_sprites_sub_37ABC, enemy_contact_bounds,
@@ -1013,8 +1013,7 @@ fn floating_prize_fall_path_loc_103b2(
 
     // ASM loc_103DE (kid.asm:21648): gravity is added before y_pos, then
     // loc_103F6 compares the new aligned row with `d0`.
-    let next_y_velocity = item.y_velocity.saturating_add(0x1388);
-    let next_y_pos = item.y_pos.saturating_add(i64::from(next_y_velocity));
+    let (next_y_pos, _) = floating_prize_long_step_loc_103de(item.y_pos, item.y_velocity);
     let crosses_row = ((next_y_pos >> 16) as i32 & !0xF) != ((item.y_pos >> 16) as i32 & !0xF);
     match (used_grace_probe, crosses_row) {
         (false, false) => ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallSameRow,
