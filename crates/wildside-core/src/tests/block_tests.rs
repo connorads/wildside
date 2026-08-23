@@ -19602,6 +19602,93 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_loader_work_loc_2762_keeps_equal_edges_and_rejects_strict_misses() {
+        let layout = PlatformLayout {
+            placements: vec![normal_platform_placement_for_loader_tests()],
+        };
+        let loader = PlatformLoaderState::default();
+        let cases = [
+            (
+                "equal edges",
+                platform_loader_test_window(),
+                ModeLevelPlatformLoaderRangeLoc2762::InRange,
+            ),
+            (
+                "left",
+                ActivationWindow {
+                    x_min: 319,
+                    x_max: 319,
+                    y_min: 320,
+                    y_max: 320,
+                },
+                ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeLeft,
+            ),
+            (
+                "right",
+                ActivationWindow {
+                    x_min: 321,
+                    x_max: 321,
+                    y_min: 320,
+                    y_max: 320,
+                },
+                ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeRight,
+            ),
+            (
+                "top",
+                ActivationWindow {
+                    x_min: 320,
+                    x_max: 320,
+                    y_min: 319,
+                    y_max: 319,
+                },
+                ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeTop,
+            ),
+            (
+                "bottom",
+                ActivationWindow {
+                    x_min: 320,
+                    x_max: 320,
+                    y_min: 321,
+                    y_max: 321,
+                },
+                ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeBottom,
+            ),
+        ];
+
+        for (case, window, expected_range) in cases {
+            assert_eq!(
+                crate::platforms::platform_loader_work_loc_2744(&layout, loader, window, true),
+                ModeLevelPlatformLoaderWorkLoc2744::Placement {
+                    wrapped_to_start: false,
+                    range: expected_range,
+                    existing_slot: ModeLevelPlatformLoaderExistingSlotSub2728::Missing,
+                },
+                "ASM loc_2762 (kid.asm:4684) keeps equal buffer edges in range and rejects only strict `bgt`/`blt` {case} misses",
+            );
+        }
+    }
+
+    #[test]
+    fn platform_loader_work_loc_2762_returns_before_range_checks_without_kid() {
+        let layout = PlatformLayout {
+            placements: vec![normal_platform_placement_for_loader_tests()],
+        };
+
+        assert_eq!(
+            crate::platforms::platform_loader_work_loc_2744(
+                &layout,
+                PlatformLoaderState::default(),
+                platform_loader_test_window(),
+                false,
+            ),
+            ModeLevelPlatformLoaderWorkLoc2744::KidMissing {
+                wrapped_to_start: false,
+            },
+            "ASM loc_2762 (kid.asm:4685-4686) returns before reading the current placement when Addr_GfxObject_Kid is zero",
+        );
+    }
+
+    #[test]
     fn platform_sprite_dispatch_loc_244c_biases_visible_platforms_and_selects_loc_24c0() {
         assert_eq!(
             platform_sprite_dispatch_loc_244C(PlatformSpriteDispatchInputLoc244C {

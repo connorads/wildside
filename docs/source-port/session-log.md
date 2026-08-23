@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive platform-loader range checks)
+
+- `project-status` offered no ready/open risk, so the proactive fallback audited
+  the live `Manage_PlatformLoading` typed branch added after the last full
+  `platforms.rs` mutation session.
+- All 13 viable changed-line mutations survived initially: the suite did not
+  exercise the `loc_2762` missing-Kid return or any of its four strict
+  activation-window comparisons.
+- Direct work-result regressions pin the missing-Kid return, equality at every
+  buffer edge, and one-pixel left/right/top/bottom misses. ASM `loc_2762` uses
+  strict `bgt`/`blt`, so equality remains in range. The rerun catches all 13
+  viable mutations; one mutation is compiler-unviable.
+- The sole ordinary uncovered ASM label, Tar Monster `loc_32454`, is referenced
+  only as an address in `CollisionSize_Index`; it is data consumed by collision
+  dispatch, not an uncovered executable route. No hollow coverage citation was
+  added.
+- The required starting `mise run verify-slice-fast` passed with 7,295 tests.
+  The final fast gate passes with 7,297 tests.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path branch added after its module's last full census.
+  Do not extend this platform-loader branch.
+
 ## 2026-08-23 handoff (proactive loc_16F0 left/up corner ratio)
 
 - `project-status` offered no ready/open risk, so the proactive fallback took
