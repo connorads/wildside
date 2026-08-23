@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive Flying Dragon mutation refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected `enemies/dragon.rs`. The Flying Dragon family feeds enemy-frontier
+  and whole-level sweep routes, and its previous broad mutation coverage
+  predates four wrapping fixes to drift, return speed, breath-cone arithmetic,
+  and fire positions.
+- The focused `mutants-file` run, retained under
+  `/tmp/mutants-flying-dragon-20260823`, accounts for all 252 mutations in 29
+  minutes: 210 caught and 42 compiler-unviable, with no survivor or timeout.
+- Existing ASM-cited tests distinguish every viable change across flight
+  scripts, drift and breath-cone arithmetic, dive/fire-child sequencing,
+  terrain responses, death, and respawn. A complete comparison with
+  `Dragon_Flying.asm` found no evidence-backed gap, so no redundant regression
+  or production edit is justified.
+- The required starting `mise run verify-slice-fast` passed with 7,310 tests.
+  Final verification: `mise run verify-slice-fast` passes. Only handoff docs
+  changed, so the full TAS gate is not required for this unit.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this Flying Dragon slice.
+
 ## 2026-08-23 handoff (proactive attract-demo mutation refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
