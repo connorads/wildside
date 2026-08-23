@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive complete forward transform tables)
+
+- `project-status` offered no ready/open risk. The proactive audit selected the
+  live transform presenter, which feeds form-change rendering and future
+  whole-game pixel routes. Its existing Cyclone/Iron Knight implementation was
+  mutation-clean: 26 caught and six compiler-unviable.
+- ASM `off_7EE2`/`stru_7EFA..stru_808A` defines forward tables for all nine
+  non-Kid helmets. Native returned no presented phase for seven of them; the
+  red regression first observed Skycutter returning `None` instead of 47
+  displayed passes.
+- All seven missing tables and selector-`$C` spark classification are ported.
+  Exact descriptor and pass-sum tests cover every table, and the frame consumer
+  resolves a selector-4 witness for every newly covered helmet. The final
+  census catches all 33 viable mutants; seven are compiler-unviable.
+- Selector-`$C` frames retain the legacy render fallback until the separate
+  spark GfxObject is typed. Helmet-to-helmet reverse walks still need their old
+  source table in presentation state. The published TAS exercises only its
+  existing Cyclone/Iron Knight subset, so this primarily expands whole-game
+  route coverage rather than changing that route.
+- The required starting `mise run verify-slice-fast` passed with 7,308 tests.
+  The final fast gate passes with 7,310 tests. `mise run verify-tas-full` is
+  green across all 37,759 frames with every ratchet unchanged.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this forward transform-table
+  slice.
+
 ## 2026-08-23 handoff (proactive helmet-hitpoint word wrap)
 
 - `project-status` offered no ready/open risk. The proactive arithmetic audit

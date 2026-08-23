@@ -912,8 +912,9 @@ pub fn select_player_dynamic_art_frame_loc_141a<'a>(
 /// (the bundle's `transform_steps` mirror the `off_7EE2` descriptor order) and
 /// the palette from the `off_7D34` handler: HelmetArt → sub_8106 transform
 /// palette, HelmetDefault (and the loc_7E90 cleanup frame) → sub_80D0 form
-/// palette on the form's default/idle art. Unported transforms fall back to
-/// the legacy duration-sum walk plus the frame-identity palette heuristic.
+/// palette on the form's default/idle art. Helmet-to-helmet reverse walks and
+/// selector-$C spark passes fall back to the legacy duration-sum walk until
+/// their additional presentation state is represented.
 pub fn select_player_transform_render<'a>(
     trace: &NativeTraceFrame,
     player_visuals: &'a wildside_render::PlayerVisuals,
@@ -6265,6 +6266,57 @@ mod tests {
             palette.colours, cyclone_visuals.palette.colours,
             "selector 8 runs loc_7D5A's form palette path"
         );
+    }
+
+    /// ASM off_7EE2/loc_7D0A (kid.asm): every remaining helmet table reaches
+    /// the positional selector-4 renderer on its first non-spark descriptor.
+    #[test]
+    fn select_player_transform_render_uses_every_forward_table_loc_7d44() {
+        let cases = [
+            (1u16, 13usize, 40u8, 1u16),
+            (3, 13, 55, 0),
+            (4, 14, 70, 1),
+            (5, 11, 34, 0),
+            (7, 10, 37, 1),
+            (8, 9, 46, 0),
+            (9, 12, 45, 1),
+        ];
+
+        for (helmet_id, descriptor_count, countdown, descriptor_index) in cases {
+            let mut form = labelled_player_visuals();
+            form.transform_palette = Some(marked_palette(0x0600 + helmet_id * 0x10));
+            form.transform_steps = (0..u16::try_from(descriptor_count).unwrap())
+                .map(|index| wildside_render::PlayerTransformStep {
+                    duration_frames: 1,
+                    frame: Some(labelled_frame(0x0C00 + index)),
+                })
+                .collect();
+            let expected_palette = form.transform_palette.clone().unwrap();
+            let mut forms = std::collections::HashMap::new();
+            forms.insert(0u16, labelled_player_visuals());
+            forms.insert(helmet_id, form);
+            let player_visuals = wildside_render::PlayerVisuals { forms };
+            let form_visuals = &player_visuals.forms[&helmet_id];
+            let trace = NativeTraceFrame {
+                form_change_flash_frames: countdown,
+                current_helmet_id: helmet_id,
+                transform_source_helmet_id_loc_7ca6: Some(0),
+                ..NativeTraceFrame::default()
+            };
+
+            let (frame, palette) =
+                select_player_transform_render(&trace, &player_visuals, form_visuals)
+                    .unwrap_or_else(|| panic!("no selector-4 render for helmet {helmet_id}"));
+            assert_eq!(
+                frame.tile_base_index,
+                0x0C00 + descriptor_index,
+                "ASM off_7EE2 helmet id {helmet_id} descriptor selection",
+            );
+            assert_eq!(
+                palette.colours, expected_palette.colours,
+                "ASM loc_7D44 helmet id {helmet_id} transform palette",
+            );
+        }
     }
 
     #[test]

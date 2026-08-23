@@ -72,8 +72,15 @@ pub enum TransformRasterResume {
 }
 
 const HELMET_THE_KID: u16 = 0;
+const HELMET_SKYCUTTER: u16 = 1;
 const HELMET_CYCLONE: u16 = 2;
+const HELMET_RED_STEALTH: u16 = 3;
+const HELMET_EYECLOPS: u16 = 4;
+const HELMET_JUGGERNAUT: u16 = 5;
 const HELMET_IRON_KNIGHT: u16 = 6;
+const HELMET_BERZERKER: u16 = 7;
+const HELMET_MANIAXE: u16 = 8;
+const HELMET_MICROMAX: u16 = 9;
 
 const fn helmet_art(pass_count: u8, art_link: u32) -> TransformDescriptor {
     TransformDescriptor {
@@ -99,6 +106,31 @@ const fn kid_art(pass_count: u8, art_link: u32) -> TransformDescriptor {
     }
 }
 
+const fn kid_art_with_spark(pass_count: u8, art_link: u32) -> TransformDescriptor {
+    TransformDescriptor {
+        pass_count,
+        handler: TransformHandler::KidWithSpark { spark: true },
+        art_link,
+    }
+}
+
+/// ASM stru_7EFA (kid.asm): Skycutter forward transform table.
+pub const SKYCUTTER_TRANSFORM_TABLE_STRU_7EFA: [TransformDescriptor; 13] = [
+    kid_art_with_spark(8, 0xA4BA8),
+    helmet_art(4, 0xAA88C),
+    kid_art_with_spark(4, 0xA4BA8),
+    helmet_art(4, 0xAA88C),
+    kid_art_with_spark(4, 0xA4BA8),
+    helmet_art(2, 0xAA88C),
+    helmet_art(2, 0xAAA92),
+    helmet_art(2, 0xAADB8),
+    helmet_art(3, 0xAAA92),
+    helmet_art(3, 0xAADB8),
+    helmet_art(3, 0xAAA92),
+    helmet_art(3, 0xAA88C),
+    helmet_art(5, 0xAB3BE),
+];
+
 /// ASM stru_7F30 (kid.asm): Cyclone forward transform table. Its selector-0
 /// entries use Kid walk-1 art on Kid's palette; selector 4 uses the Cyclone
 /// transform palette and selector 8 restores Cyclone's default art/palette.
@@ -113,6 +145,56 @@ pub const CYCLONE_TRANSFORM_TABLE_STRU_7F30: [TransformDescriptor; 10] = [
     helmet_default(8),
     helmet_art(4, 0xBB710),
     helmet_default(16),
+];
+
+/// ASM stru_7F5A (kid.asm): Red Stealth forward transform table.
+pub const RED_STEALTH_TRANSFORM_TABLE_STRU_7F5A: [TransformDescriptor; 13] = [
+    helmet_art(4, 0xB5088),
+    kid_art_with_spark(8, 0xA4A22),
+    helmet_art(4, 0xB5088),
+    kid_art_with_spark(4, 0xA4A22),
+    helmet_art(2, 0xB5088),
+    helmet_art(2, 0xB580E),
+    helmet_art(3, 0xB5088),
+    helmet_art(3, 0xB580E),
+    helmet_art(4, 0xB5088),
+    helmet_art(4, 0xB580E),
+    helmet_default(3),
+    helmet_art(5, 0xB580E),
+    helmet_default(8),
+];
+
+/// ASM stru_7F90 (kid.asm): Eyeclops forward transform table.
+pub const EYECLOPS_TRANSFORM_TABLE_STRU_7F90: [TransformDescriptor; 14] = [
+    kid_art_with_spark(24, 0xA4A22),
+    helmet_art(4, 0xB8146),
+    kid_art_with_spark(12, 0xA4A22),
+    helmet_art(4, 0xB8146),
+    kid_art_with_spark(6, 0xA4A22),
+    helmet_art(4, 0xB8146),
+    helmet_art(4, 0xB85CC),
+    helmet_art(4, 0xB8A52),
+    helmet_art(4, 0xB85CC),
+    helmet_art(4, 0xB8A52),
+    helmet_default(8),
+    helmet_art(4, 0xB8A52),
+    helmet_default(8),
+    helmet_art(3, 0xB8A52),
+];
+
+/// ASM stru_7FCA (kid.asm): Juggernaut forward transform table.
+pub const JUGGERNAUT_TRANSFORM_TABLE_STRU_7FCA: [TransformDescriptor; 11] = [
+    helmet_art(3, 0xC085E),
+    helmet_art(3, 0xC0B84),
+    helmet_art(3, 0xC0EAA),
+    helmet_art(3, 0xC1270),
+    helmet_art(3, 0xC0EAA),
+    helmet_art(3, 0xC0B84),
+    helmet_art(3, 0xC085E),
+    helmet_art(3, 0xC0B84),
+    helmet_art(3, 0xC0EAA),
+    helmet_art(3, 0xC1270),
+    helmet_art(3, 0xC0EAA),
 ];
 
 /// ASM stru_7FF8 (kid.asm): IronKnight forward transform table. 16 descriptors
@@ -137,12 +219,62 @@ pub const IRON_KNIGHT_TRANSFORM_TABLE_STRU_7FF8: [TransformDescriptor; 16] = [
     helmet_art(3, 0xC3FBA),
 ];
 
-/// Forward (`loc_7D0A`) table for a target helmet, when ported. Unported
-/// helmets return `None` so the renderer keeps its existing fallback path.
+/// ASM stru_803A (kid.asm): Berzerker forward transform table.
+pub const BERZERKER_TRANSFORM_TABLE_STRU_803A: [TransformDescriptor; 10] = [
+    kid_art_with_spark(15, 0xA4EB4),
+    helmet_art(4, 0xB0C1A),
+    kid_art_with_spark(4, 0xA4EB4),
+    helmet_art(2, 0xB0C1A),
+    helmet_art(2, 0xB0EA0),
+    helmet_art(4, 0xB0C1A),
+    helmet_art(4, 0xB0EA0),
+    helmet_default(3),
+    helmet_art(5, 0xB0EA0),
+    helmet_default(8),
+];
+
+/// ASM stru_8064 (kid.asm): Maniaxe forward transform table.
+pub const MANIAXE_TRANSFORM_TABLE_STRU_8064: [TransformDescriptor; 9] = [
+    helmet_art(8, 0xA67BA),
+    helmet_art(3, 0xA6A40),
+    helmet_art(6, 0xA67BA),
+    helmet_art(3, 0xA6A40),
+    helmet_art(4, 0xA6CC6),
+    helmet_art(4, 0xA6A40),
+    helmet_art(6, 0xA6CC6),
+    helmet_art(3, 0xA6A40),
+    helmet_art(8, 0xA6CC6),
+];
+
+/// ASM stru_808A (kid.asm): Micromax forward transform table.
+pub const MICROMAX_TRANSFORM_TABLE_STRU_808A: [TransformDescriptor; 12] = [
+    kid_art_with_spark(15, 0xA4A22),
+    helmet_art(4, 0xAC3D0),
+    kid_art_with_spark(4, 0xA4EB4),
+    helmet_art(2, 0xAC3D0),
+    helmet_art(2, 0xAC656),
+    helmet_art(4, 0xAC85C),
+    helmet_art(4, 0xAC656),
+    helmet_art(4, 0xAC85C),
+    helmet_art(4, 0xAC656),
+    helmet_default(3),
+    helmet_art(5, 0xAC85C),
+    helmet_default(8),
+];
+
+/// Forward (`loc_7D0A`) table for every transformable target helmet. The Kid
+/// and invalid helmet ids return `None`; ASM loc_7CD0 skips the Kid table.
 fn forward_table_off_7ee2(new_helmet_id: u16) -> Option<&'static [TransformDescriptor]> {
     match new_helmet_id {
+        HELMET_SKYCUTTER => Some(&SKYCUTTER_TRANSFORM_TABLE_STRU_7EFA),
         HELMET_CYCLONE => Some(&CYCLONE_TRANSFORM_TABLE_STRU_7F30),
+        HELMET_RED_STEALTH => Some(&RED_STEALTH_TRANSFORM_TABLE_STRU_7F5A),
+        HELMET_EYECLOPS => Some(&EYECLOPS_TRANSFORM_TABLE_STRU_7F90),
+        HELMET_JUGGERNAUT => Some(&JUGGERNAUT_TRANSFORM_TABLE_STRU_7FCA),
         HELMET_IRON_KNIGHT => Some(&IRON_KNIGHT_TRANSFORM_TABLE_STRU_7FF8),
+        HELMET_BERZERKER => Some(&BERZERKER_TRANSFORM_TABLE_STRU_803A),
+        HELMET_MANIAXE => Some(&MANIAXE_TRANSFORM_TABLE_STRU_8064),
+        HELMET_MICROMAX => Some(&MICROMAX_TRANSFORM_TABLE_STRU_808A),
         _ => None,
     }
 }
@@ -156,8 +288,8 @@ fn forward_table_off_7ee2(new_helmet_id: u16) -> Option<&'static [TransformDescr
 /// counts through reverse(old table) ++ forward(new table); an index at or past
 /// the pass total is the finished cleanup frame.
 ///
-/// Scope: only old-form-Kid forward transforms into ported helmets return a
-/// phase. ASM loc_7C76 (kid.asm): `move.w (Current_Helmet).w,d7; beq.w
+/// Scope: only old-form-Kid forward transforms into transformable helmets
+/// return a phase. ASM loc_7C76 (kid.asm): `move.w (Current_Helmet).w,d7; beq.w
 /// loc_7CD0` — old form Kid skips the backward walk entirely, so the ordered
 /// pass list is the forward table alone. Helmet→helmet backward walks need the
 /// old table's art stamped from core state and are not ported yet.
@@ -506,11 +638,159 @@ mod tests {
         assert!(presented_transform_phase(0, 6, 82).is_some());
     }
 
-    /// Unported target helmets and out-of-range countdowns fall back.
+    /// Invalid target helmets and out-of-range countdowns fall back.
     #[test]
-    fn unported_or_out_of_range_returns_none() {
-        assert!(presented_transform_phase(0, 3, 40).is_none());
+    fn invalid_or_out_of_range_returns_none() {
+        assert!(presented_transform_phase(0, 10, 40).is_none());
         assert!(presented_transform_phase(0, 6, 0).is_none());
         assert!(presented_transform_phase(0, 6, 83).is_none());
+    }
+
+    /// ASM off_7EE2/stru_7EFA..stru_808A (kid.asm): every non-Kid helmet has
+    /// a forward table whose DBF pass sum seeds the live transform countdown.
+    #[test]
+    fn every_transformable_helmet_has_a_forward_presentation_table() {
+        let helmets = [
+            (1, PlayerForm::Skycutter),
+            (2, PlayerForm::Cyclone),
+            (3, PlayerForm::RedStealth),
+            (4, PlayerForm::Eyeclops),
+            (5, PlayerForm::Juggernaut),
+            (6, PlayerForm::IronKnight),
+            (7, PlayerForm::Berzerker),
+            (8, PlayerForm::Maniaxe),
+            (9, PlayerForm::Micromax),
+        ];
+
+        for (helmet_id, form) in helmets {
+            assert_eq!(
+                ported_forward_transform_passes(helmet_id),
+                Some(u32::from(transform_anim_frames(form))),
+                "ASM off_7EE2 helmet id {helmet_id} should have its complete forward table",
+            );
+        }
+    }
+
+    /// ASM stru_7EFA/stru_7F5A/stru_7F90/stru_7FCA/stru_803A/stru_8064/
+    /// stru_808A (kid.asm): pin every newly ported descriptor independently.
+    #[test]
+    fn remaining_forward_tables_match_off_7ee2_descriptors() {
+        assert_eq!(
+            SKYCUTTER_TRANSFORM_TABLE_STRU_7EFA,
+            [
+                kid_art_with_spark(8, 0xA4BA8),
+                helmet_art(4, 0xAA88C),
+                kid_art_with_spark(4, 0xA4BA8),
+                helmet_art(4, 0xAA88C),
+                kid_art_with_spark(4, 0xA4BA8),
+                helmet_art(2, 0xAA88C),
+                helmet_art(2, 0xAAA92),
+                helmet_art(2, 0xAADB8),
+                helmet_art(3, 0xAAA92),
+                helmet_art(3, 0xAADB8),
+                helmet_art(3, 0xAAA92),
+                helmet_art(3, 0xAA88C),
+                helmet_art(5, 0xAB3BE),
+            ]
+        );
+        assert_eq!(
+            RED_STEALTH_TRANSFORM_TABLE_STRU_7F5A,
+            [
+                helmet_art(4, 0xB5088),
+                kid_art_with_spark(8, 0xA4A22),
+                helmet_art(4, 0xB5088),
+                kid_art_with_spark(4, 0xA4A22),
+                helmet_art(2, 0xB5088),
+                helmet_art(2, 0xB580E),
+                helmet_art(3, 0xB5088),
+                helmet_art(3, 0xB580E),
+                helmet_art(4, 0xB5088),
+                helmet_art(4, 0xB580E),
+                helmet_default(3),
+                helmet_art(5, 0xB580E),
+                helmet_default(8),
+            ]
+        );
+        assert_eq!(
+            EYECLOPS_TRANSFORM_TABLE_STRU_7F90,
+            [
+                kid_art_with_spark(24, 0xA4A22),
+                helmet_art(4, 0xB8146),
+                kid_art_with_spark(12, 0xA4A22),
+                helmet_art(4, 0xB8146),
+                kid_art_with_spark(6, 0xA4A22),
+                helmet_art(4, 0xB8146),
+                helmet_art(4, 0xB85CC),
+                helmet_art(4, 0xB8A52),
+                helmet_art(4, 0xB85CC),
+                helmet_art(4, 0xB8A52),
+                helmet_default(8),
+                helmet_art(4, 0xB8A52),
+                helmet_default(8),
+                helmet_art(3, 0xB8A52),
+            ]
+        );
+        assert_eq!(
+            JUGGERNAUT_TRANSFORM_TABLE_STRU_7FCA,
+            [
+                helmet_art(3, 0xC085E),
+                helmet_art(3, 0xC0B84),
+                helmet_art(3, 0xC0EAA),
+                helmet_art(3, 0xC1270),
+                helmet_art(3, 0xC0EAA),
+                helmet_art(3, 0xC0B84),
+                helmet_art(3, 0xC085E),
+                helmet_art(3, 0xC0B84),
+                helmet_art(3, 0xC0EAA),
+                helmet_art(3, 0xC1270),
+                helmet_art(3, 0xC0EAA),
+            ]
+        );
+        assert_eq!(
+            BERZERKER_TRANSFORM_TABLE_STRU_803A,
+            [
+                kid_art_with_spark(15, 0xA4EB4),
+                helmet_art(4, 0xB0C1A),
+                kid_art_with_spark(4, 0xA4EB4),
+                helmet_art(2, 0xB0C1A),
+                helmet_art(2, 0xB0EA0),
+                helmet_art(4, 0xB0C1A),
+                helmet_art(4, 0xB0EA0),
+                helmet_default(3),
+                helmet_art(5, 0xB0EA0),
+                helmet_default(8),
+            ]
+        );
+        assert_eq!(
+            MANIAXE_TRANSFORM_TABLE_STRU_8064,
+            [
+                helmet_art(8, 0xA67BA),
+                helmet_art(3, 0xA6A40),
+                helmet_art(6, 0xA67BA),
+                helmet_art(3, 0xA6A40),
+                helmet_art(4, 0xA6CC6),
+                helmet_art(4, 0xA6A40),
+                helmet_art(6, 0xA6CC6),
+                helmet_art(3, 0xA6A40),
+                helmet_art(8, 0xA6CC6),
+            ]
+        );
+        assert_eq!(
+            MICROMAX_TRANSFORM_TABLE_STRU_808A,
+            [
+                kid_art_with_spark(15, 0xA4A22),
+                helmet_art(4, 0xAC3D0),
+                kid_art_with_spark(4, 0xA4EB4),
+                helmet_art(2, 0xAC3D0),
+                helmet_art(2, 0xAC656),
+                helmet_art(4, 0xAC85C),
+                helmet_art(4, 0xAC656),
+                helmet_art(4, 0xAC85C),
+                helmet_art(4, 0xAC656),
+                helmet_default(3),
+                helmet_art(5, 0xAC85C),
+                helmet_default(8),
+            ]
+        );
     }
 }
