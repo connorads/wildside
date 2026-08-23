@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive pause-palette mutation refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected the shipped pause-palette compositor. This live renderer path can
+  affect pause-route pixels without changing #313's blocked mutable-VDP
+  save/restore boundary or any frozen timing feeder.
+- Re-read ASM `Pause_DarkenPalette loc_6C70/loc_6C9E`: both palette spans mask
+  and halve each three-bit MD CRAM channel before the paused palette upload.
+  Native maps resolved RGB back to the nearest MD channel, calls the shared
+  core palette transform, then re-expands the result.
+- The first isolated census stopped on the reviewed non-gated workspace
+  failure `select_player_frame_uses_accumulator_for_ground_slope_and_walk_poses`.
+  Rerunning with only that exact baseline test skipped completed under
+  `/tmp/mutants-frame-pause-darken-reviewed-baseline-20260823`: all 17 selected
+  mutations were caught, with no miss, timeout, or compile failure. Existing
+  tests already protect whole-frame application, quantisation, halving,
+  masking, and re-expansion; no duplicate regression or source edit is needed.
+- Starting `mise run verify-slice-fast` passes with 7,311 tests. Final fast
+  verification after the handoff update also passes. Full TAS is not required
+  because this session changes only handoff documentation.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this pause-darken slice.
+
 ## 2026-08-23 handoff (proactive full-width spike-scan boundary)
 
 - `project-status` offered no ready/open risk. The sole ordinary uncovered ASM
