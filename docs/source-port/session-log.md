@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive attract-demo mutation refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected `demo.rs`. It feeds the live attract-demo input path and the
+  checked TAS-frontier recordings, and had not appeared in the recent
+  hardening rotation.
+- `FILE=demo.rs OUTPUT=/tmp/mutants-demo-20260823 mise run mutants-file`
+  accounts for all 85 focused mutations in 11 minutes: 67 caught and 18
+  compiler-unviable, with no survivor or timeout.
+- Existing ASM-cited tests distinguish every viable change across `ReadJoypad`
+  input decoding and the six-byte ROM overflow quirk, recording-specific
+  gameplay/HUD/enemy start frames, hidden camera rows, and measured
+  controller-shell boundaries. No redundant regression or production edit is
+  justified.
+- The required starting `mise run verify-slice-fast` passed with 7,310 tests.
+  Final verification: `mise run verify-slice-fast` passes. Only handoff docs
+  changed, so the full TAS gate is not required for this unit.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this demo slice.
+
 ## 2026-08-23 handoff (proactive complete forward transform tables)
 
 - `project-status` offered no ready/open risk. The proactive audit selected the
