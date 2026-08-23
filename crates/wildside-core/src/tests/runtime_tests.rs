@@ -11205,6 +11205,40 @@ mod chunk_09 {
     }
 
     #[test]
+    fn debug_level_entry_murder_wall_starts_at_live_boundary_loc_74e0_7316() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.current_level = LevelId(0x08);
+        runtime.debug_level_entry_suppresses_title_card_live_handoff = true;
+        runtime.debug_level_entry_runs_live_shell_loc_74e0 = true;
+        runtime.opening_slice = Some(make_airborne_slice(0x20, 0x40));
+        runtime.murder_wall = Some(MurderWallState {
+            x_pos: 0,
+            speed: 0,
+            max_speed: 0x0004_0000,
+            reversed: false,
+        });
+        let live_boundary = runtime.debug_level_entry_live_boundary_loc_74e0();
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: true,
+            elapsed_frames: live_boundary,
+            uses_load_ingame_bootstrap: false,
+            load_ingame_bootstrap_started: false,
+        };
+
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            runtime.murder_wall,
+            Some(MurderWallState {
+                x_pos: 0x0000_0300,
+                speed: 0x0000_0200,
+                max_speed: 0x0004_0000,
+                reversed: false,
+            }),
+            "ASM loc_74E0's hidden Mode_Level shell starts the sub_7196 murder-wall worker at the measured live boundary; this boundary step runs once beneath the shell before the same frame's visible loc_7316 handoff tick",
+        );
+    }
+
+    #[test]
     fn settled_recording_warp_bloody_swamp_keeps_murder_wall_level_skip_tail_age() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

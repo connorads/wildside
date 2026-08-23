@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive hidden-shell murder-wall boundary)
+
+- `project-status` offered no ready/open risk, so the proactive fallback audited
+  live loader changes added after their modules' earlier mutation sessions.
+- The large block-list guard accounted for one caught and one compiler-unviable
+  mutation. The hidden-prize reload guard caught both mutations. The complete
+  enemy-layout status slice caught 23 mutations with one compiler-unviable.
+- The hidden debug-warp murder-wall slice found one survivor: reversing the
+  measured live-boundary comparison. Its existing exact route regressions
+  returned early without cache-local generated assets, so isolated core
+  mutation worktrees did not execute them.
+- The replacement core regression constructs the `loc_74E0` boundary state
+  without cache assets. It pins the hidden `sub_7196` wall tick before the same
+  frame's visible `loc_7316` handoff tick. The comparison mutation is caught;
+  the only other selected mutation replaces the whole frame scheduler and
+  times out.
+- The required starting `mise run verify-slice-fast` passed with 7,297 tests.
+  The final fast gate passes with 7,298 tests.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path branch added after its last module census. Do not
+  extend the loader/status or hidden-shell murder-wall slices.
+
 ## 2026-08-23 handoff (proactive platform-loader range checks)
 
 - `project-status` offered no ready/open risk, so the proactive fallback audited
