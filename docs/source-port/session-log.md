@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive Ninja blocking flag)
+
+- `project-status` offered no ready/open risk. The proactive fallback audited
+  Ninja's live `loc_3D65A` blocking decision beside its later post-census hurt
+  duration wiring; this path feeds published-route enemy state and the sweep.
+- Both generated condition mutations survived because the existing regression
+  set `shared_walker_state != 0` and `NinjaState::Guard` together. The exact
+  `||` to `&&` mutation stayed green before the fix.
+- The ASM decision is now an explicit pure predicate. A four-case regression
+  pins the clear state and both independent native representations of set
+  `$4C(a5)`. The diff census catches all five selected predicate and
+  whole-caller mutations.
+- The required starting `mise run verify-slice-fast` passed with 7,303 tests.
+  The final fast gate passes with 7,304 tests. `mise run verify-tas-full` is
+  green across all 37,759 frames with every ratchet unchanged.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this Ninja blocking slice.
+
 ## 2026-08-23 handoff (proactive Lion resume flag)
 
 - `project-status` offered no ready/open risk. The proactive fallback audited

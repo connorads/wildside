@@ -17039,6 +17039,16 @@ mod chunk_03 {
         assert_eq!(QueuedSoundEffect::NinjaBlocking.sound_id(), 0x52);
     }
 
+    /// ASM Ninja.asm loc_3D65A: non-zero `$4C(a5)` selects the blocking
+    /// response before the ordinary loc_3D670 damage path.
+    #[test]
+    fn ninja_blocking_flag_loc_3d65a_covers_both_native_representations() {
+        assert!(!ninja_blocking_flag_loc_3d65a(0, NinjaState::Stealth));
+        assert!(ninja_blocking_flag_loc_3d65a(-1, NinjaState::Stealth));
+        assert!(ninja_blocking_flag_loc_3d65a(0, NinjaState::Guard));
+        assert!(ninja_blocking_flag_loc_3d65a(-1, NinjaState::Guard));
+    }
+
     #[test]
     fn ninja_jump_attack_kid_above_bounces_and_decrements_loc_3da0c_3da98() {
         let mut runtime = NativeRuntime::new(manifest());

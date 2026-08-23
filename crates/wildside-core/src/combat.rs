@@ -7829,6 +7829,16 @@ pub(crate) fn lion_post_charge_flag_loc_3e356(on_ground: bool, lion_state: LionS
     !on_ground || matches!(lion_state, LionState::ResumingCharge)
 }
 
+pub(crate) fn ninja_blocking_flag_loc_3d65a(
+    shared_walker_state: i16,
+    ninja_state: NinjaState,
+) -> bool {
+    // ASM Ninja.asm loc_3D65A tests `$4C(a5)` before deciding whether hurt
+    // contact is blocked. Native represents that set byte both in the shared
+    // walker field and explicitly during the Guard phase.
+    shared_walker_state != 0 || matches!(ninja_state, NinjaState::Guard)
+}
+
 fn orca_collision_resume_loc_3d2bc(enemy: &ActiveEnemy) -> OrcaResumeBranch {
     let resume = orca_collision_clear_loc_3d2bc(enemy.wall_pinned, enemy.facing);
     debug_assert_eq!(resume.next_collision_type, 0);
@@ -9195,9 +9205,10 @@ impl NativeRuntime {
                 .route
                 {
                     NinjaCollisionLoc3D606::To3D65A => {
-                        if enemy.shared_walker_state != 0
-                            || matches!(enemy.ninja_state, NinjaState::Guard)
-                        {
+                        if ninja_blocking_flag_loc_3d65a(
+                            enemy.shared_walker_state,
+                            enemy.ninja_state,
+                        ) {
                             // ASM Ninja.asm loc_3D65A: non-zero `$4C(a5)`
                             // blocks hurt/Kid-above contact, plays `$52`, and
                             // resumes through loc_3D638 without decrementing
