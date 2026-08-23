@@ -7,6 +7,35 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive GEMS event-command audit)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected `gems_event_sound_commands`. It feeds the live zero-mismatch
+  command-parity gate and had changed since the previous broad audio campaign.
+- The initial bounded census found 23 misses among 42 selected mutants. Exact
+  boundary regressions now cover generic damage suppression, transform and
+  ice-block fallbacks, score-counter start/stop edges, and silent state edges.
+  The final census under
+  `/tmp/mutants-frame-gems-events-death-restored-20260823` accounts for all 33
+  selected mutants: 29 caught and four compiler-unviable.
+- ASM shows that Diamond Power activation itself is silent, geyser allocation
+  precedes the wake cue, and `End_Credits` delays BGM until `loc_D824`.
+  Removing those three early state inferences prevents mistimed commands.
+- Full-route verification rejected an attempted removal of the ice-block
+  effect fallback: native commands fell from 437 to 398 and the first missing
+  oracle cue was `$11`. Restoring the fallback recovers all 39 commands and
+  returns `gems_command_parity_v1` to 437/437 with zero mismatches. The commit
+  hook also proved that trace-only death fixtures still require the later life
+  edge. Death, transform, ice-block, generic damage, and score-counter
+  fallbacks remain until their live producers are fully promoted.
+- Starting `mise run verify-slice-fast` passed with 7,311 tests. The final
+  sequential `mise run verify-tas-full` is green across all 37,759 frames with
+  the existing 241-frame/2,391-pixel and GEMS timing ratchets unchanged. Final
+  fast verification after the handoff update also passes with 7,311 tests.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this GEMS event-command
+  slice.
+
 ## 2026-08-23 handoff (proactive palette-provenance mutation refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback

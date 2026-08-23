@@ -4905,19 +4905,21 @@ pub fn gems_event_sound_commands(
             .copied()
             .any(is_damage_resolution_voice_sound_id)
         && curr.number_hitpoints < prev.number_hitpoints
-        && prev.number_hitpoints > 0
     {
         sound_commands.push(NativeSoundCommand::start_sequence(gems_sfx::VOICE_OUCH));
     }
 
-    // Death (lives decreased)
-    if curr.number_lives < prev.number_lives {
+    // Death (lives decreased). ASM Death queues sfx_Voice_die before lose_life
+    // decrements lives. Keep this fallback for frame traces that expose only
+    // the later life edge, while suppressing an exact command duplicate.
+    if curr.number_lives < prev.number_lives && !queued_sound_ids.contains(&gems_sfx::VOICE_DIE) {
         sound_commands.push(NativeSoundCommand::start_sequence(gems_sfx::VOICE_DIE));
     }
 
     // Form change (helmet ID changed). ASM loc_7CD0 skips the unk_7ED8 cue in
     // Demo_Mode_flag, otherwise indexes this table by Current_Helmet whose
-    // order differs from the extracted art order.
+    // order differs from the extracted art order. Keep this fallback until all
+    // live transform paths export the exact core command into the frame trace.
     if curr.game_mode != GameMode::DemoPlay
         && curr.current_helmet_id != prev.current_helmet_id
         && let Some(id) = transform_sound_for_helmet_id_loc_7cd0(curr.current_helmet_id)
@@ -4926,12 +4928,10 @@ pub fn gems_event_sound_commands(
         sound_commands.push(NativeSoundCommand::start_sequence(id));
     }
 
-    // Diamond Power activation
-    if curr.diamond_power_active && !prev.diamond_power_active {
-        sound_commands.push(NativeSoundCommand::start_sequence(
-            gems_sfx::DIAMOND_POWER_AVAILABLE,
-        ));
-    }
+    // ASM DiamondPower_Check sets Diamond_power_active before dispatching the
+    // selected power without calling PlaySound. Increase_Diamonds and
+    // loc_109E8 queue sfx_Diamond_Power_available only when the collected
+    // diamond count reaches 20 or 50; those exact core commands arrive above.
 
     // ASM loc_D752/loc_D770: Score_Board BGM and EOL rows appear before the
     // `sfx_Score_counter` cue; only start it when the ROM counter drain begins.
@@ -4962,23 +4962,20 @@ pub fn gems_event_sound_commands(
     // climb boosts (Get_RandomNumber_wordC: `$1C`).
 
     // Block destroyed (new destroy effects appeared). ASM ice blocks queue
-    // sfx_Prize_block=$11 from the core trace on the same frame as sub_10F9C's
-    // destroy effect, so do not replay the historical delta heuristic too.
+    // sfx_Prize_block=$11 on the same frame as sub_10F9C's destroy effect.
+    // Keep the state fallback until every live ice-block path exports the exact
+    // core command, while suppressing it when that command is already present.
     if !queued_sound_ids.contains(&gems_sfx::DESTROY_BLOCK)
         && curr.block_destroy_effects.len() > prev.block_destroy_effects.len()
     {
         sound_commands.push(NativeSoundCommand::start_sequence(gems_sfx::DESTROY_BLOCK));
     }
 
-    // Lava geyser erupted (new geysers appeared)
-    if curr.active_geysers.len() > prev.active_geysers.len() {
-        sound_commands.push(NativeSoundCommand::start_sequence(gems_sfx::LAVA_GEYSER));
-    }
+    // ASM Obj_Lava_Geyser allocates before loc_14772's initial hibernate. Core
+    // queues the exact sfx_Lava_Geyser command when loc_14772/loc_1478E wakes.
 
-    // Game complete — ending music
-    if curr.game_complete && !prev.game_complete {
-        sound_commands.push(NativeSoundCommand::start_sequence(gems_bgm::ENDING));
-    }
+    // ASM End_Credits loc_D7FA waits `$28` frames before loc_D824 queues
+    // bgm_Ending. Core exports that delayed BGM command through played_bgm_ids.
 
     // #342: the clock-prize loop is no longer inferred from a timer jump here.
     // ASM PrizeClock_Init loc_10792 starts sfx_Clock_prize when the falling
@@ -8299,6 +8296,87 @@ mod tests {
     }
 
     #[test]
+    fn damage_fallback_requires_a_live_hp_decrease_without_an_exact_voice() {
+        let mut prev = trace(GameMode::InGame);
+        let mut curr = trace(GameMode::InGame);
+        prev.number_hitpoints = 3;
+        curr.number_hitpoints = 2;
+
+        assert_eq!(
+            gems_event_sound_commands(&prev, &curr),
+            vec![NativeSoundCommand::start_sequence(gems_sfx::VOICE_OUCH)],
+            "ASM loc_B73C/loc_B750/loc_B764/loc_B778 damage paths retain the generic fallback until every family exports its exact voice"
+        );
+
+        curr.number_hitpoints = 3;
+        assert!(gems_event_sound_commands(&prev, &curr).is_empty());
+
+        prev.number_hitpoints = 2;
+        curr.number_hitpoints = 3;
+        assert!(gems_event_sound_commands(&prev, &curr).is_empty());
+
+        prev.number_hitpoints = 0;
+        curr.number_hitpoints = 0;
+        assert!(gems_event_sound_commands(&prev, &curr).is_empty());
+    }
+
+    #[test]
+    fn exact_damage_voice_suppresses_loc_b73c_family_fallback() {
+        let mut prev = trace(GameMode::InGame);
+        let mut curr = trace(GameMode::InGame);
+        prev.number_hitpoints = 3;
+        curr.number_hitpoints = 2;
+        curr.played_sound_effect_ids = vec![gems_sfx::VOICE_OUCH_1];
+
+        assert_eq!(
+            gems_event_sound_commands(&prev, &curr),
+            vec![NativeSoundCommand::start_sequence(gems_sfx::VOICE_OUCH_1)],
+            "an exact ASM loc_B73C-family voice command must not be followed by the generic fallback"
+        );
+    }
+
+    #[test]
+    fn score_counter_edges_match_loc_d752_and_loc_d7f4() {
+        let mut prev = trace(GameMode::InGame);
+        let mut curr = trace(GameMode::InGame);
+        curr.level_complete = true;
+        curr.level_complete_score_counter_elapsed_frames = 1;
+
+        assert_eq!(
+            gems_event_sound_commands(&prev, &curr),
+            vec![NativeSoundCommand::start_sequence(gems_sfx::SCORE_COUNTER)],
+            "ASM loc_D752 starts sfx_Score_counter when the score drain begins"
+        );
+
+        curr.level_complete = false;
+        assert!(gems_event_sound_commands(&prev, &curr).is_empty());
+
+        curr.level_complete = true;
+        curr.level_complete_score_counter_elapsed_frames = 0;
+        assert!(gems_event_sound_commands(&prev, &curr).is_empty());
+
+        prev.level_complete_score_counter_elapsed_frames = 1;
+        curr.level_complete_score_counter_elapsed_frames = 2;
+        assert!(gems_event_sound_commands(&prev, &curr).is_empty());
+
+        prev.level_complete_score_counter_elapsed_frames = 0;
+        curr.level_complete_score_counter_elapsed_frames = 0;
+        curr.level_complete_score_counter_drained = true;
+        assert_eq!(
+            gems_event_sound_commands(&prev, &curr),
+            vec![NativeSoundCommand::stop_sequence(gems_sfx::SCORE_COUNTER)],
+            "ASM loc_D7F4 stops sfx_Score_counter on the undrained-to-drained edge"
+        );
+
+        curr.level_complete = false;
+        assert!(gems_event_sound_commands(&prev, &curr).is_empty());
+
+        curr.level_complete = true;
+        prev.level_complete_score_counter_drained = true;
+        assert!(gems_event_sound_commands(&prev, &curr).is_empty());
+    }
+
+    #[test]
     fn native_audio_airborne_transition_without_loc_a480_command_does_not_infer_jump() {
         let mut prev = trace(GameMode::InGame);
         let mut curr = trace(GameMode::InGame);
@@ -8309,6 +8387,118 @@ mod tests {
         assert!(
             gems_event_sound_commands(&prev, &curr).is_empty(),
             "only ASM loc_A480 launch paths queue sfx_Jump; an airborne state edge is not sound authority"
+        );
+    }
+
+    #[test]
+    fn diamond_power_activation_without_threshold_command_stays_silent_diamondpower_check() {
+        let prev = trace(GameMode::InGame);
+        let mut curr = trace(GameMode::InGame);
+        curr.diamond_power_active = true;
+
+        assert!(
+            gems_event_sound_commands(&prev, &curr).is_empty(),
+            "ASM DiamondPower_Check sets Diamond_power_active and dispatches the power without PlaySound; Increase_Diamonds/loc_109E8 queue sfx_Diamond_Power_available only at the 20/50-diamond thresholds"
+        );
+    }
+
+    #[test]
+    fn helmet_state_change_falls_back_to_loc_7cd0_transform_cue() {
+        let prev = trace(GameMode::InGame);
+        let mut curr = trace(GameMode::InGame);
+        curr.current_helmet_id = 1;
+
+        assert_eq!(
+            gems_event_sound_commands(&prev, &curr),
+            vec![NativeSoundCommand::start_sequence(
+                gems_sfx::SKYCUTTER_TRANSFORM
+            )],
+            "ASM loc_7CD0 indexes unk_7ED8 by Current_Helmet"
+        );
+
+        let mut demo = curr.clone();
+        demo.game_mode = GameMode::DemoPlay;
+        assert!(
+            gems_event_sound_commands(&prev, &demo).is_empty(),
+            "ASM loc_7CD0 skips the transform cue in Demo_Mode_flag"
+        );
+
+        curr.played_sound_effect_ids = vec![gems_sfx::SKYCUTTER_TRANSFORM];
+        assert_eq!(
+            gems_event_sound_commands(&prev, &curr),
+            vec![NativeSoundCommand::start_sequence(
+                gems_sfx::SKYCUTTER_TRANSFORM
+            )],
+            "an exact loc_7CD0 trace command suppresses the state fallback duplicate"
+        );
+    }
+
+    #[test]
+    fn ice_destroy_effect_falls_back_to_sub_10f9c_prize_block_cue() {
+        let prev = trace(GameMode::InGame);
+        let mut curr = trace(GameMode::InGame);
+        curr.block_destroy_effects.push((80, 48, 2, 0));
+
+        assert_eq!(
+            gems_event_sound_commands(&prev, &curr),
+            vec![NativeSoundCommand::start_sequence(gems_sfx::DESTROY_BLOCK)],
+            "ASM IceBlock_SmashAndLoadBullets queues sfx_Prize_block before sub_10F9C creates the destroy effect"
+        );
+
+        curr.played_sound_effect_ids = vec![gems_sfx::DESTROY_BLOCK];
+        assert_eq!(
+            gems_event_sound_commands(&prev, &curr),
+            vec![NativeSoundCommand::start_sequence(gems_sfx::DESTROY_BLOCK)],
+            "the exact ice-block command suppresses the state fallback duplicate"
+        );
+
+        let mut settled = curr.clone();
+        settled.played_sound_effect_ids.clear();
+        assert!(gems_event_sound_commands(&curr, &settled).is_empty());
+    }
+
+    #[test]
+    fn allocated_geyser_waits_for_exact_loc_14772_command() {
+        let prev = trace(GameMode::InGame);
+        let mut curr = trace(GameMode::InGame);
+        curr.active_geysers.push((144, 184, 24, 0, 0));
+
+        assert!(
+            gems_event_sound_commands(&prev, &curr).is_empty(),
+            "ASM Obj_Lava_Geyser allocates before loc_14772 hibernates; native core queues the exact sfx_Lava_Geyser command only when loc_14772/loc_1478E resumes"
+        );
+    }
+
+    #[test]
+    fn lose_life_decrement_falls_back_to_death_voice_without_exact_command() {
+        let mut prev = trace(GameMode::InGame);
+        let mut curr = trace(GameMode::LevelTransition);
+        prev.number_lives = 3;
+        curr.number_lives = 2;
+
+        assert_eq!(
+            gems_event_sound_commands(&prev, &curr),
+            vec![NativeSoundCommand::start_sequence(gems_sfx::VOICE_DIE)],
+            "ASM Death queues sfx_Voice_die before lose_life; the state edge remains the fallback for traces without that exact command"
+        );
+
+        curr.played_sound_effect_ids = vec![gems_sfx::VOICE_DIE];
+        assert_eq!(
+            gems_event_sound_commands(&prev, &curr),
+            vec![NativeSoundCommand::start_sequence(gems_sfx::VOICE_DIE)],
+            "an exact ASM Death voice suppresses the life-edge fallback duplicate"
+        );
+    }
+
+    #[test]
+    fn ending_entry_waits_for_exact_loc_d824_bgm_command() {
+        let prev = trace(GameMode::InGame);
+        let mut curr = trace(GameMode::EndingSequence);
+        curr.game_complete = true;
+
+        assert!(
+            gems_event_sound_commands(&prev, &curr).is_empty(),
+            "ASM End_Credits loc_D7FA hibernates `$28` frames before loc_D824 queues bgm_Ending; native core exports that exact delayed BGM command"
         );
     }
 
