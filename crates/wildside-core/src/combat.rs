@@ -7822,6 +7822,13 @@ fn apply_lion_collision_resume_loc_3e318(
     }
 }
 
+pub(crate) fn lion_post_charge_flag_loc_3e356(on_ground: bool, lion_state: LionState) -> bool {
+    // ASM Lion.asm loc_3E356 tests `$5C(a5)` before dispatching by
+    // x_direction. Native represents that set flag both while the Lion is
+    // airborne and explicitly during the ResumingCharge phase.
+    !on_ground || matches!(lion_state, LionState::ResumingCharge)
+}
+
 fn orca_collision_resume_loc_3d2bc(enemy: &ActiveEnemy) -> OrcaResumeBranch {
     let resume = orca_collision_clear_loc_3d2bc(enemy.wall_pinned, enemy.facing);
     debug_assert_eq!(resume.next_collision_type, 0);
@@ -8440,7 +8447,7 @@ impl NativeRuntime {
                 match lion_collision_response_loc_3e318(
                     collision.collision_type as i16,
                     u16::from(enemy.hit_points),
-                    !enemy.on_ground || matches!(enemy.lion_state, LionState::ResumingCharge),
+                    lion_post_charge_flag_loc_3e356(enemy.on_ground, enemy.lion_state),
                     matches!(enemy.facing, Direction::Right),
                 ) {
                     LionCollisionLoc3E318::Kill => {
@@ -8459,8 +8466,7 @@ impl NativeRuntime {
                         match lion_collision_response_loc_3e318(
                             0,
                             remaining_hp,
-                            !enemy.on_ground
-                                || matches!(enemy.lion_state, LionState::ResumingCharge),
+                            lion_post_charge_flag_loc_3e356(enemy.on_ground, enemy.lion_state),
                             matches!(enemy.facing, Direction::Right),
                         ) {
                             LionCollisionLoc3E318::Continue { next } => {
@@ -11933,7 +11939,7 @@ impl NativeRuntime {
                     match lion_collision_response_loc_3e318(
                         LION_COLID_KIDABOVE as i16,
                         u16::from(enemy.hit_points),
-                        !enemy.on_ground || matches!(enemy.lion_state, LionState::ResumingCharge),
+                        lion_post_charge_flag_loc_3e356(enemy.on_ground, enemy.lion_state),
                         matches!(enemy.facing, Direction::Right),
                     ) {
                         LionCollisionLoc3E318::Kill => {
@@ -11952,8 +11958,10 @@ impl NativeRuntime {
                                 lion_collision_response_loc_3e318(
                                     0,
                                     remaining_hp,
-                                    !enemy.on_ground
-                                        || matches!(enemy.lion_state, LionState::ResumingCharge),
+                                    lion_post_charge_flag_loc_3e356(
+                                        enemy.on_ground,
+                                        enemy.lion_state,
+                                    ),
                                     matches!(enemy.facing, Direction::Right),
                                 )
                             {

@@ -19072,6 +19072,22 @@ mod chunk_03 {
         assert!(!lion.death_animation_active);
     }
 
+    /// ASM Lion.asm loc_3E356: `$5C(a5)` selects the post-charge resume
+    /// library before x_direction chooses its left/right arm.
+    #[test]
+    fn lion_post_charge_flag_loc_3e356_covers_both_native_representations() {
+        assert!(!lion_post_charge_flag_loc_3e356(true, LionState::Roaring));
+        assert!(lion_post_charge_flag_loc_3e356(false, LionState::Roaring));
+        assert!(lion_post_charge_flag_loc_3e356(
+            true,
+            LionState::ResumingCharge
+        ));
+        assert!(lion_post_charge_flag_loc_3e356(
+            false,
+            LionState::ResumingCharge
+        ));
+    }
+
     #[test]
     fn lion_pending_kidabove_collision_preserves_airborne_resume_loc_3e356() {
         let mut runtime = NativeRuntime::new(manifest());

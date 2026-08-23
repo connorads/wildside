@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive Lion resume flag)
+
+- `project-status` offered no ready/open risk. The proactive fallback audited
+  Lion's live `loc_3E356` post-charge resume decision, which changed after the
+  family's last module census and feeds published-route enemy state.
+- Three of its four condition mutations survived: the existing integrations
+  exercised only both-false grounded ordinary state and both-true airborne
+  `ResumingCharge` state. The first mutation filter widened to the enclosing
+  collision functions; its other 24 survivors are all projectile fields under
+  blocked boss umbrella #301 and remain ineligible.
+- The ASM decision is now an explicit pure predicate. A four-case regression
+  pins both independent native representations of set `$5C(a5)` and the clear
+  state. The diff census catches all seven selected predicate and whole-caller
+  mutations.
+- The required starting `mise run verify-slice-fast` passed with 7,302 tests.
+  The focused 132-test Lion surface and the seven-mutant closure are green.
+  The final fast gate passes with 7,303 tests. `mise run verify-tas-full` is
+  green across all 37,759 frames with every ratchet unchanged.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this Lion resume slice or
+  the blocked boss projectile constructors found by the widened census.
+
 ## 2026-08-23 handoff (proactive grounded wall-stop guard)
 
 - `project-status` offered no ready/open risk. The proactive fallback first
