@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive damage-flash mutation refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected `step_damage_flash_thread_loc_bc5c`. The helper was extracted after
+  boot's last mutation campaign and feeds both ordinary contact damage and the
+  live hidden settled-warp object shell.
+- The bounded nine-mutant census retained under
+  `/tmp/mutants-boot-damage-flash-20260823` catches every viable change:
+  whole-function removal, the invulnerability/transform guard, countdown
+  arithmetic, and final damage-latch cleanup. No source edit or duplicate
+  regression is warranted.
+- The adjacent hidden-shell collision producer/consumer already have exact
+  regressions for the `loc_1CF2` producer frame and every independent
+  `loc_1D00`/`loc_B700` invulnerability, lifecycle, and missing-slice blocker.
+- The sole ordinary ASM-coverage residue, Tar Monster `loc_32454`, remains
+  unreachable code after `return_3243E`: no branch or `off_32290` control-script
+  entry targets it. It was rejected rather than cited to inflate coverage.
+- Starting verification: `mise run verify-slice-fast` passes with 7,311 tests.
+  The sequential `mise run verify-tas-full` is green across all 37,759 frames
+  with the existing 241-frame/2,391-pixel and audio ratchets unchanged. Final
+  `mise run verify-slice-fast` passes; only handoff docs changed after the
+  starting full-route evidence.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this damage-flash or hidden
+  contact slice.
+
 ## 2026-08-23 handoff (proactive reverse transform presentation)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
