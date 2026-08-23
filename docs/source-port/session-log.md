@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive player-art residency mutation boundary)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected `PlayerDynamicArtVramPageLocAd4::apply_frame_rendered_prefixes`.
+  This post-campaign path feeds resident player art into the live
+  `source_port_visible_rgb24_v1` route without extending frozen raster timing.
+- The initial bounded census under
+  `/tmp/mutants-frame-player-art-prefixes-20260823` found four misses among
+  eight selected mutations. Existing coverage proved partial-word copying but
+  not the two exact upper boundaries.
+- One ASM-cited public-behaviour regression now proves that
+  `committed_words == words` and `source_end == source_words` are valid complete
+  `Transfer_SpriteAndKidToVRAM loc_AD4` transfers. It separately rejects a
+  one-word committed-length overflow and a one-word source-page overflow.
+- The closure census under
+  `/tmp/mutants-frame-player-art-prefixes-final-20260823` catches all eight
+  selected mutations. Starting `mise run verify-slice-fast` passes with 7,311
+  tests; sequential `mise run verify-tas-full` remains green across all 37,759
+  frames with 437/437 GEMS commands and the existing pixel/audio ratchets.
+  Final fast verification after the handoff update also passes with 7,311
+  tests. No second full TAS is required because the current change adds only
+  tests and handoff docs.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this player-art residency
+  slice.
+
 ## 2026-08-23 handoff (proactive GEMS event-command audit)
 
 - `project-status` offered no ready/open risk, so the proactive fallback

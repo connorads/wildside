@@ -3057,6 +3057,47 @@ mod tests {
         );
     }
 
+    #[test]
+    fn loc_ad4_page_accepts_exact_dma_and_source_word_boundaries() {
+        let old = marked_dynamic_art_frame(0x10, 1);
+        let new = marked_dynamic_art_frame(0x80, 1);
+        let complete = [wildside_core::vdp::MemoryDmaFrameRenderedResidency {
+            words: 16,
+            committed_words_before_frame_rendered: 16,
+        }];
+        let mut resident = PlayerDynamicArtVramPageLocAd4::from_resident_frame(&old);
+
+        resident
+            .apply_frame_rendered_prefixes(&new, &complete)
+            .expect("ASM loc_AD4 may commit the complete final DMA at the exact source-page end");
+        assert_eq!(
+            resident.tile_sheet, new.tile_sheet,
+            "all sixteen words of the final 8x8 tile become resident"
+        );
+
+        let committed_overflow = [wildside_core::vdp::MemoryDmaFrameRenderedResidency {
+            words: 16,
+            committed_words_before_frame_rendered: 17,
+        }];
+        assert!(
+            resident
+                .apply_frame_rendered_prefixes(&new, &committed_overflow)
+                .is_none(),
+            "FrameRendered residency cannot exceed the loc_AD4 DMA length"
+        );
+
+        let source_overflow = [wildside_core::vdp::MemoryDmaFrameRenderedResidency {
+            words: 17,
+            committed_words_before_frame_rendered: 17,
+        }];
+        assert!(
+            resident
+                .apply_frame_rendered_prefixes(&new, &source_overflow)
+                .is_none(),
+            "loc_AD4 cannot source a word beyond the selected player-art page"
+        );
+    }
+
     fn synthetic_player_frame() -> wildside_render::SpriteFrame {
         wildside_render::SpriteFrame {
             origin_x: 8,
