@@ -5240,6 +5240,62 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_8E3E -> loc_8E5A: only a grounded positive solid-wall stop
+    /// bypasses the generic `sub_942A` walk-phase update.
+    #[test]
+    fn loc_8e5a_walk_phase_restore_requires_the_complete_wall_stop_state() {
+        let retains = |wall_hit, before, after, velocity, slope, form| {
+            should_retain_grounded_wall_stop_walk_phase_loc_8e5a(
+                wall_hit, before, after, velocity, slope, form,
+            )
+        };
+
+        assert!(retains(true, true, true, 0, false, PlayerForm::RedStealth));
+        assert!(!retains(
+            false,
+            true,
+            true,
+            0,
+            false,
+            PlayerForm::RedStealth
+        ));
+        assert!(!retains(
+            true,
+            false,
+            true,
+            0,
+            false,
+            PlayerForm::RedStealth
+        ));
+        assert!(!retains(
+            true,
+            true,
+            false,
+            0,
+            false,
+            PlayerForm::RedStealth
+        ));
+        assert!(!retains(
+            true,
+            true,
+            true,
+            0x1000,
+            false,
+            PlayerForm::RedStealth
+        ));
+        assert!(!retains(true, true, true, 0, true, PlayerForm::RedStealth));
+        for form in [
+            PlayerForm::Skycutter,
+            PlayerForm::Juggernaut,
+            PlayerForm::Berzerker,
+        ] {
+            assert!(
+                !retains(true, true, true, 0, false, form),
+                "{form:?} owns a separate wall-contact phase path",
+            );
+        }
+    }
+
     /// ASM loc_9600 (kid.asm:11076): upright walking indexes six frame entries
     /// per non-null helmet in `off_9618`. This guards against accidentally
     /// reusing the crawl/platform `off_84A2` table, which has only three entries

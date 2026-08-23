@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive grounded wall-stop guard)
+
+- `project-status` offered no ready/open risk. The proactive fallback first
+  checked the post-census live death-shell terminal snapshot; its two selected
+  mutations were already caught or compiler-unviable, so it remains unchanged.
+- The later `loc_8E5A` grounded wall-stop phase guard had three surviving
+  conjunction mutations because its regression exercised only the all-true
+  Red Stealth path.
+- The ASM decision is now an explicit pure predicate. Negative cases pin no
+  wall, both airborne boundaries, retained velocity, slope ownership, and the
+  separate Skycutter/Juggernaut/Berzerker phase paths. The closure census
+  catches all 10 selected mutations.
+- The required starting `mise run verify-slice-fast` passed with 7,301 tests.
+  The final fast gate passes with 7,302 tests. `mise run verify-tas-full` is
+  green across all 37,759 frames with every ratchet unchanged.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path branch. Do not extend these death-shell or
+  grounded wall-stop slices.
+
 ## 2026-08-23 handoff (proactive helmet-prize wake mapping)
 
 - `project-status` offered no ready/open risk, so the proactive fallback audited

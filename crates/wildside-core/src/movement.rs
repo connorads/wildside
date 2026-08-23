@@ -1531,6 +1531,29 @@ pub(crate) fn should_advance_grounded_walk_visual_accumulator_loc_95da(
         )
 }
 
+pub(crate) fn should_retain_grounded_wall_stop_walk_phase_loc_8e5a(
+    wall_hit: bool,
+    on_ground_before: bool,
+    on_ground_after: bool,
+    x_velocity_after: i32,
+    has_grounded_slope: bool,
+    form: PlayerForm,
+) -> bool {
+    // ASM loc_8E3E -> loc_8E5A (kid.asm:10222): a positive wall result
+    // sends non-Skycutter forms to standing without sub_942A advancing the
+    // generic walk phase. Juggernaut and Berzerker use their separate native
+    // phase paths, so this restoration owns only the generic accumulator.
+    wall_hit
+        && on_ground_before
+        && on_ground_after
+        && x_velocity_after == 0
+        && !has_grounded_slope
+        && !matches!(
+            form,
+            PlayerForm::Skycutter | PlayerForm::Juggernaut | PlayerForm::Berzerker
+        )
+}
+
 #[allow(non_snake_case)]
 pub(crate) fn slope_walk_visual_accumulator_loc_A13A(
     current_accumulator: u16,
@@ -4053,16 +4076,14 @@ impl OpeningSliceState {
                         || self.player.left_wall_sticky;
                     self.apply_wall_collision_for_form(Some(grid), form);
                     let wall_hit = self.player.x_pos != pre_collision_x;
-                    if wall_hit
-                        && on_ground_before
-                        && self.player.on_ground
-                        && self.player.x_velocity == 0
-                        && grounded_slope_for_loc_9d22.is_none()
-                        && !matches!(
-                            form,
-                            PlayerForm::Skycutter | PlayerForm::Juggernaut | PlayerForm::Berzerker
-                        )
-                    {
+                    if should_retain_grounded_wall_stop_walk_phase_loc_8e5a(
+                        wall_hit,
+                        on_ground_before,
+                        self.player.on_ground,
+                        self.player.x_velocity,
+                        grounded_slope_for_loc_9d22.is_some(),
+                        form,
+                    ) {
                         // ASM loc_8E3E -> loc_8E5A (kid.asm:10222): a
                         // positive solid-wall result sends non-Skycutter
                         // forms straight to standing. It bypasses loc_8E4E's
