@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive helmet-hitpoint word wrap)
+
+- `project-status` offered no ready/open risk. The proactive arithmetic audit
+  moved to transform seeding and damage caps, which feed every form change,
+  helmet hit, and the published gameplay gates.
+- ASM `sub_7EB2` and `loc_B700` add `Extra_hitpoint_slots` to word-sized base
+  values. Native saturated all three live additions. The boundary regression
+  failed with `$FFFF` instead of the ROM's `$0001`.
+- Transform seeding and both damage paths now share one wrapping word helper.
+  The focused transform and damage suites pass. Existing ordinary-value
+  coverage plus the overflow regression distinguish both generated
+  constant-return mutations without selecting unrelated struct-field mutants.
+- The required starting `mise run verify-slice-fast` passed with 7,307 tests.
+  The final fast gate passes with 7,308 tests. `mise run verify-tas-full` is
+  green across all 37,759 frames with every ratchet unchanged.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this helmet-hitpoint
+  word-add slice.
+
 ## 2026-08-23 handoff (proactive floating-prize long-word wrap)
 
 - `project-status` offered no ready/open risk. The proactive arithmetic audit

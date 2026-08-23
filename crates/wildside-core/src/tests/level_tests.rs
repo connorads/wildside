@@ -11451,6 +11451,20 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         );
     }
 
+    /// ASM sub_7EB2: `add.w (Extra_hitpoint_slots).w,d0` wraps before
+    /// `Number_Hitpoints` receives the result.
+    #[test]
+    fn transform_hitpoints_sub_7eb2_wraps_the_word_addition() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.extra_hitpoint_slots = u16::MAX;
+        runtime.queue_form_change(PlayerForm::TheKid);
+
+        runtime.resolve_pending_form_change();
+
+        assert_eq!(runtime.progression.number_hitpoints, 1);
+    }
+
     #[test]
     fn loc_b700_full_helmet_hit_decrements_hp_without_stripping_form() {
         let mut runtime = NativeRuntime::new(manifest());

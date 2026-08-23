@@ -403,7 +403,13 @@ fn transform_hitpoints_sub_7eb2(form: PlayerForm, extra_hitpoint_slots: u16) -> 
         PlayerForm::IronKnight => 5,
         PlayerForm::Berzerker | PlayerForm::Maniaxe | PlayerForm::Micromax => 3,
     };
-    base_hitpoints.saturating_add(extra_hitpoint_slots)
+    helmet_hitpoints_with_extra_slots_word(base_hitpoints, extra_hitpoint_slots)
+}
+
+/// ASM sub_7EB2/loc_B700 (kid.asm): both transform seeding and damage caps
+/// add `Extra_hitpoint_slots` to a word-sized base helmet value.
+fn helmet_hitpoints_with_extra_slots_word(base_hitpoints: u16, extra_hitpoint_slots: u16) -> u16 {
+    base_hitpoints.wrapping_add(extra_hitpoint_slots)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -12934,11 +12940,10 @@ impl NativeRuntime {
         // the original comes from bounding-box separation, not an
         // impulse. Previous native code applied KNOCKBACK_X/Y_VELOCITY
         // which was an invented approximation.
-        let max_hitpoints = self
-            .progression
-            .current_form
-            .max_hitpoints()
-            .saturating_add(self.progression.extra_hitpoint_slots);
+        let max_hitpoints = helmet_hitpoints_with_extra_slots_word(
+            self.progression.current_form.max_hitpoints(),
+            self.progression.extra_hitpoint_slots,
+        );
         let effective_hitpoints = if self.progression.number_hitpoints == 0 {
             1
         } else {
@@ -12993,11 +12998,10 @@ impl NativeRuntime {
         // thread which runs the 66-frame palette flash cycle (loc_BC56–
         // loc_BC6E) before clearing the flag.
         self.just_received_damage = true;
-        let max_hitpoints = self
-            .progression
-            .current_form
-            .max_hitpoints()
-            .saturating_add(self.progression.extra_hitpoint_slots);
+        let max_hitpoints = helmet_hitpoints_with_extra_slots_word(
+            self.progression.current_form.max_hitpoints(),
+            self.progression.extra_hitpoint_slots,
+        );
         if self.progression.number_hitpoints == 0 {
             self.progression.number_hitpoints = 1;
         }
