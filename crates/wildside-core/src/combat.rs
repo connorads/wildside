@@ -8897,21 +8897,10 @@ impl NativeRuntime {
                         )
                     }
                 } else {
-                    // ASM Mini_Hopping_Skull.asm loc_3EAB2 -> loc_3F1B8:
-                    // airborne Kid collision words split into damage,
-                    // side-contact Berzerker gate, or scream-worker contact.
-                    match collision.collision_type {
-                        MINI_SKULL_COLID_HURT | MINI_SKULL_COLID_GROUND_HURT => {
-                            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
-                        }
-                        MINI_SKULL_COLID_GROUND_KIDLEFT | MINI_SKULL_COLID_GROUND_KIDRIGHT => {
-                            mini_hopping_skull_air_side_contact_loc_3f244(berzerker_charging)
-                        }
-                        collision_type if collision_type >= MINI_SKULL_COLID_HURT => {
-                            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
-                        }
-                        _ => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
-                    }
+                    mini_hopping_skull_air_collision_loc_3eab2(
+                        collision.collision_type,
+                        berzerker_charging,
+                    )
                 };
 
                 match route {

@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive Mini Hopping Skull airborne contact router)
+
+- `project-status` offered no ready/open risk. The proactive fallback audited
+  Mini Hopping Skull's live airborne `loc_3EAB2`/`loc_3F1B8` contact router,
+  which was wired after the family's earlier module census and feeds
+  published-route enemy state plus the sweep.
+- All three generic guard mutations survived because integrations covered hurt
+  and charging side contact but not the lower collision boundary or ordinary
+  Kid-contact words. The audit also confirmed that airborne `$1C` is the exact
+  hurt word even though grounded loops name that alias Kid-above.
+- The router is now an explicit pure function. Its ASM-backed boundary table
+  catches all five viable selected mutations; the whole-function default
+  replacement is compiler-unviable.
+- The required starting `mise run verify-slice-fast` passed with 7,304 tests.
+  The final fast gate passes with 7,305 tests. `mise run verify-tas-full` is
+  green across all 37,759 frames with every ratchet unchanged.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this Mini Hopping Skull
+  airborne contact slice.
+
 ## 2026-08-23 handoff (proactive Ninja blocking flag)
 
 - `project-status` offered no ready/open risk. The proactive fallback audited

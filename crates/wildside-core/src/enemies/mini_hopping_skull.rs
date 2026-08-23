@@ -1240,6 +1240,27 @@ pub(crate) fn mini_hopping_skull_air_side_contact_loc_3f244(
     }
 }
 
+pub(crate) fn mini_hopping_skull_air_collision_loc_3eab2(
+    collision_type: u16,
+    berzerker_charging: bool,
+) -> MiniHoppingSkullGroundWaitCollisionRoute {
+    // ASM Mini_Hopping_Skull.asm loc_3EAB2 -> loc_3F1B8: airborne Kid
+    // collision words split into damage, side-contact Berzerker gating, or a
+    // scream worker; lower level-collision words resume the flight loop.
+    match collision_type {
+        MINI_SKULL_COLID_HURT | MINI_SKULL_COLID_GROUND_HURT => {
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
+        }
+        MINI_SKULL_COLID_GROUND_KIDLEFT | MINI_SKULL_COLID_GROUND_KIDRIGHT => {
+            mini_hopping_skull_air_side_contact_loc_3f244(berzerker_charging)
+        }
+        collision_type if collision_type >= MINI_SKULL_COLID_HURT => {
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+        }
+        _ => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+    }
+}
+
 pub(crate) fn mini_hopping_skull_charging_berzerker_loop_loc_3f288(
     y_velocity: i32,
 ) -> MiniHoppingSkullChargingBerzerkerLoopFrame {
@@ -3118,6 +3139,35 @@ mod tests {
             MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull,
             "ASM Mini_Hopping_Skull.asm loc_3F244 should jump to loc_3F262 while `Berzerker_charging` is set"
         );
+    }
+
+    #[test]
+    fn mini_hopping_skull_air_collision_covers_loc_3eab2_dispatch_boundaries() {
+        use MiniHoppingSkullGroundWaitCollisionRoute::{
+            BerzerkerChargeKillsSkull, ContinueWait, DamageSkull, QueueScreamWorker,
+        };
+
+        let cases = [
+            (MINI_SKULL_COLID_FLOOR, false, ContinueWait),
+            (MINI_SKULL_COLID_HURT, false, DamageSkull),
+            (MINI_SKULL_COLID_GROUND_KIDABOVE, false, DamageSkull),
+            (MINI_SKULL_COLID_GROUND_KIDLEFT, false, QueueScreamWorker),
+            (
+                MINI_SKULL_COLID_GROUND_KIDRIGHT,
+                true,
+                BerzerkerChargeKillsSkull,
+            ),
+            (MINI_SKULL_COLID_GROUND_KIDBELOW, false, QueueScreamWorker),
+            (MINI_SKULL_COLID_GROUND_HURT, false, DamageSkull),
+        ];
+
+        for (collision_type, berzerker_charging, expected) in cases {
+            assert_eq!(
+                mini_hopping_skull_air_collision_loc_3eab2(collision_type, berzerker_charging),
+                expected,
+                "ASM Mini_Hopping_Skull.asm loc_3EAB2 -> loc_3F1B8 dispatches collision word {collision_type:#06X}"
+            );
+        }
     }
 
     #[test]
