@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive helmet-prize wake mapping)
+
+- `project-status` offered no ready/open risk, so the proactive fallback audited
+  the live `loc_104AE` helmet-prize wake scheduler added after the earlier
+  blocks mutation series. This path feeds published-route transforms and the
+  state sweep.
+- Seven of 16 selected mutations survived: six PrizeHelmet mapping arms could
+  be deleted, and the same-form HP refill could subtract earned extra slots.
+- A table regression now drives every worker from `loc_10464` through
+  `loc_106B4` through the one-frame wake API. The existing `loc_7C76` same-form
+  route now pins `sub_7EB2`'s maximum-plus-extra-slots result. The closure
+  census catches all 16 mutations.
+- The required starting `mise run verify-slice-fast` passed with 7,300 tests.
+  The final fast gate passes with 7,301 tests.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path branch. Do not extend this prize-wake slice.
+
 ## 2026-08-23 handoff (proactive Cyclone landing-source handoff)
 
 - `project-status` offered no ready/open risk, so the proactive fallback audited

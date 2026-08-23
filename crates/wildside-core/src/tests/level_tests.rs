@@ -24661,6 +24661,49 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         );
     }
 
+    /// ASM PrizeHelmet loops `loc_10464` through `loc_106B4`: every helmet
+    /// worker consumes its latched collision after one hibernate and queues
+    /// the matching `Kid_Transform` form.
+    #[test]
+    fn floating_helmet_latched_wake_maps_every_prize_form() {
+        for (content, expected) in [
+            (terrain::PrizeContent::Skycutter, PlayerForm::Skycutter),
+            (terrain::PrizeContent::Cyclone, PlayerForm::Cyclone),
+            (terrain::PrizeContent::RedStealth, PlayerForm::RedStealth),
+            (terrain::PrizeContent::Eyeclops, PlayerForm::Eyeclops),
+            (terrain::PrizeContent::Juggernaut, PlayerForm::Juggernaut),
+            (terrain::PrizeContent::IronKnight, PlayerForm::IronKnight),
+            (terrain::PrizeContent::Berzerker, PlayerForm::Berzerker),
+            (terrain::PrizeContent::Maniaxe, PlayerForm::Maniaxe),
+            (terrain::PrizeContent::Micromax, PlayerForm::Micromax),
+        ] {
+            let mut runtime = NativeRuntime::new(manifest());
+            runtime.floating_items.push(FloatingItem {
+                x_pos: 72 << 16,
+                y_pos: i64::from(624 << 16),
+                y_velocity: 0,
+                remaining: 500,
+                spawn_delay: 0,
+                level_col: 0,
+                level_row: 0,
+                first_row_grace: false,
+                content,
+                collected: true,
+                collision_latched: true,
+            });
+
+            runtime.award_collision_latched_prize_loc_104ae();
+            runtime.award_collision_latched_prize_loc_104ae();
+
+            assert_eq!(
+                runtime.progression.pending_form,
+                Some(expected),
+                "ASM PrizeHelmet worker for {content:?} must queue {expected:?}",
+            );
+            assert!(runtime.floating_items.is_empty());
+        }
+    }
+
     #[test]
     fn floating_helmet_same_form_replenishes_without_hibernate_loc_7c76() {
         // #332: re-collecting a helmet for the form Kid already has must follow
@@ -24675,6 +24718,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         let mut runtime = NativeRuntime::new(manifest());
         runtime.progression.current_form = PlayerForm::Juggernaut;
         runtime.progression.number_hitpoints = 1; // damaged, so the top-up is observable
+        runtime.progression.extra_hitpoint_slots = 2;
         runtime.floating_items.push(FloatingItem {
             x_pos: 728 << 16,
             y_pos: i64::from(179 << 16),
@@ -24712,8 +24756,8 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         );
         assert_eq!(
             runtime.progression.number_hitpoints,
-            PlayerForm::Juggernaut.max_hitpoints(),
-            "ASM sub_7EB2: re-collecting the same helmet tops HP back up to the form maximum"
+            PlayerForm::Juggernaut.max_hitpoints() + 2,
+            "ASM sub_7EB2: re-collecting the same helmet tops HP up to the form maximum plus earned extra slots"
         );
         assert!(
             runtime
