@@ -3384,17 +3384,26 @@ mod tests {
         let w = 8u16;
         let h = 6u16;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
-        let spike_offset = (4usize * usize::from(w) + 3) * 2;
+        let spike_offset = 4usize * usize::from(w) * 2;
         data[spike_offset] = 0x70;
         let grid = BlockGrid::from_level_layout(&data, w, h);
 
         assert!(
             floor_span_contains_spikes(&grid, 32, 64, 17),
-            "ASM sub_914A loc_9188/loc_91A6 scans every floor cell from x-FA78 through x+FA78"
+            "ASM sub_914A loc_9188/loc_91A6 starts at x-FA78, so a spike on the leftmost scanned column must be reported"
         );
         assert!(
             !floor_span_contains_spikes(&grid, 32, 64, 5),
             "ASM sub_914A should not report spikes outside the form-specific FA78 span"
+        );
+
+        let mut outside_data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let outside_spike_offset = (4usize * usize::from(w) + 4) * 2;
+        outside_data[outside_spike_offset] = 0x70;
+        let outside_grid = BlockGrid::from_level_layout(&outside_data, w, h);
+        assert!(
+            !floor_span_contains_spikes(&outside_grid, 32, 64, 17),
+            "ASM sub_914A computes the final loc_9188 column from x+FA78, so the next column must remain outside the DBF scan"
         );
     }
 

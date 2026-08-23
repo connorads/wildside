@@ -7,6 +7,33 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive full-width spike-scan boundary)
+
+- `project-status` offered no ready/open risk. The sole ordinary uncovered ASM
+  label remains Tar Monster `loc_32454`, whose recorded post-`rts` orphan
+  analysis forbids a false citation, so the proactive fallback selected the
+  live `floor_span_contains_spikes` terrain path instead.
+- ASM `sub_914A` derives an inclusive scan from `x-FA78` to `x+FA78`;
+  `loc_9188` visits each word and `loc_91A6` records spike contact.
+  This feeds ordinary player floor contact and can affect gameplay, sweep
+  state, and rendered pixels.
+- The initial eight-mutant census under
+  `/tmp/mutants-terrain-floor-span-spikes-20260823` found one survivor: the
+  left bound could use addition because the existing spike occupied the right
+  edge. After moving the positive witness to the left edge, the next census
+  exposed a right-bound multiplication that expanded the scan to the grid
+  edge. A separate negative witness now pins the first excluded column.
+- The closure census under
+  `/tmp/mutants-terrain-floor-span-spikes-final2-20260823` catches all eight
+  selected mutations. Starting `mise run verify-slice-fast` passes with 7,311
+  tests; sequential `mise run verify-tas-full` remains green across all 37,759
+  frames with 437/437 GEMS commands and the existing pixel/audio ratchets.
+  Final fast verification after the handoff update also passes. No second full
+  TAS is required because the current change updates only a test and handoff
+  docs.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this spike-span slice.
+
 ## 2026-08-23 handoff (proactive player-art residency mutation boundary)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
