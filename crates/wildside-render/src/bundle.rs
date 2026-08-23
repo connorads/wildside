@@ -5218,6 +5218,7 @@ mod tests {
         layered_background_enigma_base_word_loc_128ba, load_eol_hologram_visuals,
         load_palette_permutation, load_special_effect_unknown_visuals,
         normalise_layered_background_tile_base_loc_128ba,
+        parse_block_mapping_quads_loc_11d42_11d46,
     };
     use crate::{
         LayeredBackgroundPlane, MdColour, Palette, SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
@@ -5244,6 +5245,24 @@ mod tests {
         Tile {
             pixels: [pixel; 64],
         }
+    }
+
+    #[test]
+    fn block_mapping_quads_require_the_full_loc_11d46_copy_span() {
+        let short_mapping = vec![0; 0xA1 * 4];
+        assert!(
+            parse_block_mapping_quads_loc_11d42_11d46(&short_mapping).is_err(),
+            "ASM loc_11D42/loc_11D46 runs DBF from $A1 through zero, so 161 source longwords cannot supply the fixed 162-longword copy"
+        );
+
+        let exact_mapping = vec![0; 0xA2 * 4];
+        assert_eq!(
+            parse_block_mapping_quads_loc_11d42_11d46(&exact_mapping)
+                .expect("ASM-sized block mapping")
+                .len(),
+            0x51,
+            "ASM loc_11D46 copies 162 longwords, which decode as 81 four-word tile quads"
+        );
     }
 
     #[test]

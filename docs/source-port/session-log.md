@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive block-mapping decoder hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected the live block-mapping quad decoder used by every native level
+  visual bundle.
+- Re-read ASM `loc_11D42`/`loc_11D46`: `d0` starts at `$A1`, and the inclusive
+  `dbf` loop copies exactly `$A2` longwords into `Block_Mappings`.
+- Initial census
+  `/tmp/mutants-render-block-mapping-quads-20260823-initial` found one survivor
+  among seven selected mutations: the minimum input guard accepted 161 source
+  longwords instead of the ASM-required 162.
+- Added a direct ASM-cited boundary regression that rejects 161 longwords and
+  proves 162 longwords decode into exactly 81 tile quads. Final census
+  `/tmp/mutants-render-block-mapping-quads-20260823-final` catches six
+  mutations; one is unviable and none are missed.
+- The focused render test passes. Starting and final
+  `mise run verify-slice-fast` pass with 7,311 tests. Full TAS is not required
+  because production rendering is unchanged.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this block-mapping decoder
+  slice.
+
 ## 2026-08-23 handoff (proactive layered-background routing hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
