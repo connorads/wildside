@@ -3601,6 +3601,64 @@ mod chunk_11 {
         );
     }
 
+    /// ASM `sub_B270 loc_B2A0` and `sub_942A loc_9600`: the high byte of
+    /// `$FFFFF8F0` selects one of the six Cyclone walk mappings.
+    #[test]
+    fn loc_b2a0_cyclone_landing_retains_all_six_walk_phases() {
+        for (phase, expected) in [
+            (0x0000, CycloneGroundedSpriteSource::Walk1),
+            (0x0100, CycloneGroundedSpriteSource::Walk2),
+            (0x0200, CycloneGroundedSpriteSource::Walk3),
+            (0x0300, CycloneGroundedSpriteSource::Walk4),
+            (0x0400, CycloneGroundedSpriteSource::Walk5),
+            (0x0500, CycloneGroundedSpriteSource::Walk6),
+        ] {
+            assert_eq!(
+                CycloneGroundedSpriteSource::from_walk_visual_accumulator(phase),
+                expected,
+                "ASM loc_B2A0/loc_9600: walk phase {phase:#06X} must select its indexed mapping",
+            );
+        }
+    }
+
+    /// ASM `loc_AB0A/loc_AB4A` retains the landing mapping for one frame;
+    /// the next grounded moving update advances it to walk 4, while a settled
+    /// or airborne update releases the retained source.
+    #[test]
+    fn loc_ab0a_cyclone_landing_source_handoff_tracks_movement_state() {
+        let mut rt = cyclone_runtime();
+        let mut slice = airborne_slice();
+        slice.player.on_ground = true;
+        slice.player.x_velocity = 0x10000;
+
+        rt.helmet.cyclone_grounded_sprite_source = Some(CycloneGroundedSpriteSource::Walk2);
+        rt.step_cyclone_flight(&mut slice, FrameInput::default());
+        assert_eq!(
+            rt.helmet.cyclone_grounded_sprite_source,
+            Some(CycloneGroundedSpriteSource::Walk4),
+        );
+
+        rt.step_cyclone_flight(&mut slice, FrameInput::default());
+        assert_eq!(
+            rt.helmet.cyclone_grounded_sprite_source,
+            Some(CycloneGroundedSpriteSource::Walk4),
+        );
+
+        slice.player.x_velocity = 0;
+        rt.step_cyclone_flight(&mut slice, FrameInput::default());
+        assert_eq!(rt.helmet.cyclone_grounded_sprite_source, None);
+
+        rt.helmet.cyclone_grounded_sprite_source = Some(CycloneGroundedSpriteSource::Walk2);
+        rt.step_cyclone_flight(&mut slice, FrameInput::default());
+        assert_eq!(rt.helmet.cyclone_grounded_sprite_source, None);
+
+        rt.helmet.cyclone_grounded_sprite_source = Some(CycloneGroundedSpriteSource::Walk3);
+        slice.player.x_velocity = 0x10000;
+        slice.player.on_ground = false;
+        rt.step_cyclone_flight(&mut slice, FrameInput::default());
+        assert_eq!(rt.helmet.cyclone_grounded_sprite_source, None);
+    }
+
     /// ASM loc_818A (kid.asm:8934): the double `sf (Cyclone_flying).w` in ASM
     /// is redundant (same flag cleared twice). Verify that non-Cyclone forms
     /// always have cyclone_flying = false (the flag would be a no-op for other

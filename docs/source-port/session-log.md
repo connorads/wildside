@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive Cyclone landing-source handoff)
+
+- `project-status` offered no ready/open risk, so the proactive fallback audited
+  Cyclone's live landing-source changes added after the earlier helmets census.
+- Nine of 17 selected mutations survived: walk-table arms 2, 4, and 5, the
+  high-byte phase shift, and every post-landing movement guard.
+- Cache-independent regressions now pin all six `sub_B270 loc_B2A0`/`sub_942A
+  loc_9600` walk phases and `loc_AB0A`/`loc_AB4A` moving, already-Walk4,
+  settled, and airborne transitions. The closure census catches all 16 viable
+  mutations; one is compiler-unviable.
+- The required starting `mise run verify-slice-fast` passed with 7,298 tests.
+  The final fast gate passes with 7,300 tests.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path branch. Do not extend this Cyclone landing slice.
+
 ## 2026-08-23 handoff (proactive hidden-shell murder-wall boundary)
 
 - `project-status` offered no ready/open risk, so the proactive fallback audited
@@ -18,7 +33,7 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   measured live-boundary comparison. Its existing exact route regressions
   returned early without cache-local generated assets, so isolated core
   mutation worktrees did not execute them.
-- The replacement core regression constructs the `loc_74E0` boundary state
+- The additional core regression constructs the `loc_74E0` boundary state
   without cache assets. It pins the hidden `sub_7196` wall tick before the same
   frame's visible `loc_7316` handoff tick. The comparison mutation is caught;
   the only other selected mutation replaces the whole frame scheduler and
