@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-23 handoff (proactive player gravity long-word wrap)
+
+- `project-status` offered no ready/open risk. The sole ordinary uncovered ASM
+  label remains Tar Monster `loc_32454`, whose recorded alias/orphan analysis
+  forbids a false citation. The adjacent `loc_959C` skid and `loc_95DA` phase
+  predicates were mutation-clean, so the live arithmetic audit continued.
+- ASM `loc_B1E0`/`loc_B1E8` wraps `ADDI.L` before the signed `loc_B1EE` and
+  `loc_B200` speed caps. Native saturated first. The boundary regression failed
+  with the falling cap `+$80000`; `apply_gravity` now wraps and returns the
+  ROM's rising cap `-$80000` after positive long-word overflow.
+- All 116 gravity-labelled tests pass. The diff census catches all three
+  generated whole-function mutations. This helper feeds every ordinary
+  airborne player frame and can move the published gameplay and pixel gates.
+- The required starting `mise run verify-slice-fast` passed with 7,305 tests.
+  The final fast gate passes with 7,306 tests. `mise run verify-tas-full` is
+  green across all 37,759 frames with every ratchet unchanged.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this player-gravity
+  overflow slice.
+
 ## 2026-08-23 handoff (proactive Mini Hopping Skull airborne contact router)
 
 - `project-status` offered no ready/open risk. The proactive fallback audited

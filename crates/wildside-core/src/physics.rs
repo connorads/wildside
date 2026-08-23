@@ -793,7 +793,8 @@ pub fn apply_gravity(y_vel: i32, ascending_and_b_held: bool) -> i32 {
     } else {
         GRAVITY_NORMAL // ASM loc_B1E0: addi.l #$4000,d7
     };
-    let next = y_vel.saturating_add(gravity);
+    // ASM loc_B1E0/loc_B1E8: ADDI.L wraps before the signed cap comparisons.
+    let next = y_vel.wrapping_add(gravity);
     // ASM loc_B1EE/loc_B200: clamp to [MAX_RISE_SPEED, MAX_FALL_SPEED]
     // ASM loc_B20E: move.l d7,y_vel(a3); rts
     next.clamp(MAX_RISE_SPEED, MAX_FALL_SPEED)
@@ -1622,6 +1623,17 @@ mod tests {
         // Above cap: $8_0000 + $4000 would be $8_4000, clamped to $8_0000
         let above = apply_gravity(0x8_0000, false);
         assert_eq!(above, MAX_FALL_SPEED);
+    }
+
+    /// ASM loc_B1E0 -> loc_B1EE: `ADDI.L` wraps before the signed falling- and
+    /// rising-speed comparisons. A positive long-word overflow therefore
+    /// reaches loc_B200 as a large negative value and selects the rising cap.
+    #[test]
+    fn loc_b1e0_gravity_wraps_before_signed_speed_caps() {
+        assert_eq!(
+            apply_gravity(i32::MAX - (GRAVITY_NORMAL - 1), false),
+            MAX_RISE_SPEED,
+        );
     }
 
     /// ASM loc_B200 (kid.asm:14081): rising speed cap at $FFF80000.
