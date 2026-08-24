@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (hidden-block production-path regression)
+
+- `project-status` offered no ready/open risk. Test-only-debt screening rejected
+  the repeatedly audited Sphere family, VDP DMA wait, and original self-loop
+  traps rather than claiming hollow production coverage.
+- A live storm audit caught all 34 viable mutations across art/palette
+  selection, palette copying, pattern upload loops, and initialisation; 11
+  mutations were compiler-unviable and none survived.
+- Hidden-block lookup still represented ASM `loc_E386` with a test-only helper
+  that reconstructed its internal byte stride but never ran in production. The
+  helper and duplicate tests are removed. A production-path regression now
+  searches every record in a sorted nine-entry list, crossing the ROM's
+  `$20` -> `$40` initial-stride boundary, and checks an absent key.
+- Focused hidden-block tests pass. The live lookup mutation shard catches its
+  viable return mutation; one replacement is compiler-unviable. ASM coverage
+  reports 3,950 reachable / 152 test-only debt, and the checked-in baseline is
+  reduced by `loc_E386`.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not revisit hidden-block lookup or
+  storm setup.
+
 ## 2026-08-24 handoff (proactive special-platform mutation refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback audited

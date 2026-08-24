@@ -1125,6 +1125,9 @@ impl BlockList {
     ) -> Option<&HiddenBlockEntry> {
         // ASM sub_E37A (kid.asm:17818) binary-searches the 8-byte hidden-block
         // list at `$FFFFF8EC` by the current Level_Layout address in `a2`.
+        // ASM loc_E386 derives the initial power-of-two search stride from
+        // `count-1`; Rust's slice binary search preserves the observable
+        // sorted exact-match contract without exposing that internal stride.
         // ASM loc_E38E (kid.asm:17831): after the stride seed, `a0` is the
         // first entry, `a1` is one past `count*8`, and `a4` starts at `a0`.
         // ASM loc_E3A0 (kid.asm:17839): compare the target word from `a2`
@@ -1137,22 +1140,6 @@ impl BlockList {
             .binary_search_by_key(&layout_addr, |entry| entry.layout_addr)
             .ok()
             .and_then(|index| self.hidden_blocks.get(index))
-    }
-
-    #[allow(non_snake_case)]
-    #[cfg(test)]
-    pub(crate) fn hidden_block_search_initial_stride_bytes_loc_E386(
-        hidden_block_count: u16,
-    ) -> u16 {
-        // ASM loc_E386 (kid.asm:17824): starting from `d0=count-1` and
-        // `d1=8`, halve d0 and double the byte stride until d0 shifts to zero.
-        let remaining = hidden_block_count.wrapping_sub(1);
-        if remaining == 0 {
-            return 8;
-        }
-
-        let doubled_count = u16::BITS - 1 - remaining.leading_zeros();
-        8u16.wrapping_shl(doubled_count)
     }
 
     #[allow(non_snake_case)]
@@ -3956,67 +3943,33 @@ mod tests {
     }
 
     #[test]
-    fn hidden_block_search_loc_e38e_seeds_first_entry_and_one_past_end() {
+    fn hidden_block_search_loc_e386_crosses_the_nine_entry_stride_boundary() {
         let bl = BlockList {
             prize_blocks: vec![],
             ghost_blocks: vec![],
             teleporters: vec![],
-            hidden_blocks: vec![
-                HiddenBlockEntry {
-                    layout_addr: 0x0010,
-                    col: 2,
-                    row: 0,
-                    block_type: 0x01,
-                    block_setting: 0x00,
-                },
-                HiddenBlockEntry {
-                    layout_addr: 0x0020,
-                    col: 4,
-                    row: 1,
-                    block_type: 0x04,
-                    block_setting: 0x07,
-                },
-                HiddenBlockEntry {
-                    layout_addr: 0x0030,
-                    col: 6,
-                    row: 2,
-                    block_type: 0x0C,
-                    block_setting: 0x02,
-                },
-            ],
+            hidden_blocks: (1..=9)
+                .map(|index| HiddenBlockEntry {
+                    layout_addr: index * 0x10,
+                    col: index,
+                    row: index + 1,
+                    block_type: u8::try_from(index).expect("nine entries fit in a byte"),
+                    block_setting: 0,
+                })
+                .collect(),
         };
 
-        let first = bl
-            .hidden_block_by_layout_addr_sub_E37A(0x0010)
-            .expect("ASM loc_E38E starts `a4` at the first hidden-block entry");
-        let last = bl
-            .hidden_block_by_layout_addr_sub_E37A(0x0030)
-            .expect("ASM loc_E38E computes `a1` as one past `count*8`, so the final entry remains searchable");
-
-        assert_eq!(first.col, 2);
-        assert_eq!(last.col, 6);
-        assert_eq!(
-            BlockList::hidden_block_search_initial_stride_bytes_loc_E386(3),
-            16,
-            "ASM loc_E38E receives the stride doubled once for a three-entry hidden-block list",
-        );
-    }
-
-    #[test]
-    fn hidden_block_search_loc_e386_derives_power_of_two_byte_stride() {
-        // ASM loc_E386 (kid.asm:17824) starts from count-1, halves that value,
-        // and doubles the 8-byte record stride until the shifted count reaches
-        // zero. These exact values keep the binary-search stride contract from
-        // collapsing to the initial record size for non-trivial lists.
-        let cases = [(1, 8), (2, 8), (3, 16), (4, 16), (5, 32), (8, 32)];
-
-        for (hidden_block_count, expected_stride) in cases {
-            assert_eq!(
-                BlockList::hidden_block_search_initial_stride_bytes_loc_E386(hidden_block_count),
-                expected_stride,
-                "ASM loc_E386 should derive the initial byte stride for {hidden_block_count} hidden-block records",
-            );
+        // ASM loc_E386 (kid.asm:17824) changes its initial byte stride from
+        // `$20` to `$40` when `count-1` reaches eight. Drive the shipped lookup
+        // across that boundary and pin every observable exact-match result.
+        for index in 1..=9 {
+            let found = bl
+                .hidden_block_by_layout_addr_sub_E37A(index * 0x10)
+                .expect("ASM sub_E37A should find every sorted hidden-block record");
+            assert_eq!(found.col, index);
         }
+
+        assert!(bl.hidden_block_by_layout_addr_sub_E37A(0x0058).is_none());
     }
 
     #[test]
