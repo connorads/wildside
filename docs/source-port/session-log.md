@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (render tile mutation refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected `wildside-render/src/tiles.rs`: it feeds live source-port pixels and
+  changed after its last recorded whole-file mutation census.
+- `/tmp/mutants-render-tiles-refresh-20260824` tests all 38 generated
+  mutations: 34 caught, four compiler-unviable, zero missed or timed out. The
+  post-census tile-size checks therefore remain guarded; no production change
+  is justified.
+- Starting `mise run verify-slice-fast` passed before the audit with 7,314 core
+  tests. NEXT: rerun `project-status`; if no eligible row appears, audit a
+  different live gameplay or sweep-path module. Do not revisit the render tile
+  decoder or the other slices excluded by NOW.
+
 ## 2026-08-24 handoff (ROM RNG frame-state mutation audit)
 
 - `project-status` offered no ready/open risk. The proactive fallback rejected
