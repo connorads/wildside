@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (proactive enemy death-duration selector census)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected `enemy_death_animation_frames`. This shared live selector controls
+  corpse hibernation and deletion timing across 31 enemy-family mutations.
+- Read the family ASM death tails cited beside each duration constant. They
+  hibernate through their animation scripts before the shared delete paths;
+  the selector maps each implemented family to that source-derived duration.
+- Final census
+  `/tmp/mutants-enemy-death-selector-final-20260824/mutants.out/outcomes.json`
+  records all 31 mutations owned by `enemy_death_animation_frames` as caught:
+  28 family-arm deletions and three whole-function replacements. Cargo-mutants
+  also injected 49 unrelated struct-field candidates; its 18 misses are solely
+  in the excluded Fireball and blocked boss spans and do not affect this result.
+- Starting `mise run verify-slice-fast` passed with 7,311 tests. Full TAS is
+  not required because runtime behaviour is unchanged.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this death-duration slice.
+
 ## 2026-08-24 handoff (proactive shooting Rock Tank fire mutation refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
