@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (camera-follow shell mutation audit)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  `OpeningSliceState::update_camera_follow`: it is production-wired on gameplay
+  ticks and feeds the player/camera parity ratchet rather than a frozen timing
+  feeder.
+- The shell extracts the integer words from Kid and camera FP16.16 positions,
+  applies ASM `sub_71E4 loc_728C`'s neutral `$1E` look threshold, delegates the
+  two-axis follow decision, and writes the resulting words back as FP16.16.
+  `/tmp/mutants-camera-follow-shell-20260824` catches all 12 generated
+  mutations, with no miss, timeout, or compile failure. Existing camera and
+  runtime regressions therefore guard every generated shell change; no
+  production change is justified.
+- Starting `mise run verify-slice-fast` passed with 7,314 core tests. NEXT:
+  rerun `project-status`; if no eligible row appears, audit a different live
+  gameplay or sweep-path module. Do not revisit this camera-follow shell.
+
 ## 2026-08-24 handoff (Samurai Haze object-scheduler mutation audit)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected
