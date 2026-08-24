@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (crawl wall-escape mutation audit)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  production-wired `crawl_wall_escape_sub_81B4`, called by the live crawl
+  stand-up path rather than a frozen timing feeder.
+- ASM `sub_81B4` probes 16 pixels above the feet, tries the left side before
+  the right, blocks only when both sides are solid, and uses distinct tile-edge
+  snaps for the two escape directions. The Rust helper follows that structure.
+  `/tmp/mutants-crawl-wall-escape-20260824` tests all 26 generated mutations:
+  25 are caught and one is compiler-unviable, with no miss or timeout. Existing
+  regressions therefore guard every viable generated change; no production
+  change is justified.
+- Starting `mise run verify-slice-fast` passed with 7,314 core tests. NEXT:
+  rerun `project-status`; if no eligible row appears, audit a different live
+  gameplay or sweep-path module. Do not revisit this wall-escape helper.
+
 ## 2026-08-24 handoff (camera-follow shell mutation audit)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected
