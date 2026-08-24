@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (one-time-prize ring mutation hardening)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  the production one-time-prize ring used when collecting Ankhs, Continues,
+  ten-Diamond prizes and 10,000-point prizes.
+- ASM `loc_10856` initialises the per-player forty-entry table, `loc_1086A`
+  starts an inclusive DBF scan, `loc_10876` matches layout address plus level,
+  and `loc_1089A` stores through a wrapping next-slot header.
+- The initial focused census found three caller-level misses: two mutations of
+  the packed-entry offset conversion and one reversed scan-continuation gate.
+  Regression `one_time_prize_runtime_scan_finds_final_entry_loc_1086a_10886`
+  forces a match in slot `$27` and proves the match neither advances nor
+  overwrites the ring.
+- `/tmp/mutants-one-time-prize-closure-20260824` accounts for all 31 generated
+  mutations: 25 caught and six compiler-unviable, with no miss or timeout.
+  NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not revisit this ring.
+
 ## 2026-08-24 handoff (grounded-surface classifier mutation audit)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected

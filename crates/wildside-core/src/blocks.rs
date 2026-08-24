@@ -6938,6 +6938,29 @@ mod tests {
     }
 
     #[test]
+    fn one_time_prize_runtime_scan_finds_final_entry_loc_1086a_10886() {
+        // ASM loc_1086A..loc_10886: `d0 = #$27` and DBF visit all forty
+        // packed entries at four-byte strides. A match in the final slot must
+        // branch to PrizeDiamond_Init without advancing or overwriting the
+        // ring header at loc_1089A.
+        let mut runtime = runtime_for_block_tests();
+        let slot = &mut runtime.player_slots[0];
+        slot.one_time_prize_next_index = 7;
+        slot.one_time_prizes =
+            core::array::from_fn(|index| 0x1000_0001_u32.wrapping_add((index as u32) << 16));
+        slot.one_time_prizes[0x27] = 0x4A72_0000;
+        let entries_before = slot.one_time_prizes;
+
+        assert_eq!(
+            runtime
+                .one_time_prize_content_or_diamond_loc_10848(terrain::PrizeContent::Ankh, 0x4A72,),
+            terrain::PrizeContent::Diamond,
+        );
+        assert_eq!(runtime.player_slots[0].one_time_prize_next_index, 7);
+        assert_eq!(runtime.player_slots[0].one_time_prizes, entries_before);
+    }
+
+    #[test]
     fn prize_10_diamonds_helpers_match_asm_loc_108ee_through_loc_109c0() {
         // ASM loc_108E8..loc_109C0: the burst table only spawns on the listed
         // frames, each spawned worker copies the owner position and seeds
