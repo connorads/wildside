@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (Samurai Haze object-scheduler mutation audit)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  the production-wired Samurai Haze object scheduler because `loc_E1E` gates
+  the active enemy roster consumed by sweep and TAS comparisons.
+- The complete ASM path confirms the order: on three of four frames, haze skips
+  `$10(a5)` objects before `loc_E3E` decrements their word hibernation counter.
+  `/tmp/mutants-samurai-haze-object-scheduler-20260824` catches all nine
+  generated mutations, with no miss, timeout, or compile failure. Existing
+  runtime and pure regressions therefore guard every generated branch change;
+  no production change is justified.
+- The adjacent `loc_1466` GfxObject helper has only test callers, so this audit
+  does not claim it as shipped coverage or use it to reduce test-only ASM debt.
+  Starting `mise run verify-slice-fast` passed with 7,314 core tests. NEXT:
+  rerun `project-status`; if no eligible row appears, audit a different live
+  gameplay or sweep-path module.
+
 ## 2026-08-24 handoff (render tile mutation refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
