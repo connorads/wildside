@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (proactive special-platform mutation refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback audited
+  the live soft/trap platform state machine against ASM `loc_40E2` through
+  `loc_4270`.
+- The initial 44-mutant census caught 38 and rejected five as compiler-unviable.
+  Its sole survivor changed the `loc_4230` velocity-floor comparison from `>`
+  to `>=`; this is equivalent because both equality branches produce
+  `-$40000`.
+- The clamp now uses `max(-$40000)`, expressing the ROM's floor directly and
+  removing the unkillable branch without changing gameplay. The rerun catches
+  all 35 viable mutations; five are compiler-unviable.
+- Focused special-platform tests pass. Final `verify-slice-fast` passes all
+  7,316 core tests. `verify-tas-full` checks all 37,759 published-route frames
+  with zero authoritative gameplay or enemy divergence; the frozen pixel and
+  GEMS witnesses remain at their ratchets.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not revisit this special-platform
+  shard.
+
 ## 2026-08-24 handoff (proactive Juggernaut companion wall scan)
 
 - `project-status` offered no ready/open risk, so the proactive fallback

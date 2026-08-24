@@ -2657,11 +2657,7 @@ pub(crate) fn trap_platform_up_move_step_loc_4230(
     //   cmpi.w #-$E0,d7
     //   bgt.s  loc_4230           ; still close → keep moving
     let decelerated = y_velocity.wrapping_sub(0x4000);
-    let clamped = if decelerated > -0x40000_i32 {
-        decelerated
-    } else {
-        -0x40000_i32
-    };
+    let clamped = decelerated.max(-0x40000_i32);
     let relative_y = platform_y_px.wrapping_sub(kid_y_px);
     TrapPlatformUpMoveStepLoc4230 {
         new_y_velocity: clamped,
