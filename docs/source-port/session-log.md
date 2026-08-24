@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (proactive live Ninja selector hardening)
+
+- `project-status` offered no ready/open risk. `asm-coverage --uncovered` still
+  reports Tar Monster `loc_32454`, but prior analysis proves it is unreachable
+  code after `return_3243E`; citing it would not harden shipped behaviour.
+- The proactive fallback instead selected the live Ninja sprite selector added
+  after the earlier broad renderer census. It feeds whole-level visual captures
+  and is separate from the closed Ninja combat-blocking slice.
+- Initial census `/tmp/mutants-frame-ninja-selector-20260824-initial` found
+  eight survivors among nine mutations: deleting the selector and weakening
+  every family, death, and 14-frame atlas guard.
+- Added one focused contract citing Ninja ASM `stru_3D4EA` and
+  `loc_3D670/loc_3D826/loc_3D84E/loc_3D9DA`. It pins the highest fixed pose,
+  exact minimum sheet, a valid short-sheet phase, wrong family, and dead route.
+  Closure census `/tmp/mutants-frame-ninja-selector-20260824-final2` catches
+  all eight viable mutations; one is compiler-unviable.
+- Focused test passes. Starting and final `mise run verify-slice-fast` pass.
+  Full TAS is not required because runtime rendering is unchanged.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this Ninja selector slice.
+
 ## 2026-08-24 handoff (proactive HUD hitpoint boundary hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback

@@ -4170,6 +4170,34 @@ mod tests {
     }
 
     #[test]
+    fn ninja_live_selector_pins_fixed_pose_and_guard_boundaries() {
+        // ASM Ninja.asm stru_3D4EA plus loc_3D670/loc_3D826/loc_3D84E/
+        // loc_3D9DA use the six walk mappings and five appended fixed poses;
+        // the stable death bank between them makes 14 frames the exact live
+        // atlas minimum without exposing a dead Ninja through this selector.
+        let exact = labelled_enemy_visuals(14, 3);
+        let short = labelled_enemy_visuals(13, 3);
+        let mut ninja = live_enemy_object(0x11);
+        ninja.sprite_animation_phase = Some(13);
+
+        assert_eq!(
+            selected_live_tile_base(select_live_ninja_frame(&exact, &ninja)),
+            0x010D
+        );
+        let mut short_sheet_ninja = ninja.clone();
+        short_sheet_ninja.sprite_animation_phase = Some(12);
+        assert!(select_live_ninja_frame(&short, &short_sheet_ninja).is_none());
+
+        let mut wrong_family = ninja.clone();
+        wrong_family.kind = NativeObjectKind::Enemy { object_type: 0x12 };
+        assert!(select_live_ninja_frame(&exact, &wrong_family).is_none());
+
+        let mut dead = ninja;
+        dead.hit_points = Some(0);
+        assert!(select_live_ninja_frame(&exact, &dead).is_none());
+    }
+
+    #[test]
     fn live_enemy_selectors_accept_exact_asm_minimum_sheet_lengths() {
         let trace = NativeTraceFrame::default();
 
