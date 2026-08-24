@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-25 handoff (contact-damage voice-selector mutation audit)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  production-wired `contact_damage_ouch_sound_loc_b73c`, whose result is queued
+  by live enemy-contact damage.
+- ASM `loc_B73C`, `loc_B750`, `loc_B764`, and `loc_B778` map object-meta words
+  `$50`, `$40`, and `$30` to the three special Ouch takes and all other values
+  to the ordinary take. The Rust selector follows that branch table.
+- `/tmp/mutants-contact-damage-voice-shard0-20260825` isolates all five selector
+  mutations: four are caught and the whole-function default replacement is
+  compiler-unviable, with no miss or timeout. Existing regressions therefore
+  guard every viable generated change; no production change is justified.
+  NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not revisit this selector.
+
 ## 2026-08-24 handoff (one-time-prize ring mutation hardening)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected
