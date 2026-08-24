@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (proactive Walking Dragon saved-speed mutation refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected the post-audit Walking Dragon saved-speed helper. It feeds both
+  live patrol movement and projected terrain collision, which can affect the
+  enemy-frontier and whole-level sweep gates.
+- Read `Dragon.asm` `Enemy0D_Dragon_Init/loc_3CDFC`: enemy level derives the
+  initial HP tier, then `$50(a5)` retains the selected `$8000` or `$18000`
+  speed independently of later damage.
+- Focused census `/tmp/mutants-dragon-saved-speed-20260824-initial` covers the
+  helper and its two live call sites. All 11 mutations are caught by existing
+  ASM-cited regressions; no redundant test or runtime edit is warranted.
+- Starting and final `mise run verify-slice-fast` pass. Full TAS is not
+  required because only handoff docs changed.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this saved-speed slice.
+
 ## 2026-08-24 handoff (proactive live Ninja selector hardening)
 
 - `project-status` offered no ready/open risk. `asm-coverage --uncovered` still
