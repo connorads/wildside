@@ -3256,6 +3256,39 @@ mod chunk_11 {
         assert!(step.blocked_latch);
     }
 
+    /// ASM sub_975C loc_97A6 calls sub_96E8 before choosing the Juggernaut
+    /// companion visual. A `$6000` tile in the facing-dependent scan window
+    /// takes loc_97BE and starts the lower animation.
+    #[test]
+    fn juggernaut_companion_step_uses_live_wall_scan_sub_96e8() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Juggernaut;
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 43 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.facing = Direction::Right;
+        slice.player.on_ground = true;
+        rt.opening_slice = Some(slice);
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 6 * 4 * 2], 6, 4);
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0x60, 0x01));
+        rt.set_block_grid(grid);
+
+        rt.refresh_grounded_helmet_state_sub_78E8();
+
+        let step = rt
+            .last_juggernaut_companion_step_sub_975c
+            .expect("ASM loc_79A2: Juggernaut grounded refresh should record sub_975C");
+        assert_eq!(
+            step.visual,
+            helmets::JuggernautCompanionVisualSub975C::InitAnimation("stru_981C"),
+            "ASM sub_96E8 should feed the live solid-tile result into sub_975C loc_97A6",
+        );
+        assert!(step.blocked_latch);
+    }
+
     /// ASM loc_79A2 (kid.asm:8047): when the Juggernaut animation is still
     /// playing (is_animated=true, $18=0), loc_7988 skips loc_7998 and branches
     /// directly to loc_79A2. The companion step runs regardless of the sprite

@@ -1416,6 +1416,16 @@ impl NativeRuntime {
         // Until the companion GFX object is persisted, keep the first walking
         // frame instead of deriving a fake phase from unrelated runtime state.
         let walking_table_byte_offset = 0;
+        // ASM sub_975C loc_976C/loc_97A6 calls sub_96E8 before the object and
+        // Down predicates. The scan uses Kid's word positions and facing.
+        let wall_scan_blocked = self.block_grid.as_ref().is_some_and(|grid| {
+            terrain::juggernaut_wall_scan_sub_96E8(
+                grid,
+                i32::from(word_px_to_i16(slice.player.x_pos)),
+                i32::from(word_px_to_i16(slice.player.y_pos)),
+                slice.player.facing,
+            )
+        });
         let support_candidates = self.juggernaut_support_overlap_candidates_sub_9832();
         let object_overlap = juggernaut_support_overlap_sub_9832(
             word_px_to_i16(slice.player.x_pos),
@@ -1424,7 +1434,7 @@ impl NativeRuntime {
         );
         let step = juggernaut_companion_step_sub_975C(
             self.juggernaut_companion_state_sub_975c,
-            false,
+            wall_scan_blocked,
             object_overlap,
             self.trace_input.down,
             character_movement,

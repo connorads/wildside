@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (proactive Juggernaut companion wall scan)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  screened test-only ASM debt for a live path. `sub_96E8` was the documented
+  Juggernaut companion TODO: the tested tile scan existed behind `#[cfg(test)]`,
+  while the live `sub_975C` call always passed `wall_scan_blocked=false`.
+- The new runtime regression places a `$6000` tile inside the right-facing
+  `(x-$0B)..(x+$04)`, `(y-$1F)..(y-$10)` scan window. It first selected the
+  standing mapping instead of `stru_981C`, proving the shipped gap.
+- The live companion step now scans the current block grid with Kid's word
+  position and facing before the object-overlap and Down predicates, matching
+  ASM `sub_975C` `loc_976C`/`loc_97A6` -> `sub_96E8`.
+- Focused closure `/tmp/mutants-juggernaut-wall-scan-20260824` catches all 25
+  generated scan mutations with no miss, timeout, or compile failure. ASM
+  coverage moves from 3,944 reachable / 158 test-only debt to 3,949 / 153 by
+  promoting `sub_96E8` and `loc_971A`/`loc_972E`/`loc_9732`/`loc_9754`.
+- Final `mise run verify-slice-fast` passes with 7,316 core tests and the exact
+  two-name workspace baseline. `mise run verify-tas-full` checks all 37,759
+  published-route frames with zero authoritative gameplay or enemy divergence;
+  the frozen pixel and GEMS witnesses remain at their ratchets.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not revisit this companion wall scan.
+
 ## 2026-08-24 handoff (proactive Red Stealth sword roster fidelity)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
