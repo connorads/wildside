@@ -18611,6 +18611,33 @@ mod chunk_09 {
     }
 
     #[test]
+    fn projectile_centre_contact_damages_instead_of_registering_a_stomp_loc_b640() {
+        let mut rt = runtime_with_projectile_and_player(100, 100, 100, 100);
+        let hitpoints_before = rt.progression.number_hitpoints;
+        let mut slice = rt.opening_slice.unwrap();
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0x0001_0000;
+
+        assert!(rt.resolve_frame_hazards(
+            &mut slice,
+            FrameInput::default(),
+            0x0001_0000,
+            100 << 16,
+            100 << 16,
+            100 << 16,
+        ));
+        assert_eq!(
+            rt.progression.number_hitpoints,
+            hitpoints_before - 1,
+            "ASM off_B640 routes a centre overlap through Check_for_recent_damge, not Jump_On_Enemy",
+        );
+        assert!(
+            rt.pending_stomp_bounce.is_none(),
+            "ASM loc_1CE4 registers colid `$2C` only when the projectile is at least the stomp threshold below Kid",
+        );
+    }
+
+    #[test]
     fn shooter_object_overlap_does_not_enter_kid_collision_loc_edfa_issue_277() {
         let mut rt = NativeRuntime::new(manifest());
         rt.projectiles.push(EnemyProjectile {

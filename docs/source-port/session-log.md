@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (proactive projectile-contact mutation hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected the live hostile-projectile contact path. It feeds ordinary enemy
+  damage and stomp routing exercised by runtime play, sweep, and TAS gates.
+- The initial 90-mutant census found four misses. One was a real exact-value
+  gap: replacing the signed centre-contact delta with addition incorrectly
+  registered a stomp. The new `off_B640` regression asserts damage and no
+  pending bounce for a centre overlap.
+- The other reports exposed equivalent mutation sites. Strict shooter-point
+  overlap makes `projectile_y <= player_y` the actual decision, so the code now
+  expresses that comparison directly. Native derives Archer arrow count from
+  the retained projectile vector, so the unused local decrement bookkeeping
+  was removed; the live Archer lifecycle still calls `loc_34336` at its owning
+  deletion sites.
+- Closure census
+  `/tmp/mutants-projectile-player-contact-20260824-final2` catches 85/86
+  mutations; the remaining mutation is compiler-unviable. Focused regression
+  passes. Final `mise run verify-slice-fast` passes with 7,312 core tests and
+  the exact two-name workspace baseline. `mise run verify-tas-full` passes all
+  37,759 published-route frames with zero authoritative gameplay or enemy
+  divergence; the frozen pixel and GEMS witnesses remain at their ratchets.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not revisit this projectile-contact
+  slice.
+
 ## 2026-08-24 handoff (browser runtime catalogue refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback

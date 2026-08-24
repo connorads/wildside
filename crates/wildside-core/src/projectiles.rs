@@ -4717,7 +4717,7 @@ impl NativeRuntime {
                 return false;
             }
             if p.kind == EnemyProjectileKind::ShooterBlock {
-                return shooter_block_can_damage_player_loc_edfa((p.y_pos >> 16) as i32 - py)
+                return shooter_block_can_damage_player_loc_edfa((p.y_pos >> 16) as i32, py)
                     && shooter_block_overlaps_player_sub_219c(p, player_bounds);
             }
             projectile_overlaps_player_loc_1c18(p, px, py, half, player_bounds)
@@ -4742,11 +4742,6 @@ impl NativeRuntime {
         );
         let mut contact = ProjectilePlayerContactLocB640::None;
         let mut released_owners = Vec::new();
-        let mut archer_arrow_count = self
-            .projectiles
-            .iter()
-            .filter(|projectile| projectile.kind == EnemyProjectileKind::ArcherArrow)
-            .count() as u16;
         let stomp_registration_blocked = self.stomp_registration_blocked_loc_1ce4(slice.player);
         self.last_projectile_damage_probe = None;
         self.projectiles.retain_mut(|p| {
@@ -4804,7 +4799,7 @@ impl NativeRuntime {
                     // issue-277 frames 88-90 show an upward shard ignored
                     // while below Kid, then damaging once it reaches the
                     // body; it never routes to Jump_On_Enemy.
-                    if shooter_block_can_damage_player_loc_edfa(pry - py) {
+                    if shooter_block_can_damage_player_loc_edfa(pry, py) {
                         ProjectilePlayerContactLocB640::Damage
                     } else {
                         ProjectilePlayerContactLocB640::None
@@ -4885,11 +4880,6 @@ impl NativeRuntime {
                     // delete the child object.
                     true
                 } else {
-                    if p.kind == EnemyProjectileKind::ArcherArrow {
-                        let delete = archer_arrow_delete_loc_34336(archer_arrow_count);
-                        debug_assert!(delete.deletes_current_object);
-                        archer_arrow_count = delete.number_of_arrows;
-                    }
                     if let Some(owner) = p.owner {
                         released_owners.push(owner);
                     }
@@ -5049,13 +5039,13 @@ fn projectile_player_contact_kind_loc_b640(
     }
 }
 
-fn shooter_block_can_damage_player_loc_edfa(projectile_delta_y: i32) -> bool {
+fn shooter_block_can_damage_player_loc_edfa(projectile_y: i32, player_y: i32) -> bool {
     // ASM Process_ShooterObjects loc_EDFA..loc_EF62 compiles shooter shards as
     // tiny sprite-table entries after directional movement. Unlike normal
     // projectile objects, their foot-level overlap from below does not enter
     // Character_CheckCollision/off_B640; the first issue-277 oracle damage is
     // when the upward shard has reached Kid's body.
-    projectile_delta_y <= 0
+    projectile_y <= player_y
 }
 
 fn lion_projectile_bounce_iterations_continue_loc_3e2c0(remaining_bounces: &mut i16) -> bool {
