@@ -8,7 +8,9 @@ terminal_progress = false
 
 local binary_excludes = List(
     "*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp", "*.ico",
-    "*.woff", "*.woff2", "*.ttf", "*.eot", "*.pdf", "*.zip"
+    "*.woff", "*.woff2", "*.ttf", "*.eot", "*.pdf", "*.zip",
+    // Byte-identical packed asset; the canonical generator emits no final LF.
+    "crates/wildside-data/runtime-manifest.json"
 )
 
 hooks {

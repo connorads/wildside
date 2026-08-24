@@ -1931,6 +1931,13 @@ dark.
 
 ### #445
 
+2026-08-24 baseline shrink - regenerating the embedded runtime manifest from
+the pinned `a134567` disassembly restores byte-for-byte native and WASM
+extractor parity. Removed those two names from the downward-only baseline; the
+independent web catalogue failure remains with 11 missing level layouts. Three
+reviewed failures remain in frame, md, and web. The pre-commit EOF fixer now
+excludes the byte-exact generated manifest; appending LF changes its payload.
+
 2026-08-14 closure - all six formerly dark crates now run under the fast gate.
 `wildside-rom` is directly green-gated at 12/12. The other five suites run
 independently through `workspace_failing_test_ratchet.py`, which prefixes every
