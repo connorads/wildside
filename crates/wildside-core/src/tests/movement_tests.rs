@@ -3927,6 +3927,32 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_7A98 (kid.asm:8149-8166): the right-side snap leaves the centre
+    /// at 1 modulo 16, so the closest non-negative left edge is 3px. The
+    /// following `bmi.s loc_7A90` therefore accepts that position.
+    #[test]
+    fn sub_7a10_right_snap_nearest_nonnegative_left_edge_is_clear_loc_7a98() {
+        let width = 8u16;
+        let height = 4u16;
+        let mut data = vec![0u8; usize::from(width) * usize::from(height) * 2];
+        data[(usize::from(width) * 2 + 2) * 2] = 0x60; // row 2, col 2 = solid
+        let grid = terrain::BlockGrid::from_level_layout(&data, width, height);
+        let x_pos = 18u32 << 16; // right probe at 32; loc_7A98 snaps centre to 17
+        let y_pos = 32u32 << 16;
+
+        let result = movement::align_player_for_down_hold_sub_7A10(&grid, x_pos, y_pos, width * 16);
+
+        assert_eq!(
+            result.x_pos,
+            17u32 << 16,
+            "ASM loc_7A98: x -= ((18+$E)&$F)+1 = 1, leaving a 3px left edge"
+        );
+        assert!(
+            !result.blocked,
+            "ASM loc_7A98: a 3px left edge is non-negative, so BMI is clear"
+        );
+    }
+
     /// ASM loc_8252 (kid.asm:9013): `bclr #Button_B,(Ctrl_Pressed).w;
     /// bra.w loc_8E16` — Micromax(9) and Juggernaut(5) exit crawling after a
     /// helmet transform. The gate at loc_8218+$3A checks Current_Helmet

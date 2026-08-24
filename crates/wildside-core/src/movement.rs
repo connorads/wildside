@@ -8186,7 +8186,8 @@ pub(crate) fn align_player_for_down_hold_sub_7A10(
         // by `(x+14) & $F + 1` pixels. Then probe the left side.
         let adjust = ((original_x_px + half_width) & 0xF) + 1;
         aligned_x_px -= adjust;
-        if aligned_x_px - half_width < 0 || occupied(aligned_x_px, -half_width) {
+        let aligned_left_edge_px = aligned_x_px - half_width;
+        if aligned_left_edge_px.is_negative() || occupied(aligned_x_px, -half_width) {
             // ASM loc_7A90 (kid.asm:8143): left side also blocked after snap
             // — restore original x_pos and return blocked.
             return DownHoldAlignmentSub7A10 {

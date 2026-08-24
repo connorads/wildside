@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (Down-hold alignment mutation hardening)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  production-wired `align_player_for_down_hold_sub_7A10`, whose result moves Kid
+  or suppresses crawl entry on the live grounded Down path.
+- The initial 46-mutant census found one survivor: changing the post-right-snap
+  left-edge check from `< 0` to `<= 0`. ASM `loc_7A98` leaves the snapped centre
+  at 1 modulo 16, so its left edge is 3 modulo 16 and can never equal zero; the
+  survivor was equivalent. Native now expresses the ROM's `bmi.s loc_7A90` as
+  an explicit sign test, and a regression pins the closest non-negative case:
+  centre 17, left edge 3, unblocked.
+- `/tmp/mutants-down-hold-alignment-final-20260824` tests all 43 remaining
+  mutations: 42 are caught and one is compiler-unviable, with no miss or
+  timeout. NEXT: rerun `project-status`; if no eligible row appears, audit a
+  different live gameplay or sweep-path module. Do not revisit this helper.
+
 ## 2026-08-24 handoff (crawl wall-escape mutation audit)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected
