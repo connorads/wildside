@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (grounded-surface classifier mutation audit)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  production-wired `grounded_surface_type_sub_8600`, which feeds boot, ordinary
+  grounded movement, landing, slope-exit and the published gameplay ratchet.
+- ASM `sub_8600` clamps Kid's full-width foot span, scans its inclusive tile
+  range, promotes Ice only on a strict support majority, then lets Rubber win
+  ties. This includes the original empty-span quirk where zero Rubber support
+  ties zero solid support and returns Rubber.
+- `/tmp/mutants-grounded-surface-type-20260824` catches all 19 generated
+  mutations, with no miss, timeout or compiler failure. Starting
+  `mise run verify-slice-fast` and `mise run verify-tas-full` passed. Existing
+  regressions therefore guard every generated change; no production change is
+  justified. NEXT: rerun `project-status`; if no eligible row appears, audit a
+  different live gameplay or sweep-path module. Do not revisit this classifier.
+
 ## 2026-08-24 handoff (Down-hold alignment mutation hardening)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected
