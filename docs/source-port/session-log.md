@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (proactive shooting Rock Tank fire mutation refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected `step_tank_shooting_fire`. It feeds live projectile, sound, enemy-
+  frontier, and whole-level sweep state; its word-wrapped muzzle regression
+  landed after the last complete `enemies/tank.rs` census.
+- Read `Tank_Shooting.asm` `loc_3B730/loc_3B77E/loc_3B786`: the worker copies
+  turret coordinate words, applies facing-specific signed muzzle offsets,
+  seeds the bullet fields, then plays SFX `$41` after its first resume.
+- Scoped log `/tmp/mutants-tank-shooting-fire-20260824-scoped/mutants.out/debug.log`
+  records all 19 mutations owned by `step_tank_shooting_fire` as caught. The
+  run was stopped after that source span because cargo-mutants 27.1.0 does not
+  apply `-F/-E` to unrelated struct-field deletion candidates in `enemies.rs`.
+  Incidental misses from excluded Fireball and blocked Boss spans are outside
+  this census and were not used to claim Tank coverage.
+- All four focused `tank_shooting_fire` tests pass. Starting and final
+  `mise run verify-slice-fast` pass. Full TAS is not required because only
+  handoff docs changed.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this Tank fire slice.
+
 ## 2026-08-24 handoff (proactive Walking Dragon saved-speed mutation refresh)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
