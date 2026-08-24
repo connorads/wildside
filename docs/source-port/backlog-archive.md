@@ -1938,6 +1938,16 @@ independent web catalogue failure remains with 11 missing level layouts. Three
 reviewed failures remain in frame, md, and web. The pre-commit EOF fixer now
 excludes the byte-exact generated manifest; appending LF changes its payload.
 
+2026-08-24 second baseline shrink - the observable browser boot traversal now
+requests 11 additional logical `level-layout/*.json` existence paths. Refreshed
+`runtime-assets.txt` from attract audio plus all 125 valid logical level boots;
+the catalogue assertion is green with no unrequested paths. These sidecars are
+query records only: `runtime_pack_path` excludes the entire `level-layout/`
+fixture directory, so browser bundles still use the native terrain decoder and
+canonical ROM extraction bytes remain unchanged. Removed the web catalogue
+name from the downward-only baseline; two reviewed failures remain in frame
+and md.
+
 2026-08-14 closure - all six formerly dark crates now run under the fast gate.
 `wildside-rom` is directly green-gated at 12/12. The other five suites run
 independently through `workspace_failing_test_ratchet.py`, which prefixes every

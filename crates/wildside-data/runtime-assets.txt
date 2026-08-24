@@ -1264,6 +1264,7 @@ level-layout/04.bin
 level-layout/04.blocklist.bin
 level-layout/05.bin
 level-layout/05.blocklist.bin
+level-layout/05.json
 level-layout/06.bin
 level-layout/06.blocklist.bin
 level-layout/07.bin
@@ -1292,8 +1293,10 @@ level-layout/12.bin
 level-layout/12.blocklist.bin
 level-layout/13.bin
 level-layout/13.blocklist.bin
+level-layout/13.json
 level-layout/14.bin
 level-layout/14.blocklist.bin
+level-layout/14.json
 level-layout/15.bin
 level-layout/15.blocklist.bin
 level-layout/16.bin
@@ -1302,16 +1305,19 @@ level-layout/17.bin
 level-layout/17.blocklist.bin
 level-layout/18.bin
 level-layout/18.blocklist.bin
+level-layout/18.json
 level-layout/19.bin
 level-layout/19.blocklist.bin
 level-layout/1A.bin
 level-layout/1A.blocklist.bin
+level-layout/1A.json
 level-layout/1B.bin
 level-layout/1B.blocklist.bin
 level-layout/1C.bin
 level-layout/1C.blocklist.bin
 level-layout/1D.bin
 level-layout/1D.blocklist.bin
+level-layout/1D.json
 level-layout/1E.bin
 level-layout/1E.blocklist.bin
 level-layout/1F.bin
@@ -1378,6 +1384,7 @@ level-layout/3D.bin
 level-layout/3D.blocklist.bin
 level-layout/3E.bin
 level-layout/3E.blocklist.bin
+level-layout/3E.json
 level-layout/3F.bin
 level-layout/3F.blocklist.bin
 level-layout/40.bin
@@ -1388,6 +1395,7 @@ level-layout/43.bin
 level-layout/43.blocklist.bin
 level-layout/44.bin
 level-layout/44.blocklist.bin
+level-layout/44.json
 level-layout/45.bin
 level-layout/45.blocklist.bin
 level-layout/46.bin
@@ -1396,6 +1404,7 @@ level-layout/47.bin
 level-layout/47.blocklist.bin
 level-layout/48.bin
 level-layout/48.blocklist.bin
+level-layout/48.json
 level-layout/49.bin
 level-layout/49.blocklist.bin
 level-layout/4A.bin
@@ -1445,6 +1454,7 @@ level-layout/5F.bin
 level-layout/5F.blocklist.bin
 level-layout/60.bin
 level-layout/60.blocklist.bin
+level-layout/60.json
 level-layout/61.bin
 level-layout/61.blocklist.bin
 level-layout/62.bin
@@ -1455,6 +1465,7 @@ level-layout/64.bin
 level-layout/64.blocklist.bin
 level-layout/65.bin
 level-layout/65.blocklist.bin
+level-layout/65.json
 level-layout/66.bin
 level-layout/66.blocklist.bin
 level-layout/67.bin

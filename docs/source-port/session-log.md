@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (browser runtime catalogue refresh)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected #445's remaining browser runtime-catalogue failure. It directly
+  gates attract audio and every valid logical level boot.
+- The existing assertion was red with exactly 11 missing
+  `level-layout/*.json` paths. Regenerating from observable `AssetSource`
+  requests added those paths and no removals; the non-update assertion then
+  booted all 125 valid logical slots and passed.
+- The sidecars record existence queries only. `runtime_pack_path` excludes all
+  `level-layout/` fixtures, so private browser bundles continue through the
+  native terrain decoder and the canonical ROM extraction recipe is unchanged.
+- Native bundle tests pass 8/8 and the WASM extractor boundary remains exact.
+  #445's downward-only workspace baseline shrinks from three names to two.
+  Starting `mise run verify-slice-fast` passed with 7,311 core tests. Full TAS
+  is not required because runtime bytes and gameplay/rendering behaviour are
+  unchanged.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not revisit this catalogue slice.
+
 ## 2026-08-24 handoff (canonical runtime-manifest parity repair)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
