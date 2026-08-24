@@ -7243,6 +7243,7 @@ impl NativeRuntime {
         let sword_collision_size = red_stealth_sword_collision_size_sub_868E_loc_31D84();
 
         let mut kill_indices = Vec::new();
+        let mut hit_enemy = false;
         for i in 0..self.active_enemies.len() {
             let Some(target) = helmet_enemy_damage_target_snapshot(&self.active_enemies[i]) else {
                 continue;
@@ -7253,6 +7254,7 @@ impl NativeRuntime {
                 sword_collision_size,
                 &target,
             ) {
+                hit_enemy = true;
                 let enemy = &mut self.active_enemies[i];
                 if enemy.take_colid_hurt_or_queue_death_with_effects(
                     &mut self.projectiles,
@@ -7275,7 +7277,11 @@ impl NativeRuntime {
         for &idx in kill_indices.iter().rev() {
             self.remove_dead_enemy(idx);
         }
-        if !kill_indices.is_empty() {
+        if hit_enemy {
+            // ASM sub_868E -> loc_86D8: the sword worker collision and the
+            // enemy's damage transition belong to the live GfxObject pass.
+            // Refresh the exported post-object roster for non-lethal hits too;
+            // lethal paths already rebuild inside `remove_dead_enemy`.
             self.rebuild_active_enemy_roster();
         }
     }

@@ -2829,6 +2829,29 @@ mod chunk_06 {
         );
     }
 
+    /// ASM sub_868E -> loc_86D8 (kid.asm:9518-9556): the sword worker's
+    /// collision is part of the live GfxObject pass, so a non-lethal enemy
+    /// damage transition must be visible in the same post-object trace roster.
+    #[test]
+    fn loc_86d8_nonlethal_sword_hit_refreshes_live_enemy_roster() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        let slice = combat_slice();
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Goat, 0x009C_0000, 0x00F6_0000, 2));
+        rt.rebuild_active_enemy_roster();
+
+        rt.process_sword_hits(&slice);
+
+        assert_eq!(rt.active_enemies[0].hit_points, 1);
+        assert_eq!(
+            rt.active_enemy_roster[0].hit_points,
+            Some(1),
+            "ASM loc_86D8 collision response should reach the same-frame exported enemy state",
+        );
+    }
+
     #[test]
     fn red_stealth_sword_damages_nearby_shooting_rock_tank() {
         // ASM Tank_Shooting.asm loc_3B6DE treats `$1C/$2C` turret hits as

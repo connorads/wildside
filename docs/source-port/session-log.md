@@ -7,6 +7,33 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (proactive Red Stealth sword roster fidelity)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected the grounded Red Stealth sword path. It feeds live enemy damage and
+  the post-object roster consumed by sweep and TAS parity.
+- The initial start/timer census caught all 24 targeted mutations. The anchor,
+  collision, and consumption census found one real survivor: inverting the
+  lethal-only roster-refresh guard was invisible because `remove_dead_enemy`
+  already rebuilds lethal paths, while non-lethal sword damage left the
+  frame-entry roster stale.
+- The new `loc_86D8` regression first reproduced live Goat HP 1 alongside
+  exported roster HP 2. `process_sword_hits` now records any grounded contact
+  and rebuilds the roster after the collision response, so non-lethal HP and
+  damage state are visible in the same post-object trace.
+- Closure `/tmp/mutants-red-stealth-hit-20260824-final` catches every targeted
+  viable mutation: 32 total, 30 caught, one compiler-unviable, and only the
+  unrelated known Maniaxe default-lifetime equivalence missed. All 21 grounded
+  sword tests pass.
+- `mise run verify-tas-full` passes all 37,759 published-route frames with zero
+  authoritative gameplay or enemy divergence; the frozen pixel and GEMS
+  witnesses remain at their ratchets.
+- Final `mise run verify-slice-fast` passes with 7,315 core tests and the exact
+  two-name workspace baseline.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not revisit this Red Stealth sword
+  slice.
+
 ## 2026-08-24 handoff (proactive EOL score-facade mutation hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
