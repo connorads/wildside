@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (ROM RNG frame-state mutation audit)
+
+- `project-status` offered no ready/open risk. The proactive fallback rejected
+  the sole uncovered Tar label because it belongs to the recently audited
+  burst-child lifecycle, and rejected Drips, shared animation, and physics
+  because their latest whole-file mutation passes remain current.
+- The typed `RomRandomFrameState` contract was added after the last broad
+  `types.rs` mutation pass and directly guards the full published-route RNG
+  ratchet. The exact focused shard at
+  `/tmp/mutants-rng-frame-state-exact-20260824` tests 37 mutations: 34 caught,
+  three compiler-unviable, zero missed or timed out.
+- A broader first regex also included the live `RomRandomState` generator. It
+  caught 53 mutations, found four compiler-unviable, and timed out three
+  generator mutations that prevent the long core suite terminating; it found
+  no survivors. The exact frame-state rerun supplies the decisive result.
+- Test-only ASM debt screening found no honest production promotion: the
+  remaining candidates sampled here are synthetic decompression/DBF helpers,
+  deliberate self-loop traps, rubber-art references already owned by the
+  renderer, loader reconstruction, or unwired evanescent removal detail. Debt
+  remains 152 rather than citing those labels hollowly.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not revisit RNG frame state, Drips,
+  Tar burst children, shared animation, or physics.
+
 ## 2026-08-24 handoff (hidden-block production-path regression)
 
 - `project-status` offered no ready/open risk. Test-only-debt screening rejected
