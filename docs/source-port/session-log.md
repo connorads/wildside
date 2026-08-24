@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (proactive HUD hitpoint boundary hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected ordinary HUD hitpoint visibility and tile emission in
+  `wildside-frame`; this is separate from the frozen raster-timing lanes.
+- Re-read ASM `Make_SpriteAttr_HUD loc_BDC0`: `Currently_transforming` skips
+  rebuilding the hitpoint row while the transferred prior row remains visible
+  through the first transform presentation pass.
+- Initial census `/tmp/mutants-frame-hud-hitpoints-20260824-initial2` found two
+  survivors among 41 mutations: replacing the source-metadata fallback's
+  strict visibility boundary with equality or inclusive equality. The fixture
+  only sampled inside the hidden interval.
+- Added exact five-frame equality-hidden and six-frame first-visible
+  assertions. Closure census
+  `/tmp/mutants-frame-hud-hitpoints-20260824-final` catches all 38 viable
+  mutations; three are compiler-unviable.
+- Focused test passes. Starting and final `mise run verify-slice-fast` pass.
+  Full TAS is not required because runtime rendering is unchanged.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not extend this HUD hitpoint slice.
+
 ## 2026-08-24 handoff (proactive ordinary player-walk phase hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback

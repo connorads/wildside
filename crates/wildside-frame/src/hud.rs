@@ -1454,6 +1454,22 @@ mod tests {
             },
             &visuals
         ));
+        assert!(!hud_hitpoints_visible_loc_bdc0(
+            &NativeTraceFrame {
+                form_change_flash_frames: 5,
+                current_helmet_id: 0,
+                ..NativeTraceFrame::default()
+            },
+            &visuals
+        ));
+        assert!(hud_hitpoints_visible_loc_bdc0(
+            &NativeTraceFrame {
+                form_change_flash_frames: 6,
+                current_helmet_id: 0,
+                ..NativeTraceFrame::default()
+            },
+            &visuals
+        ));
         assert!(hud_hitpoints_visible_loc_bdc0(
             &NativeTraceFrame {
                 form_change_flash_frames: 154,
