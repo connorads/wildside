@@ -2543,6 +2543,36 @@ mod chunk_01 {
         );
     }
 
+    /// ASM loc_C1EE/loc_C21E (kid.asm:15776-15807): the live facade reads
+    /// camera integer words before deriving the 20x14 reveal rectangle. Solid
+    /// cells cost six budget units in sub_C254, so 280 cells drain three per
+    /// hibernated pass and require 94 frames.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_C21E_live_scoreboard_reveal_uses_camera_words_and_solid_budget() {
+        let mut layout = Vec::with_capacity(40 * 30 * 2);
+        for row in 0..30 {
+            for col in 0..40 {
+                let word = if (20..40).contains(&col) && (14..28).contains(&row) {
+                    [0x40, 0x00]
+                } else {
+                    [0x00, 0x00]
+                };
+                layout.extend_from_slice(&word);
+            }
+        }
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.set_block_grid(terrain::BlockGrid::from_level_layout(&layout, 40, 30));
+        runtime.opening_slice = Some(OpeningSliceState::new(default_bounds()));
+        runtime.set_camera_probe_position(320, 224);
+
+        assert_eq!(
+            runtime.level_complete_scoreboard_reveal_frames_loc_C21E(),
+            94,
+            "ASM loc_C21E should reveal the camera-selected solid 20x14 rectangle in 94 budgeted passes",
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_C21E_foreground_reveal_visible_phase_matches_oracle_queue() {

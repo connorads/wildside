@@ -14950,6 +14950,46 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         );
     }
 
+    /// ASM loc_D7CE/loc_D7F4 (kid.asm:16887-16908): the second score-counter
+    /// sound is reached only after the final active number drains. Pin the
+    /// live facade on both sides of that exact transfer boundary.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D7F4_live_score_counter_drained_flips_after_final_transfer() {
+        let runtime = NativeRuntime::new(manifest_with_levels(3));
+        let tally = runtime.level_completion_bonus_tally_loc_D468();
+        let counter = crate::level::eol_score_counter_duration_loc_D770(
+            runtime.level_complete_initial_score,
+            tally.amounts(),
+        );
+        assert!(counter.counter_frames > 0);
+
+        let elapsed_before = (0..counter.counter_frames)
+            .rev()
+            .find(|&elapsed| {
+                crate::level::eol_score_counter_transfer_frames_from_trace_loc_D770(elapsed)
+                    < counter.counter_frames
+            })
+            .expect("non-empty loc_D770 counter should have a pre-drain frame");
+        assert!(
+            !runtime.level_complete_score_counter_drained_loc_D7F4(elapsed_before),
+            "ASM loc_D7CE should keep looping while the final number retains a transfer",
+        );
+
+        let elapsed_drained = (counter.counter_frames
+            ..=counter.counter_frames
+                + crate::level::EOL_SCORE_COUNTER_STALL_FRAMES_LOC_D770_ORACLE)
+            .find(|&elapsed| {
+                crate::level::eol_score_counter_transfer_frames_from_trace_loc_D770(elapsed)
+                    >= counter.counter_frames
+            })
+            .expect("trace mapping should eventually reach loc_D7F4");
+        assert!(
+            runtime.level_complete_score_counter_drained_loc_D7F4(elapsed_drained),
+            "ASM loc_D7F4 should become observable immediately after the final transfer",
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_D754_level_complete_trace_starts_score_counter_on_oracle_handoff() {

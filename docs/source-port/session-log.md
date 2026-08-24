@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-24 handoff (proactive EOL score-facade mutation hardening)
+
+- `project-status` offered no ready/open risk, so the proactive fallback
+  selected the live EOL score facade used by published-route trace output and
+  the score/life validation surface.
+- ASM `loc_C1EE`/`loc_C21E` derives its 20x14 reveal rectangle from the camera
+  integer words and charges six budget units for solid cells. The new live
+  regression selects a distinct solid camera window and pins its 94 passes.
+- ASM `loc_D7CE`/`loc_D7F4` reaches the second sound only after the final active
+  score number drains. The new live regression pins both sides of that exact
+  transfer boundary.
+- Mutation runs catch all four `loc_C21E` return/camera-shift mutations and all
+  three `loc_D7F4` return/comparison mutations. Cargo-mutants also selected
+  unrelated struct-field deletions despite the function filter; those existing
+  misses are outside this unit.
+- Final `mise run verify-slice-fast` passes with 7,314 core tests and the exact
+  two-name workspace baseline. Full TAS is not required because this unit adds
+  regressions and handoff text without changing runtime behaviour.
+- NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not revisit this EOL score-facade
+  slice.
+
 ## 2026-08-24 handoff (proactive projectile-contact mutation hardening)
 
 - `project-status` offered no ready/open risk, so the proactive fallback
