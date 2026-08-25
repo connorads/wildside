@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-25 handoff (pause Restart-Round shell mutation hardening)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  the live pause-menu Restart-Round shell outside the NOW exclusions.
+- The initial focused census exposed five misses: deleting the `loc_6E2` level
+  clear or `loc_6C3E` rebuild, plus all three one-shot clear-boundary mutations.
+- Added a public pause-menu sequence that pins the live level at elapsed frame
+  28, the blank `loc_6E2` window at frames 29..70, and the `loc_6C3E` rebuild at
+  frame 71. `/tmp/mutants-pause-restart-after-20260825` catches all ten targeted
+  production mutations with no targeted miss.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  proactive verification in a different live gameplay or sweep-path module.
+
 ## 2026-08-25 handoff (life-award word-overflow fidelity)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected

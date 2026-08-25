@@ -426,6 +426,64 @@ fn live_pause_menu_restart_round_spends_life_and_restarts_loc_6b46() {
     assert_eq!(trace.game_mode, GameMode::InGame);
 }
 
+/// ASM Game_Paused_ChkStart -> loc_6E2 -> loc_6C3E: Restart Round enters the
+/// level-reload shell before restoring the live level. The elapsed frame
+/// boundaries come from the oracle-observed shell represented by
+/// `PAUSE_RESTART_*_FRAME_LOC_6E2`.
+#[test]
+fn live_pause_restart_round_clears_then_rebuilds_level_state_loc_6e2_loc_6c3e() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_to_level(LevelId(0));
+    runtime.progression.number_lives = 3;
+    runtime.paused = true;
+
+    runtime.step_frame(FrameInput {
+        down: true,
+        ..FrameInput::default()
+    });
+    runtime.step_frame(FrameInput::default());
+    runtime.step_frame(FrameInput {
+        start: true,
+        ..FrameInput::default()
+    });
+
+    for _ in 0..PAUSE_RESTART_CLEAR_LEVEL_STATE_FRAME_LOC_6E2 - 1 {
+        runtime.step_frame(FrameInput::default());
+    }
+    assert!(
+        runtime.opening_slice.is_some(),
+        "the live level must remain present through restart-shell elapsed frame 28"
+    );
+    assert!(runtime.paused, "loc_6E2 has not cleared Game_Paused yet");
+
+    runtime.step_frame(FrameInput::default());
+    assert!(
+        runtime.opening_slice.is_none(),
+        "the loc_6E2 reload boundary must clear the live level at elapsed frame 29"
+    );
+    assert!(
+        !runtime.paused,
+        "loc_6C3E clears Game_Paused at the blank boundary"
+    );
+
+    for _ in PAUSE_RESTART_CLEAR_LEVEL_STATE_FRAME_LOC_6E2
+        ..PAUSE_RESTART_REBUILD_LEVEL_STATE_FRAME_LOC_6E2 - 1
+    {
+        runtime.step_frame(FrameInput::default());
+    }
+    assert!(
+        runtime.opening_slice.is_none(),
+        "the loc_6E2 shell must remain blank through elapsed frame 70"
+    );
+
+    runtime.step_frame(FrameInput::default());
+    assert!(
+        runtime.opening_slice.is_some(),
+        "loc_6C3E must restore the live level at elapsed frame 71"
+    );
+    assert!(runtime.pending_pause_restart_round.is_none());
+}
+
 #[test]
 fn live_pause_menu_give_up_last_life_enters_death_windup_loc_6c0a() {
     let mut runtime = NativeRuntime::new(manifest());
