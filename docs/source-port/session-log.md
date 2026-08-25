@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-25 handoff (ceiling probe mutation audit)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  the production ceiling probe used by live player and Drips paths.
+- ASM `sub_914A`/`loc_9188` scans every crossed tile column for `$6000` solid
+  or `$7000` spikes. `loc_9226` treats a negative head row as a blocking
+  ceiling, matching the native early return and inclusive span.
+- `/tmp/mutants-probe-ceiling-20260825` isolates all fourteen generated
+  mutations: thirteen caught and the whole-function default replacement
+  compiler-unviable, with no miss or timeout. No production change is justified.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  proactive verification in a different live gameplay or sweep-path module.
+
 ## 2026-08-25 handoff (Iron Knight climb wall mutation audit)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected
