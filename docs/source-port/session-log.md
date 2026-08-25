@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-25 handoff (platform collision/carry mutation audit)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  the live `Platforms_CheckCollision` overlap and carry branch, which feeds
+  platform movement and the platform playtest gate.
+- ASM `loc_25EE`/`loc_2632` choose the smaller signed escape distance,
+  `loc_266A` compares axis magnitudes, and `loc_2686` through `loc_26FE`
+  applies the winning wall, landing, or underside-carry response.
+- `/tmp/mutants-platform-collision-initial-20260825` isolates all 23 mutations:
+  11 are caught and 12 whole-function default replacements are
+  compiler-unviable, with no miss or timeout. Existing regressions therefore
+  guard every viable generated change; no production change is justified.
+  NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not revisit this branch.
+
 ## 2026-08-25 handoff (contact-damage voice-selector mutation audit)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected
