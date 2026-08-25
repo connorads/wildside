@@ -5992,6 +5992,47 @@ mod chunk_03 {
         assert_eq!(below.progression.diamond_count, 19);
     }
 
+    /// ASM `DiamondPower_Init_Index` / `DiamondPower_Main_Index`
+    /// (kid.asm:44375-44436) define one dispatch entry for every raw power ID.
+    #[test]
+    fn diamond_power_type_dispatch_covers_every_rom_table_entry_loc_3f71e() {
+        use helmets::DiamondPowerType::{
+            CircleOfDoom, DeathSnake, ExtraHitPoint, ExtraLife, FiveWayShot, Invulnerability,
+            MiniSnake, None, SamuraiHaze, SlashingRain, SwiftMiniSnake, TrackingRain, WallOfDeath,
+        };
+
+        let expected = [
+            CircleOfDoom,
+            Invulnerability,
+            SlashingRain,
+            SamuraiHaze,
+            None,
+            FiveWayShot,
+            CircleOfDoom,
+            Invulnerability,
+            CircleOfDoom,
+            MiniSnake,
+            DeathSnake,
+            DeathSnake,
+            TrackingRain,
+            DeathSnake,
+            None,
+            FiveWayShot,
+            ExtraHitPoint,
+            WallOfDeath,
+            ExtraLife,
+            SwiftMiniSnake,
+        ];
+
+        for (diamond_power_id, expected_type) in expected.into_iter().enumerate() {
+            assert_eq!(
+                helmets::diamond_power_type_from_id_loc_3f71e(diamond_power_id as u16),
+                expected_type,
+                "ASM DiamondPower_Main_Index entry {diamond_power_id} must preserve its raw-ID dispatch"
+            );
+        }
+    }
+
     #[test]
     fn circle_of_doom_activation_exposes_live_dp_sprites_loc_3f7d0_loc_3f880() {
         let mut runtime = NativeRuntime::new(manifest());

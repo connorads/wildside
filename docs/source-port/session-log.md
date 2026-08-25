@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-25 handoff (Diamond Power dispatch mutation hardening)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  production Diamond Power raw-ID dispatch, which maps the ROM's twenty-entry
+  init/main tables onto native power behaviours.
+- ASM `DiamondPower_Init_Index` and `DiamondPower_Main_Index` define the raw-ID
+  table. Their target routines also establish the power-specific timer writes;
+  the native mapping matches those branches.
+- The initial isolated census found four surviving match-arm deletions for
+  Five-Way Shot, Mini Snake, Death Snake, and Swift Mini Snake. Regression
+  `diamond_power_type_dispatch_covers_every_rom_table_entry_loc_3f71e` pins all
+  twenty raw IDs to their ASM-defined types.
+- Closure shards catch all 23 unique target mutations: 19/19 in the head slice
+  and 5/5 in the overlapping tail slice. No production change is justified.
+  NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not revisit this dispatch.
+
 ## 2026-08-25 handoff (platform collision/carry mutation audit)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected
