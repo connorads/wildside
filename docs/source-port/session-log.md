@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-25 handoff (Lion vertical collision mutation audit)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  the production `sub_36C6A`/`sub_36CB8` terrain scans used by live Lion charge
+  airborne collision handling.
+- ASM `sub_36C6A` derives the row below `y_pos-1`; `sub_36CB8` derives the row
+  above `y_pos-height`. Both scan the inclusive `$48(a5)` body width for layout
+  bit `$4000`, matching the native helpers and their existing terrain tests.
+- `/tmp/mutants-vertical-collision-scans-20260825` isolates all twelve generated
+  constant-return and row-arithmetic mutations: 12 caught, with no miss,
+  timeout, or compiler-unviable mutation. No production change is justified.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  proactive verification in a different live gameplay or sweep-path module.
+
 ## 2026-08-25 handoff (controller boundary mutation audit)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected
