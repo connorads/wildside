@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-25 handoff (life-award word-overflow fidelity)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  live score and life accounting, used by score thresholds, Ankhs, diamonds,
+  and Diamond Power.
+- ASM `loc_D79E`, `PrizeAnkhCollected_Init`, `loc_10AAE`, and `loc_3FC4E` all
+  award a life with `addq.w #1,(Number_Lives).w`. Native instead used
+  `saturating_add`, so `$FFFF` incorrectly remained `$FFFF` rather than wrapping
+  to `$0000` at the 68000 word boundary.
+- Red-first regression `add_life_word_increment_wraps_at_ffff_loc_10aae`
+  reproduced the mismatch, then passed after changing the shared award helper
+  to `wrapping_add`. The standing scoring audit now records the word overflow
+  instead of describing saturation as a bare ROM increment.
+  NEXT: rerun `project-status`; if no eligible row appears, audit a different
+  live gameplay or sweep-path module. Do not revisit this increment.
+
 ## 2026-08-25 handoff (Diamond Power dispatch mutation hardening)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected

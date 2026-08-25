@@ -22470,6 +22470,22 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         );
     }
 
+    /// ASM `loc_D79E`, `PrizeAnkhCollected_Init`, `loc_10AAE`, and `loc_3FC4E`
+    /// each use a 16-bit `addq.w #1,(Number_Lives).w` with no saturation.
+    #[test]
+    fn add_life_word_increment_wraps_at_ffff_loc_10aae() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.number_lives = u16::MAX;
+
+        runtime.add_life();
+
+        assert_eq!(
+            runtime.progression.number_lives, 0,
+            "ASM loc_10AAE must preserve 68000 word overflow from $FFFF to $0000"
+        );
+    }
+
     #[test]
     fn live_hud_path_loc_bf2a_clamps_lives_to_ninety_nine() {
         let mut runtime = NativeRuntime::new(manifest());
