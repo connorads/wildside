@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-25 handoff (controller boundary mutation audit)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  the live `FrameInput` mask boundary used by scenarios and controller input.
+- Cargo-mutants' function regex selected a broader production set than its name
+  suggested: `to_mask`, left/right resolution, Fast Action inversion, ABC
+  permutation, and the Shooter Block constructor. The exact outcome is therefore
+  34/34 caught, not a controller-only count.
+- `/tmp/mutants-frame-input-to-mask-3` has no miss, timeout, or compiler-unviable
+  mutation. Existing regressions already guard the viable generated changes, so
+  no production change is justified.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  proactive verification in a different live gameplay or sweep-path module.
+
 ## 2026-08-25 handoff (pause Restart-Round shell mutation hardening)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected
