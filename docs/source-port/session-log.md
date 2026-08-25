@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-25 handoff (Iron Knight climb wall mutation audit)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  the production wall probe used while Iron Knight remains attached and climbs.
+- ASM `loc_A2F6`/`loc_A30A` sends `sub_B55C` the facing-dependent
+  `±(half_width+1)` X offset and `-$18` Y offset. Only collision nibble `$6000`
+  keeps the climb loop alive; native gameplay and trace probing share this helper.
+- `/tmp/mutants-iron-knight-climb-wall-20260825` isolates all eighteen generated
+  mutations: seventeen caught and the whole-function default replacement
+  compiler-unviable, with no miss or timeout. No production change is justified.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  proactive verification in a different live gameplay or sweep-path module.
+
 ## 2026-08-25 handoff (Lion vertical collision mutation audit)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected
