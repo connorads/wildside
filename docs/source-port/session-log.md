@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-25 handoff (floor-support mutation audit)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  the production floor primitive and hitbox support chooser used across player,
+  enemy, projectile, entry, and trace paths.
+- ASM `sub_9386`/`sub_A254` defines the `$4000`/`$5000` slope constants and Y
+  reconstruction. The wider support scan follows `sub_914A`'s inclusive tile
+  span while native selects the highest centre/edge support.
+- `/tmp/mutants-probe-floor-20260825` catches all thirteen exact `probe_floor`
+  mutations. `/tmp/mutants-probe-floor-hitbox-20260825` catches all nine exact
+  hitbox mutations, with no miss, timeout, or compiler failure across either
+  run. No production change is justified.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  proactive verification in a different live gameplay or sweep-path module.
+
 ## 2026-08-25 handoff (ceiling probe mutation audit)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected
