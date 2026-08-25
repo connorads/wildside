@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-25 handoff (lava-geyser window mutation audit)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  the live lava-geyser sprite camera window in the weather module.
+- ASM `loc_147D6` keeps rows inside inclusive X
+  `[Camera_X-$20, Camera_X+$160]` and Y
+  `[Camera_Y-$48, Camera_Y+$128]` bounds before `sub_14BD8` builds sprites.
+- The exact function filter also selected five `sub_61CA` hail-projectile field
+  deletions. `/tmp/mutants-lava-geyser-window-20260825` therefore records
+  twenty mutants: all fifteen geyser bounds plus all five hail fields caught,
+  with no miss, timeout, or compiler failure. No production change is justified.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  proactive verification in a different live gameplay or sweep-path module.
+
 ## 2026-08-25 handoff (jump-air controller mutation audit)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected
