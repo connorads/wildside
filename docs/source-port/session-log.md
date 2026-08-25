@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-25 handoff (jump-air controller mutation audit)
+
+- `project-status` offered no ready/open risk. The proactive fallback selected
+  the production jump-air controller used by the live player path and published
+  gameplay frontier.
+- ASM `sub_B084`/`loc_B09E` multiplies the per-form acceleration by 1.5 while
+  Run is held. `loc_B0B6`/`loc_B0E2` apply asymmetric directional caps and the
+  `$100` correction; `loc_B0FE`/`loc_B10E` decay by `$400` towards zero.
+- `/tmp/mutants-jump-horizontal-20260825` isolates all nineteen generated
+  mutations: all nineteen caught, with no miss, timeout, or compiler failure.
+  No production change is justified.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  proactive verification in a different live gameplay or sweep-path module.
+
 ## 2026-08-25 handoff (floor-support mutation audit)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected
