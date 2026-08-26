@@ -15613,6 +15613,16 @@ impl NativeRuntime {
             && !self.starting_level_title_workers.is_empty()
         {
             let total_worker_count = self.starting_level_title_workers.len() as u16;
+            let first_visible_frame = if matches!(
+                self.title_screen_intro_return_lineage,
+                Some(TitleScreenIntroReturnLineage::ColdIntroSequence1)
+            ) && self.cold_intro_sequence_1_early_start_poll
+                && self.direct_title_card_handoff_capture
+            {
+                crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME.saturating_sub(8)
+            } else {
+                crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
+            };
             // ASM Load_TitleCard / loc_1AB26 / loc_1AD48 / loc_1AE2E
             // (kid.asm:28588-29063) keep the cold-boot mode-$0008 lineage on
             // the carried 4-object title shell, then briefly clear object RAM
@@ -15622,30 +15632,20 @@ impl NativeRuntime {
             // carry through local frame 33, blank on 34..37, 2 hidden objects
             // on 38..40, 13 hidden objects on 41, 15 hidden / 0 gfx on 42,
             // 15 hidden / 13 gfx on 43, then 15 / 14 from 44 onward.
-            return if elapsed_frames > crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
-            {
+            return if elapsed_frames > first_visible_frame {
                 (total_worker_count.saturating_add(1), total_worker_count)
-            } else if elapsed_frames == crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
-            {
+            } else if elapsed_frames == first_visible_frame {
                 (
                     total_worker_count.saturating_add(1),
                     total_worker_count.saturating_sub(1),
                 )
-            } else if elapsed_frames + 1
-                == crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
-            {
+            } else if elapsed_frames + 1 == first_visible_frame {
                 (total_worker_count.saturating_add(1), 0)
-            } else if elapsed_frames + 2
-                == crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
-            {
+            } else if elapsed_frames + 2 == first_visible_frame {
                 (total_worker_count.saturating_sub(1), 0)
-            } else if elapsed_frames + 5
-                >= crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
-            {
+            } else if elapsed_frames + 5 >= first_visible_frame {
                 (2, 0)
-            } else if elapsed_frames + 9
-                >= crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
-            {
+            } else if elapsed_frames + 9 >= first_visible_frame {
                 (0, 0)
             } else {
                 (4, 4)

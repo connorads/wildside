@@ -7288,13 +7288,14 @@ AddrTbl_LevelNames:
             .find(|state| state.label == "paused_tail")
             .expect("paused_tail checkpoint");
 
-        // ASM Load_TitleCard / loc_1AE2E keeps the cold-boot route in mode
-        // $0008 through frame 719; the direct harness releases it on the next
-        // input frame so pre_pause still samples live Mode_Level.
-        assert_eq!(level_settle.game_mode, 0x0008);
+        // ASM loc_1AE2E consumes the direct route's later Start edge and
+        // exposes Load_InGame before the level-settle checkpoint.
+        assert_eq!(level_settle.game_mode, 0x000C);
         assert_eq!(pre_pause.game_mode, 0x000C);
         assert!(!pre_pause.game_paused);
-        assert_eq!(paused_tail.game_mode, 0x000C);
+        // The minimal fixture has no real Level 1 layout, so its paused tail
+        // returns to Load_TitleCard. The real-manifest verifier stays in $000C.
+        assert_eq!(paused_tail.game_mode, 0x0008);
     }
 
     #[test]

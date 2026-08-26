@@ -19704,7 +19704,13 @@ impl NativeRuntime {
     ) {
         let entered_from_live_gameplay = matches!(self.boot_state, BootState::InGame);
         let level_has_title_card = self.level_has_title_card(level_id);
-        let uses_load_ingame_bootstrap = matches!(self.boot_state, BootState::TitleScreen { .. })
+        let cold_intro_sequence_1_title = matches!(
+            self.title_screen_intro_return_lineage,
+            Some(crate::TitleScreenIntroReturnLineage::ColdIntroSequence1)
+        ) && self.cold_intro_sequence_1_early_start_poll
+            && self.direct_title_card_handoff_capture;
+        let uses_load_ingame_bootstrap = !cold_intro_sequence_1_title
+            && matches!(self.boot_state, BootState::TitleScreen { .. })
             && if level_has_title_card {
                 !self.title_screen_ready()
             } else {
@@ -19725,6 +19731,7 @@ impl NativeRuntime {
             && !self.title_menu_cursor_pending;
         let start_latched = self.title_screen_ready_frame != TITLE_SCREEN_READY_GLOBAL_FRAME
             && ((carry_title_start
+                && !cold_intro_sequence_1_title
                 && !self.recorded_title_card_handoff_delay
                 && level_has_title_card
                 && !uses_load_ingame_bootstrap)

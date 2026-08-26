@@ -4029,33 +4029,52 @@ mod chunk_01 {
             runtime.step_frame(input);
         }
 
-        assert!(
-            matches!(
-                runtime.boot_state,
-                BootState::StartingLevel {
-                    start_latched: false,
-                    elapsed_frames: 258,
-                    uses_load_ingame_bootstrap: false,
-                    load_ingame_bootstrap_started: false,
-                }
-            ),
-            "ASM Load_TitleCard loc_1AE2E must remain in Game_Mode=$0008 after Obj_TitleMenu consumes the frame-461 Start edge: {:?}",
-            runtime.boot_state,
-        );
+        assert!(matches!(runtime.boot_state, BootState::InGame));
         assert_eq!(
             runtime.rom_random.offset_word(),
-            0xFFDE,
-            "ASM Init_RNG and Mode_Standard/Mode_Level Execute_Objects cadence reaches oracle cold-boot frame 720 at RNG offset $FFDE",
+            0xFFFD,
+            "ASM Init_RNG and Mode_Standard/Mode_Level Execute_Objects cadence reaches oracle cold-boot frame 720 at RNG offset $FFFD",
         );
         assert_eq!(
             runtime.rom_random.ring_bytes(),
             [
-                0x3F, 0x03, 0x57, 0x80, 0xEB, 0x61, 0xB4, 0xEC, 0x29, 0xE7, 0x97, 0x19, 0x16, 0xB4,
-                0x17, 0x88, 0xE4, 0x68, 0x97, 0x33, 0xDC, 0x55, 0xF9, 0xB4, 0x48, 0x6E, 0x48, 0xDA,
-                0x4B, 0x28, 0xBB, 0x85, 0x1F, 0xA3, 0xCE, 0x8C, 0x3E, 0x7D, 0x94, 0x79, 0xF6, 0xA9,
-                0x96, 0x80, 0xBF, 0xF0, 0x9E, 0x4D, 0xD2, 0x46, 0xD9, 0xB9, 0x0B, 0xA0, 0xD4,
+                0xB8, 0x9D, 0x77, 0x77, 0x4B, 0xFD, 0x74, 0xED, 0x58, 0x53, 0x9A, 0xFE, 0x21, 0x6D,
+                0xC9, 0xA3, 0x83, 0xC5, 0x25, 0x4A, 0xD7, 0xD7, 0x61, 0xB8, 0x72, 0x03, 0x50, 0x8D,
+                0x79, 0xDD, 0xC0, 0xB5, 0xC0, 0x1A, 0x98, 0xB1, 0x09, 0xD3, 0x67, 0x61, 0xFA, 0x40,
+                0x6F, 0x5C, 0x70, 0x69, 0x99, 0x57, 0x81, 0x57, 0x32, 0x57, 0xB6, 0xA0, 0xCE,
             ],
             "ASM Init_RNG/Get_RandomNumber_byte ring must match the complete oracle WRAM `$FFFFFBDA..$FFFFFC10` image, not only its modulo-55 offset",
+        );
+    }
+
+    #[test]
+    fn cold_boot_frame_78_start_enters_title_mode_sub_1b8f4_sub_1c246() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.set_recorded_title_card_handoff_delay(false);
+        let mut observed = Vec::new();
+        for frame in 0..=179 {
+            let input = FrameInput {
+                start: BOOT_TO_LEVEL_START_FRAMES.contains(&frame),
+                ..FrameInput::default()
+            };
+            let trace = runtime.step_frame(input);
+            if matches!(frame, 78 | 138 | 178 | 179) {
+                observed.push((frame, trace.game_mode, trace.rng_offset));
+            }
+        }
+
+        assert_eq!(
+            observed,
+            [
+                (78, GameMode::TitleScreen, Some(0xFFF5)),
+                (138, GameMode::LevelTransition, Some(0xFFF2)),
+                (178, GameMode::LevelTransition, Some(0xFFFD)),
+                (179, GameMode::InGame, Some(0xFFCA)),
+            ],
+            "ASM sub_1B8F4 loc_1B924 -> sub_1C246 consumes frame-77 Start; Obj_TitleMenu loc_1BAEA/loc_1BBD6 consumes frames 135/137 and enters Load_TitleCard on frame 138",
         );
     }
 

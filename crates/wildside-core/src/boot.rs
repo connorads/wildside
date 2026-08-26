@@ -5546,6 +5546,19 @@ impl NativeRuntime {
             self.demo_title_return_uses_intro_sequence_6_early_title_restore = true;
         }
         self.title_screen_ready_frame = ready_frame;
+        if matches!(lineage, TitleScreenIntroReturnLineage::ColdIntroSequence1)
+            && self.cold_intro_sequence_1_early_start_poll
+            && self.direct_title_card_handoff_capture
+        {
+            // ASM sub_1B8F4 -> sub_1C246 enters the cold title rebuild on
+            // frame 78. Obj_TitleMenu loc_1BAEA is ready for the frame-135
+            // Start edge after the measured 58-frame local lock.
+            let cold_ready_frame = self
+                .frame_index
+                .saturating_add(TITLE_ATTRACT_LOCK_FRAMES.saturating_sub(1));
+            self.title_screen_ready_frame = cold_ready_frame;
+            self.title_menu_arm_frame = cold_ready_frame;
+        }
     }
 
     fn enter_intro_sequence_6_from_intro_sequence_5(
@@ -5669,6 +5682,16 @@ impl NativeRuntime {
                     TIMEOUT_RESTART_INTRO_SEQUENCE_5_TITLE_RNG_FIRST_LIVE_ELAPSED
                 };
             return self.title_screen_elapsed_frames >= first_live_elapsed;
+        }
+        if matches!(
+            self.title_screen_intro_return_lineage,
+            Some(TitleScreenIntroReturnLineage::ColdIntroSequence1)
+        ) && self.cold_intro_sequence_1_early_start_poll
+            && self.direct_title_card_handoff_capture
+        {
+            // ASM Load_TitleScreen's cold loc_E12 object passes resume at
+            // oracle frame 126, local pre-step elapsed 47.
+            return self.effective_title_screen_rebuild_elapsed() > 47;
         }
         if matches!(
             self.title_screen_intro_return_lineage,
@@ -7064,6 +7087,8 @@ impl NativeRuntime {
                     // inside the logo object's VBlank loop; the outer trace
                     // still observes mode 0 for that frame and sees
                     // Game_Mode=$0004 on the following frame.
+                    self.cold_intro_sequence_1_early_start_poll =
+                        *elapsed <= SEGA_SCREEN_FIRST_OBJECT_PASS_ELAPSED.saturating_add(1);
                     *elapsed = SEGA_SCREEN_FRAMES;
                 }
             }
@@ -7291,10 +7316,19 @@ impl NativeRuntime {
                     *segment != 4 || *elapsed >= INTRO_SEQUENCE_5_START_POLL_ELAPSED_FRAMES;
                 let start_advances_segment =
                     start_pressed && *segment != 0 && intro_sequence_5_start_poll_active;
+                let intro_sequence_1_start_poll_elapsed = if *segment == 0
+                    && intro_sequence_1_frames_override.is_none()
+                    && self.cold_intro_sequence_1_early_start_poll
+                    && self.direct_title_card_handoff_capture
+                {
+                    43
+                } else {
+                    INTRO_FIRST_SEGMENT_DIRECT_TITLE_FRAMES
+                };
                 let start_jumps_to_title = start_pressed
                     && intro_sequence_5_start_poll_active
                     && ((matches!(*segment, 0 | 1)
-                        && *elapsed >= INTRO_FIRST_SEGMENT_DIRECT_TITLE_FRAMES)
+                        && *elapsed >= intro_sequence_1_start_poll_elapsed)
                         || *segment >= 3);
                 if start_jumps_to_title {
                     self.timeout_restart_title_intro_sequence_3_return_pending = false;
@@ -7317,11 +7351,19 @@ impl NativeRuntime {
                         // for one more traced frame, then loc_1C264 writes
                         // `$2C` on the next frame.
                         2
-                    } else if *segment == 0 {
+                    } else if *segment == 0
+                        && self.cold_intro_sequence_1_early_start_poll
+                        && self.direct_title_card_handoff_capture
+                    {
                         // ASM sub_1B8F4 reaches loc_1B924 after its
-                        // sub_1C204 fade-in shell; the first-segment
-                        // sub_1C246 Start edge is reflected in traced
-                        // Game_Mode two outer frames later.
+                        // sub_1C204 fade-in shell. Oracle cold boot consumes
+                        // the frame-77 Start edge and exposes loc_1C264's
+                        // Game_Mode=$002C write on frame 78.
+                        1
+                    } else if *segment == 0 {
+                        // A later loc_12E96 logo-loop skip enters sub_1C204 one
+                        // outer pass later. Oracle's frame-137 Start remains
+                        // in mode $04 on frame 138 and reaches loc_1C264 on 139.
                         2
                     } else if *segment == 4 {
                         // ASM loc_1BA60 polls sub_1C246 from the
@@ -7737,6 +7779,12 @@ impl NativeRuntime {
             }
             BootState::TitleScreen { cursor } => {
                 let mut just_activated_title_menu = false;
+                let cold_intro_sequence_1_title = matches!(
+                    self.title_screen_intro_return_lineage,
+                    Some(TitleScreenIntroReturnLineage::ColdIntroSequence1)
+                ) && self.cold_intro_sequence_1_early_start_poll;
+                let cold_intro_sequence_1_title =
+                    cold_intro_sequence_1_title && self.direct_title_card_handoff_capture;
                 if self.demo_auto_timeout_handoff_active
                     && self.title_screen_elapsed_frames + 1 >= DEMO_AUTO_TIMEOUT_MODE_0_FRAMES
                 {
@@ -7805,14 +7853,25 @@ impl NativeRuntime {
                         self.title_idle_frames = 0;
                         self.title_menu_active = true;
                         self.title_menu_cursor_pending = true;
-                        self.title_menu_vdp_upload_frame_loc_1bb52 =
-                            Some(self.frame_index.saturating_add(
-                                TITLE_MENU_CURSOR_GFX_ALLOCATION_DELAY_FRAMES_LOC_1BB52,
-                            ));
+                        self.title_menu_vdp_upload_frame_loc_1bb52 = Some(
+                            self.frame_index
+                                .saturating_add(if cold_intro_sequence_1_title {
+                                    1
+                                } else {
+                                    TITLE_MENU_CURSOR_GFX_ALLOCATION_DELAY_FRAMES_LOC_1BB52
+                                }),
+                        );
                         self.title_menu_hidden_prearm_pending = false;
-                        self.title_menu_arm_frame = self
-                            .frame_index
-                            .saturating_add(TITLE_MENU_ACTIVATION_DELAY_FRAMES);
+                        self.title_menu_arm_frame =
+                            self.frame_index
+                                .saturating_add(if cold_intro_sequence_1_title {
+                                    // ASM Obj_TitleMenu loc_1BAEA -> loc_1BB52:
+                                    // cold frame 135 Start exposes the cursor on
+                                    // frame 136 and accepts row selection at 137.
+                                    1
+                                } else {
+                                    TITLE_MENU_ACTIVATION_DELAY_FRAMES
+                                });
                         let title_elapsed_timeout = TITLE_ATTRACT_LOCK_FRAMES
                             .saturating_add(usize::from(demo::TITLE_IDLE_FRAMES));
                         if self
@@ -7857,7 +7916,13 @@ impl NativeRuntime {
                     // current row, the object marks the hand-off latch and
                     // jumps through loc_6E2 / level-select entry.
                     self.title_menu_selection_pending = Some(*cursor);
-                    self.title_menu_selection_delay_frames = TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES;
+                    self.title_menu_selection_delay_frames = if cold_intro_sequence_1_title {
+                        // ASM Title_InputLoop loc_1BBD6 writes mode $0008 on
+                        // the next traced frame, with no extra synthetic wait.
+                        0
+                    } else {
+                        TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES
+                    };
                 } else if up_pressed && *cursor > 0 && title_input_loop_active {
                     // ASM Obj_TitleMenu loc_1BBDE: Up only moves when `d1`
                     // is non-zero, then decrements the row and calls
@@ -8102,10 +8167,18 @@ impl NativeRuntime {
                             false
                         }
                     } else if self.direct_title_card_handoff_capture {
-                        // Direct gameplay captures deliberately collapse the
-                        // loc_1AE2E input gate once its hidden bootstrap age
-                        // is complete; recorded replays retain the Start edge.
-                        self.frame_index > COLD_BOOT_TITLE_CARD_LAST_HIDDEN_FRAME_LOC_1AE2E
+                        // ASM loc_1AE2E clears the row-selection edge, then
+                        // consumes the later frame-178 Start press. The
+                        // hibernating worker exposes Game_Mode=$000C on the
+                        // following frame, not on the input frame itself.
+                        if !self.cold_intro_sequence_1_early_start_poll {
+                            self.frame_index > COLD_BOOT_TITLE_CARD_LAST_HIDDEN_FRAME_LOC_1AE2E
+                        } else if start_pressed {
+                            *start_latched = true;
+                            false
+                        } else {
+                            *start_latched
+                        }
                     } else {
                         // Ordinary runtime entries follow loc_1AE2E directly:
                         // the first live Start edge releases the title card.

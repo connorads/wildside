@@ -14,6 +14,8 @@ pub(crate) const SEGA_SCREEN_FIRST_OBJECT_PASS_ELAPSED: usize = 33;
 // Oracle cold-boot probes keep mode `$0004` through frame 533 and enter
 // intro sequence 2 on frame 534.
 pub(crate) const INTRO_FIRST_SEGMENT_FRAMES: usize = 361;
+/// First pre-step elapsed value where sub_1B8F4 has reached loc_1B924 and
+/// polls sub_1C246. Oracle cold boot consumes the frame-77 Start edge here.
 pub(crate) const INTRO_FIRST_SEGMENT_DIRECT_TITLE_FRAMES: usize = 100;
 // ASM Load_IntroSequence2 `loc_1B9D0 -> loc_1B9F4 -> loc_1BA02` uses the
 // same fade/text shell plus the `$149` inclusive DBF loop. Oracle cold-boot
@@ -220,8 +222,6 @@ pub(crate) const OPENING_GROUNDED_CAMERA_Y_FP: u32 = 0x0073_0000;
 // Oracle boot-to-level traces use an early intro-skip sequence, then one
 // Start press to arm the title menu and a later Start press to select 1P.
 pub(crate) const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = [33, 77, 135, 137, 178, 360, 460];
-/// Last zero-based trace frame where the cold Load_TitleCard/loc_1AE2E shell
-/// remains in Game_Mode $0008 before a direct gameplay capture may expose it.
 pub(crate) const COLD_BOOT_TITLE_CARD_LAST_HIDDEN_FRAME_LOC_1AE2E: usize = 719;
 pub(crate) const TITLE_KID_X_POS: u32 = 0x002E_0000;
 pub(crate) const TITLE_KID_Y_POS: u32 = 0x008C_0000;
@@ -622,6 +622,9 @@ pub(crate) const PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES: u8 =
 // oracle keeps that carry visible through local frames 0..93, then settles on
 // the normal Level 1 gameplay slice on local frame 94.
 pub(crate) const TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E: u8 = 94;
+/// ASM loc_1AE2E -> loc_6E2 keeps Load_InGame inside its blocking loader for
+/// 58 traced frames after Game_Mode becomes $000C. Mode_Level resumes on 59.
+pub(crate) const TITLE_CARD_LOAD_INGAME_HIBERNATE_FRAMES_LOC_1AE2E: u8 = 58;
 pub(crate) const TITLE_CARD_LIVE_HANDOFF_TITLE_WORKER_FRAMES_LOC_1AE2E: usize = 27;
 pub(crate) const TITLE_CARD_LIVE_HANDOFF_ZEROED_TITLE_WORKER_FRAMES_LOC_1AE2E: usize = 31;
 pub(crate) const TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E: usize = 69;

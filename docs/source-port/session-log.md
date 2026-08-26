@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-26 handoff (direct cold-boot title lifecycle)
+
+- A proactive release-gate audit found the direct pause capture still exposed
+  `Load_TitleCard` mode `$0008` at frame 719, while oracle was already in
+  `Load_InGame` mode `$000C`.
+- Framewise oracle probes pin the direct cold route at title frame 78,
+  transition frame 138, title-card Start frame 178, and InGame frame 179.
+  Frame 720 now also matches the complete 55-byte RNG ring at offset `$FFFD`.
+- The fix carries the early Sega-logo Start lineage through the real title
+  rebuild, menu, title-card, and hibernated loader phases. Recorded TAS and
+  settled-warp routes retain their existing lifecycle and witnesses.
+- The published 3,400-frame player/camera and enemy frontiers remain clean;
+  normal TAS windows also remain exact. See archive #381.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  proactive verification in a different live gameplay or sweep-path module.
+
 ## 2026-08-25 handoff (lava-geyser window mutation audit)
 
 - `project-status` offered no ready/open risk. The proactive fallback selected

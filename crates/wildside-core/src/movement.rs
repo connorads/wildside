@@ -2184,6 +2184,11 @@ impl NativeRuntime {
                 ..
             }
         );
+        let cold_intro_sequence_1_title = matches!(
+            self.title_screen_intro_return_lineage,
+            Some(TitleScreenIntroReturnLineage::ColdIntroSequence1)
+        ) && self.cold_intro_sequence_1_early_start_poll
+            && self.direct_title_card_handoff_capture;
         let workers = &mut self.starting_level_title_workers;
         let rom_random = &mut self.rom_random;
         let title_rng = &mut self.starting_level_title_rng;
@@ -2194,6 +2199,7 @@ impl NativeRuntime {
                     && level_entry_title_effective_activation_frame(
                         worker,
                         uses_early_start_title_seed_rng,
+                        cold_intro_sequence_1_title,
                     ) == elapsed_frames
             })
             .collect::<Vec<_>>();
@@ -2233,6 +2239,11 @@ impl NativeRuntime {
     }
 
     pub(crate) fn starting_level_slot_2_pose(&self, elapsed_frames: usize) -> Option<PlayerState> {
+        let cold_intro_sequence_1_title = matches!(
+            self.title_screen_intro_return_lineage,
+            Some(TitleScreenIntroReturnLineage::ColdIntroSequence1)
+        ) && self.cold_intro_sequence_1_early_start_poll
+            && self.direct_title_card_handoff_capture;
         self.starting_level_title_workers
             .iter()
             .find(|worker| worker.gfx_slot_index == LEVEL_ENTRY_TITLE_SLOT_2_INDEX)
@@ -2245,9 +2256,17 @@ impl NativeRuntime {
                         ..
                     }
                 ) {
-                    level_entry_title_effective_activation_frame(worker, true)
+                    level_entry_title_effective_activation_frame(
+                        worker,
+                        true,
+                        cold_intro_sequence_1_title,
+                    )
                 } else {
-                    level_entry_title_effective_activation_frame(worker, false)
+                    level_entry_title_effective_activation_frame(
+                        worker,
+                        false,
+                        cold_intro_sequence_1_title,
+                    )
                 };
                 if elapsed_frames < activation_frame {
                     return None;
@@ -2269,6 +2288,11 @@ impl NativeRuntime {
         &self,
         elapsed_frames: usize,
     ) -> Vec<NativeObjectSnapshot> {
+        let cold_intro_sequence_1_title = matches!(
+            self.title_screen_intro_return_lineage,
+            Some(TitleScreenIntroReturnLineage::ColdIntroSequence1)
+        ) && self.cold_intro_sequence_1_early_start_poll
+            && self.direct_title_card_handoff_capture;
         if matches!(
             self.boot_state,
             BootState::StartingLevel {
@@ -2295,9 +2319,17 @@ impl NativeRuntime {
                         ..
                     }
                 ) {
-                    level_entry_title_effective_activation_frame(worker, true)
+                    level_entry_title_effective_activation_frame(
+                        worker,
+                        true,
+                        cold_intro_sequence_1_title,
+                    )
                 } else {
-                    level_entry_title_effective_activation_frame(worker, false)
+                    level_entry_title_effective_activation_frame(
+                        worker,
+                        false,
+                        cold_intro_sequence_1_title,
+                    )
                 };
                 worker.motion.is_some() && elapsed_frames >= activation_frame
             })
@@ -2310,9 +2342,17 @@ impl NativeRuntime {
                         ..
                     }
                 ) {
-                    level_entry_title_effective_activation_frame(worker, true)
+                    level_entry_title_effective_activation_frame(
+                        worker,
+                        true,
+                        cold_intro_sequence_1_title,
+                    )
                 } else {
-                    level_entry_title_effective_activation_frame(worker, false)
+                    level_entry_title_effective_activation_frame(
+                        worker,
+                        false,
+                        cold_intro_sequence_1_title,
+                    )
                 };
                 let visible_elapsed_frames = elapsed_frames.saturating_sub(activation_frame);
                 let pose =
@@ -2492,14 +2532,22 @@ fn level_entry_title_letter_gfx_slot_index(
 fn level_entry_title_effective_activation_frame(
     worker: &LevelEntryTitleWorker,
     uses_early_start_bootstrap: bool,
+    cold_intro_sequence_1_title: bool,
 ) -> usize {
-    if uses_early_start_bootstrap {
+    let activation_frame = if uses_early_start_bootstrap {
         EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME
             + worker
                 .activation_frame
                 .saturating_sub(LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME)
     } else {
         worker.activation_frame
+    };
+    if cold_intro_sequence_1_title {
+        // ASM Load_TitleCard reaches loc_1AB26 seven frames earlier on the
+        // corrected cold title lineage: oracle letters seed on frames 172/173.
+        activation_frame.saturating_sub(8)
+    } else {
+        activation_frame
     }
 }
 
@@ -9032,12 +9080,12 @@ mod tests {
         };
 
         assert_eq!(
-            super::level_entry_title_effective_activation_frame(&worker, false),
+            super::level_entry_title_effective_activation_frame(&worker, false, false),
             super::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME + 6,
             "normal ASM loc_1AC70 title workers should keep their recorded activation frame",
         );
         assert_eq!(
-            super::level_entry_title_effective_activation_frame(&worker, true),
+            super::level_entry_title_effective_activation_frame(&worker, true, false),
             super::EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME + 6,
             "early-start bootstrap should preserve the worker's offset from the first visible title frame",
         );

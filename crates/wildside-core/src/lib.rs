@@ -341,6 +341,10 @@ pub struct NativeRuntime {
     title_card_live_handoff_frames: u8,
     recorded_title_card_handoff_delay: bool,
     direct_title_card_handoff_capture: bool,
+    /// ASM loc_12E6C/loc_12E96: an early logo-loop Start enters
+    /// IntroSequence1 soon enough for the next scripted Start to reach
+    /// sub_1C246's first polling window.
+    cold_intro_sequence_1_early_start_poll: bool,
     debug_level_entry_suppresses_title_card_live_handoff: bool,
     /// ASM loc_74E0: the ROM's debug level-skip shell runs the level LIVE
     /// behind the (never-shown) title card — measured shell trace run
@@ -1491,6 +1495,7 @@ impl NativeRuntime {
             title_card_live_handoff_frames: 0,
             recorded_title_card_handoff_delay: false,
             direct_title_card_handoff_capture: false,
+            cold_intro_sequence_1_early_start_poll: false,
             debug_level_entry_suppresses_title_card_live_handoff: false,
             debug_level_entry_runs_live_shell_loc_74e0: false,
             recording_oracle_debug_lifecycle_completed: false,
@@ -3805,6 +3810,13 @@ impl NativeRuntime {
         // other non-gameplay frames that skip `refresh_active_roster`.
         self.pending_enemy_gfx_initialisations_loc_3691e = 0;
         let title_card_live_handoff_active_at_frame_start = self.title_card_live_handoff_frames > 0;
+        let title_card_load_ingame_hibernated_at_frame_start =
+            title_card_live_handoff_active_at_frame_start
+                && self.cold_intro_sequence_1_early_start_poll
+                && self.direct_title_card_handoff_capture
+                && TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E
+                    .saturating_sub(self.title_card_live_handoff_frames)
+                    < TITLE_CARD_LOAD_INGAME_HIBERNATE_FRAMES_LOC_1AE2E;
         if title_card_live_handoff_active_at_frame_start {
             self.title_card_live_handoff_frames =
                 self.title_card_live_handoff_frames.saturating_sub(1);
@@ -3918,6 +3930,14 @@ impl NativeRuntime {
                     .is_some()
                 {
                     43
+                } else if self.cold_intro_sequence_1_early_start_poll
+                    && self.direct_title_card_handoff_capture
+                {
+                    // ASM Load_IntroSequence1 -> sub_1B8F4 runs its first
+                    // post-loader Mode_Standard object pass on cold frame 69.
+                    // With the frame-34 native mode entry this is pre-step
+                    // elapsed 34.
+                    34
                 } else {
                     44
                 };
@@ -4119,20 +4139,27 @@ impl NativeRuntime {
                 ..
             } = self.boot_state
         {
+            let title_first_visible_frame = if matches!(
+                self.title_screen_intro_return_lineage,
+                Some(TitleScreenIntroReturnLineage::ColdIntroSequence1)
+            ) && self.cold_intro_sequence_1_early_start_poll
+                && self.direct_title_card_handoff_capture
+            {
+                crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME.saturating_sub(8)
+            } else {
+                crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
+            };
             let cold_boot_titlecard_long_burn =
                     // Oracle WRAM watches keep the cold-boot mode-$0008 shell
                     // RNG-idle through the hidden carry window, then expose a
                     // single pre-visible `Execute_Objects` burn on the frame
                     // immediately before the loc_1AB26 / loc_1AD48 seed
                     // batches wake.
-                    elapsed_frames
-                        == crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
-                            .saturating_sub(4)
+                    elapsed_frames == title_first_visible_frame.saturating_sub(3)
                         // The burn resumes on the first visible frame when
                         // Execute_Objects first runs the loc_1AB26/loc_1AD48
                         // workers, and continues every frame after.
-                        || elapsed_frames
-                            >= crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME;
+                        || elapsed_frames >= title_first_visible_frame;
             if uses_load_ingame_bootstrap || cold_boot_titlecard_long_burn {
                 // ASM loc_6E2 -> Load_TitleCard keeps the cold-boot
                 // mode-$0008 title-card shell dormant through an early
@@ -4176,7 +4203,8 @@ impl NativeRuntime {
         let gameplay_slice_active = (matches!(
             self.boot_state,
             BootState::StartingLevel { .. } | BootState::InGame
-        ) && !level_entry_hibernated_gameplay_execution)
+        ) && !level_entry_hibernated_gameplay_execution
+            && !title_card_load_ingame_hibernated_at_frame_start)
             || (self.demo_gameplay_active() && self.opening_slice.is_some());
         let demo_hud_timer_tail_active = match self.boot_state {
             BootState::DemoPlay {

@@ -11617,6 +11617,26 @@ from 145 to 131; Level 0x14 becomes green. Cold frame-720 full-ring, Level 0x14
 Drips lifecycle/count, direct title-card boundary, and ordinary Start-handoff
 regressions pin the corrected routes.
 
+Follow-up 2026-08-26 corrected the direct cold-boot title lifecycle exposed by
+the pause capture. Oracle enters the title on frame 78, the transition on 138,
+accepts the title-card Start on 178, and exposes `Load_InGame` mode `$000C` on
+179. Its RNG offsets at the measured boundaries are `$FFF5/$FFF2/$FFFD/$FFCA`;
+frame 720 is `$FFFD` with the complete 55-byte ring equal. Native had collapsed
+the direct title lifecycle and remained in mode `$0008` through frame 719.
+
+The fix carries the early `loc_12E6C/loc_12E96` Sega-logo Start lineage through
+`sub_1B8F4`, `sub_1C246`, `Obj_TitleMenu`, `Title_InputLoop`, and `loc_1AE2E`.
+It scopes the earlier object/RNG schedule, menu timing, title worker activation,
+and hibernated `Load_InGame` shell to that direct cold route. Global timer and
+global cold-lineage experiments were rejected and removed after they moved the
+published route at frames 80/138 and the normal TAS at frame 78. Recorded TAS,
+settled-warp, contact, and persistent-audio-clock witnesses remain unchanged.
+
+The direct pause scenario now matches oracle exactly, including frames
+78/138/178/179 and the frame-720 ring. The published route keeps all 3,400
+player/camera CRC frames and its enemy frontier clean; `kc_any_percent_2024`
+frames 780..850 and `kid_chameleon_short_demo` frames 780..800 remain exact.
+
 ### #380
 
 Opened 2026-07-11 from canonical state report `1783732342`. Level 0x14
