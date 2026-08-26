@@ -1253,6 +1253,7 @@ level/platform/64.asm
 level/platform_scripts.asm
 level-layout/00.bin
 level-layout/00.blocklist.bin
+level-layout/00.json
 level-layout/01.bin
 level-layout/01.blocklist.bin
 level-layout/01.json
