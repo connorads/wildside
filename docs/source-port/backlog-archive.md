@@ -11,6 +11,25 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #463
+
+Closed [x] 2026-08-27. A proactive frame-sweep audit found Level 9's walking
+Dragon one animation entry ahead of the oracle at the comparable 60-frame
+settle checkpoint. ASM `Dragon.asm loc_3CE48` installs `stru_3CC5E`, whose
+normal-HP entries each last nine ticks. Oracle WRAM and GfxObject probes show
+mapping `$0574` (`LnkTo_unk_C75BE`, live frame 5) with timer 9, while native
+presented phase 6 and live frame 0.
+
+The recording-warp seed now lands on elapsed tick 45 and phase 5 after the
+shared settle. Focused Level 9 frames report `1787783972` improves from 613 to
+471 changed pixels. Direct PNG inspection confirms the corrected pose, but a
+Dragon-shaped residue remains; further phase changes would contradict the
+oracle mapping, so this issue does not tune them by eye. `verify-slice-fast`
+and `verify-tas-full` pass. The published route retains exact gameplay, enemy
+and RNG state plus the established 2,391-pixel frozen HUD ratchet.
+
+---
+
 ### #462
 
 Closed [x] 2026-08-26. A proactive frame-sweep audit found Level 1's RockTank

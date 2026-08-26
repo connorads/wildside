@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-27 handoff (walking Dragon settle animation)
+
+- A proactive Level 9 frame audit found the walking Dragon one animation entry
+  ahead of the oracle at the comparable settle checkpoint.
+- ASM `Dragon.asm loc_3CE48` installs the twelve-entry, nine-tick
+  `stru_3CC5E` script. Oracle frame 60 uses mapping `$0574`
+  (`LnkTo_unk_C75BE`, live frame 5) with timer 9.
+- Native's recording-warp seed now reaches elapsed tick 45 and phase 5 at that
+  checkpoint. Changed pixels improve from 613 to 471.
+- The remaining Dragon-shaped residue survives the verified phase correction.
+  Treat it as a separate art/mapping/rendering investigation; do not tune the
+  clock away from the oracle mapping.
+- `verify-slice-fast` and `verify-tas-full` are green. See #463.
+- NEXT: run `mise run project-status`; if no ready/open item appears, trace the
+  Level 9 Dragon residue from raw mapping tiles through native rendering.
+
 ## 2026-08-26 handoff (RockTank object-local animation clocks)
 
 - A proactive frame-sweep audit found RockTank body and mouth frames selected
