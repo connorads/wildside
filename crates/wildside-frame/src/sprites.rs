@@ -1337,7 +1337,10 @@ fn select_live_rock_tank_body_frame<'a>(
     // ASM Tank.asm `stru_3B270` and Tank_Shooting.asm `stru_3B4CA` animate
     // the body through only C7ED0/C7ED8/C7EE0. Native appends death frames
     // after those three entries, so live cycling must not include them.
-    let phase = (trace.frame_index / enemy_visuals.frame_duration.max(1)) % 3;
+    let phase = object.sprite_animation_phase.map_or_else(
+        || (trace.frame_index / enemy_visuals.frame_duration.max(1)) % 3,
+        |phase| usize::from(phase) % 3,
+    );
     Some(&enemy_visuals.frames[phase])
 }
 
@@ -2655,7 +2658,7 @@ fn rock_tank_turret_frame(
         0x0B => &ROCK_TANK_SHOOTING_SLOW_STRU_3B4F6[..],
         _ => return None,
     };
-    let spec = scripted_tank_turret_frame(trace, specs)?;
+    let spec = scripted_tank_turret_frame(object, trace, specs)?;
     let tile_sheet = enemy_visuals.frames.first()?.tile_sheet.clone();
     Some(wildside_render::SpriteFrame {
         origin_x: spec.origin_x,
@@ -2668,6 +2671,7 @@ fn rock_tank_turret_frame(
 }
 
 fn scripted_tank_turret_frame(
+    object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
     specs: &[TankTurretFrameSpec],
 ) -> Option<TankTurretFrameSpec> {
@@ -2675,7 +2679,10 @@ fn scripted_tank_turret_frame(
     if cycle_frames == 0 {
         return None;
     }
-    let mut phase = trace.frame_index % cycle_frames;
+    let mut phase = object.sprite_animation_phase.map_or_else(
+        || trace.frame_index % cycle_frames,
+        |phase| (usize::from(phase) + cycle_frames - 2) % cycle_frames,
+    );
     for spec in specs {
         if phase < spec.duration_frames {
             return Some(*spec);
@@ -4880,7 +4887,7 @@ mod tests {
     fn rock_tank_turret_scripts_follow_stru_3b27e_and_3b4d8_boundaries() {
         let visuals = labelled_enemy_visuals(1, 1);
         let mut trace = NativeTraceFrame::default();
-        let plain = live_enemy_object(0x0A);
+        let mut plain = live_enemy_object(0x0A);
         let mut shooting_fast = live_enemy_object(0x0B);
         shooting_fast.hit_points = Some(4);
         let mut shooting_slow = shooting_fast.clone();
@@ -4903,6 +4910,16 @@ mod tests {
                 "ASM Tank.asm stru_3B27E frame boundary {frame}"
             );
         }
+
+        trace.frame_index = 0x37;
+        plain.sprite_animation_phase = Some(71);
+        assert_eq!(
+            rock_tank_turret_frame(&plain, &trace, &visuals, 0x0A)
+                .expect("object-local plain turret frame")
+                .tile_base_index,
+            0x084,
+            "ASM Init_Animation/GfxObject_Animate loc_1040..loc_1194 uses the object-local stru_3B27E phase rather than the global TAS frame"
+        );
 
         for (frame, tile) in [
             (0, 0x020),
@@ -4991,7 +5008,7 @@ mod tests {
             ..NativeTraceFrame::default()
         };
         let three_frames = labelled_enemy_visuals(3, 4);
-        let object = live_enemy_object(0x0A);
+        let mut object = live_enemy_object(0x0A);
 
         assert_eq!(
             selected_live_tile_base(select_live_rock_tank_body_frame(
@@ -5002,6 +5019,17 @@ mod tests {
             0x0102,
             "ASM Tank.asm stru_3B270 advances by frame_duration division before modulo over the three live body frames"
         );
+        object.sprite_animation_phase = Some(0);
+        assert_eq!(
+            selected_live_tile_base(select_live_rock_tank_body_frame(
+                &trace,
+                &three_frames,
+                &object
+            )),
+            0x0100,
+            "ASM Init_Animation/GfxObject_Animate loc_1040..loc_1194 uses the tank's object-local stru_3B270 phase instead of global trace time"
+        );
+        object.sprite_animation_phase = None;
         trace.frame_index = 9;
         assert_eq!(
             selected_live_tile_base(select_live_rock_tank_body_frame(

@@ -11,6 +11,34 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #462
+
+Closed [x] 2026-08-26. A proactive frame-sweep audit found Level 1's RockTank
+body and linked mouth selected from `trace.frame_index`. ASM `Tank.asm
+loc_3B372` allocates and initialises the parent with `stru_3B270` and the child
+with `stru_3B27E`; `Init_Animation loc_1040` and `GfxObject_Animate loc_113E`
+advance those GfxObjects independently of the global frame and of each other.
+Oracle WRAM at scenario frames 60/359 confirms parent mappings `$0AD4/$0AD0`
+and child mappings `$0ACC/$0AFC`, while native's linked child continuation
+advances by the same 299-frame interval.
+
+Native now advances a dedicated 18-tick parent clock, exports its visible
+three-frame phase, exports the existing 80-tick mouth continuation on the
+linked child, and consumes those typed phases in the renderer. Regressions
+`tank_exports_independent_parent_and_child_animation_phases_loc_3b372`,
+`rock_tank_body_selector_uses_three_frame_stru_3b270_cycle`, and
+`rock_tank_turret_scripts_follow_stru_3b27e_and_3b4d8_boundaries` pin the
+independent clocks and retain the global-frame fallback for older traces.
+
+Focused Level 1 frame reports improve the worst checkpoint from 741 changed
+pixels in `1787773023` to 495 in `1787778818`; the settle checkpoint's 411
+pixels are the frozen #409 HUD corner. A remaining Tank-shaped idle residue did
+not change consistently across adjacent animation mappings, so no visual
+offset was guessed. `verify-slice-fast` and `verify-tas-full` pass. The full
+published route keeps all 37,759 gameplay/enemy frames and all 37,743
+post-`Init_RNG` frames exact, with the established 2,391-pixel frozen HUD
+ratchet unchanged.
+
 ### #461
 
 Closed [x] 2026-08-26. A proactive release-gate audit found Level 0's walking

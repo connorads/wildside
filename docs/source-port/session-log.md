@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-26 handoff (RockTank object-local animation clocks)
+
+- A proactive frame-sweep audit found RockTank body and mouth frames selected
+  from the global TAS frame, although the ROM allocates two independent
+  GfxObject animations at `Tank.asm loc_3B372`.
+- Native now advances and exports the parent's 18-tick `stru_3B270` clock and
+  the linked child's 80-tick `stru_3B27E` clock independently. Render fallback
+  remains available for older traces without the typed phases.
+- The focused Level 1 worst checkpoint improves from 741 to 495 changed
+  pixels. The residual Tank-shaped difference did not respond consistently to
+  animation-phase changes, so it was not tuned by eye.
+- `verify-slice-fast` and `verify-tas-full` are green. The full published route
+  retains exact gameplay, enemy and RNG state plus the established 2,391-pixel
+  frozen HUD ratchet. See #462.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  proactive verification in a different live gameplay or sweep-path module.
+
 ## 2026-08-26 handoff (enemy palette source selector)
 
 - A proactive release-gate audit found Level 0's walking Dragon blue in native

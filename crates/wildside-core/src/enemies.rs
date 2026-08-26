@@ -2668,7 +2668,15 @@ impl ActiveEnemy {
         } else {
             None
         };
-        let sprite_animation_phase = if matches!(self.family, EnemyFamily::Cloud)
+        let sprite_animation_phase = if matches!(self.family, EnemyFamily::Tank)
+            && !self.death_animation_active
+        {
+            // ASM Tank.asm loc_3B372 initialises parent `stru_3B270` beside
+            // child `stru_3B27E`. `dragon_descent_frames` is the parent's
+            // independent 18-tick GfxObject clock; the Object coroutine may
+            // hibernate while GfxObject_Animate loc_113E keeps advancing it.
+            Some((self.dragon_descent_frames.wrapping_add(16) % 18) / 6)
+        } else if matches!(self.family, EnemyFamily::Cloud)
             && !self.death_animation_active
             && self.ufo_beam_segments != 0
         {
@@ -3178,14 +3186,21 @@ impl ActiveEnemy {
             None
         };
 
-        let sprite_animation_phase = matches!(self.family, EnemyFamily::Robot).then(|| {
-            robot_live_head_sprite_phase(
+        let sprite_animation_phase = if matches!(self.family, EnemyFamily::Tank) {
+            // ASM Tank.asm loc_3B372: the linked mouth owns `stru_3B27E` and
+            // advances from this tank's activation, independently of other
+            // objects and the global frame counter.
+            Some(self.tank_mouth_animation_phase)
+        } else if matches!(self.family, EnemyFamily::Robot) {
+            Some(robot_live_head_sprite_phase(
                 self.robot_state,
                 self.dragon_descent_index,
                 self.damage_flash_frames,
                 self.wait_timer,
-            )
-        });
+            ))
+        } else {
+            None
+        };
 
         Some(NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy {
@@ -4753,6 +4768,14 @@ pub(crate) fn step_active_enemies_with_rng(
                 enemy.dragon_descent_index,
                 enemy.hit_points,
             );
+        }
+        if matches!(enemy.family, EnemyFamily::Tank)
+            && enemy.damage_flash_frames == 0
+            && !enemy.death_animation_active
+        {
+            // ASM Tank.asm loc_3B372 `stru_3B270`: parent GfxObject animation
+            // runs independently from loc_3B41C and the shared-walker Object.
+            enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1) % 18;
         }
         if matches!(enemy.family, EnemyFamily::Scorpion)
             && enemy.damage_flash_frames == 0
@@ -11525,6 +11548,28 @@ mod tests {
             enemy.snapshot().sprite_animation_phase,
             Some(2),
             "ASM Tornado.asm loc_35908 / stru_35B10 must export C785E for per-object animation ticks 10..14"
+        );
+    }
+
+    #[test]
+    fn tank_exports_independent_parent_and_child_animation_phases_loc_3b372() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Tank;
+        enemy.dragon_descent_frames = 5;
+        enemy.tank_mouth_animation_phase = 71;
+
+        assert_eq!(
+            enemy.snapshot().sprite_animation_phase,
+            Some(0),
+            "ASM Tank.asm loc_3B372 / stru_3B270 samples the parent's independent 18-tick GfxObject clock before the two-tick Object continuation"
+        );
+        assert_eq!(
+            enemy
+                .child_attachment_snapshot()
+                .expect("plain RockTank mouth child")
+                .sprite_animation_phase,
+            Some(71),
+            "ASM Tank.asm loc_3B372 / stru_3B27E exports the linked mouth's independent continuation"
         );
     }
 
