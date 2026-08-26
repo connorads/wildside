@@ -11,6 +11,28 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #461
+
+Closed [x] 2026-08-26. A proactive release-gate audit found Level 0's walking
+Dragon blue in native and green in oracle. A detached pre-change worktree
+reproduced the mismatch, ruling out the preceding cold-boot lifecycle fix.
+ASM `Load_EnemyArtPaletteToVRAM loc_36D16..loc_36D52` rotates the enemy layout
+ID's upper two bits into a Dragon_1/2/3 source selector; `d7` separately tracks
+the physical CRAM/VRAM destination and advances across blank slots. Native had
+conflated those values, so Level 0's `[blank, $000C, blank]` layout loaded the
+second, blue palette instead of the first, green palette.
+
+Regression
+`enemy_layout_palette_variants_follow_slot_id_upper_bits_loc_36d16` failed
+before the fix with variant 1 instead of 0 and now pins selectors `$0/$1/$2/$3`
+to source variants 0/1/2/2 for both flying and walking Dragon family members.
+The focused Level 0 full-frame sweep improves frames 0/30/60/120/300 from
+522/583/522/525/483 changed pixels to 0/7/0/7/7. The seven residual pixels are
+the frozen #409 HUD life-icon recurrence, not enemy art. The 69-level frame
+sweep passes 65 levels and Level 0 remains a pass; `verify-slice-fast` and
+`verify-tas-full` are green, with the published route's gameplay, RNG and
+2,391-pixel frozen HUD ratchets unchanged.
+
 ### #460
 
 Closed [x] 2026-08-18. Proactive ASM review of the live enemy-status loader
@@ -23453,6 +23475,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 461 | [x] | P2 | rendering | Enemy palette source variants now follow each layout ID's upper bits; physical blank-inclusive CRAM/VRAM slot `d7` remains a separate destination concern. | Red/green selector regression, Level 0 full-frame sweep, 69-level frame sweep, and required fast/full TAS gates. See archive #461. |
 | 460 | [x] | P2 | enemy | `Manage_EnemyLoading loc_3686E` now preserves completed `$0C00` reload phases instead of decrementing them back towards the spatial spawn window. | Red/green exact-word regression plus required fast/full TAS gates. See archive #460. |
 | 459 | [x] | P2 | rendering | NO-GO: corrected `$7C8` intervals replay both measured CPU spans, but two life-icon frames retain multiple H40 commit slots and the quantised entry cannot invert `WaitForVint` poll/arbitration state. | Written analysis above cites ADR 0003, ASM `$93A..$954`, and the typed engine chain; no engine/renderer change; ratchets green. |
 | 456 | [x] | P2 | enemy | Every Lion-lineage family now uses the ASM-selected cliff-fall walker after its companion state was modelled. | Per-family focused sweeps, full sweep `1786798696`, and both mandatory gates show zero regression; 0x40 retains identical unrelated blockers. See archive #456. |

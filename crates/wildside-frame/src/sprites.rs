@@ -2697,9 +2697,10 @@ pub fn select_enemy_palette(
     &visuals.palette
 }
 
-/// ASM `Load_EnemyArtPaletteToVRAM` `loc_36D16`: use the palette that the
-/// level's physical enemy slot loaded when a live object has no explicit
-/// palette override. Object-local variants still describe runtime effects.
+/// ASM `Load_EnemyArtPaletteToVRAM` `loc_36D16..loc_36D52`: use the palette
+/// descriptor selected by the enemy layout ID's upper bits when a live object
+/// has no explicit override. Object-local variants still describe runtime
+/// effects.
 fn enemy_palette_variant(level_visuals: &NativeLevelVisuals, object_type: u8, explicit: u8) -> u8 {
     if explicit != 0 {
         explicit
@@ -5140,7 +5141,7 @@ mod tests {
     }
 
     #[test]
-    fn enemy_palette_variant_uses_physical_layout_slot_unless_explicit() {
+    fn enemy_palette_variant_uses_layout_id_selector_unless_explicit() {
         let mut level_visuals = minimal_level_visuals_for_platforms();
         level_visuals
             .enemies
@@ -5150,7 +5151,7 @@ mod tests {
         assert_eq!(
             enemy_palette_variant(&level_visuals, 0x0D, 0),
             1,
-            "ASM Load_EnemyArtPaletteToVRAM loc_36D16 derives the ordinary Dragon palette from its second physical layout slot"
+            "ASM Load_EnemyArtPaletteToVRAM loc_36D16 derives the ordinary Dragon palette from the layout ID selector"
         );
         assert_eq!(
             enemy_palette_variant(&level_visuals, 0x0D, 2),

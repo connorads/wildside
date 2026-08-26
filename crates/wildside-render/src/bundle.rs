@@ -4132,10 +4132,10 @@ fn load_enemy_visuals(
     }
 }
 
-/// ASM `Load_EnemyArtPaletteToVRAM` `loc_36D16`: `d7` starts at zero and is
-/// incremented at `loc_36E42` even when the corresponding layout slot is
-/// `$FFFF`. Normal enemy palettes therefore select Dragon_1/2/3 by physical
-/// layout slot, including blanks, rather than by the number of loaded families.
+/// ASM `Load_EnemyArtPaletteToVRAM` `loc_36D16..loc_36D52`: the upper two bits
+/// of each enemy ID select its first, second, or third palette descriptor.
+/// `d7` separately selects the physical CRAM/VRAM destination and must not be
+/// confused with the source palette variant.
 fn enemy_layout_palette_variants(
     enemy_layout: Option<&EnemyLayout>,
 ) -> std::collections::HashMap<u8, u8> {
@@ -4144,14 +4144,17 @@ fn enemy_layout_palette_variants(
         return variants;
     };
 
-    for (slot_index, &slot) in enemy_layout.enemy_type_slots.iter().take(3).enumerate() {
+    for &slot in enemy_layout.enemy_type_slots.iter().take(3) {
         if slot == 0xFFFF {
             continue;
         }
         let slot_type = (slot & 0x0FFF) as u8;
+        let palette_variant = u8::try_from((slot >> 14) & 0x03)
+            .expect("two-bit enemy palette selector fits u8")
+            .min(2);
         for spec in ENEMY_FAMILIES {
             if enemy_slot_uses_same_art(u16::from(slot_type), u16::from(spec.object_type)) {
-                variants.insert(spec.object_type, slot_index as u8);
+                variants.insert(spec.object_type, palette_variant);
             }
         }
     }
@@ -5451,20 +5454,22 @@ mod tests {
     }
 
     #[test]
-    fn enemy_layout_palette_variants_preserve_blank_slot_indices() {
-        let layout = enemy_layout_with_slots(vec![0xFFFF, 0x000C, 0xFFFF]);
-        let variants = enemy_layout_palette_variants(Some(&layout));
+    fn enemy_layout_palette_variants_follow_slot_id_upper_bits_loc_36d16() {
+        for (slot, expected_variant) in [(0x000C, 0), (0x400C, 1), (0x800C, 2), (0xC00C, 2)] {
+            let layout = enemy_layout_with_slots(vec![0xFFFF, slot, 0xFFFF]);
+            let variants = enemy_layout_palette_variants(Some(&layout));
 
-        assert_eq!(
-            variants.get(&0x0C),
-            Some(&1),
-            "ASM Load_EnemyArtPaletteToVRAM loc_36D16/loc_36E42 increments d7 for the leading blank before loading Dragon_2"
-        );
-        assert_eq!(
-            variants.get(&0x0D),
-            Some(&1),
-            "ASM EnemyLoad_Index shares Dragon art and palette descriptors between the flying layout slot and walking Dragon child"
-        );
+            assert_eq!(
+                variants.get(&0x0C),
+                Some(&expected_variant),
+                "ASM loc_36D16..loc_36D52 chooses Dragon_1/2/3 from the enemy ID's upper two bits, not physical slot d7"
+            );
+            assert_eq!(
+                variants.get(&0x0D),
+                Some(&expected_variant),
+                "ASM EnemyLoad_Index shares the flying Dragon palette descriptor with the walking Dragon child"
+            );
+        }
     }
 
     #[test]

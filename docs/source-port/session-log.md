@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-26 handoff (enemy palette source selector)
+
+- A proactive release-gate audit found Level 0's walking Dragon blue in native
+  and green in oracle. A detached pre-change worktree reproduced the mismatch.
+- ASM `Load_EnemyArtPaletteToVRAM loc_36D16..loc_36D52` selects Dragon_1/2/3
+  from the layout ID's upper bits. Physical destination slot `d7` advances
+  independently across blank slots.
+- Native now keeps source selector and destination slot separate. Level 0
+  frames 0/60 are exact; frames 30/120 retain only seven frozen #409 life-icon
+  pixels. Full TAS gameplay, RNG and HUD ratchets are unchanged.
+- `verify-slice-fast`, `verify-tas-full`, the focused full-frame sweep and the
+  69-level frame sweep are green at their established boundaries. See #461.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  proactive verification in a different live gameplay or sweep-path module.
+
 ## 2026-08-26 handoff (direct cold-boot title lifecycle)
 
 - A proactive release-gate audit found the direct pause capture still exposed
