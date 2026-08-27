@@ -10144,9 +10144,12 @@ mod tests {
             blank_tile_sheet(23),
             blank_tile_sheet(23),
         ];
-        shore_frames[1].tiles[0].pixels = [2; 64];
-        shore_frames[2].tiles[6].pixels = [3; 64];
-        shore_frames[1].tiles[11].pixels = [4; 64];
+        // ASM loc_11E16 places background words 1..7 in CRAM line-1 slots
+        // 9..15, so these synthetic art nibbles address words 2..4 through
+        // hardware indices 10..12 rather than the old compact-palette alias.
+        shore_frames[1].tiles[0].pixels = [10; 64];
+        shore_frames[2].tiles[6].pixels = [11; 64];
+        shore_frames[1].tiles[11].pixels = [12; 64];
         visuals.island_shore_tiles_loc_1202a = Some(IslandShoreVisualsLoc1202A {
             frames: shore_frames,
         });

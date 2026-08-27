@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-27 handoff (sparse background CRAM placement)
+
+- Level `$42`'s remaining scene residue was 223 line-1 colour-index-8 pixels:
+  native backdrop brown versus oracle black.
+- ASM `loc_11E16` leaves CRAM line-1 slot 8 unloaded, then places the seven
+  visible background words in slots 9..15. Native had collapsed that gap.
+- Modelling the sparse load makes the Level `$42` scene exact at settle and
+  idle-tail; only 45/92 frozen HUD diamond pixels remain.
+- Full 69-level frame report `1787809860` has no pixel regression and improves
+  three other levels. NEXT: select another non-frozen visual cluster. See #467.
+
 ## 2026-08-27 handoff (Alien Twilight visual terrain rows)
 
 - Direct and recording-warp bootstraps both select the live scene; they differ

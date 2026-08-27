@@ -4419,6 +4419,19 @@ fn background_palette_for_scene(
             .copy_from_slice(&original[3..8]);
         palette.colours = combined;
     }
+    if palette.colours.len() == 8 {
+        // ASM loc_11E16 writes the first background-palette word to CRAM
+        // backdrop slot 0, then copies the remaining seven words to line-1
+        // slots 9..15 at Palette_Buffer+$32. Line-1 slot 8 is not loaded and
+        // therefore remains black. Expand that sparse hardware placement into
+        // native's two lines of visible-only palette entries.
+        let original = palette.colours.clone();
+        let mut combined =
+            vec![wildside_render::MdColour::from_word(0); PALETTE_LINE_COLOUR_COUNT * 2];
+        combined[PALETTE_LINE_COLOUR_COUNT + 8..PALETTE_LINE_COLOUR_COUNT + 15]
+            .copy_from_slice(&original[1..8]);
+        palette.colours = combined;
+    }
     palette
 }
 
@@ -11742,6 +11755,22 @@ mod tests {
             Some(0x0200),
             "ASM Dragon.asm loc_3D02A copies the walking Dragon parent's palette_line into the breath-child GfxObject"
         );
+    }
+
+    #[test]
+    fn chunked_background_keeps_unloaded_line_one_slot_eight_black_loc_11e16() {
+        let mut visuals = sample_level_visuals(1);
+        visuals.level.background_theme_id = 5;
+        visuals.palettes.background = Palette {
+            colours: (0x0100..=0x0107).map(MdColour::from_word).collect(),
+        };
+
+        let palette = background_palette_for_scene(&NativeTraceFrame::default(), &visuals);
+
+        assert_eq!(palette.colours.len(), 30);
+        assert_eq!(palette.colours[22].raw_word, 0x0000);
+        assert_eq!(palette.colours[23].raw_word, 0x0101);
+        assert_eq!(palette.colours[29].raw_word, 0x0107);
     }
 
     #[test]

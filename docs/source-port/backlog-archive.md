@@ -11,6 +11,28 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #467
+
+Closed [x] 2026-08-27. Pixel provenance reduced Level `$42`'s post-#466
+residual to one scene colour pair: 223 background pixels used backdrop brown
+where oracle used black. The responsible chunked tiles all carried palette
+line 1, colour index 8.
+
+ASM `loc_11E16` loads the eight-word background palette sparsely. It writes
+word 0 to CRAM backdrop slot 0, advances the source, then copies words 1..7 to
+`Palette_Buffer+$32` (line-1 slots 9..15). Line-1 slot 8 is never loaded and
+remains black. Native's compact eight-colour resolver incorrectly mapped tile
+index 8 back to word 0. `background_palette_for_scene` now expands the sparse
+hardware placement before rendering. Regression
+`chunked_background_keeps_unloaded_line_one_slot_eight_black_loc_11e16` pins
+the gap and the seven loaded slots.
+
+Focused report `1787809852` reduces Level `$42` settle/idle-tail mismatch from
+268/315 pixels to 45/92. Both remaining composites contain HUD diamond pixels
+only; the gameplay scene is exact at both checkpoints. Full 69-level frame
+report `1787809860` shows no pixel-count regression and improves `$21`, `$29`,
+and `$33` as well as `$42`.
+
 ### #466
 
 Closed [x] 2026-08-27. The apparent Level `$42` frame-sweep scene-selection
