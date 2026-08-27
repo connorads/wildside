@@ -9357,13 +9357,30 @@ pub(crate) fn classify_foreground_palette_override_loc_11D8E(
     if matches!(map_id, 0x1C | 30) {
         return ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop;
     }
-    // ASM loc_11DA0 (kid.asm:23968): after the earlier cave/skyscraper
-    // checks, The Crypt leftover (`#$1A`) and Alien Twilight (`#$1B`) branch
-    // to `loc_11DAC`, which swaps in the later alternative foreground palette.
-    if matches!(map_id, 0x1A | 0x1B) {
+    if map_id == 0x1A {
         return ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette;
     }
     ForegroundPaletteOverrideLoc11D8E::None
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LateForegroundPaletteOverrideLoc11DA0 {
+    None,
+    AlternativeAlienPalette,
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn classify_late_foreground_palette_override_loc_11DA0(
+    map_id: u8,
+) -> LateForegroundPaletteOverrideLoc11DA0 {
+    // ASM loc_11DA0 (kid.asm:23968): M_Alien_Twilight is `$17`, which already
+    // selected the alternative Cave pointer through decimal `#23`. This later
+    // comparison wins and replaces it with `Pal_12D26`, as does `$1A`.
+    if matches!(map_id, 0x17 | 0x1A) {
+        LateForegroundPaletteOverrideLoc11DA0::AlternativeAlienPalette
+    } else {
+        LateForegroundPaletteOverrideLoc11DA0::None
+    }
 }
 
 #[allow(non_snake_case)]
@@ -9387,17 +9404,14 @@ pub(crate) fn apply_foreground_palette_override_loc_11D9E(
 pub(crate) fn apply_foreground_palette_override_loc_11DAC(
     selected_theme_palette: u16,
     late_alternative_palette: u16,
-    override_kind: ForegroundPaletteOverrideLoc11D8E,
+    override_kind: LateForegroundPaletteOverrideLoc11DA0,
 ) -> u16 {
-    // ASM loc_11DAC (kid.asm:23974): the taken `$1A/$1B` branch replaces `a1`
+    // ASM loc_11DAC (kid.asm:23974): the taken `$1A/$17` branch replaces `a1`
     // with `Pal_12D26(pc)` immediately before the shared copy loop at
     // `loc_11DB0`; all other paths keep the palette already selected above.
     match override_kind {
-        ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette => late_alternative_palette,
-        ForegroundPaletteOverrideLoc11D8E::None
-        | ForegroundPaletteOverrideLoc11D8E::PlethoraCave
-        | ForegroundPaletteOverrideLoc11D8E::AlternativeCave
-        | ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop => selected_theme_palette,
+        LateForegroundPaletteOverrideLoc11DA0::AlternativeAlienPalette => late_alternative_palette,
+        LateForegroundPaletteOverrideLoc11DA0::None => selected_theme_palette,
     }
 }
 
@@ -9450,7 +9464,7 @@ pub(crate) fn classify_background_palette_followup_loc_11DF8(
     if matches!(map_id, 0x1C | 30) {
         return BackgroundPaletteFollowupLoc11DF8::RemovedSpecialPaletteNoop;
     }
-    if matches!(map_id, 0x1A | 0x1B) {
+    if matches!(map_id, 0x17 | 0x1A) {
         return BackgroundPaletteFollowupLoc11DF8::LateAlternativePalette;
     }
     BackgroundPaletteFollowupLoc11DF8::None
@@ -9467,9 +9481,9 @@ pub(crate) fn classify_late_background_palette_override_loc_11E06(
     map_id: u8,
 ) -> LateBackgroundPaletteOverrideLoc11E06 {
     // ASM loc_11E06 (kid.asm:24020): after the earlier `loc_11DF8` / `loc_11E04`
-    // checks, only map IDs `$1A` and `$1B` branch to `loc_11E12`; every other
-    // map falls straight through to `loc_11E16`.
-    if matches!(map_id, 0x1A | 0x1B) {
+    // checks, only The Crypt leftover (`$1A`) and M_Alien_Twilight (`$17`)
+    // branch to `loc_11E12`; every other map falls through to `loc_11E16`.
+    if matches!(map_id, 0x17 | 0x1A) {
         return LateBackgroundPaletteOverrideLoc11E06::AlternativeAlienPalette;
     }
     LateBackgroundPaletteOverrideLoc11E06::None
@@ -18952,7 +18966,7 @@ impl NativeRuntime {
         let selected_foreground_palette = apply_foreground_palette_override_loc_11DAC(
             selected_foreground_palette,
             FG_LATE_ALTERNATIVE_PALETTE_LOC_11DAC,
-            foreground_override,
+            classify_late_foreground_palette_override_loc_11DA0(map_id),
         );
         let foreground_palette_path = match selected_foreground_palette {
             FG_PLETHORA_CAVE_PALETTE_LOC_11D8E => {

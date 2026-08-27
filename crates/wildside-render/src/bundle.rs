@@ -246,6 +246,27 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     )
 }
 
+fn foreground_palette_path_loc_11d8e_11dac(map_id: u8, theme: &str) -> String {
+    // ASM pre-loc_11D8E/loc_11DAC: map-specific palette pointers replace the
+    // theme-table pointer before the shared foreground CRAM copy.
+    match map_id {
+        0x05 => String::from("palette_fg/cave_plethora.bin"),
+        0x03 => String::from("palette_fg/cave_alt.bin"),
+        0x17 | 0x1A => String::from("palette_fg/city_alt.bin"),
+        _ => format!("palette_fg/{theme}.bin"),
+    }
+}
+
+fn background_palette_path_loc_11df4_11e12(map_id: u8, theme: &str) -> String {
+    // ASM loc_11DF4/loc_11E12: the same mapped map ID selects the alternative
+    // Cave or Alien Twilight background pointer before the shared CRAM copy.
+    match map_id {
+        0x03 => String::from("palette_bg/cave_alt.bin"),
+        0x17 | 0x1A => String::from("palette_bg/city_alt.bin"),
+        _ => format!("palette_bg/{theme}.bin"),
+    }
+}
+
 /// Build the level's render visuals reading every generated-bundle byte through
 /// an injected [`AssetSource`]. [`load_level_visuals`] preserves the legacy
 /// native call sites by delegating to a default [`FsAssetSource`].
@@ -418,20 +439,23 @@ pub fn load_level_visuals_with_source(
         })?,
         "HUD hitpoint tile sheet",
     )?;
+    let foreground_palette_path =
+        foreground_palette_path_loc_11d8e_11dac(resource_level_id, foreground_theme);
+    let bg_palette_path =
+        background_palette_path_loc_11df4_11e12(resource_level_id, background_theme);
     let fg_palette = Palette::from_bytes(&read_root_asset(
         source,
         "theme",
-        find_theme_asset(manifest, &format!("palette_fg/{foreground_theme}.bin")).ok_or_else(
-            || anyhow!("missing foreground palette asset theme/palette_fg/{foreground_theme}.bin"),
-        )?,
+        find_theme_asset(manifest, &foreground_palette_path).ok_or_else(|| {
+            anyhow!("missing foreground palette asset theme/{foreground_palette_path}")
+        })?,
         "foreground palette",
     )?)?;
     let bg_palette = Palette::from_bytes(&read_root_asset(
         source,
         "theme",
-        find_theme_asset(manifest, &format!("palette_bg/{background_theme}.bin")).ok_or_else(
-            || anyhow!("missing background palette asset theme/palette_bg/{background_theme}.bin"),
-        )?,
+        find_theme_asset(manifest, &bg_palette_path)
+            .ok_or_else(|| anyhow!("missing background palette asset theme/{bg_palette_path}"))?,
         "background palette",
     )?)?;
 
@@ -5213,10 +5237,11 @@ mod tests {
         FOREST_ENEMY_ART_PERMUTATION, FOREST_TAR_MONSTER_ENEMY_ART_PERMUTATION, FOREST_THEME_ID,
         append_indoor_rubber_block_tiles_sub_144da, apply_enemy_art_permutation,
         apply_layered_background_palette_fallback, background_followup_art_loc_11ea2_11ec4,
-        bg_permutation_file, canvas_to_tiles, combine_eol_hologram_tile_sheet,
-        compose_player_frame, crop_eol_score_frame_to_declared_bounds,
-        enemy_layout_palette_variants, enemy_palette_with_cleared_slot_eight, fd,
-        fg_permutation_file, forest_enemy_art_permutation,
+        background_palette_path_loc_11df4_11e12, bg_permutation_file, canvas_to_tiles,
+        combine_eol_hologram_tile_sheet, compose_player_frame,
+        crop_eol_score_frame_to_declared_bounds, enemy_layout_palette_variants,
+        enemy_palette_with_cleared_slot_eight, fd, fg_permutation_file,
+        foreground_palette_path_loc_11d8e_11dac, forest_enemy_art_permutation,
         forest_enemy_palette_with_borrowed_slots, frame_to_pixels,
         layered_background_enigma_base_word_loc_128ba, load_eol_hologram_visuals,
         load_palette_permutation, load_special_effect_unknown_visuals,
@@ -5226,6 +5251,20 @@ mod tests {
     use crate::{
         LayeredBackgroundPlane, MdColour, Palette, SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
     };
+
+    #[test]
+    fn alien_twilight_uses_late_city_palette_overrides() {
+        assert_eq!(
+            foreground_palette_path_loc_11d8e_11dac(0x17, "city"),
+            "palette_fg/city_alt.bin",
+            "ASM loc_11DA0/loc_11DAC: M_Alien_Twilight ($17) replaces the earlier decimal #23 cave pointer with Pal_12D26"
+        );
+        assert_eq!(
+            background_palette_path_loc_11df4_11e12(0x17, "city"),
+            "palette_bg/city_alt.bin",
+            "ASM loc_11E06/loc_11E12: M_Alien_Twilight ($17) replaces the earlier decimal #23 cave pointer with Pal_12D54"
+        );
+    }
     use sha1::{Digest, Sha1};
     use std::fs;
     use std::path::Path;

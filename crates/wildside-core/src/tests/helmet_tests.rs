@@ -4302,9 +4302,9 @@ mod chunk_08 {
             "ASM loc_11D92 should take the same `loc_11D9E` branch for Elsewhere 30"
         );
         assert_eq!(
-            classify_foreground_palette_override_loc_11D8E(0x1B),
-            ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette,
-            "ASM loc_11D92 should leave Alien Twilight on the remaining `loc_11DA0` palette-check path"
+            classify_foreground_palette_override_loc_11D8E(0x17),
+            ForegroundPaletteOverrideLoc11D8E::AlternativeCave,
+            "ASM loc_11D92 reaches Alien Twilight only after decimal #23 temporarily selected the alternative Cave palette"
         );
     }
 
@@ -4353,13 +4353,13 @@ mod chunk_08 {
             "ASM loc_11DA0 should route `M_unused_1A` into the later `loc_11DAC` alternative palette branch"
         );
         assert_eq!(
-            classify_foreground_palette_override_loc_11D8E(0x1B),
-            ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette,
-            "ASM loc_11DA0 should take the same `loc_11DAC` branch for Alien Twilight"
+            classify_late_foreground_palette_override_loc_11DA0(0x17),
+            LateForegroundPaletteOverrideLoc11DA0::AlternativeAlienPalette,
+            "ASM loc_11DA0 should replace Alien Twilight's temporary Cave pointer with Pal_12D26"
         );
         assert_eq!(
-            classify_foreground_palette_override_loc_11D8E(0x19),
-            ForegroundPaletteOverrideLoc11D8E::None,
+            classify_late_foreground_palette_override_loc_11DA0(0x19),
+            LateForegroundPaletteOverrideLoc11DA0::None,
             "ASM loc_11DA0 should leave neighbouring map IDs on the ordinary foreground palette path"
         );
     }
@@ -4370,7 +4370,7 @@ mod chunk_08 {
             apply_foreground_palette_override_loc_11DAC(
                 0x0246,
                 0x0ACE,
-                ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette,
+                LateForegroundPaletteOverrideLoc11DA0::AlternativeAlienPalette,
             ),
             0x0ACE,
             "ASM loc_11DAC should replace the previously selected theme palette with `Pal_12D26` on the taken branch"
@@ -4379,19 +4379,19 @@ mod chunk_08 {
             apply_foreground_palette_override_loc_11DAC(
                 0x0246,
                 0x0ACE,
-                ForegroundPaletteOverrideLoc11D8E::None,
+                LateForegroundPaletteOverrideLoc11DA0::None,
             ),
             0x0246,
-            "ASM loc_11DAC should leave the current theme palette untouched when the `$1A/$1B` branch was not taken"
+            "ASM loc_11DAC should leave the current theme palette untouched when the `$1A/$17` branch was not taken"
         );
         assert_eq!(
             apply_foreground_palette_override_loc_11DAC(
                 0x12CB,
                 0x0ACE,
-                ForegroundPaletteOverrideLoc11D8E::PlethoraCave,
+                LateForegroundPaletteOverrideLoc11DA0::None,
             ),
             0x12CB,
-            "ASM loc_11DAC should keep the earlier Plethora `Pal_12CBC` selection unless the `$1A/$1B` late branch fires",
+            "ASM loc_11DAC should keep the earlier Plethora `Pal_12CBC` selection unless the `$1A/$17` late branch fires",
         );
     }
 
@@ -4451,7 +4451,7 @@ mod chunk_08 {
         assert_eq!(
             classify_background_palette_followup_loc_11DF8(0x1A),
             BackgroundPaletteFollowupLoc11DF8::LateAlternativePalette,
-            "ASM loc_11DF8 should continue past the no-op branch and expose the later `$1A/$1B` palette override"
+            "ASM loc_11DF8 should continue past the no-op branch and expose the later `$1A/$17` palette override"
         );
         assert_eq!(
             classify_background_palette_followup_loc_11DF8(0x19),
@@ -4481,14 +4481,14 @@ mod chunk_08 {
     }
 
     #[test]
-    fn loc_11e06_routes_only_map_ids_1a_and_1b_into_the_late_alien_palette_branch() {
+    fn loc_11e06_routes_only_crypt_leftover_and_alien_twilight_into_the_late_branch() {
         assert_eq!(
             classify_late_background_palette_override_loc_11E06(0x1A),
             LateBackgroundPaletteOverrideLoc11E06::AlternativeAlienPalette,
             "ASM loc_11E06 should branch from `M_unused_1A` to the later `loc_11E12` palette load"
         );
         assert_eq!(
-            classify_late_background_palette_override_loc_11E06(0x1B),
+            classify_late_background_palette_override_loc_11E06(0x17),
             LateBackgroundPaletteOverrideLoc11E06::AlternativeAlienPalette,
             "ASM loc_11E06 should reuse that same late branch for Alien Twilight"
         );

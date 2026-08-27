@@ -11,6 +11,36 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #464
+
+Closed [x] 2026-08-27. A proactive source-port frame sweep found logical Level
+`$42` (Alien Twilight, mapped resource `$17`) state-exact at frame 60 but
+53,710 pixels different. Native and oracle geometry matched while nearly the
+whole scene used different colours. Oracle CRAM words exactly matched
+`palette_fg/city_alt.bin` and `palette_bg/city_alt.bin`.
+
+ASM `loc_11DA0/loc_11DAC` and `loc_11E06/loc_11E12` explain the apparent
+alias: `M_Alien_Twilight` is `$17`, so it first passes the earlier decimal
+`#23` Cave comparison, then the later named-map comparisons replace both
+temporary pointers with `Pal_12D26` and `Pal_12D54`. Core's early-return
+classifier incorrectly treated `$17` as only the Cave case, while the source
+renderer ignored all map-specific palette pointers and always loaded the
+mapped theme's default files.
+
+Runtime and source rendering now preserve the ROM's winning late override.
+The alternative City foreground/background assets are included in the native
+and browser extraction catalogues. Regressions pin `$17`, not the erroneous
+`$1B` fixture value. Focused Level `$42` frame 60 improves from 53,710 to
+10,938 changed pixels while player/camera and exported checkpoint state remain
+exact. The remaining `(0,28)-(319,163)` viewport cluster is separate evidence;
+no palette value or render offset was guessed to hide it.
+
+`cargo test -p wildside-web runtime_asset_catalogue_covers_attract_audio_and_every_level_boot`
+passes after cataloguing the assets. The focused core/render regressions and
+runtime extractor parity pass.
+
+---
+
 ### #463
 
 Closed [x] 2026-08-27. A proactive frame-sweep audit found Level 9's walking

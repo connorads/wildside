@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-27 handoff (Alien Twilight ordered palette override)
+
+- A fresh source-port frame sweep found Level `$42` state-exact but 53,710
+  pixels wrong at frame 60 because native rendered the default City palette.
+- ASM `loc_11DA0/loc_11DAC` and `loc_11E06/loc_11E12` prove mapped map `$17`
+  temporarily passes decimal `#23`'s Cave case, then selects `city_alt`.
+- Runtime and source rendering now preserve the later override. The browser
+  extraction catalogue includes both alternative City palettes.
+- Focused frame 60 improves to 10,938 changed pixels with exact state. The
+  remaining viewport cluster is separate and has not been tuned by eye.
+- NEXT: run `mise run project-status`; if no ready/open item appears, classify
+  the remaining Level `$42` viewport residue. See #464.
+
 ## 2026-08-27 handoff (walking Dragon scanout phase)
 
 - Pinned jgenesis uses the documented H40 `$80` sprite origin with no border

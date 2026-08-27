@@ -1206,6 +1206,7 @@
 07b87c 000010 theme/palette_bg/cave.bin
 012cf8 000010 theme/palette_bg/cave_alt.bin
 07b89c 000010 theme/palette_bg/city.bin
+012d54 000010 theme/palette_bg/city_alt.bin
 07b82c 000010 theme/palette_bg/desert.bin
 07b88c 000010 theme/palette_bg/forest.bin
 07b80c 000010 theme/palette_bg/hill.bin
@@ -1220,6 +1221,7 @@
 012cda 00001e theme/palette_fg/cave_alt.bin
 012cbc 00001e theme/palette_fg/cave_plethora.bin
 07b7ce 00001e theme/palette_fg/city.bin
+012d26 00001e theme/palette_fg/city_alt.bin
 07b71a 00001e theme/palette_fg/desert.bin
 07b7b0 00001e theme/palette_fg/forest.bin
 07b6de 00001e theme/palette_fg/hill.bin

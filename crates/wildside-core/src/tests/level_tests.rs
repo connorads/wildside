@@ -3724,7 +3724,7 @@ mod chunk_02 {
 
         let mut assets = manifest();
         assets.output_root = output_root.clone();
-        assets.map_order = vec![0x1B];
+        assets.map_order = vec![0x17];
         assets.theme_assets = vec![
             // #325: theme 7 = mountain, theme 4 = island (name-based assets).
             write_words("palette_fg/mountain.bin", &default_foreground_words),
@@ -3745,11 +3745,11 @@ mod chunk_02 {
         assert_eq!(
             &runtime.palette_buffer[1..=15],
             &override_foreground_words,
-            "ASM loc_11DA0/loc_11DAC should resolve MapOrder[Current_LevelID]=$1B and copy `Pal_12D26` city_alt foreground words at loc_11DB0, not the default theme palette"
+            "ASM loc_11DA0/loc_11DAC should resolve MapOrder[Current_LevelID]=M_Alien_Twilight ($17) and copy `Pal_12D26` city_alt foreground words at loc_11DB0, not the temporary cave palette"
         );
         assert_eq!(
             runtime.palette_buffer[0], override_background_words[0],
-            "ASM loc_11E06/loc_11E12 should resolve MapOrder[Current_LevelID]=$1B and copy the first `Pal_12D54` city_alt background word to Palette_Buffer"
+            "ASM loc_11E06/loc_11E12 should resolve MapOrder[Current_LevelID]=M_Alien_Twilight ($17) and copy the first `Pal_12D54` city_alt background word to Palette_Buffer"
         );
         assert_eq!(
             &runtime.palette_buffer[0x19..=0x1F],

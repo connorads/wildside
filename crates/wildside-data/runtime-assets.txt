@@ -1806,6 +1806,7 @@ theme/mappings/swamp.bin
 theme/palette_bg/cave.bin
 theme/palette_bg/cave_alt.bin
 theme/palette_bg/city.bin
+theme/palette_bg/city_alt.bin
 theme/palette_bg/desert.bin
 theme/palette_bg/forest.bin
 theme/palette_bg/hill.bin
@@ -1820,6 +1821,7 @@ theme/palette_fg/cave.bin
 theme/palette_fg/cave_alt.bin
 theme/palette_fg/cave_plethora.bin
 theme/palette_fg/city.bin
+theme/palette_fg/city_alt.bin
 theme/palette_fg/desert.bin
 theme/palette_fg/forest.bin
 theme/palette_fg/hill.bin
