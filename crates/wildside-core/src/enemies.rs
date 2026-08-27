@@ -9347,10 +9347,10 @@ pub(crate) const DRAGON_WALKING_GRAVITY: i32 = 0x4000;
 const DRAGON_WALKING_ANIMATION_PHASES_STRU_3CC5E: u8 = 12;
 const DRAGON_WALKING_NORMAL_FRAME_TICKS_STRU_3CC5E: u8 = 9;
 const DRAGON_WALKING_HP3_FRAME_TICKS_STRU_3CC90: u8 = 6;
-// Oracle frame 60 presents `LnkTo_unk_C75BE` (mapping $0574) with the
-// `stru_3CC5E` timer freshly reset to 9. Prime the recording-warp clock fifteen
-// ticks before zero so the shared settle lands on that fifth animation entry.
-const DRAGON_WALKING_RECORDING_SETTLE_ANIMATION_LEAD_TICKS: u8 = 15;
+// Oracle frame 60's completed scanout fetches `LnkTo_unk_C75B6` (mapping
+// $056C) from `stru_3CC5E`. Prime the recording-warp clock twenty-four ticks
+// before zero so the shared settle presents that fourth animation entry.
+const DRAGON_WALKING_RECORDING_SETTLE_ANIMATION_LEAD_TICKS: u8 = 24;
 const ARMADILLO_RECORDING_PRESENTATION_LEAD_TICKS_LOC_73D0: usize = 24;
 pub(crate) const SHARED_WALKER_STATE_PATROL: i16 = 10;
 pub(crate) const SHARED_WALKER_STATE_FACE_RIGHT: i16 = 1;
@@ -12189,11 +12189,11 @@ mod tests {
         for _ in 0..60 {
             elapsed = dragon_walking_sprite_animation_tick_stru_3cc5e(elapsed, 1);
         }
-        assert_eq!(elapsed, 45);
+        assert_eq!(elapsed, 36);
         assert_eq!(
             dragon_walking_sprite_animation_phase_stru_3cc5e(elapsed, 1),
-            5,
-            "ASM Init_Animation/GfxObject_Animate loc_1040-loc_1194 and the recording warp reach stru_3CC5E phase 5 (`LnkTo_unk_C75BE`, mapping 0x0574) at frame 60"
+            4,
+            "ASM Init_Animation/GfxObject_Animate loc_1040-loc_1194 and jgenesis' frame-60 sprite fetches present stru_3CC5E phase 4 (`LnkTo_unk_C75B6`, mapping 0x056C)"
         );
     }
 

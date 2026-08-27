@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-27 handoff (walking Dragon scanout phase)
+
+- Pinned jgenesis uses the documented H40 `$80` sprite origin with no border
+  or crop offset. Its frame-60 fetch journal records Dragon H=`$DE` and pattern
+  `$4B9`, proving the completed scanout presents `LnkTo_unk_C75B6` / phase 4.
+- The later post-`FrameRendered` SAT dump caused the previous phase-5 reading.
+  Correcting the recording-warp seed reduces Level 9 frame 60 from 471 to 53
+  changed pixels. All 53 are frozen #409 HUD pixels; the Dragon is exact.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  proactive verification outside this resolved Dragon path. See #463.
+
 ## 2026-08-27 handoff (walking Dragon render residue)
 
 - Oracle frame-60 SAT splits mapping `$0574` into 32x32 and 32x8 hardware

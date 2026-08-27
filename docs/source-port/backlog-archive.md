@@ -38,6 +38,17 @@ checkpoint from 471 to 551 changed pixels. The remaining residue is therefore
 not compressed art, palette selection, animation phase, or the generic object
 sprite latch. Inspect priority/compositing and hardware mapping geometry next.
 
+Correction 2026-08-27: the post-`FrameRendered` SAT dump is later than the
+completed scanout it accompanies. The pinned jgenesis sprite-fetch journal is
+authoritative for the displayed frame: frame 60 fetches H=`$DE` (screen X=94)
+and pattern `$4B9`, which is `LnkTo_unk_C75B6` / live phase 4. This rejects the
+apparent +2 coordinate offset and supersedes the earlier phase-5 reading from
+the post-frame SAT. The recording-warp seed now reaches elapsed tick 36 and
+phase 4. Focused frame 60 improves from 471 to 53 changed pixels; `visual-triage`
+classifies every remaining pixel as frozen #409 HUD `sprite_tile|pal0`, so the
+Dragon itself is exact. Frame 359 remains pixel-exact. The old generic object
+latch experiment remains rejected.
+
 ---
 
 ### #462
