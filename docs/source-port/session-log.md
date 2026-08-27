@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-27 handoff (walking Dragon render residue)
+
+- Oracle frame-60 SAT splits mapping `$0574` into 32x32 and 32x8 hardware
+  sprites at X=93. Its tiles `$4CD..$4E0` byte-match decoded Dragon art
+  `$0C4..$0D7`; visible palette colours match too.
+- Replacing ASM `Mode_Level loc_901`'s previous object Sprite Table with current
+  snapshots worsens the focused checkpoint from 471 to 551 changed pixels.
+  The generic latch hypothesis is rejected and no gameplay code was changed.
+- NEXT: inspect sprite/background priority and hardware mapping compositing at
+  the residual Dragon pixels. Do not revisit art, palette, phase, or latch
+  timing without new evidence. See #463.
+
 ## 2026-08-27 handoff (walking Dragon settle animation)
 
 - A proactive Level 9 frame audit found the walking Dragon one animation entry

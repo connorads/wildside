@@ -28,6 +28,16 @@ oracle mapping, so this issue does not tune them by eye. `verify-slice-fast`
 and `verify-tas-full` pass. The published route retains exact gameplay, enemy
 and RNG state plus the established 2,391-pixel frozen HUD ratchet.
 
+Follow-up 2026-08-27: oracle frame-60 SAT entries 12/13 encode the mapping as a
+32x32 sprite plus a 32x8 tail at X=93, with pattern tiles `$4CD..$4E0`.
+Decoded `Enemy0C_Dragon.bin` tiles `$0C4..$0D7` match those 640 oracle VRAM
+bytes exactly; the selected palette also resolves to the same visible MD
+colours. Retaining current `active_objects` instead of ASM `Mode_Level
+loc_901`'s previous Sprite Table was tested and rejected: it worsened the
+checkpoint from 471 to 551 changed pixels. The remaining residue is therefore
+not compressed art, palette selection, animation phase, or the generic object
+sprite latch. Inspect priority/compositing and hardware mapping geometry next.
+
 ---
 
 ### #462
