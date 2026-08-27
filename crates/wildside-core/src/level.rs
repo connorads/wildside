@@ -20206,24 +20206,49 @@ impl NativeRuntime {
             }
         }
         data.truncate(metadata.data_bytes.min(data.len()));
+        let (fixture_height_blocks, fixture_blank_top_rows) = self
+            .level_header(level_id)
+            .map_or((metadata.height_blocks, 0), |header| {
+                let blank_top_rows =
+                    terrain::blank_top_rows_from_height_flag_bits_sub_140F6(
+                        header.height_flag_bits,
+                    );
+                let populated_height_blocks =
+                    u16::from(header.height_screens).saturating_mul(14);
+                let shifted_height_blocks =
+                    populated_height_blocks.saturating_add(blank_top_rows);
+                if blank_top_rows != 0
+                    && matches!(
+                        metadata.height_blocks,
+                        height if height == populated_height_blocks || height == shifted_height_blocks
+                    )
+                {
+                    (populated_height_blocks, blank_top_rows)
+                } else {
+                    (metadata.height_blocks, 0)
+                }
+            });
+        // Live Level_Layout dumps report the post-sub_140F6 expanded height,
+        // but their populated bytes remain at row zero with the added capacity
+        // zero-filled at the tail. Reapply the ROM move instead of treating the
+        // expanded metadata height as proof that the content is already shifted.
+        let fixture_data_bytes = usize::from(metadata.width_blocks)
+            .saturating_mul(usize::from(fixture_height_blocks))
+            .saturating_mul(2);
+        data.truncate(fixture_data_bytes.min(data.len()));
         initialise_level_row_buffers_for_load_loc_11AEA(level_id, metadata.width_blocks);
         let erase_words_loc_11542 = self
-            .erase_words_for_level_loc_11542(
-                level_id,
-                metadata.width_blocks,
-                metadata.height_blocks,
-            )
+            .erase_words_for_level_loc_11542(level_id, metadata.width_blocks, fixture_height_blocks)
             .unwrap_or_else(|| {
-                vec![0; usize::from(metadata.width_blocks) * usize::from(metadata.height_blocks)]
+                vec![0; usize::from(metadata.width_blocks) * usize::from(fixture_height_blocks)]
             });
-        Some(
-            terrain::BlockGrid::from_level_layout_with_erase_words_loc_11542(
-                &data,
-                erase_words_loc_11542,
-                metadata.width_blocks,
-                metadata.height_blocks,
-            ),
-        )
+        let grid = terrain::BlockGrid::from_level_layout_with_erase_words_loc_11542(
+            &data,
+            erase_words_loc_11542,
+            metadata.width_blocks,
+            fixture_height_blocks,
+        );
+        Some(grid.with_blank_top_rows_sub_140F6(fixture_blank_top_rows))
     }
 
     #[allow(non_snake_case)]

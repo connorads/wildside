@@ -11,6 +11,32 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #465
+
+Closed [x] 2026-08-27. Level `$42` frame 60 placed native Kid at `$014F` and
+camera Y at `$00B3`, while oracle used `$016F` and `$00CC`: the gameplay world
+was exactly 32 px high. The header byte `$43` gives
+`Number_blank_top_rows=2`. ASM `Load_InGame` extends the level bounds before
+`sub_140F6` moves `Level_Layout` and `Level_terrain_layout` down by those two
+16 px rows and clears the inserted top rows.
+
+The generated logical fixture's metadata already reports the expanded height
+(44 rows), but its first 42 rows remain byte-aligned with decoded resource
+`$17` and its two added rows are zero-filled at the tail. Native's loader
+treated the expanded height as proof that the content was already shifted.
+It now truncates recognised fixtures to the populated header height and then
+applies the existing `BlockGrid::with_blank_top_rows_sub_140F6` transform.
+Regression
+`generated_shifted_height_fixture_still_applies_blank_top_rows_sub_140f6`
+pins the expanded-metadata/unshifted-content case. Focused `tas-diff` frame 60
+changes from two authoritative Kid/camera differences to an exact match.
+
+The focused frame sweep remains at 10,985 changed pixels because that capture
+path selects the resident title-card VDP shell after the synthetic settled
+warp. Forced live-scene capture differs by 2,393 pixels at the same frame, so
+that measurement-path defect is the next separate slice; it is not evidence
+against the blank-row gameplay fix.
+
 ### #464
 
 Closed [x] 2026-08-27. A proactive source-port frame sweep found logical Level

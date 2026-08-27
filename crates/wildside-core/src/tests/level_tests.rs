@@ -10474,6 +10474,47 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
+    fn generated_shifted_height_fixture_still_applies_blank_top_rows_sub_140f6() {
+        let output_root = unique_temp_path("generated-blank-top-row-content");
+        let mut manifest = manifest();
+        manifest.output_root = output_root.clone();
+        let header = manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("test level should have header metadata");
+        header.height_screens = 1;
+        header.height_flag_bits = 1;
+
+        let width_blocks = 2;
+        let populated_height_blocks = 14;
+        let dumped_height_blocks = 16;
+        let mut data = vec![0; width_blocks * dumped_height_blocks * 2];
+        data[(5 * width_blocks) * 2] = 0x60;
+        data[(5 * width_blocks) * 2 + 1] = 0x42;
+        write_generated_level_layout(
+            &output_root,
+            0,
+            width_blocks as u16,
+            dumped_height_blocks as u16,
+            &data,
+        );
+
+        let runtime = NativeRuntime::new(manifest);
+        let grid = runtime
+            .load_block_grid_for_level(LevelId(0))
+            .expect("generated layout should load");
+
+        assert_eq!(grid.height_cells, dumped_height_blocks as u16);
+        assert_eq!(grid.cell_at(0, 5).collision, terrain::CollisionKind::Empty);
+        assert_eq!(grid.cell_at(0, 7).collision, terrain::CollisionKind::Solid);
+        assert_eq!(grid.cell_at(0, 7).skin, 0x42);
+        assert_eq!(populated_height_blocks + 2, dumped_height_blocks);
+
+        drop(runtime);
+        fs::remove_dir_all(output_root).expect("temp layout dir should be removable");
+    }
+
+    #[test]
     fn aliased_levels_fall_back_to_resource_generated_block_grid() {
         let output_root = unique_temp_path("aliased-resource-block-grid");
         let mut manifest = manifest_with_levels(7);

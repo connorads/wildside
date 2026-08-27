@@ -1392,6 +1392,7 @@ level-layout/40.bin
 level-layout/40.blocklist.bin
 level-layout/42.bin
 level-layout/42.blocklist.bin
+level-layout/42.json
 level-layout/43.bin
 level-layout/43.blocklist.bin
 level-layout/44.bin

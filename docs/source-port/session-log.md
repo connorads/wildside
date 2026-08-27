@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-27 handoff (Alien Twilight blank top rows)
+
+- Level `$42` frame 60 proved native Kid and camera exactly 32 px high while
+  the oracle applies the header's two blank 16 px rows.
+- Generated `Level_Layout` metadata reports the expanded 44-row capacity, but
+  its populated terrain remains unshifted with two zero rows at the tail.
+- The fixture loader now trims to the 42 populated rows and applies ASM
+  `sub_140F6`. Frame-60 gameplay state now matches the oracle exactly.
+- The unchanged pixel score comes from the sweep selecting a resident
+  title-card VDP shell; the forced live scene is much closer (2,393 pixels).
+- NEXT: select the live scene after the settled-warp handoff and remeasure
+  Level `$42`. See #465.
+
 ## 2026-08-27 handoff (Alien Twilight ordered palette override)
 
 - A fresh source-port frame sweep found Level `$42` state-exact but 53,710
