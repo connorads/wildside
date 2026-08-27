@@ -11,6 +11,29 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #466
+
+Closed [x] 2026-08-27. The apparent Level `$42` frame-sweep scene-selection
+defect was disproved: the recording-oracle and direct compatibility bootstraps
+have identical camera, Kid state, object roster, and visible terrain grid. Their
+rendered frames differ by only 39 HUD pixels. Both paths select the live city
+scene, so the old 10,985-pixel result was authoritative.
+
+ASM `sub_140F6` shifts both `Level_Layout` and `Level_terrain_layout` down by
+`Number_blank_top_rows`, then clears the inserted rows. Core already applies
+that transform to the logical `BlockGrid`; render continued to use the raw,
+unshifted terrain layout whenever an empty logical cell fell back to its skin.
+`ForegroundLayout` now performs the same two-row transform from the header
+flags. Regression
+`load_level_visuals_moves_terrain_down_for_blank_top_rows_sub_140f6` pins the
+visual half of the ROM operation.
+
+Focused frame report `1787807299` reduces Level `$42` from 10,938/10,985
+changed pixels with MAE 8.5 to 268/315 with MAE 0.2 at settle/idle-tail. Direct
+PNG inspection confirms that Kid and the foreground geometry now align. The
+small remaining sprite/HUD residue is separate; no further offset was inferred
+from pixels.
+
 ### #465
 
 Closed [x] 2026-08-27. Level `$42` frame 60 placed native Kid at `$014F` and
@@ -31,11 +54,9 @@ Regression
 pins the expanded-metadata/unshifted-content case. Focused `tas-diff` frame 60
 changes from two authoritative Kid/camera differences to an exact match.
 
-The focused frame sweep remains at 10,985 changed pixels because that capture
-path selects the resident title-card VDP shell after the synthetic settled
-warp. Forced live-scene capture differs by 2,393 pixels at the same frame, so
-that measurement-path defect is the next separate slice; it is not evidence
-against the blank-row gameplay fix.
+Follow-up #466 disproves the title-card-shell diagnosis. Both bootstrap paths
+render the live scene; the visual terrain buffer independently needed the same
+ASM shift as the logical grid.
 
 ### #464
 

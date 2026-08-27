@@ -373,7 +373,9 @@ pub fn load_level_visuals_with_source(
     )
     .context(format!(
         "failed to parse level 0x{level_id:02X} foreground layout"
-    ))?;
+    ))?
+    .with_blank_top_rows_sub_140f6(u16::from(visual_theme_header.height_flag_bits & 0x03) * 2);
+    let shifted_foreground_layout = parsed_foreground_layout.as_bytes().to_vec();
 
     let mut foreground_tiles = load_tile_sheet(
         source,
@@ -574,7 +576,7 @@ pub fn load_level_visuals_with_source(
             murder_wall_flags: visual_theme_header.murder_wall_flags,
             background_scroll: level_bundle.parsed_bgscroll.clone(),
             foreground_layout: parsed_foreground_layout,
-            foreground_layout_bytes: foreground_layout.clone(),
+            foreground_layout_bytes: shifted_foreground_layout,
             block_layout_bytes: block_layout,
             background_layout_bytes: background_layout,
             background_layout_alias: level_bundle.background_layout_alias.clone(),

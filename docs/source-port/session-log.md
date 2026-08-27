@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-27 handoff (Alien Twilight visual terrain rows)
+
+- Direct and recording-warp bootstraps both select the live scene; they differ
+  by only 39 HUD pixels, disproving the prior title-card-shell diagnosis.
+- ASM `sub_140F6` shifts both logical and visual terrain buffers. Native shifted
+  `BlockGrid` but left renderer `ForegroundLayout` at row zero.
+- Applying the header's two blank rows to the visual layout reduces Level `$42`
+  idle-tail disagreement from 10,985 pixels / MAE 8.5 to 315 / 0.2.
+- NEXT: run `mise run project-status`; if no item is ready, classify the remaining
+  sprite/HUD residue. See #466.
+
 ## 2026-08-27 handoff (Alien Twilight blank top rows)
 
 - Level `$42` frame 60 proved native Kid and camera exactly 32 px high while
@@ -15,10 +26,8 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   its populated terrain remains unshifted with two zero rows at the tail.
 - The fixture loader now trims to the 42 populated rows and applies ASM
   `sub_140F6`. Frame-60 gameplay state now matches the oracle exactly.
-- The unchanged pixel score comes from the sweep selecting a resident
-  title-card VDP shell; the forced live scene is much closer (2,393 pixels).
-- NEXT: select the live scene after the settled-warp handoff and remeasure
-  Level `$42`. See #465.
+- Follow-up #466 disproves the title-card-shell hypothesis and shifts the visual
+  terrain buffer too. See #465 for this gameplay half of the fix.
 
 ## 2026-08-27 handoff (Alien Twilight ordered palette override)
 

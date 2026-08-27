@@ -800,6 +800,27 @@ mod tests {
     }
 
     #[test]
+    fn load_level_visuals_moves_terrain_down_for_blank_top_rows_sub_140f6() {
+        let mut fixture = TestBundle::new().expect("test bundle");
+        fixture.manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("fixture header")
+            .height_flag_bits = 1;
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        assert_eq!(visuals.level.foreground_layout.height_cells, 58);
+        assert_eq!(visuals.level.foreground_layout.skin_at(1, 0), 0);
+        assert_eq!(visuals.level.foreground_layout.skin_at(1, 1), 0);
+        assert_eq!(
+            visuals.level.foreground_layout.skin_at(1, 2),
+            foreground_layout_fixture_bytes()[1],
+            "ASM sub_140F6 moves Level_terrain_layout down by Number_blank_top_rows before clearing the inserted rows"
+        );
+    }
+
+    #[test]
     fn load_level_visuals_decodes_layered_forest_background_planes() {
         let mut fixture = TestBundle::new().expect("test bundle");
         fixture

@@ -108,6 +108,26 @@ impl ForegroundLayout {
         }
         self.cells[usize::from(row) * usize::from(self.width_cells) + usize::from(col)]
     }
+
+    #[must_use]
+    pub fn with_blank_top_rows_sub_140f6(mut self, blank_top_rows: u16) -> Self {
+        if blank_top_rows == 0 || self.width_cells == 0 {
+            return self;
+        }
+
+        // ASM sub_140F6 / loc_141AA shifts Level_terrain_layout down by
+        // Number_blank_top_rows, then clears the inserted rows at loc_141E2.
+        let blank_cells = usize::from(blank_top_rows) * usize::from(self.width_cells);
+        let mut shifted_cells = vec![0; blank_cells];
+        shifted_cells.append(&mut self.cells);
+        self.cells = shifted_cells;
+        self.height_cells = self.height_cells.saturating_add(blank_top_rows);
+        self
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.cells
+    }
 }
 
 impl BlockVisualMapping {
