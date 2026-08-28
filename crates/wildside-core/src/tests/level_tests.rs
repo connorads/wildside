@@ -11891,6 +11891,23 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
+    fn death_hibernation_freezes_time_frames_before_mode_level_tail_loc_892() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        start_level(&mut runtime);
+        runtime.time_frames_loc_3038a = 0x016A;
+        runtime.progression.number_hitpoints = 0;
+        runtime.begin_death_windup();
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.time_frames_loc_3038a, 0x016A,
+            "ASM Death loc_B80C hibernates inside Execute_Objects, so Mode_Level loc_892 cannot reach loc_3038A"
+        );
+    }
+
+    #[test]
     fn grounded_death_windup_uses_tumble_arc_and_exits_before_fallback_timeout() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_floor_at_row(17));

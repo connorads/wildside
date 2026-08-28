@@ -4562,7 +4562,7 @@ impl NativeRuntime {
         }
         if Self::hud_animation_runs_in_mode_level_loc_80c(
             gameplay_slice_active,
-            self.object_pass_hibernating_for_transform_loc_7e90(),
+            self.object_pass_hibernating_before_mode_level_tail_loc_892(),
         ) {
             // ASM Mode_Level loc_80C (kid.asm:923): `bsr.w sub_44DC` advances
             // animated HUD VRAM pages once per level frame before the rendered
@@ -4688,12 +4688,13 @@ impl NativeRuntime {
         );
         if self.game_mode().as_disassembly_value() != 0
             && !demo_mode_level_tail_hibernating
-            && !self.object_pass_hibernating_for_transform_loc_7e90()
+            && !self.object_pass_hibernating_before_mode_level_tail_loc_892()
         {
             // ASM Mode_Level loc_892 reaches loc_3038A only after the current
             // Execute_Objects pass returns. Kid_Transform loc_7CBE/loc_7D22
-            // instead waits inside sub_8E0, so those VBlanks transfer the
-            // existing scroll/HUD buffers without incrementing Time_Frames.
+            // instead waits inside sub_8E0; Death loc_B80C likewise waits in
+            // the Kid callback. Those VBlanks transfer the existing
+            // scroll/HUD buffers without incrementing Time_Frames.
             // The two Load_DemoPlay paths reach this tail on their independently
             // measured startup frames. The loc_7E90 cleanup frame returns to
             // the suspended outer pass and reaches it normally.
@@ -5313,6 +5314,18 @@ impl NativeRuntime {
         // from the final cleanup count. The outer Execute_Objects loc_E12 pass
         // therefore resumes while native's pre-lifecycle countdown is one.
         self.progression.form_change_flash_frames > 1
+    }
+
+    fn object_pass_hibernating_before_mode_level_tail_loc_892(&self) -> bool {
+        // ASM Kid_Transform loc_7CBE/loc_7D22 and Death loc_B80C both wait
+        // inside the Kid object's Execute_Objects callback. Until it returns,
+        // the suspended Mode_Level pass cannot reach loc_80C or loc_892.
+        self.object_pass_hibernating_for_transform_loc_7e90()
+            || (self.opening_slice.is_some()
+                && matches!(
+                    self.player_lifecycle,
+                    PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+                ))
     }
 
     fn apply_form_width_overlap_fixup(&mut self, slice: &mut OpeningSliceState) {

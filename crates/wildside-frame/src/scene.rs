@@ -11774,6 +11774,27 @@ mod tests {
     }
 
     #[test]
+    fn forest_background_swaps_visible_cram_slots_eight_and_ten_sub_129ae() {
+        let mut visuals = sample_level_visuals(1);
+        visuals.level.background_theme_id = 9;
+        visuals.palettes.foreground = Palette {
+            colours: (0x0100..=0x010E).map(MdColour::from_word).collect(),
+        };
+        visuals.palettes.background = Palette {
+            colours: (0x0200..=0x0207).map(MdColour::from_word).collect(),
+        };
+
+        let palette = background_palette_for_scene(&NativeTraceFrame::default(), &visuals);
+
+        assert_eq!(palette.colours.len(), 30);
+        assert_eq!(palette.colours[22].raw_word, 0x0202);
+        assert_eq!(palette.colours[23].raw_word, 0x0201);
+        assert_eq!(palette.colours[24].raw_word, 0x0000);
+        assert_eq!(palette.colours[25].raw_word, 0x0203);
+        assert_eq!(palette.colours[29].raw_word, 0x0207);
+    }
+
+    #[test]
     fn boss_eye_scene_helpers_parse_debug_fields_and_exact_object_slots_loc_3931a() {
         let object = sample_boss_eye_object(40 << 16, 48 << 16, Some("7"), Some("0x002A"));
         assert_eq!(

@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-28 handoff (Forest death-ripple phase)
+
+- All 125 native Forest tiles and every CRAM word match oracle. Palette, art,
+  and permutation hypotheses are disproved.
+- Oracle freezes `Time_Frames=$016A` while Death `loc_B80C` suspends the outer
+  object pass. Native advanced to `$01A4`, selecting the wrong ripple phase.
+- Suspending loc_80C/loc_892 during death removes 3,155 pixels from Level `$00`
+  frame 359. The remaining seven pixels are frozen HUD debt. NEXT: select
+  another non-frozen visual cluster. See #469.
+
 ## 2026-08-28 handoff (walking Dragon recording transfer)
 
 - Component-level visual triage split Level `$09` frame 60's 53 pixels into

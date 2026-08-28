@@ -1779,6 +1779,29 @@ mod tests {
         }
     }
 
+    fn in_game_hud_runtime() -> NativeRuntime {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0);
+        let width_cells = 6u16 * 20;
+        let height_cells = 4u16 * 14;
+        runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: width_cells * 16,
+            height_pixels: height_cells * 16,
+        }));
+        let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
+        for col in 0..width_cells {
+            let offset = (17 * usize::from(width_cells) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        }
+        runtime.set_block_grid(terrain::BlockGrid::from_level_layout(
+            &data,
+            width_cells,
+            height_cells,
+        ));
+        runtime
+    }
+
     #[test]
     fn native_platform_slots_debug_loc_257e_reports_vector_order_and_rom_offset_key() {
         let platform = ActivePlatform {
@@ -2480,9 +2503,7 @@ mod tests {
 
     #[test]
     fn trace_exposes_live_hud_diamond_offset_from_sub_44dc() {
-        let mut runtime = NativeRuntime::new(minimal_manifest());
-        runtime.boot_state = BootState::InGame;
-        runtime.current_level = LevelId(0);
+        let mut runtime = in_game_hud_runtime();
 
         assert_eq!(
             runtime.trace_frame().hud_diamond_frame_offset,
@@ -2527,9 +2548,7 @@ mod tests {
 
     #[test]
     fn trace_exposes_complete_staggered_hud_dma_sequence_from_sub_44dc() {
-        let mut runtime = NativeRuntime::new(minimal_manifest());
-        runtime.boot_state = BootState::InGame;
-        runtime.current_level = LevelId(0);
+        let mut runtime = in_game_hud_runtime();
 
         let frames = (0..5)
             .map(|_| runtime.step_frame(FrameInput::default()))
@@ -2584,9 +2603,7 @@ mod tests {
 
     #[test]
     fn trace_exposes_live_hud_life_icon_offset_from_sub_44dc() {
-        let mut runtime = NativeRuntime::new(minimal_manifest());
-        runtime.boot_state = BootState::InGame;
-        runtime.current_level = LevelId(0);
+        let mut runtime = in_game_hud_runtime();
 
         assert_eq!(
             runtime.trace_frame().hud_life_icon_vram_page_loc_4586,

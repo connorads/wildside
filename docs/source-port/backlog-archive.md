@@ -11,6 +11,35 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #469
+
+Closed [x] 2026-08-28. A fresh Level `$00` sweep isolates 3,162 changed
+pixels at idle-tail frame 359 while gameplay state remains exact. Of those,
+2,546 exchange Forest greens `#009224` and `#006D24`; provenance attributes
+them to background colour indices 9 and 8.
+
+The first hypothesis was wrong. A regression proves the scene palette already
+models ASM `loc_11E16` followed by `sub_129AE`. An oracle CRAM dump at frame
+359 agrees word-for-word: slots 24 and 25 contain `$0260` and `$0280`.
+Skipping ASM `loc_11E8A`'s `Palette_Permutation_BGForest` is also rejected: the
+same frame worsens from 3,162 to 8,753 pixels. The next probe is therefore the
+art boundary: compare the Saxman-decoded and remapped native source tile `$73`
+against oracle VRAM `$FE60`, then determine whether decompression, VRAM
+placement, or tile selection changes the visible indices.
+
+The art probe then byte-compared all 125 decoded and remapped native Forest
+tiles with oracle VRAM `$F000..$FF9F`; every byte matches. The remaining
+phase discrepancy is temporal. Oracle `Time_Frames` reaches `$016A` at frame
+301 and stays there through frame 359 because Death `loc_B80C` hibernates
+inside Kid's `Execute_Objects` callback. Native kept returning to `Mode_Level
+loc_892`, reaching `$01A4` and selecting the wrong water-ripple table phase.
+
+The object-pass boundary now treats DeathWindup/Dying like the existing
+`Kid_Transform` suspension: neither `sub_44DC` nor `loc_892 -> loc_3038A` runs
+until the callback returns. A red/green regression pins the frozen counter.
+Focused Level `$00` frame 359 falls from 3,162 changed pixels to seven frozen
+HUD life-icon pixels; gameplay/player/camera and enemy frontiers remain exact.
+
 ### #468
 
 Closed [x] 2026-08-28. A fresh Level `$09` frame-60 report still contained 53
@@ -23676,6 +23705,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 469 | [x] | P2 | rendering/timing | Death `loc_B80C` now suspends the outer `Mode_Level` loc_80C/loc_892 tail, freezing `Time_Frames` and keeping Forest water-ripple phase aligned. | Red/green counter regression; 125/125 Forest tiles and CRAM exact; Level `$00` frame 359 falls from 3,162 pixels to seven frozen HUD pixels. See archive #469. |
 | 468 | [x] | P2 | rendering/tooling | Component-level visual triage exposed a walking-Dragon recording-transfer phase error hidden inside disconnected HUD residue; the recording seed now presents ASM phase 4 at Level `$09` frame 60. | Red/green cache-backed boundary tests; focused frame 60 has only 39 HUD pixels; 69-level frame sweep and required fast/full gates. See archive #468. |
 | 461 | [x] | P2 | rendering | Enemy palette source variants now follow each layout ID's upper bits; physical blank-inclusive CRAM/VRAM slot `d7` remains a separate destination concern. | Red/green selector regression, Level 0 full-frame sweep, 69-level frame sweep, and required fast/full TAS gates. See archive #461. |
 | 460 | [x] | P2 | enemy | `Manage_EnemyLoading loc_3686E` now preserves completed `$0C00` reload phases instead of decrementing them back towards the spatial spawn window. | Red/green exact-word regression plus required fast/full TAS gates. See archive #460. |
