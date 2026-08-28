@@ -9,7 +9,7 @@
 //! is responsible", collapsing thousands of grid buckets into a short ranked
 //! histogram of named causes. Pure tooling — no gameplay behaviour.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
@@ -160,7 +160,7 @@ pub(crate) fn classify_pixel(
     }
 }
 
-/// One triaged divergent frame: its dominant signature plus descriptive
+/// One connected divergent region: its dominant signature plus descriptive
 /// histograms over the sampled pixels that carry that signature.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct FrameTriage {
@@ -228,8 +228,10 @@ pub(crate) fn vdp_frame_key(bbox: &BBox) -> String {
 pub(crate) struct SignatureCluster {
     key: String,
     description: String,
+    region_count: usize,
+    /// Unique source frames containing at least one member region.
     frame_count: usize,
-    /// Sum of member frames' FULL changed-pixel counts (not just samples).
+    /// Sum of member regions' full changed-pixel counts (not just samples).
     total_changed_pixels: u64,
     /// Consecutive member frame indices collapsed to inclusive [start, end].
     frame_ranges: Vec<[usize; 2]>,
@@ -239,15 +241,16 @@ pub(crate) struct SignatureCluster {
     tile_index_histogram: BTreeMap<String, usize>,
     /// Palette lines seen among sampled dominant-signature pixels.
     palette_line_histogram: BTreeMap<String, usize>,
-    /// The worst member frame's mismatch bbox.
+    /// The worst member region's mismatch bbox.
     example_bbox: BBox,
 }
 
 impl SignatureCluster {
     fn console_summary(&self) -> String {
         format!(
-            "{}: {} frames, {} px, {} range(s), samples {:?} — {}",
+            "{}: {} region(s) across {} frames, {} px, {} range(s), samples {:?} — {}",
             self.key,
+            self.region_count,
             self.frame_count,
             self.total_changed_pixels,
             self.frame_ranges.len(),
@@ -257,7 +260,7 @@ impl SignatureCluster {
     }
 }
 
-/// Group triaged frames by signature key, sum full pixel impact, collapse
+/// Group triaged regions by signature key, sum full pixel impact, collapse
 /// ranges, merge histograms; sort by total changed pixels descending then key
 /// ascending (mirrors the spatial clusterer's ranking).
 pub(crate) fn cluster_signatures(frames: &[FrameTriage]) -> Vec<SignatureCluster> {
@@ -269,8 +272,9 @@ pub(crate) fn cluster_signatures(frames: &[FrameTriage]) -> Vec<SignatureCluster
         .into_values()
         .map(|mut members| {
             members.sort_by_key(|member| member.frame_index);
-            let sorted_indices: Vec<usize> =
+            let mut sorted_indices: Vec<usize> =
                 members.iter().map(|member| member.frame_index).collect();
+            sorted_indices.dedup();
             // First member with the maximum count, so "worst" is deterministic.
             let worst = members
                 .iter()
@@ -308,7 +312,8 @@ pub(crate) fn cluster_signatures(frames: &[FrameTriage]) -> Vec<SignatureCluster
             SignatureCluster {
                 key: members[0].key.clone(),
                 description: members[0].description.clone(),
-                frame_count: members.len(),
+                region_count: members.len(),
+                frame_count: sorted_indices.len(),
                 total_changed_pixels: members
                     .iter()
                     .map(|member| member.changed_pixels as u64)
@@ -335,6 +340,7 @@ pub(crate) struct VisualTriageReport {
     projection: String,
     frame_range: [usize; 2],
     mismatch_frames: usize,
+    triaged_regions: usize,
     total_changed_pixels: u64,
     vdp_frames: usize,
     scene_frames: usize,
@@ -481,11 +487,93 @@ fn bbox_of_coords(coords: &[(usize, usize)]) -> Option<BBox> {
     Some(bbox)
 }
 
+/// Split changed pixels into deterministic 8-connected regions. A region is
+/// the smallest useful attribution unit: assigning one dominant signature to
+/// an entire frame lets a large HUD residue hide a separate enemy defect.
+fn connected_pixel_regions(coords: &[(usize, usize)]) -> Vec<Vec<(usize, usize)>> {
+    let mut remaining = coords.iter().copied().collect::<BTreeSet<_>>();
+    let mut regions = Vec::new();
+
+    while let Some(&start) = remaining.first() {
+        remaining.remove(&start);
+        let mut queue = VecDeque::from([start]);
+        let mut region = Vec::new();
+
+        while let Some((x, y)) = queue.pop_front() {
+            region.push((x, y));
+            for dy in -1isize..=1 {
+                for dx in -1isize..=1 {
+                    if dx == 0 && dy == 0 {
+                        continue;
+                    }
+                    let Some(nx) = x.checked_add_signed(dx) else {
+                        continue;
+                    };
+                    let Some(ny) = y.checked_add_signed(dy) else {
+                        continue;
+                    };
+                    if remaining.remove(&(nx, ny)) {
+                        queue.push_back((nx, ny));
+                    }
+                }
+            }
+        }
+        region.sort_unstable();
+        regions.push(region);
+    }
+
+    regions
+}
+
 /// Native/oracle RGB retained for a cluster's first and worst member frames
 /// so composites can be written after ranking without a second replay.
 struct ClusterArt {
     first: (usize, Vec<u8>, Vec<u8>),
     worst: (usize, usize, Vec<u8>, Vec<u8>),
+}
+
+#[allow(clippy::too_many_arguments)]
+fn record_region(
+    frames: &mut Vec<FrameTriage>,
+    cluster_art: &mut BTreeMap<String, ClusterArt>,
+    frame_index: usize,
+    changed_pixels: usize,
+    bbox: BBox,
+    key: String,
+    description: String,
+    tile_histogram: BTreeMap<u16, usize>,
+    palette_histogram: BTreeMap<u8, usize>,
+    native_rgb: &[u8],
+    oracle_rgb: &[u8],
+) {
+    let art = cluster_art
+        .entry(key.clone())
+        .or_insert_with(|| ClusterArt {
+            first: (frame_index, native_rgb.to_vec(), oracle_rgb.to_vec()),
+            worst: (
+                frame_index,
+                changed_pixels,
+                native_rgb.to_vec(),
+                oracle_rgb.to_vec(),
+            ),
+        });
+    if changed_pixels > art.worst.1 {
+        art.worst = (
+            frame_index,
+            changed_pixels,
+            native_rgb.to_vec(),
+            oracle_rgb.to_vec(),
+        );
+    }
+    frames.push(FrameTriage {
+        frame_index,
+        changed_pixels,
+        bbox,
+        key,
+        description,
+        tile_histogram,
+        palette_histogram,
+    });
 }
 
 fn chrono_timestamp() -> String {
@@ -654,181 +742,176 @@ pub(crate) fn run_visual_triage(
             if coords.len() != reported_changed_pixels {
                 recount_drift_frames += 1;
             }
-            let Some(bbox) = bbox_of_coords(&coords) else {
+            if coords.is_empty() {
                 // Frame matches now; counted as drift above, nothing to triage.
                 return Ok(());
-            };
-            let changed_pixels = coords.len();
-            let (key, description, tile_histogram, palette_histogram) = match &scene_info {
+            }
+            match &scene_info {
                 None => {
                     vdp_frames += 1;
+                    let bbox = bbox_of_coords(&coords).expect("non-empty changed-pixel frame");
                     let key = vdp_frame_key(&bbox);
-                    (
+                    record_region(
+                        &mut frames,
+                        &mut cluster_art,
+                        frame_index,
+                        coords.len(),
+                        bbox,
                         key,
                         "VDP-path frame (Sega/intro/title) — coarse spatial signature only"
                             .to_owned(),
                         BTreeMap::new(),
                         BTreeMap::new(),
-                    )
+                        &native_rgb,
+                        &oracle_rgb,
+                    );
                 }
                 Some((scene, spans)) => {
                     scene_frames += 1;
-                    let pixels = subsample_deterministic(&coords, PROVENANCE_SAMPLES_PER_FRAME);
-                    let diagnostics = sample_scene_pixel_provenance(scene, &pixels);
-                    sampled_pixels += diagnostics.len() as u64;
-                    if palette_resolution_samples.len() < PALETTE_RESOLUTION_SAMPLES {
-                        for diagnostic in &diagnostics {
-                            let Some(write) = diagnostic
-                                .writes
-                                .iter()
-                                .rev()
-                                .find(|write| write.accepted && write.rgb.is_some())
-                            else {
-                                continue;
-                            };
-                            let (
-                                Some(tile_index),
-                                Some(palette_line),
-                                Some(palette_index),
-                                Some(palette_colour_count),
-                                Some(resolved_palette_slot),
-                                Some(raw_palette_word),
-                            ) = (
-                                write.tile_index,
-                                write.palette_line,
-                                write.palette_index,
-                                write.palette_colour_count,
-                                write.resolved_palette_slot,
-                                write.raw_palette_word,
-                            )
-                            else {
-                                continue;
-                            };
-                            let offset =
-                                (diagnostic.y * NATIVE_FRAME_WIDTH as usize + diagnostic.x) * 3;
-                            let background_scroll =
-                                wildside_frame::background_scroll_pixel_diagnostic_loc_3050a(
-                                    trace,
-                                    &level_visuals,
-                                    diagnostic.x as i32,
-                                    diagnostic.y as i32,
-                                );
-                            let background_pixel = wildside_frame::sample_background_pixel_loc_c070(
-                                trace,
-                                &level_visuals,
-                                diagnostic.x as i32,
-                                diagnostic.y as i32,
-                            );
-                            let camera_x_px = (trace.camera_x_pos >> 16) as usize;
-                            let camera_y_px = (trace.camera_y_pos >> 16) as usize;
-                            let block_col = ((camera_x_px + diagnostic.x) / 16) as u16;
-                            let block_row = ((camera_y_px + diagnostic.y) / 16) as u16;
-                            let block_cell =
-                                block_grid.map(|grid| grid.cell_at(block_col, block_row));
-                            let ghost_group =
-                                runtime.source_port_ghost_group_at(block_col, block_row);
-                            palette_resolution_samples.push(PaletteResolutionSample {
-                                frame_index,
-                                x: diagnostic.x,
-                                y: diagnostic.y,
-                                layer: layer_for_command_index(spans, write.command_index)
-                                    .as_str()
-                                    .to_owned(),
-                                kind: write.kind.clone(),
-                                tile_index,
-                                hardware_palette_line: palette_line,
-                                pixel_colour_index: palette_index,
-                                hardware_cram_slot: usize::from(palette_line) * 16
-                                    + usize::from(palette_index),
-                                palette_colour_count,
-                                resolved_palette_slot,
-                                raw_palette_word,
-                                block_cell_col: block_grid.map(|_| block_col),
-                                block_cell_row: block_grid.map(|_| block_row),
-                                block_cell_raw_word: block_grid
-                                    .map(|grid| grid.raw_word_at(block_col, block_row)),
-                                block_cell_has_block: block_cell.map(|cell| cell.has_block),
-                                block_cell_type: block_cell.map(|cell| cell.block_type as u8),
-                                block_cell_skin: block_cell.map(|cell| cell.skin),
-                                ghost_group_timer: ghost_group.map(|group| group.0),
-                                ghost_group_state: ghost_group.map(|group| group.1),
-                                ghost_group_solid: ghost_group.map(|group| group.2),
-                                background_row_index: background_scroll
-                                    .as_ref()
-                                    .map(|sample| sample.sample_row),
-                                background_layer_speed: background_scroll
-                                    .as_ref()
-                                    .map(|sample| sample.layer_speed_loc_3050a),
-                                background_scroll_x_px: background_scroll
-                                    .map(|sample| sample.scroll_x_px_loc_3050a),
-                                background_ripple_row_offset: background_pixel
-                                    .and_then(|sample| sample.row_offset),
-                                native_rgb: diagnostic.final_rgb,
-                                oracle_rgb: [
+                    for region in connected_pixel_regions(&coords) {
+                        let bbox = bbox_of_coords(&region).expect("connected region is non-empty");
+                        let pixels = subsample_deterministic(&region, PROVENANCE_SAMPLES_PER_FRAME);
+                        let diagnostics = sample_scene_pixel_provenance(scene, &pixels);
+                        sampled_pixels += diagnostics.len() as u64;
+                        if palette_resolution_samples.len() < PALETTE_RESOLUTION_SAMPLES {
+                            for diagnostic in &diagnostics {
+                                let Some(write) = diagnostic
+                                    .writes
+                                    .iter()
+                                    .rev()
+                                    .find(|write| write.accepted && write.rgb.is_some())
+                                else {
+                                    continue;
+                                };
+                                let (
+                                    Some(tile_index),
+                                    Some(palette_line),
+                                    Some(palette_index),
+                                    Some(palette_colour_count),
+                                    Some(resolved_palette_slot),
+                                    Some(raw_palette_word),
+                                ) = (
+                                    write.tile_index,
+                                    write.palette_line,
+                                    write.palette_index,
+                                    write.palette_colour_count,
+                                    write.resolved_palette_slot,
+                                    write.raw_palette_word,
+                                )
+                                else {
+                                    continue;
+                                };
+                                let offset =
+                                    (diagnostic.y * NATIVE_FRAME_WIDTH as usize + diagnostic.x) * 3;
+                                let background_scroll =
+                                    wildside_frame::background_scroll_pixel_diagnostic_loc_3050a(
+                                        trace,
+                                        &level_visuals,
+                                        diagnostic.x as i32,
+                                        diagnostic.y as i32,
+                                    );
+                                let background_pixel =
+                                    wildside_frame::sample_background_pixel_loc_c070(
+                                        trace,
+                                        &level_visuals,
+                                        diagnostic.x as i32,
+                                        diagnostic.y as i32,
+                                    );
+                                let camera_x_px = (trace.camera_x_pos >> 16) as usize;
+                                let camera_y_px = (trace.camera_y_pos >> 16) as usize;
+                                let block_col = ((camera_x_px + diagnostic.x) / 16) as u16;
+                                let block_row = ((camera_y_px + diagnostic.y) / 16) as u16;
+                                let block_cell =
+                                    block_grid.map(|grid| grid.cell_at(block_col, block_row));
+                                let ghost_group =
+                                    runtime.source_port_ghost_group_at(block_col, block_row);
+                                palette_resolution_samples.push(PaletteResolutionSample {
+                                    frame_index,
+                                    x: diagnostic.x,
+                                    y: diagnostic.y,
+                                    layer: layer_for_command_index(spans, write.command_index)
+                                        .as_str()
+                                        .to_owned(),
+                                    kind: write.kind.clone(),
+                                    tile_index,
+                                    hardware_palette_line: palette_line,
+                                    pixel_colour_index: palette_index,
+                                    hardware_cram_slot: usize::from(palette_line) * 16
+                                        + usize::from(palette_index),
+                                    palette_colour_count,
+                                    resolved_palette_slot,
+                                    raw_palette_word,
+                                    block_cell_col: block_grid.map(|_| block_col),
+                                    block_cell_row: block_grid.map(|_| block_row),
+                                    block_cell_raw_word: block_grid
+                                        .map(|grid| grid.raw_word_at(block_col, block_row)),
+                                    block_cell_has_block: block_cell.map(|cell| cell.has_block),
+                                    block_cell_type: block_cell.map(|cell| cell.block_type as u8),
+                                    block_cell_skin: block_cell.map(|cell| cell.skin),
+                                    ghost_group_timer: ghost_group.map(|group| group.0),
+                                    ghost_group_state: ghost_group.map(|group| group.1),
+                                    ghost_group_solid: ghost_group.map(|group| group.2),
+                                    background_row_index: background_scroll
+                                        .as_ref()
+                                        .map(|sample| sample.sample_row),
+                                    background_layer_speed: background_scroll
+                                        .as_ref()
+                                        .map(|sample| sample.layer_speed_loc_3050a),
+                                    background_scroll_x_px: background_scroll
+                                        .map(|sample| sample.scroll_x_px_loc_3050a),
+                                    background_ripple_row_offset: background_pixel
+                                        .and_then(|sample| sample.row_offset),
+                                    native_rgb: diagnostic.final_rgb,
+                                    oracle_rgb: [
+                                        oracle_rgb[offset],
+                                        oracle_rgb[offset + 1],
+                                        oracle_rgb[offset + 2],
+                                    ],
+                                });
+                                if palette_resolution_samples.len() >= PALETTE_RESOLUTION_SAMPLES {
+                                    break;
+                                }
+                            }
+                        }
+                        let samples: Vec<(PixelSignature, Option<u16>)> = diagnostics
+                            .iter()
+                            .map(|diagnostic| {
+                                let offset =
+                                    (diagnostic.y * NATIVE_FRAME_WIDTH as usize + diagnostic.x) * 3;
+                                // Guard the provenance re-walk against drifting
+                                // from render_scene; pause darken post-processes
+                                // the framebuffer, so skip the check there.
+                                if !scene.pause_palette_darken
+                                    && native_rgb[offset..offset + 3] != diagnostic.final_rgb
+                                {
+                                    provenance_disagreement_pixels += 1;
+                                }
+                                let oracle_pixel = [
                                     oracle_rgb[offset],
                                     oracle_rgb[offset + 1],
                                     oracle_rgb[offset + 2],
-                                ],
-                            });
-                            if palette_resolution_samples.len() >= PALETTE_RESOLUTION_SAMPLES {
-                                break;
-                            }
-                        }
+                                ];
+                                classify_pixel(diagnostic, spans, oracle_pixel, scene.background)
+                            })
+                            .collect();
+                        let (key, description, tiles, palettes) =
+                            frame_signature(&samples).expect("divergent region has sampled pixels");
+                        record_region(
+                            &mut frames,
+                            &mut cluster_art,
+                            frame_index,
+                            region.len(),
+                            bbox,
+                            key,
+                            description,
+                            tiles,
+                            palettes,
+                            &native_rgb,
+                            &oracle_rgb,
+                        );
                     }
-                    let samples: Vec<(PixelSignature, Option<u16>)> = diagnostics
-                        .iter()
-                        .map(|diagnostic| {
-                            let offset =
-                                (diagnostic.y * NATIVE_FRAME_WIDTH as usize + diagnostic.x) * 3;
-                            // Guard the provenance re-walk against drifting
-                            // from render_scene; pause darken post-processes
-                            // the framebuffer, so skip the check there.
-                            if !scene.pause_palette_darken
-                                && native_rgb[offset..offset + 3] != diagnostic.final_rgb
-                            {
-                                provenance_disagreement_pixels += 1;
-                            }
-                            let oracle_pixel = [
-                                oracle_rgb[offset],
-                                oracle_rgb[offset + 1],
-                                oracle_rgb[offset + 2],
-                            ];
-                            classify_pixel(diagnostic, spans, oracle_pixel, scene.background)
-                        })
-                        .collect();
-                    let (key, description, tiles, palettes) =
-                        frame_signature(&samples).expect("divergent frame has sampled pixels");
-                    (key, description, tiles, palettes)
                 }
-            };
-            let art = cluster_art
-                .entry(key.clone())
-                .or_insert_with(|| ClusterArt {
-                    first: (frame_index, native_rgb.clone(), oracle_rgb.clone()),
-                    worst: (
-                        frame_index,
-                        changed_pixels,
-                        native_rgb.clone(),
-                        oracle_rgb.clone(),
-                    ),
-                });
-            if changed_pixels > art.worst.1 {
-                art.worst = (
-                    frame_index,
-                    changed_pixels,
-                    native_rgb.clone(),
-                    oracle_rgb.clone(),
-                );
             }
-            frames.push(FrameTriage {
-                frame_index,
-                changed_pixels,
-                bbox,
-                key,
-                description,
-                tile_histogram,
-                palette_histogram,
-            });
             Ok(())
         },
     )?;
@@ -849,16 +932,17 @@ pub(crate) fn run_visual_triage(
         .iter()
         .map(|cluster| cluster.total_changed_pixels)
         .sum();
-    let cluster_frames: usize = clusters.iter().map(|cluster| cluster.frame_count).sum();
+    let cluster_regions: usize = clusters.iter().map(|cluster| cluster.region_count).sum();
     assert_eq!(cluster_pixels, total_changed_pixels);
-    assert_eq!(cluster_frames, frames.len());
-    assert_eq!(vdp_frames + scene_frames, frames.len());
+    assert_eq!(cluster_regions, frames.len());
+    assert_eq!(vdp_frames + scene_frames, visited_frames);
 
     let report = VisualTriageReport {
-        schema_version: 1,
+        schema_version: 2,
         projection: mismatch.projection,
         frame_range: [start, end],
-        mismatch_frames: frames.len(),
+        mismatch_frames: visited_frames,
+        triaged_regions: frames.len(),
         total_changed_pixels,
         vdp_frames,
         scene_frames,
@@ -1140,6 +1224,24 @@ mod tests {
         );
     }
 
+    #[test]
+    fn changed_pixels_split_into_eight_connected_attribution_regions() {
+        let coords = vec![(290, 39), (291, 40), (104, 166), (105, 167), (118, 155)];
+
+        let regions = connected_pixel_regions(&coords);
+
+        assert_eq!(
+            regions,
+            vec![
+                vec![(104, 166), (105, 167)],
+                vec![(118, 155)],
+                vec![(290, 39), (291, 40)],
+            ],
+            "Disconnected Dragon, terrain, and HUD residues must not inherit one frame-wide dominant signature",
+        );
+        assert_eq!(regions.iter().map(Vec::len).sum::<usize>(), coords.len());
+    }
+
     fn triage(frame_index: usize, changed_pixels: usize, key: &str) -> FrameTriage {
         FrameTriage {
             frame_index,
@@ -1161,6 +1263,7 @@ mod tests {
     fn cluster_signatures_groups_sums_ranges_and_sorts_by_pixel_impact() {
         let frames = vec![
             triage(10, 5, "recolour|hud|text|-"),
+            triage(10, 2, "recolour|hud|text|-"),
             triage(11, 40, "recolour|hud|text|-"),
             triage(12, 8, "recolour|hud|text|-"),
             triage(20, 3, "recolour|hud|text|-"),
@@ -1170,13 +1273,15 @@ mod tests {
         assert_eq!(clusters.len(), 2);
 
         assert_eq!(clusters[0].key, "native_extra|enemies|sprite_tile|pal3");
+        assert_eq!(clusters[0].region_count, 1);
         assert_eq!(clusters[0].total_changed_pixels, 60000);
         assert_eq!(clusters[0].frame_ranges, vec![[15, 15]]);
         assert_eq!(clusters[0].sample_frame_indices, vec![15]);
 
         let hud = &clusters[1];
+        assert_eq!(hud.region_count, 5);
         assert_eq!(hud.frame_count, 4);
-        assert_eq!(hud.total_changed_pixels, 56);
+        assert_eq!(hud.total_changed_pixels, 58);
         assert_eq!(hud.frame_ranges, vec![[10, 12], [20, 20]]);
         // Samples: first (10), worst (11), last (20).
         assert_eq!(hud.sample_frame_indices, vec![10, 11, 20]);
@@ -1185,11 +1290,11 @@ mod tests {
         // Histograms merge across members.
         assert_eq!(
             hud.tile_index_histogram,
-            BTreeMap::from([("0x0010".to_owned(), 4usize)])
+            BTreeMap::from([("0x0010".to_owned(), 5usize)])
         );
         assert_eq!(
             hud.palette_line_histogram,
-            BTreeMap::from([("3".to_owned(), 4usize)])
+            BTreeMap::from([("3".to_owned(), 5usize)])
         );
     }
 
