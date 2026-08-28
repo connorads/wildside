@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-28 handoff (walking Dragon recording transfer)
+
+- Component-level visual triage split Level `$09` frame 60's 53 pixels into
+  39 HUD, 13 walking-Dragon, and one terrain pixel.
+- The real recording boundary reached Dragon phase 10 at frame 60. ASM and the
+  completed-scanout oracle fetch require phase 4.
+- Correcting the recording-warp seed removes every non-HUD pixel. The focused
+  residual is 39 frozen HUD pixels; ordinary gameplay and rendering are
+  unchanged.
+- NEXT: select another non-frozen visual cluster. See #468.
+
 ## 2026-08-27 handoff (sparse background CRAM placement)
 
 - Level `$42`'s remaining scene residue was 223 line-1 colour-index-8 pixels:

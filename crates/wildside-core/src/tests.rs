@@ -819,3 +819,29 @@ fn scenario_settled_warp_level09_cached_assets_starts_in_live_gameplay() {
     assert_eq!(settled[0].game_mode, GameMode::InGame);
     assert!(!settled[0].paused);
 }
+
+#[test]
+fn scenario_recording_warp_level09_latches_walking_dragon_phase_four() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    let (render_latch, trace) = ScriptRunner::new(manifest)
+        .settle_recording_warp()
+        .warp_to_level(9)
+        .run_with_initial_render_latch(&[0x00], 61);
+    let phases = std::iter::once(&render_latch)
+        .chain([&trace[59], &trace[60]])
+        .map(|frame| {
+            frame
+                .active_enemy_details
+                .iter()
+                .filter_map(|enemy| enemy.sprite_animation_phase)
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        phases[1].contains(&4),
+        "ASM Init_Animation/GfxObject_Animate loc_1040-loc_1194 and Mode_Level loc_901 present the walking Dragon's stru_3CC5E phase 4 at recording frame 60; initial/frame59/frame60 phases: {phases:?}",
+    );
+}

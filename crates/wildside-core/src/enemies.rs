@@ -9348,9 +9348,10 @@ const DRAGON_WALKING_ANIMATION_PHASES_STRU_3CC5E: u8 = 12;
 const DRAGON_WALKING_NORMAL_FRAME_TICKS_STRU_3CC5E: u8 = 9;
 const DRAGON_WALKING_HP3_FRAME_TICKS_STRU_3CC90: u8 = 6;
 // Oracle frame 60's completed scanout fetches `LnkTo_unk_C75B6` (mapping
-// $056C) from `stru_3CC5E`. Prime the recording-warp clock twenty-four ticks
-// before zero so the shared settle presents that fourth animation entry.
-const DRAGON_WALKING_RECORDING_SETTLE_ANIMATION_LEAD_TICKS: u8 = 24;
+// $056C) from `stru_3CC5E`. Native collapses 59 hidden settle ticks before
+// recording frame 0, then Mode_Level loc_901 latches frame 60 after another
+// 59 ticks. Prime 82 ticks before zero so that latch presents phase four.
+const DRAGON_WALKING_RECORDING_SETTLE_ANIMATION_LEAD_TICKS: u8 = 82;
 const ARMADILLO_RECORDING_PRESENTATION_LEAD_TICKS_LOC_73D0: usize = 24;
 pub(crate) const SHARED_WALKER_STATE_PATROL: i16 = 10;
 pub(crate) const SHARED_WALKER_STATE_FACE_RIGHT: i16 = 1;
@@ -9388,8 +9389,8 @@ fn dragon_walking_sprite_animation_phase_stru_3cc5e(elapsed: u8, hit_points: u8)
 }
 
 fn dragon_walking_recording_settle_animation_seed_stru_3cc5e(hit_points: u8) -> u8 {
-    dragon_walking_animation_cycle_ticks(hit_points)
-        - DRAGON_WALKING_RECORDING_SETTLE_ANIMATION_LEAD_TICKS
+    let cycle_ticks = dragon_walking_animation_cycle_ticks(hit_points);
+    (cycle_ticks - DRAGON_WALKING_RECORDING_SETTLE_ANIMATION_LEAD_TICKS % cycle_ticks) % cycle_ticks
 }
 
 fn dragon_walking_spawn_animation_seed_loc_3cd46(hit_points: u8) -> u8 {
@@ -12184,9 +12185,9 @@ mod tests {
     }
 
     #[test]
-    fn walking_dragon_recording_settle_seed_lands_on_oracle_phase() {
+    fn walking_dragon_recording_settle_seed_lands_on_frame60_oracle_phase() {
         let mut elapsed = dragon_walking_recording_settle_animation_seed_stru_3cc5e(1);
-        for _ in 0..60 {
+        for _ in 0..118 {
             elapsed = dragon_walking_sprite_animation_tick_stru_3cc5e(elapsed, 1);
         }
         assert_eq!(elapsed, 36);
@@ -12194,6 +12195,11 @@ mod tests {
             dragon_walking_sprite_animation_phase_stru_3cc5e(elapsed, 1),
             4,
             "ASM Init_Animation/GfxObject_Animate loc_1040-loc_1194 and jgenesis' frame-60 sprite fetches present stru_3CC5E phase 4 (`LnkTo_unk_C75B6`, mapping 0x056C)"
+        );
+        assert_eq!(
+            dragon_walking_recording_settle_animation_seed_stru_3cc5e(3),
+            62,
+            "ASM stru_3CC90's 72-tick HP-3 cycle wraps the shared recording lead",
         );
     }
 

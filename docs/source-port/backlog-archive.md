@@ -11,6 +11,32 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #468
+
+Closed [x] 2026-08-28. A fresh Level `$09` frame-60 report still contained 53
+pixels after #463. The old frame-wide dominant-provenance classifier labelled
+all of them as HUD even though they occupied disconnected regions. Splitting
+each mismatch frame into deterministic 8-connected components exposes 39 HUD
+pixels, 13 walking-Dragon pixels on native tile `$00DD`, and one terrain pixel
+under the Dragon. `visual-triage` schema v2 reports region counts, unique frame
+counts, and exact per-region pixel totals so disconnected HUD residue cannot
+hide scene defects.
+
+The recording lifecycle boundary regression then proved the Dragon reaches
+`stru_3CC5E` phase 10 at recording frame 60. ASM
+`Init_Animation`/`GfxObject_Animate loc_1040-loc_1194`, the `Mode_Level loc_901`
+render latch, and jgenesis' completed-scanout fetch identify phase 4 as the
+displayed ROM state. Accounting for the collapsed 59 hidden settle ticks and
+59 pre-frame latch ticks moves only the recording-warp seed; ordinary gameplay
+animation and the renderer are unchanged.
+
+Focused frame 60 falls from 53 to 39 changed pixels. The remaining report has
+only `hud_diamond`; enemy and terrain regions are exact. A cache-backed runtime
+regression pins the Level `$09` recording boundary, while a pure clock test
+pins the 118-tick transfer and the shorter HP-3 cycle's modular wrap. Full
+69-level report `1787881362` completes without render errors; required
+fast/full gates provide the final regression evidence.
+
 ### #467
 
 Closed [x] 2026-08-27. Pixel provenance reduced Level `$42`'s post-#466
@@ -147,6 +173,14 @@ phase 4. Focused frame 60 improves from 471 to 53 changed pixels; `visual-triage
 classifies every remaining pixel as frozen #409 HUD `sprite_tile|pal0`, so the
 Dragon itself is exact. Frame 359 remains pixel-exact. The old generic object
 latch experiment remains rejected.
+
+Correction 2026-08-28: #463's final 53-pixel classification was invalid because
+the old triage path assigned one dominant provenance to the whole disconnected
+frame. Component-level triage finds 39 HUD pixels, 13 Dragon pixels, and one
+terrain pixel occluded by the Dragon. #468 corrects the recording-transfer
+phase at the actual frame-60 latch and removes both non-HUD regions. The
+completed-scanout phase-4 conclusion remains authoritative; only the claimed
+native agreement and all-HUD residual were wrong.
 
 ---
 
@@ -23642,6 +23676,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 468 | [x] | P2 | rendering/tooling | Component-level visual triage exposed a walking-Dragon recording-transfer phase error hidden inside disconnected HUD residue; the recording seed now presents ASM phase 4 at Level `$09` frame 60. | Red/green cache-backed boundary tests; focused frame 60 has only 39 HUD pixels; 69-level frame sweep and required fast/full gates. See archive #468. |
 | 461 | [x] | P2 | rendering | Enemy palette source variants now follow each layout ID's upper bits; physical blank-inclusive CRAM/VRAM slot `d7` remains a separate destination concern. | Red/green selector regression, Level 0 full-frame sweep, 69-level frame sweep, and required fast/full TAS gates. See archive #461. |
 | 460 | [x] | P2 | enemy | `Manage_EnemyLoading loc_3686E` now preserves completed `$0C00` reload phases instead of decrementing them back towards the spatial spawn window. | Red/green exact-word regression plus required fast/full TAS gates. See archive #460. |
 | 459 | [x] | P2 | rendering | NO-GO: corrected `$7C8` intervals replay both measured CPU spans, but two life-icon frames retain multiple H40 commit slots and the quantised entry cannot invert `WaitForVint` poll/arbitration state. | Written analysis above cites ADR 0003, ASM `$93A..$954`, and the typed engine chain; no engine/renderer change; ratchets green. |
