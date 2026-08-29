@@ -3343,7 +3343,7 @@ mod tests {
     }
 
     #[test]
-    fn boss_eye_attack_uses_mapping_index_marker_sub_37abc() {
+    fn boss_eye_attack_uses_rom_frame_sub_37abc() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.active_projectile_details = vec![ActiveProjectileSnapshot {
             x_pos: 0x0030_0000,
@@ -3364,21 +3364,17 @@ mod tests {
         let scene = build_ingame_scene(&trace, false, None);
 
         assert!(
-            has_rect(&scene, 24, 16, 16, 16, [120, 200, 255]),
-            "ASM sub_37ABC selects one of the 16x16 `unk_C8488..unk_C84C0` boss-eye frames"
+            has_sprite_signature(&scene, 76),
+            "ASM sub_37ABC index 5 must draw decoded `LnkTo_unk_C84B0`, not a marker"
         );
         assert!(
-            has_rect(&scene, 26, 26, 4, 4, [255, 255, 255]),
-            "mapping index 5 (`LnkTo_unk_C84B0`) should visibly select the lower-left boss-eye frame marker"
-        );
-        assert!(
-            !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
-            "HeadyMetal boss-eye attacks should not collapse to the generic enemy projectile dot"
+            !has_rect(&scene, 24, 16, 16, 16, [120, 200, 255]),
+            "loaded Boss Eye art must retire the diagnostic rectangle"
         );
     }
 
     #[test]
-    fn boss_eye_satellite_uses_orbit_marker_sub_393c8_39420() {
+    fn boss_eye_satellite_uses_rom_frame_sub_393c8_39420() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.active_projectile_details = vec![ActiveProjectileSnapshot {
             x_pos: 0x0030_0000,
@@ -3399,16 +3395,12 @@ mod tests {
         let scene = build_ingame_scene(&trace, false, None);
 
         assert!(
-            has_rect(&scene, 24, 16, 16, 16, [120, 200, 255]),
-            "ASM sub_393C8/sub_39420 orbit satellites use the same 16x16 boss-eye sprite family refreshed by sub_37ABC"
+            has_sprite_signature(&scene, 74),
+            "ASM sub_393C8/sub_39420 index 3 must draw decoded `LnkTo_unk_C84A0`"
         );
         assert!(
-            has_rect(&scene, 25, 22, 4, 4, [255, 255, 255]),
-            "mapping index 3 (`LnkTo_unk_C84A0`) should visibly select the left boss-eye marker"
-        );
-        assert!(
-            !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
-            "waiting boss-eye satellites should not collapse to the generic projectile dot"
+            !has_rect(&scene, 24, 16, 16, 16, [120, 200, 255]),
+            "loaded orbit-eye art must retire the diagnostic rectangle"
         );
     }
 
@@ -3447,12 +3439,8 @@ mod tests {
         let scene = build_ingame_scene(&trace, false, None);
 
         assert!(
-            has_rect(&scene, 24, 16, 16, 16, [120, 200, 255]),
-            "ASM loc_3931A `$21` waiting boss-eye object slots should render through the same sub_37ABC 16x16 marker as the old projectile bridge"
-        );
-        assert!(
-            has_rect(&scene, 25, 22, 4, 4, [255, 255, 255]),
-            "mapping index 3 from the `$21` object debug field should visibly select the left boss-eye marker"
+            has_sprite_signature(&scene, 74),
+            "ASM loc_3931A `$21` waiting-eye slot must draw sub_37ABC index 3 from decoded ROM art"
         );
     }
 
@@ -3582,24 +3570,19 @@ mod tests {
         ];
 
         let scene = build_ingame_scene(&trace, false, None);
-        let white_highlights = scene
+        let eye_frames = scene
             .commands
             .iter()
-            .filter_map(|command| match command {
-                DrawCommand::Rect {
-                    x,
-                    y,
-                    width: 4,
-                    height: 4,
-                    colour: [255, 255, 255],
-                } => Some((*x, *y)),
-                _ => None,
+            .filter_map(|command| {
+                sprite_command_parts(command)
+                    .and_then(|parts| sprite_sheet_signature(parts.tile_sheet))
+                    .filter(|signature| matches!(signature, 71..=78))
             })
             .collect::<Vec<_>>();
 
         assert_eq!(
-            white_highlights,
-            vec![(25, 22), (26, 26)],
+            eye_frames,
+            vec![74, 76],
             "ASM sub_FF6 reinserts `$21` waiting boss-eye objects in ascending unsigned `$A(a3)` order"
         );
     }
@@ -3641,24 +3624,19 @@ mod tests {
         ];
 
         let scene = build_ingame_scene(&trace, false, None);
-        let white_highlights = scene
+        let eye_frames = scene
             .commands
             .iter()
-            .filter_map(|command| match command {
-                DrawCommand::Rect {
-                    x,
-                    y,
-                    width: 4,
-                    height: 4,
-                    colour: [255, 255, 255],
-                } => Some((*x, *y)),
-                _ => None,
+            .filter_map(|command| {
+                sprite_command_parts(command)
+                    .and_then(|parts| sprite_sheet_signature(parts.tile_sheet))
+                    .filter(|signature| matches!(signature, 71..=78))
             })
             .collect::<Vec<_>>();
 
         assert_eq!(
-            white_highlights,
-            vec![(25, 22), (26, 26)],
+            eye_frames,
+            vec![74, 76],
             "ASM sub_FF6 reinserts gfx objects in ascending unsigned `$A(a3)` order; the `$FFFF` boss eye must render after the `$0001` eye"
         );
     }
@@ -7348,7 +7326,9 @@ mod tests {
                     colours: vec![colour(0, 0, 0), colour(255, 220, 120)],
                 },
                 extra_palettes: vec![],
-                frames: vec![sample_object_frame(71, 16, 16)],
+                frames: (71..=78)
+                    .map(|signature| sample_object_frame(signature, 16, 16))
+                    .collect(),
                 frame_duration: 6,
             },
         );

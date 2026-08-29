@@ -1083,10 +1083,8 @@ pub fn push_boss_eye_attack_marker_sub_37abc(
     sy: i32,
     mapping_index: u8,
 ) {
-    // ASM sub_37332/loc_3739C and sub_37ABC select one of
-    // `unk_C8488..unk_C84C0`, all decoded as 16x16 HeadyMetal eye frames.
-    // Until those boss-head tiles are available in native play, keep the ROM
-    // footprint and expose the selected frame with a small indexed highlight.
+    // Fail-closed diagnostic for absent `$21` art. ASM sub_37332/loc_3739C
+    // and sub_37ABC select one of `unk_C8488..unk_C84C0`, all 16x16 frames.
     commands.push(DrawCommand::Rect {
         x: sx - 8,
         y: sy - 8,
@@ -1102,6 +1100,32 @@ pub fn push_boss_eye_attack_marker_sub_37abc(
         height: 4,
         colour: [255, 255, 255],
     });
+}
+
+pub fn push_boss_eye_attack_sprite_sub_37abc(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    sx: i32,
+    sy: i32,
+    mapping_index: u8,
+) -> bool {
+    let Some(visuals) = level_visuals.enemies.families.get(&0x21) else {
+        return false;
+    };
+    // ASM sub_37ABC -> sub_37AF0 indexes `off_37AE0` directly. The bundle's
+    // `$21` frame order is the same `unk_C8488..unk_C84C0` sequence.
+    let Some(frame) = visuals.frames.get(usize::from(mapping_index & 0x07)) else {
+        return false;
+    };
+    let (draw_x, draw_y) = sprite_draw_position(frame, sx, sy, Direction::Right);
+    commands.push(DrawCommand::Sprite {
+        x: draw_x,
+        y: draw_y,
+        tile_sheet: Arc::new(frame.tile_sheet.clone()),
+        palette: Arc::new(visuals.palette.clone()),
+        tiles: build_sprite_tiles(frame, Direction::Right, 0),
+    });
+    true
 }
 
 pub fn push_player_sprite_with_priority_override(

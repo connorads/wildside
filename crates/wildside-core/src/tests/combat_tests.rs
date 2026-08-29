@@ -4323,6 +4323,22 @@ fn live_shishkaboss_head_uses_fixed_movement_script_sub_39846() {
 }
 
 #[test]
+fn live_shishkaboss_head_wraps_above_zero_sub_39846() {
+    let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0000_0000, 20);
+    boss.boss_head_index = 0;
+    boss.boss_movement_delay_counter = 1;
+    boss.boss_movement_script_index = 0;
+
+    step_multi_head_boss_movement(&mut boss);
+
+    assert_eq!(boss.y_velocity, -0x0000_8000);
+    assert_eq!(
+        boss.y_pos, 0xFFFF_8000,
+        "ASM sub_39846 movement is integrated with wrapping long addition, so the top Shishkaboss head must cross y=0"
+    );
+}
+
+#[test]
 fn live_multi_head_boss_collision_uses_sub_3a292() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);

@@ -7245,12 +7245,21 @@ fn build_game_scene_filtered(
             // ASM loc_3931A allocates the waiting eyes as `$21` objects;
             // sub_37ABC refreshes their sprite mapping before sub_FF6 sorts
             // them by `$A(a3)`.
-            sprites::push_boss_eye_attack_marker_sub_37abc(
+            let mapping_index = boss_eye_object_mapping_index_loc_37abc(object).unwrap_or_default();
+            if !sprites::push_boss_eye_attack_sprite_sub_37abc(
                 &mut commands,
+                level_visuals,
                 sx,
                 sy,
-                boss_eye_object_mapping_index_loc_37abc(object).unwrap_or_default(),
-            );
+                mapping_index,
+            ) {
+                sprites::push_boss_eye_attack_marker_sub_37abc(
+                    &mut commands,
+                    sx,
+                    sy,
+                    mapping_index,
+                );
+            }
         }
         layer_tags.mark(SceneLayer::Enemies, commands.len());
     }
@@ -7691,12 +7700,20 @@ fn build_game_scene_filtered(
                     });
                 }
                 ActiveProjectileKind::BossEyeAttack | ActiveProjectileKind::BossEyeSatellite => {
-                    sprites::push_boss_eye_attack_marker_sub_37abc(
+                    if !sprites::push_boss_eye_attack_sprite_sub_37abc(
                         &mut commands,
+                        level_visuals,
                         sx,
                         sy,
                         projectile.boss_eye_sprite_mapping_index,
-                    );
+                    ) {
+                        sprites::push_boss_eye_attack_marker_sub_37abc(
+                            &mut commands,
+                            sx,
+                            sy,
+                            projectile.boss_eye_sprite_mapping_index,
+                        );
+                    }
                 }
                 ActiveProjectileKind::ShooterBlock => {
                     if !push_shooter_block_projectile_sprite_loc_ef62(

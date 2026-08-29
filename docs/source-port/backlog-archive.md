@@ -11,6 +11,27 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #489
+
+Closed [x] 2026-08-29. Proactive frame-sweep triage selected Level `$10`, the
+largest state-authoritative unmasked visual residue outside blocked boss Level
+`$33`: 3,978 pixels in report `1788015747`. Native rendered the six waiting
+Shishkaboss eyes as diagnostic blue squares even though bundle object `$21`
+already contains all eight `off_37AE0` mappings. The renderer now indexes that
+source-backed sequence for waiting eyes, attacks, and satellites, with the
+marker retained only as a fail-closed missing-asset diagnostic.
+
+The same probe exposed a second engine defect. ASM `sub_39846` supplies the
+velocity used by normal 68000 long addition, so the upper head crosses `y=0`.
+Native clamped every multi-head coordinate to the unsigned range and pinned it
+at zero. Movement now uses wrapping 16.16 addition, protected by a direct
+Shishkaboss boundary regression. Focused report `1788024248` passes both real
+checkpoints and reduces Level `$10` residue from 3,978 to 3,759 pixels. The
+remaining dominant residue accompanies the known simplified boss object roster
+and script-phase drift under #301; no presentation offset was inferred from it.
+`verify-slice-fast` and `verify-tas-full` pass, including all 37,759 published
+route gameplay/enemy/RNG/pixel frames and unchanged enforced visual debt.
+
 ### #488
 
 Closed [x] 2026-08-29. The sole remaining workspace failure was a malformed
@@ -24183,6 +24204,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 488 | [x] | P2 | verify/render | The `loc_B42` SAT terminator regression constructs the raw-zero VDP entry it claims to test; the workspace failure baseline is empty. | Focused test and all 147 wildside-md tests green; workspace ratchet 1 -> 0. See archive #488. |
+| 489 | [x] | P2 | render/enemy | Shishkaboss eyes use source-backed `$21` mappings and multi-head coordinates wrap across zero like the ROM. | Level `$10` frames pass; residue 3,978 -> 3,759 pixels; full gates green. See archive #489. |
 | 487 | [x] | P2 | verify/render | The four-state `sub_B270` airborne selector contract matches its state-3 fallback and leaves the workspace baseline with one failure. | Focused frame test green; workspace ratchet 2 -> 1; scoped Goat/Hand mutation censuses complete. See archive #487. |
 | 486 | [x] | P1 | enemy/fidelity | Tar Monster burst children resume `loc_3263C` before `GfxObjects_MoveAndAnimate`, removing the inferred pre-callback movement pass. | Level `$64` passes focused/full sweeps; 68/69 overall with only blocked boss `$33` failing. See archive #486. |
 | 485 | [x] | P1 | level/collision | Logical RAM fixtures never alias mapped resource IDs; absent captures rebuild from ROM resources. | Level `$10` state exact; full residue 99,975 -> 79,489. See archive #485. |

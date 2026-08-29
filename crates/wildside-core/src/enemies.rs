@@ -10736,12 +10736,12 @@ pub(crate) fn step_multi_head_boss_movement(enemy: &mut ActiveEnemy) {
         enemy.y_velocity = y_velocity;
     }
 
-    // ASM sub_39846 loads the fixed script velocity; native applies it in the
-    // same active-object step because these boss heads are not player trackers.
-    let next_x = enemy.x_pos as i64 + i64::from(enemy.x_velocity);
-    let next_y = enemy.y_pos as i64 + i64::from(enemy.y_velocity);
-    enemy.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
-    enemy.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
+    // ASM sub_39846 loads the fixed script velocity, then the engine's object
+    // integration updates the 16.16 longs with wrapping 68000 addition. In
+    // particular, Shishkaboss's top head crosses y=0 instead of sticking to
+    // the top edge.
+    enemy.x_pos = enemy.x_pos.wrapping_add_signed(enemy.x_velocity);
+    enemy.y_pos = enemy.y_pos.wrapping_add_signed(enemy.y_velocity);
     let parent_animation =
         boss_head_parent_animation_state_loc_39538_39570(enemy.wait_timer, enemy.facing);
     enemy

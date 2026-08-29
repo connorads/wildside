@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Shishkaboss eye art and coordinate wrapping)
+
+- Level `$10` exposed blue diagnostic squares where `sub_37ABC` selects the
+  eight `$21` eye mappings. Native now draws the compiled source art.
+- Multi-head movement now uses wrapping 16.16 long addition, matching the ROM
+  when the top Shishkaboss head crosses `y=0`.
+- Focused frame residue falls 3,978 -> 3,759 pixels. The remaining dominant
+  mismatch is the separate boss script-phase/object-roster gap owned by #301.
+  See #489.
+
 ## 2026-08-29 handoff (workspace baseline reaches zero)
 
 - The last workspace failure constructed visible coordinate `(0,0)` while
