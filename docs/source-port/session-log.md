@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Hand recording phase boundary)
+
+- The existing Sprite Table latch is correct; a second global latch or a
+  Hand-only display correction would model the wrong boundary.
+- Oracle and `Init_Animation`/`GfxObject_Animate` prove the recording shell
+  needs Hand tick 17 after settlement, not tick 1.
+- The corrected reverse seed removes 891 full-sweep pixels with no level
+  regression; Level `$03` falls from 268 to 46. NEXT: isolate its two
+  non-HUD pixels. See #476.
+
 ## 2026-08-29 handoff (Hand live animation clock)
 
 - Oracle GfxObject traces prove `stru_32B6A` changes at frames 13, 28, and 43;

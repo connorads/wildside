@@ -14567,8 +14567,8 @@ impl NativeRuntime {
                 // ASM Hand.asm loc_327F2 -> stru_32B6A: at the settled
                 // recording boundary the native settle helper will still run
                 // 60 object passes. Reverse-seed that window so the following
-                // scenario frame zero exposes timer `$0D`, the second
-                // decrement from the initial `$0F`, like the oracle.
+                // scenario exposes the oracle's exact C79AE/C79B6/C79BE
+                // transition boundaries.
                 enemy.dragon_descent_frames = hand_recording_settle_animation_seed_stru_32b6a();
             } else if matches!(enemy.family, EnemyFamily::TankShooting) {
                 // ASM loc_74E0 -> Tank_Shooting.asm loc_3C50E: the ROM's

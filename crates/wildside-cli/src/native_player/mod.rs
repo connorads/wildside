@@ -21279,9 +21279,19 @@ mod tests {
                 .and_then(|enemy| enemy.sprite_animation_phase)
         };
         assert_eq!(
-            (hand_phase(60), hand_phase(359)),
-            (Some(1), Some(0)),
-            "oracle GfxObject frames expose stru_32B6A C79B6 at frame 60 and C79AE at frame 359"
+            [40, 42, 43, 57, 58, 60, 357, 358, 359].map(hand_phase),
+            [
+                Some(0),
+                Some(0),
+                Some(1),
+                Some(1),
+                Some(2),
+                Some(2),
+                Some(0),
+                Some(1),
+                Some(1),
+            ],
+            "oracle GfxObject frames expose the exact stru_32B6A C79AE/C79B6/C79BE transition boundaries"
         );
     }
 

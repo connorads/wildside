@@ -45,9 +45,10 @@ pub(crate) fn hand_live_sprite_animation_phase_stru_32b50(state: HandState, elap
 pub(crate) fn hand_recording_settle_animation_seed_stru_32b6a() -> u8 {
     let cycle = HAND_WALK_ANIMATION_FRAME_TICKS_STRU_32B6A * HAND_WALK_ANIMATION_FRAMES_STRU_32B6A;
     // The settle helper advances 60 native object passes after this seed. Its
-    // resulting pre-scenario tick must be one so frame zero's animation pass
-    // exposes timer `$0D` (elapsed tick two) like the oracle.
-    (1 + cycle - HAND_RECORDING_SETTLE_ADVANCE_TICKS_LOC_1AE2E % cycle) % cycle
+    // resulting pre-scenario tick must be 17: oracle frames 40..60 expose
+    // C79AE timers $03..$01, C79B6 for $0F ticks, then C79BE. This reverses
+    // the collapsed recording shell while retaining the ROM's exact cadence.
+    (17 + cycle - HAND_RECORDING_SETTLE_ADVANCE_TICKS_LOC_1AE2E % cycle) % cycle
 }
 
 #[allow(non_snake_case)]
@@ -1117,7 +1118,7 @@ mod tests {
 
     #[test]
     fn hand_live_animation_cadence_matches_stru_32b50_32b56_32b6a() {
-        assert_eq!(hand_recording_settle_animation_seed_stru_32b6a(), 31);
+        assert_eq!(hand_recording_settle_animation_seed_stru_32b6a(), 2);
         assert_eq!(
             [0, 14, 15, 29, 30, 44]
                 .map(|tick| hand_live_sprite_animation_phase_stru_32b50(HandState::Walking, tick)),

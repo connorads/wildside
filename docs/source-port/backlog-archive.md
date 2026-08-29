@@ -11,6 +11,28 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #476
+
+Closed [x] 2026-08-29. The generic renderer already latches the prior Sprite
+Table built by `Mode_Level`, so adding another global latch would delay every
+object twice. A Hand-only display correction was also rejected because it
+would leave the exported GfxObject phase false.
+
+Oracle GfxObject traces identify the actual defect in the collapsed recording
+shell. `0x07dc`, `0x07e0`, and `0x07e4` are C79AE, C79B6, and C79BE. Oracle
+holds C79AE through frame 42, changes to C79B6 at 43, and changes to C79BE at
+58; native changed at 44 and 59 while one complete mapping behind. ASM
+`Init_Animation` sets timer one, then `GfxObject_Animate` immediately loads the
+first `$0F` entry, confirming the ROM cadence rather than a renderer offset.
+
+The recording primer now reverse-seeds its 60 collapsed object passes to tick
+17, seed 2 modulo 45. The end-to-end regression pins nine transition-adjacent
+frames across the early and late cycle. Focused report `1787976678` reduces
+Level `$03` from 268 to 46 pixels. Full report `1787976693` remains 66/69 with
+the same 12 state blockers and reduces residue from 173,185 to 172,294 pixels
+with no level regression: `$03` -222, `$59` -6, and `$66` -663. Full published
+TAS state, RNG, pixel, and GEMS baselines remain green.
+
 ### #475
 
 Closed [x] 2026-08-29. Hand rendering selected only the first mapping of each
@@ -27,10 +49,9 @@ false. Native now keeps one per-object GfxObject animation tick: walking loops
 three `$0F` entries, jumping advances through three `$0A` entries and holds its
 tail, grabbing holds C79DE, and the ASM state transitions reset the tick.
 
-The recording animation primer runs before 60 native settle passes. Its
-reverse seed is therefore 31: `(31 + 60) % 45 = 1` before scenario playback,
-then frame 0 reaches elapsed tick 2 and oracle timer `$0D`. The end-to-end
-regression pins exported phases 1 and 0 at frames 60 and 359.
+The recording animation primer runs before 60 native settle passes. This
+session initially reverse-seeded that window to tick one. #476 supersedes that
+provisional boundary with the complete oracle transition trace and tick 17.
 
 Focused report `1787973921` reduces Level `$03` from 362 to 268 pixels. Full
 report `1787974468` remains 66/69 with the same 12 state blockers and reduces
@@ -23852,6 +23873,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 476 | [x] | P2 | render/Hand | Settled recordings reverse-seed Hand walking to the ROM-observed `stru_32B6A` phase. | Exact transition regression; full sweep -891 pixels with no level regression. See archive #476. |
 | 475 | [x] | P2 | enemy/render | Hand exports the live `stru_32B50`/`stru_32B56`/`stru_32B6A` per-object animation phase. | Frame-60/359 phase regression; full sweep -369 pixels with no level regression. See archive #475. |
 | 474 | [x] | P2 | enemy/Hand | Hand preserves the post-movement slope collision until the next `loc_3299C` coroutine resume. | Frame-176 position/velocity/facing regression; full sweep -245 pixels with no level regression. See archive #474. |
 | 473 | [x] | P2 | rendering/palette | Settled recording hand-off preserves the Mountain/Cave `loc_1223C` palette-coroutine phase. | Three-route PC/CRAM regression; full sweep -6,861 pixels with no level regression. See archive #473. |
