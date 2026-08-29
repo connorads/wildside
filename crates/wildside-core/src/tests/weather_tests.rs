@@ -7640,7 +7640,7 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
-    fn step_lava_geysers_rise_adds_one_row_then_enters_hold_at_peak() {
+    fn step_lava_geysers_rise_presents_the_peak_row_before_entering_hold() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.weather.weather_type = 1;
         runtime.weather.lava_geysers.push(LavaGeyser {
@@ -7657,16 +7657,23 @@ mod chunk_09_weather_mutation_coverage {
         runtime.step_lava_geysers(&airborne_slice());
 
         let geyser = &runtime.weather.lava_geysers[0];
-        assert_eq!(geyser.phase, LAVA_GEYSER_PHASE_HOLDING_LOC_1496C);
+        assert_eq!(geyser.phase, LAVA_GEYSER_PHASE_RISING_LOC_1484E);
         assert_eq!(
             geyser.current_height,
             2 * LAVA_GEYSER_ROW_HEIGHT_PX,
-            "ASM loc_1484E should add exactly one 16px row before clamping at `$4A(a5)`",
+            "ASM loc_1484E should add exactly one 16px row before presenting the final d3 row",
         );
+        assert_eq!(geyser.timer, LAVA_GEYSER_RISE_FRAMES_PER_ROW);
+
+        for _ in 0..LAVA_GEYSER_RISE_FRAMES_PER_ROW {
+            runtime.step_lava_geysers(&airborne_slice());
+        }
+        let geyser = &runtime.weather.lava_geysers[0];
+        assert_eq!(geyser.phase, LAVA_GEYSER_PHASE_HOLDING_LOC_1496C);
         assert_eq!(
             geyser.timer,
-            LAVA_GEYSER_HOLD_CYCLES * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE,
-            "ASM loc_1496C should seed the full peak hold countdown in 6-frame sprite cycles",
+            (LAVA_GEYSER_HOLD_CYCLES - 1) * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE,
+            "ASM loc_1496C decrements `$50=$1E` on entry, leaving 29 seven-presentation sprite cycles",
         );
     }
 

@@ -25039,9 +25039,9 @@ mod chunk_05 {
         );
         assert_eq!(runtime.weather.lava_geysers[0].current_height, 16);
 
-        // ASM loc_1496C: `$50=$1E` is counted in 6-frame top-sprite cycles,
-        // so the full-height hold is 30 cycles, not 30 raw frames.
-        for _ in 0..(LAVA_GEYSER_HOLD_CYCLES * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE) {
+        // ASM loc_1496C decrements `$50=$1E` on the rise-to-peak transition,
+        // leaving 29 complete seven-presentation top-sprite cycles.
+        for _ in 0..((LAVA_GEYSER_HOLD_CYCLES - 1) * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE) {
             runtime.step_lava_geysers(&slice);
         }
         assert_eq!(

@@ -3402,10 +3402,10 @@ impl NativeRuntime {
             copy_lava_geyser_palette_loc_14C86(&palette, &mut self.palette_buffer);
         }
         // ASM Init_SpecialEffect_Lava loc_14C6A allocates Animation_Geyser
-        // during the level-entry object passes. Native initialises weather
-        // two Mode_Level-equivalent ticks later, so retain the three
-        // hibernations still outstanding from loc_14B2A's original five.
-        self.lava_geyser_palette_delay_loc_14b2a = 3;
+        // during the level-entry object pass. Oracle CRAM frames 57/62 pin
+        // the worker's first live loc_14B2A wake: one hibernation remains
+        // when native initialises the settled level runtime.
+        self.lava_geyser_palette_delay_loc_14b2a = 1;
     }
 
     /// Step all active lava geysers through their eruption cycle.
@@ -3428,7 +3428,6 @@ impl NativeRuntime {
             let step = rotate_lava_geyser_palette_loc_14B2A(&mut self.palette_buffer);
             self.lava_geyser_palette_delay_loc_14b2a = step.reloaded_delay_counter;
         }
-
         for geyser in &mut self.weather.lava_geysers {
             match geyser.phase {
                 LAVA_GEYSER_PHASE_DORMANT_LOC_14772 => {
@@ -3464,27 +3463,24 @@ impl NativeRuntime {
                             back_edge.hibernation_frames
                         };
                         geyser.timer = geyser.timer.saturating_sub(hibernation_frames);
+                    } else if geyser.current_height >= geyser.height_px {
+                        let full_height = initialise_lava_geyser_full_height_state_loc_147A0(
+                            geyser.x_px.wrapping_add(0x80),
+                            geyser.y_px.wrapping_add(0x80),
+                        );
+                        let hold = lava_geyser_peak_hold_step_loc_1496C(
+                            geyser.height_px / LAVA_GEYSER_ROW_HEIGHT_PX,
+                            full_height.hold_frames,
+                        );
+                        debug_assert_eq!(hold.frames_per_sprite, 6);
+                        geyser.phase = LAVA_GEYSER_PHASE_HOLDING_LOC_1496C;
+                        geyser.timer = hold.next_hold_frames * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE;
                     } else {
                         geyser.current_height = geyser
                             .current_height
-                            .saturating_add(LAVA_GEYSER_ROW_HEIGHT_PX);
-                        if geyser.current_height >= geyser.height_px {
-                            geyser.current_height = geyser.height_px;
-                            let full_height = initialise_lava_geyser_full_height_state_loc_147A0(
-                                geyser.x_px.wrapping_add(0x80),
-                                geyser.y_px.wrapping_add(0x80),
-                            );
-                            let hold = lava_geyser_peak_hold_step_loc_1496C(
-                                geyser.height_px / LAVA_GEYSER_ROW_HEIGHT_PX,
-                                full_height.hold_frames,
-                            );
-                            debug_assert_eq!(hold.frames_per_sprite, 6);
-                            geyser.phase = LAVA_GEYSER_PHASE_HOLDING_LOC_1496C;
-                            geyser.timer =
-                                (hold.next_hold_frames + 1) * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE;
-                        } else {
-                            geyser.timer = LAVA_GEYSER_RISE_FRAMES_PER_ROW;
-                        }
+                            .saturating_add(LAVA_GEYSER_ROW_HEIGHT_PX)
+                            .min(geyser.height_px);
+                        geyser.timer = LAVA_GEYSER_RISE_FRAMES_PER_ROW;
                     }
                 }
                 LAVA_GEYSER_PHASE_HOLDING_LOC_1496C => {

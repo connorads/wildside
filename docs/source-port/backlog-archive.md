@@ -11,6 +11,36 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #483
+
+Closed [x] 2026-08-29. Oracle WRAM frames 75-76 prove the final rise row is
+presented with DBF values 2, 1, and 0 before `loc_1496C` enters the peak hold.
+That entry immediately decrements `$50=$1E`, leaving 29 complete seven-frame
+top-sprite cycles. Native instead entered hold as soon as it added the final
+row and then retained all 30 cycles, reaching the next full-height phase before
+oracle at frame 359.
+
+Oracle frames 350-360 pin the collapse and five-entry `unk_146B6` startup
+script. Frame 358 emits `unk_145D4` as SAT words
+`$0115,$0E0C,$A307,$0111`. Native now exposes that exact typed template,
+position, 4x3 column-major tile layout, and rendering precedence while keeping
+the separate 16-pixel collision column alive.
+
+The remaining colour difference was not a lifecycle freeze: this idle route
+contains no death or transform frames. `Animation_Geyser loc_14B2A` already
+had the correct five-frame cadence, but its first settled-runtime wake was two
+frames late. Oracle CRAM rotations at frames 57/62 fix the initial outstanding
+hibernate count at one. A render-only phase offset was rejected because the
+typed palette state would remain wrong; moving the worker around death was
+rejected by the route trace.
+
+The exact Level `$65` regression pins frame-359 script source, SAT geometry,
+collision/render precedence, and all 16 CRAM words. Focused report
+`1788000138` reduces idle-tail residue from 314 to 91 pixels. Full report
+`1788000161` remains 66/69 with the same 12 blockers and reduces total residue
+from 101,479 to 99,975; Level `$65` is the only changed level. The inspected
+remainder contains the existing small HUD residue, not a geyser silhouette.
+
 ### #482
 
 Closed [x] 2026-08-29. Fresh oracle WRAM/VRAM/CRAM at frame 59 pins the
@@ -24031,6 +24061,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 483 | [x] | P1 | weather/lifecycle | Lava geyser rise, peak hold, restart script, and animation-palette phase match oracle. | Exact frame-359 SAT/CRAM regression; Level `$65` 1,595 -> 91 pixels. See archive #483. |
 | 482 | [x] | P1 | rendering/weather | Saxman output, SAT geometry, and the live geyser CRAM line match oracle frame 59. | Exact codec/SAT/CRAM regressions; Level `$65` frame 60 4,920 -> 45 pixels. See archive #482. |
 | 481 | [x] | P1 | rendering/weather | Lava geysers use ROM DBF cadence and `sub_14BD8` SAT coordinate/field layout. | Oracle-backed frame-60 state/render regression; Level `$65` 7,230 -> 4,920 pixels. See archive #481. |
 | 477 | [x] | P1 | rendering/palette | Map-specific palette dispatch uses ROM `MapOrder_Index` IDs `$08`/`$73`, not Elsewhere display numbers. | Exact selector regressions; Level `$60` -44,038 pixels; full sweep unchanged elsewhere. See archive #477. |

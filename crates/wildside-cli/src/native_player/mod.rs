@@ -21448,6 +21448,98 @@ mod tests {
             geyser_region_is_visible,
             "ASM loc_14874 -> sub_14BD8 Level 0x65 geyser must draw inside its oracle Sprite_Table window"
         );
+
+        let idle_tail = trace_frame_with_vdp_latch_at_checkpoint(
+            &run.trace,
+            359,
+            Some(&run.initial_render_latch),
+            "idle_tail",
+        )
+        .expect("Level 0x65 frame-359 render trace");
+        assert_eq!(
+            (
+                idle_tail
+                    .lava_geyser_script_templates_loc_147ba
+                    .iter()
+                    .find(|template| template.x_px == 0x0090),
+                idle_tail
+                    .active_geysers
+                    .iter()
+                    .find(|(x, _, _, _, _)| *x == 0x0090),
+            ),
+            (
+                Some(&wildside_core::LavaGeyserScriptTemplateTraceLoc147BA {
+                    x_px: 0x0090,
+                    base_y_px: 0x0330,
+                    source_label: "unk_145D4".to_owned(),
+                }),
+                Some(&(0x0090, 0x0320, 0x0010, u16::MAX, u8::MAX)),
+            ),
+            "oracle WRAM frame 358 leaves Obj_Lava_Geyser loc_147BA on the fourth `unk_146B6` startup entry; the script template must take rendering precedence over the retained collision-height column"
+        );
+        let idle_tail_scene = build_scene_filtered(
+            &idle_tail,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: true,
+                eol_score: false,
+                hud: false,
+            },
+        );
+        let idle_tail_lava_commands = idle_tail_scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite {
+                    x,
+                    y,
+                    tile_sheet,
+                    tiles,
+                    ..
+                } if visuals
+                    .lava
+                    .as_ref()
+                    .is_some_and(|lava| tile_sheet.tiles.len() == lava.tile_sheet.tiles.len()) =>
+                {
+                    Some((
+                        *x,
+                        *y,
+                        tiles
+                            .iter()
+                            .map(|tile| (tile.tile.tile_index, tile.offset_x, tile.offset_y))
+                            .collect::<Vec<_>>(),
+                    ))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let idle_tail_tiles = (0u16..4)
+            .flat_map(|column| {
+                (0u16..3)
+                    .map(move |row| (0x000C + column * 3 + row, column as i32 * 8, row as i32 * 8))
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            idle_tail_lava_commands,
+            vec![(145, 149, idle_tail_tiles)],
+            "oracle WRAM frame 358 Sprite_Table slot 11 is the `$0115,$0E0C,$A307,$0111` `unk_145D4` sprite"
+        );
+        assert_eq!(
+            idle_tail.lava_geyser_palette_words_loc_14b2a,
+            Some([
+                0x0CCC, 0x0222, 0x0444, 0x0666, 0x0004, 0x0008, 0x000C, 0x002E, 0x0000, 0x0002,
+                0x0004, 0x0006, 0x0000, 0x0000, 0x0000, 0x0000,
+            ]),
+            "oracle CRAM frame 358 keeps the `loc_901`-latched Palette_Buffer+$20 line aligned with the startup sprite"
+        );
     }
 
     #[test]

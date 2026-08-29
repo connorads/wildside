@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Level `$65` geyser lifecycle and palette phase)
+
+- The final rise row receives all three DBF presentations. Peak entry consumes
+  the first `$50=$1E` hold cycle, leaving 29 complete cycles.
+- The five-entry restart script and `Animation_Geyser loc_14B2A` CRAM phase now
+  match oracle frame 358 exactly.
+- Level `$65` frame 359 falls 1,595 -> 91 pixels. Full residue falls
+  101,479 -> 99,975 with no other level changed. See #483.
+
 ## 2026-08-29 handoff (Level `$65` geyser art, SAT geometry, and CRAM)
 
 - `Decompress_Chunk sub_13684` zero-distance copies emit their full count;
