@@ -12746,8 +12746,8 @@ mod tests {
         });
 
         assert!(
-            !super::scene::layered_background_row_wraps_loc_3050a(&visuals, 0),
-            "ASM loc_3050A keeps `$00` rows on the finite path; the captured seam comes from moving nonzero rows"
+            super::scene::layered_background_row_wraps_loc_3050a(&visuals, 0),
+            "ASM loc_3050A feeds `$00` Time_Frames-driven rows into the horizontally wrapping Plane B nametable"
         );
         assert!(
             super::scene::layered_background_row_wraps_loc_3050a(&visuals, 1),
@@ -12819,8 +12819,8 @@ mod tests {
         });
 
         assert!(
-            !super::scene::layered_background_row_wraps_loc_3050a(&visuals, 0),
-            "this sample keeps Hills `$00` rows on an explicit finite path; nonzero `$08` rows are the captured Level 0x08 seam"
+            super::scene::layered_background_row_wraps_loc_3050a(&visuals, 0),
+            "ASM loc_3050A feeds Hills `$00` Time_Frames-driven rows through the same wrapping Plane B nametable"
         );
         assert!(
             super::scene::layered_background_row_wraps_loc_3050a(&visuals, 1),
@@ -21176,7 +21176,7 @@ mod tests {
         };
         let scenario = crate::scenarios::idle_level_full_frame_scenario(0x03);
         let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
-            manifest,
+            manifest.clone(),
             &scenario,
             crate::scenarios::NativeDynamicRunOptions::default(),
         )
@@ -21188,10 +21188,33 @@ mod tests {
             "level_settle",
         )
         .expect("Level 0x03 frame-60 render trace");
+        let idle_tail_render_trace = trace_frame_with_vdp_latch_at_checkpoint(
+            &run.trace,
+            359,
+            Some(&run.initial_render_latch),
+            "idle_tail",
+        )
+        .expect("Level 0x03 frame-359 render trace");
 
         assert_eq!(
-            render_trace.time_frames_loc_3038a, 169,
-            "ASM loc_74E0 blocks Mode_Level loc_892/loc_3038A until Level 0x03's loader completes at debug-title step 73"
+            (
+                render_trace.time_frames_loc_3038a,
+                idle_tail_render_trace.time_frames_loc_3038a,
+            ),
+            (169, 468),
+            "ASM loc_74E0 blocks Mode_Level loc_892/loc_3038A until Level 0x03's loader completes at debug-title step 73, then the clock advances once per live frame"
+        );
+        let (visuals, _) = load_session_assets(&manifest, 0x03).expect("Level 0x03 visuals");
+        assert_eq!(
+            super::scene::sample_background_pixel_loc_c070(
+                &idle_tail_render_trace,
+                &visuals,
+                100,
+                10,
+            )
+            .map(|sample| sample.rgb),
+            Some([109, 109, 219]),
+            "oracle VDP frame 359 samples Mountain Plane B tile `$783`, pixel 7/2, palette-line 1 index `$A` at 100/10"
         );
     }
 

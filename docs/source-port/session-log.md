@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (fast Plane-B row wrap)
+
+- Level `$03`'s late cloud loss was not clock drift: frame-359 WRAM clock,
+  H-scroll, CRAM, nametable, and all Mountain art match oracle.
+- Native kept `$00` rows finite even though ASM makes them the fastest
+  Time_Frames-driven layer in the wrapping Plane-B nametable.
+- Wrapping `$00` rows reduces the idle tail from 2,371 to 887 changed pixels;
+  full frame sweep remains 66/69. NEXT: isolate terrain/enemy palette cadence
+  and the frame-60 player latch. See #472.
+
 ## 2026-08-29 handoff (recording clock anchor removal)
 
 - Full lifecycle evidence corrected #470's narrow helper result: Level `$03`

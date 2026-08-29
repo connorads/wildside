@@ -11,6 +11,29 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #472
+
+Closed [x] 2026-08-29. After #471 aligned the settled clock, Level `$03`'s
+frame-359 clouds were still missing while the frame-60 cloud field was exact.
+Oracle hardware evidence ruled out drift: WRAM `Time_Frames=$01D4`, rendered
+H-scroll `$FE2D/$FF17`, Mountain CRAM, the Plane-B words, and all 127 art tiles
+agree with native.
+
+The renderer instead classified `$00` bgscroll rows as finite. ASM
+`BackgroundScroll_ComputeShiftData loc_30452` makes `$00` the fastest
+Time_Frames-driven layer, and `loc_3050A` presents it through the same 512-pixel
+hardware-wrapping Plane B as `$08` and camera-parallax rows. Once its source
+phase exceeded one row width, native stopped emitting the repeated row and
+exposed the backdrop.
+
+`layered_background_row_wraps_loc_3050a` now includes `$00` while retaining
+`$10` as static and preserving the proven flagpole hand-off guard. The
+end-to-end regression asserts both clock cadence 169/468 and oracle frame-359
+pixel 100/10 (`$783`, source 7/2, line 1 index `$A`, RGB 109/109/219). Focused
+sweep `1787968054` reduces Level `$03` idle-tail residue from 2,371 to 887
+pixels. Full frame sweep `1787968072` remains 66/69 with the same 12 blocking
+state differences.
+
 ### #471
 
 Closed [x] 2026-08-29. The #470 helper-level regression proved the relative
@@ -23750,6 +23773,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 472 | [x] | P2 | rendering/background | Time_Frames-driven `$00` layered rows repeat through the 512-pixel Plane-B wrap instead of disappearing after one row width. | Oracle frame-359 pixel regression; Level `$03` idle tail 2,371 -> 887 pixels; full frame sweep remains 66/69. See archive #472. |
 | 471 | [x] | P2 | rendering/timing | Settled recording warps remove the stale 68-frame compatibility anchor from the loader-gated `Time_Frames` lifecycle. | End-to-end Level `$03` trace=169; sweep `1787966883` frame 60 4,420 -> 586 and idle tail 5,793 -> 2,371 pixels. See archive #471. |
 | 470 | [x] | P2 | rendering/timing | Settled debug warps preserve the per-level loader's suspension of `Mode_Level loc_892 -> Time_Frames loc_3038A`. | Cross-level oracle witnesses 0x02=171, 0x03=169, 0x07=174; focused Level `$03` maximum falls 5,841 -> 5,793 pixels. See archive #470. |
 | 469 | [x] | P2 | rendering/timing | Death `loc_B80C` now suspends the outer `Mode_Level` loc_80C/loc_892 tail, freezing `Time_Frames` and keeping Forest water-ripple phase aligned. | Red/green counter regression; 125/125 Forest tiles and CRAM exact; Level `$00` frame 359 falls from 3,162 pixels to seven frozen HUD pixels. See archive #469. |

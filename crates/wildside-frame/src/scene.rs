@@ -5857,12 +5857,11 @@ pub fn layered_background_row_wraps_loc_3050a(
     // from the per-level profile and writes 224 scanline scroll values into
     // the hardware-wrapping Plane B nametable. Static `$10` rows can remain
     // finite, but moving rows need native repetition when parallax exposes the
-    // right seam; the flagpole hand-off guard below handles the one known
+    // right seam; `$00` is the fastest Time_Frames-driven row, not a finite
+    // special case. The flagpole hand-off guard below handles the one known
     // forest no-scroll transition case.
     let layer_speed = background_layer_speed_loc_3050a(level_visuals, y_tiles);
-    layer_speed != 0x00
-        && layer_speed != 0x10
-        && matches!(layer_speed, 0x08..=0x88 if layer_speed.is_multiple_of(8))
+    matches!(layer_speed, 0x00 | 0x08 | 0x18..=0x88 if layer_speed.is_multiple_of(8))
 }
 
 pub fn layered_background_row_wraps_for_trace_loc_3050a(
