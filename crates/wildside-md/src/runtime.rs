@@ -5094,7 +5094,13 @@ mod tests {
     fn sprite_line_scan_keeps_a_zeroed_loc_b42_terminator_offscreen() {
         let mut vdp = blank_vdp_snapshot();
         let sprite_table_base = 0x3000;
-        write_sprite_entry(&mut vdp.vram, sprite_table_base, 0, 0, 0, 0, 0);
+        write_sprite_entry(&mut vdp.vram, sprite_table_base, 0, -128, 0, 0, -128);
+
+        assert_eq!(
+            &vdp.vram[sprite_table_base..sprite_table_base + 8],
+            &[0; 8],
+            "ASM loc_B42 clears both longwords of the first SAT entry before DMA",
+        );
 
         let scan = SpriteLineScan::build(&vdp.vram, sprite_table_base, 224, 320);
 

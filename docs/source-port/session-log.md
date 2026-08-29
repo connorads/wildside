@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (workspace baseline reaches zero)
+
+- The last workspace failure constructed visible coordinate `(0,0)` while
+  claiming to exercise `loc_B42`'s raw-zero SAT entry.
+- Encoding screen coordinate `(-128,-128)` produces the ROM's eight zero bytes
+  and remains offscreen under the existing signed clipping model.
+- All 147 wildside-md tests pass and the downward-only workspace failure
+  baseline shrinks 1 -> 0. See #488.
+
 ## 2026-08-29 handoff (airborne renderer baseline shrink)
 
 - Fresh Goat and Hand selector mutation runs exposed a deterministic reviewed

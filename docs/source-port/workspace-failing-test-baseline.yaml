@@ -1,5 +1,4 @@
-# Remaining named failures in the non-green workspace suites (#445).
+# Remaining named failures in the workspace suites added to the gate by #445.
 # Downward-only: fixes remove entries; new failures block the gate.
 version: 1
 tests:
-  - wildside-md::runtime::tests::sprite_line_scan_keeps_a_zeroed_loc_b42_terminator_offscreen

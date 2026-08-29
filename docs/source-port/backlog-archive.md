@@ -11,6 +11,24 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #488
+
+Closed [x] 2026-08-29. The sole remaining workspace failure was a malformed
+test fixture, not a live VDP renderer defect. ASM `Transfer_SpriteAndKidToVRAM
+loc_B42` clears both longwords of the first SAT entry before its `$280`-byte
+DMA. The regression claimed to construct that raw-zero entry but called the
+screen-coordinate helper with `(0,0)`; the helper correctly adds the VDP
+`$80` display origin, encoding raw coordinates `$0080,$0080` and placing a
+real 1x1 sprite on the first visible line.
+
+The fixture now supplies screen coordinates `(-128,-128)` and first asserts
+that all eight encoded SAT bytes are zero. This agrees independently with
+jgenesis' progressive scan model, where the visible scanline origin is
+`$080`, and keeps the production signed clipping from commit `6df725018`
+unchanged. The focused regression and all 147 wildside-md tests pass. The
+downward-only workspace failure baseline shrinks from one name to empty, so
+all six formerly dark workspace suites are now green-gated.
+
 ### #487
 
 Closed [x] 2026-08-29. A scoped mutation audit of the recently changed Goat
@@ -24164,6 +24182,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 488 | [x] | P2 | verify/render | The `loc_B42` SAT terminator regression constructs the raw-zero VDP entry it claims to test; the workspace failure baseline is empty. | Focused test and all 147 wildside-md tests green; workspace ratchet 1 -> 0. See archive #488. |
 | 487 | [x] | P2 | verify/render | The four-state `sub_B270` airborne selector contract matches its state-3 fallback and leaves the workspace baseline with one failure. | Focused frame test green; workspace ratchet 2 -> 1; scoped Goat/Hand mutation censuses complete. See archive #487. |
 | 486 | [x] | P1 | enemy/fidelity | Tar Monster burst children resume `loc_3263C` before `GfxObjects_MoveAndAnimate`, removing the inferred pre-callback movement pass. | Level `$64` passes focused/full sweeps; 68/69 overall with only blocked boss `$33` failing. See archive #486. |
 | 485 | [x] | P1 | level/collision | Logical RAM fixtures never alias mapped resource IDs; absent captures rebuild from ROM resources. | Level `$10` state exact; full residue 99,975 -> 79,489. See archive #485. |

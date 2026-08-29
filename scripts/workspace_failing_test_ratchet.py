@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Downward-only named failure ratchet for the five non-green workspace suites (#445)."""
+"""Downward-only named failure ratchet for the five workspace suites from #445."""
 
 from __future__ import annotations
 
