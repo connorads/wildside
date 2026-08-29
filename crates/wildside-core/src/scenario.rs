@@ -12,6 +12,7 @@ const LEVEL_ZERO_RECORDING_TIMER_SUBFRAMES_BEFORE_FRAME_0_LOC_BE82: u16 = 1;
 const LEVEL_ZERO_RECORDING_TIME_FRAMES_BEFORE_FRAME_0_LOC_3038A: u16 = 0x003C;
 const SETTLED_WARP_MAX_ATTEMPT_FRAMES: usize = 828;
 const RECORDING_DEBUG_TITLE_WAIT_FRAMES_LOC_1AE2E: usize = 120;
+const RECORDING_TIME_FRAMES_LOAD_ANCHOR_LOC_3038A: usize = 68;
 
 /// ASM loc_74E0 (kid.asm): measured per-level load completion of the
 /// debug-warp title window (#442). The ROM's loader blocks the frame loop, so
@@ -139,6 +140,19 @@ fn recording_settle_primes_respawn(level_id: LevelId, debug_lifecycle_completed:
 fn recording_oracle_warp_hidden_object_passes_loc_e12(level_id: LevelId) -> usize {
     debug_level_entry_load_complete_step_loc_74e0(level_id).map_or(0, |load_complete| {
         RECORDING_DEBUG_TITLE_WAIT_FRAMES_LOC_1AE2E.saturating_sub(load_complete)
+    })
+}
+
+fn recording_oracle_time_frames_loc_3038a(level_id: LevelId, time_frames: u16) -> u16 {
+    debug_level_entry_load_complete_step_loc_74e0(level_id).map_or(time_frames, |load_complete| {
+        // ASM loc_74E0 -> Mode_Level loc_892 -> loc_3038A: level loading
+        // blocks Mode_Level, so Time_Frames advances only after the loader
+        // completes. The recording shim collapses that variable-duration
+        // window. Oracle probes anchor step 68 at no correction; later loads
+        // lose ticks and earlier loads gain them.
+        time_frames
+            .wrapping_add(RECORDING_TIME_FRAMES_LOAD_ANCHOR_LOC_3038A as u16)
+            .wrapping_sub(load_complete as u16)
     })
 }
 
@@ -387,6 +401,10 @@ impl NativeRuntime {
             recording_oracle_warp_target_live_frames(level_id, debug_lifecycle_completed)
         });
         self.settle_target_level_live_window(level_id, target_live_frames);
+        if debug_lifecycle_completed {
+            self.time_frames_loc_3038a =
+                recording_oracle_time_frames_loc_3038a(level_id, self.time_frames_loc_3038a);
+        }
         // ASM Init_SpriteAttr_HUD loc_BDC0 seeds Time_SubSeconds to 1. The
         // level-skip tail is level-dependent: #289 Level 0x07 watches reach
         // frame 0 at 2:59/$07, while the direct Level 0 release probe reaches
@@ -1022,6 +1040,30 @@ mod tests {
             debug_level_entry_load_complete_step_loc_74e0(LevelId(0)),
             None,
             "level 0 takes the title path and has no debug-warp load freeze"
+        );
+    }
+
+    #[test]
+    fn recording_warp_time_frames_tracks_debug_loader_completion_loc_3038a() {
+        // ASM loc_74E0 -> Mode_Level loc_892 -> loc_3038A: loader frames do
+        // not execute the level clock. Oracle frame-60 probes read 171 on
+        // Level 0x02, 169 on 0x03, and 174 on the 0x07 anchor.
+        assert_eq!(
+            recording_oracle_time_frames_loc_3038a(LevelId(0x02), 174),
+            171
+        );
+        assert_eq!(
+            recording_oracle_time_frames_loc_3038a(LevelId(0x03), 174),
+            169
+        );
+        assert_eq!(
+            recording_oracle_time_frames_loc_3038a(LevelId(0x07), 174),
+            174
+        );
+        assert_eq!(
+            recording_oracle_time_frames_loc_3038a(LevelId(0), 174),
+            174,
+            "direct Level 0 startup does not use the debug loader table"
         );
     }
 

@@ -11,6 +11,28 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #470
+
+Closed [x] 2026-08-29. A proactive Level `$03` full-frame sweep exposed
+5,841 changed pixels, dominated by horizontally displaced Mountain cloud
+bands despite exact gameplay state. Oracle background-scroll probes then
+showed `Time_Frames=169` at frame 60 while native used 174.
+
+Cross-level probes established an engine rule rather than a level exception:
+the measured `loc_74E0` load-completion steps predict oracle time exactly.
+Level `$02` completes three steps after the step-68 anchor and reads 171;
+Level `$03` completes five late and reads 169; Level `$07` is the anchor and
+reads 174. ASM `Mode_Level loc_892 -> loc_3038A` does not run while the loader
+blocks the frame loop.
+
+The settled-recording boundary now adjusts the typed `Time_Frames` value from
+that existing load-completion table. It does not retime RNG, objects, normal
+gameplay, or the renderer. Pure and cache-backed regressions pin the three
+oracle witnesses. Focused Level `$03` report `1787963164` reduces the maximum
+from 5,841 to 5,793 pixels. The modest reduction disproves clock phase as the
+whole cloud-band cause; the remaining Plane-B discrepancy is the next visual
+fallback target.
+
 ### #469
 
 Closed [x] 2026-08-28. A fresh Level `$00` sweep isolates 3,162 changed
@@ -23705,6 +23727,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 470 | [x] | P2 | rendering/timing | Settled debug warps preserve the per-level loader's suspension of `Mode_Level loc_892 -> Time_Frames loc_3038A`. | Cross-level oracle witnesses 0x02=171, 0x03=169, 0x07=174; focused Level `$03` maximum falls 5,841 -> 5,793 pixels. See archive #470. |
 | 469 | [x] | P2 | rendering/timing | Death `loc_B80C` now suspends the outer `Mode_Level` loc_80C/loc_892 tail, freezing `Time_Frames` and keeping Forest water-ripple phase aligned. | Red/green counter regression; 125/125 Forest tiles and CRAM exact; Level `$00` frame 359 falls from 3,162 pixels to seven frozen HUD pixels. See archive #469. |
 | 468 | [x] | P2 | rendering/tooling | Component-level visual triage exposed a walking-Dragon recording-transfer phase error hidden inside disconnected HUD residue; the recording seed now presents ASM phase 4 at Level `$09` frame 60. | Red/green cache-backed boundary tests; focused frame 60 has only 39 HUD pixels; 69-level frame sweep and required fast/full gates. See archive #468. |
 | 461 | [x] | P2 | rendering | Enemy palette source variants now follow each layout ID's upper bits; physical blank-inclusive CRAM/VRAM slot `d7` remains a separate destination concern. | Red/green selector regression, Level 0 full-frame sweep, 69-level frame sweep, and required fast/full TAS gates. See archive #461. |

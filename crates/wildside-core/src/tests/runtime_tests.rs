@@ -12348,6 +12348,26 @@ mod chunk_09 {
     }
 
     #[test]
+    fn level03_recording_debug_loader_sets_oracle_background_phase_loc_3038a() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x03));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x03));
+
+        let frame_60 = (0..=60)
+            .map(|_| runtime.step_frame(FrameInput::default()))
+            .last()
+            .expect("frame 60 should be captured");
+
+        assert_eq!(
+            frame_60.time_frames_loc_3038a, 169,
+            "ASM loc_74E0/loc_3038A: Level 0x03's five extra loader steps suspend Mode_Level and the global background clock"
+        );
+    }
+
+    #[test]
     fn ghost_block_step_sub_f730_zero_state_starts_vanish_lead_in_and_restores_terrain_skin() {
         // ASM sub_F730/loc_F8A6: state 0 is the solid `$E304` hold. On timer
         // expiry it advances to `$8001` and restores the original

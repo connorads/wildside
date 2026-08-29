@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (debug-loader background clock)
+
+- Level `$03`'s settled oracle reaches `Time_Frames=169` at frame 60; native
+  used the fixed phase 174.
+- The existing `loc_74E0` load-completion table predicts cross-level probes:
+  0x02=171, 0x03=169, and the step-68 0x07 anchor=174.
+- Correcting the collapsed recording boundary reduces Level `$03`'s focused
+  full-frame maximum from 5,841 to 5,793 pixels without retiming gameplay.
+- The clock mismatch was only part of the visual residue. NEXT: isolate the
+  remaining Plane-B cloud layout/scroll discrepancy. See #470.
+
 ## 2026-08-28 handoff (Forest death-ripple phase)
 
 - All 125 native Forest tiles and every CRAM word match oracle. Palette, art,
