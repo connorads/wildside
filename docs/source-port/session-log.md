@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Hand slope collision hand-off)
+
+- Type `$17` is Hand, not RockTank. Native and oracle agree through frame 175;
+  oracle's `$18` slope-down collision reverses it through `loc_3299C` on frame 176.
+- A typed pending collision preserves the post-movement hibernate boundary and
+  removes 245 full-sweep pixels without regressing any level.
+- Level `$03` falls from 607 to 362 pixels. NEXT: model the three-frame Hand
+  walking animation in `stru_32B6A`; native currently always selects frame zero.
+  See #474.
+
 ## 2026-08-29 handoff (recording palette-coroutine hand-off)
 
 - Oracle `loc_12240` PC traces expose omitted recording-boundary coroutine

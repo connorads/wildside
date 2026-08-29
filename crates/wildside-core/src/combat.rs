@@ -8316,7 +8316,7 @@ impl NativeRuntime {
             }
             if matches!(self.active_enemies[active_idx].family, EnemyFamily::Hand) {
                 match self.active_enemies[active_idx].hand_state {
-                    HandState::Walking => {
+                    HandState::Walking | HandState::WalkingTerrainReversePendingLoc3299C => {
                         let route = hand_ground_collision_dispatch_loc_3299c(
                             collision.collision_type as i16,
                         );

@@ -851,6 +851,18 @@ pub(crate) fn step_hand_with_form(
     // in parent scratch fields; damage never changes them.
     let tier = usize::from(enemy.enemy_level).min(2);
 
+    if matches!(
+        enemy.hand_state,
+        HandState::WalkingTerrainReversePendingLoc3299C
+    ) {
+        // ASM Hand.asm loc_3299C/off_329B6: the terrain collision written by
+        // the preceding GfxObjects_Collision pass is consumed after this
+        // frame's hibernate return. Slope-up/down both dispatch to loc_329E2
+        // before GfxObjects_Movement applies the reversed velocity.
+        reverse_hand_loc_32840(enemy);
+        enemy.hand_state = HandState::Walking;
+    }
+
     match enemy.hand_state {
         HandState::Walking => {
             // Walk like a pacer with Hand-specific speed
@@ -884,6 +896,24 @@ pub(crate) fn step_hand_with_form(
                     }
                     reverse_hand_loc_32840(enemy);
                     return;
+                }
+
+                // Hand.asm loc_32AFE establishes the Hand's horizontal span
+                // as x-$E..x+$E. GfxObjects_Collision loc_171C uses the same
+                // sprite collision box, so sample its leading edge after the
+                // movement pass rather than the generic 8px pacer box.
+                let leading_edge_x = if moving_right { cx + 0x0E } else { cx - 0x0E };
+                let leading_edge = terrain::probe_at(grid, leading_edge_x, cy);
+                let collides_with_rising_slope = matches!(
+                    (moving_right, leading_edge.cell.collision),
+                    (true, terrain::CollisionKind::SlopeUp)
+                        | (false, terrain::CollisionKind::SlopeDown)
+                );
+                if collides_with_rising_slope {
+                    // GfxObjects_Collision writes `$14/$18` after movement;
+                    // preserve that coroutine boundary instead of reversing
+                    // immediately in this native step.
+                    enemy.hand_state = HandState::WalkingTerrainReversePendingLoc3299C;
                 }
             }
 
@@ -962,6 +992,9 @@ pub(crate) fn step_hand_with_form(
                     }
                 }
             }
+        }
+        HandState::WalkingTerrainReversePendingLoc3299C => {
+            unreachable!("pending Hand terrain collision is consumed before state dispatch")
         }
         HandState::Jumping => {
             enemy.y_velocity = hand_jump_loop_gravity_loc_328f0(enemy.y_velocity);

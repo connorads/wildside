@@ -21226,6 +21226,35 @@ mod tests {
     }
 
     #[test]
+    fn level03_settled_hand_reverses_from_slopedown_collision_loc_3299c() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x03);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x03 sweep trace");
+        let hand = run.trace[176]
+            .active_enemy_details
+            .iter()
+            .find(|enemy| {
+                matches!(
+                    enemy.kind,
+                    wildside_core::NativeObjectKind::Enemy { object_type: 0x17 }
+                )
+            })
+            .expect("Level 0x03 Hand");
+        assert_eq!(
+            (hand.x_pos, hand.x_velocity, hand.facing),
+            (0x010E_2000, Some(0x0000_3000), Some(Direction::Right)),
+            "oracle frame 175 exposes collision_type=$18; Hand.asm loc_3299C/off_329B6 resumes at loc_329E2, reverses, then GfxObjects_Movement advances right on frame 176"
+        );
+    }
+
+    #[test]
     #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
     fn settled_warp_lava_water_countdown_matches_oracle_loc_1223c() {
         let Some(manifest) = cached_generated_manifest() else {

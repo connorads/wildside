@@ -1230,6 +1230,9 @@ pub(crate) enum HandState {
     /// Walking on ground, checking for player in detection cone.
     #[default]
     Walking,
+    /// `GfxObjects_Collision` wrote a slope event after movement; the Hand's
+    /// next coroutine resume consumes it through `loc_3299C`.
+    WalkingTerrainReversePendingLoc3299C,
     /// Airborne jump toward the player.
     Jumping,
     /// Grabbing: hand follows player position for 10 frames (Hand.asm loc_3292E).

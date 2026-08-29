@@ -11,6 +11,35 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #474
+
+Closed [x] 2026-08-29. The remaining Level `$03` object displacement after
+#473 was initially misidentified as RockTank. The trace type is hexadecimal
+`$17`: Hand. Native and oracle positions agree through frame 175. Oracle then
+exposes `collision_type=$18` at the Hand's left edge and resumes
+`Hand.asm loc_3299C/off_329B6 -> loc_329E2`; frame 176 reverses velocity from
+`-$3000` to `+$3000` before movement. Native missed the slope collision and
+continued left, ending 44 pixels away.
+
+`loc_32AFE` defines the Hand span as x-$E..x+$E. The native generic pacer probe
+used an eight-pixel box and sampled only the solid floor below its centre. The
+Hand now samples its 14-pixel leading edge after movement, records the rising
+slope as a typed pending state, then consumes it before the next movement pass.
+This preserves the ROM's measured `GfxObjects_Collision loc_171C` to
+`loc_3299C` coroutine boundary.
+
+A broad reconstruction of `GfxObjects_Collision` for every enemy was rejected:
+the evidence only establishes this Hand path. Same-frame coordinate or slope
+reversal was rejected because it erases the observed hibernate hand-off. The
+end-to-end regression pins frame 176 to x `$010E2000`, velocity `+$3000`, and
+right-facing.
+
+Focused sweep `1787971950` reduces Level `$03` from 607 to 362 pixels. Full
+sweep `1787972258` remains 66/69 with the same 12 state blockers and reduces
+total residue from 173,799 to 173,554 pixels; only Level `$03` changes. The
+remaining object pixels are Hand animation phase: ASM `stru_32B6A` cycles three
+walking frames every `$0F` ticks, while native always selects frame zero.
+
 ### #473
 
 Closed [x] 2026-08-29. Level `$03`'s apparent terrain/enemy recolours were two
@@ -23796,6 +23825,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 474 | [x] | P2 | enemy/Hand | Hand preserves the post-movement slope collision until the next `loc_3299C` coroutine resume. | Frame-176 position/velocity/facing regression; full sweep -245 pixels with no level regression. See archive #474. |
 | 473 | [x] | P2 | rendering/palette | Settled recording hand-off preserves the Mountain/Cave `loc_1223C` palette-coroutine phase. | Three-route PC/CRAM regression; full sweep -6,861 pixels with no level regression. See archive #473. |
 | 472 | [x] | P2 | rendering/background | Time_Frames-driven `$00` layered rows repeat through the 512-pixel Plane-B wrap instead of disappearing after one row width. | Oracle frame-359 pixel regression; Level `$03` idle tail 2,371 -> 887 pixels; full frame sweep remains 66/69. See archive #472. |
 | 471 | [x] | P2 | rendering/timing | Settled recording warps remove the stale 68-frame compatibility anchor from the loader-gated `Time_Frames` lifecycle. | End-to-end Level `$03` trace=169; sweep `1787966883` frame 60 4,420 -> 586 and idle tail 5,793 -> 2,371 pixels. See archive #471. |
