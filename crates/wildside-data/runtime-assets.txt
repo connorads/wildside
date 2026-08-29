@@ -1259,8 +1259,10 @@ level-layout/01.blocklist.bin
 level-layout/01.json
 level-layout/02.bin
 level-layout/02.blocklist.bin
+level-layout/02.json
 level-layout/03.bin
 level-layout/03.blocklist.bin
+level-layout/03.json
 level-layout/04.bin
 level-layout/04.blocklist.bin
 level-layout/05.bin
@@ -1270,6 +1272,7 @@ level-layout/06.bin
 level-layout/06.blocklist.bin
 level-layout/07.bin
 level-layout/07.blocklist.bin
+level-layout/07.json
 level-layout/08.bin
 level-layout/08.blocklist.bin
 level-layout/09.bin

@@ -3559,14 +3559,15 @@ mod chunk_02 {
         runtime.weather.weather_type = 1;
         let start = crate::weather::LAVA_GEYSER_PALETTE_BUFFER_START_LOC_14C6A;
         let words = [
-            0x0CCC, 0x0222, 0x0444, 0x0666, 0x0004, 0x0008, 0x000C, 0x002E,
+            0x0CCC, 0x0222, 0x0444, 0x0666, 0x0004, 0x0008, 0x000C, 0x002E, 0x0000, 0x0002, 0x0004,
+            0x0006, 0x0000, 0x0000, 0x0000, 0x0000,
         ];
         runtime.palette_buffer[start..start + words.len()].copy_from_slice(&words);
 
         assert_eq!(
             runtime.trace_frame().lava_geyser_palette_words_loc_14b2a,
             Some(words),
-            "ASM Init_SpecialEffect_Lava loc_14C6A copies Pal_7B8AC into Palette_Buffer+$20 and loc_14B2A rotates those live words; render traces must expose the current CRAM words instead of inferring from static Lava.bin assets"
+            "ASM Init_SpecialEffect_Lava loc_14C6A copies Pal_7B8AC into Palette_Buffer+$20 and loc_14B2A rotates those live words; render traces must expose the complete `$20..$3E` CRAM line used by pattern nibbles 1..15"
         );
     }
 

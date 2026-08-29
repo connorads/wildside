@@ -3401,7 +3401,11 @@ impl NativeRuntime {
         if let Some(palette) = self.ingame_palette_words::<8>("palette/lava.bin") {
             copy_lava_geyser_palette_loc_14C86(&palette, &mut self.palette_buffer);
         }
-        self.lava_geyser_palette_delay_loc_14b2a = 5;
+        // ASM Init_SpecialEffect_Lava loc_14C6A allocates Animation_Geyser
+        // during the level-entry object passes. Native initialises weather
+        // two Mode_Level-equivalent ticks later, so retain the three
+        // hibernations still outstanding from loc_14B2A's original five.
+        self.lava_geyser_palette_delay_loc_14b2a = 3;
     }
 
     /// Step all active lava geysers through their eruption cycle.

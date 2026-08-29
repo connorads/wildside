@@ -3184,7 +3184,7 @@ pub struct NativeTraceFrame {
     /// ASM `Init_SpecialEffect_Lava` loc_14C6A / `Animation_Geyser` loc_14B2A
     /// live CRAM words at `Palette_Buffer+$20..+$2E`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub lava_geyser_palette_words_loc_14b2a: Option<[u16; 8]>,
+    pub lava_geyser_palette_words_loc_14b2a: Option<[u16; 16]>,
     /// ASM `Init_SpecialEffect_Storm` loc_14D1E/loc_14D32 Scroll-B pattern upload.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub storm_pattern_upload_loc_14d32: Option<crate::weather::StormPatternRuntimeUploadLoc14D32>,

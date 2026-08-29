@@ -25027,15 +25027,12 @@ mod chunk_05 {
             LAVA_GEYSER_PHASE_RISING_LOC_1484E
         );
 
-        // ASM loc_1484E/loc_14940: `$48(a5)=2` means the live column gains
-        // one 16px sprite row only after the two-frame rise cadence completes.
-        runtime.step_lava_geysers(&slice);
-        assert_eq!(
-            runtime.weather.lava_geysers[0].phase,
-            LAVA_GEYSER_PHASE_RISING_LOC_1484E
-        );
-        assert_eq!(runtime.weather.lava_geysers[0].current_height, 0);
-        runtime.step_lava_geysers(&slice);
+        // ASM loc_1484E/loc_14940: row zero is visible immediately and the raw
+        // DBF counter `$48(a5)=2` presents it three times before advancing.
+        assert_eq!(runtime.weather.lava_geysers[0].current_height, 16);
+        for _ in 0..3 {
+            runtime.step_lava_geysers(&slice);
+        }
         assert_eq!(
             runtime.weather.lava_geysers[0].phase, LAVA_GEYSER_PHASE_HOLDING_LOC_1496C,
             "should transition to hold phase"
@@ -25052,9 +25049,11 @@ mod chunk_05 {
             "should transition to collapse phase"
         );
 
-        // ASM loc_1498C: collapse clears the final 16px sprite row, then
-        // branches straight back to the loc_14788 startup script.
-        runtime.step_lava_geysers(&slice);
+        // ASM loc_1498C: raw DBF counter `$48(a5)=1` presents the final row
+        // twice, then clears it and branches to the loc_14788 startup script.
+        for _ in 0..2 {
+            runtime.step_lava_geysers(&slice);
+        }
         assert_eq!(
             runtime.weather.lava_geysers[0].phase, LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788,
             "should return to the startup script"
@@ -31505,8 +31504,8 @@ mod chunk_05 {
             "ASM loc_1498C collapse step should subtract one 16px sprite row"
         );
         assert_eq!(
-            geyser.timer, 0,
-            "ASM loc_1498C must not arm the dormant timer until the collapse hits the floor"
+            geyser.timer, LAVA_GEYSER_COLLAPSE_FRAMES_PER_ROW,
+            "ASM loc_1498C should reload the raw DBF cadence while a visible row remains"
         );
     }
 
@@ -32278,7 +32277,7 @@ mod chunk_05 {
     }
 
     #[test]
-    fn loc_14be8_accumulates_y_steps_and_biases_tiles_with_the_incremented_sprite_count() {
+    fn loc_14be8_accumulates_y_steps_and_links_the_incremented_sprite_count() {
         let sprite_rows = crate::weather::lava_geyser_sprite_chunks_loc_14BE8(
             0x0400,
             0x0380,
@@ -32305,18 +32304,18 @@ mod chunk_05 {
             vec![
                 crate::weather::LavaGeyserSpriteChunkLoc14BE8 {
                     screen_y_with_bias: 0x00C0,
-                    tile_word: 0x0204,
-                    size_word: 0x0F00,
-                    screen_x_px: 0x0088,
+                    tile_word: 0x0200,
+                    size_word: 0x0F04,
+                    screen_x_px: 0x0108,
                 },
                 crate::weather::LavaGeyserSpriteChunkLoc14BE8 {
                     screen_y_with_bias: 0x00BA,
-                    tile_word: 0x0215,
-                    size_word: 0x0500,
-                    screen_x_px: 0x0098,
+                    tile_word: 0x0210,
+                    size_word: 0x0505,
+                    screen_x_px: 0x0118,
                 },
             ],
-            "ASM loc_14BE8 should subtract each entry's Y step from the running `d7`, increment `Number_Sprites` before adding it into the tile word, and place X at `$44(a5) - Camera_X_pos + entry_x_offset`"
+            "ASM loc_14BE8 should subtract each Y step from `d7`, copy the tile word unchanged, link the incremented `Number_Sprites` in the size word, and read the `$80`-biased `$44(a5)` X coordinate directly"
         );
     }
 

@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Level `$65` geyser art, SAT geometry, and CRAM)
+
+- `Decompress_Chunk sub_13684` zero-distance copies emit their full count;
+  Lava tiles now match oracle VRAM byte-for-byte.
+- SAT `$0D` decodes as 4x2 tiles. The renderer consumes all 16 live CRAM
+  words and latches them with the preceding `loc_901` geyser sprites.
+- Level `$65` frame 60 falls 4,920 -> 45 pixels. Full residue falls
+  107,114 -> 101,479 with no other level changed and the same 12 blockers.
+- NEXT: #483. At frame 359 oracle's live SAT ends after `unk_145D4`; native
+  has already entered the full-height phase and retains 1,595 pixels.
+
 ## 2026-08-29 handoff (Level `$65` geyser cadence and SAT fields)
 
 - Oracle PC/register state pins frame 60 to `loc_14874` with X `$90`, row

@@ -4631,7 +4631,10 @@ pub fn decode_saxman(data: &[u8]) -> Result<Vec<u8>> {
                 let distance = usize::from(distance);
                 let count = usize::from(count);
                 if distance == 0 {
-                    write_zero_fill(&mut output, count.saturating_sub(1));
+                    // ASM Decompress_Chunk sub_13684: a zero-distance
+                    // reference leaves a6 == a2, but every move.b (a6)+,(a2)+
+                    // still advances both pointers and emits one byte.
+                    write_zero_fill(&mut output, count);
                 } else {
                     copy_from_output(&mut output, distance, count)?;
                 }
@@ -6784,6 +6787,21 @@ BackgroundLayout_0E:  dc.w    $8000
     fn saxman_fixture_decodes_to_expected_bytes() {
         let decoded = decode_saxman(SAXMAN_FIXTURE).expect("fixture should decode");
         assert_eq!(decoded, b"ABCD");
+    }
+
+    #[test]
+    fn saxman_zero_distance_reference_emits_full_count_sub_13684() {
+        // ASM Decompress_Chunk sub_13684: short reference `001` selects
+        // distance zero and count three. Even with a6 == a2, each
+        // `move.b (a6)+,(a2)+` advances both pointers and emits one byte.
+        // The following `0100011` long-reference prefix terminates on its
+        // extended count byte zero.
+        let encoded = [0x00, 0x02, 0x28, 0xC0, 0x00, 0x00, 0x00];
+
+        assert_eq!(
+            decode_saxman(&encoded).expect("valid zero-distance Saxman stream"),
+            [0, 0, 0],
+        );
     }
 
     #[test]

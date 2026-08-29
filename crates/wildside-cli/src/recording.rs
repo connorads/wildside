@@ -3509,7 +3509,7 @@ mod tests {
         replay.rotate_palette_lava_water_state_loc_1223c = Some((3, 8, 7));
         replay.lava_water_palette_words_loc_1223c = Some([0, 0, 0, 0]);
         replay.lava_geyser_palette_words_loc_14b2a = Some([
-            0x0CCC, 0x0222, 0x0444, 0x0666, 0x0004, 0x0008, 0x000C, 0x002E,
+            0x0CCC, 0x0222, 0x0444, 0x0666, 0x0004, 0x0008, 0x000C, 0x002E, 0, 0, 0, 0, 0, 0, 0, 0,
         ]);
 
         let drift = first_trace_drift(

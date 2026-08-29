@@ -8085,7 +8085,8 @@ mod tests {
         // a death sliver.
         trace.frame_index = 12;
         let hand = visuals.enemies.families.get(&0x17).expect("hand visuals");
-        let hand_walking = base(0x17);
+        let mut hand_walking = base(0x17);
+        hand_walking.sprite_animation_phase = Some(0);
         assert_eq!(
             sprites::select_enemy_frame(&trace, hand, &hand_walking)
                 .tile_sheet
@@ -8096,6 +8097,7 @@ mod tests {
         );
         let mut hand_jumping = base(0x17);
         hand_jumping.contact_phase = Some(NativeContactPhase::HandJumping);
+        hand_jumping.sprite_animation_phase = Some(3);
         assert_eq!(
             sprites::select_enemy_frame(&trace, hand, &hand_jumping)
                 .tile_sheet
@@ -8106,6 +8108,7 @@ mod tests {
         );
         let mut hand_grabbing = base(0x17);
         hand_grabbing.contact_phase = Some(NativeContactPhase::HandGrabbing);
+        hand_grabbing.sprite_animation_phase = Some(6);
         assert_eq!(
             sprites::select_enemy_frame(&trace, hand, &hand_grabbing)
                 .tile_sheet
@@ -11523,7 +11526,8 @@ mod tests {
         trace.camera_y_pos = 0;
         trace.active_geysers = vec![(0x0080, 0x0040, 0x0010, u16::MAX, u8::MAX)];
         trace.lava_geyser_palette_words_loc_14b2a = Some([
-            0x0CCC, 0x0222, 0x0444, 0x0666, 0x0004, 0x0008, 0x000C, 0x002E,
+            0x0CCC, 0x0222, 0x0444, 0x0666, 0x0004, 0x0008, 0x000C, 0x002E, 0x0000, 0x0002, 0x0004,
+            0x0006, 0x0000, 0x0000, 0x0000, 0x0000,
         ]);
         let mut visuals = sample_level_visuals();
         visuals.lava = Some(wildside_render::LavaVisuals {
@@ -11569,15 +11573,15 @@ mod tests {
         let raw_words: Vec<u16> = sprite_palette(lava_sprite)
             .colours
             .iter()
-            .take(8)
             .map(|colour| colour.raw_word)
             .collect();
         assert_eq!(
             raw_words,
             vec![
-                0x0CCC, 0x0222, 0x0444, 0x0666, 0x0004, 0x0008, 0x000C, 0x002E,
+                0x0CCC, 0x0222, 0x0444, 0x0666, 0x0004, 0x0008, 0x000C, 0x002E, 0x0000, 0x0002,
+                0x0004, 0x0006, 0x0000, 0x0000, 0x0000, 0x0000,
             ],
-            "ASM loc_14BE8 draws Lava.bin sprite art using the live Palette_Buffer+$20 line seeded by loc_14C6A and rotated by loc_14B2A"
+            "ASM loc_14BE8 draws Lava.bin sprite art using the complete live Palette_Buffer+$20 line seeded by loc_14C6A and rotated by loc_14B2A"
         );
     }
 
@@ -21333,7 +21337,6 @@ mod tests {
             "level_settle",
         )
         .expect("Level 0x65 frame-60 render trace");
-
         assert_eq!(
             render_trace
                 .active_geysers
@@ -21356,6 +21359,14 @@ mod tests {
         );
 
         let visuals = load_level_visuals(&manifest, 0x65).expect("Level 0x65 visuals");
+        assert_eq!(
+            render_trace.lava_geyser_palette_words_loc_14b2a,
+            Some([
+                0x0CCC, 0x0222, 0x0444, 0x0666, 0x0004, 0x0008, 0x000C, 0x002E, 0x0000, 0x0002,
+                0x0004, 0x0006, 0x0000, 0x0000, 0x0000, 0x0000,
+            ]),
+            "oracle CRAM frame 59 matches the loc_901-latched Palette_Buffer+$20 line before Animation_Geyser loc_14B2A prepares the next field"
+        );
         let scene = build_scene_filtered(
             &render_trace,
             false,
@@ -21373,7 +21384,7 @@ mod tests {
                 hud: false,
             },
         );
-        let geyser_sprites = scene
+        let lava_commands = scene
             .commands
             .iter()
             .filter_map(|command| match command {
@@ -21390,59 +21401,52 @@ mod tests {
                     tile_sheet,
                     tiles,
                     ..
-                } => (*x == 0x0090
-                    && visuals
-                        .lava
-                        .as_ref()
-                        .is_some_and(|lava| tile_sheet.tiles.len() == lava.tile_sheet.tiles.len()))
-                .then_some((y, tile_sheet, tiles)),
+                } if visuals
+                    .lava
+                    .as_ref()
+                    .is_some_and(|lava| tile_sheet.tiles.len() == lava.tile_sheet.tiles.len()) =>
+                {
+                    Some((
+                        *x,
+                        *y,
+                        tiles
+                            .iter()
+                            .map(|tile| (tile.tile.tile_index, tile.offset_x, tile.offset_y))
+                            .collect::<Vec<_>>(),
+                    ))
+                }
                 _ => None,
             })
             .collect::<Vec<_>>();
-        assert!(
-            !geyser_sprites.is_empty(),
-            "ASM loc_14874 -> sub_14BD8 must emit visible Lava.bin sprites for the full-height Level 0x65 geyser; script_templates={:?}",
-            render_trace.lava_geyser_script_templates_loc_147ba
-        );
-        assert!(
-            geyser_sprites.iter().any(|(_, tile_sheet, tiles)| {
-                tiles.iter().any(|tile| {
-                    tile_sheet.tiles[usize::from(tile.tile.tile_index)]
-                        .pixels
-                        .iter()
-                        .any(|pixel| *pixel != 0)
+        let tile_layout = |base| {
+            (0u16..4)
+                .flat_map(|column| {
+                    (0u16..2).map(move |row| {
+                        (base + column * 2 + row, column as i32 * 8, row as i32 * 8)
+                    })
                 })
-            }),
-            "ASM loc_14874 -> sub_14BD8 must resolve the Level 0x65 geyser to opaque Lava.bin tiles"
-        );
-        assert!(
-            geyser_sprites.iter().any(|(y, _, tiles)| {
-                tiles.iter().any(|tile| {
-                    let tile_y = **y + tile.offset_y;
-                    tile_y < FRAME_HEIGHT as i32 && tile_y + 8 > 0
-                })
-            }),
-            "ASM loc_14874 -> sub_14BD8 must place at least one Level 0x65 geyser tile inside the visible frame; sprite_y={:?}",
-            geyser_sprites
-                .iter()
-                .map(|(y, _, _)| **y)
                 .collect::<Vec<_>>()
+        };
+        let middle_tiles = tile_layout(0x73);
+        let mut expected_commands = (0..11)
+            .map(|row| (145, -19 + row * 16, middle_tiles.clone()))
+            .collect::<Vec<_>>();
+        expected_commands.push((146, 157, tile_layout(0xB6)));
+        assert_eq!(
+            lava_commands, expected_commands,
+            "oracle WRAM frame 59 Sprite_Table slots 11..22 match ASM loc_14874 -> sub_14BD8 exactly: eleven `$A36E` middle chunks and one `$A3B1` bottom chunk"
         );
         let mut effects_rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
         render_scene(&scene, &mut effects_rgb);
-        assert!(
-            effects_rgb.chunks_exact(3).any(|pixel| pixel != [0, 0, 0]),
-            "ASM loc_14874 -> sub_14BD8 Level 0x65 geyser must resolve through its live palette to visible RGB pixels"
-        );
         let geyser_region_is_visible = (0..FRAME_HEIGHT as usize).any(|y| {
-            (0x90..0xA8).any(|x| {
+            (145..170).any(|x| {
                 let offset = (y * FRAME_WIDTH as usize + x) * 3;
                 effects_rgb[offset..offset + 3] != [0, 0, 0]
             })
         });
         assert!(
             geyser_region_is_visible,
-            "ASM loc_14874 -> sub_14BD8 Level 0x65 geyser must draw inside its x=$90..$A7 screen window"
+            "ASM loc_14874 -> sub_14BD8 Level 0x65 geyser must draw inside its oracle Sprite_Table window"
         );
     }
 

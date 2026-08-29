@@ -11,6 +11,36 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #482
+
+Closed [x] 2026-08-29. Fresh oracle WRAM/VRAM/CRAM at frame 59 pins the
+visible Level `$65` geyser to eleven 4x2 `$A36E` sprites and one `$A3B1`
+bottom sprite. Native positions and tile indices were already exact after
+#481, but three shared mechanisms corrupted the pixels.
+
+ASM `Decompress_Chunk sub_13684` still executes every
+`move.b (a6)+,(a2)+` when a Saxman reference has distance zero. Native dropped
+the first byte and shifted the remaining Lava art. The VDP SAT size byte uses
+bits 3..2 for width and 1..0 for height; native interpreted `$0D` as 2x4
+instead of 4x2. Finally, pattern nibbles 8..15 address the complete
+`Palette_Buffer+$20..$3E` CRAM line, and `Mode_Level loc_901` presents that
+line with the preceding Sprite_Table rather than the post-update palette.
+
+An asset-specific Lava correction was rejected because the byte loss is in
+the shared Saxman decoder. Folding high nibbles into the compact eight-colour
+palette was rejected because it cannot represent CRAM slots 8..15. The final
+design fixes the codec, decodes SAT geometry once, exports the typed 16-word
+line, and latches palette and geyser sprite sources together.
+
+Exact regressions cover the zero-distance token, full live palette, oracle
+SAT positions, tile indices, column-major 4x2 layout, and frame-59 CRAM.
+Focused report `1787991068` reduces frame 60 from 4,920 to 45 pixels. Full
+report `1787991467` remains 66/69 with the same 12 state blockers and reduces
+total residue from 107,114 to 101,479; Level `$65` is the only changed level.
+Frame 359 retains 1,595 pixels because oracle's live SAT link exposes
+`unk_145D4` while native has already entered the full-height phase; that
+separate lifecycle discrepancy is tracked as #483.
+
 ### #481
 
 Closed [x] 2026-08-29. Oracle frame 59 reaches `Obj_Lava_Geyser loc_14874`
@@ -24001,6 +24031,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 482 | [x] | P1 | rendering/weather | Saxman output, SAT geometry, and the live geyser CRAM line match oracle frame 59. | Exact codec/SAT/CRAM regressions; Level `$65` frame 60 4,920 -> 45 pixels. See archive #482. |
 | 481 | [x] | P1 | rendering/weather | Lava geysers use ROM DBF cadence and `sub_14BD8` SAT coordinate/field layout. | Oracle-backed frame-60 state/render regression; Level `$65` 7,230 -> 4,920 pixels. See archive #481. |
 | 477 | [x] | P1 | rendering/palette | Map-specific palette dispatch uses ROM `MapOrder_Index` IDs `$08`/`$73`, not Elsewhere display numbers. | Exact selector regressions; Level `$60` -44,038 pixels; full sweep unchanged elsewhere. See archive #477. |
 | 476 | [x] | P2 | render/Hand | Settled recordings reverse-seed Hand walking to the ROM-observed `stru_32B6A` phase. | Exact transition regression; full sweep -891 pixels with no level regression. See archive #476. |

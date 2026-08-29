@@ -1368,6 +1368,11 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.camera_x_pos = previous_trace.camera_x_pos;
         render_trace.camera_y_pos = previous_trace.camera_y_pos;
         latch_previous_sprite_sources_loc_901(&mut render_trace, previous_trace);
+        // ASM Mode_Level loc_901 presents the CRAM state transferred before
+        // Animation_Geyser loc_14B2A rotates Palette_Buffer for the next
+        // field. Keep the live geyser palette with its latched SAT sprites.
+        render_trace.lava_geyser_palette_words_loc_14b2a =
+            previous_trace.lava_geyser_palette_words_loc_14b2a;
         render_trace.kid_x_pos = previous_trace.kid_x_pos;
         render_trace.kid_y_pos = previous_trace.kid_y_pos;
         render_trace.frame_index = previous_trace.frame_index;
@@ -1543,6 +1548,15 @@ fn latch_previous_sprite_sources_loc_901(
     render_trace
         .active_projectile_details
         .clone_from(&previous_trace.active_projectile_details);
+    // ASM Mode_Level loc_901 transfers the completed lava Sprite_Table before
+    // Obj_Lava_Geyser loc_147BA/loc_14874 advances its script for the next
+    // table. Keep both native geyser representations on that same latch.
+    render_trace
+        .active_geysers
+        .clone_from(&previous_trace.active_geysers);
+    render_trace
+        .lava_geyser_script_templates_loc_147ba
+        .clone_from(&previous_trace.lava_geyser_script_templates_loc_147ba);
     // PrizeDiamondCollected_Init loc_FE3E creates a presentable GfxObject on
     // its creation pass, then advances its camera-relative arc before the
     // following Sprite_Table build. Preserve the initial source, but present
@@ -4351,18 +4365,22 @@ fn lava_geyser_palette_for_scene_loc_14b2a(
     trace: &NativeTraceFrame,
     visuals: &wildside_render::LavaVisuals,
 ) -> Palette {
-    let mut palette = visuals.palette.clone();
     if let Some(words) = trace.lava_geyser_palette_words_loc_14b2a
         && words.iter().any(|word| *word != 0)
     {
         // ASM Init_SpecialEffect_Lava loc_14C6A copies Pal_7B8AC into
         // Palette_Buffer+$20; Animation_Geyser loc_14B2A then rotates the
         // live `$28..$2E` entries before sub_14BD8/loc_14BE8 draws Lava.bin.
-        for (colour, word) in palette.colours.iter_mut().take(8).zip(words) {
-            *colour = wildside_render::MdColour::from_word(word);
-        }
+        // Pattern nibbles 8..15 still address `$30..$3E`, so retain the whole
+        // CRAM line rather than folding them into the eight uploaded words.
+        return Palette {
+            colours: words
+                .into_iter()
+                .map(wildside_render::MdColour::from_word)
+                .collect(),
+        };
     }
-    palette
+    visuals.palette.clone()
 }
 
 fn background_palette_for_scene(
@@ -4507,9 +4525,8 @@ fn push_diamond_power_sprite_loc_3f880(
     level_visuals: &NativeLevelVisuals,
     sprite: DiamondPowerSpriteSnapshot,
 ) -> bool {
-    let size_code = sprite.size_word >> 8;
-    let width_px = ((size_code & 0x03) + 1) * 8;
-    let height_px = (((size_code >> 2) & 0x03) + 1) * 8;
+    let size_code = (sprite.size_word >> 8) as u8;
+    let (width_px, height_px) = md_sprite_dimensions_px(size_code);
     let vram_tile = sprite.pattern_word & 0x07FF;
     let Some(tile_base_index) = vram_tile.checked_sub(level_visuals.hud.diamond_base_tile_index)
     else {
@@ -4636,9 +4653,8 @@ fn push_lava_geyser_chunk_loc_14be8(
     else {
         return false;
     };
-    let size_code = (chunk.size_word >> 8) & 0x0F;
-    let width_px = ((size_code & 0x03) + 1) * 8;
-    let height_px = (((size_code >> 2) & 0x03) + 1) * 8;
+    let size_code = ((chunk.size_word >> 8) & 0x0F) as u8;
+    let (width_px, height_px) = md_sprite_dimensions_px(size_code);
     let frame = wildside_render::SpriteFrame {
         origin_x: 0,
         origin_y: 0,
@@ -4661,6 +4677,15 @@ fn push_lava_geyser_chunk_loc_14be8(
         tiles,
     });
     true
+}
+
+fn md_sprite_dimensions_px(size_code: u8) -> (u16, u16) {
+    // Mega Drive SAT size byte: bits 3..2 encode width minus one and bits
+    // 1..0 encode height minus one. ASM loc_14BE8 copies this byte directly
+    // from the geyser template to the sprite table.
+    let width_px = (u16::from((size_code >> 2) & 0x03) + 1) * 8;
+    let height_px = (u16::from(size_code & 0x03) + 1) * 8;
+    (width_px, height_px)
 }
 
 // ASM Init_SpecialEffect_Storm loc_14D1E/loc_14D32 skips the first longword of

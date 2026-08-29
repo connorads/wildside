@@ -12671,16 +12671,7 @@ impl NativeRuntime {
             ),
             lava_geyser_palette_words_loc_14b2a: (self.weather.weather_type == 1).then(|| {
                 let start = crate::weather::LAVA_GEYSER_PALETTE_BUFFER_START_LOC_14C6A;
-                [
-                    self.palette_buffer[start],
-                    self.palette_buffer[start + 1],
-                    self.palette_buffer[start + 2],
-                    self.palette_buffer[start + 3],
-                    self.palette_buffer[start + 4],
-                    self.palette_buffer[start + 5],
-                    self.palette_buffer[start + 6],
-                    self.palette_buffer[start + 7],
-                ]
+                core::array::from_fn(|index| self.palette_buffer[start + index])
             }),
             storm_pattern_upload_loc_14d32: self.weather.storm_pattern_upload_loc_14d32.clone(),
             storm_scroll_transfer_loc_30110: self.weather.storm_scroll_transfer_loc_30110,

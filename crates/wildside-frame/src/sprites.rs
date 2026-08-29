@@ -4306,11 +4306,10 @@ mod tests {
             )),
             0x0100
         );
+        let mut hand = live_enemy_object(0x17);
+        hand.sprite_animation_phase = Some(0);
         assert_eq!(
-            selected_live_tile_base(select_live_hand_frame(
-                &labelled_enemy_visuals(7, 3),
-                &live_enemy_object(0x17)
-            )),
+            selected_live_tile_base(select_live_hand_frame(&labelled_enemy_visuals(7, 3), &hand)),
             0x0100
         );
         assert_eq!(
