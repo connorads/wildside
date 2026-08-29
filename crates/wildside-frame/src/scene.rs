@@ -7192,6 +7192,9 @@ fn build_game_scene_filtered(
         layer_tags.mark(SceneLayer::Platforms, commands.len());
     }
     if !eol_hologram_visible && filter.enemies {
+        // ASM Enemy22_Shiskaboss_Init gives the nine skewer workers priority
+        // 1; their Sprite_Table entries precede the priority-0 heads.
+        sprites::push_shishkaboss_skewer_loc_38494_38884(&mut commands, trace, level_visuals);
         for object in trace
             .active_objects
             .iter()

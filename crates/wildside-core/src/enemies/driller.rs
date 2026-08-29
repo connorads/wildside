@@ -543,7 +543,7 @@ mod tests {
         let mut rng = RomRandomState::default();
         let mut drilled_blocks = Vec::new();
         let mut freshly_loaded = std::collections::HashMap::new();
-        freshly_loaded.insert((enemies[0].segment_index, enemies[0].layout_index), 3u8);
+        freshly_loaded.insert(ActiveEnemyKey::from_enemy(&enemies[0]), 3u8);
 
         for (pass, expected_x, label) in [
             (0u16, 64u32, "first pass is the loc_3691E allocation defer"),

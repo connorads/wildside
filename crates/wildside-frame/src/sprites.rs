@@ -3,8 +3,8 @@ use std::sync::Arc;
 use wildside_core::{
     CycloneGroundedSpriteSource, NativeContactPhase, NativeObjectKind, NativeObjectSnapshot,
     NativeTraceFrame, PlatformSpriteDispatchInputLoc244C, PlatformSpriteDispatchLoc244C,
-    PlatformSpriteEntryLoc2548, PlatformSpriteVariantLoc244C, PlayerForm, TransformHandler,
-    physics::Direction, presented_transform_phase,
+    PlatformSpriteEntryLoc2548, PlatformSpriteVariantLoc244C, PlayerForm, ShishkabossSkewerMapping,
+    TransformHandler, physics::Direction, presented_transform_phase,
 };
 use wildside_render::{MdColour, NativeLevelVisuals, Palette, SpriteFrame, TileRef};
 
@@ -1126,6 +1126,41 @@ pub fn push_boss_eye_attack_sprite_sub_37abc(
         tiles: build_sprite_tiles(frame, Direction::Right, 0),
     });
     true
+}
+
+pub fn push_shishkaboss_skewer_loc_38494_38884(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) {
+    let Some(visuals) = level_visuals.enemies.families.get(&0x22) else {
+        return;
+    };
+    let camera_x = (trace.camera_x_pos >> 16) as i32;
+    let camera_y = (trace.camera_y_pos >> 16) as i32;
+    for piece in &trace.shishkaboss_skewer_pieces {
+        // ASM loc_38494 uses C85F8, loc_38512..loc_38806 use C85F0,
+        // and loc_38884 closes the skewer with C85E8. The bundle appends
+        // those three mappings after the five boss-head animation frames.
+        let frame_index = match piece.mapping {
+            ShishkabossSkewerMapping::Top => 5,
+            ShishkabossSkewerMapping::Shaft => 6,
+            ShishkabossSkewerMapping::Bottom => 7,
+        };
+        let Some(frame) = visuals.frames.get(frame_index) else {
+            continue;
+        };
+        let screen_x = i32::from(piece.x_pos) - camera_x;
+        let screen_y = i32::from(piece.y_pos) - camera_y;
+        let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, Direction::Right);
+        commands.push(DrawCommand::Sprite {
+            x: draw_x,
+            y: draw_y,
+            tile_sheet: Arc::new(frame.tile_sheet.clone()),
+            palette: Arc::new(visuals.palette.clone()),
+            tiles: build_sprite_tiles(frame, Direction::Right, 0),
+        });
+    }
 }
 
 pub fn push_player_sprite_with_priority_override(

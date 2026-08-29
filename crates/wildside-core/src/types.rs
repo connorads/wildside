@@ -3280,6 +3280,9 @@ pub struct NativeTraceFrame {
     /// HeadyMetal live body-piece workers refreshed by ASM `sub_37ABC`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub heady_metal_body_pieces_sub_37abc: Vec<HeadyMetalBodyPieceTraceSub37ABC>,
+    /// Enemy22_Shiskaboss_Init live skewer workers `loc_38494..loc_38884`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub shishkaboss_skewer_pieces: Vec<ShishkabossSkewerPieceTrace>,
     /// Death windup elapsed frames (0=not dying). Used by renderer for tumble animation.
     #[serde(default)]
     pub death_windup_elapsed: u16,
@@ -3561,6 +3564,7 @@ impl Default for NativeTraceFrame {
             enemy_death_effects: Vec::new(),
             heady_metal_death_splits: Vec::new(),
             heady_metal_body_pieces_sub_37abc: Vec::new(),
+            shishkaboss_skewer_pieces: Vec::new(),
             death_windup_elapsed: 0,
             form_change_flash_frames: 0,
             transform_hscroll_owner_loc_8fe: false,
@@ -3795,6 +3799,20 @@ pub struct NativeObjectSnapshot {
     /// recurring decision-making fields into typed members.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub debug_fields: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ShishkabossSkewerMapping {
+    Top,
+    Shaft,
+    Bottom,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ShishkabossSkewerPieceTrace {
+    pub x_pos: u16,
+    pub y_pos: u16,
+    pub mapping: ShishkabossSkewerMapping,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

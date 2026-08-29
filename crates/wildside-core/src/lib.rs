@@ -444,7 +444,7 @@ pub struct NativeRuntime {
     /// Driller 3 (the loc_3691E defer, Enemy1A_Driller_Init's opening
     /// `j_Hibernate_Object_1Frame`, and the loc_3C0D2/loc_3C026 walker-entry
     /// hibernate).
-    freshly_loaded_enemies_loc_3691e: std::collections::HashMap<(usize, usize), u8>,
+    freshly_loaded_enemies_loc_3691e: std::collections::HashMap<enemies::ActiveEnemyKey, u8>,
     /// Enemy18_Tornado_Init consumes its loc_35326 RNG byte on the first
     /// Execute_Objects pass after loc_3691E allocation, not in the loader tail.
     pending_tornado_initialisations_loc_3691e: HashSet<(usize, usize)>,

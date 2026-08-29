@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Shishkaboss child scheduling and skewer workers)
+
+- Native collapsed the controller allocation and child callback initialisation
+  passes, then aliased all three heads under one fresh-load key. Head callbacks
+  now retain both ROM scheduler passes and key the deferral by head identity.
+- The nine non-colliding `$22` skewer Gfx workers are typed presentation state
+  derived from the live head and render with the three source mappings selected
+  by `loc_38494` through `loc_38884`.
+- Focused Level `$10` state checkpoints pass without masking and frame residue
+  falls 3,759 -> 3,176 pixels. The detached eye and later boss lifecycle remain
+  under blocked umbrella #301. See #490.
+
 ## 2026-08-29 handoff (Shishkaboss eye art and coordinate wrapping)
 
 - Level `$10` exposed blue diagnostic squares where `sub_37ABC` selects the

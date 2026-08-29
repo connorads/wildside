@@ -314,6 +314,23 @@ pub(crate) fn hopper_constants(_family: EnemyFamily) -> HopperConstants {
 /// Sentinel: not a boss head.
 pub(crate) const BOSS_HEAD_NONE: u8 = 0xFF;
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub(crate) struct ActiveEnemyKey {
+    segment_index: usize,
+    layout_index: usize,
+    boss_head_index: u8,
+}
+
+impl ActiveEnemyKey {
+    fn from_enemy(enemy: &ActiveEnemy) -> Self {
+        Self {
+            segment_index: enemy.segment_index,
+            layout_index: enemy.layout_index,
+            boss_head_index: enemy.boss_head_index,
+        }
+    }
+}
+
 /// Shishkaboss head Y offsets (X is same for all 3).
 pub(crate) const SHISHKABOSS_HEAD_Y_OFFSETS: [i16; 3] = [0, 0x48, 0x90]; // 0, +72, +144
 pub(crate) const SHISHKABOSS_HEAD_X_OFFSETS: [i16; 3] = [0, 0, 0];
@@ -4630,7 +4647,7 @@ pub(crate) fn step_active_enemies_with_rng(
     rng: &mut RomRandomState,
     drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
     mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
-    freshly_loaded_enemies: &mut std::collections::HashMap<(usize, usize), u8>,
+    freshly_loaded_enemies: &mut std::collections::HashMap<ActiveEnemyKey, u8>,
 ) {
     seed_pending_archer_initial_hibernates_loc_33fda(active, camera_x_px, rng);
 
@@ -4847,8 +4864,7 @@ pub(crate) fn step_active_enemies_with_rng(
         if executable_enemy_indices.next_if_eq(&enemy_index).is_none() {
             continue;
         }
-        if let Some(remaining) =
-            freshly_loaded_enemies.get_mut(&(enemy.segment_index, enemy.layout_index))
+        if let Some(remaining) = freshly_loaded_enemies.get_mut(&ActiveEnemyKey::from_enemy(enemy))
         {
             // ASM Manage_EnemyLoading loc_3691E (#419/#420): a freshly
             // allocated enemy's first passes run its family Init, which ends
@@ -4867,7 +4883,7 @@ pub(crate) fn step_active_enemies_with_rng(
             // 61/62, parks at x=120 on row 63, and first steps on row 64).
             *remaining -= 1;
             if *remaining == 0 {
-                freshly_loaded_enemies.remove(&(enemy.segment_index, enemy.layout_index));
+                freshly_loaded_enemies.remove(&ActiveEnemyKey::from_enemy(enemy));
             }
             continue;
         }
@@ -8244,10 +8260,13 @@ pub(crate) fn shared_walker_turns_at_cliffs_loc_3c0a6(family: EnemyFamily) -> bo
 fn fresh_enemy_no_step_passes_loc_3691e(family: EnemyFamily, enemy_level: u8) -> u8 {
     // ASM Manage_EnemyLoading loc_3691E: allocation happens after the object
     // pass. Goat, Ninja (Enemy11_Ninja_Init loc_3D554), and Armadillo then
-    // hibernate once in the family init; Driller has three init/walker defers.
+    // hibernate once in their family init. Multi-head bosses need two passes:
+    // their controller first allocates the head callback, whose own init then
+    // reaches the opening hibernate. Driller has three init/walker defers.
     // Scorpion's linked-tail scheduler adds six more passes at level 1+.
     match family {
         EnemyFamily::Goat | EnemyFamily::Ninja | EnemyFamily::Armadillo => 1,
+        EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses | EnemyFamily::BagelBrothers => 2,
         EnemyFamily::Driller => 3,
         EnemyFamily::Scorpion if enemy_level >= 1 => 7,
         EnemyFamily::Scorpion => 1,
@@ -11708,6 +11727,21 @@ mod tests {
             1,
             "ASM Enemy11_Ninja_Init loc_3D554 ends in Lion.asm loc_3E392/loc_3E546, so the allocation pass hibernates at spawn before the first loc_3D92A walk step"
         );
+    }
+
+    #[test]
+    fn multi_head_boss_init_hibernates_before_sub_39846() {
+        for family in [
+            EnemyFamily::Shishkaboss,
+            EnemyFamily::BoomerangBosses,
+            EnemyFamily::BagelBrothers,
+        ] {
+            assert_eq!(
+                fresh_enemy_no_step_passes_loc_3691e(family, 0),
+                2,
+                "ASM Enemy22_Shiskaboss_Init and the sibling boss controllers first allocate each head callback; loc_394E8/loc_3960E/loc_39734 and their siblings then hibernate before the first sub_39846 movement step"
+            );
+        }
     }
 
     #[test]
@@ -15409,7 +15443,7 @@ impl NativeRuntime {
                 fresh_enemy_no_step_passes_loc_3691e(enemy.family, enemy.enemy_level);
             if no_step_passes > 0 {
                 self.freshly_loaded_enemies_loc_3691e
-                    .insert((enemy.segment_index, enemy.layout_index), no_step_passes);
+                    .insert(ActiveEnemyKey::from_enemy(enemy), no_step_passes);
             }
         }
         self.enemy_loading_initial_pass_complete = true;

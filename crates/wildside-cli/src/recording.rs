@@ -3088,6 +3088,7 @@ mod tests {
             enemy_death_effects: Vec::new(),
             heady_metal_death_splits: Vec::new(),
             heady_metal_body_pieces_sub_37abc: Vec::new(),
+            shishkaboss_skewer_pieces: Vec::new(),
             death_windup_elapsed: 0,
             form_change_flash_frames: 0,
             hud_transform_target_helmet_id: None,

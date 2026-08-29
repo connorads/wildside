@@ -4897,6 +4897,43 @@ mod tests {
     }
 
     #[test]
+    fn trace_exposes_live_shishkaboss_skewer_workers_loc_38494_38884() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 640,
+            height_pixels: 480,
+        }));
+        runtime.active_enemies.push(ActiveEnemy {
+            family: EnemyFamily::Shishkaboss,
+            x_pos: 0x0200_8000,
+            y_pos: 0x0004_8000,
+            boss_head_index: 0,
+            ..drips_test_enemy(1, 0)
+        });
+
+        let trace = runtime.trace_frame();
+
+        assert_eq!(trace.shishkaboss_skewer_pieces.len(), 9);
+        assert_eq!(
+            trace.shishkaboss_skewer_pieces.first(),
+            Some(&ShishkabossSkewerPieceTrace {
+                x_pos: 0x0200,
+                y_pos: 0xFFAA,
+                mapping: ShishkabossSkewerMapping::Top,
+            })
+        );
+        assert_eq!(
+            trace.shishkaboss_skewer_pieces.last(),
+            Some(&ShishkabossSkewerPieceTrace {
+                x_pos: 0x0200,
+                y_pos: 0x00B2,
+                mapping: ShishkabossSkewerMapping::Bottom,
+            })
+        );
+    }
+
+    #[test]
     fn trace_uses_live_boss_eye_orbit_worker_phase_state_loc_3893e_389d6() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -12879,6 +12916,7 @@ impl NativeRuntime {
                 })
                 .collect(),
             heady_metal_body_pieces_sub_37abc: self.heady_metal_body_pieces_sub_37abc(),
+            shishkaboss_skewer_pieces: self.shishkaboss_skewer_pieces(),
             death_windup_elapsed: match self.player_lifecycle {
                 PlayerLifecycle::DeathWindup { remaining_frames } => {
                     (PLAYER_DEATH_WINDUP_FRAMES.saturating_sub(remaining_frames)) as u16
@@ -13169,6 +13207,34 @@ impl NativeRuntime {
             self.active_platforms.len(),
             active_links
         ))
+    }
+
+    fn shishkaboss_skewer_pieces(&self) -> Vec<ShishkabossSkewerPieceTrace> {
+        let Some(head) = self.active_enemies.iter().find(|enemy| {
+            enemy.family == EnemyFamily::Shishkaboss
+                && enemy.boss_head_index == 0
+                && !enemy.death_animation_active
+        }) else {
+            return Vec::new();
+        };
+        let x_pos = (head.x_pos >> 16) as u16;
+        let head_y = (head.y_pos >> 16) as u16;
+        // ASM Enemy22_Shiskaboss_Init allocates loc_38494 at anchor-$5A,
+        // loc_38512 at +$28, then loc_38590..loc_38884 at +$20 each.
+        const OFFSETS: [i16; 9] = [-0x5A, -0x32, -0x12, 0x0E, 0x2E, 0x4E, 0x6E, 0x8E, 0xAE];
+        OFFSETS
+            .into_iter()
+            .enumerate()
+            .map(|(index, offset)| ShishkabossSkewerPieceTrace {
+                x_pos,
+                y_pos: head_y.wrapping_add_signed(offset),
+                mapping: match index {
+                    0 => ShishkabossSkewerMapping::Top,
+                    8 => ShishkabossSkewerMapping::Bottom,
+                    _ => ShishkabossSkewerMapping::Shaft,
+                },
+            })
+            .collect()
     }
 
     fn heady_metal_body_pieces_sub_37abc(&self) -> Vec<HeadyMetalBodyPieceTraceSub37ABC> {

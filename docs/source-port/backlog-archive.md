@@ -11,6 +11,36 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #490
+
+Closed [x] 2026-08-29. Level `$10` oracle checkpoints proved that native ran
+each Shishkaboss head one movement step early. `Enemy22_Shiskaboss_Init`
+allocates a head callback, then that callback reaches its opening hibernate at
+`loc_394E8`, `loc_3960E`, or `loc_39734` on the next scheduler pass. Native had
+collapsed both passes and keyed fresh-load deferral only by layout entry, which
+also aliased all three heads. A typed key now includes head identity and the
+three multi-head families retain two no-step passes. Shishkaboss head and eye
+coordinates match oracle at focused frames 60 and 359.
+
+The same ASM audit found nine presentation-only `$22` skewer Gfx workers at
+`loc_38494` through `loc_38884`. They share `sub_39846`, preserve fixed offsets
+from head zero before breakup, and select top, shaft, and bottom mappings from
+`LnkTo_unk_C85F8`, `LnkTo_unk_C85F0`, and `LnkTo_unk_C85E8`. Native now exposes
+those workers through typed trace state and renders their compiled source art
+without inventing colliding `ActiveEnemy` objects.
+
+Design alternatives were renderer-only inferred offsets, fake scheduler
+counters, global child deferral, and combat-object placeholders. They were
+rejected because they hide lifecycle identity or give visual-only workers false
+gameplay semantics. Scheduler-bound identity plus typed presentation state is
+the smallest model that preserves both boundaries and has an explicit exit:
+replace the derived trace when breakup or collision evidence requires live Gfx
+worker lifecycle. Focused report `1788027506` passes Level `$10` state
+checkpoints without masking and reduces residue from 3,759 to 3,176 pixels.
+`verify-slice-fast` and `verify-tas-full` pass; the latter checks all 37,759
+published-route frames with unchanged enforced pixel debt. The detached eye and
+later boss lifecycle remain under blocked umbrella #301.
+
 ### #489
 
 Closed [x] 2026-08-29. Proactive frame-sweep triage selected Level `$10`, the
@@ -24203,6 +24233,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 490 | [x] | P2 | enemy/render | Multi-head callback scheduling is keyed per head; Shishkaboss skewer workers use typed presentation state and source mappings. | Level `$10` state checkpoints pass; residue 3,759 -> 3,176 pixels; full gates green. See archive #490. |
 | 488 | [x] | P2 | verify/render | The `loc_B42` SAT terminator regression constructs the raw-zero VDP entry it claims to test; the workspace failure baseline is empty. | Focused test and all 147 wildside-md tests green; workspace ratchet 1 -> 0. See archive #488. |
 | 489 | [x] | P2 | render/enemy | Shishkaboss eyes use source-backed `$21` mappings and multi-head coordinates wrap across zero like the ROM. | Level `$10` frames pass; residue 3,978 -> 3,759 pixels; full gates green. See archive #489. |
 | 487 | [x] | P2 | verify/render | The four-state `sub_B270` airborne selector contract matches its state-3 fallback and leaves the workspace baseline with one failure. | Focused frame test green; workspace ratchet 2 -> 1; scoped Goat/Hand mutation censuses complete. See archive #487. |
