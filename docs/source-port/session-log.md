@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Shishkaboss parent SAT position)
+
+- Active-object anchors, C8600 mapping, direction, and palette all matched the
+  Level `$10` oracle. Exact pixel rows showed the transferred parent art four
+  pixels right of native while linked eye anchors remained fixed.
+- Native now preserves that parent-only `Make_SpriteFromGfxObject loc_129E`
+  presentation hand-off. Reordering or changing SAT compositing was rejected:
+  those variants held or increased the pixel debt.
+- Focused full sweep run `1788038214` passes all six state checkpoints unmasked.
+  Idle-tail residue falls from 2,870 to 2,635 pixels and MAE 2.7 to 2.280.
+- The remaining isolated 32x32 component is the stopped `loc_3A14E` arrow that
+  the oracle retains at recording frame 359.
+
 ## 2026-08-29 handoff (Shishkaboss arrow hand-off and diagnostic bootstrap)
 
 - `loc_3A134` observes the expired movement counter after GfxObject movement,
