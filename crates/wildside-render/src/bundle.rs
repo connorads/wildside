@@ -248,10 +248,11 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
 
 fn foreground_palette_path_loc_11d8e_11dac(map_id: u8, theme: &str) -> String {
     // ASM pre-loc_11D8E/loc_11DAC: map-specific palette pointers replace the
-    // theme-table pointer before the shared foreground CRAM copy.
+    // theme-table pointer before the shared foreground CRAM copy. These are
+    // MapOrder_Index IDs; the number in an Elsewhere display name is not one.
     match map_id {
         0x05 => String::from("palette_fg/cave_plethora.bin"),
-        0x03 => String::from("palette_fg/cave_alt.bin"),
+        0x03 | 0x08 => String::from("palette_fg/cave_alt.bin"),
         0x17 | 0x1A => String::from("palette_fg/city_alt.bin"),
         _ => format!("palette_fg/{theme}.bin"),
     }
@@ -261,7 +262,7 @@ fn background_palette_path_loc_11df4_11e12(map_id: u8, theme: &str) -> String {
     // ASM loc_11DF4/loc_11E12: the same mapped map ID selects the alternative
     // Cave or Alien Twilight background pointer before the shared CRAM copy.
     match map_id {
-        0x03 => String::from("palette_bg/cave_alt.bin"),
+        0x03 | 0x08 => String::from("palette_bg/cave_alt.bin"),
         0x17 | 0x1A => String::from("palette_bg/city_alt.bin"),
         _ => format!("palette_bg/{theme}.bin"),
     }
@@ -5259,12 +5260,26 @@ mod tests {
         assert_eq!(
             foreground_palette_path_loc_11d8e_11dac(0x17, "city"),
             "palette_fg/city_alt.bin",
-            "ASM loc_11DA0/loc_11DAC: M_Alien_Twilight ($17) replaces the earlier decimal #23 cave pointer with Pal_12D26"
+            "ASM loc_11DA0/loc_11DAC: M_Alien_Twilight ($17) selects Pal_12D26"
         );
         assert_eq!(
             background_palette_path_loc_11df4_11e12(0x17, "city"),
             "palette_bg/city_alt.bin",
-            "ASM loc_11E06/loc_11E12: M_Alien_Twilight ($17) replaces the earlier decimal #23 cave pointer with Pal_12D54"
+            "ASM loc_11E06/loc_11E12: M_Alien_Twilight ($17) selects Pal_12D54"
+        );
+    }
+
+    #[test]
+    fn elsewhere_23_map_id_uses_alternative_cave_palettes_loc_11d8e_11df4() {
+        assert_eq!(
+            foreground_palette_path_loc_11d8e_11dac(0x08, "cave"),
+            "palette_fg/cave_alt.bin",
+            "ASM constants.asm M_Elsewhere_23 = 8 selects Pal_12CDA at loc_11D8E"
+        );
+        assert_eq!(
+            background_palette_path_loc_11df4_11e12(0x08, "cave"),
+            "palette_bg/cave_alt.bin",
+            "ASM constants.asm M_Elsewhere_23 = 8 selects Pal_12CF8 at loc_11DF4"
         );
     }
     use sha1::{Digest, Sha1};

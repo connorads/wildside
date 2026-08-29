@@ -11,6 +11,25 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #477
+
+Closed [x] 2026-08-29. Level `$60` matched oracle gameplay state but retained
+45,741 changed pixels: native used the ordinary dark Cave palette while oracle
+used the bright alternative Cave palette across the complete terrain scene.
+
+ASM `loc_11D8E`/`loc_11DF4` dispatches on the byte read from
+`MapOrder_Index`. `constants.asm` defines `M_Elsewhere_23 = 8` and
+`M_Elsewhere_30 = $73`; native instead compared decimal 23 and 30, taken from
+the display names. A logical-Level `$60` exception was rejected because the
+ROM decision belongs to the mapped map ID. Display-name parsing was rejected
+for the same reason. The core classifiers, render asset selectors, comments,
+and exact unit regressions now use `$08`/`$73`.
+
+Focused report `1787977677` reduces Level `$60` from 45,741 to 1,703 pixels;
+terrain is visually exact and the remaining difference is sprite-local. Full
+report `1787977691` remains 66/69 with the same 12 state blockers and reduces
+total frame residue from 172,294 to 128,256 pixels. No other level changes.
+
 ### #476
 
 Closed [x] 2026-08-29. The generic renderer already latches the prior Sprite
@@ -23873,6 +23892,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 477 | [x] | P1 | rendering/palette | Map-specific palette dispatch uses ROM `MapOrder_Index` IDs `$08`/`$73`, not Elsewhere display numbers. | Exact selector regressions; Level `$60` -44,038 pixels; full sweep unchanged elsewhere. See archive #477. |
 | 476 | [x] | P2 | render/Hand | Settled recordings reverse-seed Hand walking to the ROM-observed `stru_32B6A` phase. | Exact transition regression; full sweep -891 pixels with no level regression. See archive #476. |
 | 475 | [x] | P2 | enemy/render | Hand exports the live `stru_32B50`/`stru_32B56`/`stru_32B6A` per-object animation phase. | Frame-60/359 phase regression; full sweep -369 pixels with no level regression. See archive #475. |
 | 474 | [x] | P2 | enemy/Hand | Hand preserves the post-movement slope collision until the next `loc_3299C` coroutine resume. | Frame-176 position/velocity/facing regression; full sweep -245 pixels with no level regression. See archive #474. |

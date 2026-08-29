@@ -4269,7 +4269,7 @@ mod chunk_08 {
             "ASM loc_11D8E should replace the theme-selected foreground palette with the alternative cave palette for Stairway to Oblivion"
         );
         assert_eq!(
-            classify_foreground_palette_override_loc_11D8E(23),
+            classify_foreground_palette_override_loc_11D8E(0x08),
             ForegroundPaletteOverrideLoc11D8E::AlternativeCave,
             "ASM loc_11D8E should take the same alternative cave palette branch for Elsewhere 23"
         );
@@ -4297,14 +4297,14 @@ mod chunk_08 {
             "ASM loc_11D92 should route The Deadly Skyscrapers into the `loc_11D9E` removed-special-palette path"
         );
         assert_eq!(
-            classify_foreground_palette_override_loc_11D8E(30),
+            classify_foreground_palette_override_loc_11D8E(0x73),
             ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop,
-            "ASM loc_11D92 should take the same `loc_11D9E` branch for Elsewhere 30"
+            "ASM loc_11D92 should take the same `loc_11D9E` branch for M_Elsewhere_30 = $73"
         );
         assert_eq!(
             classify_foreground_palette_override_loc_11D8E(0x17),
-            ForegroundPaletteOverrideLoc11D8E::AlternativeCave,
-            "ASM loc_11D92 reaches Alien Twilight only after decimal #23 temporarily selected the alternative Cave palette"
+            ForegroundPaletteOverrideLoc11D8E::None,
+            "ASM loc_11D8E compares M_Elsewhere_23 = 8, not Alien Twilight's map ID $17"
         );
     }
 
@@ -4418,14 +4418,14 @@ mod chunk_08 {
     }
 
     #[test]
-    fn loc_11df4_selects_the_alternative_cave_background_palette_only_for_map_ids_3_and_23() {
+    fn loc_11df4_selects_alternative_cave_background_for_map_ids_03_and_08() {
         assert_eq!(
             classify_background_palette_override_loc_11DF4(0x03),
             BackgroundPaletteOverrideLoc11DF4::AlternativeCave,
             "ASM loc_11DF4 should swap in `Pal_12CF8` for Stairway to Oblivion"
         );
         assert_eq!(
-            classify_background_palette_override_loc_11DF4(23),
+            classify_background_palette_override_loc_11DF4(0x08),
             BackgroundPaletteOverrideLoc11DF4::AlternativeCave,
             "ASM loc_11DF4 should reuse that same background palette for Elsewhere 23"
         );
@@ -4444,7 +4444,7 @@ mod chunk_08 {
             "ASM loc_11DF8 should send The Deadly Skyscrapers into the removed special-palette branch"
         );
         assert_eq!(
-            classify_background_palette_followup_loc_11DF8(30),
+            classify_background_palette_followup_loc_11DF8(0x73),
             BackgroundPaletteFollowupLoc11DF8::RemovedSpecialPaletteNoop,
             "ASM loc_11DF8 should reuse that same shared continuation for Elsewhere 30"
         );

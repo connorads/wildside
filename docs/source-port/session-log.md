@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Elsewhere mapped palette IDs)
+
+- `loc_11D8E`/`loc_11DF4` read `MapOrder_Index`; the Elsewhere suffixes are
+  display numbers, not IDs. `M_Elsewhere_23` is `$08` and `M_Elsewhere_30` is
+  `$73`.
+- Correct mapped-ID dispatch removes 44,038 full-sweep pixels without changing
+  another level. Level `$60` falls from 45,741 to 1,703.
+- NEXT: classify Level `$60`'s remaining Kid/enemy sprite palette residue
+  against live CRAM and Sprite Table palette-line bits. See #477.
+
 ## 2026-08-29 handoff (Hand recording phase boundary)
 
 - The existing Sprite Table latch is correct; a second global latch or a

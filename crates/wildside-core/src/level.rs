@@ -9346,15 +9346,16 @@ pub(crate) fn classify_foreground_palette_override_loc_11D8E(
         return ForegroundPaletteOverrideLoc11D8E::PlethoraCave;
     }
     // ASM loc_11D8E (kid.asm:23951): after the default theme palette lookup,
-    // Stairway to Oblivion (`#3`) and Elsewhere 23 (`#23`) replace `a1` with
-    // the alternative cave palette before the later override checks run.
-    if matches!(map_id, 0x03 | 23) {
+    // Stairway to Oblivion (`M_... = 3`) and Elsewhere 23
+    // (`M_Elsewhere_23 = 8`) replace `a1` with the alternative cave palette
+    // before the later override checks run.
+    if matches!(map_id, 0x03 | 0x08) {
         return ForegroundPaletteOverrideLoc11D8E::AlternativeCave;
     }
     // ASM loc_11D92 (kid.asm:23954): The Deadly Skyscrapers (`#$1C`) and
-    // Elsewhere 30 (`#30`) branch into `loc_11D9E`, where the removed special
-    // palette command now leaves the already selected theme palette intact.
-    if matches!(map_id, 0x1C | 30) {
+    // Elsewhere 30 (`M_Elsewhere_30 = $73`) branch into `loc_11D9E`, where the
+    // removed special palette command leaves the selected palette intact.
+    if matches!(map_id, 0x1C | 0x73) {
         return ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop;
     }
     if map_id == 0x1A {
@@ -9437,10 +9438,10 @@ pub(crate) enum BackgroundPaletteOverrideLoc11DF4 {
 pub(crate) fn classify_background_palette_override_loc_11DF4(
     map_id: u8,
 ) -> BackgroundPaletteOverrideLoc11DF4 {
-    // ASM loc_11DF4 (kid.asm:24002): Stairway to Oblivion (`#3`) and
-    // Elsewhere 23 (`#23`) replace `a1` with `Pal_12CF8(pc)` before the shared
-    // continuation at `loc_11DF8`.
-    if matches!(map_id, 0x03 | 23) {
+    // ASM loc_11DF4 (kid.asm:24002): Stairway to Oblivion (`M_... = 3`) and
+    // Elsewhere 23 (`M_Elsewhere_23 = 8`) replace `a1` with `Pal_12CF8(pc)`
+    // before the shared continuation at `loc_11DF8`.
+    if matches!(map_id, 0x03 | 0x08) {
         return BackgroundPaletteOverrideLoc11DF4::AlternativeCave;
     }
     BackgroundPaletteOverrideLoc11DF4::None
@@ -9459,9 +9460,9 @@ pub(crate) fn classify_background_palette_followup_loc_11DF8(
 ) -> BackgroundPaletteFollowupLoc11DF8 {
     // ASM loc_11DF8 (kid.asm:24005): whether the earlier `loc_11DF4` cave
     // branch fired or not, the shared continuation then checks The Deadly
-    // Skyscrapers (`#$1C`) / Elsewhere 30 (`#30`) for the removed special
-    // palette path before the later `$1A/$1B` alternative-palette override.
-    if matches!(map_id, 0x1C | 30) {
+    // Skyscrapers (`#$1C`) / Elsewhere 30 (`M_Elsewhere_30 = $73`) for the
+    // removed special palette path before the later `$1A/$17` override.
+    if matches!(map_id, 0x1C | 0x73) {
         return BackgroundPaletteFollowupLoc11DF8::RemovedSpecialPaletteNoop;
     }
     if matches!(map_id, 0x17 | 0x1A) {
