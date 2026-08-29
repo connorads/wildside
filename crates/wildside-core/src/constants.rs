@@ -862,9 +862,13 @@ pub(crate) const PATH_BONUS_TABLE: [u8; 76] = [
 // === Lava geysers ===
 
 pub(crate) const LAVA_GEYSER_ROW_HEIGHT_PX: u16 = 16;
-pub(crate) const LAVA_GEYSER_RISE_FRAMES_PER_ROW: u16 = 2;
+/// `loc_14874` presentations from `$48(a5)=2`: DBF visits 2, 1, then 0.
+pub(crate) const LAVA_GEYSER_RISE_FRAMES_PER_ROW: u16 = 3;
 pub(crate) const LAVA_GEYSER_HOLD_CYCLES: u16 = 30;
-pub(crate) const LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE: u16 = 6;
+/// `loc_14874` presentations from `$48(a5)=6`: DBF visits 6 through 0.
+pub(crate) const LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE: u16 = 7;
+/// `loc_14874` presentations from collapse `$48(a5)=1`.
+pub(crate) const LAVA_GEYSER_COLLAPSE_FRAMES_PER_ROW: u16 = 2;
 pub(crate) const LAVA_GEYSER_PHASE_DORMANT_LOC_14772: u8 = 0;
 pub(crate) const LAVA_GEYSER_PHASE_RISING_LOC_1484E: u8 = 1;
 pub(crate) const LAVA_GEYSER_PHASE_HOLDING_LOC_1496C: u8 = 2;

@@ -11,6 +11,27 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #481
+
+Closed [x] 2026-08-29. Oracle frame 59 reaches `Obj_Lava_Geyser loc_14874`
+with X `$90`, `d3=$20`, and `$4C(a5)=0`; the frame-60 render latch therefore
+has 33 rows from base Y `$330`. Native was six rows ahead because raw DBF
+counters `$48=2/6/1` were treated as durations instead of presenting values
+through zero.
+
+ASM `loc_1484E` falls straight through and presents row zero before its first
+hibernate. `loc_14940` presents rise counters 2, 1, 0; hold presents 6 through
+0; collapse presents 1, 0. `sub_14BD8 loc_14BE8` reads the worker's `$80`-biased
+X directly, copies template +4 as the tile word, and adds `Number_Sprites` to
+template +6 for the SAT size/link word. Native had removed the X bias twice and
+added the link to the tile index.
+
+Focused frame report `1787987570` passes both checkpoints and reduces the
+worst Level `$65` residue from 7,230 to 4,920 pixels. The source-faithful
+size/link correction is retained even though the formerly corrupted tile
+selection happened to score 355 pixels better. Remaining row-shape/art residue
+is tracked as #482.
+
 ### #480
 
 Closed [x] 2026-08-29. Level `$65` rendered the full lava foreground band one
@@ -23980,6 +24001,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 481 | [x] | P1 | rendering/weather | Lava geysers use ROM DBF cadence and `sub_14BD8` SAT coordinate/field layout. | Oracle-backed frame-60 state/render regression; Level `$65` 7,230 -> 4,920 pixels. See archive #481. |
 | 477 | [x] | P1 | rendering/palette | Map-specific palette dispatch uses ROM `MapOrder_Index` IDs `$08`/`$73`, not Elsewhere display numbers. | Exact selector regressions; Level `$60` -44,038 pixels; full sweep unchanged elsewhere. See archive #477. |
 | 476 | [x] | P2 | render/Hand | Settled recordings reverse-seed Hand walking to the ROM-observed `stru_32B6A` phase. | Exact transition regression; full sweep -891 pixels with no level regression. See archive #476. |
 | 475 | [x] | P2 | enemy/render | Hand exports the live `stru_32B50`/`stru_32B56`/`stru_32B6A` per-object animation phase. | Frame-60/359 phase regression; full sweep -369 pixels with no level regression. See archive #475. |

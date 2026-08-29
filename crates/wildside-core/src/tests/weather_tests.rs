@@ -6569,18 +6569,18 @@ mod chunk_09_weather_mutation_coverage {
             vec![
                 crate::weather::LavaGeyserSpriteChunkLoc14BE8 {
                     screen_y_with_bias: 0x0178,
-                    tile_word: 0xA305,
-                    size_word: 0x0500,
-                    screen_x_px: 0x0090,
+                    tile_word: 0xA300,
+                    size_word: 0x0505,
+                    screen_x_px: 0x0110,
                 },
                 crate::weather::LavaGeyserSpriteChunkLoc14BE8 {
                     screen_y_with_bias: 0x0168,
-                    tile_word: 0xA406,
-                    size_word: 0x0600,
-                    screen_x_px: 0x007C,
+                    tile_word: 0xA400,
+                    size_word: 0x0606,
+                    screen_x_px: 0x00FC,
                 },
             ],
-            "ASM loc_14BE8 subtracts the template Y step, pre-increments Number_Sprites for the tile word, and stores x_pos-Camera_X_pos+template_x",
+            "ASM loc_14BE8 subtracts the template Y step, pre-increments Number_Sprites for the SAT size/link word, preserves the tile word, and stores the worker's `$80`-biased x_pos-Camera_X_pos+template_x",
         );
     }
 
@@ -7448,7 +7448,19 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
-    fn start_lava_geyser_rise_loc_1484e_seeds_zero_height_and_two_frame_timer() {
+    fn lava_geyser_full_height_rows_for_level65_frame60_loc_14874() {
+        let rows = crate::weather::lava_geyser_full_height_rows_for_sprite_row_loc_14874(
+            0x0090, 0x0330, 0x0020, 0, 0x0283, 0,
+        );
+
+        assert!(
+            !rows.is_empty(),
+            "ASM loc_14874 must advance past an off-screen top cap and build the visible middle rows of Level 0x65's full-height geyser"
+        );
+    }
+
+    #[test]
+    fn start_lava_geyser_rise_loc_1484e_seeds_first_row_and_dbf_cadence() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.weather.weather_type = 1;
         runtime.weather.lava_geysers.push(LavaGeyser {
@@ -7467,12 +7479,12 @@ mod chunk_09_weather_mutation_coverage {
         let geyser = &runtime.weather.lava_geysers[0];
         assert_eq!(geyser.phase, LAVA_GEYSER_PHASE_RISING_LOC_1484E);
         assert_eq!(
-            geyser.timer, 2,
-            "ASM loc_1484E seeds `$48(a5)=2` for the full-height rise loop",
+            geyser.timer, 3,
+            "ASM loc_1484E seeds raw `$48(a5)=2`; loc_14940/DBF presents counter values 2, 1, and 0",
         );
         assert_eq!(
-            geyser.current_height, 0,
-            "ASM loc_1484E clears the row cursor before the first shared loop iteration",
+            geyser.current_height, LAVA_GEYSER_ROW_HEIGHT_PX,
+            "ASM loc_1484E clears d3, then falls through loc_14866 to render row zero before the first hibernation",
         );
     }
 

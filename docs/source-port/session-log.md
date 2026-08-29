@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Level `$65` geyser cadence and SAT fields)
+
+- Oracle PC/register state pins frame 60 to `loc_14874` with X `$90`, row
+  index `$20`, and top frame zero. Native now matches that typed state.
+- DBF counters include zero. `sub_14BD8` also consumes the worker's biased X
+  and adds `Number_Sprites` to size/link, not the tile word.
+- Level `$65` worst residue falls from 7,230 to 4,920 pixels. NEXT: attribute
+  the remaining geyser row-shape/art residue. See #481 and #482.
+
 ## 2026-08-29 handoff (Level `$65` Cave palette hand-off)
 
 - Oracle CRAM and `RotatePalette_Lava_Water loc_1223C` prove the recording

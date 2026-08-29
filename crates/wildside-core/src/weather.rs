@@ -1746,11 +1746,15 @@ pub fn lava_geyser_sprite_chunks_loc_14BE8(
         sprite_count = sprite_count.wrapping_add(1);
         sprite_rows.push(LavaGeyserSpriteChunkLoc14BE8 {
             screen_y_with_bias,
-            tile_word: template
-                .tile_base_word
-                .wrapping_add(u16::from(sprite_count)),
-            size_word: template.size_word,
+            // ASM loc_14BE8 copies template +4 directly to SAT +4 (tile
+            // attributes), then adds Number_Sprites to template +6 before
+            // writing SAT +2 (size/link). The low byte is the SAT link.
+            tile_word: template.tile_base_word,
+            size_word: template.size_word.wrapping_add(u16::from(sprite_count)),
+            // ASM loc_14BE8 reads `$44(a5)` directly. Obj_Lava_Geyser keeps
+            // that worker coordinate `$80`-biased for the VDP sprite table.
             screen_x_px: base_x_world_px
+                .wrapping_add(0x80)
                 .wrapping_sub(camera_x_px)
                 .wrapping_add(template.x_offset_px),
         });
@@ -2230,8 +2234,8 @@ pub(crate) fn lava_geyser_peak_hold_step_loc_1496C(
     hold_frames_remaining: u16,
 ) -> LavaGeyserPeakHoldStepLoc1496C {
     // ASM loc_1496C (kid.asm:28021): reload `d3` from `$4A(a5)`, use the
-    // 6-frame top-cap cadence while holding, decrement `$50(a5)`, and only
-    // switch to the 1-frame collapse cadence once the decremented timer hits 0.
+    // raw DBF counter 6 for the top-cap cadence while holding, decrement
+    // `$50(a5)`, and switch to raw counter 1 once it reaches zero.
     let next_hold_frames = hold_frames_remaining.wrapping_sub(1);
     let descending = next_hold_frames == 0;
     LavaGeyserPeakHoldStepLoc1496C {
@@ -2328,8 +2332,8 @@ pub(crate) struct LavaGeyserRiseResetLoc1484E {
 #[allow(non_snake_case)]
 pub(crate) fn lava_geyser_rise_reset_loc_1484E() -> LavaGeyserRiseResetLoc1484E {
     // ASM loc_1484E (kid.asm:27908): the upward-motion path restarts the row
-    // cursor in `d3`, seeds `$48(a5)` with a fixed 2-frame cadence per sprite
-    // row, and clears `$4C(a5)` before entering the shared `loc_14866` loop.
+    // cursor in `d3`, seeds the raw DBF counter `$48(a5)=2`, and clears
+    // `$4C(a5)` before entering the shared `loc_14866` loop.
     LavaGeyserRiseResetLoc1484E {
         sprite_row_index: 0,
         frames_per_sprite_row: 2,
@@ -2936,9 +2940,13 @@ fn start_lava_geyser_script_loc_147BA(geyser: &mut LavaGeyser, script_name: &str
 fn start_lava_geyser_rise_loc_1484E(geyser: &mut LavaGeyser) {
     let reset = lava_geyser_rise_reset_loc_1484E();
     geyser.phase = LAVA_GEYSER_PHASE_RISING_LOC_1484E;
-    geyser.timer = reset.frames_per_sprite_row;
+    // ASM loc_14866/loc_14940: DBF includes zero, so raw counter 2 produces
+    // three visible loop presentations before the row cursor advances.
+    geyser.timer = reset.frames_per_sprite_row + 1;
     debug_assert_eq!(reset.sprite_row_index, 0);
-    geyser.current_height = 0;
+    // loc_1484E branches straight to loc_14866/loc_14874 without a preceding
+    // hibernation. Cleared d3 therefore renders row zero immediately.
+    geyser.current_height = LAVA_GEYSER_ROW_HEIGHT_PX;
 }
 
 impl NativeRuntime {
@@ -3439,8 +3447,8 @@ impl NativeRuntime {
                 }
                 LAVA_GEYSER_PHASE_RISING_LOC_1484E => {
                     // ASM loc_1484E/loc_14940: the geyser rises in 16px
-                    // sprite rows, not a smooth pixel ramp, and `$48(a5)=2`
-                    // paces each new row.
+                    // sprite rows, not a smooth pixel ramp. `$48(a5)=2` is a
+                    // DBF counter, so each new row takes three presentations.
                     if geyser.timer > 1 {
                         let hibernation_frames = if geyser.current_height == 0 {
                             let pre_loop = lava_geyser_pre_loop_hibernate_loc_1485E();
@@ -3466,13 +3474,10 @@ impl NativeRuntime {
                                 geyser.height_px / LAVA_GEYSER_ROW_HEIGHT_PX,
                                 full_height.hold_frames,
                             );
-                            debug_assert_eq!(
-                                hold.frames_per_sprite,
-                                LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE
-                            );
+                            debug_assert_eq!(hold.frames_per_sprite, 6);
                             geyser.phase = LAVA_GEYSER_PHASE_HOLDING_LOC_1496C;
-                            geyser.timer = hold.next_hold_frames * hold.frames_per_sprite
-                                + hold.frames_per_sprite;
+                            geyser.timer =
+                                (hold.next_hold_frames + 1) * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE;
                         } else {
                             geyser.timer = LAVA_GEYSER_RISE_FRAMES_PER_ROW;
                         }
@@ -3485,7 +3490,7 @@ impl NativeRuntime {
                         geyser.timer -= 1;
                     } else {
                         geyser.phase = LAVA_GEYSER_PHASE_COLLAPSING_LOC_1498C;
-                        geyser.timer = 0;
+                        geyser.timer = LAVA_GEYSER_COLLAPSE_FRAMES_PER_ROW;
                     }
                 }
                 LAVA_GEYSER_PHASE_COLLAPSING_LOC_1498C => {
@@ -3496,6 +3501,12 @@ impl NativeRuntime {
                         start_lava_geyser_startup_script_loc_14788(geyser);
                         continue;
                     }
+                    // ASM loc_1496C writes raw DBF counter `$48(a5)=1` for
+                    // collapse, so loc_14874 presents each row twice.
+                    if geyser.timer > 1 {
+                        geyser.timer -= 1;
+                        continue;
+                    }
                     let row_index = geyser.current_height / LAVA_GEYSER_ROW_HEIGHT_PX;
                     let step = lava_geyser_collapse_step_loc_1498C(row_index);
                     if step.restart_startup_script {
@@ -3503,6 +3514,7 @@ impl NativeRuntime {
                     } else {
                         geyser.current_height =
                             step.next_sprite_row_index * LAVA_GEYSER_ROW_HEIGHT_PX;
+                        geyser.timer = LAVA_GEYSER_COLLAPSE_FRAMES_PER_ROW;
                     }
                 }
                 LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788 => {

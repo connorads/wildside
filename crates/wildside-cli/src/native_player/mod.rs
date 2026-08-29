@@ -21315,6 +21315,138 @@ mod tests {
     }
 
     #[test]
+    fn level65_first_lava_geyser_matches_oracle_full_height_loop_loc_14874() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x65);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest.clone(),
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x65 sweep trace");
+        let render_trace = trace_frame_with_vdp_latch_at_checkpoint(
+            &run.trace,
+            60,
+            Some(&run.initial_render_latch),
+            "level_settle",
+        )
+        .expect("Level 0x65 frame-60 render trace");
+
+        assert_eq!(
+            render_trace
+                .active_geysers
+                .iter()
+                .find(|(x, _, _, _, _)| *x == 0x0090),
+            Some(&(0x0090, 0x0120, 0x0210, 0x0020, 0)),
+            "oracle frame 59 reaches Obj_Lava_Geyser loc_14874 with d0=$90, d3=$20 and `$4C(a5)=0`; the frame-60 render latch therefore emits 33 rows from base y=$330"
+        );
+        let planned_rows = wildside_core::lava_geyser_full_height_rows_for_sprite_row_loc_14874(
+            0x0090,
+            0x0330,
+            0x0020,
+            (render_trace.camera_x_pos >> 16) as u16,
+            (render_trace.camera_y_pos >> 16) as u16,
+            0,
+        );
+        assert!(
+            !planned_rows.is_empty(),
+            "ASM loc_14874 must advance from the off-screen top cap to Level 0x65's visible middle rows"
+        );
+
+        let visuals = load_level_visuals(&manifest, 0x65).expect("Level 0x65 visuals");
+        let scene = build_scene_filtered(
+            &render_trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: true,
+                eol_score: false,
+                hud: false,
+            },
+        );
+        let geyser_sprites = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite {
+                    x,
+                    y,
+                    tile_sheet,
+                    tiles,
+                    ..
+                }
+                | DrawCommand::SatSprite {
+                    x,
+                    y,
+                    tile_sheet,
+                    tiles,
+                    ..
+                } => (*x == 0x0090
+                    && visuals
+                        .lava
+                        .as_ref()
+                        .is_some_and(|lava| tile_sheet.tiles.len() == lava.tile_sheet.tiles.len()))
+                .then_some((y, tile_sheet, tiles)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            !geyser_sprites.is_empty(),
+            "ASM loc_14874 -> sub_14BD8 must emit visible Lava.bin sprites for the full-height Level 0x65 geyser; script_templates={:?}",
+            render_trace.lava_geyser_script_templates_loc_147ba
+        );
+        assert!(
+            geyser_sprites.iter().any(|(_, tile_sheet, tiles)| {
+                tiles.iter().any(|tile| {
+                    tile_sheet.tiles[usize::from(tile.tile.tile_index)]
+                        .pixels
+                        .iter()
+                        .any(|pixel| *pixel != 0)
+                })
+            }),
+            "ASM loc_14874 -> sub_14BD8 must resolve the Level 0x65 geyser to opaque Lava.bin tiles"
+        );
+        assert!(
+            geyser_sprites.iter().any(|(y, _, tiles)| {
+                tiles.iter().any(|tile| {
+                    let tile_y = **y + tile.offset_y;
+                    tile_y < FRAME_HEIGHT as i32 && tile_y + 8 > 0
+                })
+            }),
+            "ASM loc_14874 -> sub_14BD8 must place at least one Level 0x65 geyser tile inside the visible frame; sprite_y={:?}",
+            geyser_sprites
+                .iter()
+                .map(|(y, _, _)| **y)
+                .collect::<Vec<_>>()
+        );
+        let mut effects_rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        render_scene(&scene, &mut effects_rgb);
+        assert!(
+            effects_rgb.chunks_exact(3).any(|pixel| pixel != [0, 0, 0]),
+            "ASM loc_14874 -> sub_14BD8 Level 0x65 geyser must resolve through its live palette to visible RGB pixels"
+        );
+        let geyser_region_is_visible = (0..FRAME_HEIGHT as usize).any(|y| {
+            (0x90..0xA8).any(|x| {
+                let offset = (y * FRAME_WIDTH as usize + x) * 3;
+                effects_rgb[offset..offset + 3] != [0, 0, 0]
+            })
+        });
+        assert!(
+            geyser_region_is_visible,
+            "ASM loc_14874 -> sub_14BD8 Level 0x65 geyser must draw inside its x=$90..$A7 screen window"
+        );
+    }
+
+    #[test]
     fn level60_goat_gfx_animation_resets_match_init_animation() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
