@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Hand live animation clock)
+
+- Oracle GfxObject traces prove `stru_32B6A` changes at frames 13, 28, and 43;
+  each walking mapping holds for `$0F` ticks and each Hand owns its phase.
+- A per-object tick plus the settled-window reverse seed removes 369 full-sweep
+  pixels without regressing any level; `$03` falls from 362 to 268.
+- NEXT: isolate the frame-359 C79AE raster/clipping residue. Frame 60 retains
+  44 pixels and frame 359 retains 224. See #475.
+
 ## 2026-08-29 handoff (Hand slope collision hand-off)
 
 - Type `$17` is Hand, not RockTank. Native and oracle agree through frame 175;

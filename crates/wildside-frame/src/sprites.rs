@@ -1630,12 +1630,9 @@ fn select_live_hand_frame<'a>(
     // `stru_32B56` starts on C79C6 (frame 3), and `loc_32906` grab
     // `stru_32B50` holds C79DE (frame 6). Frames 7..13 are the `loc_32AA2`
     // death tail and must not appear while the Hand is alive.
-    let frame = match object.contact_phase {
-        Some(NativeContactPhase::HandJumping) => 3,
-        Some(NativeContactPhase::HandGrabbing) => 6,
-        _ => 0,
-    };
-    enemy_visuals.frames.get(frame)
+    enemy_visuals
+        .frames
+        .get(usize::from(object.sprite_animation_phase?))
 }
 
 fn select_live_lion_frame<'a>(
@@ -4019,7 +4016,8 @@ mod tests {
 
         // ASM Hand.asm loc_327F2/loc_328E0/loc_32906: live Hand requires its
         // first seven body frames; the death tail must be unreachable here.
-        let hand = live_enemy_object(0x17);
+        let mut hand = live_enemy_object(0x17);
+        hand.sprite_animation_phase = Some(0);
         assert!(select_live_hand_frame(&full, &hand).is_some());
         assert!(select_live_hand_frame(&short, &hand).is_none());
         let mut wrong_family = hand.clone();
@@ -4575,16 +4573,17 @@ mod tests {
         // ASM Hand.asm live scripts: walk, jump attack, and grab start from
         // separate body descriptors, all before the death tail.
         let mut hand = live_enemy_object(0x17);
+        hand.sprite_animation_phase = Some(0);
         assert_eq!(
             selected_live_tile_base(select_live_hand_frame(&visuals, &hand)),
             0x0100
         );
-        hand.contact_phase = Some(NativeContactPhase::HandJumping);
+        hand.sprite_animation_phase = Some(3);
         assert_eq!(
             selected_live_tile_base(select_live_hand_frame(&visuals, &hand)),
             0x0103
         );
-        hand.contact_phase = Some(NativeContactPhase::HandGrabbing);
+        hand.sprite_animation_phase = Some(6);
         assert_eq!(
             selected_live_tile_base(select_live_hand_frame(&visuals, &hand)),
             0x0106

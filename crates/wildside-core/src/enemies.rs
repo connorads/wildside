@@ -1359,6 +1359,8 @@ pub(crate) struct ActiveEnemy {
     /// and loc_35DB8 lightning allocation. Emo Rock reuses it for the
     /// Emo_Rock.asm loc_3621A `stru_3647E` pre-drop animation hibernate.
     /// Scorpion reuses it as the elapsed `stru_3DB60` walk-animation tick.
+    /// Hand reuses it as the elapsed live `stru_32B50`/`stru_32B56`/`stru_32B6A`
+    /// GfxObject animation tick.
     /// Driller reuses it as the elapsed `stru_3BCB2` parent-animation tick.
     /// Armadillo reuses it as the elapsed live walk/charge animation tick.
     /// Robot reuses it for the parent body's independent animation tick.
@@ -2735,6 +2737,11 @@ impl ActiveEnemy {
             Some(driller_live_sprite_phase_stru_3bcb2(
                 self.dragon_descent_frames,
                 self.damage_flash_frames,
+            ))
+        } else if matches!(self.family, EnemyFamily::Hand) && !self.death_animation_active {
+            Some(hand_live_sprite_animation_phase_stru_32b50(
+                self.hand_state,
+                self.dragon_descent_frames,
             ))
         } else if matches!(self.family, EnemyFamily::SpinningTwins) && !self.death_animation_active
         {
@@ -14556,6 +14563,13 @@ impl NativeRuntime {
                 // before the allocated Dragon GfxObject begins its cycle.
                 enemy.dragon_descent_index =
                     dragon_walking_recording_settle_animation_seed_stru_3cc5e(enemy.hit_points);
+            } else if matches!(enemy.family, EnemyFamily::Hand) {
+                // ASM Hand.asm loc_327F2 -> stru_32B6A: at the settled
+                // recording boundary the native settle helper will still run
+                // 60 object passes. Reverse-seed that window so the following
+                // scenario frame zero exposes timer `$0D`, the second
+                // decrement from the initial `$0F`, like the oracle.
+                enemy.dragon_descent_frames = hand_recording_settle_animation_seed_stru_32b6a();
             } else if matches!(enemy.family, EnemyFamily::TankShooting) {
                 // ASM loc_74E0 -> Tank_Shooting.asm loc_3C50E: the ROM's
                 // level-skip shell and native's collapsed title lifecycle

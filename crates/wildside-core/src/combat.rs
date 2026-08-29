@@ -8387,6 +8387,7 @@ impl NativeRuntime {
                                 enemy.x_velocity = reset.initial_motion.x_velocity;
                                 enemy.y_velocity = reset.y_velocity;
                                 enemy.hand_state = HandState::Walking;
+                                enemy.dragon_descent_frames = 0;
                                 enemy.on_ground = true;
                                 changed_enemy_state = true;
                             }
@@ -8445,6 +8446,7 @@ impl NativeRuntime {
                                     // slots enter the 10-frame grab coroutine.
                                     let enemy = &mut self.active_enemies[active_idx];
                                     enemy.hand_state = HandState::Grabbing;
+                                    enemy.dragon_descent_frames = 0;
                                     enemy.wait_timer = HAND_GRAB_DURATION;
                                     enemy.x_velocity = 0;
                                     enemy.y_velocity = 0;

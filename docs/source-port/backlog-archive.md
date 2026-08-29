@@ -11,6 +11,33 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #475
+
+Closed [x] 2026-08-29. Hand rendering selected only the first mapping of each
+live script. Oracle GfxObject traces expose the complete walking cadence:
+scenario frame 0 is C79AE with timer `$0D`; C79B6 begins at frame 13, C79BE at
+28, and C79AE repeats at 43. Each `stru_32B6A` entry therefore holds for `$0F`
+ticks exactly as the ASM declares. Frame 60 uses C79B6 and frame 359 uses
+C79AE.
+
+A global render-frame offset was rejected because it would synchronise every
+Hand and ignore animation reinitialisation. Selecting a phase only in the
+recording adapter was rejected because exported object state would remain
+false. Native now keeps one per-object GfxObject animation tick: walking loops
+three `$0F` entries, jumping advances through three `$0A` entries and holds its
+tail, grabbing holds C79DE, and the ASM state transitions reset the tick.
+
+The recording animation primer runs before 60 native settle passes. Its
+reverse seed is therefore 31: `(31 + 60) % 45 = 1` before scenario playback,
+then frame 0 reaches elapsed tick 2 and oracle timer `$0D`. The end-to-end
+regression pins exported phases 1 and 0 at frames 60 and 359.
+
+Focused report `1787973921` reduces Level `$03` from 362 to 268 pixels. Full
+report `1787974468` remains 66/69 with the same 12 state blockers and reduces
+total residue from 173,554 to 173,185 pixels with no regression: `$03` -94,
+`$59` -38, and `$66` -237. Level `$03` frame 60 retains 44 pixels; its
+frame-359 C79AE raster/clipping residue retains 224 and is the next frontier.
+
 ### #474
 
 Closed [x] 2026-08-29. The remaining Level `$03` object displacement after
@@ -23825,6 +23852,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 475 | [x] | P2 | enemy/render | Hand exports the live `stru_32B50`/`stru_32B56`/`stru_32B6A` per-object animation phase. | Frame-60/359 phase regression; full sweep -369 pixels with no level regression. See archive #475. |
 | 474 | [x] | P2 | enemy/Hand | Hand preserves the post-movement slope collision until the next `loc_3299C` coroutine resume. | Frame-176 position/velocity/facing regression; full sweep -245 pixels with no level regression. See archive #474. |
 | 473 | [x] | P2 | rendering/palette | Settled recording hand-off preserves the Mountain/Cave `loc_1223C` palette-coroutine phase. | Three-route PC/CRAM regression; full sweep -6,861 pixels with no level regression. See archive #473. |
 | 472 | [x] | P2 | rendering/background | Time_Frames-driven `$00` layered rows repeat through the 512-pixel Plane-B wrap instead of disappearing after one row width. | Oracle frame-359 pixel regression; Level `$03` idle tail 2,371 -> 887 pixels; full frame sweep remains 66/69. See archive #472. |

@@ -21255,6 +21255,37 @@ mod tests {
     }
 
     #[test]
+    fn level03_settled_hand_walk_animation_matches_stru_32b6a() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x03);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x03 sweep trace");
+        let hand_phase = |frame: usize| {
+            run.trace[frame]
+                .active_enemy_details
+                .iter()
+                .find(|enemy| {
+                    matches!(
+                        enemy.kind,
+                        wildside_core::NativeObjectKind::Enemy { object_type: 0x17 }
+                    )
+                })
+                .and_then(|enemy| enemy.sprite_animation_phase)
+        };
+        assert_eq!(
+            (hand_phase(60), hand_phase(359)),
+            (Some(1), Some(0)),
+            "oracle GfxObject frames expose stru_32B6A C79B6 at frame 60 and C79AE at frame 359"
+        );
+    }
+
+    #[test]
     #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
     fn settled_warp_lava_water_countdown_matches_oracle_loc_1223c() {
         let Some(manifest) = cached_generated_manifest() else {

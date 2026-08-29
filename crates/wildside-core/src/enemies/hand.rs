@@ -9,6 +9,47 @@ pub(crate) const HAND_WALK_SPEED: [i32; 3] = [0x3000, 0x4800, 0x6000];
 /// Hand jump-attack gravity (Hand.asm line 130: $4000 per frame).
 pub(crate) const HAND_GRAVITY: i32 = 0x4000;
 
+const HAND_WALK_ANIMATION_FRAME_TICKS_STRU_32B6A: u8 = 0x0F;
+const HAND_WALK_ANIMATION_FRAMES_STRU_32B6A: u8 = 3;
+const HAND_JUMP_ANIMATION_FRAME_TICKS_STRU_32B56: u8 = 0x0A;
+const HAND_RECORDING_SETTLE_ADVANCE_TICKS_LOC_1AE2E: u8 = 60;
+
+pub(crate) fn hand_animation_advance_stru_32b50(state: HandState, elapsed: u8) -> u8 {
+    // ASM Hand.asm loc_327F2/loc_328E0/loc_32906: GfxObject_Animate advances
+    // independently while each Object coroutine hibernates. Walking loops its
+    // three `$0F` entries; jumping holds the third `$0A` entry after the script
+    // terminator; grabbing is a fixed one-frame script.
+    match state {
+        HandState::Walking | HandState::WalkingTerrainReversePendingLoc3299C => {
+            elapsed.wrapping_add(1)
+                % (HAND_WALK_ANIMATION_FRAME_TICKS_STRU_32B6A
+                    * HAND_WALK_ANIMATION_FRAMES_STRU_32B6A)
+        }
+        HandState::Jumping => elapsed
+            .saturating_add(1)
+            .min(HAND_JUMP_ANIMATION_FRAME_TICKS_STRU_32B56 * 3 - 1),
+        HandState::Grabbing => 0,
+    }
+}
+
+pub(crate) fn hand_live_sprite_animation_phase_stru_32b50(state: HandState, elapsed: u8) -> u8 {
+    match state {
+        HandState::Walking | HandState::WalkingTerrainReversePendingLoc3299C => {
+            elapsed / HAND_WALK_ANIMATION_FRAME_TICKS_STRU_32B6A
+        }
+        HandState::Jumping => 3 + (elapsed / HAND_JUMP_ANIMATION_FRAME_TICKS_STRU_32B56).min(2),
+        HandState::Grabbing => 6,
+    }
+}
+
+pub(crate) fn hand_recording_settle_animation_seed_stru_32b6a() -> u8 {
+    let cycle = HAND_WALK_ANIMATION_FRAME_TICKS_STRU_32B6A * HAND_WALK_ANIMATION_FRAMES_STRU_32B6A;
+    // The settle helper advances 60 native object passes after this seed. Its
+    // resulting pre-scenario tick must be one so frame zero's animation pass
+    // exposes timer `$0D` (elapsed tick two) like the oracle.
+    (1 + cycle - HAND_RECORDING_SETTLE_ADVANCE_TICKS_LOC_1AE2E % cycle) % cycle
+}
+
 #[allow(non_snake_case)]
 pub(crate) fn hand_jump_seed_loc_328a6(enemy_level: u8) -> i16 {
     // ASM Hand.asm loc_328A6: `move.w $46(a5),d5` loads the table's
@@ -757,6 +798,7 @@ fn start_hand_jump_attack_loc_328a6(enemy: &mut ActiveEnemy, player_x_pos: u32, 
     // ASM Hand.asm loc_328A6/loc_328AA: load the saved level-selected speed seed, mix each
     // random byte with Kid's low position byte, then store the prepared X/Y velocities.
     enemy.hand_state = HandState::Jumping;
+    enemy.dragon_descent_frames = 0;
     enemy.on_ground = false;
     let speed_seed = hand_jump_seed_loc_328a6(enemy.enemy_level);
     let jump = hand_jump_components_loc_328aa(
@@ -850,6 +892,8 @@ pub(crate) fn step_hand_with_form(
     // ASM Hand.asm Enemy17_Hand_Init saves all three level-selected table values
     // in parent scratch fields; damage never changes them.
     let tier = usize::from(enemy.enemy_level).min(2);
+    enemy.dragon_descent_frames =
+        hand_animation_advance_stru_32b50(enemy.hand_state, enemy.dragon_descent_frames);
 
     if matches!(
         enemy.hand_state,
@@ -1035,6 +1079,7 @@ pub(crate) fn step_hand_with_form(
                         enemy.y_velocity = 0;
                         enemy.on_ground = true;
                         enemy.hand_state = HandState::Walking;
+                        enemy.dragon_descent_frames = 0;
                     }
                 }
             }
@@ -1069,6 +1114,28 @@ pub(crate) fn step_hand_with_form(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hand_live_animation_cadence_matches_stru_32b50_32b56_32b6a() {
+        assert_eq!(hand_recording_settle_animation_seed_stru_32b6a(), 31);
+        assert_eq!(
+            [0, 14, 15, 29, 30, 44]
+                .map(|tick| hand_live_sprite_animation_phase_stru_32b50(HandState::Walking, tick)),
+            [0, 0, 1, 1, 2, 2],
+            "ASM stru_32B6A holds C79AE/C79B6/C79BE for `$0F` ticks each"
+        );
+        assert_eq!(
+            [0, 9, 10, 19, 20, 29]
+                .map(|tick| hand_live_sprite_animation_phase_stru_32b50(HandState::Jumping, tick)),
+            [3, 3, 4, 4, 5, 5],
+            "ASM stru_32B56 holds the three jump mappings for `$0A` ticks"
+        );
+        assert_eq!(
+            hand_live_sprite_animation_phase_stru_32b50(HandState::Grabbing, 29),
+            6,
+            "ASM stru_32B50 fixes the grab at C79DE"
+        );
+    }
 
     #[test]
     fn hand_init_matches_loc_327b6_flags_and_default_direction() {
