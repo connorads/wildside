@@ -21204,6 +21204,13 @@ mod tests {
             (169, 468),
             "ASM loc_74E0 blocks Mode_Level loc_892/loc_3038A until Level 0x03's loader completes at debug-title step 73, then the clock advances once per live frame"
         );
+        assert_eq!(
+            idle_tail_render_trace.lava_water_palette_words_loc_1223c,
+            Some([0x0E62, 0x0EC4, 0x0E20, 0x0E40]),
+            "oracle CRAM frame 359 shows two loc_1223C rotations of the Mountain Palette_Buffer+$E..+$14 band; native state {:?} -> {:?}",
+            render_trace.rotate_palette_lava_water_state_loc_1223c,
+            idle_tail_render_trace.rotate_palette_lava_water_state_loc_1223c,
+        );
         let (visuals, _) = load_session_assets(&manifest, 0x03).expect("Level 0x03 visuals");
         assert_eq!(
             super::scene::sample_background_pixel_loc_c070(
@@ -21215,6 +21222,42 @@ mod tests {
             .map(|sample| sample.rgb),
             Some([109, 109, 219]),
             "oracle VDP frame 359 samples Mountain Plane B tile `$783`, pixel 7/2, palette-line 1 index `$A` at 100/10"
+        );
+    }
+
+    #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn settled_warp_lava_water_countdown_matches_oracle_loc_1223c() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut actual = Vec::new();
+        for level in [0x02, 0x03, 0x04] {
+            let scenario = crate::scenarios::idle_level_full_frame_scenario(level);
+            let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+                manifest.clone(),
+                &scenario,
+                crate::scenarios::NativeDynamicRunOptions::default(),
+            )
+            .expect("settled warp trace");
+            let frame0 = trace_frame_with_vdp_latch_at_checkpoint(
+                &run.trace,
+                0,
+                Some(&run.initial_render_latch),
+                "frame_000",
+            )
+            .expect("frame-0 render trace");
+            actual.push((
+                level,
+                frame0
+                    .rotate_palette_lava_water_state_loc_1223c
+                    .map(|state| state.0),
+            ));
+        }
+        assert_eq!(
+            actual,
+            vec![(0x02, Some(1)), (0x03, Some(3)), (0x04, Some(5))],
+            "oracle loc_1223C PC traces expose d0 before each frame's hibernate return"
         );
     }
 

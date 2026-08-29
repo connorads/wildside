@@ -11,6 +11,29 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #473
+
+Closed [x] 2026-08-29. Level `$03`'s apparent terrain/enemy recolours were two
+causes superimposed. Oracle CRAM and `loc_12240` PC traces showed the native
+`RotatePalette_Lava_Water` coroutine was behind at the recording boundary:
+Mountain routes omitted three `Hibernate_Object_1Frame` returns and Cave routes
+omitted six. At Level `$03` frame 60 native reported `(d0,d2,rotations)=(1,5,33)`
+where the oracle cadence requires `(3,5,34)`; frame 359 likewise needed the
+oracle `$0E62,$0EC4,$0E20,$0E40` band.
+
+The correction lives at the recording-oracle adapter and advances the existing
+typed `loc_1223C` state through the omitted returns. A renderer phase offset was
+rejected because it would leave trace state false. A Level `$03` shim was
+rejected because `$02/$04` PC traces prove the same boundary error across both
+Mountain and Cave. A general object-scheduler change was rejected because this
+evidence covers only the palette coroutine.
+
+Focused Level `$03` sweep `1787969789` reduces the maximum from 887 to 607
+pixels. Full sweep `1787970108` remains 66/69 and reduces total residue from
+180,660 to 173,799 pixels with no regressing level: `$03` -280, `$28` -4,964,
+and `$34` -1,617. The remaining Level `$03` scene residue is one type-`$17`
+RockTank at native `$01046000` versus oracle `$01307000`, plus 46 HUD pixels.
+
 ### #472
 
 Closed [x] 2026-08-29. After #471 aligned the settled clock, Level `$03`'s
@@ -23773,6 +23796,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 473 | [x] | P2 | rendering/palette | Settled recording hand-off preserves the Mountain/Cave `loc_1223C` palette-coroutine phase. | Three-route PC/CRAM regression; full sweep -6,861 pixels with no level regression. See archive #473. |
 | 472 | [x] | P2 | rendering/background | Time_Frames-driven `$00` layered rows repeat through the 512-pixel Plane-B wrap instead of disappearing after one row width. | Oracle frame-359 pixel regression; Level `$03` idle tail 2,371 -> 887 pixels; full frame sweep remains 66/69. See archive #472. |
 | 471 | [x] | P2 | rendering/timing | Settled recording warps remove the stale 68-frame compatibility anchor from the loader-gated `Time_Frames` lifecycle. | End-to-end Level `$03` trace=169; sweep `1787966883` frame 60 4,420 -> 586 and idle tail 5,793 -> 2,371 pixels. See archive #471. |
 | 470 | [x] | P2 | rendering/timing | Settled debug warps preserve the per-level loader's suspension of `Mode_Level loc_892 -> Time_Frames loc_3038A`. | Cross-level oracle witnesses 0x02=171, 0x03=169, 0x07=174; focused Level `$03` maximum falls 5,841 -> 5,793 pixels. See archive #470. |

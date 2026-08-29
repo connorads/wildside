@@ -142,6 +142,20 @@ fn recording_oracle_warp_hidden_object_passes_loc_e12(level_id: LevelId) -> usiz
     })
 }
 
+fn recording_oracle_lava_water_handoff_passes_loc_1223c(reload_delay: u16) -> usize {
+    // Oracle PC traces at loc_12240 (immediately after the loc_1223C
+    // Hibernate_Object_1Frame return) expose the coroutine's d0 at scenario
+    // frame 0. The recording helper's collapsed Load_InGame hand-off omits
+    // three Mountain returns (d2=5) and six Cave returns (d2=8). Keep this at
+    // the recording-oracle boundary: ordinary gameplay already advances the
+    // same typed coroutine once per Execute_Objects pass.
+    match reload_delay {
+        5 => 3,
+        8 => 6,
+        _ => 0,
+    }
+}
+
 fn recording_oracle_time_frames_loc_3038a(level_id: LevelId, time_frames: u16) -> u16 {
     debug_level_entry_load_complete_step_loc_74e0(level_id).map_or(time_frames, |load_complete| {
         // ASM loc_74E0 -> Mode_Level loc_892 -> loc_3038A: level loading
@@ -435,6 +449,16 @@ impl NativeRuntime {
         // title-wait pass. A zero pass count naturally performs no work.
         for _ in 0..hidden_object_passes {
             self.step_island_shore_cycle_loc_1202a();
+        }
+        let lava_water_handoff_passes =
+            self.rotate_palette_lava_water_loc_1223c.map_or(0, |state| {
+                recording_oracle_lava_water_handoff_passes_loc_1223c(state.reload_delay_d2)
+            });
+        // ASM RotatePalette_Lava_Water loc_1223A/loc_1223C: preserve the
+        // object-local d0/d2 cadence across the collapsed recording hand-off,
+        // including any live Palette_Buffer rotation it performs.
+        for _ in 0..lava_water_handoff_passes {
+            self.step_rotate_palette_lava_water_loc_1223c();
         }
     }
 }
@@ -1063,6 +1087,25 @@ mod tests {
             recording_oracle_time_frames_loc_3038a(LevelId(0), 174),
             174,
             "direct Level 0 startup does not use the debug loader table"
+        );
+    }
+
+    #[test]
+    fn recording_warp_primes_lava_water_handoff_from_oracle_loc_1223c() {
+        assert_eq!(
+            recording_oracle_lava_water_handoff_passes_loc_1223c(5),
+            3,
+            "Mountain loc_1223C d0 is three hibernate returns behind the oracle recording boundary"
+        );
+        assert_eq!(
+            recording_oracle_lava_water_handoff_passes_loc_1223c(8),
+            6,
+            "Cave loc_1223C d0 is six hibernate returns behind the oracle recording boundary"
+        );
+        assert_eq!(
+            recording_oracle_lava_water_handoff_passes_loc_1223c(7),
+            0,
+            "unrecognised coroutine delays must not gain an inferred recording shim"
         );
     }
 

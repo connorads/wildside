@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (recording palette-coroutine hand-off)
+
+- Oracle `loc_12240` PC traces expose omitted recording-boundary coroutine
+  returns: three for Mountain's five-frame rotator and six for Cave's
+  eight-frame rotator.
+- Priming the typed `loc_1223C` state removes 6,861 full-sweep pixels without
+  regressing any level; Level `$03` falls from 887 to 607.
+- Its remaining scene residue is a type-`$17` RockTank displaced 44 pixels
+  left, not palette debt. NEXT: bisect that enemy frontier. See #473.
+
 ## 2026-08-29 handoff (fast Plane-B row wrap)
 
 - Level `$03`'s late cloud loss was not clock drift: frame-359 WRAM clock,
