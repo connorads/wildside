@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Shishkaboss arrow resident art page)
+
+- The stopped frame-359 arrow was live natively with matching position, zero
+  velocity, fade counter, and C8528 phase. Its apparent roster absence was a
+  native-projectile versus oracle-GfxObject projection mismatch.
+- ASM `loc_3A0D2` selects C8510..C8528 geometry, then registers object `$21`
+  before `loc_32146`. Native had read the geometry's tile indices from Enemy
+  `$22`, producing dagger/explosion pixels instead of the green Boss Eyes page.
+- The arrow now combines C8510..C8528 geometry with object `$21`'s resident
+  tile sheet and palette. A renderer regression pins both provenance sources.
+- Focused full sweep `1788040568` remains state-exact and unmasked. Pixel debt
+  falls at settle 519→423, frame 120 1,935→1,549, frame 300 1,602→1,260, and
+  idle tail 2,635→2,345; worst MAE falls from 2.280 to 1.9.
+
 ## 2026-08-29 handoff (Shishkaboss parent SAT position)
 
 - Active-object anchors, C8600 mapping, direction, and palette all matched the

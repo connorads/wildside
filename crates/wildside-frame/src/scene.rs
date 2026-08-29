@@ -7636,6 +7636,14 @@ fn build_game_scene_filtered(
                         .families
                         .get(&0x22)
                         .and_then(|visuals| {
+                            // ASM loc_3A0D2 selects C8510..C8528 geometry, then
+                            // sets object_meta(a3)=$21 before loc_32146 resolves
+                            // the resident tile page and palette. The mapping
+                            // labels live with `$22`, but the pixels come from
+                            // the live Boss Eyes `$21` object page.
+                            let object_21_visuals = level_visuals.enemies.families.get(&0x21)?;
+                            let tile_sheet = &object_21_visuals.frames.first()?.tile_sheet;
+                            let palette = &object_21_visuals.palette;
                             // ASM loc_3A0D2/stru_3A1CC alternates C8510/C8518
                             // while `$40` is non-zero. loc_3A14E/stru_3A1D6
                             // alternates the larger stopped C8520/C8528 frames.
@@ -7663,8 +7671,8 @@ fn build_game_scene_filtered(
                             commands.push(DrawCommand::Sprite {
                                 x: draw_x,
                                 y: draw_y,
-                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
-                                palette: Arc::new(visuals.palette.clone()),
+                                tile_sheet: Arc::new(tile_sheet.clone()),
+                                palette: Arc::new(palette.clone()),
                                 tiles: build_sprite_tiles(frame, facing, 0),
                             });
                             Some(())
@@ -12078,6 +12086,66 @@ mod tests {
                 (62, 37, 4, 4, [255, 255, 255]),
             ],
             "ASM loc_3931A waiting-eye object slots replace matching Boss Eye satellite projectile markers, while unmatched satellites and attacks still render"
+        );
+    }
+
+    #[test]
+    fn boss_head_arrow_uses_object_21_palette_loc_3a0d2() {
+        let mut visuals = sample_level_visuals(1);
+        let mut arrow_visuals = AnimatedSpriteVisual {
+            palette: sample_palette_with_first_word(0x0220),
+            extra_palettes: Vec::new(),
+            frames: vec![sample_sprite_frame(0x22); 12],
+            frame_duration: 1,
+        };
+        arrow_visuals.frames[11].tile_base_index = 0x005C;
+        visuals.enemies.families.insert(0x22, arrow_visuals);
+        visuals.enemies.families.insert(
+            0x21,
+            AnimatedSpriteVisual {
+                palette: sample_palette_with_first_word(0x0210),
+                extra_palettes: Vec::new(),
+                frames: vec![sample_sprite_frame(0x21)],
+                frame_duration: 1,
+            },
+        );
+        let trace = NativeTraceFrame {
+            active_projectile_details: vec![ActiveProjectileSnapshot {
+                x_pos: 100 << 16,
+                y_pos: 100 << 16,
+                remaining_frames: 0,
+                animation_elapsed_frames: 141,
+                kind: ActiveProjectileKind::BossHeadArrow,
+                ..ActiveProjectileSnapshot::default()
+            }],
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("effects"),
+            None,
+        )
+        .0;
+        let sprite_sources = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite {
+                tile_sheet,
+                palette,
+                ..
+            } => Some((
+                tile_sheet.tiles.first()?.pixels[0],
+                palette.colours.first()?.raw_word,
+            )),
+            _ => None,
+        });
+
+        assert_eq!(
+            sprite_sources,
+            Some((0x21, 0x0210)),
+            "ASM loc_3A0D2 uses C8528 geometry after registering object_meta `$21`, so its tile page and palette both come from the resident Boss Eyes object"
         );
     }
 
