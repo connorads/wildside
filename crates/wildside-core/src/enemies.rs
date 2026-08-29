@@ -2801,6 +2801,14 @@ impl ActiveEnemy {
                 self.shared_walker_state > 0,
                 self.dragon_descent_frames,
             ))
+        } else if is_multi_head_boss(self.family)
+            && !self.death_animation_active
+            && self.boss_eye_orbit_workers.active
+        {
+            // ASM loc_39538/loc_39570 stores the current C8600..C8620
+            // link-table phase in `$22(a3)`. Promote the derived zero-based
+            // frame here so render decisions do not depend on debug strings.
+            Some(self.boss_eye_orbit_workers.phase_index)
         } else {
             None
         };

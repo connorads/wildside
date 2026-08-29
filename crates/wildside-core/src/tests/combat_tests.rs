@@ -15881,6 +15881,11 @@ mod chunk_03 {
         let snapshot = boss.snapshot();
 
         assert_eq!(
+            snapshot.sprite_animation_phase,
+            Some(2),
+            "ASM loc_39538/loc_39570 `$22(a3)` phase must cross the trace boundary as a typed C8600..C8620 frame index"
+        );
+        assert_eq!(
             snapshot
                 .debug_fields
                 .get("boss_eye_parent_phase_word_22_loc_3893e")

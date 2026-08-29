@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Shishkaboss parent mapping phase)
+
+- The remaining Level `$10` parent residue exposed a generic renderer fallback:
+  core tracked the exact live `$22(a3)` link-table word, but frame selection
+  ignored it and advanced Enemy `$22` art from the global frame.
+- Live heads now map `0x0EE0..0x0EE8` directly to C8600..C8620, matching ASM
+  `loc_39538`/`loc_39570`. The phase crosses the trace boundary as typed
+  animation state; core and renderer regressions prevent a debug-field or
+  generic-clock dependency from taking this route again.
+- Focused run `1788043906` remains state-exact and unmasked. The first five
+  checkpoints are unchanged; idle-tail debt falls 2,345→2,281 pixels. Swapping
+  stopped-arrow C8520/C8528 phases regressed the same witness to 2,457 and was
+  rejected.
+
 ## 2026-08-29 handoff (Shishkaboss arrow resident art page)
 
 - The stopped frame-359 arrow was live natively with matching position, zero

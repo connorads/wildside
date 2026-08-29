@@ -1955,12 +1955,35 @@ fn select_live_scorpion_frame<'a>(
         .get(usize::from(object.sprite_animation_phase?))
 }
 
+fn select_live_shishkaboss_head_frame_loc_39538<'a>(
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x22 })
+        || object.hit_points == Some(0)
+    {
+        return None;
+    }
+
+    // ASM loc_39538/loc_39570 leaves the current C8600..C8620 link-table
+    // offset in `$22(a3)`. Core exports its zero-based typed phase because
+    // generic wall-clock animation cannot represent windup and recovery.
+    let frame_index = usize::from(object.sprite_animation_phase?);
+    enemy_visuals
+        .frames
+        .get(frame_index)
+        .filter(|_| frame_index < 5)
+}
+
 pub fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
 ) -> &'a wildside_render::SpriteFrame {
     if let Some(frame) = select_live_spinning_twins_frame(enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_shishkaboss_head_frame_loc_39538(enemy_visuals, object) {
         return frame;
     }
     if object.hit_points == Some(0)
@@ -5591,6 +5614,31 @@ mod tests {
             0x0104,
             "ASM loc_39EBE starts boss-head death on the first C8620 sweep frame"
         );
+    }
+
+    #[test]
+    fn live_shishkaboss_head_uses_exported_loc_39538_phase_word() {
+        let trace = NativeTraceFrame {
+            frame_index: 419,
+            ..NativeTraceFrame::default()
+        };
+        let visuals = labelled_enemy_visuals(8, 3);
+        let mut object = live_enemy_object(0x22);
+
+        for (phase, expected_tile) in [
+            (0, 0x0100),
+            (1, 0x0101),
+            (2, 0x0102),
+            (3, 0x0103),
+            (4, 0x0104),
+        ] {
+            object.sprite_animation_phase = Some(phase);
+            assert_eq!(
+                selected_enemy_tile_base(&trace, &visuals, &object),
+                expected_tile,
+                "ASM loc_39538/loc_39570 must select the C8600..C8620 mapping stored in `$22(a3)`"
+            );
+        }
     }
 
     #[test]
