@@ -21268,6 +21268,53 @@ mod tests {
     }
 
     #[test]
+    fn level65_lava_palette_words_match_oracle_rotate_palette_lava_water_loc_1223c() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x65);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x65 sweep trace");
+        let render_trace = |checkpoint_frame_index, checkpoint_label| {
+            trace_frame_with_vdp_latch_at_checkpoint(
+                &run.trace,
+                checkpoint_frame_index,
+                Some(&run.initial_render_latch),
+                checkpoint_label,
+            )
+            .expect("Level 0x65 render trace")
+        };
+        let level_settle = render_trace(60, "level_settle");
+        let idle_tail = render_trace(359, "idle_tail");
+
+        assert_eq!(
+            (
+                level_settle.current_level,
+                level_settle
+                    .rotate_palette_lava_water_state_loc_1223c
+                    .map(|(d0, d2, _)| (d0, d2)),
+                level_settle.lava_water_palette_words_loc_1223c,
+                idle_tail
+                    .rotate_palette_lava_water_state_loc_1223c
+                    .map(|(d0, d2, _)| (d0, d2)),
+                idle_tail.lava_water_palette_words_loc_1223c,
+            ),
+            (
+                LevelId(0x65),
+                Some((7, 8)),
+                Some([0x0004, 0x0008, 0x000C, 0x002E]),
+                Some((4, 8)),
+                Some([0x002E, 0x0004, 0x0008, 0x000C]),
+            ),
+            "oracle CRAM frames 60 and 359 expose Cave Palette_Buffer+$E..+$14; RotatePalette_Lava_Water loc_1223C rotates the four words every eight frames"
+        );
+    }
+
+    #[test]
     fn level60_goat_gfx_animation_resets_match_init_animation() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

@@ -142,16 +142,23 @@ fn recording_oracle_warp_hidden_object_passes_loc_e12(level_id: LevelId) -> usiz
     })
 }
 
-fn recording_oracle_lava_water_handoff_passes_loc_1223c(reload_delay: u16) -> usize {
+fn recording_oracle_lava_water_handoff_passes_loc_1223c(
+    level_id: LevelId,
+    reload_delay: u16,
+) -> usize {
     // Oracle PC traces at loc_12240 (immediately after the loc_1223C
     // Hibernate_Object_1Frame return) expose the coroutine's d0 at scenario
     // frame 0. The recording helper's collapsed Load_InGame hand-off omits
-    // three Mountain returns (d2=5) and six Cave returns (d2=8). Keep this at
-    // the recording-oracle boundary: ordinary gameplay already advances the
-    // same typed coroutine once per Execute_Objects pass.
-    match reload_delay {
-        5 => 3,
-        8 => 6,
+    // three Mountain returns (d2=5) and ordinarily six Cave returns (d2=8).
+    // Level $65's step-63 loader boundary omits fourteen Cave returns; its
+    // resident worker is already at d0=2, so those returns cross two rotation
+    // boundaries and land on the oracle's d0=7 render latch. Keep this at the
+    // recording-oracle boundary: ordinary gameplay already advances the same
+    // typed coroutine once per Execute_Objects pass.
+    match (level_id, reload_delay) {
+        (LevelId(0x65), 8) => 14,
+        (_, 5) => 3,
+        (_, 8) => 6,
         _ => 0,
     }
 }
@@ -450,15 +457,26 @@ impl NativeRuntime {
         for _ in 0..hidden_object_passes {
             self.step_island_shore_cycle_loc_1202a();
         }
-        let lava_water_handoff_passes =
-            self.rotate_palette_lava_water_loc_1223c.map_or(0, |state| {
-                recording_oracle_lava_water_handoff_passes_loc_1223c(state.reload_delay_d2)
-            });
+        debug_assert_eq!(level_id, self.current_level);
+        let target_reload_delay = self.level_header(level_id).map(|header| {
+            crate::level::compute_rotate_palette_delay_loc_1223A(u16::from(header.level_theme))
+                .delay_frames
+        });
+        let lava_water_handoff_passes = target_reload_delay.map_or(0, |reload_delay| {
+            recording_oracle_lava_water_handoff_passes_loc_1223c(level_id, reload_delay)
+        });
         // ASM RotatePalette_Lava_Water loc_1223A/loc_1223C: preserve the
         // object-local d0/d2 cadence across the collapsed recording hand-off,
         // including any live Palette_Buffer rotation it performs.
-        for _ in 0..lava_water_handoff_passes {
-            self.step_rotate_palette_lava_water_loc_1223c();
+        if self
+            .rotate_palette_lava_water_loc_1223c
+            .is_some_and(|state| {
+                state.owner_level == level_id && Some(state.reload_delay_d2) == target_reload_delay
+            })
+        {
+            for _ in 0..lava_water_handoff_passes {
+                self.step_rotate_palette_lava_water_loc_1223c();
+            }
         }
     }
 }
@@ -1093,19 +1111,24 @@ mod tests {
     #[test]
     fn recording_warp_primes_lava_water_handoff_from_oracle_loc_1223c() {
         assert_eq!(
-            recording_oracle_lava_water_handoff_passes_loc_1223c(5),
+            recording_oracle_lava_water_handoff_passes_loc_1223c(LevelId(0x03), 5),
             3,
             "Mountain loc_1223C d0 is three hibernate returns behind the oracle recording boundary"
         );
         assert_eq!(
-            recording_oracle_lava_water_handoff_passes_loc_1223c(8),
+            recording_oracle_lava_water_handoff_passes_loc_1223c(LevelId(0x04), 8),
             6,
             "Cave loc_1223C d0 is six hibernate returns behind the oracle recording boundary"
         );
         assert_eq!(
-            recording_oracle_lava_water_handoff_passes_loc_1223c(7),
+            recording_oracle_lava_water_handoff_passes_loc_1223c(LevelId(0x04), 7),
             0,
             "unrecognised coroutine delays must not gain an inferred recording shim"
+        );
+        assert_eq!(
+            recording_oracle_lava_water_handoff_passes_loc_1223c(LevelId(0x65), 8),
+            14,
+            "Level $65 oracle CRAM frames 60/359 and d0=7 expose fourteen omitted Cave loc_1223C returns after its step-63 loader boundary"
         );
     }
 

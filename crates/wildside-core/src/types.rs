@@ -986,6 +986,8 @@ pub(crate) struct IslandShoreCycleStateLoc1202A {
 /// ASM `RotatePalette_Lava_Water` object state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct RotatePaletteLavaWaterStateLoc1223C {
+    /// Level whose `Load_InGame loc_11F96` allocated this object.
+    pub(crate) owner_level: LevelId,
     /// ASM `d0`: frames remaining before the next palette rotation.
     pub(crate) countdown_d0: u16,
     /// ASM `d2`: reload delay copied back to d0 after each rotation.

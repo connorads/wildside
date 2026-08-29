@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Level `$65` Cave palette hand-off)
+
+- Oracle CRAM and `RotatePalette_Lava_Water loc_1223C` prove the recording
+  adapter omitted 14 Cave worker returns at Level `$65`'s step-63 loader
+  boundary.
+- Native frame-60/359 palette words and counters now match oracle. The worst
+  Level `$65` residue falls from 27,266 to 7,230 pixels; full residue falls by
+  20,036 with no state regression.
+- NEXT: classify Level `$65`'s remaining geyser/scene residue. See #480.
+
 ## 2026-08-29 handoff (Goat GfxObject animation resets)
 
 - Goat phase is now typed per object and reset at every traced

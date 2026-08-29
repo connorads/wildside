@@ -11,6 +11,35 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #480
+
+Closed [x] 2026-08-29. Level `$65` rendered the full lava foreground band one
+palette rotation behind oracle at frames 60 and 359. Oracle CRAM pins
+`Palette_Buffer+$E..+$14` to `$0004,$0008,$000C,$002E` and then
+`$002E,$0004,$0008,$000C`; native exposed the preceding rotation at both
+checkpoints.
+
+ASM `RotatePalette_Lava_Water loc_1223A/loc_1223C` sets Cave `d2=8`, decrements
+`d0` after each `Hibernate_Object_1Frame`, and rotates on zero. The recording
+adapter reached Level `$65` with its correctly owned worker already at `d0=2`
+after 14 rotations. Oracle's frame-59 object state exposes `d0=7`; replaying
+the 14 omitted returns crosses two rotation boundaries and lands on that exact
+counter and CRAM phase.
+
+A renderer phase offset was rejected because typed palette state itself was
+wrong. Changing the ordinary object scheduler was rejected because gameplay
+already advances the worker once per `Execute_Objects loc_E12` pass. A generic
+six-return Cave correction remains correct for the independently measured
+Level `$04` boundary; Level `$65`'s step-63 recording loader is a distinct
+harness lifecycle. The worker now carries its allocating level explicitly so
+the adapter cannot mistake equal timer values for ownership.
+
+The cache-backed regression pins both live CRAM bands and `d0/d2` at frames 60
+and 359. Focused sweep `1787984510` reduces Level `$65` from 27,266 to 7,230
+worst-checkpoint pixels. Full sweep `1787984520` remains 66/69 with the same 12
+state blockers and reduces total residue from 127,150 to 107,114; no other
+level changes.
+
 ### #479
 
 Closed [x] 2026-08-29. The renderer derived every Goat mapping from the global

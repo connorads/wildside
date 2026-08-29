@@ -19557,6 +19557,7 @@ impl NativeRuntime {
                 // stores the reload value consumed by loc_1223C's loop.
                 self.rotate_palette_lava_water_loc_1223c =
                     Some(RotatePaletteLavaWaterStateLoc1223C {
+                        owner_level: level_id,
                         countdown_d0: delay.delay_frames,
                         reload_delay_d2: delay.delay_frames,
                         completed_rotations: 0,
