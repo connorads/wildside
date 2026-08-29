@@ -20892,13 +20892,24 @@ mod tests {
 
     #[test]
     fn loc_bc34_damage_flash_keeps_player_visible_and_marks_white_phase() {
-        let white_phase = trace_with_player(0, 66);
+        let observation_phase = trace_with_player(0, 66);
+        let observation_scene = build_ingame_scene(&observation_phase, false, None);
+        let white = MdColour::from_word(0x0FFF);
+        let observation_palette =
+            player_sprite_palette(&observation_scene).expect("player sprite palette");
+        assert!(
+            observation_palette
+                .colours
+                .iter()
+                .any(|colour| *colour != white)
+        );
+
+        let white_phase = trace_with_player(2, 64);
         let white_scene = build_ingame_scene(&white_phase, false, None);
         assert!(
             scene_has_player_sprite(&white_scene),
             "ASM loc_BC34 keeps Kid visible through Just_received_damage instead of blinking out"
         );
-        let white = MdColour::from_word(0x0FFF);
         let player_palette = player_sprite_palette(&white_scene).expect("player sprite palette");
         assert!(
             player_palette
@@ -21222,6 +21233,37 @@ mod tests {
             .map(|sample| sample.rgb),
             Some([109, 109, 219]),
             "oracle VDP frame 359 samples Mountain Plane B tile `$783`, pixel 7/2, palette-line 1 index `$A` at 100/10"
+        );
+    }
+
+    #[test]
+    fn level60_first_goat_contact_presents_normal_palette_before_loc_bc56() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x60);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x60 sweep trace");
+        let render_trace = trace_frame_with_vdp_latch_at_checkpoint(
+            &run.trace,
+            60,
+            Some(&run.initial_render_latch),
+            "level_settle",
+        )
+        .expect("Level 0x60 frame-60 render trace");
+
+        assert_eq!(render_trace.invulnerable_frames, 66);
+        assert!(render_trace.just_received_damage);
+        let scene = build_ingame_scene(&render_trace, false, None);
+        let white = MdColour::from_word(0x0FFF);
+        let player_palette = player_sprite_palette(&scene).expect("player sprite palette");
+        assert!(
+            player_palette.colours.iter().any(|colour| *colour != white),
+            "oracle frame 60 keeps Kid's normal palette: ASM loc_BC40 hibernates once before observing Just_received_damage and entering loc_BC56"
         );
     }
 

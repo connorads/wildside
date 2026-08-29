@@ -11,6 +11,31 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #478
+
+Closed [x] 2026-08-29. Level `$60` frame 60 matched oracle gameplay state and
+invulnerability, but native rendered Kid white while the oracle retained the
+normal palette. The defect was presentation phase, not Goat contact ordering.
+
+ASM damage worker `loc_BC40` hibernates once before observing
+`Just_received_damage`; only then does `loc_BC56` call `sub_80BC`. Native had
+treated the full 66-frame damage counter as the first white frame. The phase
+selector now keeps counters 66 and 65 normal and begins the two-white/four-normal
+cycle at 64. A cache-backed Level `$60` regression pins the 66-counter render
+latch, and the synthetic palette test pins the 64-counter white entry.
+
+A per-Goat animation clock was tested first and rejected. It reduced the old
+pre-palette visual but regressed the current full sweep from 128,256 to 128,715
+pixels because native object activation does not yet reproduce the ROM's
+per-GfxObject animation initialisation timing. Do not retry an elapsed clock
+without first modelling that allocation boundary.
+
+Focused report `1787979731` reduces Level `$60` frame 60 from 1,703 to 1,277
+changed pixels; its 1,628-pixel idle tail is unchanged. Full report
+`1787979749` remains 66/69 with the same 12 state blockers and reduces total
+frame residue from 128,256 to 128,181 pixels with no level regression. The full
+published TAS retains exact gameplay, enemy, RNG, pixel and GEMS baselines.
+
 ### #477
 
 Closed [x] 2026-08-29. Level `$60` matched oracle gameplay state but retained

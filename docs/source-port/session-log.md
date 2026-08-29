@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (damage-flash observation frame)
+
+- Level `$60` gameplay and invulnerability matched; only Kid's palette phase
+  differed at the first Goat contact checkpoint.
+- `loc_BC40` hibernates before observing damage. Native now keeps counters
+  66/65 normal and enters `loc_BC56`'s white phase at 64.
+- Full-sweep residue falls by 75 pixels with no level regression. NEXT: model
+  Goat GfxObject allocation/animation initialisation before replacing the
+  renderer's layout-index heuristic. See #478.
+
 ## 2026-08-29 handoff (Elsewhere mapped palette IDs)
 
 - `loc_11D8E`/`loc_11DF4` read `MapOrder_Index`; the Elsewhere suffixes are

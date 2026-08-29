@@ -934,9 +934,11 @@ fn player_damage_flash_white_phase_loc_bc56(trace: &NativeTraceFrame) -> bool {
     // ASM loc_BC56 starts each damage-flash cycle by calling sub_80BC, then
     // loc_BC5C holds the white palette for two hibernated frames before
     // loc_BC6E restores the normal palette for four frames. Native traces
-    // sample the countdown after the live damage shell has entered that
-    // visible body, so the rendered phase is keyed from 64 remaining frames
-    // rather than the full 66-frame latch duration.
+    // include loc_BC40's initial hibernated observation frame at 66 remaining;
+    // sub_80BC first becomes visible after the shell reaches 64.
+    if trace.invulnerable_frames > 64 {
+        return false;
+    }
     (64usize.saturating_sub(trace.invulnerable_frames) % 6) < 2
 }
 
