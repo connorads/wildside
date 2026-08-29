@@ -1469,6 +1469,7 @@ level-layout/63.bin
 level-layout/63.blocklist.bin
 level-layout/64.bin
 level-layout/64.blocklist.bin
+level-layout/64.json
 level-layout/65.bin
 level-layout/65.blocklist.bin
 level-layout/65.json

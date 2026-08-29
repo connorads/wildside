@@ -542,9 +542,10 @@ fn step_tar_monster_burst_child_loop_loc_3263c(
     projectile: &mut EnemyProjectile,
     byte_19_nonzero: bool,
 ) -> bool {
-    // ASM Tar_Monster.asm loc_3263C: hibernate/move first, then add `$1000`
-    // gravity and dispatch any collision through loc_32682 before deciding
-    // whether to loop or delete.
+    // ASM Tar_Monster.asm loc_3263C resumes the Object callback after its
+    // hibernate, adds `$1000` gravity, and dispatches loc_32682. Mode_Level
+    // then reaches GfxObjects_MoveAndAnimate after Execute_Objects, so the
+    // Gfx worker moves with the resulting velocity if the Object survives.
     let step = tar_monster_projectile_loop_loc_3263C(
         projectile.y_velocity,
         projectile.collision_type,
@@ -3994,21 +3995,14 @@ impl NativeRuntime {
                 }
             }
 
-            let mut tar_monster_burst_child_moved_before_callback = false;
-            if is_tar_monster_burst_child && !tar_monster_burst_child_initialising {
-                // ASM Tar_Monster.asm loc_3263C: the one-frame hibernate lets
-                // `is_moved` apply the old velocity before the worker adds
-                // gravity and consumes the previous collision latch. Any
-                // reflected velocity therefore starts on the next frame.
-                p.x_pos = p.x_pos.wrapping_add(p.x_velocity as u32);
-                p.y_pos = p.y_pos.wrapping_add(p.y_velocity as u32);
-                tar_monster_burst_child_moved_before_callback = true;
-                if !step_tar_monster_burst_child_loop_loc_3263c(
+            if is_tar_monster_burst_child
+                && !tar_monster_burst_child_initialising
+                && !step_tar_monster_burst_child_loop_loc_3263c(
                     p,
                     p.tar_monster_byte_19_latched,
-                ) {
-                    return false;
-                }
+                )
+            {
+                return false;
             }
 
             let tar_monster_collision_latched = is_tar_monster_straight_glob
@@ -4028,10 +4022,7 @@ impl NativeRuntime {
                     return false;
                 }
             }
-            if !is_lion_projectile
-                && !tar_monster_collision_latched
-                && !tar_monster_burst_child_moved_before_callback
-            {
+            if !is_lion_projectile && !tar_monster_collision_latched {
                 p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
                 p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
             }

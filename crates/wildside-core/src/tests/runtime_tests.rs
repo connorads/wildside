@@ -22109,9 +22109,12 @@ mod chunk_09 {
 
     #[test]
     fn loc_3263c_burst_helpers_apply_their_asm_gravity_order() {
-        for kind in [
-            EnemyProjectileKind::TarMonsterBurstChild,
-            EnemyProjectileKind::DripsSurfaceCrawlerBurst,
+        for (kind, expected_y_pos) in [
+            (
+                EnemyProjectileKind::TarMonsterBurstChild,
+                (102 << 16) + 0x1000,
+            ),
+            (EnemyProjectileKind::DripsSurfaceCrawlerBurst, 102 << 16),
         ] {
             let mut rt = NativeRuntime::new(manifest());
             let mut proj = make_projectile(100, 100);
@@ -22124,13 +22127,12 @@ mod chunk_09 {
 
             let moved = &rt.projectiles[0];
             assert_eq!(
-                moved.y_pos,
-                102 << 16,
-                "ASM Tar_Monster.asm loc_3263C hibernates and moves before adding `$1000`; Drips keeps the same post-move gravity order for {kind:?}"
+                moved.y_pos, expected_y_pos,
+                "ASM Mode_Level executes loc_3263C before GfxObjects_MoveAndAnimate, while Drips keeps its separate post-move gravity order for {kind:?}"
             );
             assert_eq!(
                 moved.y_velocity, 0x0002_1000,
-                "ASM Tar_Monster.asm loc_3263C adds gravity after the movement step for {kind:?}"
+                "ASM Tar_Monster.asm loc_3263C and the Drips worker each retain the added gravity for {kind:?}"
             );
         }
     }

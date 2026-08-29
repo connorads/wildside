@@ -11,6 +11,37 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #486
+
+Closed [x] 2026-08-29. Full frame report `1788008476` left Level `$64` as the
+only authoritative non-boss failure: at `idle_tail`, native had deleted one
+Object/Gfx pair (`9/12`) that oracle retained (`10/13`). Focused recording
+`issue486-level64-object-probe` sampled the ROM's complete Object list through
+the burst interval. At frame 134 all ten `loc_3263C` children agree, but by
+frame 185 native is one movement ahead in both X directions. Oracle retains
+the final `$FFFF163C` child through frame 359 at `loc_32640`, position
+`$00204000,$0180A800`, velocity `$00002000,$FFFF0C00`.
+
+The regression came from commit `6c75f130a`, which inferred that the
+`j_Hibernate_Object_1Frame` resume moved a child before the rest of
+`loc_3263C`. The actual outer schedule is explicit in ASM: `Mode_Level` calls
+`Execute_Objects`, where the resumed callback adds `$1000` gravity and runs
+`loc_32682`, then calls `GfxObjects_MoveAndAnimate`. Native now preserves that
+same Object-then-Gfx order. The alternative of retaining pre-callback movement
+and delaying only collision responses was rejected because the fresh oracle
+shows the phase lead before the first cleanup, on children with empty
+collision latches.
+
+The existing cache-backed 360-frame regression again matches every measured
+Object/Gfx transition from frames 94 through 338. Focused sweep `1788014705`
+passes Level `$64`; full frame sweep `1788015747` improves 67/69 -> 68/69 and
+six -> four authoritative diffs with no regression. The sole failing level is
+`$33`, whose four boss diffs remain owned by blocked umbrella #301. The logical
+`level-layout/64.json` sidecar produced by the fresh oracle capture is now in
+the runtime catalogue, so browser builds consume the same authoritative RAM
+fixture. `verify-tas-full` remains exact on all 37,759 gameplay/enemy/RNG
+frames and preserves the 2,391-pixel published-route ratchet.
+
 ### #485
 
 Closed [x] 2026-08-29. Full frame report `1788000161` identified Level `$10`
@@ -24115,6 +24146,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 486 | [x] | P1 | enemy/fidelity | Tar Monster burst children resume `loc_3263C` before `GfxObjects_MoveAndAnimate`, removing the inferred pre-callback movement pass. | Level `$64` passes focused/full sweeps; 68/69 overall with only blocked boss `$33` failing. See archive #486. |
 | 485 | [x] | P1 | level/collision | Logical RAM fixtures never alias mapped resource IDs; absent captures rebuild from ROM resources. | Level `$10` state exact; full residue 99,975 -> 79,489. See archive #485. |
 | 484 | [x] | P1 | recording/render | Debug recording lifecycles do not replay the Island `loc_1202A` hidden object window twice. | Level `$17` frame 358 pins `$01D0` and shore bands `(3,2,2)`. See archive #484. |
 | 483 | [x] | P1 | weather/lifecycle | Lava geyser rise, peak hold, restart script, and animation-palette phase match oracle. | Exact frame-359 SAT/CRAM regression; Level `$65` 1,595 -> 91 pixels. See archive #483. |

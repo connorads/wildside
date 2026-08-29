@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Tar Monster callback/Gfx ordering)
+
+- Fresh Level `$64` WRAM Object-slot checkpoints prove native moved every
+  `loc_3263C` burst child one pass ahead after the August callback-order patch.
+- `Mode_Level` executes the resumed Object callback before
+  `GfxObjects_MoveAndAnimate`; native now adds gravity/handles collision before
+  the Gfx movement pass. The complete frames 94-338 cleanup schedule is exact.
+- Full sweep `1788015747` improves 67/69 -> 68/69. Only blocked boss Level
+  `$33` remains authoritative-red. Fast/full TAS gates stay green. See #486.
+
 ## 2026-08-29 handoff (logical/resource layout fixture de-aliasing)
 
 - RAM `Level_Layout` and block-list sidecars are keyed by logical level. An
