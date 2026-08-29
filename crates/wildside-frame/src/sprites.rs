@@ -262,15 +262,6 @@ fn opposite_direction(facing: Direction) -> Direction {
     }
 }
 
-fn shishkaboss_head_screen_x_loc_129e(screen_x: i32) -> i32 {
-    // ASM Make_SpriteFromGfxObject loc_129E consumes C8600's `$20` x-centre.
-    // The transferred Level `$10` Sprite_Table places the moving `$22` parent
-    // four pixels right of the post-object snapshot used by native rendering;
-    // direct oracle pixels at the settled frame preserve that presentation
-    // hand-off instead of moving the linked `$21` eye anchors with the head.
-    screen_x + 4
-}
-
 const ROCK_TANK_SHOOTING_SLOW_STRU_3B4F6: [TankTurretFrameSpec; 8] = [
     TankTurretFrameSpec {
         duration_frames: 0x37,
@@ -2491,10 +2482,10 @@ pub fn push_enemy_sprite(
         return;
     };
 
-    let (mut screen_x, screen_y) = player_screen_position(object, trace);
-    if object_type == 0x22 {
-        screen_x = shishkaboss_head_screen_x_loc_129e(screen_x);
-    }
+    // ASM Make_SpriteFromGfxObject loc_129E consumes the GfxObject's world
+    // centre directly. Live Shishkaboss C8600..C8620 phase now crosses the
+    // typed trace boundary, so no presentation-offset compensation belongs here.
+    let (screen_x, screen_y) = player_screen_position(object, trace);
     let mut facing = object.facing.unwrap_or(Direction::Right);
     if object_type == 0x22
         && object.hit_points == Some(0)
@@ -3667,15 +3658,6 @@ mod tests {
         assert_eq!(
             sprite_draw_position(&frame, 100, 50, Direction::Left),
             (83, 35)
-        );
-    }
-
-    #[test]
-    fn shishkaboss_head_keeps_transferred_sat_x_loc_129e() {
-        assert_eq!(
-            shishkaboss_head_screen_x_loc_129e(249),
-            253,
-            "ASM loc_129E/C8600 Level `$10` oracle pixels pin the four-pixel parent presentation hand-off"
         );
     }
 
