@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use wildside_core::{NativeRuntime, NativeTraceFrame, PlayerForm, ScriptRunner};
+use wildside_core::{LevelId, NativeRuntime, NativeTraceFrame, PlayerForm, ScriptRunner};
 use wildside_data::AssetManifest;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -491,6 +491,29 @@ fn configure_script_runner(
     }
 
     Ok(runner)
+}
+
+/// Bootstrap a direct [`NativeRuntime`] through the same warp lifecycle that
+/// [`configure_script_runner`] selects for dynamic scenario traces.
+///
+/// `settle_oracle_warp` names the recording oracle's loc_74E0 title-card
+/// lifecycle. Pixel capture and VDP diagnostics must enter through that shell
+/// before applying its residual live window, rather than pairing the
+/// compatibility warp with recording-only settling.
+pub(crate) fn boot_dynamic_scenario_runtime(
+    runtime: &mut NativeRuntime,
+    scenario: &DynamicScenario,
+) {
+    let Some(level) = scenario.warp_to_level else {
+        return;
+    };
+    let level = LevelId(level);
+    if scenario.settle_oracle_warp {
+        runtime.boot_to_level_for_recording_oracle(level);
+        runtime.settle_recording_oracle_warp_live_window(level);
+    } else {
+        runtime.boot_to_level(level);
+    }
 }
 
 /// Idle on a level for `idle_frames` (default 300, ~5 s at 60 fps).
@@ -2670,10 +2693,11 @@ pub fn issue_260_gr_pulse600_scenario() -> DynamicScenario {
 mod tests {
     use super::{
         DynamicCheckpoint, DynamicScenario, DynamicStartPosition, DynamicStartVelocity,
-        GameplayScenario, NativeDynamicRunOptions, Scenario, diamond_power_circle_audit_scenario,
-        diamond_power_invulnerability_audit_scenario, diamond_power_samurai_haze_audit_scenario,
-        diamond_power_snake_audit_scenario, diamond_power_wall_audit_scenario,
-        enemy_spawn_audit_scenario, idle_level_full_frame_scenario, idle_level_scenario,
+        GameplayScenario, NativeDynamicRunOptions, Scenario, boot_dynamic_scenario_runtime,
+        diamond_power_circle_audit_scenario, diamond_power_invulnerability_audit_scenario,
+        diamond_power_samurai_haze_audit_scenario, diamond_power_snake_audit_scenario,
+        diamond_power_wall_audit_scenario, enemy_spawn_audit_scenario,
+        idle_level_full_frame_scenario, idle_level_scenario,
         issue_147_wall_side_jump_audit_scenario, issue_213_drips_delayed_b_drop_audit_scenario,
         issue_213_drips_metal_block_audit_scenario, issue_216_prize_audio_audit_scenario,
         issue_249_blw2_left_pit_wall_kid_no_jump_audit_scenario,
@@ -2714,6 +2738,55 @@ mod tests {
         manifest_path
             .is_file()
             .then(|| wildside_data::load_manifest(&manifest_path).expect("load cached manifest"))
+    }
+
+    #[test]
+    fn direct_runtime_boot_uses_recording_oracle_loc_74e0_lifecycle() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = idle_level_full_frame_scenario(0x10);
+        let mut runtime =
+            wildside_core::NativeRuntime::with_generated_level_layout(manifest.clone());
+
+        boot_dynamic_scenario_runtime(&mut runtime, &scenario);
+        let frame_60 = (0..=60)
+            .map(|_| runtime.step_frame(wildside_core::FrameInput::default()))
+            .last()
+            .expect("Level 0x10 recording scenario frame 60");
+
+        assert_eq!(
+            frame_60
+                .active_projectile_details
+                .iter()
+                .filter(|projectile| {
+                    projectile.kind == wildside_core::ActiveProjectileKind::BossHeadArrow
+                })
+                .count(),
+            2,
+            "ASM loc_74E0's recording title shell ages both loc_39566 Shishkaboss arrow gates before frame 60; direct pixel and VDP runners must use the same bootstrap as ScriptRunner",
+        );
+
+        let trace = super::run_native_dynamic_scenario(
+            manifest,
+            &scenario,
+            super::NativeDynamicRunOptions {
+                settled_warp: false,
+                trace_physics: false,
+            },
+        )
+        .expect("run Level 0x10 dynamic scenario");
+        assert_eq!(
+            trace[60]
+                .active_projectile_details
+                .iter()
+                .filter(|projectile| {
+                    projectile.kind == wildside_core::ActiveProjectileKind::BossHeadArrow
+                })
+                .count(),
+            2,
+            "ScriptRunner and direct-runtime diagnostic paths must expose the same loc_74E0 history",
+        );
     }
 
     #[test]

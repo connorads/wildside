@@ -3594,25 +3594,10 @@ impl NativeRuntime {
                 }
                 return true;
             }
-            if is_boss_head_arrow && p.lifetime == 0 {
-                if p.animation_elapsed_frames == 0 {
-                    let step = crate::combat::fire_demon_fragment_movement_step_loc_3A134(
-                        p.lifetime,
-                    );
-                    debug_assert!(step.hibernates_one_frame);
-                    debug_assert!(step.clears_x_vel);
-                    debug_assert_eq!(step.fade_animation_label, Some("stru_3A1D6"));
-                    debug_assert_eq!(
-                        step.next,
-                        crate::combat::FireDemonFragmentMovementNextLoc3A134::FadeLoopLoc3A14E
-                    );
-                    // ASM loc_3A134 -> loc_3A14E: once `$40(a3)` reaches 0,
-                    // clear x_vel, switch to the stuck animation, and seed
-                    // `$42(a3)=$C8` for the wait-before-delete loop.
-                    p.x_velocity = 0;
-                    p.y_velocity = 0;
-                    p.animation_elapsed_frames = 0x00C8;
-                } else if p.animation_elapsed_frames == 1 {
+            if is_boss_head_arrow
+                && p.lifetime == 0
+                && p.animation_elapsed_frames == 1
+            {
                     let step = crate::combat::fire_demon_fragment_fade_step_loc_3A14E(0);
                     debug_assert!(step.hibernates_one_frame);
                     debug_assert!(step.delete_current_object);
@@ -3621,7 +3606,6 @@ impl NativeRuntime {
                         crate::combat::FireDemonFragmentFadeNextLoc3A14E::DeleteCurrentObject
                     );
                     return false;
-                }
             }
             if is_boss_head_boomerang && p.lifetime == 0 {
                 return false;
@@ -4131,6 +4115,24 @@ impl NativeRuntime {
                     if collision.delete_current_object {
                         return false;
                     }
+                } else if p.animation_elapsed_frames == 0 {
+                    let step = crate::combat::fire_demon_fragment_movement_step_loc_3A134(
+                        p.lifetime,
+                    );
+                    debug_assert!(step.hibernates_one_frame);
+                    debug_assert!(step.clears_x_vel);
+                    debug_assert_eq!(step.fade_animation_label, Some("stru_3A1D6"));
+                    debug_assert_eq!(
+                        step.next,
+                        crate::combat::FireDemonFragmentMovementNextLoc3A134::FadeLoopLoc3A14E
+                    );
+                    // ASM Execute_Objects moves GfxObject position before its
+                    // callback resumes. loc_3A134 therefore observes `$40==0`
+                    // only after the final velocity step, then clears x_vel,
+                    // starts stru_3A1D6 and seeds `$42=$C8` for loc_3A14E.
+                    p.x_velocity = 0;
+                    p.y_velocity = 0;
+                    p.animation_elapsed_frames = 0x00C8;
                 } else {
                     let step = crate::combat::fire_demon_fragment_fade_step_loc_3A14E(
                         p.animation_elapsed_frames,

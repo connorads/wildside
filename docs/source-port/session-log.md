@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Shishkaboss arrow hand-off and diagnostic bootstrap)
+
+- `loc_3A134` observes the expired movement counter after GfxObject movement,
+  so the arrow now takes its final -3 px step before `loc_3A14E` clears velocity.
+- Oracle and native head descent, Kid-window activation, and 90-pass projectile
+  schedule match. The apparent missing second arrow came from direct diagnostic
+  paths pairing the compatibility warp with recording-only settling.
+- Pixel capture and VDP dumps now use one dynamic-scenario bootstrap matching
+  `ScriptRunner`. A cache-backed Level `$10` contract pins both `loc_39566`
+  arrows at recording frame 60.
+- Focused full sweep run `1788036072` passes state unmasked with 519 settle
+  pixels and 2,870 idle-tail pixels, down six at the idle checkpoint.
+
 ## 2026-08-29 handoff (Shishkaboss arrow source art)
 
 - Level `$10` now draws the moving `C8510/C8518` and stopped

@@ -109,8 +109,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 use wildside_core::physics::Direction as NativeDirection;
 use wildside_core::{
-    ActiveProjectileKind, FrameInput, GameMode as NativeGameMode, LevelId, NativeRuntime,
-    NativeTraceFrame, PlayerForm, run_script,
+    ActiveProjectileKind, FrameInput, GameMode as NativeGameMode, NativeRuntime, NativeTraceFrame,
+    PlayerForm, run_script,
 };
 use wildside_data::{
     AssetManifest, find_enemy_definition, load_level_asset_bundle, pack_runtime_bundle_blob,
@@ -3600,13 +3600,7 @@ fn write_native_vdp_dumps_for_dynamic_scenario(
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
 
     let mut runtime = NativeRuntime::with_generated_level_layout(manifest.clone());
-    if let Some(level_id) = scenario.warp_to_level {
-        let level_id = LevelId(level_id);
-        runtime.boot_to_level(level_id);
-        if scenario.settle_oracle_warp {
-            runtime.settle_recording_oracle_warp_live_window(level_id);
-        }
-    }
+    scenarios::boot_dynamic_scenario_runtime(&mut runtime, scenario);
     if let Some(position) = scenario.start_position {
         runtime.set_player_probe_position(position.x, position.y);
     }

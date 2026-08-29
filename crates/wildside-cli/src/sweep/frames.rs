@@ -1,9 +1,9 @@
 use super::*;
 use scenarios::{
-    DynamicScenario, idle_level_scenario, prize_block_scenario, stomp_enemy_scenario,
-    walk_right_scenario,
+    DynamicScenario, boot_dynamic_scenario_runtime, idle_level_scenario, prize_block_scenario,
+    stomp_enemy_scenario, walk_right_scenario,
 };
-use wildside_core::{FrameInput, LevelId, NativeRuntime, PlayerForm};
+use wildside_core::{FrameInput, NativeRuntime, PlayerForm};
 
 #[cfg(test)]
 fn capture_frame_block_grid<'a>(
@@ -123,13 +123,7 @@ pub(crate) fn capture_scenario_frames(
 
     let mut runtime = NativeRuntime::with_generated_level_layout(manifest.clone());
     runtime.set_recorded_title_card_handoff_delay(true);
-    if let Some(level) = scenario.warp_to_level {
-        let target_level = LevelId(level);
-        runtime.boot_to_level(target_level);
-        if scenario.settle_oracle_warp {
-            runtime.settle_recording_oracle_warp_live_window(target_level);
-        }
-    }
+    boot_dynamic_scenario_runtime(&mut runtime, scenario);
     if let Some(position) = scenario.start_position {
         runtime.set_player_probe_position(position.x, position.y);
     }

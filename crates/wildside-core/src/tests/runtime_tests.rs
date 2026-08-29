@@ -11353,7 +11353,7 @@ mod chunk_09 {
             return;
         };
         let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
-        runtime.boot_to_level(LevelId(0x10));
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x10));
         runtime.settle_recording_oracle_warp_live_window(LevelId(0x10));
         let trace = (0..=60)
             .map(|_| runtime.step_frame(FrameInput::default()))

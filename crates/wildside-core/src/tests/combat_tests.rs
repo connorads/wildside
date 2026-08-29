@@ -4211,14 +4211,19 @@ fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
 
     assert_eq!(runtime.projectiles.len(), 1);
     assert_eq!(
-        runtime.projectiles[0].x_pos, 0x016A_0000,
-        "ASM loc_3A134 clears x_vel before entering loc_3A14E's stuck wait, so the first stuck frame must not move"
+        runtime.projectiles[0].x_pos, 0x0167_0000,
+        "ASM Execute_Objects moves the GfxObject before loc_3A134 observes `$40(a3)==0`, so the transition into the stuck phase retains one final -3px movement"
     );
     assert_eq!(runtime.projectiles[0].x_velocity, 0);
     assert_eq!(
-        runtime.projectiles[0].animation_elapsed_frames, 0x00C7,
-        "ASM loc_3A14E seeds `$42(a3)=$C8`; loc_3A15E decrements it after the first stuck hibernate"
+        runtime.projectiles[0].animation_elapsed_frames, 0x00C8,
+        "ASM loc_3A134 seeds `$42(a3)=$C8` after the final moving pass; loc_3A14E does not wake and decrement it until the next object pass"
     );
+
+    runtime.step_projectiles();
+
+    assert_eq!(runtime.projectiles[0].x_pos, 0x0167_0000);
+    assert_eq!(runtime.projectiles[0].animation_elapsed_frames, 0x00C7);
 }
 
 #[test]
