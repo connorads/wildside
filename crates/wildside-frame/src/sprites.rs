@@ -6115,7 +6115,8 @@ mod tests {
                 },
                 &visuals
             ),
-            0x0801
+            0x0803,
+            "ASM sub_B270 loc_B334/loc_B350 uses off_B3B8 descending state 3 for the unclassified non-negative-velocity fallback"
         );
         assert_eq!(
             selected_tile_base(
@@ -6126,7 +6127,8 @@ mod tests {
                 },
                 &visuals
             ),
-            0x0801
+            0x0803,
+            "ASM sub_B270 loc_B334/loc_B350 uses off_B3B8 descending state 3 for the unclassified non-negative-velocity fallback"
         );
     }
 

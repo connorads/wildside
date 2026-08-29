@@ -11,6 +11,24 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #487
+
+Closed [x] 2026-08-29. A scoped mutation audit of the recently changed Goat
+and Hand live sprite selectors first failed on the reviewed workspace baseline
+test `select_player_frame_uses_accumulator_for_ground_slope_and_walk_poses`.
+The failure is deterministic and predates the selector work: commit
+`068cfb3e5` replaced the two-state rise/fall fallback with ASM `sub_B270`'s
+four `off_B3B8` airborne mappings, but this older contract still expected the
+retired fall-page index 1 for unclassified zero and positive Y velocities.
+
+The test now expects descending state 3, matching the production selector's
+documented `loc_B334/loc_B350` fallback. Its focused run is green and the
+downward-only workspace baseline shrinks from two failures to one; only the
+independent wildside-md sprite-line failure remains. The Goat census completed
+32 mutants with 29 caught, one unviable, and two equivalent unreachable-tail
+mutants. The Hand census completed nine with eight caught and one unviable.
+No runtime renderer change was warranted.
+
 ### #486
 
 Closed [x] 2026-08-29. Full frame report `1788008476` left Level `$64` as the
@@ -24146,6 +24164,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 487 | [x] | P2 | verify/render | The four-state `sub_B270` airborne selector contract matches its state-3 fallback and leaves the workspace baseline with one failure. | Focused frame test green; workspace ratchet 2 -> 1; scoped Goat/Hand mutation censuses complete. See archive #487. |
 | 486 | [x] | P1 | enemy/fidelity | Tar Monster burst children resume `loc_3263C` before `GfxObjects_MoveAndAnimate`, removing the inferred pre-callback movement pass. | Level `$64` passes focused/full sweeps; 68/69 overall with only blocked boss `$33` failing. See archive #486. |
 | 485 | [x] | P1 | level/collision | Logical RAM fixtures never alias mapped resource IDs; absent captures rebuild from ROM resources. | Level `$10` state exact; full residue 99,975 -> 79,489. See archive #485. |
 | 484 | [x] | P1 | recording/render | Debug recording lifecycles do not replay the Island `loc_1202A` hidden object window twice. | Level `$17` frame 358 pins `$01D0` and shore bands `(3,2,2)`. See archive #484. |

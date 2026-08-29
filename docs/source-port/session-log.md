@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (airborne renderer baseline shrink)
+
+- Fresh Goat and Hand selector mutation runs exposed a deterministic reviewed
+  frame-test failure before testing mutants.
+- The stale assertion predated the four-state `sub_B270` renderer and expected
+  old fall page 1 where `loc_B334/loc_B350` selects descending state 3.
+- The focused test is green and the workspace failure baseline shrinks 2 -> 1.
+  Goat and Hand selector censuses have no actionable survivors. See #487.
+
 ## 2026-08-29 handoff (Tar Monster callback/Gfx ordering)
 
 - Fresh Level `$64` WRAM Object-slot checkpoints prove native moved every
