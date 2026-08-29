@@ -34,8 +34,11 @@ hooks {
             }
             ["typos"] {
                 exclude = binary_excludes + List("*.lock")
-                fix = "typos --write-changes"
-                check = "typos"
+                // Generated verbatim from the pinned disassembly's RAM variable
+                // descriptions, including upstream spelling.
+                local generatedManifest = "crates/wildside-data/runtime-manifest.json"
+                fix = "typos --exclude \(generatedManifest) --write-changes"
+                check = "typos --exclude \(generatedManifest)"
             }
             ["cargo-clippy"] {
                 glob = List("crates/**/*.rs", "tests/**/*.rs", "Cargo.toml", "Cargo.lock")

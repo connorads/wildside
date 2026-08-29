@@ -16443,7 +16443,7 @@ mod tests {
     }
 
     #[test]
-    fn native_session_block_grid_prefers_logical_layout_before_resource_fallback() {
+    fn native_session_block_grid_uses_logical_layout_fixture() {
         let mut fixture = ManifestFixture::new().expect("manifest fixture");
         fixture.manifest.map_order = vec![0x00, 0x01, 0x02, 0x03, 0x01];
 
@@ -16483,12 +16483,12 @@ mod tests {
         assert_eq!(
             cell.collision,
             CollisionKind::Empty,
-            "generated logical Level_Layout files are parity specialisations and should win over the mapped resource fallback"
+            "generated logical Level_Layout files are parity specialisations"
         );
     }
 
     #[test]
-    fn native_session_block_grid_falls_back_to_map_order_resource_layout() {
+    fn native_session_block_grid_does_not_reuse_resource_number_as_logical_fixture() {
         let mut fixture = ManifestFixture::new().expect("manifest fixture");
         fixture.manifest.map_order = vec![0x00, 0x01, 0x02, 0x03, 0x01];
 
@@ -16507,16 +16507,10 @@ mod tests {
         )
         .expect("write resource block list");
 
-        let grid = try_load_block_grid(&fixture.manifest, 0x04)
-            .expect("logical level should fall back to mapped resource collision");
-        let cell = grid.cell_at(0, 0);
-
-        assert_eq!(
-            cell.collision,
-            CollisionKind::Solid,
-            "ASM Load_Level_Data resolves Current_LevelID through MapOrder_Index when no generated logical Level_Layout exists"
+        assert!(
+            try_load_block_grid(&fixture.manifest, 0x04).is_err(),
+            "RAM Level_Layout fixtures are logical captures; logical 4 must not reuse unrelated logical fixture 1 when its mapped ROM assets are absent"
         );
-        assert_eq!(cell.skin, 0x42);
     }
 
     #[test]

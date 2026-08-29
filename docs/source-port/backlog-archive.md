@@ -11,6 +11,38 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #485
+
+Closed [x] 2026-08-29. Full frame report `1788000161` identified Level `$10`
+Shishkaboss as the largest authoritative residue: 9,087 pixels, six object-count
+and Kid-Y diffs, and native Kid grounded at `$005F0000` against oracle
+`$008F0000`.
+
+ASM `Load_Level_Data` resolves logical `$10` through `MapOrder_Index` to resource
+`$13`. `loc_11C34/loc_11C36` then builds `Level_Layout` from that resource's
+foreground and Island collision table, and `loc_11C7E` builds interactive block
+records from its BLOCK stream. Native correctly decoded the mapped terrain when
+the logical fixture was absent, but then reused `level-layout/13.blocklist.bin`.
+Those RAM sidecars are named by logical `Current_LevelID`, so this injected
+logical Level `$13`'s 17 prize and 17 ghost records into the 2x2-screen boss
+arena. The bogus overlay made empty palm skins `$29/$2A` act as a floor.
+
+Two alternatives were rejected. Trusting resource-numbered fixtures preserves
+the namespace collision. Shape validation catches this arena but not same-shaped
+aliases. Native now treats generated RAM fixtures as logical-only parity
+specialisations; when absent, both terrain and block records are reconstructed
+from the mapped ROM resource. No level-specific override is involved.
+
+The cache-backed regression first settled at `$005F0000`, then pins oracle
+`$008F0000` plus the 40x28 decoded resource layout. Focused report `1788008459`
+changes Level `$10` from FAIL/9,087 pixels to PASS/3,978. Full report
+`1788008476` improves 66/69 -> 67/69 and 99,975 -> 79,489 comparable pixels.
+Eight changed aliases improve; oracle-limited `$07` rises by 123 pixels without
+an authoritative state regression. The audited runtime catalogue drops the
+unrequested logical `$FF` layout pair exposed by the removed fallback. The typo
+hook excludes the generated runtime manifest because it preserves the pinned
+disassembly's RAM-description spelling verbatim.
+
 ### #484
 
 Closed [x] 2026-08-29. Level `$17` Hoverboard Beach's recording-oracle debug
@@ -24083,6 +24115,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 485 | [x] | P1 | level/collision | Logical RAM fixtures never alias mapped resource IDs; absent captures rebuild from ROM resources. | Level `$10` state exact; full residue 99,975 -> 79,489. See archive #485. |
 | 484 | [x] | P1 | recording/render | Debug recording lifecycles do not replay the Island `loc_1202A` hidden object window twice. | Level `$17` frame 358 pins `$01D0` and shore bands `(3,2,2)`. See archive #484. |
 | 483 | [x] | P1 | weather/lifecycle | Lava geyser rise, peak hold, restart script, and animation-palette phase match oracle. | Exact frame-359 SAT/CRAM regression; Level `$65` 1,595 -> 91 pixels. See archive #483. |
 | 482 | [x] | P1 | rendering/weather | Saxman output, SAT geometry, and the live geyser CRAM line match oracle frame 59. | Exact codec/SAT/CRAM regressions; Level `$65` frame 60 4,920 -> 45 pixels. See archive #482. |

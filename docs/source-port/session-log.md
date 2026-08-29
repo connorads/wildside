@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (logical/resource layout fixture de-aliasing)
+
+- RAM `Level_Layout` and block-list sidecars are keyed by logical level. An
+  absent logical capture now decodes the mapped ROM resources instead of
+  borrowing another logical level with the same numeric resource id.
+- Level `$10` now falls through empty Island palm skins to the boss-arena
+  floor at Kid Y `$008F0000`; all six authoritative state diffs disappear.
+- Full frame residue falls 99,975 -> 79,489 pixels and the sweep improves
+  66/69 -> 67/69. See #485.
+
 ## 2026-08-29 handoff (Island recording lifecycle de-duplication)
 
 - The typed debug lifecycle already runs the hidden `Mode_Level -> Execute_Objects`

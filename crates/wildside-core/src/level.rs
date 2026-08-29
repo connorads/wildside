@@ -20153,60 +20153,30 @@ impl NativeRuntime {
         let layout_dir = std::path::Path::new("level-layout");
         let logical_layout_path = layout_dir.join(format!("{:02X}.bin", level_id.0));
         let logical_metadata_path = layout_dir.join(format!("{:02X}.json", level_id.0));
-        let (layout_path, metadata_path, is_logical_specialisation) =
-            if self.assets_source.exists(&logical_layout_path)
-                && self.assets_source.exists(&logical_metadata_path)
-            {
-                (logical_layout_path, logical_metadata_path, true)
-            } else {
-                // ASM Load_Level_Data resolves Current_LevelID through
-                // MapOrder_Index before loading the BLOCK resource. Generated
-                // Level_Layout files may already be keyed by logical level;
-                // fall back to the resource level only when the logical
-                // specialisation is absent.
-                let resource_level = wildside_data::resource_level_id(&self.assets, level_id.0);
-                (
-                    layout_dir.join(format!("{resource_level:02X}.bin")),
-                    layout_dir.join(format!("{resource_level:02X}.json")),
-                    false,
-                )
-            };
-        if !self.assets_source.exists(&layout_path) {
+        if !self.assets_source.exists(&logical_layout_path)
+            || !self.assets_source.exists(&logical_metadata_path)
+        {
             // No pre-dumped Level_Layout fixture: decode the collision terrain
             // natively from the foreground resource + theme collision table.
+            // ASM Load_Level_Data resolves Current_LevelID through MapOrder_Index
+            // before reading those ROM resources. RAM fixtures are instead
+            // captured and named by LOGICAL Current_LevelID, so a mapped resource
+            // number must never be reused as a fixture key: that selects the
+            // unrelated logical level with the same number (e.g. $10 -> resource
+            // $13 would otherwise load logical $13's 120x56 layout).
             // This is the only terrain source for levels the dumper never
             // reached (the unreachable bonus levels), so falling back here gives
             // them a real floor instead of an empty void (closes #246 + the
             // bonus-level falling-death half of #238).
             return self.decode_level_layout(level_id);
         }
-        let mut data = self.assets_source.read(&layout_path).ok()?;
+        let mut data = self.assets_source.read(&logical_layout_path).ok()?;
         let metadata = self
             .assets_source
-            .read(&metadata_path)
+            .read(&logical_metadata_path)
             .ok()
             .and_then(|bytes| String::from_utf8(bytes).ok())
             .and_then(|json| serde_json::from_str::<LevelLayoutMetadata>(&json).ok())?;
-        if !is_logical_specialisation && let Some(header) = self.level_header(level_id) {
-            let expected_width_blocks = u16::from(header.width_screens).saturating_mul(20);
-            let populated_height_blocks = u16::from(header.height_screens).saturating_mul(14);
-            let shifted_height_blocks = populated_height_blocks.saturating_add(
-                terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits),
-            );
-            if (metadata.width_blocks != expected_width_blocks
-                || (metadata.height_blocks != populated_height_blocks
-                    && metadata.height_blocks != shifted_height_blocks))
-                && let Some(decoded) = self.decode_level_layout(level_id)
-            {
-                // ASM Load_LevelData loc_15A0 derives dimensions from the
-                // mapped resource header before loc_11C34 builds Level_Layout.
-                // Some old debug-skip RAM dumps are keyed by a logical id that
-                // happens to equal this level's mapped resource id; accepting
-                // that unrelated shape makes valid lower rows out-of-bounds.
-                // Rebuild from the ROM resources when they are available.
-                return Some(decoded);
-            }
-        }
         data.truncate(metadata.data_bytes.min(data.len()));
         let (fixture_height_blocks, fixture_blank_top_rows) = self
             .level_header(level_id)
@@ -20495,15 +20465,16 @@ impl NativeRuntime {
     ) -> Option<terrain::BlockList> {
         let layout_dir = std::path::Path::new("level-layout");
         let logical_path = layout_dir.join(format!("{:02X}.blocklist.bin", level_id.0));
-        let path = if self.assets_source.exists(&logical_path) {
-            logical_path
+        let mut block_list = if self.assets_source.exists(&logical_path) {
+            let data = self.assets_source.read(&logical_path).ok()?;
+            terrain::BlockList::from_raw_with_level_layout(&data, layout_width, grid)
         } else {
-            let resource_level = wildside_data::resource_level_id(&self.assets, level_id.0);
-            layout_dir.join(format!("{resource_level:02X}.blocklist.bin"))
-        };
-        let mut block_list = match self.assets_source.read(&path) {
-            Ok(data) => terrain::BlockList::from_raw_with_level_layout(&data, layout_width, grid),
-            Err(_) => self.synthesise_block_list_for_level_loc_11C7E(level_id)?,
+            // ASM loc_11C7E reads the mapped BLOCK ROM resource, while generated
+            // RAM sidecars are keyed by logical Current_LevelID. Reconstruct the
+            // records from the mapped resource when this logical capture is
+            // absent; using a resource-numbered sidecar aliases another level's
+            // prize/ghost records into the live grid.
+            self.synthesise_block_list_for_level_loc_11C7E(level_id)?
         };
         block_list = block_list.with_blank_top_rows_sub_140F6(blank_top_rows, layout_width);
         // ASM sub_127CE inserts hidden-block entries in layout-address order;

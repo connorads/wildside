@@ -10516,7 +10516,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    fn aliased_levels_fall_back_to_resource_generated_block_grid() {
+    fn aliased_levels_do_not_reuse_resource_number_as_logical_fixture() {
         let output_root = unique_temp_path("aliased-resource-block-grid");
         let mut manifest = manifest_with_levels(7);
         manifest.output_root = output_root.clone();
@@ -10525,17 +10525,10 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         write_generated_level_layout(&output_root, 2, 1, 1, &[0x60, 0x42]);
 
         let runtime = NativeRuntime::new(manifest);
-        let grid = runtime
-            .load_block_grid_for_level(LevelId(6))
-            .expect("aliased level should fall back to its resource block grid");
-        let cell = grid.cell_at(0, 0);
-
-        assert_eq!(
-            cell.collision,
-            terrain::CollisionKind::Solid,
-            "ASM Load_Level_Data resolves Current_LevelID through MapOrder_Index when no generated logical Level_Layout exists"
+        assert!(
+            runtime.load_block_grid_for_level(LevelId(6)).is_none(),
+            "RAM Level_Layout fixtures are keyed by logical level, so logical 6 must not treat unrelated logical fixture 2 as its mapped ROM resource"
         );
-        assert_eq!(cell.skin, 0x42);
 
         fs::remove_dir_all(output_root).expect("temp layout dir should be removable");
     }
@@ -35873,6 +35866,50 @@ mod native_level_terrain_decoder {
     }
 
     #[test]
+    fn shishkaboss_alias_without_logical_fixture_decodes_mapped_rom_layout_loc_11c34() {
+        let Some(mut runtime) = cached_runtime_for_decoder() else {
+            return;
+        };
+
+        let loaded = runtime
+            .load_block_grid_for_level(LevelId(0x10))
+            .expect("Shishkaboss should load mapped resource 0x13 terrain");
+        let decoded = runtime
+            .decode_level_layout(LevelId(0x10))
+            .expect("ASM loc_11C34 should decode mapped resource 0x13 terrain");
+
+        assert_eq!(
+            (loaded.width_cells, loaded.height_cells),
+            (40, 28),
+            "ASM Load_Level_Data maps logical $10 to resource $13, whose header is 2x2 screens"
+        );
+        for row in 0..decoded.height_cells {
+            for col in 0..decoded.width_cells {
+                assert_eq!(
+                    loaded.raw_word_at(col, row),
+                    decoded.raw_word_at(col, row),
+                    "generated Level_Layout fixtures are keyed by logical level; an absent logical $10 fixture must not reuse unrelated logical fixture $13 at ({col},{row})"
+                );
+            }
+        }
+        assert_eq!(
+            [
+                loaded.cell_at(1, 6).collision,
+                loaded.cell_at(2, 6).collision,
+            ],
+            [terrain::CollisionKind::Empty, terrain::CollisionKind::Empty,],
+            "ASM loc_11C36: Island skins $29/$2A are empty, so Kid falls through the palm to the boss-arena floor"
+        );
+        runtime.reload_block_grid_for_level(LevelId(0x10));
+        let settle = runtime.inspect_respawn_settle(LevelId(0x10), 80);
+        let settled = settle.last().expect("Shishkaboss spawn should settle");
+        assert_eq!(
+            settled.kid_y_pos, 0x008F_0000,
+            "ASM loc_11C7E/sub_914A: logical $10 must use its mapped resource $13 block records and settle on the visible boss-arena floor"
+        );
+    }
+
+    #[test]
     fn decoder_only_levels_synthesise_interactive_block_lists_loc_11c7e() {
         let Some(mut runtime) = cached_runtime_for_decoder() else {
             return;
@@ -35940,9 +35977,24 @@ mod native_level_terrain_decoder {
             let Ok(data) = std::fs::read(sidecar_path) else {
                 continue;
             };
-            let Some(grid) = runtime.load_block_grid_for_level(LevelId(logical)) else {
+            let metadata_path = layout_dir.join(format!("{logical:02X}.json"));
+            let layout_path = layout_dir.join(format!("{logical:02X}.bin"));
+            let Ok(metadata_bytes) = std::fs::read(metadata_path) else {
                 continue;
             };
+            let Ok(metadata) = serde_json::from_slice::<LevelLayoutMetadata>(&metadata_bytes)
+            else {
+                continue;
+            };
+            let Ok(mut layout_bytes) = std::fs::read(layout_path) else {
+                continue;
+            };
+            layout_bytes.truncate(metadata.data_bytes.min(layout_bytes.len()));
+            let grid = terrain::BlockGrid::from_level_layout(
+                &layout_bytes,
+                metadata.width_blocks,
+                metadata.height_blocks,
+            );
             let dumped =
                 terrain::BlockList::from_raw_with_level_layout(&data, grid.width_cells, &grid);
             let Some(synthesised) =
@@ -36102,8 +36154,8 @@ mod native_level_terrain_decoder {
         }
 
         assert!(
-            checked > 30,
-            "expected broad dumped-RAM comparison coverage, checked {checked}",
+            checked > 15,
+            "expected broad coherent logical fixture/sidecar comparison coverage, checked {checked}",
         );
         assert_eq!(
             prize_count_matches, checked,

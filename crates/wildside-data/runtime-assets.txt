@@ -1520,8 +1520,6 @@ level-layout/7C.bin
 level-layout/7C.blocklist.bin
 level-layout/7D.bin
 level-layout/7D.blocklist.bin
-level-layout/FF.bin
-level-layout/FF.blocklist.bin
 scenes/artcomp/Background_for_intro_(Wild_Side).bin
 scenes/artcomp/Background_on_title.bin
 scenes/artcomp/Dark_alley_from_intro.bin
