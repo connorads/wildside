@@ -11,6 +11,28 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #484
+
+Closed [x] 2026-08-29. Level `$17` Hoverboard Beach's recording-oracle debug
+lifecycle reached frame 358 with the correct global background clock
+`Time_Frames=$01D0`, but native retained Island shore bands `(0,3,4)` while
+direct oracle VRAM `$F600/$F6C0/$F760` contained `shore_4/shore_3/shore_3`, or
+typed phases `(3,2,2)`.
+
+ASM `Mode_Level -> Execute_Objects loc_E12` runs the `loc_1202A` object once
+per live pass. The typed debug lifecycle had already executed the measured
+post-load title window, but `settle_recording_oracle_warp_live_window` replayed
+the same derived window again. Native now adds those hidden object passes only
+for direct boot paths that actually skipped them. This keeps the lifecycle
+model as the single owner instead of adding a Level `$17` phase seed.
+
+The cache-backed regression pins frame-358 `loc_3038A` and all three
+`loc_12098/loc_12110/loc_12188` VRAM bands. The prior #289 Level `$07` direct
+boot anchor remains green. The corrected Level `$17` boot also exposes its
+logical `level-layout/17.json` sidecar, so the generated web runtime catalogue
+includes that path; the ROM extraction recipe and runtime manifest are
+unchanged.
+
 ### #483
 
 Closed [x] 2026-08-29. Oracle WRAM frames 75-76 prove the final rise row is
@@ -24061,6 +24083,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 484 | [x] | P1 | recording/render | Debug recording lifecycles do not replay the Island `loc_1202A` hidden object window twice. | Level `$17` frame 358 pins `$01D0` and shore bands `(3,2,2)`. See archive #484. |
 | 483 | [x] | P1 | weather/lifecycle | Lava geyser rise, peak hold, restart script, and animation-palette phase match oracle. | Exact frame-359 SAT/CRAM regression; Level `$65` 1,595 -> 91 pixels. See archive #483. |
 | 482 | [x] | P1 | rendering/weather | Saxman output, SAT geometry, and the live geyser CRAM line match oracle frame 59. | Exact codec/SAT/CRAM regressions; Level `$65` frame 60 4,920 -> 45 pixels. See archive #482. |
 | 481 | [x] | P1 | rendering/weather | Lava geysers use ROM DBF cadence and `sub_14BD8` SAT coordinate/field layout. | Oracle-backed frame-60 state/render regression; Level `$65` 7,230 -> 4,920 pixels. See archive #481. |

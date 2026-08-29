@@ -454,8 +454,10 @@ impl NativeRuntime {
         // allocates the Island shore coroutine, whose loc_12098/loc_12110/
         // loc_12188 countdowns continue through every remaining hidden
         // title-wait pass. A zero pass count naturally performs no work.
-        for _ in 0..hidden_object_passes {
-            self.step_island_shore_cycle_loc_1202a();
+        if !debug_lifecycle_completed {
+            for _ in 0..hidden_object_passes {
+                self.step_island_shore_cycle_loc_1202a();
+            }
         }
         debug_assert_eq!(level_id, self.current_level);
         let target_reload_delay = self.level_header(level_id).map(|header| {

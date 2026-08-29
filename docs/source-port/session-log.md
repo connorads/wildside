@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Island recording lifecycle de-duplication)
+
+- The typed debug lifecycle already runs the hidden `Mode_Level -> Execute_Objects`
+  window. The recording adapter no longer replays that Island shore window a
+  second time.
+- Level `$17` frame 358 now matches oracle `Time_Frames=$01D0` and resident
+  shore bands `(3,2,2)`. Direct-boot recordings and Level `$07` remain green.
+- The audited web runtime catalogue now includes the Level `$17` logical
+  metadata sidecar exposed by the corrected boot. See #484.
+
 ## 2026-08-29 handoff (Level `$65` geyser lifecycle and palette phase)
 
 - The final rise row receives all three DBF presentations. Peak entry consumes

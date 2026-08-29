@@ -1307,6 +1307,7 @@ level-layout/16.bin
 level-layout/16.blocklist.bin
 level-layout/17.bin
 level-layout/17.blocklist.bin
+level-layout/17.json
 level-layout/18.bin
 level-layout/18.blocklist.bin
 level-layout/18.json

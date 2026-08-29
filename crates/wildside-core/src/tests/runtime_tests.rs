@@ -12348,6 +12348,32 @@ mod chunk_09 {
     }
 
     #[test]
+    fn level17_recording_does_not_double_age_island_shore_vram_loc_1202a() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x17));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x17));
+
+        let frame_358 = (0..=358)
+            .map(|_| runtime.step_frame(FrameInput::default()))
+            .last()
+            .expect("frame 358 should be captured");
+
+        assert_eq!(
+            frame_358.time_frames_loc_3038a, 0x01D0,
+            "ASM loc_3038A: Level 0x17 oracle WRAM frame 358 stores `$01D0`; the recording loader must preserve that background-scroll phase"
+        );
+
+        assert_eq!(
+            frame_358.island_shore_vram_frames_loc_1202a,
+            Some((3, 2, 2)),
+            "ASM loc_12098/loc_12110/loc_12188: Level 0x17 oracle VRAM frame 358 contains shore_4/shore_3/shore_3 in the three `$F600` DMA bands"
+        );
+    }
+
+    #[test]
     fn level03_recording_debug_loader_sets_oracle_background_phase_loc_3038a() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
