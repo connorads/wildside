@@ -11,6 +11,40 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #479
+
+Closed [x] 2026-08-29. The renderer derived every Goat mapping from the global
+frame and layout index. Oracle GfxObject state disproves that shared phase:
+Level `$60` frame 60 exposes mappings `$0964/$097C/$0978/$0978` for layout
+entries 1/2/3/5, while frame 359 exposes `$0978` for all four.
+
+ASM `GfxObjects_MoveAndAnimate loc_144E` advances each GfxObject independently.
+`Init_Animation` resets the script at Goat damage recovery (`Goat.asm
+loc_3CB38`), wall hold (`Lion.asm loc_3E406/loc_3E5BA`), charge start
+(`loc_3E4CE/loc_3E50A`), and charge abort (`loc_3E48E`). Native now advances an
+existing family-disjoint object clock through the exact slow 8/6/6/8/6/6 and
+fast 6/4/4/6/4/4 scripts, resets it at those branches, exports the typed phase,
+and renders that phase.
+
+Keeping the global heuristic was rejected because it cannot represent
+`Init_Animation`. A generic animation VM was rejected for this slice because
+it would broaden the change to untraced families. The earlier no-reset clock
+from #478 was not retried; its missing lifecycle transitions caused its sweep
+regression.
+
+Cache-backed regressions pin Level `$60`'s four per-object phases at render
+frames 60 and 359. A second regression pins Level `$63` idle-tail mapping
+`$0984`/phase 3 at oracle frame 358. This second oracle check explains the only
+local metric movement: `$63` adds 46 changed pixels because the correct Goat
+shape overlaps an existing one-pixel position divergence differently, not
+because its mapping regressed.
+
+Focused report `1787981258` reduces Level `$60` from 1,277/1,628 to 551/91
+changed pixels at frame 60/359. Full report `1787981277` remains 66/69 with the
+same 12 state blockers and reduces total frame residue from 128,181 to 127,150
+pixels: `$60` -1,077 and source-verified `$63` +46. All 37,759 published TAS
+gameplay, enemy, RNG, pixel, and GEMS baselines remain green.
+
 ### #478
 
 Closed [x] 2026-08-29. Level `$60` frame 60 matched oracle gameplay state and

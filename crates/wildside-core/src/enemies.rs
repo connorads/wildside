@@ -1362,7 +1362,7 @@ pub(crate) struct ActiveEnemy {
     /// Hand reuses it as the elapsed live `stru_32B50`/`stru_32B56`/`stru_32B6A`
     /// GfxObject animation tick.
     /// Driller reuses it as the elapsed `stru_3BCB2` parent-animation tick.
-    /// Armadillo reuses it as the elapsed live walk/charge animation tick.
+    /// Armadillo and Goat reuse it as the elapsed live walk/charge animation tick.
     /// Robot reuses it for the parent body's independent animation tick.
     pub(crate) dragon_descent_frames: u8,
     pub(crate) ninja_state: NinjaState,
@@ -2778,6 +2778,12 @@ impl ActiveEnemy {
                 (self.grounded_frames % TORNADO_LIVE_ANIMATION_TICKS)
                     / TORNADO_LIVE_ANIMATION_FRAME_TICKS,
             )
+        } else if matches!(self.family, EnemyFamily::Goat) && !self.death_animation_active {
+            Some(goat_live_sprite_phase(
+                self.hit_points,
+                self.shared_walker_state > 0,
+                self.dragon_descent_frames,
+            ))
         } else {
             None
         };
@@ -4816,6 +4822,17 @@ pub(crate) fn step_active_enemies_with_rng(
                     enemy.shared_walker_state,
                 );
         }
+        if matches!(enemy.family, EnemyFamily::Goat)
+            && enemy.damage_flash_frames == 0
+            && enemy.wait_timer != GOAT_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CBA8
+            && !enemy.death_animation_active
+        {
+            // ASM GfxObjects_MoveAndAnimate loc_144E advances each Goat's
+            // GfxObject independently from its shared-walker Object.
+            let cycle =
+                goat_live_animation_cycle_ticks(enemy.hit_points, enemy.shared_walker_state > 0);
+            enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1) % cycle;
+        }
         if matches!(enemy.family, EnemyFamily::Robot)
             && enemy.damage_flash_frames == 0
             && !enemy.death_animation_active
@@ -4860,6 +4877,8 @@ pub(crate) fn step_active_enemies_with_rng(
             matches!(enemy.family, EnemyFamily::Driller) && enemy.damage_flash_frames == 1;
         let restores_armadillo_animation =
             matches!(enemy.family, EnemyFamily::Armadillo) && enemy.damage_flash_frames == 1;
+        let restores_goat_animation =
+            matches!(enemy.family, EnemyFamily::Goat) && enemy.damage_flash_frames == 1;
         let restores_robot_animation =
             matches!(enemy.family, EnemyFamily::Robot) && enemy.damage_flash_frames == 1;
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
@@ -4876,6 +4895,10 @@ pub(crate) fn step_active_enemies_with_rng(
         if restores_armadillo_animation {
             // ASM Armadillo.asm loc_3C848 restores `$62(a5)` through
             // Init_Animation after stru_3C6D0 completes.
+            enemy.dragon_descent_frames = 0;
+        }
+        if restores_goat_animation {
+            // ASM Goat.asm loc_3CB38 restores `$62(a5)` through Init_Animation.
             enemy.dragon_descent_frames = 0;
         }
         if restores_robot_animation {
@@ -8633,6 +8656,9 @@ pub(crate) fn step_pacer(
                 // 583.5 against an interior wall, `$42` = $FF88 every frame.
                 enemy.shared_walker_state = GOAT_CHARGE_COOLDOWN_LOC_3E48E;
                 enemy.walk_speed_override = 0;
+                // ASM Lion.asm loc_3E406/loc_3E5BA reloads Goat `$62(a5)`
+                // through Init_Animation on every wall-hold pass.
+                enemy.dragon_descent_frames = 0;
                 enemy.x_velocity = 0;
                 enemy.y_velocity = 0;
                 return;
@@ -8680,6 +8706,10 @@ pub(crate) fn step_pacer(
                         // rolling script at its first mapping.
                         enemy.dragon_descent_frames = 0;
                     }
+                    if matches!(enemy.family, EnemyFamily::Goat) {
+                        // ASM loc_3E4CE/loc_3E50A installs Goat `$66(a5)`.
+                        enemy.dragon_descent_frames = 0;
+                    }
                     enemy.x_velocity = 0;
                     return;
                 }
@@ -8699,6 +8729,10 @@ pub(crate) fn step_pacer(
                     if matches!(enemy.family, EnemyFamily::Armadillo) {
                         // ASM loc_3E48E restores `$62(a5)` through
                         // Init_Animation before turning away.
+                        enemy.dragon_descent_frames = 0;
+                    }
+                    if matches!(enemy.family, EnemyFamily::Goat) {
+                        // ASM loc_3E48E restores Goat `$62(a5)`.
                         enemy.dragon_descent_frames = 0;
                     }
                     reverse_enemy_direction(enemy);

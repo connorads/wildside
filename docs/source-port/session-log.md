@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Goat GfxObject animation resets)
+
+- Goat phase is now typed per object and reset at every traced
+  `Init_Animation` branch instead of derived from frame plus layout index.
+- Level `$60` falls from 1,277/1,628 to 551/91 changed pixels at the two sweep
+  checkpoints; full residue falls by 1,031 pixels.
+- Level `$63` verifies the corrected patrol mapping independently. NEXT:
+  classify Level `$60`'s remaining 551-pixel contact sprite and 91-pixel idle
+  residue. See #479.
+
 ## 2026-08-29 handoff (damage-flash observation frame)
 
 - Level `$60` gameplay and invulnerability matched; only Kid's palette phase

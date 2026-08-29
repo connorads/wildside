@@ -1750,6 +1750,9 @@ fn select_live_goat_frame<'a>(
     }
 
     let charging = object.shared_walker_state.is_some_and(|state| state > 0);
+    if let Some(phase) = object.sprite_animation_phase {
+        return enemy_visuals.frames.get(usize::from(phase));
+    }
     // ASM Goat.asm loc_3CA7E selects 8/6/6/8/6/6 for low-HP patrols;
     // loc_3CACA/loc_3CAE8 selects 6/4/4/6/4/4 at HP 4+. HP 4 retains
     // the slow alternate script, while HP 5+ uses the fast charge script.

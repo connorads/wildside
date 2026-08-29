@@ -21268,6 +21268,90 @@ mod tests {
     }
 
     #[test]
+    fn level60_goat_gfx_animation_resets_match_init_animation() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x60);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x60 sweep trace");
+        let goat_phases = |checkpoint_frame_index, checkpoint_label| {
+            let render_trace = trace_frame_with_vdp_latch_at_checkpoint(
+                &run.trace,
+                checkpoint_frame_index,
+                Some(&run.initial_render_latch),
+                checkpoint_label,
+            )
+            .expect("Level 0x60 render trace");
+            let mut phases = render_trace
+                .active_objects
+                .iter()
+                .filter_map(|enemy| match enemy.kind {
+                    wildside_core::NativeObjectKind::Enemy { object_type: 0x10 } => Some((
+                        enemy.layout_index.expect("Goat layout index"),
+                        enemy.sprite_animation_phase,
+                    )),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            phases.sort_unstable_by_key(|(layout_index, _)| *layout_index);
+            phases
+        };
+
+        assert_eq!(
+            goat_phases(60, "level_settle"),
+            [(1, Some(12)), (2, Some(0)), (3, Some(0)), (5, Some(0))],
+            "GfxObjects_MoveAndAnimate loc_144E advances each Goat clock, while Lion.asm loc_3E406/loc_3E5BA and loc_3E4CE/loc_3E50A reset the settled Level 0x60 objects through Init_Animation"
+        );
+        assert_eq!(
+            goat_phases(359, "idle_tail"),
+            [(1, Some(0)), (2, Some(0)), (3, Some(0)), (5, Some(0))],
+            "oracle frame 359 exposes `$0978` for all four Goats after wall-hold and charge-abort Init_Animation resets at loc_3E406/loc_3E5BA/loc_3E48E"
+        );
+    }
+
+    #[test]
+    fn level63_goat_patrol_animation_matches_oracle_mappings() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x63);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x63 sweep trace");
+        let goat_phase = |checkpoint_frame_index, checkpoint_label| {
+            trace_frame_with_vdp_latch_at_checkpoint(
+                &run.trace,
+                checkpoint_frame_index,
+                Some(&run.initial_render_latch),
+                checkpoint_label,
+            )
+            .expect("Level 0x63 render trace")
+            .active_objects
+            .iter()
+            .find_map(|enemy| match enemy.kind {
+                wildside_core::NativeObjectKind::Enemy { object_type: 0x10 } => {
+                    enemy.sprite_animation_phase
+                }
+                _ => None,
+            })
+        };
+
+        assert_eq!(
+            goat_phase(359, "idle_tail"),
+            Some(3),
+            "oracle GfxObject slot 4 uses Goat mapping `$0984` at frame 358; GfxObject_Animate loc_113E and Init_Animation resets determine the phase"
+        );
+    }
+
+    #[test]
     fn level03_settled_hand_reverses_from_slopedown_collision_loc_3299c() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

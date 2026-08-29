@@ -14,6 +14,33 @@ pub(crate) fn goat_walk_speed(current_hp: u8) -> i32 {
     }
 }
 
+pub(crate) fn goat_live_animation_cycle_ticks(current_hp: u8, charging: bool) -> u8 {
+    // ASM Goat.asm loc_3CACA/loc_3CAE8: patrol uses `stru_3C996` at HP 4+.
+    // HP 4 charges through slow `stru_3C9B0`; HP 5+ uses fast `stru_3C9CA`.
+    if current_hp >= 4 + u8::from(charging) {
+        28
+    } else {
+        40
+    }
+}
+
+pub(crate) fn goat_live_sprite_phase(current_hp: u8, charging: bool, elapsed: u8) -> u8 {
+    let durations = if goat_live_animation_cycle_ticks(current_hp, charging) == 28 {
+        [6, 4, 4, 6, 4, 4]
+    } else {
+        [8, 6, 6, 8, 6, 6]
+    };
+    let mut tick = elapsed % durations.iter().sum::<u8>();
+    for (phase, duration) in durations.into_iter().enumerate() {
+        if tick < duration {
+            return u8::try_from(phase).expect("six Goat phases fit u8")
+                + if charging { 9 } else { 0 };
+        }
+        tick -= duration;
+    }
+    unreachable!("Goat animation tick is reduced modulo its cycle")
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct GoatInitAnimationProfile {
     pub(crate) initial_animation_script: &'static str,
