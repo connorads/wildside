@@ -12,7 +12,6 @@ const LEVEL_ZERO_RECORDING_TIMER_SUBFRAMES_BEFORE_FRAME_0_LOC_BE82: u16 = 1;
 const LEVEL_ZERO_RECORDING_TIME_FRAMES_BEFORE_FRAME_0_LOC_3038A: u16 = 0x003C;
 const SETTLED_WARP_MAX_ATTEMPT_FRAMES: usize = 828;
 const RECORDING_DEBUG_TITLE_WAIT_FRAMES_LOC_1AE2E: usize = 120;
-const RECORDING_TIME_FRAMES_LOAD_ANCHOR_LOC_3038A: usize = 68;
 
 /// ASM loc_74E0 (kid.asm): measured per-level load completion of the
 /// debug-warp title window (#442). The ROM's loader blocks the frame loop, so
@@ -147,11 +146,11 @@ fn recording_oracle_time_frames_loc_3038a(level_id: LevelId, time_frames: u16) -
     debug_level_entry_load_complete_step_loc_74e0(level_id).map_or(time_frames, |load_complete| {
         // ASM loc_74E0 -> Mode_Level loc_892 -> loc_3038A: level loading
         // blocks Mode_Level, so Time_Frames advances only after the loader
-        // completes. The recording shim collapses that variable-duration
-        // window. Oracle probes anchor step 68 at no correction; later loads
-        // lose ticks and earlier loads gain them.
+        // completes. The recording shim has already counted every one of the
+        // 120 title-wait steps as live; retain only the first live tick after
+        // the measured load-completion boundary.
         time_frames
-            .wrapping_add(RECORDING_TIME_FRAMES_LOAD_ANCHOR_LOC_3038A as u16)
+            .wrapping_add(1)
             .wrapping_sub(load_complete as u16)
     })
 }
@@ -1049,15 +1048,15 @@ mod tests {
         // not execute the level clock. Oracle frame-60 probes read 171 on
         // Level 0x02, 169 on 0x03, and 174 on the 0x07 anchor.
         assert_eq!(
-            recording_oracle_time_frames_loc_3038a(LevelId(0x02), 174),
+            recording_oracle_time_frames_loc_3038a(LevelId(0x02), 241),
             171
         );
         assert_eq!(
-            recording_oracle_time_frames_loc_3038a(LevelId(0x03), 174),
+            recording_oracle_time_frames_loc_3038a(LevelId(0x03), 241),
             169
         );
         assert_eq!(
-            recording_oracle_time_frames_loc_3038a(LevelId(0x07), 174),
+            recording_oracle_time_frames_loc_3038a(LevelId(0x07), 241),
             174
         );
         assert_eq!(

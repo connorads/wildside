@@ -21170,6 +21170,32 @@ mod tests {
     }
 
     #[test]
+    fn level03_settled_warp_render_uses_loader_gated_time_frames_loc_3038a() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x03);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x03 sweep trace");
+        let render_trace = trace_frame_with_vdp_latch_at_checkpoint(
+            &run.trace,
+            60,
+            Some(&run.initial_render_latch),
+            "level_settle",
+        )
+        .expect("Level 0x03 frame-60 render trace");
+
+        assert_eq!(
+            render_trace.time_frames_loc_3038a, 169,
+            "ASM loc_74E0 blocks Mode_Level loc_892/loc_3038A until Level 0x03's loader completes at debug-title step 73"
+        );
+    }
+
+    #[test]
     fn published_tas_frame_1730_complete_prize_roster_bounds_diamond_commit_loc_4626() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

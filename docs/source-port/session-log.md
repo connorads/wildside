@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (recording clock anchor removal)
+
+- Full lifecycle evidence corrected #470's narrow helper result: Level `$03`
+  frame 60 still carried `Time_Frames=236`, not 169.
+- Plane-B rows 0-28, all 127 Mountain tiles, and the two visible H-scroll
+  words match oracle hardware state. The cloud offset was clock-only.
+- Removing the stale 68-frame anchor drops frame 60 from 4,420 to 586 changed
+  pixels and idle tail from 5,793 to 2,371. NEXT: triage the remaining
+  non-cloud Level `$03` residue. See #471.
+
 ## 2026-08-29 handoff (debug-loader background clock)
 
 - Level `$03`'s settled oracle reaches `Time_Frames=169` at frame 60; native

@@ -11,6 +11,29 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #471
+
+Closed [x] 2026-08-29. The #470 helper-level regression proved the relative
+per-level load correction but missed the end-to-end recording lifecycle. A
+fresh Level `$03` sweep still rendered frame 60 from `Time_Frames=236`: the
+collapsed 120-step debug-title window retained the old step-68 compatibility
+anchor before adding the 60 scenario frames.
+
+Three genuinely different causes were tested before changing the lifecycle:
+Mountain Plane-B nametable contents, decoded tile art, and raster H-scroll.
+Oracle VRAM proved rows 0-28 match word-for-word, all 127 native background
+tiles match `$F000` byte-for-byte, and VDP samples report the same `$FF58` and
+`$FFAC` H-scroll words that native produces at phase 169. The apparent
+67-pixel displacement was the cloud pattern's repeat period; the real error
+was the retained 68-frame anchor.
+
+The recording settle now removes every blocked loader step and retains only
+the first live `Mode_Level loc_892 -> loc_3038A` tick. An end-to-end cached
+regression pins Level `$03`'s frame-60 render trace to 169, not merely the pure
+adjustment helper. Focused sweep `1787966883` reduces frame 60 from 4,420 to
+586 changed pixels and the idle tail from 5,793 to 2,371. The remaining
+residue belongs to other render layers, not Mountain Plane-B clouds.
+
 ### #470
 
 Closed [x] 2026-08-29. A proactive Level `$03` full-frame sweep exposed
@@ -23727,6 +23750,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 471 | [x] | P2 | rendering/timing | Settled recording warps remove the stale 68-frame compatibility anchor from the loader-gated `Time_Frames` lifecycle. | End-to-end Level `$03` trace=169; sweep `1787966883` frame 60 4,420 -> 586 and idle tail 5,793 -> 2,371 pixels. See archive #471. |
 | 470 | [x] | P2 | rendering/timing | Settled debug warps preserve the per-level loader's suspension of `Mode_Level loc_892 -> Time_Frames loc_3038A`. | Cross-level oracle witnesses 0x02=171, 0x03=169, 0x07=174; focused Level `$03` maximum falls 5,841 -> 5,793 pixels. See archive #470. |
 | 469 | [x] | P2 | rendering/timing | Death `loc_B80C` now suspends the outer `Mode_Level` loc_80C/loc_892 tail, freezing `Time_Frames` and keeping Forest water-ripple phase aligned. | Red/green counter regression; 125/125 Forest tiles and CRAM exact; Level `$00` frame 359 falls from 3,162 pixels to seven frozen HUD pixels. See archive #469. |
 | 468 | [x] | P2 | rendering/tooling | Component-level visual triage exposed a walking-Dragon recording-transfer phase error hidden inside disconnected HUD residue; the recording seed now presents ASM phase 4 at Level `$09` frame 60. | Red/green cache-backed boundary tests; focused frame 60 has only 39 HUD pixels; 69-level frame sweep and required fast/full gates. See archive #468. |
