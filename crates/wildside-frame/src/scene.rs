@@ -7631,17 +7631,54 @@ fn build_game_scene_filtered(
                     }
                 }
                 ActiveProjectileKind::BossHeadArrow => {
-                    // ASM loc_3A0D2 uses boss projectile sprite `stru_3A1CC`;
-                    // until the exact C8510/C8518 child frame is compiled here,
-                    // keep a thin horizontal footprint matching the live arrow
-                    // path instead of a generic dot.
-                    commands.push(DrawCommand::Rect {
-                        x: sx - 5,
-                        y: sy - 1,
-                        width: 10,
-                        height: 2,
-                        colour: ENEMY_PROJECTILE_COLOUR,
-                    });
+                    let pushed_sprite = level_visuals
+                        .enemies
+                        .families
+                        .get(&0x22)
+                        .and_then(|visuals| {
+                            // ASM loc_3A0D2/stru_3A1CC alternates C8510/C8518
+                            // while `$40` is non-zero. loc_3A14E/stru_3A1D6
+                            // alternates the larger stopped C8520/C8528 frames.
+                            let frame_base = if projectile.remaining_frames == 0 {
+                                10
+                            } else {
+                                8
+                            };
+                            let phase = if projectile.remaining_frames == 0 {
+                                usize::from(
+                                    (0x00C8u16.saturating_sub(projectile.animation_elapsed_frames)
+                                        / 5)
+                                        & 1,
+                                )
+                            } else {
+                                usize::from((projectile.animation_elapsed_frames / 5) & 1)
+                            };
+                            let frame = visuals.frames.get(frame_base + phase)?;
+                            let facing = if projectile.x_velocity > 0 {
+                                Direction::Right
+                            } else {
+                                Direction::Left
+                            };
+                            let (draw_x, draw_y) = sprite_draw_position(frame, sx, sy, facing);
+                            commands.push(DrawCommand::Sprite {
+                                x: draw_x,
+                                y: draw_y,
+                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                                palette: Arc::new(visuals.palette.clone()),
+                                tiles: build_sprite_tiles(frame, facing, 0),
+                            });
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 5,
+                            y: sy - 1,
+                            width: 10,
+                            height: 2,
+                            colour: ENEMY_PROJECTILE_COLOUR,
+                        });
+                    }
                 }
                 ActiveProjectileKind::BossHeadBoomerang => {
                     // ASM loc_3A1EA uses boss projectile sprite `stru_3A308`;

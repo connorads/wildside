@@ -2409,6 +2409,12 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x088, 0x10, 0x18, 0x20, 0x31), // LnkTo_unk_C85F8
             fd(0x080, 0x05, 0x10, 0x0A, 0x20), // LnkTo_unk_C85F0
             fd(0x068, 0x10, 0x18, 0x20, 0x30), // LnkTo_unk_C85E8
+            // ASM loc_3A0D2: moving arrow animation stru_3A1CC, followed by
+            // the stopped/fade animation stru_3A1D6 at loc_3A14E.
+            fd(0x044, 0x08, 0x08, 0x10, 0x10), // LnkTo_unk_C8510
+            fd(0x048, 0x08, 0x08, 0x10, 0x10), // LnkTo_unk_C8518
+            fd(0x04C, 0x10, 0x10, 0x20, 0x20), // LnkTo_unk_C8520
+            fd(0x05C, 0x10, 0x10, 0x20, 0x20), // LnkTo_unk_C8528
         ],
     },
 ];

@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-29 handoff (Shishkaboss arrow source art)
+
+- Level `$10` now draws the moving `C8510/C8518` and stopped
+  `C8520/C8528` arrow mappings selected by `loc_3A0D2`/`loc_3A14E`.
+- Focused idle-tail residue falls 3,176 -> 2,876 pixels. The settle checkpoint
+  rises 281 -> 517 because exact art exposes a separate 50-pixel projectile
+  hand-off error; state remains green and unmasked.
+- The next frontier is the recording-settle projectile position. Boss-head
+  positions already match the oracle and must not receive a phase shim.
+
 ## 2026-08-29 handoff (Shishkaboss child scheduling and skewer workers)
 
 - Native collapsed the controller allocation and child callback initialisation
