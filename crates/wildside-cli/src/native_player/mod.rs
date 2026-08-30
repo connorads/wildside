@@ -11780,7 +11780,11 @@ mod tests {
             DrawCommand::Sprite { x, y, tiles, .. }
             | DrawCommand::SatSprite { x, y, tiles, .. } => {
                 assert_eq!((*x, *y), (0x011F, 0x0008));
-                assert_eq!(tiles.len(), 1);
+                assert_eq!(
+                    tiles.len(),
+                    4,
+                    "ASM sub_61CA loc_643E writes size byte `$05`, a 2x2-cell impact sprite"
+                );
                 assert_eq!(tiles[0].tile.tile_index, 0x004D);
                 assert_eq!(tiles[0].tile.palette_line, 1);
                 assert!(
@@ -11857,7 +11861,11 @@ mod tests {
             DrawCommand::Sprite { x, y, tiles, .. }
             | DrawCommand::SatSprite { x, y, tiles, .. } => {
                 assert_eq!((*x, *y), (0x011F, 0x0008));
-                assert_eq!(tiles.len(), 1);
+                assert_eq!(
+                    tiles.len(),
+                    4,
+                    "ASM sub_61CA loc_643E writes size byte `$05`, including for shared storm art"
+                );
                 assert_eq!(
                     tiles[0].tile.tile_index, 0x0018,
                     "ASM loc_14D8A uploads ArtComp_9A7D2 to tile $3B5, so sub_61CA tile $3CD resolves to shared local tile $18"

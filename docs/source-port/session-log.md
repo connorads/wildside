@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (exact hail SAT geometry)
+
+- `sub_61CA` already exports the ROM's falling-hail and impact SAT entries,
+  but rendering treated their `$05`/`$0A` size bytes as fixed 8x8 sprites.
+  The same falling slots were also exported as Generic projectiles, adding a
+  second invented 4x4 dot over each hail sprite.
+- Hail now has typed trace identity. The weather SAT stream is the sole visual
+  authority and decodes its exact 16x16 or 24x24 geometry, tile word, palette,
+  priority, and position.
+- Headers identify five storm-and-hail levels (`0C`, `0F`, `26`, `2B`, `5F`).
+  Existing cached routes end before the ROM's frame-`$873` hail gate, so exact
+  ASM-tuple size and single-emission regressions provide the render evidence.
+  `verify-slice-fast` and the full 37,759-frame `verify-tas-full` pass with
+  unchanged published ratchets: 37,518 exact frames, 241 divergent frames,
+  and 2,391 changed HUD pixels.
+
 ## 2026-08-30 handoff (Archer arrow ROM angle sprites)
 
 - `byte_3437A` selects 28 angle entries from 13 C81F8-C8258 mappings.

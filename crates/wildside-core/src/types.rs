@@ -76,6 +76,9 @@ pub enum LandingPath {
 pub enum ActiveProjectileKind {
     #[default]
     Generic,
+    /// ASM `sub_61CA` falling hail slot. Rendering uses the exact
+    /// `storm_sprites_sub_61ca` SAT stream rather than a projectile marker.
+    Hail,
     FireDemonDeathTrail,
     /// Fireball trail child: ASM `Fireball.asm loc_330D0` / `loc_33128`
     /// allocates a short-lived hostile flame child after bounces.

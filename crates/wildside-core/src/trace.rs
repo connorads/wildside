@@ -597,6 +597,9 @@ fn mode_level_gfx_sprite_work_sub_1492(
 }
 
 fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind {
+    if projectile.kind == EnemyProjectileKind::Hail {
+        return ActiveProjectileKind::Hail;
+    }
     if projectile.kind == EnemyProjectileKind::FireDemonDeathTrail {
         return ActiveProjectileKind::FireDemonDeathTrail;
     }
@@ -1926,6 +1929,20 @@ mod tests {
             active_projectile_kind(&impact),
             ActiveProjectileKind::RobotShotImpact,
             "ASM Robot.asm loc_3AC92 initialises `stru_3A762`; trace must preserve that render state"
+        );
+    }
+
+    #[test]
+    fn trace_reports_hail_kind_sub_61ca() {
+        let hail = EnemyProjectile {
+            kind: EnemyProjectileKind::Hail,
+            ..EnemyProjectile::default()
+        };
+
+        assert_eq!(
+            active_projectile_kind(&hail),
+            ActiveProjectileKind::Hail,
+            "ASM sub_61CA loc_6462 renders hail through the weather SAT stream, so trace must not collapse it to a second Generic marker"
         );
     }
 

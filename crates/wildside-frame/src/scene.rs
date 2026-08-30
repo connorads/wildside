@@ -4884,7 +4884,7 @@ fn push_storm_weather_sprite_sub_61ca(
     visuals: &wildside_render::WeatherVisuals,
     sprite: (u16, u16, u16, u16),
 ) -> bool {
-    let (screen_y, _link_word, tile_word, screen_x) = sprite;
+    let (screen_y, link_word, tile_word, screen_x) = sprite;
     let tile_ref = TileRef::from_attr_word(tile_word);
     let (tile_sheet, vram_base_tile_index) =
         storm_weather_tile_sheet_loc_14d8a(trace, visuals, tile_ref.tile_index);
@@ -4894,11 +4894,16 @@ fn push_storm_weather_sprite_sub_61ca(
     if usize::from(tile_base_index) >= tile_sheet.tiles.len() {
         return false;
     }
+    // ASM sub_61CA loc_6432/loc_643E/loc_6462 writes the VDP size byte in
+    // the high byte of this link word: `$05` is 2x2 cells and `$0A` is 3x3.
+    let size_byte = (link_word >> 8) as u8;
+    let width_px = u16::from(((size_byte >> 2) & 0x03) + 1) * 8;
+    let height_px = u16::from((size_byte & 0x03) + 1) * 8;
     let frame = wildside_render::SpriteFrame {
         origin_x: 0,
         origin_y: 0,
-        width_px: 8,
-        height_px: 8,
+        width_px,
+        height_px,
         tile_base_index,
         tile_sheet: tile_sheet.clone(),
     };
@@ -7638,6 +7643,10 @@ fn build_game_scene_filtered(
                         },
                     });
                 }
+                // ASM sub_61CA loc_63C4/loc_6462 already emitted this hail
+                // particle in `storm_sprites_sub_61ca` above. A second marker
+                // would draw the same live slot twice.
+                ActiveProjectileKind::Hail => {}
                 ActiveProjectileKind::ArcherArrow => {
                     let facing = if projectile.archer_arrow_flipped {
                         Direction::Left
@@ -14977,6 +14986,112 @@ mod tests {
         assert_eq!(
             indexed_tile_snapshot(indexed_tiles[visible_cols]),
             (-3, 3, 0x000B, false)
+        );
+    }
+
+    #[test]
+    fn storm_weather_sprites_decode_rom_sat_sizes_sub_61ca() {
+        let visuals = WeatherVisuals {
+            palette: sample_palette(),
+            tile_sheet: sample_tile_sheet_with_pixel(0x50, 0x55),
+            vram_base_tile_index: 0x0380,
+            shared_art: None,
+        };
+        let trace = NativeTraceFrame::default();
+        let mut commands = Vec::new();
+
+        assert!(push_storm_weather_sprite_sub_61ca(
+            &mut commands,
+            &trace,
+            &visuals,
+            (0x0090, 0x0501, 0xA3B5, 0x00A0),
+        ));
+        assert!(push_storm_weather_sprite_sub_61ca(
+            &mut commands,
+            &trace,
+            &visuals,
+            (0x00A0, 0x0A02, 0xA3CD, 0x00B0),
+        ));
+
+        let DrawCommand::Sprite {
+            x: falling_x,
+            y: falling_y,
+            tiles: falling_tiles,
+            ..
+        } = &commands[0]
+        else {
+            panic!("ASM loc_6462 falling hail should emit a sprite");
+        };
+        assert_eq!((*falling_x, *falling_y), (0x20, 0x10));
+        assert_eq!(
+            falling_tiles.len(),
+            4,
+            "ASM loc_6462 writes size byte `$05`, a 2x2-cell hail sprite"
+        );
+        assert_eq!(falling_tiles[0].tile.tile_index, 0x35);
+        assert_eq!(falling_tiles[0].tile.palette_line, 1);
+        assert!(falling_tiles[0].tile.priority);
+
+        let DrawCommand::Sprite {
+            x: impact_x,
+            y: impact_y,
+            tiles: impact_tiles,
+            ..
+        } = &commands[1]
+        else {
+            panic!("ASM loc_6402 impact hail should emit a sprite");
+        };
+        assert_eq!((*impact_x, *impact_y), (0x30, 0x20));
+        assert_eq!(
+            impact_tiles.len(),
+            9,
+            "ASM loc_643E writes size byte `$0A` for the expanded 3x3-cell impact"
+        );
+        assert_eq!(impact_tiles[0].tile.tile_index, 0x4D);
+    }
+
+    #[test]
+    fn hail_uses_weather_sat_once_without_generic_projectile_dot_sub_61ca() {
+        let mut visuals = sample_level_visuals(1);
+        visuals.weather = Some(WeatherVisuals {
+            palette: sample_palette(),
+            tile_sheet: sample_tile_sheet_with_pixel(0x50, 0x55),
+            vram_base_tile_index: 0x0380,
+            shared_art: None,
+        });
+        let trace = NativeTraceFrame {
+            storm_sprites_sub_61ca: vec![(0x0090, 0x0501, 0xA3B5, 0x00A0)],
+            active_projectile_details: vec![ActiveProjectileSnapshot {
+                x_pos: 0x0020_0000,
+                y_pos: 0x0010_0000,
+                kind: ActiveProjectileKind::Hail,
+                ..ActiveProjectileSnapshot::default()
+            }],
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("effects"),
+            None,
+        )
+        .0;
+
+        assert_eq!(
+            scene
+                .commands
+                .iter()
+                .filter(|command| matches!(command, DrawCommand::Sprite { .. }))
+                .count(),
+            1,
+            "ASM sub_61CA emits the hail slot once through loc_6462"
+        );
+        assert!(
+            scene_rects(&scene.commands).is_empty(),
+            "typed Hail must not add the legacy Generic 4x4 marker over the exact SAT sprite"
         );
     }
 
