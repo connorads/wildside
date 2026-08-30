@@ -4223,6 +4223,9 @@ impl NativeRuntime {
                 if collision.delete_current_object {
                     return false;
                 }
+                // ASM loc_3A1EA/stru_3A308: the GfxObject animation advances
+                // after the hibernated projectile worker runs each frame.
+                p.boss_head_boomerang_animation.animate_sub_113e();
             }
             if is_drips_drop || (uses_loc_3263c_post_move_gravity && !is_ufo_first_hurt_debris) {
                 // ASM Drips.asm loc_3345C and Tar_Monster.asm loc_3263C: the

@@ -173,6 +173,10 @@ pub enum BossHeadArrowSpriteFrame {
     C8518,
     C8520,
     C8528,
+    C8530,
+    C8538,
+    C8540,
+    C8548,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -199,7 +203,8 @@ pub struct ActiveProjectileSnapshot {
     /// and `sub_39420` nudge this when the parent `$16` frame byte changes.
     #[serde(default)]
     pub boss_eye_sprite_order_word_a: u16,
-    /// Selected GfxObject mapping from `stru_3A1CC` or `stru_3A1D6`.
+    /// Selected boss-head projectile GfxObject mapping from `stru_3A1CC`,
+    /// `stru_3A1D6`, or `stru_3A308`.
     #[serde(default)]
     pub boss_head_arrow_sprite_frame: BossHeadArrowSpriteFrame,
     #[serde(default)]
@@ -5139,6 +5144,13 @@ pub(crate) struct BossHeadArrowAnimationCursor {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct BossHeadBoomerangAnimationCursor {
+    pub(crate) sprite_frame: BossHeadArrowSpriteFrame,
+    timer: u8,
+    next_frame_index: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum BossHeadArrowCoroutineState {
     AwaitingFirstWakeLoc3A134,
     AwaitingRecordingHandoffWakeLocE12,
@@ -5184,9 +5196,43 @@ impl BossHeadArrowAnimationCursor {
             (BossHeadArrowSpriteFrame::C8520 | BossHeadArrowSpriteFrame::C8528, true) => {
                 BossHeadArrowSpriteFrame::C8528
             }
-            (BossHeadArrowSpriteFrame::None, _) => BossHeadArrowSpriteFrame::None,
+            (
+                BossHeadArrowSpriteFrame::None
+                | BossHeadArrowSpriteFrame::C8530
+                | BossHeadArrowSpriteFrame::C8538
+                | BossHeadArrowSpriteFrame::C8540
+                | BossHeadArrowSpriteFrame::C8548,
+                _,
+            ) => BossHeadArrowSpriteFrame::None,
         };
         self.next_is_second = !self.next_is_second;
+    }
+}
+
+impl BossHeadBoomerangAnimationCursor {
+    /// ASM loc_3A1EA calls Init_Animation for `stru_3A308`.
+    pub(crate) fn new_stru_3a308() -> Self {
+        Self {
+            sprite_frame: BossHeadArrowSpriteFrame::C8530,
+            timer: 1,
+            next_frame_index: 0,
+        }
+    }
+
+    /// ASM GfxObject_Animate/sub_1194 holds each `stru_3A308` frame for four ticks.
+    pub(crate) fn animate_sub_113e(&mut self) {
+        self.timer = self.timer.saturating_sub(1);
+        if self.timer != 0 {
+            return;
+        }
+        self.timer = 4;
+        self.sprite_frame = match self.next_frame_index {
+            0 => BossHeadArrowSpriteFrame::C8530,
+            1 => BossHeadArrowSpriteFrame::C8538,
+            2 => BossHeadArrowSpriteFrame::C8540,
+            _ => BossHeadArrowSpriteFrame::C8548,
+        };
+        self.next_frame_index = (self.next_frame_index + 1) % 4;
     }
 }
 
@@ -5255,6 +5301,8 @@ pub(crate) struct EnemyProjectile {
     /// ASM loc_3A1EA stores the high byte of `$48(a5)` in d0 before entering
     /// loc_3A24C; nonzero keeps adding `+$7D0`, zero keeps adding `-$7D0`.
     pub(crate) boss_head_boomerang_direction_byte_d0: u8,
+    /// Object-local GfxObject animation cursor for `stru_3A308`.
+    pub(crate) boss_head_boomerang_animation: BossHeadBoomerangAnimationCursor,
     /// Object-local GfxObject animation cursor for `stru_3A1CC`/`stru_3A1D6`.
     pub(crate) boss_head_arrow_animation: BossHeadArrowAnimationCursor,
     /// `loc_3A0D2` falls into `loc_3A134`, whose first action is a one-frame
@@ -5445,6 +5493,39 @@ pub(crate) struct OpeningSliceState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn boss_head_boomerang_animation_loops_stru_3a308_every_four_ticks() {
+        let mut animation = BossHeadBoomerangAnimationCursor::new_stru_3a308();
+        let mut observed = Vec::new();
+        for _ in 0..16 {
+            animation.animate_sub_113e();
+            observed.push(animation.sprite_frame);
+        }
+
+        assert_eq!(
+            observed,
+            vec![
+                BossHeadArrowSpriteFrame::C8530,
+                BossHeadArrowSpriteFrame::C8530,
+                BossHeadArrowSpriteFrame::C8530,
+                BossHeadArrowSpriteFrame::C8530,
+                BossHeadArrowSpriteFrame::C8538,
+                BossHeadArrowSpriteFrame::C8538,
+                BossHeadArrowSpriteFrame::C8538,
+                BossHeadArrowSpriteFrame::C8538,
+                BossHeadArrowSpriteFrame::C8540,
+                BossHeadArrowSpriteFrame::C8540,
+                BossHeadArrowSpriteFrame::C8540,
+                BossHeadArrowSpriteFrame::C8540,
+                BossHeadArrowSpriteFrame::C8548,
+                BossHeadArrowSpriteFrame::C8548,
+                BossHeadArrowSpriteFrame::C8548,
+                BossHeadArrowSpriteFrame::C8548,
+            ],
+            "ASM loc_3A1EA/stru_3A308 starts on C8530, then GfxObject_Animate/sub_1194 holds each mapping for four ticks before looping"
+        );
+    }
 
     fn platform_placement_for_types_test(
         kind: u8,

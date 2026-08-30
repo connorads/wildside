@@ -7673,7 +7673,11 @@ fn build_game_scene_filtered(
                                 BossHeadArrowSpriteFrame::C8518 => 9,
                                 BossHeadArrowSpriteFrame::C8520 => 10,
                                 BossHeadArrowSpriteFrame::C8528 => 11,
-                                BossHeadArrowSpriteFrame::None => return None,
+                                BossHeadArrowSpriteFrame::None
+                                | BossHeadArrowSpriteFrame::C8530
+                                | BossHeadArrowSpriteFrame::C8538
+                                | BossHeadArrowSpriteFrame::C8540
+                                | BossHeadArrowSpriteFrame::C8548 => return None,
                             };
                             let frame = visuals.frames.get(frame_index)?;
                             // ASM sub_397E4 copies `x_direction` into the
@@ -7717,16 +7721,46 @@ fn build_game_scene_filtered(
                     }
                 }
                 ActiveProjectileKind::BossHeadBoomerang => {
-                    // ASM loc_3A1EA uses boss projectile sprite `stru_3A308`;
-                    // render a compact wide marker until the exact C8530 frame
-                    // is compiled into native play.
-                    commands.push(DrawCommand::Rect {
-                        x: sx - 4,
-                        y: sy - 2,
-                        width: 8,
-                        height: 4,
-                        colour: ENEMY_PROJECTILE_COLOUR,
-                    });
+                    let pushed_sprite = level_visuals
+                        .enemies
+                        .families
+                        .get(&0x22)
+                        .and_then(|visuals| {
+                            let frame_index = match projectile.boss_head_arrow_sprite_frame {
+                                BossHeadArrowSpriteFrame::C8530 => 12,
+                                BossHeadArrowSpriteFrame::C8538 => 13,
+                                BossHeadArrowSpriteFrame::C8540 => 14,
+                                BossHeadArrowSpriteFrame::C8548 => 15,
+                                _ => return None,
+                            };
+                            let frame = visuals.frames.get(frame_index)?;
+                            // ASM loc_3A1EA registers object_meta `$23` and
+                            // stru_3A308 selects C8530..C8548 from the resident
+                            // Boss Head tile page. The script never changes
+                            // x_direction, so the mapping keeps its default art.
+                            let facing = Direction::Right;
+                            let (draw_x, draw_y) = sprite_draw_position(frame, sx, sy, facing);
+                            commands.push(DrawCommand::SatSprite {
+                                x: draw_x,
+                                y: draw_y,
+                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                                palette: Arc::new(visuals.palette.clone()),
+                                // ASM loc_3A1EA -> loc_32146 uses the boss
+                                // projectile's resident palette line.
+                                tiles: build_sprite_tiles(frame, facing, 1),
+                            });
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 4,
+                            y: sy - 2,
+                            width: 8,
+                            height: 4,
+                            colour: ENEMY_PROJECTILE_COLOUR,
+                        });
+                    }
                 }
                 ActiveProjectileKind::BossSkewer => {
                     // ASM loc_384E8..loc_388D8 uses the Shishkaboss skewer
@@ -12287,6 +12321,74 @@ mod tests {
             sprite_flip_x,
             vec![true, false],
             "ASM sub_397E4 copies parent x_direction into the child: `$FF` is horizontally flipped and `$00` keeps C8510..C8528's default orientation after loc_3A134 clears x_vel",
+        );
+    }
+
+    #[test]
+    fn boss_head_boomerang_uses_stru_3a308_rom_frame() {
+        let mut visuals = sample_level_visuals(1);
+        let mut boss_head_visuals = AnimatedSpriteVisual {
+            palette: sample_palette_with_first_word(0x0220),
+            extra_palettes: Vec::new(),
+            frames: vec![sample_sprite_frame(0x22); 16],
+            frame_duration: 1,
+        };
+        boss_head_visuals.frames[13] = SpriteFrame {
+            origin_x: 0x0C,
+            origin_y: 0x0C,
+            width_px: 0x15,
+            height_px: 0x17,
+            tile_base_index: 0x009,
+            tile_sheet: sample_tile_sheet_with_pixel(18, 0xB0),
+        };
+        visuals.enemies.families.insert(0x22, boss_head_visuals);
+        let trace = NativeTraceFrame {
+            active_projectile_details: vec![ActiveProjectileSnapshot {
+                x_pos: 100 << 16,
+                y_pos: 100 << 16,
+                kind: ActiveProjectileKind::BossHeadBoomerang,
+                boss_head_arrow_sprite_frame: BossHeadArrowSpriteFrame::C8538,
+                ..ActiveProjectileSnapshot::default()
+            }],
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("effects"),
+            None,
+        )
+        .0;
+        let sprite = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::SatSprite {
+                x,
+                y,
+                tile_sheet,
+                palette,
+                tiles,
+            } => Some((
+                *x,
+                *y,
+                tile_sheet.tiles.first()?.pixels[0],
+                palette.colours.first()?.raw_word,
+                tiles.len(),
+                tiles.first()?.tile.tile_index,
+                tiles.first()?.tile.palette_line,
+            )),
+            _ => None,
+        });
+
+        assert_eq!(
+            sprite,
+            Some((88, 89, 0xB0, 0x0220, 9, 0x009, 1)),
+            "ASM loc_3A1EA/stru_3A308 renders C8538 from the Boss Head ROM tile page with its 21x23 geometry and boss projectile palette line"
+        );
+        assert!(
+            scene_rects(&scene.commands).is_empty(),
+            "the exact C8538 sprite replaces the generic projectile marker"
         );
     }
 

@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Boss Head boomerang ROM animation)
+
+- `loc_3A1EA` initialises `stru_3A308`, which loops C8530, C8538, C8540,
+  and C8548 for four ticks each. Native previously rendered every live
+  Boomerang Boss projectile as an invented 8x4 rectangle.
+- A typed core animation cursor now owns the mapping phase and exports it
+  through the existing boss-head projectile trace boundary. Rendering uses
+  the Boss Head ROM tile page, exact mapping geometry, palette, and SAT path.
+- The cached Level `$10` recording drifts at frame 0 and cannot isolate this
+  route. Source-derived timing/render regressions, `verify-slice-fast`, and the
+  full 37,759-frame `verify-tas-full` pass with unchanged published ratchets:
+  37,518 exact frames, 241 divergent frames, and 2,391 changed HUD pixels.
+
 ## 2026-08-30 handoff (UFO beam ROM sprite)
 
 - `Enemy0F_UFOBeam_Init` assigns `LnkTo_unk_C83A0`, whose exact descriptor is
