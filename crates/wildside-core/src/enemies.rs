@@ -1726,6 +1726,13 @@ pub(crate) const UFO_DEATH_ANIMATION_FRAMES: u16 = 7 + 7 + 7;
 /// frames before the loc_36096 delete tail.
 pub(crate) const SPHERE_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x0A + 0x0A;
 const SPHERE_LIVE_ANIMATION_FRAMES: u16 = 0x09 + 0x09 + 0x09;
+
+fn sphere_live_sprite_animation_phase_stru_36174(animation_tick: u16) -> u8 {
+    // ASM Sphere.asm Enemy06_Sphere_Init installs `stru_36174`: three
+    // nine-tick mappings followed by `dc.b 2,$D`, which rewinds to the first
+    // entry without reinitialising the GfxObject animation.
+    ((animation_tick % SPHERE_LIVE_ANIMATION_FRAMES) / 0x09) as u8
+}
 /// ASM Goat.asm loc_3CB38 / stru_3C9E4: the nonfatal hurt animation is one
 /// `$14`-tick frame.
 pub(crate) const GOAT_HURT_ANIMATION_FRAMES: u8 = 0x14;
@@ -2721,6 +2728,10 @@ impl ActiveEnemy {
             } else {
                 diamond_live_sprite_animation_phase_stru_3aca8(self.dragon_descent_frames)
             })
+        } else if matches!(self.family, EnemyFamily::Sphere) && !self.death_animation_active {
+            Some(sphere_live_sprite_animation_phase_stru_36174(
+                self.wait_timer,
+            ))
         } else if matches!(self.family, EnemyFamily::BigHoppingSkull)
             && !self.death_animation_active
         {
@@ -12592,6 +12603,27 @@ mod tests {
             spawn_facing(EnemyFamily::Sphere, 200 << 16, 100 << 16),
             Direction::Left,
             "Sphere spawn facing should not track Kid position because init leaves x_direction clear"
+        );
+    }
+
+    #[test]
+    fn stru_36174_exports_object_local_mapping_phase() {
+        let mut sphere = sphere_test_enemy();
+
+        for (tick, expected_phase) in [(0, 0), (8, 0), (9, 1), (17, 1), (18, 2), (26, 2), (27, 0)] {
+            sphere.wait_timer = tick;
+            assert_eq!(
+                sphere.snapshot().sprite_animation_phase,
+                Some(expected_phase),
+                "ASM Sphere.asm stru_36174 should select its mapping from object-local animation tick {tick}"
+            );
+        }
+
+        sphere.death_animation_active = true;
+        assert_eq!(
+            sphere.snapshot().sprite_animation_phase,
+            None,
+            "ASM Enemy06_Sphere_Kill replaces stru_36174 with stru_36182"
         );
     }
 

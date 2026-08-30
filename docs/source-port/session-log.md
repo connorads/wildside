@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Sphere object-local live animation)
+
+- Sphere's nominal live selector rejected HP zero, but `Enemy06_Sphere_Init`
+  never writes `current_hp`, so every real live snapshot exposes zero and fell
+  through to global-time atlas animation.
+- Core now exports the current `stru_36174` mapping from each Sphere's existing
+  27-tick GfxObject clock. Rendering consumes that phase; death remains explicit
+  because `Enemy06_Sphere_Kill` replaces it with the `stru_36182` timer.
+- Level `$16` oracle diagnosis passes with no state divergence and unchanged
+  standard-checkpoint pixel totals. `verify-slice-fast` and the full 37,759-frame
+  `verify-tas-full` pass with unchanged ratchets: 37,518 exact frames, 241
+  divergent frames, and 2,391 changed frozen HUD pixels.
+
 ## 2026-08-30 handoff (Flying Dragon script-selected mappings)
 
 - Flying Dragon rendering used global time for its live animation and inferred

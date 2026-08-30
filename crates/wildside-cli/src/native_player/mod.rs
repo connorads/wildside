@@ -8261,11 +8261,14 @@ mod tests {
 
         // Sphere 0x06: live spin uses only frames 0,1,2 (C8120/C8128/C8130, sigs
         // 151/152/153). Never the 154..=156 stru_36182 disappear tail.
-        // frame_index 27 makes the pre-fix free-run pick frame (27/9)%6 = 3
-        // (sig 154, a death frame), so this assertion fails without the helper.
+        // A live snapshot carries its object-local mapping rather than deriving
+        // it from the render trace's global frame.
         trace.frame_index = 27;
         let sphere = visuals.enemies.families.get(&0x06).expect("sphere visuals");
-        let sphere_sig = sprites::select_enemy_frame(&trace, sphere, &base(0x06))
+        let mut sphere_object = base(0x06);
+        sphere_object.hit_points = Some(0);
+        sphere_object.sprite_animation_phase = Some(2);
+        let sphere_sig = sprites::select_enemy_frame(&trace, sphere, &sphere_object)
             .tile_sheet
             .tiles[0]
             .pixels[0];

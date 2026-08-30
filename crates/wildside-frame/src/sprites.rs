@@ -1604,23 +1604,20 @@ fn select_live_robot_frame<'a>(
 }
 
 fn select_live_sphere_frame<'a>(
-    trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
 ) -> Option<&'a wildside_render::SpriteFrame> {
     if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x06 })
-        || object.hit_points == Some(0)
         || enemy_visuals.frames.len() < 3
     {
         return None;
     }
     // ASM Sphere.asm installs stru_36174 once at Enemy06_Sphere_Init and
-    // Enemy06_Sphere_Loop never re-inits, so the live sphere spins through
-    // exactly three frames C8120/C8128/C8130 (frames 0,1,2) via the `dc.b 2,$D`
-    // rewind. Frames 3.. are the stru_36182 disappear/death tail and must not
-    // appear while alive.
-    let phase = (trace.frame_index / enemy_visuals.frame_duration.max(1)) % 3;
-    Some(&enemy_visuals.frames[phase])
+    // Enemy06_Sphere_Loop never re-inits. Core exports the current mapping
+    // from that Sphere's private GfxObject animation clock.
+    enemy_visuals
+        .frames
+        .get(usize::from(object.sprite_animation_phase?))
 }
 
 fn select_live_emo_rock_frame<'a>(
@@ -2411,7 +2408,7 @@ pub fn select_enemy_frame<'a>(
     if let Some(frame) = select_live_robot_frame(enemy_visuals, object) {
         return frame;
     }
-    if let Some(frame) = select_live_sphere_frame(trace, enemy_visuals, object) {
+    if let Some(frame) = select_live_sphere_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_emo_rock_frame(trace, enemy_visuals, object) {
@@ -3617,6 +3614,15 @@ mod tests {
         }
     }
 
+    fn live_sphere_object(phase: u8) -> NativeObjectSnapshot {
+        NativeObjectSnapshot {
+            // ASM Enemy06_Sphere_Init never writes current_hp `$44`.
+            hit_points: Some(0),
+            sprite_animation_phase: Some(phase),
+            ..live_enemy_object(0x06)
+        }
+    }
+
     fn selected_enemy_tile_base(
         trace: &NativeTraceFrame,
         visuals: &wildside_render::AnimatedSpriteVisual,
@@ -4198,7 +4204,7 @@ mod tests {
             }),
             (
                 0x06,
-                select_live_sphere_frame(&trace, &full, &live_enemy_object(0x06)).is_some(),
+                select_live_sphere_frame(&full, &live_sphere_object(0)).is_some(),
             ),
             (0x1B, {
                 let mut emo_rock = live_enemy_object(0x1B);
@@ -4268,13 +4274,14 @@ mod tests {
         live_armadillo.sprite_animation_phase = Some(0);
         assert!(select_live_armadillo_frame(&short, &live_armadillo).is_none());
 
-        let mut rejected = live_enemy_object(0x06);
+        let mut rejected = live_sphere_object(0);
         rejected.kind = NativeObjectKind::Enemy { object_type: 0x05 };
-        assert!(select_live_sphere_frame(&trace, &full, &rejected).is_none());
-        rejected = live_enemy_object(0x06);
-        rejected.hit_points = Some(0);
-        assert!(select_live_sphere_frame(&trace, &full, &rejected).is_none());
-        assert!(select_live_sphere_frame(&trace, &short, &live_enemy_object(0x06)).is_none());
+        assert!(select_live_sphere_frame(&full, &rejected).is_none());
+        rejected = live_sphere_object(0);
+        rejected.sprite_animation_phase = None;
+        rejected.wait_timer = Some(0x1E);
+        assert!(select_live_sphere_frame(&full, &rejected).is_none());
+        assert!(select_live_sphere_frame(&short, &live_sphere_object(0)).is_none());
 
         let mut rejected = live_enemy_object(0x1B);
         rejected.kind = NativeObjectKind::Enemy { object_type: 0x1A };
@@ -4407,9 +4414,8 @@ mod tests {
         );
         assert_eq!(
             selected_live_tile_base(select_live_sphere_frame(
-                &trace,
                 &labelled_enemy_visuals(3, 3),
-                &live_enemy_object(0x06)
+                &live_sphere_object(0)
             )),
             0x0100
         );
@@ -4489,12 +4495,10 @@ mod tests {
             0x0102
         );
         let sphere_visuals = labelled_enemy_visuals(6, 9);
-        trace.frame_index = 19;
         assert_eq!(
             selected_live_tile_base(select_live_sphere_frame(
-                &trace,
                 &sphere_visuals,
-                &live_enemy_object(0x06)
+                &live_sphere_object(2)
             )),
             0x0102
         );
