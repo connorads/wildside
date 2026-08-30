@@ -20386,8 +20386,8 @@ mod tests {
             );
         }
 
-        object.sprite_animation_phase = None;
-        trace.frame_index = 90;
+        object.sprite_animation_phase = Some(11);
+        trace.frame_index = 999;
         let frame = sprites::select_enemy_frame(&trace, orca_visuals, &object);
         assert_eq!(
             (frame.tile_sheet.tiles[0].pixels[0], frame.tile_base_index),

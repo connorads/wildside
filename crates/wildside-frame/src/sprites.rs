@@ -1895,7 +1895,6 @@ fn select_live_ninja_frame<'a>(
 }
 
 fn select_live_orca_frame<'a>(
-    trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
 ) -> Option<&'a wildside_render::SpriteFrame> {
@@ -1906,18 +1905,11 @@ fn select_live_orca_frame<'a>(
         return None;
     }
 
-    if let Some(phase) = object.sprite_animation_phase {
-        // ASM Orca.asm loc_3D2F4/loc_3D348/loc_3D420: core exports the
-        // animation-disabled windup, lunge and landing mapping.
-        return enemy_visuals.frames.get(usize::from(phase));
-    }
-
-    // ASM Orca.asm stru_3D0A2: twelve 9-tick entries, including C769E at
-    // entry ten. Native has no per-object GfxObject animation timer yet.
-    let script = [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 11, 5];
-    let offset = object.layout_index.unwrap_or(0) * 3;
-    let entry = ((trace.frame_index + offset) / 9) % script.len();
-    enemy_visuals.frames.get(script[entry])
+    // ASM Orca.asm stru_3D0A2 and loc_3D2F4/loc_3D348/loc_3D420: core
+    // exports the exact patrol mapping or animation-disabled lunge pose.
+    enemy_visuals
+        .frames
+        .get(usize::from(object.sprite_animation_phase?))
 }
 
 fn select_live_scorpion_frame<'a>(
@@ -2433,7 +2425,7 @@ pub fn select_enemy_frame<'a>(
     if let Some(frame) = select_live_ninja_frame(enemy_visuals, object) {
         return frame;
     }
-    if let Some(frame) = select_live_orca_frame(trace, enemy_visuals, object) {
+    if let Some(frame) = select_live_orca_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_scorpion_frame(enemy_visuals, object) {

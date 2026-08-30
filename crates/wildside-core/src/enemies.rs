@@ -1384,6 +1384,7 @@ pub(crate) struct ActiveEnemy {
     /// Diamond reuses this for the live `stru_3ACA8` GfxObject animation tick.
     /// UFO reuses it for the intact/damaged parent GfxObject animation tick.
     /// Crab reuses it for the live `stru_3AF62` GfxObject animation tick.
+    /// Orca reuses it for the patrol `stru_3D0A2` GfxObject animation tick.
     pub(crate) dragon_descent_frames: u8,
     pub(crate) ninja_state: NinjaState,
     pub(crate) hand_state: HandState,
@@ -2836,6 +2837,11 @@ impl ActiveEnemy {
                 self.damage_flash_frames,
                 self.wait_timer,
             )
+            .or_else(|| {
+                matches!(self.orca_state, OrcaState::Walking).then(|| {
+                    orca_patrol_sprite_animation_phase_stru_3d0a2(self.dragon_descent_frames)
+                })
+            })
         } else if matches!(self.family, EnemyFamily::DragonWalking) {
             Some(dragon_walking_sprite_animation_phase_stru_3cc5e(
                 self.dragon_descent_index,
@@ -5070,6 +5076,17 @@ pub(crate) fn step_active_enemies_with_rng(
             enemy.dragon_descent_frames =
                 crab_next_live_animation_tick_stru_3af62(enemy.dragon_descent_frames);
         }
+        if matches!(enemy.family, EnemyFamily::Orca)
+            && matches!(enemy.orca_state, OrcaState::Walking)
+            && enemy.damage_flash_frames == 0
+            && enemy.wait_timer != ORCA_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3D2AA
+            && !enemy.death_animation_active
+        {
+            // ASM Orca.asm stru_3D0A2: GfxObject_Animate advances the patrol
+            // mapping independently from both the walker and lunge callback.
+            enemy.dragon_descent_frames =
+                orca_next_patrol_animation_tick_stru_3d0a2(enemy.dragon_descent_frames);
+        }
         if executable_enemy_indices.next_if_eq(&enemy_index).is_none() {
             continue;
         }
@@ -5110,6 +5127,8 @@ pub(crate) fn step_active_enemies_with_rng(
             matches!(enemy.family, EnemyFamily::Diamond) && enemy.damage_flash_frames == 1;
         let restores_crab_animation =
             matches!(enemy.family, EnemyFamily::Crab) && enemy.damage_flash_frames == 1;
+        let restores_orca_animation =
+            matches!(enemy.family, EnemyFamily::Orca) && enemy.damage_flash_frames == 1;
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
         if restores_dragon_walking_animation {
             // ASM Dragon.asm loc_3CEBE restores `$62(a5)` through
@@ -5144,6 +5163,11 @@ pub(crate) fn step_active_enemies_with_rng(
         if restores_crab_animation {
             // ASM Crab.asm loc_3B0A6 re-installs `stru_3AF62` through
             // Init_Animation after the sole eight-tick hurt frame finishes.
+            enemy.dragon_descent_frames = 0;
+        }
+        if restores_orca_animation {
+            // ASM Orca.asm loc_3D23E restores saved patrol `stru_3D0A2`
+            // through Init_Animation after the 15-tick hurt pose finishes.
             enemy.dragon_descent_frames = 0;
         }
         if matches!(enemy.family, EnemyFamily::FireDemon) {
@@ -12554,6 +12578,67 @@ mod tests {
         assert_eq!(
             enemies[0].dragon_descent_frames, 1,
             "ASM GfxObjects_MoveAndAnimate advances Crab stru_3AF62 independently from its shared-walker Object"
+        );
+    }
+
+    #[test]
+    fn active_enemy_step_advances_and_restores_orca_patrol_gfx_clock() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Orca;
+        enemy.hit_points = 4;
+        enemy.orca_state = OrcaState::Walking;
+        enemy.dragon_descent_frames = 0;
+        let mut enemies = [enemy];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            None,
+            &mut std::collections::HashMap::new(),
+        );
+        assert_eq!(enemies[0].dragon_descent_frames, 1);
+        assert_eq!(enemies[0].snapshot().sprite_animation_phase, Some(0));
+
+        enemies[0].damage_flash_frames = 1;
+        enemies[0].dragon_descent_frames = 77;
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            None,
+            &mut std::collections::HashMap::new(),
+        );
+        assert_eq!(enemies[0].damage_flash_frames, 0);
+        assert_eq!(
+            enemies[0].dragon_descent_frames, 0,
+            "ASM Orca.asm loc_3D23E Init_Animation restores saved patrol stru_3D0A2 after hurt"
         );
     }
 

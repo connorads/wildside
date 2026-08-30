@@ -534,8 +534,29 @@ pub(crate) fn orca_lunge_y_velocity_loc_3d3b4(y_velocity: i32) -> i32 {
 /// Orca lunge X acceleration (Orca.asm loc_3D3A2: $200 per frame in facing dir).
 pub(crate) const ORCA_LUNGE_X_ACCEL: i32 = 0x200;
 
+pub(crate) const ORCA_PATROL_ANIMATION_TICKS_STRU_3D0A2: u8 = 12 * 9;
+
+pub(crate) fn orca_next_patrol_animation_tick_stru_3d0a2(animation_tick: u8) -> u8 {
+    // ASM Init_Animation starts with timer 1. The first GfxObject_Animate call
+    // installs the first nine-tick entry; `dc.b 2,$31` then rewinds every 108
+    // calls without another bootstrap tick.
+    if animation_tick == 0 || animation_tick >= ORCA_PATROL_ANIMATION_TICKS_STRU_3D0A2 {
+        1
+    } else {
+        animation_tick + 1
+    }
+}
+
+pub(crate) fn orca_patrol_sprite_animation_phase_stru_3d0a2(animation_tick: u8) -> u8 {
+    // The extracted atlas stores unique mappings, while `stru_3D0A2` repeats
+    // its first four swim mappings before the C769E turn entry.
+    const MAPPINGS: [u8; 12] = [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 11, 5];
+    let entry = usize::from(animation_tick.saturating_sub(1) / 9);
+    MAPPINGS[entry.min(MAPPINGS.len() - 1)]
+}
+
 /// Returns the atlas index for Orca poses whose ROM animation is disabled.
-/// ASM Orca.asm loc_3D23E/loc_3D27E/loc_3D2F4/loc_3D348/loc_3D420.
+/// ASM Orca.asm loc_3D23E/loc_3D27E/loc_3D2F4/loc_3D348/loc_3D420/loc_3D48A.
 pub(crate) fn orca_fixed_sprite_animation_phase(
     state: OrcaState,
     damage_flash_frames: u8,
@@ -547,9 +568,9 @@ pub(crate) fn orca_fixed_sprite_animation_phase(
 
     match state {
         OrcaState::Windup => Some(6),
-        OrcaState::Lunging => Some(12),
+        OrcaState::Lunging | OrcaState::FatalFall => Some(12),
         OrcaState::LandingWait => Some(13),
-        OrcaState::Walking | OrcaState::FatalFall => None,
+        OrcaState::Walking => None,
     }
 }
 
@@ -708,6 +729,9 @@ pub(crate) fn step_orca(
             enemy.wait_timer = ORCA_LUNGE_COOLDOWN;
             enemy.orca_state = OrcaState::Walking;
             enemy.on_ground = true;
+            // ASM Orca.asm loc_3D44A installs `stru_3D0A2` through
+            // Init_Animation before loc_3D466 resumes the walker.
+            enemy.dragon_descent_frames = 0;
         }
         OrcaState::FatalFall => {
             // ASM Orca.asm loc_3D496: fatal lunge damage clears the current
@@ -786,6 +810,11 @@ mod tests {
             Some(13)
         );
         assert_eq!(
+            orca_fixed_sprite_animation_phase(OrcaState::FatalFall, 0, 0),
+            Some(12),
+            "ASM Orca.asm loc_3D48A keeps the C765E lunge mapping until floor contact starts death stru_3D11E"
+        );
+        assert_eq!(
             orca_fixed_sprite_animation_phase(OrcaState::Walking, 1, 0),
             Some(6),
             "ASM Orca.asm loc_3D23E holds C7656 during non-terminal hurt"
@@ -798,6 +827,43 @@ mod tests {
             ),
             Some(6),
             "ASM Orca.asm loc_3D27E holds C7656 during Berzerker knockback"
+        );
+    }
+
+    #[test]
+    fn patrol_animation_clock_tracks_stru_3d0a2_and_landing_reset() {
+        for (tick, phase) in [
+            (0, 0),
+            (1, 0),
+            (9, 0),
+            (10, 1),
+            (45, 4),
+            (54, 5),
+            (55, 0),
+            (90, 3),
+            (91, 11),
+            (99, 11),
+            (100, 5),
+            (108, 5),
+        ] {
+            assert_eq!(
+                orca_patrol_sprite_animation_phase_stru_3d0a2(tick),
+                phase,
+                "ASM Orca.asm stru_3D0A2 mapping at GfxObject animation tick {tick}"
+            );
+        }
+        assert_eq!(orca_next_patrol_animation_tick_stru_3d0a2(108), 1);
+
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Orca;
+        enemy.orca_state = OrcaState::LandingWait;
+        enemy.wait_timer = 1;
+        enemy.dragon_descent_frames = 77;
+        step_orca(&mut enemy, None, None);
+        assert_eq!(enemy.orca_state, OrcaState::Walking);
+        assert_eq!(
+            enemy.dragon_descent_frames, 0,
+            "ASM Orca.asm loc_3D44A Init_Animation resets stru_3D0A2 before loc_3D466 resumes walking"
         );
     }
 

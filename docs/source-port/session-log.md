@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Orca object-local patrol animation)
+
+- Orca patrol rendering derived `stru_3D0A2` from global frame time plus
+  layout offset. Fatal fall also fell back to that patrol approximation even
+  though `loc_3D48A` preserves the fixed C765E lunge mapping.
+- Core now models the `Init_Animation` bootstrap and twelve-by-nine-tick
+  object-local patrol loop. It resets after `loc_3D23E` hurt recovery and
+  `loc_3D44A` landing recovery; fatal fall exports C765E until death starts.
+- Level `$16` remains state-clean and improves at both standard checkpoints:
+  settle 1,331→1,318 mismatched pixels and idle 940→933. Inspected diff images
+  localise the changed pixels to the visible Orca. `verify-slice-fast` and the
+  full 37,759-frame `verify-tas-full` pass with unchanged published ratchets:
+  37,518 exact frames, 241 divergent frames, and 2,391 frozen HUD pixels.
+
 ## 2026-08-30 handoff (Crab object-local live animation)
 
 - Crab rendering derived `stru_3AF62` from global frame time plus layout
