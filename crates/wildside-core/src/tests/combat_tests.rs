@@ -15551,7 +15551,7 @@ mod chunk_03 {
             runtime.multi_head_boss_death_count_fb4e, 3,
             "ASM loc_39EBE increments `$FFFFFB4E` once for each boss head entering its death routine"
         );
-        let skewer_velocities: Vec<(i32, i32, i32)> = runtime
+        let skewer_velocities: Vec<(i32, i32, i32, BossHeadProjectileSpriteFrame)> = runtime
             .projectiles
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::BossSkewer)
@@ -15564,23 +15564,91 @@ mod chunk_03 {
                     projectile.x_velocity,
                     projectile.y_velocity,
                     projectile.gravity,
+                    projectile.boss_head_projectile_sprite_frame,
                 )
             })
             .collect();
         assert_eq!(
             skewer_velocities,
             vec![
-                (-0xE000, -7 << 16, 0x1B58),
-                (0xE000, -7 << 16, 0x1B58),
-                (-0xC000, -7 << 16, 0x1B58),
-                (0xC000, -7 << 16, 0x1B58),
-                (-0xA000, -7 << 16, 0x1B58),
-                (0xA000, -7 << 16, 0x1B58),
-                (-0x8000, -7 << 16, 0x1B58),
-                (0x8000, -8 << 16, 0x1B58),
-                (-0xA000, -6 << 16, 0x1B58),
+                (
+                    -0xE000,
+                    -7 << 16,
+                    0x1B58,
+                    BossHeadProjectileSpriteFrame::C85F8
+                ),
+                (
+                    0xE000,
+                    -7 << 16,
+                    0x1B58,
+                    BossHeadProjectileSpriteFrame::C85F0
+                ),
+                (
+                    -0xC000,
+                    -7 << 16,
+                    0x1B58,
+                    BossHeadProjectileSpriteFrame::C85F0
+                ),
+                (
+                    0xC000,
+                    -7 << 16,
+                    0x1B58,
+                    BossHeadProjectileSpriteFrame::C85F0
+                ),
+                (
+                    -0xA000,
+                    -7 << 16,
+                    0x1B58,
+                    BossHeadProjectileSpriteFrame::C85F0
+                ),
+                (
+                    0xA000,
+                    -7 << 16,
+                    0x1B58,
+                    BossHeadProjectileSpriteFrame::C85F0
+                ),
+                (
+                    -0x8000,
+                    -7 << 16,
+                    0x1B58,
+                    BossHeadProjectileSpriteFrame::C85F0
+                ),
+                (
+                    0x8000,
+                    -8 << 16,
+                    0x1B58,
+                    BossHeadProjectileSpriteFrame::C85F0
+                ),
+                (
+                    -0xA000,
+                    -6 << 16,
+                    0x1B58,
+                    BossHeadProjectileSpriteFrame::C85E8
+                ),
             ],
-            "ASM loc_384E8..loc_388D8 launches the 9-piece upward skewer fan after `$FFFFFB4E==3`"
+            "ASM loc_384E8..loc_388D8 launches the 9-piece upward skewer fan after `$FFFFFB4E==3`, retaining top C85F8, seven shaft C85F0, and bottom C85E8 mappings"
+        );
+        let trace_mappings = runtime
+            .trace_frame()
+            .active_projectile_details
+            .into_iter()
+            .filter(|projectile| projectile.kind == ActiveProjectileKind::BossSkewer)
+            .map(|projectile| projectile.boss_head_projectile_sprite_frame)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            trace_mappings,
+            vec![
+                BossHeadProjectileSpriteFrame::C85F8,
+                BossHeadProjectileSpriteFrame::C85F0,
+                BossHeadProjectileSpriteFrame::C85F0,
+                BossHeadProjectileSpriteFrame::C85F0,
+                BossHeadProjectileSpriteFrame::C85F0,
+                BossHeadProjectileSpriteFrame::C85F0,
+                BossHeadProjectileSpriteFrame::C85F0,
+                BossHeadProjectileSpriteFrame::C85F0,
+                BossHeadProjectileSpriteFrame::C85E8,
+            ],
+            "the live trace preserves each ASM skewer mapping after launch instead of asking rendering to infer identity from velocity"
         );
     }
 

@@ -697,6 +697,7 @@ pub(crate) fn step_archer(
         animation_elapsed_frames: 0,
         boss_head_boomerang_direction_byte_d0: 0,
         boss_head_boomerang_animation: crate::types::BossHeadBoomerangAnimationCursor::default(),
+        boss_head_projectile_sprite_frame: crate::types::BossHeadProjectileSpriteFrame::default(),
         boss_head_arrow_animation: crate::types::BossHeadArrowAnimationCursor::default(),
         boss_head_arrow_coroutine_state: crate::types::BossHeadArrowCoroutineState::Running,
         drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,

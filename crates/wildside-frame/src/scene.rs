@@ -7677,7 +7677,10 @@ fn build_game_scene_filtered(
                                 | BossHeadProjectileSpriteFrame::C8530
                                 | BossHeadProjectileSpriteFrame::C8538
                                 | BossHeadProjectileSpriteFrame::C8540
-                                | BossHeadProjectileSpriteFrame::C8548 => return None,
+                                | BossHeadProjectileSpriteFrame::C8548
+                                | BossHeadProjectileSpriteFrame::C85E8
+                                | BossHeadProjectileSpriteFrame::C85F0
+                                | BossHeadProjectileSpriteFrame::C85F8 => return None,
                             };
                             let frame = visuals.frames.get(frame_index)?;
                             // ASM sub_397E4 copies `x_direction` into the
@@ -7763,16 +7766,44 @@ fn build_game_scene_filtered(
                     }
                 }
                 ActiveProjectileKind::BossSkewer => {
-                    // ASM loc_384E8..loc_388D8 uses the Shishkaboss skewer
-                    // child sprites; render a tall marker until those exact
-                    // C85E8/C85F0/C85F8 frames are compiled into native play.
-                    commands.push(DrawCommand::Rect {
-                        x: sx - 2,
-                        y: sy - 8,
-                        width: 4,
-                        height: 16,
-                        colour: ENEMY_PROJECTILE_COLOUR,
-                    });
+                    let pushed_sprite = level_visuals
+                        .enemies
+                        .families
+                        .get(&0x22)
+                        .and_then(|visuals| {
+                            let frame_index = match projectile.boss_head_projectile_sprite_frame {
+                                BossHeadProjectileSpriteFrame::C85F8 => 5,
+                                BossHeadProjectileSpriteFrame::C85F0 => 6,
+                                BossHeadProjectileSpriteFrame::C85E8 => 7,
+                                _ => return None,
+                            };
+                            let frame = visuals.frames.get(frame_index)?;
+                            let facing = Direction::Right;
+                            let (draw_x, draw_y) = sprite_draw_position(frame, sx, sy, facing);
+                            // ASM loc_38494..loc_38884 registers object_meta
+                            // `$22` and keeps the default mapping orientation.
+                            commands.push(DrawCommand::Sprite {
+                                x: draw_x,
+                                y: draw_y,
+                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                                palette: Arc::new(visuals.palette.clone()),
+                                // Native stores the selected enemy CRAM row as
+                                // one local 16-colour palette, matching the
+                                // existing waiting-skewer renderer.
+                                tiles: build_sprite_tiles(frame, facing, 0),
+                            });
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 2,
+                            y: sy - 8,
+                            width: 4,
+                            height: 16,
+                            colour: ENEMY_PROJECTILE_COLOUR,
+                        });
+                    }
                 }
                 ActiveProjectileKind::BossDeathBurst => {
                     // ASM sub_370D2 uses `LnkTo_unk_C8460` and `stru_37BD8`;
@@ -12389,6 +12420,95 @@ mod tests {
         assert!(
             scene_rects(&scene.commands).is_empty(),
             "the exact C8538 sprite replaces the generic projectile marker"
+        );
+    }
+
+    #[test]
+    fn launched_boss_skewer_uses_c85e8_c85f0_c85f8_rom_frames() {
+        let mut visuals = sample_level_visuals(1);
+        let mut boss_head_visuals = AnimatedSpriteVisual {
+            palette: sample_palette_with_first_word(0x0220),
+            extra_palettes: Vec::new(),
+            frames: vec![sample_sprite_frame(0x22); 8],
+            frame_duration: 1,
+        };
+        boss_head_visuals.frames[5] = SpriteFrame {
+            origin_x: 0x10,
+            origin_y: 0x18,
+            width_px: 0x20,
+            height_px: 0x31,
+            tile_base_index: 0x088,
+            tile_sheet: sample_tile_sheet_with_pixel(0xA0, 0xF8),
+        };
+        boss_head_visuals.frames[6] = SpriteFrame {
+            origin_x: 0x05,
+            origin_y: 0x10,
+            width_px: 0x0A,
+            height_px: 0x20,
+            tile_base_index: 0x080,
+            tile_sheet: sample_tile_sheet_with_pixel(0xA0, 0xF0),
+        };
+        boss_head_visuals.frames[7] = SpriteFrame {
+            origin_x: 0x10,
+            origin_y: 0x18,
+            width_px: 0x20,
+            height_px: 0x30,
+            tile_base_index: 0x068,
+            tile_sheet: sample_tile_sheet_with_pixel(0xA0, 0xE8),
+        };
+        visuals.enemies.families.insert(0x22, boss_head_visuals);
+        let projectile = |x: u32, mapping| ActiveProjectileSnapshot {
+            x_pos: x << 16,
+            y_pos: 100 << 16,
+            kind: ActiveProjectileKind::BossSkewer,
+            boss_head_projectile_sprite_frame: mapping,
+            ..ActiveProjectileSnapshot::default()
+        };
+        let trace = NativeTraceFrame {
+            active_projectile_details: vec![
+                projectile(100, BossHeadProjectileSpriteFrame::C85F8),
+                projectile(140, BossHeadProjectileSpriteFrame::C85F0),
+                projectile(180, BossHeadProjectileSpriteFrame::C85E8),
+            ],
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("effects"),
+            None,
+        )
+        .0;
+        let sprites = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite { x, y, tiles, .. } => Some((
+                    *x,
+                    *y,
+                    tiles.len(),
+                    tiles.first()?.tile.tile_index,
+                    tiles.first()?.tile.palette_line,
+                )),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            sprites,
+            vec![
+                (84, 75, 28, 0x088, 0),
+                (135, 84, 8, 0x080, 0),
+                (164, 76, 24, 0x068, 0)
+            ],
+            "ASM loc_38494..loc_38884 keeps launched top, shaft, and bottom skewer workers on C85F8, C85F0, and C85E8 with their exact geometry"
+        );
+        assert!(
+            scene_rects(&scene.commands).is_empty(),
+            "launched skewer ROM sprites replace the generic tall markers"
         );
     }
 

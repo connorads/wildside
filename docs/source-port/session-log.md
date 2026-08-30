@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (launched Shishkaboss skewer ROM sprites)
+
+- Waiting Shishkaboss skewers already render C85F8/C85F0/C85E8 through a
+  specialised prior-SAT trace. After the third head dies, the nine launched
+  workers previously lost that identity and rendered as invented 4x16
+  rectangles.
+- The shared trace boundary is now named `BossHeadProjectileSpriteFrame`.
+  Spawn retains top C85F8, seven shaft C85F0, and bottom C85E8 identity; the
+  renderer consumes that typed value with the existing Boss Head tile page,
+  palette, and exact mapping geometry. Velocity inference was rejected because
+  the bottom and a shaft worker share X velocity.
+- Live-spawn/trace and renderer regressions pass. `verify-slice-fast` and the
+  full 37,759-frame `verify-tas-full` pass with unchanged published ratchets:
+  37,518 exact frames, 241 divergent frames, and 2,391 changed HUD pixels.
+
 ## 2026-08-30 handoff (Boss Head boomerang ROM animation)
 
 - `loc_3A1EA` initialises `stru_3A308`, which loops C8530, C8538, C8540,

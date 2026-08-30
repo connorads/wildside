@@ -12589,12 +12589,12 @@ impl NativeRuntime {
                         p.boss_eye_sprite_mapping_label,
                     ),
                     boss_eye_sprite_order_word_a: 0,
-                    boss_head_projectile_sprite_frame: if p.kind
-                        == EnemyProjectileKind::BossHeadBoomerang
-                    {
-                        p.boss_head_boomerang_animation.sprite_frame
-                    } else {
-                        p.boss_head_arrow_animation.sprite_frame
+                    boss_head_projectile_sprite_frame: match p.kind {
+                        EnemyProjectileKind::BossHeadBoomerang => {
+                            p.boss_head_boomerang_animation.sprite_frame
+                        }
+                        EnemyProjectileKind::BossSkewer => p.boss_head_projectile_sprite_frame,
+                        _ => p.boss_head_arrow_animation.sprite_frame,
                     },
                     dragon_flying_descent_fire_state: p.dragon_flying_descent_fire_state,
                     dragon_flying_descent_fire_counter: p.dragon_flying_descent_fire_counter,

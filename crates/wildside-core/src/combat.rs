@@ -10061,10 +10061,21 @@ impl NativeRuntime {
                 BoomerangBossSkewerPiece9WaitNextLoc388C6::WaitLoopLoc388C6 => None,
             },
         ];
-        for (x_pos, y_pos, x_velocity, y_velocity, gravity) in launches.into_iter().flatten() {
+        for (piece_index, launch) in launches.into_iter().enumerate() {
+            let Some((x_pos, y_pos, x_velocity, y_velocity, gravity)) = launch else {
+                continue;
+            };
             // ASM loc_38494..loc_38884 allocates nine independent GfxObject
             // workers; this is not limited by native's four-slot helper-shot
             // cap used for ordinary enemy projectiles.
+            let boss_head_projectile_sprite_frame = match piece_index {
+                // ASM loc_38494: first/top piece uses LnkTo_unk_C85F8.
+                0 => BossHeadProjectileSpriteFrame::C85F8,
+                // ASM loc_38884: ninth/bottom piece uses LnkTo_unk_C85E8.
+                8 => BossHeadProjectileSpriteFrame::C85E8,
+                // ASM loc_38512..loc_38806: seven shaft pieces use C85F0.
+                _ => BossHeadProjectileSpriteFrame::C85F0,
+            };
             self.projectiles.push(EnemyProjectile {
                 x_pos,
                 y_pos,
@@ -10073,6 +10084,7 @@ impl NativeRuntime {
                 lifetime: u16::MAX,
                 gravity,
                 kind: EnemyProjectileKind::BossSkewer,
+                boss_head_projectile_sprite_frame,
                 ..Default::default()
             });
         }

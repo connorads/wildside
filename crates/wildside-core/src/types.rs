@@ -177,6 +177,9 @@ pub enum BossHeadProjectileSpriteFrame {
     C8538,
     C8540,
     C8548,
+    C85E8,
+    C85F0,
+    C85F8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -204,7 +207,7 @@ pub struct ActiveProjectileSnapshot {
     #[serde(default)]
     pub boss_eye_sprite_order_word_a: u16,
     /// Selected boss-head projectile GfxObject mapping from `stru_3A1CC`,
-    /// `stru_3A1D6`, or `stru_3A308`.
+    /// `stru_3A1D6`, `stru_3A308`, or skewer workers `loc_38494..loc_38884`.
     #[serde(default)]
     pub boss_head_projectile_sprite_frame: BossHeadProjectileSpriteFrame,
     #[serde(default)]
@@ -5203,7 +5206,10 @@ impl BossHeadArrowAnimationCursor {
                 | BossHeadProjectileSpriteFrame::C8530
                 | BossHeadProjectileSpriteFrame::C8538
                 | BossHeadProjectileSpriteFrame::C8540
-                | BossHeadProjectileSpriteFrame::C8548,
+                | BossHeadProjectileSpriteFrame::C8548
+                | BossHeadProjectileSpriteFrame::C85E8
+                | BossHeadProjectileSpriteFrame::C85F0
+                | BossHeadProjectileSpriteFrame::C85F8,
                 _,
             ) => BossHeadProjectileSpriteFrame::None,
         };
@@ -5305,6 +5311,8 @@ pub(crate) struct EnemyProjectile {
     pub(crate) boss_head_boomerang_direction_byte_d0: u8,
     /// Object-local GfxObject animation cursor for `stru_3A308`.
     pub(crate) boss_head_boomerang_animation: BossHeadBoomerangAnimationCursor,
+    /// Static C85E8/C85F0/C85F8 mapping selected by skewer worker identity.
+    pub(crate) boss_head_projectile_sprite_frame: BossHeadProjectileSpriteFrame,
     /// Object-local GfxObject animation cursor for `stru_3A1CC`/`stru_3A1D6`.
     pub(crate) boss_head_arrow_animation: BossHeadArrowAnimationCursor,
     /// `loc_3A0D2` falls into `loc_3A134`, whose first action is a one-frame
