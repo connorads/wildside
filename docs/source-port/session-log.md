@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Heady Metal death-burst ROM animation)
+
+- `sub_370D2` and its final `sub_37002` helper use C8460-C8478 from the
+  Boss Eyes art page. Native previously reduced every phase to an invented
+  8x8 rectangle.
+- A pure core projection now derives the mapping from the existing typed
+  coroutine state and animation counter. Raw `x_direction` is retained
+  separately because accumulated velocity does not prove current orientation.
+  Rendering consumes the exact mapping geometry, Boss Eyes palette, and flip.
+- No cached recording fires this effect. The complete 17-test death-burst
+  behaviour cluster and exact render regression pass. `verify-slice-fast` and
+  the full 37,759-frame `verify-tas-full` pass with unchanged published
+  ratchets: 37,518 exact frames, 241 divergent frames, and 2,391 changed HUD
+  pixels.
+
 ## 2026-08-30 handoff (UFO first-hurt debris ROM sprite)
 
 - `loc_354DA` assigns first-hurt debris `LnkTo_unk_C8408`; native previously

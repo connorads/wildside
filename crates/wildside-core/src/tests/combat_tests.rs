@@ -3464,6 +3464,10 @@ fn live_boss_death_burst_chases_only_after_entry_animation_loc_37148() {
         (0x0000_07D0, -0x0000_07D0),
         "ASM loc_3716C..loc_371B4 should start `$7D0` homing deltas only in the grounded chase loop; the signed Y direction follows the post-fall position"
     );
+    assert_eq!(
+        burst.boss_death_burst_x_direction, 0xFF,
+        "ASM loc_3716C sets x_direction when the burst is left of Kid, independently from accumulated velocity"
+    );
 }
 
 #[test]

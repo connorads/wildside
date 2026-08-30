@@ -686,6 +686,7 @@ fn cloud_projectile_spawn_loc_35df0(
         dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
         dragon_flying_descent_fire_counter: 0,
         boss_death_burst_state: BossDeathBurstState::None,
+        boss_death_burst_x_direction: 0,
         collision_type: 0,
         boss_eye_sprite_mapping_label: "",
         boss_eye_pop_effect_x_direction: 0,

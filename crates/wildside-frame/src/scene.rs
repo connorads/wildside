@@ -3,10 +3,10 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use wildside_core::{
     ActiveProjectileKind, ActiveProjectileSnapshot, BlockBounceTraceKind,
-    BossHeadProjectileSpriteFrame, DiamondPowerSpriteSnapshot, DragonFlyingDescentFireState,
-    GameMode, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame, PlayerForm,
-    TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE, physics::Direction,
-    terrain::BlockGrid,
+    BossDeathBurstSpriteFrame, BossHeadProjectileSpriteFrame, DiamondPowerSpriteSnapshot,
+    DragonFlyingDescentFireState, GameMode, NativeObjectKind, NativeObjectSnapshot,
+    NativeTraceFrame, PlayerForm, TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE,
+    physics::Direction, terrain::BlockGrid,
 };
 use wildside_render::{MdColour, NativeLevelVisuals, Palette, TileRef, TileSheet};
 
@@ -456,6 +456,29 @@ fn ufo_first_hurt_debris_frame_loc_354da(
         width_px: 0x07,
         height_px: 0x08,
         tile_base_index: 0x157,
+        tile_sheet,
+    })
+}
+
+fn boss_death_burst_frame_sub_370d2(
+    visuals: &wildside_render::AnimatedSpriteVisual,
+    sprite_frame: BossDeathBurstSpriteFrame,
+) -> Option<wildside_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    let (tile_base_index, origin_x, origin_y, width_px, height_px) = match sprite_frame {
+        // ASM kid.asm unk_C8460..unk_C8478, selected by sub_370D2's four
+        // animation scripts and retained by the shared sub_37002 worker.
+        BossDeathBurstSpriteFrame::C8460 => (0x0F0, 0x04, 0x04, 0x07, 0x08),
+        BossDeathBurstSpriteFrame::C8468 => (0x0F1, 0x06, 0x06, 0x0C, 0x0D),
+        BossDeathBurstSpriteFrame::C8470 => (0x0F5, 0x08, 0x08, 0x0F, 0x10),
+        BossDeathBurstSpriteFrame::C8478 => (0x0F9, 0x08, 0x08, 0x0F, 0x10),
+    };
+    Some(wildside_render::SpriteFrame {
+        origin_x,
+        origin_y,
+        width_px,
+        height_px,
+        tile_base_index,
         tile_sheet,
     })
 }
@@ -7542,6 +7565,8 @@ fn build_game_scene_filtered(
                         kind: ActiveProjectileKind::Generic,
                         palette_variant: 0,
                         ufo_first_hurt_debris_flipped: false,
+                        boss_death_burst_sprite_frame: BossDeathBurstSpriteFrame::C8460,
+                        boss_death_burst_flipped: false,
                         boss_eye_sprite_mapping_index: 0,
                         boss_eye_sprite_order_word_a: 0,
                         boss_head_projectile_sprite_frame: BossHeadProjectileSpriteFrame::None,
@@ -7823,16 +7848,40 @@ fn build_game_scene_filtered(
                     }
                 }
                 ActiveProjectileKind::BossDeathBurst => {
-                    // ASM sub_370D2 uses `LnkTo_unk_C8460` and `stru_37BD8`;
-                    // retain a distinct 8x8 footprint until that exact boss
-                    // burst frame is compiled into native play.
-                    commands.push(DrawCommand::Rect {
-                        x: sx - 4,
-                        y: sy - 4,
-                        width: 8,
-                        height: 8,
-                        colour: ENEMY_PROJECTILE_COLOUR,
-                    });
+                    let facing = if projectile.boss_death_burst_flipped {
+                        Direction::Left
+                    } else {
+                        Direction::Right
+                    };
+                    let pushed_sprite = level_visuals
+                        .enemies
+                        .families
+                        .get(&BOSS_EYE_OBJECT_TYPE)
+                        .and_then(|boss_eye_visuals| {
+                            let frame = boss_death_burst_frame_sub_370d2(
+                                boss_eye_visuals,
+                                projectile.boss_death_burst_sprite_frame,
+                            )?;
+                            let (draw_x, draw_y) = sprite_draw_position(&frame, sx, sy, facing);
+                            commands.push(DrawCommand::Sprite {
+                                x: draw_x,
+                                y: draw_y,
+                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                                palette: Arc::new(boss_eye_visuals.palette.clone()),
+                                tiles: build_sprite_tiles(&frame, facing, 0),
+                            });
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 4,
+                            y: sy - 4,
+                            width: 8,
+                            height: 8,
+                            colour: ENEMY_PROJECTILE_COLOUR,
+                        });
+                    }
                 }
                 ActiveProjectileKind::UfoFirstHurtDebris => {
                     let facing = if projectile.ufo_first_hurt_debris_flipped {
@@ -12120,6 +12169,81 @@ mod tests {
             assert_eq!(tiles.len(), 1, "C8408 is an aligned 1x1 tile sprite");
             assert_eq!(palette.colours[0].raw_word, 0x0300);
         }
+    }
+
+    #[test]
+    fn boss_death_burst_renders_c8460_to_c8478_from_boss_eye_art() {
+        let mut visuals = sample_level_visuals(1);
+        let mut boss_eye_frame = sample_sprite_frame(0x21);
+        boss_eye_frame.tile_sheet = sample_tile_sheet_with_pixel(0x100, 0xB5);
+        let mut boss_eye = sample_animated_visual(boss_eye_frame);
+        boss_eye.palette = sample_palette_with_first_word(0x0444);
+        visuals
+            .enemies
+            .families
+            .insert(BOSS_EYE_OBJECT_TYPE, boss_eye);
+        let trace = NativeTraceFrame {
+            active_projectile_details: [
+                BossDeathBurstSpriteFrame::C8460,
+                BossDeathBurstSpriteFrame::C8468,
+                BossDeathBurstSpriteFrame::C8470,
+                BossDeathBurstSpriteFrame::C8478,
+            ]
+            .into_iter()
+            .enumerate()
+            .map(|(index, sprite_frame)| ActiveProjectileSnapshot {
+                x_pos: ((100 + index as u32 * 24) << 16),
+                y_pos: 100 << 16,
+                kind: ActiveProjectileKind::BossDeathBurst,
+                boss_death_burst_sprite_frame: sprite_frame,
+                boss_death_burst_flipped: index == 3,
+                ..ActiveProjectileSnapshot::default()
+            })
+            .collect(),
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("effects"),
+            None,
+        )
+        .0;
+        let sprites: Vec<_> = scene
+            .commands
+            .iter()
+            .filter(|command| matches!(command, DrawCommand::Sprite { .. }))
+            .collect();
+
+        assert_eq!(sprites.len(), 4);
+        assert_eq!(
+            sprites
+                .iter()
+                .map(|sprite| sprite_tile_snapshot(sprite))
+                .collect::<Vec<_>>(),
+            vec![
+                (96, 96, 0x0F0, 0, false, false, false, 0, 0),
+                (118, 93, 0x0F1, 0, false, false, false, 0, 0),
+                (140, 92, 0x0F5, 0, false, false, false, 0, 0),
+                (164, 92, 0x0F9, 0, false, true, false, 8, 0),
+            ],
+            "ASM unk_C8460..unk_C8478 provide the exact burst geometry and x_direction flip"
+        );
+        assert_eq!(
+            sprites
+                .iter()
+                .map(|sprite| match sprite {
+                    DrawCommand::Sprite { tiles, palette, .. } => {
+                        (tiles.len(), palette.colours[0].raw_word)
+                    }
+                    _ => unreachable!(),
+                })
+                .collect::<Vec<_>>(),
+            vec![(1, 0x0444), (4, 0x0444), (4, 0x0444), (4, 0x0444)]
+        );
     }
 
     #[test]

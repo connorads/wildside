@@ -3269,6 +3269,8 @@ mod tests {
                 kind,
                 palette_variant: 0,
                 ufo_first_hurt_debris_flipped: false,
+                boss_death_burst_sprite_frame: wildside_core::BossDeathBurstSpriteFrame::C8460,
+                boss_death_burst_flipped: false,
                 boss_eye_sprite_mapping_index: 0,
                 boss_eye_sprite_order_word_a: 0,
                 boss_head_projectile_sprite_frame:
@@ -3365,6 +3367,8 @@ mod tests {
                 kind: ActiveProjectileKind::DripsDrop,
                 palette_variant: 0,
                 ufo_first_hurt_debris_flipped: false,
+                boss_death_burst_sprite_frame: wildside_core::BossDeathBurstSpriteFrame::C8460,
+                boss_death_burst_flipped: false,
                 boss_eye_sprite_mapping_index: 0,
                 boss_eye_sprite_order_word_a: 0,
                 boss_head_projectile_sprite_frame:

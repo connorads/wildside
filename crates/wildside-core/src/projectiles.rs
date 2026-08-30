@@ -158,6 +158,35 @@ const BOSS_DEATH_BURST_FINISH_ANIMATION_FRAMES_STRU_37BFC: u16 = 0x32 + 0x0A + 0
 pub(crate) const BOSS_EYE_POP_EFFECT_FINISH_ANIMATION_FRAMES_STRU_37BFC: u16 =
     0x32 + 0x0A + 0x0A + 0x0A;
 
+pub(crate) fn boss_death_burst_sprite_frame_sub_370d2(
+    projectile: &EnemyProjectile,
+) -> BossDeathBurstSpriteFrame {
+    use BossDeathBurstSpriteFrame::{C8460, C8468, C8470, C8478};
+
+    match projectile.boss_death_burst_state {
+        BossDeathBurstState::None | BossDeathBurstState::SharedHomingSub37002 => C8460,
+        BossDeathBurstState::FallingLoc3712E => match projectile.animation_elapsed_frames {
+            17.. => C8460,
+            12..=16 => C8468,
+            2..=11 => C8470,
+            _ => C8478,
+        },
+        BossDeathBurstState::ChaseLoc37148 | BossDeathBurstState::TimeoutLoc3720A => C8478,
+        BossDeathBurstState::CollisionFinishLoc371B6 => match projectile.animation_elapsed_frames {
+            31.. => C8478,
+            21..=30 => C8470,
+            11..=20 => C8468,
+            _ => C8460,
+        },
+        BossDeathBurstState::TimeoutFinishSub3728C => match projectile.animation_elapsed_frames {
+            31.. => C8478,
+            21..=30 => C8470,
+            11..=20 => C8468,
+            _ => C8460,
+        },
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ProjectilePlayerContactLocB640 {
     None,
@@ -241,6 +270,7 @@ fn step_boss_death_burst_sub_370d2(
                         projectile.x_velocity.wrapping_add(step.x_velocity_delta);
                     projectile.y_velocity =
                         projectile.y_velocity.wrapping_add(step.y_velocity_delta);
+                    projectile.boss_death_burst_x_direction = step.x_direction;
                     true
                 }
                 crate::combat::BossDeathBurstLoopNextLoc37148::TimeoutFinish => {
@@ -290,6 +320,7 @@ fn step_boss_death_burst_sub_370d2(
                 (projectile.x_pos >> 16) as u16,
                 (player_x.unwrap_or(projectile.x_pos) >> 16) as u16,
             );
+            projectile.boss_death_burst_x_direction = x_direction;
             if projectile.animation_elapsed_frames > 1 {
                 projectile.animation_elapsed_frames -= 1;
                 return true;
@@ -371,6 +402,7 @@ fn step_boss_death_burst_sub_370d2(
             );
             projectile.x_velocity = projectile.x_velocity.wrapping_add(step.x_velocity_delta);
             projectile.y_velocity = projectile.y_velocity.wrapping_add(step.y_velocity_delta);
+            projectile.boss_death_burst_x_direction = step.x_direction;
             true
         }
         BossDeathBurstState::None => true,
@@ -983,6 +1015,64 @@ mod drips_surface_crawler_tests {
         assert_eq!(
             BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8, 0x15,
             "ASM kid.asm stru_37BD8 has frame durations 5, 5, $A, and 1 before loc_3712E can enter loc_37148"
+        );
+    }
+
+    #[test]
+    fn boss_death_burst_sprite_frames_follow_rom_animation_scripts() {
+        let frame = |state, remaining| {
+            boss_death_burst_sprite_frame_sub_370d2(&EnemyProjectile {
+                kind: EnemyProjectileKind::BossDeathBurst,
+                boss_death_burst_state: state,
+                animation_elapsed_frames: remaining,
+                ..EnemyProjectile::default()
+            })
+        };
+
+        assert_eq!(
+            [
+                frame(BossDeathBurstState::FallingLoc3712E, 21),
+                frame(BossDeathBurstState::FallingLoc3712E, 16),
+                frame(BossDeathBurstState::FallingLoc3712E, 11),
+                frame(BossDeathBurstState::FallingLoc3712E, 1)
+            ],
+            [
+                BossDeathBurstSpriteFrame::C8460,
+                BossDeathBurstSpriteFrame::C8468,
+                BossDeathBurstSpriteFrame::C8470,
+                BossDeathBurstSpriteFrame::C8478
+            ],
+            "ASM stru_37BD8 selects C8460/C8468/C8470/C8478 for 5/5/10/1 ticks"
+        );
+        assert_eq!(
+            [
+                frame(BossDeathBurstState::CollisionFinishLoc371B6, 40),
+                frame(BossDeathBurstState::CollisionFinishLoc371B6, 30),
+                frame(BossDeathBurstState::CollisionFinishLoc371B6, 20),
+                frame(BossDeathBurstState::CollisionFinishLoc371B6, 10)
+            ],
+            [
+                BossDeathBurstSpriteFrame::C8478,
+                BossDeathBurstSpriteFrame::C8470,
+                BossDeathBurstSpriteFrame::C8468,
+                BossDeathBurstSpriteFrame::C8460
+            ],
+            "ASM stru_37BC6 reverses the four mappings for ten ticks each"
+        );
+        assert_eq!(
+            [
+                frame(BossDeathBurstState::TimeoutFinishSub3728C, 80),
+                frame(BossDeathBurstState::TimeoutFinishSub3728C, 30),
+                frame(BossDeathBurstState::TimeoutFinishSub3728C, 20),
+                frame(BossDeathBurstState::TimeoutFinishSub3728C, 10)
+            ],
+            [
+                BossDeathBurstSpriteFrame::C8478,
+                BossDeathBurstSpriteFrame::C8470,
+                BossDeathBurstSpriteFrame::C8468,
+                BossDeathBurstSpriteFrame::C8460
+            ],
+            "ASM stru_37BFC holds C8478 for $32 ticks before three ten-tick contraction frames"
         );
     }
 

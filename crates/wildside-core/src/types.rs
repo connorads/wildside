@@ -183,6 +183,15 @@ pub enum BossHeadProjectileSpriteFrame {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum BossDeathBurstSpriteFrame {
+    #[default]
+    C8460,
+    C8468,
+    C8470,
+    C8478,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct ActiveProjectileSnapshot {
     pub x_pos: u32,
     pub y_pos: u32,
@@ -204,6 +213,13 @@ pub struct ActiveProjectileSnapshot {
     /// frames, then every ten frames.
     #[serde(default)]
     pub ufo_first_hurt_debris_flipped: bool,
+    /// Current `sub_370D2`/`sub_37002` mapping selected by `stru_37BD8`,
+    /// `stru_37BC6`, `stru_37BFC`, or `stru_37C0E`.
+    #[serde(default)]
+    pub boss_death_burst_sprite_frame: BossDeathBurstSpriteFrame,
+    /// Live HeadyMetal burst `x_direction(a3)` byte.
+    #[serde(default)]
+    pub boss_death_burst_flipped: bool,
     #[serde(default)]
     pub boss_eye_sprite_mapping_index: u8,
     /// ROM sprite-order word `$A(a3)` for boss-eye workers. ASM `sub_393C8`
@@ -5356,6 +5372,9 @@ pub(crate) struct EnemyProjectile {
     pub(crate) dragon_flying_descent_fire_counter: u16,
     /// HeadyMetal normal-fire `sub_370D2` coroutine label.
     pub(crate) boss_death_burst_state: BossDeathBurstState,
+    /// HeadyMetal burst `x_direction(a3)`. The chase and timeout loops update
+    /// it independently from velocity before the GfxObject is rendered.
+    pub(crate) boss_death_burst_x_direction: u8,
     /// GfxObject `collision_type(a3)` word for projectile workers whose ASM
     /// coroutine branches on `$001C`, `$002C`, or `$FFFF`.
     pub(crate) collision_type: i16,
