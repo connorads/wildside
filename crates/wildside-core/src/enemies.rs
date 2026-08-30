@@ -1383,6 +1383,7 @@ pub(crate) struct ActiveEnemy {
     /// Robot reuses it for the parent body's independent animation tick.
     /// Diamond reuses this for the live `stru_3ACA8` GfxObject animation tick.
     /// UFO reuses it for the intact/damaged parent GfxObject animation tick.
+    /// Crab reuses it for the live `stru_3AF62` GfxObject animation tick.
     pub(crate) dragon_descent_frames: u8,
     pub(crate) ninja_state: NinjaState,
     pub(crate) hand_state: HandState,
@@ -1749,6 +1750,29 @@ fn ufo_live_sprite_animation_phase_stru_34c7e_34c92(animation_tick: u8, hit_poin
     } else {
         script_phase
     }
+}
+const CRAB_LIVE_ANIMATION_TICKS_STRU_3AF62: u8 = 8 + 6 + 6 + 8 + 6 + 6;
+
+fn crab_next_live_animation_tick_stru_3af62(animation_tick: u8) -> u8 {
+    // ASM Init_Animation starts with timer 1. The first GfxObject_Animate call
+    // installs the first eight-tick entry; `dc.b 2,$19` then rewinds every
+    // 40 calls without another bootstrap tick.
+    if animation_tick == 0 || animation_tick >= CRAB_LIVE_ANIMATION_TICKS_STRU_3AF62 {
+        1
+    } else {
+        animation_tick + 1
+    }
+}
+
+fn crab_live_sprite_animation_phase_stru_3af62(animation_tick: u8) -> u8 {
+    let mut elapsed = animation_tick.saturating_sub(1);
+    for (phase, duration) in [8, 6, 6, 8, 6, 6].into_iter().enumerate() {
+        if elapsed < duration {
+            return phase as u8;
+        }
+        elapsed -= duration;
+    }
+    5
 }
 /// ASM Sphere.asm Enemy06_Sphere_Kill plays `stru_36182`: three $0A-tick
 /// frames before the loc_36096 delete tail.
@@ -2767,6 +2791,14 @@ impl ActiveEnemy {
             Some(ufo_live_sprite_animation_phase_stru_34c7e_34c92(
                 self.dragon_descent_frames,
                 self.hit_points,
+            ))
+        } else if matches!(self.family, EnemyFamily::Crab)
+            && !self.death_animation_active
+            && !self.crab_frozen
+            && self.damage_flash_frames == 0
+        {
+            Some(crab_live_sprite_animation_phase_stru_3af62(
+                self.dragon_descent_frames,
             ))
         } else if matches!(self.family, EnemyFamily::BigHoppingSkull)
             && !self.death_animation_active
@@ -5028,6 +5060,16 @@ pub(crate) fn step_active_enemies_with_rng(
             enemy.dragon_descent_frames =
                 ufo_next_live_animation_tick_stru_34c7e_34c92(enemy.dragon_descent_frames);
         }
+        if matches!(enemy.family, EnemyFamily::Crab)
+            && !enemy.death_animation_active
+            && !enemy.crab_frozen
+            && enemy.damage_flash_frames == 0
+        {
+            // ASM Crab.asm stru_3AF62: GfxObject_Animate advances the live
+            // mapping independently from the shared-walker Object coroutine.
+            enemy.dragon_descent_frames =
+                crab_next_live_animation_tick_stru_3af62(enemy.dragon_descent_frames);
+        }
         if executable_enemy_indices.next_if_eq(&enemy_index).is_none() {
             continue;
         }
@@ -5066,6 +5108,8 @@ pub(crate) fn step_active_enemies_with_rng(
             matches!(enemy.family, EnemyFamily::Robot) && enemy.damage_flash_frames == 1;
         let restores_diamond_animation =
             matches!(enemy.family, EnemyFamily::Diamond) && enemy.damage_flash_frames == 1;
+        let restores_crab_animation =
+            matches!(enemy.family, EnemyFamily::Crab) && enemy.damage_flash_frames == 1;
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
         if restores_dragon_walking_animation {
             // ASM Dragon.asm loc_3CEBE restores `$62(a5)` through
@@ -5095,6 +5139,11 @@ pub(crate) fn step_active_enemies_with_rng(
         if restores_diamond_animation {
             // ASM Diamond.asm loc_3AE16/loc_3AF0E re-installs `stru_3ACA8`
             // through Init_Animation after the one-frame hurt script ends.
+            enemy.dragon_descent_frames = 0;
+        }
+        if restores_crab_animation {
+            // ASM Crab.asm loc_3B0A6 re-installs `stru_3AF62` through
+            // Init_Animation after the sole eight-tick hurt frame finishes.
             enemy.dragon_descent_frames = 0;
         }
         if matches!(enemy.family, EnemyFamily::FireDemon) {
@@ -12431,6 +12480,80 @@ mod tests {
             enemy.snapshot().sprite_animation_phase,
             Some(3),
             "ASM UFO.asm loc_35228 Init_Animation resets damaged stru_34C92 to C83E8"
+        );
+    }
+
+    #[test]
+    fn crab_live_clock_exports_asymmetric_stru_3af62_mappings() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Crab;
+        enemy.hit_points = 2;
+        enemy.death_animation_active = false;
+        enemy.crab_frozen = false;
+        enemy.damage_flash_frames = 0;
+
+        for (tick, phase) in [
+            (0, 0),
+            (1, 0),
+            (8, 0),
+            (9, 1),
+            (14, 1),
+            (15, 2),
+            (20, 2),
+            (21, 3),
+            (28, 3),
+            (29, 4),
+            (34, 4),
+            (35, 5),
+            (40, 5),
+        ] {
+            enemy.dragon_descent_frames = tick;
+            assert_eq!(
+                enemy.snapshot().sprite_animation_phase,
+                Some(phase),
+                "ASM Crab.asm stru_3AF62 mapping at GfxObject animation tick {tick}"
+            );
+        }
+        assert_eq!(
+            crab_next_live_animation_tick_stru_3af62(40),
+            1,
+            "ASM Crab.asm stru_3AF62 dc.b 2,$19 rewinds directly to its first eight-tick entry"
+        );
+    }
+
+    #[test]
+    fn active_enemy_step_advances_crab_gfx_clock_independently() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Crab;
+        enemy.hit_points = 2;
+        enemy.dragon_descent_frames = 0;
+        let mut enemies = [enemy];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            None,
+            &mut std::collections::HashMap::new(),
+        );
+
+        assert_eq!(
+            enemies[0].dragon_descent_frames, 1,
+            "ASM GfxObjects_MoveAndAnimate advances Crab stru_3AF62 independently from its shared-walker Object"
         );
     }
 

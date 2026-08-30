@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Crab object-local live animation)
+
+- Crab rendering derived `stru_3AF62` from global frame time plus layout
+  offset, despite every parent owning an independent GfxObject script clock.
+- Core now models the `Init_Animation` bootstrap and asymmetric
+  8/6/6/8/6/6-tick loop. It resets the live clock when `loc_3B0A6` restores it
+  after hurt and when `loc_3B11E` releases the fixed proximity pose.
+- Level `$15` oracle diagnosis passes with no state divergence. Its standard
+  checkpoint totals remain 45/52 mismatched pixels because neither checkpoint
+  exercises a changed phase. `verify-slice-fast` and the full 37,759-frame
+  `verify-tas-full` pass with unchanged ratchets: 37,518 exact frames, 241
+  divergent frames, and 2,391 changed frozen HUD pixels.
+
 ## 2026-08-30 handoff (UFO object-local intact and damaged animation)
 
 - UFO rendering advanced both live scripts from global frame time, despite

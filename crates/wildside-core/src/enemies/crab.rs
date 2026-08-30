@@ -488,6 +488,11 @@ pub(crate) fn step_crab_freeze(
     // ASM loc_3B142-loc_3B170: unfreeze when distance > 224px
     if abs_dx > CRAB_UNFREEZE_DISTANCE {
         enemy.crab_frozen = false;
+        if was_frozen {
+            // ASM Crab.asm loc_3B11E restores `stru_3AF62` through
+            // Init_Animation when the fixed proximity pose is released.
+            enemy.dragon_descent_frames = 0;
+        }
         return;
     }
 
@@ -499,6 +504,9 @@ pub(crate) fn step_crab_freeze(
                 let player_moving_toward_crab = if dx >= 0 { p_vel > 0 } else { p_vel < 0 };
                 if player_moving_toward_crab {
                     enemy.crab_frozen = false;
+                    // ASM Crab.asm loc_3B11E restores `stru_3AF62` through
+                    // Init_Animation when the fixed proximity pose is released.
+                    enemy.dragon_descent_frames = 0;
                 }
             }
         }
@@ -1246,6 +1254,7 @@ mod tests {
     #[test]
     fn crab_frozen_callback_loc_3b142_unfreezes_beyond_224px() {
         let mut enemy = crab_test_enemy(300, true, Direction::Left);
+        enemy.dragon_descent_frames = 27;
 
         step_crab_freeze(&mut enemy, Some(75 << 16), Some(Direction::Right), None);
 
@@ -1253,11 +1262,16 @@ mod tests {
             !enemy.crab_frozen,
             "ASM Crab.asm loc_3B142 should clear `$6E(a5)` once distance exceeds 224px"
         );
+        assert_eq!(
+            enemy.dragon_descent_frames, 0,
+            "ASM Crab.asm loc_3B11E Init_Animation should reset stru_3AF62 when the fixed pose ends"
+        );
     }
 
     #[test]
     fn crab_frozen_callback_loc_3b142_unfreezes_when_kid_moves_toward_crab() {
         let mut kid_left = crab_test_enemy(100, true, Direction::Left);
+        kid_left.dragon_descent_frames = 31;
         step_crab_freeze(
             &mut kid_left,
             Some(60 << 16),
@@ -1268,6 +1282,7 @@ mod tests {
             !kid_left.crab_frozen,
             "ASM Crab.asm loc_3B142 should clear `$6E(a5)` when non-negative d7 sees positive Kid x_vel"
         );
+        assert_eq!(kid_left.dragon_descent_frames, 0);
 
         let mut kid_right = crab_test_enemy(100, true, Direction::Right);
         step_crab_freeze(
@@ -1346,6 +1361,25 @@ mod tests {
         assert_eq!(
             enemy.damage_flash_frames, 2,
             "the native damage-flash window still advances while the hurt animation hibernates"
+        );
+
+        enemy.damage_flash_frames = 1;
+        enemy.dragon_descent_frames = 27;
+        step_active_enemies(
+            std::slice::from_mut(&mut enemy),
+            Some(&grid),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut Vec::new(),
+        );
+        assert_eq!(enemy.damage_flash_frames, 0);
+        assert_eq!(
+            enemy.dragon_descent_frames, 0,
+            "ASM Crab.asm loc_3B0A6 Init_Animation should reset stru_3AF62 after the hurt hibernate"
         );
     }
 }

@@ -1754,7 +1754,6 @@ fn select_live_ufo_frame<'a>(
 }
 
 fn select_live_crab_frame<'a>(
-    trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
 ) -> Option<&'a wildside_render::SpriteFrame> {
@@ -1776,16 +1775,11 @@ fn select_live_crab_frame<'a>(
         return enemy_visuals.frames.get(6);
     }
 
-    // ASM Crab.asm `stru_3AF62`: C7C1E..C7C46 use asymmetric
-    // 8/6/6/8/6/6-tick spans before the animation command rewinds.
-    let mut phase = (trace.frame_index + object.layout_index.unwrap_or(0) * 3) % 40;
-    for (frame_index, duration) in [8, 6, 6, 8, 6, 6].into_iter().enumerate() {
-        if phase < duration {
-            return enemy_visuals.frames.get(frame_index);
-        }
-        phase -= duration;
-    }
-    enemy_visuals.frames.get(5)
+    // ASM Crab.asm `stru_3AF62`: core exports the exact current mapping from
+    // the parent's asymmetric 8/6/6/8/6/6-tick GfxObject script.
+    enemy_visuals
+        .frames
+        .get(usize::from(object.sprite_animation_phase?))
 }
 
 fn select_live_goat_frame<'a>(
@@ -2427,7 +2421,7 @@ pub fn select_enemy_frame<'a>(
     if let Some(frame) = select_live_ufo_frame(enemy_visuals, object) {
         return frame;
     }
-    if let Some(frame) = select_live_crab_frame(trace, enemy_visuals, object) {
+    if let Some(frame) = select_live_crab_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_goat_frame(trace, enemy_visuals, object) {
@@ -5194,10 +5188,11 @@ mod tests {
     fn crab_live_selector_keeps_normal_hurt_and_frozen_scripts_distinct() {
         let visuals = labelled_enemy_visuals(10, 8);
         let trace = NativeTraceFrame {
-            frame_index: 48,
+            frame_index: 999,
             ..NativeTraceFrame::default()
         };
         let mut crab = live_enemy_object(0x09);
+        crab.sprite_animation_phase = Some(1);
 
         assert_eq!(
             selected_enemy_tile_base(&trace, &visuals, &crab),
