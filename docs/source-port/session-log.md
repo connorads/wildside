@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Shishkaboss SAT worker phases)
+
+- Raw oracle SAT, WRAM, VRAM, CRAM, and decoded-art comparisons proved the
+  Shishkaboss head geometry, mappings, tile art, and palette already exact.
+- `Enemy22_Shiskaboss_Init loc_38494` and `loc_3931A` place skewer and waiting-eye
+  workers on opposite sides of the moving head's half-pixel SAT phase. Typed
+  presentation carries now retain the correct prior pixel for each worker class.
+- Level `$10` tail frames 340..359 contain no enemy residue. Changed pixels fall
+  from 4,890 to 1,127 and are confined to HUD diamond/life-icon raster timing.
+  A one-page resident-HUD lead was rejected because it regressed earlier exact
+  frames. `verify-slice-fast` and `verify-tas-full` pass.
+
 ## 2026-08-30 handoff (recording-handoff boss arrow)
 
 - Per-frame comparison isolated the Level `$10` burst residue to one arrow

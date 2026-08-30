@@ -1138,6 +1138,7 @@ pub fn push_shishkaboss_skewer_loc_38494_38884(
     };
     let camera_x = (trace.camera_x_pos >> 16) as i32;
     let camera_y = (trace.camera_y_pos >> 16) as i32;
+    let presentation_x_carry = shishkaboss_skewer_presentation_x_carry_loc_38494(trace);
     for piece in &trace.shishkaboss_skewer_pieces {
         // ASM loc_38494 uses C85F8, loc_38512..loc_38806 use C85F0,
         // and loc_38884 closes the skewer with C85E8. The bundle appends
@@ -1150,7 +1151,7 @@ pub fn push_shishkaboss_skewer_loc_38494_38884(
         let Some(frame) = visuals.frames.get(frame_index) else {
             continue;
         };
-        let screen_x = i32::from(piece.x_pos) - camera_x;
+        let screen_x = i32::from(piece.x_pos) - camera_x + presentation_x_carry;
         let screen_y = i32::from(piece.y_pos) - camera_y;
         let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, Direction::Right);
         commands.push(DrawCommand::Sprite {
@@ -1161,6 +1162,34 @@ pub fn push_shishkaboss_skewer_loc_38494_38884(
             tiles: build_sprite_tiles(frame, Direction::Right, 0),
         });
     }
+}
+
+fn shishkaboss_head_has_fractional_x_loc_38494(trace: &NativeTraceFrame) -> Option<bool> {
+    trace.active_objects.iter().find_map(|object| {
+        matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x22 })
+            .then_some(object.x_pos & 0xFFFF != 0)
+    })
+}
+
+fn shishkaboss_skewer_presentation_x_carry_loc_38494(trace: &NativeTraceFrame) -> i32 {
+    // ASM Enemy22_Shiskaboss_Init loc_38494 creates priority-1 skewer
+    // workers before the priority-0 head. Mode_Level loc_901 presents the
+    // prior SAT while the workers rebuild it. At the integral half-step the
+    // retained skewer pixel is one pixel ahead of the sampled worker trace.
+    matches!(
+        shishkaboss_head_has_fractional_x_loc_38494(trace),
+        Some(false)
+    ) as i32
+}
+
+pub(crate) fn shishkaboss_eye_presentation_x_carry_loc_3931a(trace: &NativeTraceFrame) -> i32 {
+    // ASM loc_3931A creates the waiting eye workers after the head. Their
+    // prior-SAT phase is opposite to the skewer workers, so the retained eye
+    // pixel leads on the fractional half-step.
+    matches!(
+        shishkaboss_head_has_fractional_x_loc_38494(trace),
+        Some(true)
+    ) as i32
 }
 
 pub fn push_player_sprite_with_priority_override(
@@ -3560,6 +3589,27 @@ mod tests {
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         }
+    }
+
+    #[test]
+    fn shishkaboss_workers_present_opposite_half_step_carries_loc_38494_3931a() {
+        let mut head = live_enemy_object(0x22);
+        let mut trace = NativeTraceFrame {
+            active_objects: vec![head.clone()],
+            ..NativeTraceFrame::default()
+        };
+
+        assert_eq!(shishkaboss_skewer_presentation_x_carry_loc_38494(&trace), 1);
+        assert_eq!(shishkaboss_eye_presentation_x_carry_loc_3931a(&trace), 0);
+
+        head.x_pos = 0x0000_8000;
+        trace.active_objects = vec![head];
+        assert_eq!(shishkaboss_skewer_presentation_x_carry_loc_38494(&trace), 0);
+        assert_eq!(shishkaboss_eye_presentation_x_carry_loc_3931a(&trace), 1);
+
+        trace.active_objects.clear();
+        assert_eq!(shishkaboss_skewer_presentation_x_carry_loc_38494(&trace), 0);
+        assert_eq!(shishkaboss_eye_presentation_x_carry_loc_3931a(&trace), 0);
     }
 
     fn dead_enemy_object(object_type: u8, wait_timer: u16) -> NativeObjectSnapshot {

@@ -7195,6 +7195,44 @@ fn build_game_scene_filtered(
         // ASM Enemy22_Shiskaboss_Init gives the nine skewer workers priority
         // 1; their Sprite_Table entries precede the priority-0 heads.
         sprites::push_shishkaboss_skewer_loc_38494_38884(&mut commands, trace, level_visuals);
+        let boss_eye_presentation_x_carry =
+            sprites::shishkaboss_eye_presentation_x_carry_loc_3931a(trace);
+        let mut waiting_boss_eye_objects = trace
+            .active_objects
+            .iter()
+            .filter(|object| {
+                matches!(
+                    object.kind,
+                    NativeObjectKind::Enemy {
+                        object_type: BOSS_EYE_OBJECT_TYPE
+                    }
+                ) && boss_eye_object_mapping_index_loc_37abc(object).is_some()
+            })
+            .collect::<Vec<_>>();
+        waiting_boss_eye_objects.sort_by_key(|object| boss_eye_object_order_word_loc_393c8(object));
+        for object in waiting_boss_eye_objects {
+            let sx = (object.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32
+                + boss_eye_presentation_x_carry;
+            let sy = (object.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
+            // ASM loc_3931A allocates the waiting eyes as `$21` objects;
+            // sub_37ABC refreshes their sprite mapping before sub_FF6 sorts
+            // them by `$A(a3)`. Their SAT entries precede the priority-0 head.
+            let mapping_index = boss_eye_object_mapping_index_loc_37abc(object).unwrap_or_default();
+            if !sprites::push_boss_eye_attack_sprite_sub_37abc(
+                &mut commands,
+                level_visuals,
+                sx,
+                sy,
+                mapping_index,
+            ) {
+                sprites::push_boss_eye_attack_marker_sub_37abc(
+                    &mut commands,
+                    sx,
+                    sy,
+                    mapping_index,
+                );
+            }
+        }
         for object in trace
             .active_objects
             .iter()
@@ -7227,41 +7265,6 @@ fn build_game_scene_filtered(
                     let ey = (object.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32 - 12;
                     commands.push(text(ex - 4, ey, &format!("{hp}"), [255, 255, 100], 1));
                 }
-            }
-        }
-        let mut waiting_boss_eye_objects = trace
-            .active_objects
-            .iter()
-            .filter(|object| {
-                matches!(
-                    object.kind,
-                    NativeObjectKind::Enemy {
-                        object_type: BOSS_EYE_OBJECT_TYPE
-                    }
-                ) && boss_eye_object_mapping_index_loc_37abc(object).is_some()
-            })
-            .collect::<Vec<_>>();
-        waiting_boss_eye_objects.sort_by_key(|object| boss_eye_object_order_word_loc_393c8(object));
-        for object in waiting_boss_eye_objects {
-            let sx = (object.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
-            let sy = (object.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
-            // ASM loc_3931A allocates the waiting eyes as `$21` objects;
-            // sub_37ABC refreshes their sprite mapping before sub_FF6 sorts
-            // them by `$A(a3)`.
-            let mapping_index = boss_eye_object_mapping_index_loc_37abc(object).unwrap_or_default();
-            if !sprites::push_boss_eye_attack_sprite_sub_37abc(
-                &mut commands,
-                level_visuals,
-                sx,
-                sy,
-                mapping_index,
-            ) {
-                sprites::push_boss_eye_attack_marker_sub_37abc(
-                    &mut commands,
-                    sx,
-                    sy,
-                    mapping_index,
-                );
             }
         }
         layer_tags.mark(SceneLayer::Enemies, commands.len());
