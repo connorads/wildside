@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Archer arrow ROM angle sprites)
+
+- `byte_3437A` selects 28 angle entries from 13 C81F8-C8258 mappings.
+  Native previously reduced every Archer arrow to an invented 4x4 dot.
+- A pure core projection now exports the mapping and flip independently of
+  velocity. Arrow spawn also inherits the parent Archer palette. Rendering
+  consumes the exact ROM tile page, mapping geometry, palette, and flip.
+- Cached Scorpion Isle recordings contain 509 live ArcherArrow frames. Exact
+  angle-table, spawn-palette, and render regressions pass. `verify-slice-fast`
+  and the full 37,759-frame `verify-tas-full` pass with unchanged published
+  ratchets: 37,518 exact frames, 241 divergent frames, and 2,391 changed HUD
+  pixels.
+
 ## 2026-08-30 handoff (Heady Metal death-burst ROM animation)
 
 - `sub_370D2` and its final `sub_37002` helper use C8460-C8478 from the

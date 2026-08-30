@@ -441,6 +441,46 @@ pub(crate) fn arrow_velocity_from_angle(angle: usize) -> (i32, i32) {
     ((x_byte as i32) * 0x1000, (y_byte as i32) * 0x1000)
 }
 
+pub(crate) fn archer_arrow_sprite_frame_from_angle(angle: u8) -> (ArcherArrowSpriteFrame, bool) {
+    use ArcherArrowSpriteFrame::{
+        C81F8, C8200, C8208, C8210, C8218, C8220, C8228, C8230, C8238, C8240, C8248, C8250, C8258,
+    };
+
+    // ASM Archer.asm byte_3437A/off_343EA: each of the 28 circular angles
+    // selects a raw x_direction byte and one of thirteen arrow mappings.
+    const MAPPINGS: [(ArcherArrowSpriteFrame, bool); 28] = [
+        (C81F8, false),
+        (C8200, false),
+        (C8208, false),
+        (C8210, false),
+        (C8218, false),
+        (C8220, false),
+        (C8228, false),
+        (C8228, true),
+        (C8220, true),
+        (C8218, true),
+        (C8210, true),
+        (C8208, true),
+        (C8200, true),
+        (C81F8, true),
+        (C81F8, true),
+        (C8230, true),
+        (C8238, true),
+        (C8240, true),
+        (C8248, true),
+        (C8250, true),
+        (C8258, true),
+        (C8258, false),
+        (C8250, false),
+        (C8248, false),
+        (C8240, false),
+        (C8238, false),
+        (C8230, false),
+        (C81F8, false),
+    ];
+    MAPPINGS[usize::from(angle.min(27))]
+}
+
 pub(crate) fn archer_sprite_animation_phase_loc_341be(
     coroutine_phase: u8,
     uses_vertical_table: bool,
@@ -688,7 +728,7 @@ pub(crate) fn step_archer(
         drips_spawn_crawler_on_splash: false,
         owner: None,
         kind: EnemyProjectileKind::ArcherArrow,
-        palette_variant: 0,
+        palette_variant: enemy.palette_variant,
         shooter_tracks_layout: false,
         shooter_layout_col: 0,
         shooter_layout_row: 0,
@@ -785,6 +825,50 @@ mod tests {
                 (32, 0),
             ],
             "ASM Archer.asm byte_3437A stores signed x/y velocity bytes for all 28 arrow angles"
+        );
+    }
+
+    #[test]
+    fn archer_arrow_mapping_and_flip_table_matches_byte_3437a_off_343ea() {
+        use ArcherArrowSpriteFrame::{
+            C81F8, C8200, C8208, C8210, C8218, C8220, C8228, C8230, C8238, C8240, C8248, C8250,
+            C8258,
+        };
+        assert_eq!(
+            (0..28)
+                .map(archer_arrow_sprite_frame_from_angle)
+                .collect::<Vec<_>>(),
+            vec![
+                (C81F8, false),
+                (C8200, false),
+                (C8208, false),
+                (C8210, false),
+                (C8218, false),
+                (C8220, false),
+                (C8228, false),
+                (C8228, true),
+                (C8220, true),
+                (C8218, true),
+                (C8210, true),
+                (C8208, true),
+                (C8200, true),
+                (C81F8, true),
+                (C81F8, true),
+                (C8230, true),
+                (C8238, true),
+                (C8240, true),
+                (C8248, true),
+                (C8250, true),
+                (C8258, true),
+                (C8258, false),
+                (C8250, false),
+                (C8248, false),
+                (C8240, false),
+                (C8238, false),
+                (C8230, false),
+                (C81F8, false),
+            ],
+            "ASM Archer.asm byte_3437A/off_343EA select the raw x_direction and one of thirteen mappings for every circular angle"
         );
     }
 
@@ -1066,6 +1150,7 @@ mod tests {
             wait_timer: 0,
             facing: Direction::Left,
             hit_points: 1,
+            palette_variant: 2,
             x_pos: 100 << 16,
             y_pos: 100 << 16,
             ..mini_hopping_skull_test_enemy()
@@ -1089,6 +1174,10 @@ mod tests {
         assert_eq!(
             projectiles[0].current_angle, 0x0A,
             "ASM Archer.asm loc_3419A selects the left-facing vertical opening angle"
+        );
+        assert_eq!(
+            projectiles[0].palette_variant, 2,
+            "ASM Enemy07_ArcherArrow_Init loads the arrow through the parent Archer object slot and palette"
         );
     }
 

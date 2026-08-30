@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use wildside_core::{
-    ActiveProjectileKind, ActiveProjectileSnapshot, BlockBounceTraceKind,
+    ActiveProjectileKind, ActiveProjectileSnapshot, ArcherArrowSpriteFrame, BlockBounceTraceKind,
     BossDeathBurstSpriteFrame, BossHeadProjectileSpriteFrame, DiamondPowerSpriteSnapshot,
     DragonFlyingDescentFireState, GameMode, NativeObjectKind, NativeObjectSnapshot,
     NativeTraceFrame, PlayerForm, TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE,
@@ -73,6 +73,7 @@ const ROBOT_OBJECT_TYPE: u8 = 0x03;
 const FLYING_DRAGON_OBJECT_TYPE: u8 = 0x0C;
 const WALKING_DRAGON_OBJECT_TYPE: u8 = 0x0D;
 const CLOUD_OBJECT_TYPE: u8 = 0x0E;
+const ARCHER_OBJECT_TYPE: u8 = 0x07;
 const UFO_OBJECT_TYPE: u8 = 0x0F;
 const LION_OBJECT_TYPE: u8 = 0x12;
 const DRIPS_OBJECT_TYPE: u8 = 0x16;
@@ -472,6 +473,37 @@ fn boss_death_burst_frame_sub_370d2(
         BossDeathBurstSpriteFrame::C8468 => (0x0F1, 0x06, 0x06, 0x0C, 0x0D),
         BossDeathBurstSpriteFrame::C8470 => (0x0F5, 0x08, 0x08, 0x0F, 0x10),
         BossDeathBurstSpriteFrame::C8478 => (0x0F9, 0x08, 0x08, 0x0F, 0x10),
+    };
+    Some(wildside_render::SpriteFrame {
+        origin_x,
+        origin_y,
+        width_px,
+        height_px,
+        tile_base_index,
+        tile_sheet,
+    })
+}
+
+fn archer_arrow_frame_off_343ea(
+    visuals: &wildside_render::AnimatedSpriteVisual,
+    sprite_frame: ArcherArrowSpriteFrame,
+) -> Option<wildside_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    let (tile_base_index, origin_x, origin_y, width_px, height_px) = match sprite_frame {
+        // ASM Archer.asm off_343EA -> kid.asm unk_C81F8..unk_C8258.
+        ArcherArrowSpriteFrame::C81F8 => (0x0B9, 0x0C, 0x01, 0x14, 0x03),
+        ArcherArrowSpriteFrame::C8200 => (0x0BC, 0x0D, 0x06, 0x18, 0x08),
+        ArcherArrowSpriteFrame::C8208 => (0x0BF, 0x0B, 0x07, 0x12, 0x0B),
+        ArcherArrowSpriteFrame::C8210 => (0x0C5, 0x0A, 0x0A, 0x10, 0x10),
+        ArcherArrowSpriteFrame::C8218 => (0x0C9, 0x07, 0x0A, 0x0B, 0x12),
+        ArcherArrowSpriteFrame::C8220 => (0x0CF, 0x05, 0x0B, 0x08, 0x14),
+        ArcherArrowSpriteFrame::C8228 => (0x0D2, 0x01, 0x0B, 0x03, 0x14),
+        ArcherArrowSpriteFrame::C8230 => (0x0D5, 0x0D, 0x03, 0x18, 0x08),
+        ArcherArrowSpriteFrame::C8238 => (0x0D8, 0x0B, 0x05, 0x12, 0x0B),
+        ArcherArrowSpriteFrame::C8240 => (0x0DE, 0x0A, 0x08, 0x0F, 0x0F),
+        ArcherArrowSpriteFrame::C8248 => (0x0E2, 0x07, 0x08, 0x0B, 0x12),
+        ArcherArrowSpriteFrame::C8250 => (0x0E8, 0x05, 0x0A, 0x08, 0x14),
+        ArcherArrowSpriteFrame::C8258 => (0x0EB, 0x01, 0x0A, 0x03, 0x14),
     };
     Some(wildside_render::SpriteFrame {
         origin_x,
@@ -7567,6 +7599,8 @@ fn build_game_scene_filtered(
                         ufo_first_hurt_debris_flipped: false,
                         boss_death_burst_sprite_frame: BossDeathBurstSpriteFrame::C8460,
                         boss_death_burst_flipped: false,
+                        archer_arrow_sprite_frame: ArcherArrowSpriteFrame::C81F8,
+                        archer_arrow_flipped: false,
                         boss_eye_sprite_mapping_index: 0,
                         boss_eye_sprite_order_word_a: 0,
                         boss_head_projectile_sprite_frame: BossHeadProjectileSpriteFrame::None,
@@ -7591,7 +7625,7 @@ fn build_game_scene_filtered(
             let sx = (projectile.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
             let sy = (projectile.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
             match projectile.kind {
-                ActiveProjectileKind::Generic | ActiveProjectileKind::ArcherArrow => {
+                ActiveProjectileKind::Generic => {
                     commands.push(DrawCommand::Rect {
                         x: sx - 2,
                         y: sy - 2,
@@ -7603,6 +7637,48 @@ fn build_game_scene_filtered(
                             ENEMY_PROJECTILE_COLOUR
                         },
                     });
+                }
+                ActiveProjectileKind::ArcherArrow => {
+                    let facing = if projectile.archer_arrow_flipped {
+                        Direction::Left
+                    } else {
+                        Direction::Right
+                    };
+                    let pushed_sprite = level_visuals
+                        .enemies
+                        .families
+                        .get(&ARCHER_OBJECT_TYPE)
+                        .and_then(|archer_visuals| {
+                            let frame = archer_arrow_frame_off_343ea(
+                                archer_visuals,
+                                projectile.archer_arrow_sprite_frame,
+                            )?;
+                            let (draw_x, draw_y) = sprite_draw_position(&frame, sx, sy, facing);
+                            commands.push(DrawCommand::Sprite {
+                                x: draw_x,
+                                y: draw_y,
+                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                                palette: Arc::new(
+                                    sprites::select_enemy_palette(
+                                        archer_visuals,
+                                        projectile.palette_variant,
+                                    )
+                                    .clone(),
+                                ),
+                                tiles: build_sprite_tiles(&frame, facing, 0),
+                            });
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 2,
+                            y: sy - 2,
+                            width: 4,
+                            height: 4,
+                            colour: ENEMY_PROJECTILE_COLOUR,
+                        });
+                    }
                 }
                 ActiveProjectileKind::LionProjectile => {
                     if !push_lion_projectile_sprite_loc_3e12a(
@@ -12244,6 +12320,85 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![(1, 0x0444), (4, 0x0444), (4, 0x0444), (4, 0x0444)]
         );
+    }
+
+    #[test]
+    fn archer_arrow_renders_angle_mapping_flip_and_parent_palette() {
+        let mut visuals = sample_level_visuals(1);
+        let mut archer_frame = sample_sprite_frame(0x07);
+        archer_frame.tile_sheet = sample_tile_sheet_with_pixel(0x100, 0xA7);
+        let mut archer = sample_animated_visual(archer_frame);
+        archer.palette = sample_palette_with_first_word(0x0100);
+        archer.extra_palettes = vec![
+            sample_palette_with_first_word(0x0200),
+            sample_palette_with_first_word(0x0300),
+        ];
+        visuals.enemies.families.insert(ARCHER_OBJECT_TYPE, archer);
+        let trace = NativeTraceFrame {
+            active_projectile_details: vec![
+                ActiveProjectileSnapshot {
+                    x_pos: 100 << 16,
+                    y_pos: 100 << 16,
+                    kind: ActiveProjectileKind::ArcherArrow,
+                    palette_variant: 2,
+                    archer_arrow_sprite_frame: ArcherArrowSpriteFrame::C81F8,
+                    ..ActiveProjectileSnapshot::default()
+                },
+                ActiveProjectileSnapshot {
+                    x_pos: 140 << 16,
+                    y_pos: 100 << 16,
+                    kind: ActiveProjectileKind::ArcherArrow,
+                    palette_variant: 2,
+                    archer_arrow_sprite_frame: ArcherArrowSpriteFrame::C8228,
+                    archer_arrow_flipped: true,
+                    ..ActiveProjectileSnapshot::default()
+                },
+                ActiveProjectileSnapshot {
+                    x_pos: 180 << 16,
+                    y_pos: 100 << 16,
+                    kind: ActiveProjectileKind::ArcherArrow,
+                    palette_variant: 2,
+                    archer_arrow_sprite_frame: ArcherArrowSpriteFrame::C8258,
+                    ..ActiveProjectileSnapshot::default()
+                },
+            ],
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("effects"),
+            None,
+        )
+        .0;
+        let sprites: Vec<_> = scene
+            .commands
+            .iter()
+            .filter(|command| matches!(command, DrawCommand::Sprite { .. }))
+            .collect();
+
+        assert_eq!(sprites.len(), 3);
+        assert_eq!(
+            sprites
+                .iter()
+                .map(|sprite| sprite_tile_snapshot(sprite))
+                .collect::<Vec<_>>(),
+            vec![
+                (88, 98, 0x0B9, 0, false, false, false, 0, 0),
+                (133, 91, 0x0D2, 0, false, true, false, 0, 0),
+                (179, 90, 0x0EB, 0, false, false, false, 0, 0),
+            ],
+            "ASM off_343EA mappings retain their exact origin, tile base, and byte_3437A flip"
+        );
+        for sprite in sprites {
+            let DrawCommand::Sprite { palette, .. } = sprite else {
+                unreachable!();
+            };
+            assert_eq!(palette.colours[0].raw_word, 0x0300);
+        }
     }
 
     #[test]

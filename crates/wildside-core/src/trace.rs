@@ -12575,33 +12575,39 @@ impl NativeRuntime {
             active_projectile_details: self
                 .projectiles
                 .iter()
-                .map(|p| ActiveProjectileSnapshot {
-                    x_pos: p.x_pos,
-                    y_pos: p.y_pos,
-                    x_velocity: p.x_velocity,
-                    y_velocity: p.y_velocity,
-                    friendly: p.friendly,
-                    remaining_frames: p.lifetime,
-                    animation_elapsed_frames: p.animation_elapsed_frames,
-                    kind: active_projectile_kind(p),
-                    palette_variant: p.palette_variant,
-                    ufo_first_hurt_debris_flipped: p.ufo_beam_child_x_direction != 0,
-                    boss_death_burst_sprite_frame:
-                        crate::projectiles::boss_death_burst_sprite_frame_sub_370d2(p),
-                    boss_death_burst_flipped: p.boss_death_burst_x_direction != 0,
-                    boss_eye_sprite_mapping_index: boss_eye_sprite_mapping_index(
-                        p.boss_eye_sprite_mapping_label,
-                    ),
-                    boss_eye_sprite_order_word_a: 0,
-                    boss_head_projectile_sprite_frame: match p.kind {
-                        EnemyProjectileKind::BossHeadBoomerang => {
-                            p.boss_head_boomerang_animation.sprite_frame
-                        }
-                        EnemyProjectileKind::BossSkewer => p.boss_head_projectile_sprite_frame,
-                        _ => p.boss_head_arrow_animation.sprite_frame,
-                    },
-                    dragon_flying_descent_fire_state: p.dragon_flying_descent_fire_state,
-                    dragon_flying_descent_fire_counter: p.dragon_flying_descent_fire_counter,
+                .map(|p| {
+                    let (archer_arrow_sprite_frame, archer_arrow_flipped) =
+                        crate::archer_arrow_sprite_frame_from_angle(p.current_angle);
+                    ActiveProjectileSnapshot {
+                        x_pos: p.x_pos,
+                        y_pos: p.y_pos,
+                        x_velocity: p.x_velocity,
+                        y_velocity: p.y_velocity,
+                        friendly: p.friendly,
+                        remaining_frames: p.lifetime,
+                        animation_elapsed_frames: p.animation_elapsed_frames,
+                        kind: active_projectile_kind(p),
+                        palette_variant: p.palette_variant,
+                        ufo_first_hurt_debris_flipped: p.ufo_beam_child_x_direction != 0,
+                        boss_death_burst_sprite_frame:
+                            crate::projectiles::boss_death_burst_sprite_frame_sub_370d2(p),
+                        boss_death_burst_flipped: p.boss_death_burst_x_direction != 0,
+                        archer_arrow_sprite_frame,
+                        archer_arrow_flipped,
+                        boss_eye_sprite_mapping_index: boss_eye_sprite_mapping_index(
+                            p.boss_eye_sprite_mapping_label,
+                        ),
+                        boss_eye_sprite_order_word_a: 0,
+                        boss_head_projectile_sprite_frame: match p.kind {
+                            EnemyProjectileKind::BossHeadBoomerang => {
+                                p.boss_head_boomerang_animation.sprite_frame
+                            }
+                            EnemyProjectileKind::BossSkewer => p.boss_head_projectile_sprite_frame,
+                            _ => p.boss_head_arrow_animation.sprite_frame,
+                        },
+                        dragon_flying_descent_fire_state: p.dragon_flying_descent_fire_state,
+                        dragon_flying_descent_fire_counter: p.dragon_flying_descent_fire_counter,
+                    }
                 })
                 .chain(
                     self.diamond_power_rain_slots
@@ -12619,6 +12625,8 @@ impl NativeRuntime {
                             ufo_first_hurt_debris_flipped: false,
                             boss_death_burst_sprite_frame: BossDeathBurstSpriteFrame::C8460,
                             boss_death_burst_flipped: false,
+                            archer_arrow_sprite_frame: ArcherArrowSpriteFrame::C81F8,
+                            archer_arrow_flipped: false,
                             boss_eye_sprite_mapping_index: 0,
                             boss_eye_sprite_order_word_a: 0,
                             boss_head_projectile_sprite_frame:
@@ -12643,6 +12651,8 @@ impl NativeRuntime {
                             ufo_first_hurt_debris_flipped: false,
                             boss_death_burst_sprite_frame: BossDeathBurstSpriteFrame::C8460,
                             boss_death_burst_flipped: false,
+                            archer_arrow_sprite_frame: ArcherArrowSpriteFrame::C81F8,
+                            archer_arrow_flipped: false,
                             boss_eye_sprite_mapping_index: 0,
                             boss_eye_sprite_order_word_a: 0,
                             boss_head_projectile_sprite_frame:
@@ -13041,6 +13051,8 @@ impl NativeRuntime {
                         ufo_first_hurt_debris_flipped: false,
                         boss_death_burst_sprite_frame: BossDeathBurstSpriteFrame::C8460,
                         boss_death_burst_flipped: false,
+                        archer_arrow_sprite_frame: ArcherArrowSpriteFrame::C81F8,
+                        archer_arrow_flipped: false,
                         boss_eye_sprite_mapping_index: boss_eye_sprite_mapping_index(
                             slot.sprite_mapping,
                         ),

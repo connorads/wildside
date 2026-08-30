@@ -192,6 +192,24 @@ pub enum BossDeathBurstSpriteFrame {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum ArcherArrowSpriteFrame {
+    #[default]
+    C81F8,
+    C8200,
+    C8208,
+    C8210,
+    C8218,
+    C8220,
+    C8228,
+    C8230,
+    C8238,
+    C8240,
+    C8248,
+    C8250,
+    C8258,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct ActiveProjectileSnapshot {
     pub x_pos: u32,
     pub y_pos: u32,
@@ -220,6 +238,12 @@ pub struct ActiveProjectileSnapshot {
     /// Live HeadyMetal burst `x_direction(a3)` byte.
     #[serde(default)]
     pub boss_death_burst_flipped: bool,
+    /// ASM Archer.asm `off_343EA` mapping selected from the live arrow angle.
+    #[serde(default)]
+    pub archer_arrow_sprite_frame: ArcherArrowSpriteFrame,
+    /// ASM `byte_3437A` x-direction byte selected from the live arrow angle.
+    #[serde(default)]
+    pub archer_arrow_flipped: bool,
     #[serde(default)]
     pub boss_eye_sprite_mapping_index: u8,
     /// ROM sprite-order word `$A(a3)` for boss-eye workers. ASM `sub_393C8`
