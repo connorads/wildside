@@ -663,7 +663,14 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
         return ActiveProjectileKind::JuggernautSkull;
     }
     if projectile.kind == EnemyProjectileKind::BossHeadArrow {
-        return ActiveProjectileKind::BossHeadArrow;
+        // ASM sub_397E4 stores `$48=+3` for set x_direction and `$48=-3`
+        // for clear x_direction. loc_3A0D2 copies that word into x_vel;
+        // native retains its high byte after loc_3A134 clears live velocity.
+        return if projectile.boss_head_boomerang_direction_byte_d0 == 0 {
+            ActiveProjectileKind::BossHeadArrowRight
+        } else {
+            ActiveProjectileKind::BossHeadArrow
+        };
     }
     if projectile.kind == EnemyProjectileKind::BossHeadBoomerang {
         return ActiveProjectileKind::BossHeadBoomerang;

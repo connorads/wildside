@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (boss-projectile direction typed)
+
+- ASM `sub_397E4` copies the parent `x_direction` byte into each boss
+  projectile. `loc_3A134` later clears stopped-arrow velocity but preserves
+  that direction. Core now retains it and the typed trace drives rendering,
+  instead of inferring orientation from a zero velocity.
+- Focused run `1788048995` remains state-exact and unmasked at 1,549 pixels.
+  The sampled stopped arrow is the unflipped path, so this correctness fix does
+  not move that witness.
+- Oracle VRAM hashes identify `$F600` as `shore_4` at frame 60 and `shore_2` at
+  frames 120/300, matching typed phases `3/1/1`. Native/oracle Plane B rows
+  match. A primary-phase-minus-one fork improved frames 120/300 but regressed
+  frame 60 and contradicts the VRAM evidence; do not retry it. Continue at the
+  frame-120 effects/background composition boundary.
+
 ## 2026-08-30 handoff (Shishkaboss parent compensation retired)
 
 - Typed C8600..C8620 phase selection changed the earlier parent-offset
@@ -17,8 +32,8 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   `+3` and `+2` reached 2,108 and 1,889, `+1` fell below frame 120's 1,549-pixel
   ceiling, and the ROM identity coordinate reached 460.
 - Focused run `1788045893` remains state-exact and unmasked. Frame 120 is now
-  the worst checkpoint at 1,549 pixels; its two stopped arrows are the next
-  proactive presentation frontier.
+  the worst checkpoint at 1,549 pixels. Later VRAM evidence identifies the
+  lower green shape as Island shore art rather than a second stopped arrow.
 
 ## 2026-08-29 handoff (Shishkaboss parent mapping phase)
 

@@ -7630,7 +7630,7 @@ fn build_game_scene_filtered(
                         });
                     }
                 }
-                ActiveProjectileKind::BossHeadArrow => {
+                ActiveProjectileKind::BossHeadArrow | ActiveProjectileKind::BossHeadArrowRight => {
                     let pushed_sprite = level_visuals
                         .enemies
                         .families
@@ -7662,11 +7662,15 @@ fn build_game_scene_filtered(
                                 usize::from((projectile.animation_elapsed_frames / 5) & 1)
                             };
                             let frame = visuals.frames.get(frame_base + phase)?;
-                            let facing = if projectile.x_velocity > 0 {
-                                Direction::Right
-                            } else {
-                                Direction::Left
-                            };
+                            // ASM sub_397E4 copies `x_direction` into the
+                            // child. loc_3A134 clears `x_vel` when the arrow
+                            // sticks but leaves that orientation intact.
+                            let facing =
+                                if projectile.kind == ActiveProjectileKind::BossHeadArrowRight {
+                                    Direction::Right
+                                } else {
+                                    Direction::Left
+                                };
                             let (draw_x, draw_y) = sprite_draw_position(frame, sx, sy, facing);
                             commands.push(DrawCommand::Sprite {
                                 x: draw_x,
@@ -12115,7 +12119,7 @@ mod tests {
                 y_pos: 100 << 16,
                 remaining_frames: 0,
                 animation_elapsed_frames: 141,
-                kind: ActiveProjectileKind::BossHeadArrow,
+                kind: ActiveProjectileKind::BossHeadArrowRight,
                 ..ActiveProjectileSnapshot::default()
             }],
             ..NativeTraceFrame::default()
@@ -12146,6 +12150,16 @@ mod tests {
             sprite_sources,
             Some((0x21, 0x0210)),
             "ASM loc_3A0D2 uses C8528 geometry after registering object_meta `$21`, so its tile page and palette both come from the resident Boss Eyes object"
+        );
+
+        let sprite_flip_x = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite { tiles, .. } => tiles.first().map(|tile| tile.tile.flip_x),
+            _ => None,
+        });
+        assert_eq!(
+            sprite_flip_x,
+            Some(false),
+            "ASM sub_397E4/loc_3A134 preserves the flipped x_direction after the stopped arrow clears x_vel",
         );
     }
 

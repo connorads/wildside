@@ -135,6 +135,9 @@ pub enum ActiveProjectileKind {
     /// Boss-head arrow: ASM `loc_3A0D2` moves horizontally for `$40=$32`
     /// frames, then clears x_vel and waits `$42=$C8` frames stuck in place.
     BossHeadArrow,
+    /// Right-facing boss-head arrow. ASM `sub_397E4` copies the parent's set
+    /// `x_direction`; `loc_3A134` preserves it after clearing `x_vel`.
+    BossHeadArrowRight,
     /// Boss-head boomerang fragment: ASM `loc_3A1EA` moves horizontally with
     /// per-frame `$7D0` deceleration from the latched launch direction.
     BossHeadBoomerang,
