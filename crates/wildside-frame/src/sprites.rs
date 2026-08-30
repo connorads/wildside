@@ -1670,6 +1670,23 @@ fn select_live_emo_rock_frame<'a>(
         .get(usize::from(object.sprite_animation_phase?))
 }
 
+fn select_live_big_hopping_skull_frame<'a>(
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x1D })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 12
+    {
+        return None;
+    }
+    // ASM Big_Hopping_Skull.asm loc_3652E/loc_36580/loc_365D8 selects
+    // stru_367BE, stru_367AE + stru_367B4, or stru_367CC. Core exports the
+    // exact C7FA0..C7FE0 mapping index; C7FE8..C7FF8 are death-only.
+    let frame = usize::from(object.sprite_animation_phase?);
+    enemy_visuals.frames.get(frame).filter(|_| frame <= 8)
+}
+
 fn select_live_driller_frame<'a>(
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
@@ -2360,15 +2377,15 @@ pub fn select_enemy_frame<'a>(
             // ASM Big_Hopping_Skull.asm loc_3664E runs `stru_367FA`:
             // C7FA0 for $18, C7FE8 for $0C, C7FF0 for $0A, then C7FF8
             // for $64 before deletion.
-            0x1D if enemy_visuals.frames.len() >= 5 => {
+            0x1D if enemy_visuals.frames.len() >= 12 => {
                 if remaining > 0x0C + 0x0A + 0x64 {
-                    Some(1)
+                    Some(0)
                 } else if remaining > 0x0A + 0x64 {
-                    Some(2)
+                    Some(9)
                 } else if remaining > 0x64 {
-                    Some(3)
+                    Some(10)
                 } else {
-                    Some(4)
+                    Some(11)
                 }
             }
             // ASM loc_39EBE/loc_39F7A shared boss-head death spin uses
@@ -2426,6 +2443,9 @@ pub fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_emo_rock_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_big_hopping_skull_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_driller_frame(enemy_visuals, object) {
@@ -4749,6 +4769,23 @@ mod tests {
     }
 
     #[test]
+    fn big_hopping_skull_live_selector_uses_typed_asm_phase() {
+        let visuals = labelled_enemy_visuals(12, 7);
+        let mut skull = live_enemy_object(0x1D);
+
+        for (phase, expected_tile) in [(0, 0x0100), (4, 0x0104), (8, 0x0108)] {
+            skull.sprite_animation_phase = Some(phase);
+            assert_eq!(
+                selected_live_tile_base(select_live_big_hopping_skull_frame(&visuals, &skull)),
+                expected_tile,
+                "ASM stru_367AE..stru_367CC mapping phase {phase}"
+            );
+        }
+        skull.sprite_animation_phase = Some(9);
+        assert!(select_live_big_hopping_skull_frame(&visuals, &skull).is_none());
+    }
+
+    #[test]
     fn goat_live_selector_follows_patrol_charge_and_fixed_pose_scripts() {
         let visuals = labelled_enemy_visuals(15, 1);
         let short_visuals = labelled_enemy_visuals(14, 1);
@@ -5443,8 +5480,8 @@ mod tests {
             ),
             (
                 0x1D,
-                5,
-                &[(146, 1), (122, 2), (110, 3), (100, 4)],
+                12,
+                &[(146, 0), (122, 9), (110, 10), (100, 11)],
                 "ASM Big_Hopping_Skull.asm loc_3664E `stru_367FA`",
             ),
         ] {
@@ -5578,8 +5615,8 @@ mod tests {
             (0x1A, 5, 2, "ASM Driller.asm loc_3BF1C `stru_3BCD4`"),
             (
                 0x1D,
-                5,
-                1,
+                12,
+                0,
                 "ASM Big_Hopping_Skull.asm loc_3664E `stru_367FA`",
             ),
             (0x22, 5, 4, "ASM loc_39EBE/loc_39F7A boss-head death spin"),

@@ -4,6 +4,49 @@ pub(crate) const BIG_SKULL_GRAVITY: i32 = 0x0000_0FA0; // ASM: addi.l #$FA0,y_ve
 /// ASM Big_Hopping_Skull.asm loc_36580 initialises `stru_367AE` (`$50` ticks),
 /// then loc_366B6 plays `stru_367B4` (`$0C + 1` ticks) before loc_366D0 relaunches.
 pub(crate) const BIG_HOPPING_SKULL_FLOOR_CONTACT_WAIT_FRAMES_LOC_36580: u16 = 0x50 + 0x0C + 1;
+const BIG_HOPPING_SKULL_AIR_ANIMATION_FRAMES_STRU_367BE: u8 = 7 + 8 + 0x78;
+
+pub(crate) fn big_hopping_skull_live_sprite_phase_stru_367ae_367be_367cc(
+    airborne_elapsed: u8,
+    floor_wait_remaining: u16,
+    hit_wait_remaining: u8,
+) -> u8 {
+    // ASM Big_Hopping_Skull.asm loc_3652E/loc_36580/loc_365D8 selects
+    // stru_367BE while airborne, stru_367AE + stru_367B4 on floor contact,
+    // and stru_367CC after non-fatal damage. Return the zero-based mapping
+    // index in C7FA0..C7FF8 order.
+    if hit_wait_remaining > 0 {
+        let elapsed =
+            BIG_HOPPING_SKULL_HIT_ANIMATION_FRAMES_LOC_365D8.saturating_sub(hit_wait_remaining);
+        return match elapsed {
+            0..=0x17 => 0,    // C7FA0
+            0x18..=0x23 => 3, // C7FB8
+            0x24..=0x29 => 2, // C7FB0
+            0x2A..=0x35 => 3, // C7FB8
+            0x36..=0x3B => 2, // C7FB0
+            0x3C..=0x47 => 1, // C7FA8
+            0x48..=0x4D => 2, // C7FB0
+            0x4E..=0x59 => 1, // C7FA8
+            0x5A..=0x5F => 2, // C7FB0
+            0x60..=0x6F => 3, // C7FB8
+            0x70.. => 8,      // C7FE0
+        };
+    }
+    if floor_wait_remaining > 0 {
+        return match floor_wait_remaining {
+            14.. => 4,   // stru_367AE: C7FC0 for $50 ticks
+            2..=13 => 5, // stru_367B4: C7FC8 for $0C ticks
+            1 => 6,      // stru_367B4: C7FD0 for one tick
+            0 => unreachable!(),
+        };
+    }
+
+    match airborne_elapsed % BIG_HOPPING_SKULL_AIR_ANIMATION_FRAMES_STRU_367BE {
+        0..=6 => 6,  // C7FD0 for 7 ticks
+        7..=14 => 7, // C7FD8 for 8 ticks
+        _ => 8,      // C7FE0 for $78 ticks
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct BigHoppingSkullStartupLoc3652E {
@@ -580,9 +623,15 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
             enemy.y_velocity = corrected.y_velocity;
             enemy.facing = corrected.facing;
             enemy.on_ground = false;
+            enemy.dragon_descent_frames = 0;
         }
         return;
     }
+
+    // ASM loc_3652E initialises `stru_367BE`; GfxObject_Animate advances it
+    // independently while loc_36540 runs the airborne movement loop.
+    enemy.dragon_descent_frames =
+        (enemy.dragon_descent_frames + 1) % BIG_HOPPING_SKULL_AIR_ANIMATION_FRAMES_STRU_367BE;
 
     // ASM Big_Hopping_Skull.asm loc_36540: `addi.l #$FA0,y_vel(a3)` wraps as
     // a 68000 long-word addition rather than clamping at the signed boundary.
@@ -658,6 +707,7 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
                         enemy.y_velocity = 0;
                         enemy.on_ground = true;
                         enemy.wait_timer = BIG_HOPPING_SKULL_FLOOR_CONTACT_WAIT_FRAMES_LOC_36580;
+                        enemy.dragon_descent_frames = 0;
                     }
                 }
                 BigHoppingSkullCollisionActionLoc3674E::SlopeUpDeflect => {
@@ -726,6 +776,44 @@ mod tests {
         let mut grid = empty_grid();
         grid.set_cell_at(col, row, cell);
         grid
+    }
+
+    #[test]
+    fn big_hopping_skull_live_sprite_phase_follows_all_three_scripts() {
+        // ASM stru_367BE: airborne C7FD0/C7FD8/C7FE0 boundaries.
+        for (elapsed, expected) in [(0, 6), (6, 6), (7, 7), (14, 7), (15, 8), (134, 8)] {
+            assert_eq!(
+                big_hopping_skull_live_sprite_phase_stru_367ae_367be_367cc(elapsed, 0, 0),
+                expected
+            );
+        }
+        // ASM stru_367AE + stru_367B4: floor-contact wait boundaries.
+        for (remaining, expected) in [(93, 4), (14, 4), (13, 5), (2, 5), (1, 6)] {
+            assert_eq!(
+                big_hopping_skull_live_sprite_phase_stru_367ae_367be_367cc(0, remaining, 0),
+                expected
+            );
+        }
+        // ASM stru_367CC: non-fatal hurt sequence mapping changes.
+        for (remaining, expected) in [
+            (124, 0),
+            (100, 3),
+            (88, 2),
+            (82, 3),
+            (70, 2),
+            (64, 1),
+            (52, 2),
+            (46, 1),
+            (34, 2),
+            (28, 3),
+            (12, 8),
+        ] {
+            assert_eq!(
+                big_hopping_skull_live_sprite_phase_stru_367ae_367be_367cc(0, 0, remaining),
+                expected,
+                "stru_367CC remaining timer {remaining}"
+            );
+        }
     }
 
     fn solid_cell() -> terrain::Cell {

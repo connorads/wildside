@@ -2710,6 +2710,14 @@ impl ActiveEnemy {
                 self.tar_monster_state,
                 self.wait_timer,
             ))
+        } else if matches!(self.family, EnemyFamily::BigHoppingSkull)
+            && !self.death_animation_active
+        {
+            Some(big_hopping_skull_live_sprite_phase_stru_367ae_367be_367cc(
+                self.dragon_descent_frames,
+                self.wait_timer,
+                self.grounded_frames,
+            ))
         } else if matches!(self.family, EnemyFamily::FireDemon)
             && !self.death_animation_active
             && self.wait_timer != FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610
@@ -11686,6 +11694,21 @@ mod tests {
             Some(4),
             "ASM Tar_Monster.asm stru_3274C reverses the seven live mappings during disappearance"
         );
+    }
+
+    #[test]
+    fn big_hopping_skull_trace_exports_live_mapping_phase_stru_367ae_367be_367cc() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::BigHoppingSkull;
+        enemy.dragon_descent_frames = 7;
+        assert_eq!(enemy.snapshot().sprite_animation_phase, Some(7));
+
+        enemy.wait_timer = 13;
+        assert_eq!(enemy.snapshot().sprite_animation_phase, Some(5));
+
+        enemy.wait_timer = 0;
+        enemy.grounded_frames = 88;
+        assert_eq!(enemy.snapshot().sprite_animation_phase, Some(2));
     }
 
     #[test]

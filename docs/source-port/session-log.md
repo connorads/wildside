@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Big Hopping Skull live scripts)
+
+- `Big_Hopping_Skull.asm` uses all twelve C7FA0..C7FF8 mappings across its
+  live, hurt, and death scripts; native exposed only five. The atlas now keeps
+  the complete ROM order and the death selector addresses its four mappings
+  explicitly.
+- Core exports the exact live mapping phase for airborne `stru_367BE`, floor
+  contact `stru_367AE`/`stru_367B4`, and non-fatal hurt `stru_367CC`. Renderer
+  selection consumes that typed phase without duplicating animation timing.
+- Raw Level `$46` oracle WRAM confirms C7FC0 for the first floor wait, C7FC8 for
+  twelve ticks, then C7FD0. Frames 46..55 improve by 49-59 pixels at that
+  transition, but the 240-frame route is broadly state/lifecycle-divergent and
+  its total changed-pixel count is not a valid ratchet.
+- The runtime asset catalogue now includes the existing Level `$08` and `$46`
+  JSON layouts discovered by the workspace gate. Focused tests,
+  `verify-slice-fast`, and the full 37,759-frame `verify-tas-full` pass with
+  unchanged published-route ratchets.
+
 ## 2026-08-30 handoff (Tar Monster emergence mappings)
 
 - `Tar_Monster.asm` defines seven four-frame live mappings in `stru_3272E` and

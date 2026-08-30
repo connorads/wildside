@@ -7329,11 +7329,18 @@ mod tests {
                 },
                 extra_palettes: vec![],
                 frames: vec![
-                    sample_object_frame_with_base(209, 0x19, 0x20, 0x040),
-                    sample_object_frame_with_base(210, 0x1B, 0x1D, 0x000),
-                    sample_object_frame_with_base(211, 0x1C, 0x1D, 0x090),
-                    sample_object_frame_with_base(212, 0x1E, 0x1D, 0x0A0),
-                    sample_object_frame_with_base(213, 0x21, 0x10, 0x0B0),
+                    sample_object_frame_with_base(209, 0x1B, 0x1D, 0x000),
+                    sample_object_frame_with_base(210, 0x1D, 0x1D, 0x010),
+                    sample_object_frame_with_base(211, 0x1E, 0x1F, 0x020),
+                    sample_object_frame_with_base(212, 0x1E, 0x1E, 0x030),
+                    sample_object_frame_with_base(213, 0x19, 0x20, 0x040),
+                    sample_object_frame_with_base(214, 0x1F, 0x20, 0x050),
+                    sample_object_frame_with_base(215, 0x1B, 0x1F, 0x060),
+                    sample_object_frame_with_base(216, 0x1B, 0x20, 0x070),
+                    sample_object_frame_with_base(217, 0x19, 0x20, 0x080),
+                    sample_object_frame_with_base(218, 0x1C, 0x1D, 0x090),
+                    sample_object_frame_with_base(219, 0x1E, 0x1D, 0x0A0),
+                    sample_object_frame_with_base(220, 0x21, 0x10, 0x0B0),
                 ],
                 frame_duration: 80,
             },
@@ -20508,7 +20515,7 @@ mod tests {
         };
         let trace = sample_trace(GameMode::InGame);
 
-        for (remaining, signature) in [(0x8A, 210), (0x72, 211), (0x66, 212), (0x64, 213)] {
+        for (remaining, signature) in [(0x8A, 209), (0x72, 218), (0x66, 219), (0x64, 220)] {
             object.wait_timer = Some(remaining);
             assert_eq!(
                 sprites::select_enemy_frame(&trace, skull_visuals, &object)

@@ -2365,8 +2365,17 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         ],
         frame_duration: 80,
         frames: &[
-            fd(0x040, 0x0D, 0x00, 0x19, 0x20),
+            // ASM Big_Hopping_Skull.asm stru_367AE..stru_367FA use all
+            // twelve C7FA0..C7FF8 mappings across live, hurt, and death paths.
             fd(0x000, 0x0D, 0x00, 0x1B, 0x1D),
+            fd(0x010, 0x0D, 0x00, 0x1D, 0x1D),
+            fd(0x020, 0x0D, 0x00, 0x1E, 0x1F),
+            fd(0x030, 0x0D, 0x00, 0x1E, 0x1E),
+            fd(0x040, 0x0D, 0x00, 0x19, 0x20),
+            fd(0x050, 0x0D, 0x00, 0x1F, 0x20),
+            fd(0x060, 0x0D, 0x00, 0x1B, 0x1F),
+            fd(0x070, 0x0D, 0x00, 0x1B, 0x20),
+            fd(0x080, 0x0D, 0x00, 0x19, 0x20),
             fd(0x090, 0x0D, 0x00, 0x1C, 0x1D),
             fd(0x0A0, 0x0D, 0x00, 0x1E, 0x1D),
             fd(0x0B0, 0x0D, 0x00, 0x21, 0x10),
@@ -6475,7 +6484,17 @@ mod tests {
             "ASM Mini_Hopping_Skull.asm loc_3F158 / stru_3E9AC death frames C8040/C8048 must be selectable"
         );
         assert_eq!(
-            death_tiles(0x1D, 1..5),
+            [0, 9, 10, 11]
+                .into_iter()
+                .map(|index| {
+                    super::ENEMY_FAMILIES
+                        .iter()
+                        .find(|spec| spec.object_type == 0x1D)
+                        .expect("Big Hopping Skull spec")
+                        .frames[index]
+                        .tile_base_index
+                })
+                .collect::<Vec<_>>(),
             vec![0x0000, 0x0090, 0x00A0, 0x00B0],
             "ASM Big_Hopping_Skull.asm loc_3664E / stru_367FA death frames C7FA0/C7FE8/C7FF0/C7FF8 must be selectable"
         );
