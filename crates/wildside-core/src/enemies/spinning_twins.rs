@@ -36,6 +36,25 @@ pub(crate) const SPINNING_TWINS_HURT_ANIMATION_FRAMES_STRU_3B836: u8 = 0x14;
 pub(crate) const SPINNING_TWINS_DROP_SPLIT_PENDING_LOC_3B93C: u16 = 0xB93C;
 pub(crate) const SPINNING_TWINS_PARTNER_DEATH_SIGNAL_LOC_3BCA6: i16 = -1;
 
+pub(crate) fn spinning_twins_orbit_sprite_phases_loc_3b904(
+    orbit_index: u8,
+    animation_timer: u16,
+) -> (u8, u8) {
+    // ASM loc_3B904 advances d1 when the parent timer reaches one, one
+    // Object pass before GfxObject_Animate selects the next `stru_3B7F0`
+    // mapping. Recover the mapping block that is currently presented.
+    let presented_block = if animation_timer == 1 {
+        orbit_index.wrapping_sub(1) & 7
+    } else {
+        orbit_index & 7
+    };
+    let parent_phase = presented_block & 3;
+    // ASM `stru_3B802`: linked C7D26 holds for six parent blocks, C7D2E
+    // for one, then C7D26 for the final block of the shared 48-tick cycle.
+    let child_phase = if presented_block == 6 { 6 } else { 7 };
+    (parent_phase, child_phase)
+}
+
 /// Atlas phase for the visible object after the orbit parent splits.
 pub(crate) fn spinning_twins_live_sprite_phase(
     phase: SpinningTwinsPhase,

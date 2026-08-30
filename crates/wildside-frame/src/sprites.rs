@@ -1526,9 +1526,33 @@ fn select_live_spinning_twins_frame<'a>(
     // a true loc_3BC56 death has no typed phase and remains routed through
     // the waited death selector below.
     match object.sprite_animation_phase? {
-        phase @ (4 | 7..=13) => enemy_visuals.frames.get(usize::from(phase)),
+        phase @ (0..=4 | 6..=13) => enemy_visuals.frames.get(usize::from(phase)),
         _ => None,
     }
+}
+
+const SPINNING_TWINS_ORBIT_OFFSETS_LOC_3B904: [i32; 8] =
+    [-0x10, -0x0A, 0x05, 0x11, 0x10, 0x0A, -0x05, -0x11];
+
+fn spinning_twins_orbit_child_spec_loc_3b904(
+    object: &NativeObjectSnapshot,
+) -> Option<(i32, i32, usize)> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x14 }) {
+        return None;
+    }
+    let orbit_index = usize::from(object.walk_phase?) & 7;
+    let animation_timer = object.wait_timer?;
+    let presented_block = if animation_timer == 1 {
+        orbit_index.wrapping_sub(1) & 7
+    } else {
+        orbit_index
+    };
+    let frame_index = if presented_block == 6 { 6 } else { 7 };
+    Some((
+        SPINNING_TWINS_ORBIT_OFFSETS_LOC_3B904[orbit_index],
+        -0x1A,
+        frame_index,
+    ))
 }
 
 fn select_live_fireball_frame<'a>(
@@ -2534,17 +2558,37 @@ pub fn push_enemy_sprite(
         object,
         object_type,
     );
-    let palette = enemy_palette_for_damage_flash(
+    let palette = Arc::new(enemy_palette_for_damage_flash(
         &palette,
         enemy_damage_palette_white_phase(object_type, object.damage_flash),
-    );
+    ));
     commands.push(DrawCommand::Sprite {
         x: draw_x,
         y: draw_y,
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
-        palette: Arc::new(palette),
+        palette: palette.clone(),
         tiles: build_sprite_tiles(frame, render_facing, 0),
     });
+    if let Some((child_x_offset, child_y_offset, child_frame_index)) =
+        spinning_twins_orbit_child_spec_loc_3b904(object)
+        && let Some(child_frame) = enemy_visuals.frames.get(child_frame_index)
+    {
+        // ASM Enemy14_SpinningTwins_Init places linked `stru_3B802` at
+        // parent Y-$1A; loc_3B904 writes parent base X + word_3B9A0[d1].
+        let (child_x, child_y) = sprite_draw_position(
+            child_frame,
+            screen_x + child_x_offset,
+            screen_y + child_y_offset,
+            render_facing,
+        );
+        commands.push(DrawCommand::Sprite {
+            x: child_x,
+            y: child_y,
+            tile_sheet: Arc::new(child_frame.tile_sheet.clone()),
+            palette: palette.clone(),
+            tiles: build_sprite_tiles(child_frame, render_facing, 0),
+        });
+    }
     if object_type == 0x20 {
         push_heady_metal_sub_37abc_body_piece_markers(commands, object, trace);
     }
@@ -4566,6 +4610,21 @@ mod tests {
         // fixed C7D26 instead of the four-frame orbit parent bank.
         let spinning_twins_visuals = labelled_enemy_visuals(14, 6);
         let mut spinning_twin = live_enemy_object(0x14);
+        spinning_twin.walk_phase = Some(0);
+        spinning_twin.wait_timer = Some(6);
+        spinning_twin.sprite_animation_phase = Some(0);
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &spinning_twins_visuals, &spinning_twin),
+            0x0100,
+            "ASM stru_3B7F0 orbit parent must use C7D36"
+        );
+        assert_eq!(
+            spinning_twins_orbit_child_spec_loc_3b904(&spinning_twin),
+            Some((-0x10, -0x1A, 7)),
+            "ASM loc_3B904/word_3B9A0 positions the initial C7D26 child"
+        );
+        spinning_twin.walk_phase = None;
+        spinning_twin.wait_timer = None;
         spinning_twin.sprite_animation_phase = Some(4);
         assert_eq!(
             selected_enemy_tile_base(&trace, &spinning_twins_visuals, &spinning_twin),
@@ -4625,6 +4684,43 @@ mod tests {
                 &flying_dragon
             )),
             0x0107
+        );
+    }
+
+    #[test]
+    fn spinning_twins_orbit_pushes_parent_and_linked_gfx_object() {
+        let mut level_visuals = minimal_level_visuals_for_platforms();
+        level_visuals
+            .enemies
+            .families
+            .insert(0x14, labelled_enemy_visuals(14, 6));
+        let mut object = live_enemy_object(0x14);
+        object.x_pos = 100 << 16;
+        object.y_pos = 100 << 16;
+        object.walk_phase = Some(0);
+        object.sprite_animation_phase = Some(0);
+        object.wait_timer = Some(6);
+        let trace = NativeTraceFrame::default();
+        let mut commands = Vec::new();
+
+        push_enemy_sprite(&mut commands, &object, &trace, &level_visuals, 0x14);
+
+        assert_eq!(
+            commands.len(),
+            2,
+            "ASM Enemy14_SpinningTwins_Init allocates parent stru_3B7F0 plus linked stru_3B802 GfxObjects"
+        );
+        let tile_bases = commands
+            .iter()
+            .map(|command| match command {
+                DrawCommand::Sprite { tiles, .. } => tiles[0].tile.tile_index,
+                other => panic!("expected Spinning Twins sprite command, got {other:?}"),
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            tile_bases,
+            vec![0x0100, 0x0107],
+            "ASM stru_3B7F0/stru_3B802 begin on C7D36/C7D26"
         );
     }
 

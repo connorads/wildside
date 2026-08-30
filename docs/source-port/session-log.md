@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Spinning Twins linked orbit body)
+
+- The proactive 69-level frame sweep found that Level `$63` rendered only the
+  parent half of each Spinning Twins pair. The ROM owns the other half as a
+  linked `stru_3B802` GfxObject rather than a gameplay enemy.
+- Core now exports the `loc_3B904` orbit phase, including its timer-one mapping
+  lead. Rendering materialises the linked body beside parent `stru_3B7F0` with
+  the eight ROM `word_3B9A0` offsets.
+- Level `$63` remains state-clean. Settle improves from 2,562 to 715 mismatched
+  pixels and idle from 2,920 to 1,434. Inspected diffs confirm both paired
+  composites are restored. `verify-slice-fast` and the full 37,759-frame
+  `verify-tas-full` pass with unchanged published ratchets: 37,518 exact
+  frames, 241 divergent frames, and 2,391 changed frozen HUD pixels.
+
 ## 2026-08-30 handoff (Orca object-local patrol animation)
 
 - Orca patrol rendering derived `stru_3D0A2` from global frame time plus

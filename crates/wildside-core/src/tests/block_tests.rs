@@ -15055,6 +15055,30 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_orbit_sprite_phases_follow_stru_3b7f0_3b802() {
+        assert_eq!(
+            spinning_twins_orbit_sprite_phases_loc_3b904(0, 6),
+            (0, 7),
+            "ASM stru_3B7F0/stru_3B802 start on C7D36/C7D26"
+        );
+        assert_eq!(
+            spinning_twins_orbit_sprite_phases_loc_3b904(6, 6),
+            (2, 6),
+            "ASM stru_3B802 selects C7D2E only in block six"
+        );
+        assert_eq!(
+            spinning_twins_orbit_sprite_phases_loc_3b904(7, 1),
+            (2, 6),
+            "ASM loc_3B904 advances d1 at timer one before GfxObject_Animate changes either mapping"
+        );
+        assert_eq!(
+            spinning_twins_orbit_sprite_phases_loc_3b904(7, 6),
+            (3, 7),
+            "ASM stru_3B802 restores C7D26 for the final block"
+        );
+    }
+
+    #[test]
     fn spinning_twins_orbit_collision_route_loc_3b904_drops_only_for_rom_contact_words() {
         assert_eq!(
             spinning_twins_orbit_collision_route_loc_3b904(-1),

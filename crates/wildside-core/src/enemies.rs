@@ -2754,6 +2754,13 @@ impl ActiveEnemy {
                 ))
         {
             Some(self.dragon_script_cmd)
+        } else if matches!(self.family, EnemyFamily::SpinningTwins)
+            && matches!(self.spinning_twins_phase, SpinningTwinsPhase::Orbiting)
+        {
+            // ASM loc_3B904 keeps d1 as the linked child's eight-position
+            // orbit phase. This is presentation state, distinct from the
+            // four-frame parent animation exported below.
+            Some(self.spinning_twins_orbit_index)
         } else {
             None
         };
@@ -2873,12 +2880,22 @@ impl ActiveEnemy {
             ))
         } else if matches!(self.family, EnemyFamily::SpinningTwins) && !self.death_animation_active
         {
-            spinning_twins_live_sprite_phase(
-                self.spinning_twins_phase,
-                self.on_ground,
-                self.damage_flash_frames,
-                self.grounded_frames,
-            )
+            if matches!(self.spinning_twins_phase, SpinningTwinsPhase::Orbiting) {
+                Some(
+                    spinning_twins_orbit_sprite_phases_loc_3b904(
+                        self.spinning_twins_orbit_index,
+                        self.wait_timer,
+                    )
+                    .0,
+                )
+            } else {
+                spinning_twins_live_sprite_phase(
+                    self.spinning_twins_phase,
+                    self.on_ground,
+                    self.damage_flash_frames,
+                    self.grounded_frames,
+                )
+            }
         } else if matches!(self.family, EnemyFamily::Armadillo) && !self.death_animation_active {
             Some(armadillo_live_sprite_phase(
                 self.enemy_level,
@@ -2932,6 +2949,8 @@ impl ActiveEnemy {
             Some(self.wait_timer.saturating_add(1))
         } else if (matches!(self.family, EnemyFamily::FireDemon)
             && self.wait_timer == FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610)
+            || (matches!(self.family, EnemyFamily::SpinningTwins)
+                && matches!(self.spinning_twins_phase, SpinningTwinsPhase::Orbiting))
             || matches!(
                 self.family,
                 EnemyFamily::DragonWalking | EnemyFamily::Lion | EnemyFamily::Drips
