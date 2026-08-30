@@ -11322,6 +11322,11 @@ pub(crate) fn step_boss_fire_with_sounds(
                 lifetime: if is_boomerang { 0x0190 } else { 50 },
                 animation_elapsed_frames: 0,
                 boss_head_boomerang_direction_byte_d0: direction_byte_d0,
+                boss_head_arrow_animation: if is_boomerang {
+                    crate::types::BossHeadArrowAnimationCursor::default()
+                } else {
+                    crate::types::BossHeadArrowAnimationCursor::moving_stru_3a1cc()
+                },
                 gravity: 0,
                 friendly: false,
                 homing_accel: 0,

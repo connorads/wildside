@@ -3071,6 +3071,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -3126,6 +3127,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -3191,6 +3193,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -3247,6 +3250,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -3358,6 +3362,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 5,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -3389,6 +3394,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 3,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -3604,6 +3610,7 @@ mod tests {
                 palette_variant: 0,
                 boss_eye_sprite_mapping_index: 5,
                 boss_eye_sprite_order_word_a: 0xFFFF,
+                boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
                 dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
                 dragon_flying_descent_fire_counter: 0,
             },
@@ -3619,6 +3626,7 @@ mod tests {
                 palette_variant: 0,
                 boss_eye_sprite_mapping_index: 3,
                 boss_eye_sprite_order_word_a: 1,
+                boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
                 dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
                 dragon_flying_descent_fire_counter: 0,
             },
@@ -3663,6 +3671,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4040,6 +4049,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4094,6 +4104,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4153,6 +4164,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4198,6 +4210,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4355,6 +4368,7 @@ mod tests {
                 palette_variant: 0,
                 boss_eye_sprite_mapping_index: 0,
                 boss_eye_sprite_order_word_a: 0,
+                boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
                 dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
                 dragon_flying_descent_fire_counter: 0,
             }];
@@ -4403,6 +4417,7 @@ mod tests {
                 palette_variant: 0,
                 boss_eye_sprite_mapping_index: 0,
                 boss_eye_sprite_order_word_a: 0,
+                boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
                 dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
                 dragon_flying_descent_fire_counter: 0,
             }];
@@ -4453,6 +4468,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4488,6 +4504,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4530,6 +4547,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4605,6 +4623,7 @@ mod tests {
                 palette_variant: 0,
                 boss_eye_sprite_mapping_index: 0,
                 boss_eye_sprite_order_word_a: 0,
+                boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
                 dragon_flying_descent_fire_state: state,
                 dragon_flying_descent_fire_counter: 0,
             }];
@@ -4678,6 +4697,7 @@ mod tests {
                 palette_variant: 0,
                 boss_eye_sprite_mapping_index: 0,
                 boss_eye_sprite_order_word_a: 0,
+                boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
                 dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
                 dragon_flying_descent_fire_counter: 0,
             }];
@@ -4765,6 +4785,7 @@ mod tests {
             palette_variant: 1,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4811,6 +4832,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4855,6 +4877,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4893,6 +4916,7 @@ mod tests {
             palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
+            boss_head_arrow_sprite_frame: wildside_core::BossHeadArrowSpriteFrame::None,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];

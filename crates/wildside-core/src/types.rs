@@ -166,6 +166,16 @@ pub enum ActiveProjectileKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum BossHeadArrowSpriteFrame {
+    #[default]
+    None,
+    C8510,
+    C8518,
+    C8520,
+    C8528,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct ActiveProjectileSnapshot {
     pub x_pos: u32,
     pub y_pos: u32,
@@ -189,6 +199,9 @@ pub struct ActiveProjectileSnapshot {
     /// and `sub_39420` nudge this when the parent `$16` frame byte changes.
     #[serde(default)]
     pub boss_eye_sprite_order_word_a: u16,
+    /// Selected GfxObject mapping from `stru_3A1CC` or `stru_3A1D6`.
+    #[serde(default)]
+    pub boss_head_arrow_sprite_frame: BossHeadArrowSpriteFrame,
     #[serde(default)]
     pub dragon_flying_descent_fire_state: DragonFlyingDescentFireState,
     #[serde(default)]
@@ -5118,6 +5131,57 @@ pub(crate) enum BossDeathBurstState {
     SharedHomingSub37002,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct BossHeadArrowAnimationCursor {
+    pub(crate) sprite_frame: BossHeadArrowSpriteFrame,
+    timer: u8,
+    next_is_second: bool,
+}
+
+impl BossHeadArrowAnimationCursor {
+    /// ASM loc_3A0D2 calls Init_Animation for `stru_3A1CC`.
+    pub(crate) fn moving_stru_3a1cc() -> Self {
+        Self {
+            sprite_frame: BossHeadArrowSpriteFrame::C8510,
+            timer: 1,
+            next_is_second: false,
+        }
+    }
+
+    /// ASM loc_3A134 calls Init_Animation for `stru_3A1D6`.
+    pub(crate) fn reset_stuck_stru_3a1d6(&mut self) {
+        self.sprite_frame = BossHeadArrowSpriteFrame::C8520;
+        self.timer = 1;
+        self.next_is_second = false;
+    }
+
+    /// ASM GfxObject_Animate/sub_1194 decrements the timer, loads a five-frame
+    /// hold at zero, and follows each script's mode-2 loop to the other frame.
+    pub(crate) fn animate_sub_113e(&mut self) {
+        self.timer = self.timer.saturating_sub(1);
+        if self.timer != 0 {
+            return;
+        }
+        self.timer = 5;
+        self.sprite_frame = match (self.sprite_frame, self.next_is_second) {
+            (BossHeadArrowSpriteFrame::C8510 | BossHeadArrowSpriteFrame::C8518, false) => {
+                BossHeadArrowSpriteFrame::C8510
+            }
+            (BossHeadArrowSpriteFrame::C8510 | BossHeadArrowSpriteFrame::C8518, true) => {
+                BossHeadArrowSpriteFrame::C8518
+            }
+            (BossHeadArrowSpriteFrame::C8520 | BossHeadArrowSpriteFrame::C8528, false) => {
+                BossHeadArrowSpriteFrame::C8520
+            }
+            (BossHeadArrowSpriteFrame::C8520 | BossHeadArrowSpriteFrame::C8528, true) => {
+                BossHeadArrowSpriteFrame::C8528
+            }
+            (BossHeadArrowSpriteFrame::None, _) => BossHeadArrowSpriteFrame::None,
+        };
+        self.next_is_second = !self.next_is_second;
+    }
+}
+
 /// Projectile fired by enemies and player helmet attacks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct EnemyProjectile {
@@ -5183,6 +5247,8 @@ pub(crate) struct EnemyProjectile {
     /// ASM loc_3A1EA stores the high byte of `$48(a5)` in d0 before entering
     /// loc_3A24C; nonzero keeps adding `+$7D0`, zero keeps adding `-$7D0`.
     pub(crate) boss_head_boomerang_direction_byte_d0: u8,
+    /// Object-local GfxObject animation cursor for `stru_3A1CC`/`stru_3A1D6`.
+    pub(crate) boss_head_arrow_animation: BossHeadArrowAnimationCursor,
     /// Drips surface-crawler movement coroutine label. ASM turn scripts under
     /// `loc_33AF6` dispatch through `off_33ADA`; native persists the subset of
     /// labels wired into the simplified projectile carrier.

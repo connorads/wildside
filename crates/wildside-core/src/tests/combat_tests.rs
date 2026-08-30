@@ -4222,10 +4222,38 @@ fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
         y_velocity: 0,
         lifetime: 0x0032,
         animation_elapsed_frames: 0,
+        boss_head_arrow_animation: BossHeadArrowAnimationCursor::moving_stru_3a1cc(),
         ..Default::default()
     });
 
-    for _ in 0..0x0032 {
+    runtime.step_projectiles();
+    assert_eq!(
+        runtime.projectiles[0]
+            .boss_head_arrow_animation
+            .sprite_frame,
+        BossHeadArrowSpriteFrame::C8510,
+        "ASM Init_Animation/sub_1040 and GfxObject_Animate/sub_113E load the first `stru_3A1CC` mapping C8510"
+    );
+    for _ in 0..4 {
+        runtime.step_projectiles();
+    }
+    assert_eq!(
+        runtime.projectiles[0]
+            .boss_head_arrow_animation
+            .sprite_frame,
+        BossHeadArrowSpriteFrame::C8510,
+        "ASM stru_3A1CC holds C8510 for five animation passes"
+    );
+    runtime.step_projectiles();
+    assert_eq!(
+        runtime.projectiles[0]
+            .boss_head_arrow_animation
+            .sprite_frame,
+        BossHeadArrowSpriteFrame::C8518,
+        "ASM stru_3A1CC selects C8518 on the sixth animation pass"
+    );
+
+    for _ in 6..0x0032 {
         runtime.step_projectiles();
     }
 
@@ -4246,14 +4274,30 @@ fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
     );
     assert_eq!(runtime.projectiles[0].x_velocity, 0);
     assert_eq!(
+        runtime.projectiles[0]
+            .boss_head_arrow_animation
+            .sprite_frame,
+        BossHeadArrowSpriteFrame::C8520,
+        "ASM loc_3A134 resets the object-local animation to `stru_3A1D6` mapping C8520"
+    );
+    assert_eq!(
         runtime.projectiles[0].animation_elapsed_frames, 0x00C8,
         "ASM loc_3A134 seeds `$42(a3)=$C8` after the final moving pass; loc_3A14E does not wake and decrement it until the next object pass"
     );
 
-    runtime.step_projectiles();
+    for _ in 0..5 {
+        runtime.step_projectiles();
+    }
 
     assert_eq!(runtime.projectiles[0].x_pos, 0x0167_0000);
-    assert_eq!(runtime.projectiles[0].animation_elapsed_frames, 0x00C7);
+    assert_eq!(runtime.projectiles[0].animation_elapsed_frames, 0x00C3);
+    assert_eq!(
+        runtime.projectiles[0]
+            .boss_head_arrow_animation
+            .sprite_frame,
+        BossHeadArrowSpriteFrame::C8528,
+        "ASM stru_3A1D6 selects C8528 after C8520's five animation passes"
+    );
 }
 
 #[test]

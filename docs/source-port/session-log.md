@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (boss-arrow object-local animation)
+
+- Boss arrows now carry the ROM's independent `stru_3A1CC`/`stru_3A1D6`
+  animation state. `Init_Animation` seeds the first mapping, `GfxObject_Animate`
+  applies each five-pass hold, and the stuck transition resets to C8520.
+- The trace exports the selected C8510/C8518/C8520/C8528 mapping. Rendering
+  consumes it directly instead of deriving a phase from `$40` or `$42`.
+- Focused Level `$10` remains state-exact with unchanged pixel totals
+  39/181/361/361/39/312. The explicit model removes a false attribution but
+  does not reduce the residue. Continue at sprite geometry and SAT composition
+  for frames 60/120. `verify-slice-fast` and `verify-tas-full` pass.
+
 ## 2026-08-30 handoff (Shishkaboss pre-integration spawn order)
 
 - Oracle settle trace `1788060533` shows `sub_397E4` copies the parent position

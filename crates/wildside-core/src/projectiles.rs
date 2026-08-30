@@ -4133,6 +4133,7 @@ impl NativeRuntime {
                     p.x_velocity = 0;
                     p.y_velocity = 0;
                     p.animation_elapsed_frames = 0x00C8;
+                    p.boss_head_arrow_animation.reset_stuck_stru_3a1d6();
                 } else {
                     let step = crate::combat::fire_demon_fragment_fade_step_loc_3A14E(
                         p.animation_elapsed_frames,
@@ -4156,6 +4157,10 @@ impl NativeRuntime {
                         return false;
                     }
                 }
+                // ASM GfxObjects_MoveAndAnimate/sub_1444 runs after the
+                // object's coroutine, including the frame that initialises or
+                // replaces its animation script.
+                p.boss_head_arrow_animation.animate_sub_113e();
             }
             if is_boss_head_boomerang {
                 let route = crate::combat::fire_demon_fragment_decel_step_loc_3A24C(

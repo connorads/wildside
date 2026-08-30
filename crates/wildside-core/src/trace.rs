@@ -12576,6 +12576,7 @@ impl NativeRuntime {
                         p.boss_eye_sprite_mapping_label,
                     ),
                     boss_eye_sprite_order_word_a: 0,
+                    boss_head_arrow_sprite_frame: p.boss_head_arrow_animation.sprite_frame,
                     dragon_flying_descent_fire_state: p.dragon_flying_descent_fire_state,
                     dragon_flying_descent_fire_counter: p.dragon_flying_descent_fire_counter,
                 })
@@ -12594,6 +12595,8 @@ impl NativeRuntime {
                             palette_variant: 0,
                             boss_eye_sprite_mapping_index: 0,
                             boss_eye_sprite_order_word_a: 0,
+                            boss_head_arrow_sprite_frame:
+                                crate::types::BossHeadArrowSpriteFrame::default(),
                             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
                             dragon_flying_descent_fire_counter: 0,
                         }),
@@ -12613,6 +12616,8 @@ impl NativeRuntime {
                             palette_variant: 0,
                             boss_eye_sprite_mapping_index: 0,
                             boss_eye_sprite_order_word_a: 0,
+                            boss_head_arrow_sprite_frame:
+                                crate::types::BossHeadArrowSpriteFrame::default(),
                             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
                             dragon_flying_descent_fire_counter: 0,
                         }),
@@ -13008,6 +13013,8 @@ impl NativeRuntime {
                             slot.sprite_mapping,
                         ),
                         boss_eye_sprite_order_word_a,
+                        boss_head_arrow_sprite_frame:
+                            crate::types::BossHeadArrowSpriteFrame::default(),
                         dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
                         dragon_flying_descent_fire_counter: 0,
                     })
