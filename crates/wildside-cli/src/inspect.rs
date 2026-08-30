@@ -3271,6 +3271,9 @@ mod tests {
                 ufo_first_hurt_debris_flipped: false,
                 boss_death_burst_sprite_frame: wildside_core::BossDeathBurstSpriteFrame::C8460,
                 boss_death_burst_flipped: false,
+                boss_eye_pop_effect_sprite_frame:
+                    wildside_core::BossEyePopEffectSpriteFrame::default(),
+                boss_eye_pop_effect_flipped: false,
                 archer_arrow_sprite_frame: wildside_core::ArcherArrowSpriteFrame::C81F8,
                 archer_arrow_flipped: false,
                 boss_eye_sprite_mapping_index: 0,
@@ -3371,6 +3374,9 @@ mod tests {
                 ufo_first_hurt_debris_flipped: false,
                 boss_death_burst_sprite_frame: wildside_core::BossDeathBurstSpriteFrame::C8460,
                 boss_death_burst_flipped: false,
+                boss_eye_pop_effect_sprite_frame:
+                    wildside_core::BossEyePopEffectSpriteFrame::default(),
+                boss_eye_pop_effect_flipped: false,
                 archer_arrow_sprite_frame: wildside_core::ArcherArrowSpriteFrame::C81F8,
                 archer_arrow_flipped: false,
                 boss_eye_sprite_mapping_index: 0,

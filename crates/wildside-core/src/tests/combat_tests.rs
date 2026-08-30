@@ -1,5 +1,8 @@
 use super::*;
-use crate::projectiles::BOSS_EYE_POP_EFFECT_FINISH_ANIMATION_FRAMES_STRU_37BFC;
+use crate::projectiles::{
+    BOSS_EYE_POP_EFFECT_ENTRY_ANIMATION_FRAMES_STRU_37BEA,
+    BOSS_EYE_POP_EFFECT_FINISH_ANIMATION_FRAMES_STRU_37BFC,
+};
 
 fn empty_weather_collision_rows_sub_61_ca() -> WeatherCollisionRowsSub61CA {
     WeatherCollisionRowsSub61CA {
@@ -3685,6 +3688,7 @@ fn live_heady_metal_breakup_phase_spawns_freeze_worker_sub_37708() {
     slice.player.x_pos = 0x0090_0000;
     runtime.opening_slice = Some(slice);
     let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 13);
+    boss.palette_variant = 2;
     boss.boss_movement_delay_counter = HEADY_METAL_EYE_SPAWN_COUNTER_INIT_LOC_39264;
     runtime.active_enemies = vec![boss];
     runtime.active_enemy_roster = runtime
@@ -3714,6 +3718,18 @@ fn live_heady_metal_breakup_phase_spawns_freeze_worker_sub_37708() {
         pop_effect.boss_eye_pop_effect_x_direction, 0xFF,
         "ASM sub_3729E loc_37300 sets x_direction=$FF when the pop effect is not strictly right of Kid"
     );
+    assert_eq!(
+        pop_effect.boss_eye_pop_effect_state,
+        BossEyePopEffectState::EntryStru37BEA
+    );
+    assert_eq!(
+        pop_effect.animation_elapsed_frames, BOSS_EYE_POP_EFFECT_ENTRY_ANIMATION_FRAMES_STRU_37BEA,
+        "ASM sub_3729E plays the full 121-tick stru_37BEA before loc_372F6"
+    );
+    assert_eq!(
+        pop_effect.palette_variant, 2,
+        "ASM sub_3729E object_meta `$20` uses the spawning Heady Metal palette"
+    );
     assert!(
         runtime
             .projectiles
@@ -3721,6 +3737,28 @@ fn live_heady_metal_breakup_phase_spawns_freeze_worker_sub_37708() {
             .any(|projectile| projectile.kind == EnemyProjectileKind::BossEyeAttack),
         "ASM sub_37708 loc_37778 also allocates sub_37332 at the same selected worker position"
     );
+}
+
+#[test]
+fn live_boss_eye_pop_effect_runs_entry_before_chase_sub_3729e() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.projectiles.push(EnemyProjectile {
+        kind: EnemyProjectileKind::BossEyePopEffect,
+        lifetime: 100,
+        animation_elapsed_frames: 1,
+        boss_eye_pop_effect_state: BossEyePopEffectState::EntryStru37BEA,
+        ..Default::default()
+    });
+
+    runtime.step_projectiles();
+
+    let effect = &runtime.projectiles[0];
+    assert_eq!(
+        effect.boss_eye_pop_effect_state,
+        BossEyePopEffectState::ChaseLoc372F6
+    );
+    assert_eq!(effect.lifetime, 0x0064);
+    assert_eq!(effect.animation_elapsed_frames, 0);
 }
 
 #[test]

@@ -79,6 +79,8 @@ pub enum ActiveProjectileKind {
     /// ASM `sub_61CA` falling hail slot. Rendering uses the exact
     /// `storm_sprites_sub_61ca` SAT stream rather than a projectile marker.
     Hail,
+    /// Heady Metal eye-pop freeze worker: ASM `sub_3729E`.
+    BossEyePopEffect,
     FireDemonDeathTrail,
     /// Fireball trail child: ASM `Fireball.asm loc_330D0` / `loc_33128`
     /// allocates a short-lived hostile flame child after bounces.
@@ -195,6 +197,15 @@ pub enum BossDeathBurstSpriteFrame {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum BossEyePopEffectSpriteFrame {
+    #[default]
+    C8460,
+    C8468,
+    C8470,
+    C8478,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum ArcherArrowSpriteFrame {
     #[default]
     C81F8,
@@ -241,6 +252,12 @@ pub struct ActiveProjectileSnapshot {
     /// Live HeadyMetal burst `x_direction(a3)` byte.
     #[serde(default)]
     pub boss_death_burst_flipped: bool,
+    /// Current `sub_3729E` mapping selected by `stru_37BEA` or `stru_37BFC`.
+    #[serde(default)]
+    pub boss_eye_pop_effect_sprite_frame: BossEyePopEffectSpriteFrame,
+    /// Live `sub_3729E` eye-pop `x_direction(a3)` byte.
+    #[serde(default)]
+    pub boss_eye_pop_effect_flipped: bool,
     /// ASM Archer.asm `off_343EA` mapping selected from the live arrow angle.
     #[serde(default)]
     pub archer_arrow_sprite_frame: ArcherArrowSpriteFrame,
@@ -5152,6 +5169,14 @@ pub(crate) enum EnemyProjectileKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum BossEyePopEffectState {
+    EntryStru37BEA,
+    #[default]
+    ChaseLoc372F6,
+    FinishStru37BFC,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum DripsSurfaceCrawlerState {
     StartupLoc335D8,
     #[default]
@@ -5411,6 +5436,9 @@ pub(crate) struct EnemyProjectile {
     /// HeadyMetal boss-eye pop-effect `x_direction(a3)` byte. ASM sub_3729E
     /// loc_37300 sets `$FF` unless the effect is strictly right of Kid.
     pub(crate) boss_eye_pop_effect_x_direction: u8,
+    /// Typed `sub_3729E` coroutine phase. The entry and finish animations
+    /// interpret `animation_elapsed_frames`; the chase interprets `lifetime`.
+    pub(crate) boss_eye_pop_effect_state: BossEyePopEffectState,
 }
 
 impl EnemyProjectile {

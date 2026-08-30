@@ -600,6 +600,9 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     if projectile.kind == EnemyProjectileKind::Hail {
         return ActiveProjectileKind::Hail;
     }
+    if projectile.kind == EnemyProjectileKind::BossEyePopEffect {
+        return ActiveProjectileKind::BossEyePopEffect;
+    }
     if projectile.kind == EnemyProjectileKind::FireDemonDeathTrail {
         return ActiveProjectileKind::FireDemonDeathTrail;
     }
@@ -12609,6 +12612,9 @@ impl NativeRuntime {
                         boss_death_burst_sprite_frame:
                             crate::projectiles::boss_death_burst_sprite_frame_sub_370d2(p),
                         boss_death_burst_flipped: p.boss_death_burst_x_direction != 0,
+                        boss_eye_pop_effect_sprite_frame:
+                            crate::projectiles::boss_eye_pop_effect_sprite_frame_sub_3729e(p),
+                        boss_eye_pop_effect_flipped: p.boss_eye_pop_effect_x_direction != 0,
                         archer_arrow_sprite_frame,
                         archer_arrow_flipped,
                         boss_eye_sprite_mapping_index: boss_eye_sprite_mapping_index(
@@ -12642,6 +12648,9 @@ impl NativeRuntime {
                             ufo_first_hurt_debris_flipped: false,
                             boss_death_burst_sprite_frame: BossDeathBurstSpriteFrame::C8460,
                             boss_death_burst_flipped: false,
+                            boss_eye_pop_effect_sprite_frame: BossEyePopEffectSpriteFrame::default(
+                            ),
+                            boss_eye_pop_effect_flipped: false,
                             archer_arrow_sprite_frame: ArcherArrowSpriteFrame::C81F8,
                             archer_arrow_flipped: false,
                             boss_eye_sprite_mapping_index: 0,
@@ -12668,6 +12677,9 @@ impl NativeRuntime {
                             ufo_first_hurt_debris_flipped: false,
                             boss_death_burst_sprite_frame: BossDeathBurstSpriteFrame::C8460,
                             boss_death_burst_flipped: false,
+                            boss_eye_pop_effect_sprite_frame: BossEyePopEffectSpriteFrame::default(
+                            ),
+                            boss_eye_pop_effect_flipped: false,
                             archer_arrow_sprite_frame: ArcherArrowSpriteFrame::C81F8,
                             archer_arrow_flipped: false,
                             boss_eye_sprite_mapping_index: 0,
@@ -13068,6 +13080,8 @@ impl NativeRuntime {
                         ufo_first_hurt_debris_flipped: false,
                         boss_death_burst_sprite_frame: BossDeathBurstSpriteFrame::C8460,
                         boss_death_burst_flipped: false,
+                        boss_eye_pop_effect_sprite_frame: BossEyePopEffectSpriteFrame::default(),
+                        boss_eye_pop_effect_flipped: false,
                         archer_arrow_sprite_frame: ArcherArrowSpriteFrame::C81F8,
                         archer_arrow_flipped: false,
                         boss_eye_sprite_mapping_index: boss_eye_sprite_mapping_index(

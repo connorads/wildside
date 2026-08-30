@@ -157,6 +157,30 @@ const BOSS_DEATH_BURST_TIMEOUT_ANIMATION_FRAMES_STRU_37C0E: u16 = 0x64;
 const BOSS_DEATH_BURST_FINISH_ANIMATION_FRAMES_STRU_37BFC: u16 = 0x32 + 0x0A + 0x0A + 0x0A;
 pub(crate) const BOSS_EYE_POP_EFFECT_FINISH_ANIMATION_FRAMES_STRU_37BFC: u16 =
     0x32 + 0x0A + 0x0A + 0x0A;
+pub(crate) const BOSS_EYE_POP_EFFECT_ENTRY_ANIMATION_FRAMES_STRU_37BEA: u16 =
+    0x0A + 0x0A + 0x64 + 0x01;
+
+pub(crate) fn boss_eye_pop_effect_sprite_frame_sub_3729e(
+    projectile: &EnemyProjectile,
+) -> BossEyePopEffectSpriteFrame {
+    use BossEyePopEffectSpriteFrame::{C8460, C8468, C8470, C8478};
+
+    match projectile.boss_eye_pop_effect_state {
+        BossEyePopEffectState::EntryStru37BEA => match projectile.animation_elapsed_frames {
+            112.. => C8460,
+            102..=111 => C8468,
+            2..=101 => C8470,
+            _ => C8478,
+        },
+        BossEyePopEffectState::ChaseLoc372F6 => C8478,
+        BossEyePopEffectState::FinishStru37BFC => match projectile.animation_elapsed_frames {
+            31.. => C8478,
+            21..=30 => C8470,
+            11..=20 => C8468,
+            _ => C8460,
+        },
+    }
+}
 
 pub(crate) fn boss_death_burst_sprite_frame_sub_370d2(
     projectile: &EnemyProjectile,
@@ -3682,7 +3706,15 @@ impl NativeRuntime {
                 );
             }
             if is_boss_eye_pop_effect {
-                if p.animation_elapsed_frames > 0 {
+                if p.boss_eye_pop_effect_state == BossEyePopEffectState::EntryStru37BEA {
+                    p.animation_elapsed_frames = p.animation_elapsed_frames.wrapping_sub(1);
+                    if p.animation_elapsed_frames == 0 {
+                        p.boss_eye_pop_effect_state = BossEyePopEffectState::ChaseLoc372F6;
+                        p.lifetime = 0x0064;
+                    }
+                    return true;
+                }
+                if p.boss_eye_pop_effect_state == BossEyePopEffectState::FinishStru37BFC {
                     if p.animation_elapsed_frames > 1 {
                         p.animation_elapsed_frames -= 1;
                         return true;
@@ -3704,6 +3736,7 @@ impl NativeRuntime {
                     debug_assert!(finish.hibernate_until_anim_finished);
                     p.animation_elapsed_frames =
                         BOSS_EYE_POP_EFFECT_FINISH_ANIMATION_FRAMES_STRU_37BFC;
+                    p.boss_eye_pop_effect_state = BossEyePopEffectState::FinishStru37BFC;
                 }
                 return true;
             }

@@ -3,10 +3,11 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use wildside_core::{
     ActiveProjectileKind, ActiveProjectileSnapshot, ArcherArrowSpriteFrame, BlockBounceTraceKind,
-    BossDeathBurstSpriteFrame, BossHeadProjectileSpriteFrame, DiamondPowerSpriteSnapshot,
-    DragonFlyingDescentFireState, GameMode, NativeObjectKind, NativeObjectSnapshot,
-    NativeTraceFrame, PlayerForm, TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE,
-    physics::Direction, terrain::BlockGrid,
+    BossDeathBurstSpriteFrame, BossEyePopEffectSpriteFrame, BossHeadProjectileSpriteFrame,
+    DiamondPowerSpriteSnapshot, DragonFlyingDescentFireState, GameMode, NativeObjectKind,
+    NativeObjectSnapshot, NativeTraceFrame, PlayerForm,
+    TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE, physics::Direction,
+    terrain::BlockGrid,
 };
 use wildside_render::{MdColour, NativeLevelVisuals, Palette, TileRef, TileSheet};
 
@@ -77,6 +78,7 @@ const ARCHER_OBJECT_TYPE: u8 = 0x07;
 const UFO_OBJECT_TYPE: u8 = 0x0F;
 const LION_OBJECT_TYPE: u8 = 0x12;
 const DRIPS_OBJECT_TYPE: u8 = 0x16;
+const HEADY_METAL_OBJECT_TYPE: u8 = 0x20;
 const BOSS_EYE_OBJECT_TYPE: u8 = 0x21;
 const TAR_MONSTER_OBJECT_TYPE: u8 = 0x05;
 const PRIZE_GENERIC_LIFETIME_LOW_BYTE: u8 = 0x20;
@@ -473,6 +475,29 @@ fn boss_death_burst_frame_sub_370d2(
         BossDeathBurstSpriteFrame::C8468 => (0x0F1, 0x06, 0x06, 0x0C, 0x0D),
         BossDeathBurstSpriteFrame::C8470 => (0x0F5, 0x08, 0x08, 0x0F, 0x10),
         BossDeathBurstSpriteFrame::C8478 => (0x0F9, 0x08, 0x08, 0x0F, 0x10),
+    };
+    Some(wildside_render::SpriteFrame {
+        origin_x,
+        origin_y,
+        width_px,
+        height_px,
+        tile_base_index,
+        tile_sheet,
+    })
+}
+
+fn boss_eye_pop_effect_frame_sub_3729e(
+    visuals: &wildside_render::AnimatedSpriteVisual,
+    sprite_frame: BossEyePopEffectSpriteFrame,
+) -> Option<wildside_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    let (tile_base_index, origin_x, origin_y, width_px, height_px) = match sprite_frame {
+        // ASM sub_3729E plays stru_37BEA and stru_37BFC over the shared
+        // Heady Metal mappings at kid.asm unk_C8460..unk_C8478.
+        BossEyePopEffectSpriteFrame::C8460 => (0x0F0, 0x04, 0x04, 0x07, 0x08),
+        BossEyePopEffectSpriteFrame::C8468 => (0x0F1, 0x06, 0x06, 0x0C, 0x0D),
+        BossEyePopEffectSpriteFrame::C8470 => (0x0F5, 0x08, 0x08, 0x0F, 0x10),
+        BossEyePopEffectSpriteFrame::C8478 => (0x0F9, 0x08, 0x08, 0x0F, 0x10),
     };
     Some(wildside_render::SpriteFrame {
         origin_x,
@@ -7604,6 +7629,8 @@ fn build_game_scene_filtered(
                         ufo_first_hurt_debris_flipped: false,
                         boss_death_burst_sprite_frame: BossDeathBurstSpriteFrame::C8460,
                         boss_death_burst_flipped: false,
+                        boss_eye_pop_effect_sprite_frame: BossEyePopEffectSpriteFrame::default(),
+                        boss_eye_pop_effect_flipped: false,
                         archer_arrow_sprite_frame: ArcherArrowSpriteFrame::C81F8,
                         archer_arrow_flipped: false,
                         boss_eye_sprite_mapping_index: 0,
@@ -7953,6 +7980,48 @@ fn build_game_scene_filtered(
                                 y: draw_y,
                                 tile_sheet: Arc::new(frame.tile_sheet.clone()),
                                 palette: Arc::new(boss_eye_visuals.palette.clone()),
+                                tiles: build_sprite_tiles(&frame, facing, 0),
+                            });
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 4,
+                            y: sy - 4,
+                            width: 8,
+                            height: 8,
+                            colour: ENEMY_PROJECTILE_COLOUR,
+                        });
+                    }
+                }
+                ActiveProjectileKind::BossEyePopEffect => {
+                    let facing = if projectile.boss_eye_pop_effect_flipped {
+                        Direction::Left
+                    } else {
+                        Direction::Right
+                    };
+                    let pushed_sprite = level_visuals
+                        .enemies
+                        .families
+                        .get(&HEADY_METAL_OBJECT_TYPE)
+                        .and_then(|heady_metal_visuals| {
+                            let frame = boss_eye_pop_effect_frame_sub_3729e(
+                                heady_metal_visuals,
+                                projectile.boss_eye_pop_effect_sprite_frame,
+                            )?;
+                            let (draw_x, draw_y) = sprite_draw_position(&frame, sx, sy, facing);
+                            commands.push(DrawCommand::Sprite {
+                                x: draw_x,
+                                y: draw_y,
+                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                                palette: Arc::new(
+                                    sprites::select_enemy_palette(
+                                        heady_metal_visuals,
+                                        projectile.palette_variant,
+                                    )
+                                    .clone(),
+                                ),
                                 tiles: build_sprite_tiles(&frame, facing, 0),
                             });
                             Some(())
@@ -12282,6 +12351,8 @@ mod tests {
                 kind: ActiveProjectileKind::BossDeathBurst,
                 boss_death_burst_sprite_frame: sprite_frame,
                 boss_death_burst_flipped: index == 3,
+                boss_eye_pop_effect_sprite_frame: BossEyePopEffectSpriteFrame::default(),
+                boss_eye_pop_effect_flipped: false,
                 ..ActiveProjectileSnapshot::default()
             })
             .collect(),
@@ -12329,6 +12400,76 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![(1, 0x0444), (4, 0x0444), (4, 0x0444), (4, 0x0444)]
         );
+    }
+
+    #[test]
+    fn boss_eye_pop_effect_renders_sub_3729e_frames_from_heady_metal_art() {
+        let mut visuals = sample_level_visuals(1);
+        let mut heady_frame = sample_sprite_frame(HEADY_METAL_OBJECT_TYPE);
+        heady_frame.tile_sheet = sample_tile_sheet_with_pixel(0x100, 0xB6);
+        let mut heady = sample_animated_visual(heady_frame);
+        heady.palette = sample_palette_with_first_word(0x0111);
+        heady.extra_palettes = vec![sample_palette_with_first_word(0x0222)];
+        visuals
+            .enemies
+            .families
+            .insert(HEADY_METAL_OBJECT_TYPE, heady);
+        let trace = NativeTraceFrame {
+            active_projectile_details: [
+                BossEyePopEffectSpriteFrame::C8460,
+                BossEyePopEffectSpriteFrame::C8468,
+                BossEyePopEffectSpriteFrame::C8470,
+                BossEyePopEffectSpriteFrame::C8478,
+            ]
+            .into_iter()
+            .enumerate()
+            .map(|(index, sprite_frame)| ActiveProjectileSnapshot {
+                x_pos: ((100 + index as u32 * 24) << 16),
+                y_pos: 100 << 16,
+                kind: ActiveProjectileKind::BossEyePopEffect,
+                palette_variant: 1,
+                boss_eye_pop_effect_sprite_frame: sprite_frame,
+                boss_eye_pop_effect_flipped: index == 3,
+                ..ActiveProjectileSnapshot::default()
+            })
+            .collect(),
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("effects"),
+            None,
+        )
+        .0;
+        let sprites: Vec<_> = scene
+            .commands
+            .iter()
+            .filter(|command| matches!(command, DrawCommand::Sprite { .. }))
+            .collect();
+
+        assert_eq!(
+            sprites
+                .iter()
+                .map(|sprite| sprite_tile_snapshot(sprite))
+                .collect::<Vec<_>>(),
+            vec![
+                (96, 96, 0x0F0, 0, false, false, false, 0, 0),
+                (118, 93, 0x0F1, 0, false, false, false, 0, 0),
+                (140, 92, 0x0F5, 0, false, false, false, 0, 0),
+                (164, 92, 0x0F9, 0, false, true, false, 8, 0),
+            ],
+            "ASM sub_3729E uses exact unk_C8460..unk_C8478 geometry and x_direction"
+        );
+        for sprite in sprites {
+            let DrawCommand::Sprite { palette, .. } = sprite else {
+                unreachable!()
+            };
+            assert_eq!(palette.colours[0].raw_word, 0x0222);
+        }
     }
 
     #[test]

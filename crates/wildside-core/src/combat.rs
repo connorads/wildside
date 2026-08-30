@@ -8225,13 +8225,18 @@ impl NativeRuntime {
                     let enemy = &mut self.active_enemies[active_idx];
                     enemy.boss_movement_script_index =
                         enemy.boss_movement_script_index.saturating_add(1);
+                    let palette_variant = enemy.palette_variant;
                     self.projectiles.push(EnemyProjectile {
                         x_pos: u32::from(init.x_pos) << 16,
                         y_pos: u32::from(init.y_pos) << 16,
                         lifetime: init.chase_frames,
+                        animation_elapsed_frames:
+                            crate::projectiles::BOSS_EYE_POP_EFFECT_ENTRY_ANIMATION_FRAMES_STRU_37BEA,
                         friendly: false,
                         kind: EnemyProjectileKind::BossEyePopEffect,
+                        palette_variant,
                         boss_eye_pop_effect_x_direction: x_direction,
+                        boss_eye_pop_effect_state: BossEyePopEffectState::EntryStru37BEA,
                         ..Default::default()
                     });
                     changed_enemy_state = true;

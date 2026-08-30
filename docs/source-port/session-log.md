@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Heady Metal eye-pop lifecycle and ROM sprites)
+
+- `sub_3729E` was classified as a Generic projectile, rendered as an invented
+  4x4 dot, and entered its 100-tick tracking loop immediately. The ROM first
+  plays the 121-tick `stru_37BEA`, then tracks, then plays the 80-tick
+  `stru_37BFC` before deletion.
+- The core now owns that three-phase coroutine as typed state. Trace projection
+  exports the exact C8460-C8478 mapping and independent `x_direction`; rendering
+  consumes Heady Metal object family `$20` art and the spawning boss palette.
+- No cached recording reaches the effect. ASM-cited spawn, lifecycle, mapping,
+  flip, palette, and render regressions pass. `verify-slice-fast` and the full
+  37,759-frame `verify-tas-full` pass with unchanged published ratchets: 37,518
+  exact frames, 241 divergent frames, and 2,391 changed HUD pixels.
+
 ## 2026-08-30 handoff (exact hail SAT geometry)
 
 - `sub_61CA` already exports the ROM's falling-hail and impact SAT entries,

@@ -755,6 +755,7 @@ pub(crate) fn step_archer(
         collision_type: 0,
         boss_eye_sprite_mapping_label: "",
         boss_eye_pop_effect_x_direction: 0,
+        boss_eye_pop_effect_state: BossEyePopEffectState::ChaseLoc372F6,
     });
     debug_assert_eq!(
         projectiles
