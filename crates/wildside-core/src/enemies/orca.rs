@@ -583,33 +583,38 @@ pub(crate) fn step_orca(
 ) {
     match enemy.orca_state {
         OrcaState::Walking => {
-            step_pacer(enemy, block_grid, None);
-
-            // Cooldown between lunges
-            if enemy.wait_timer > 0 {
+            // ASM Orca.asm loc_3D2DE is the loc_3E560/loc_3E3AC callback, so
+            // it runs before loc_3D466 enters Lion.asm's shared walker.
+            let checks_proximity = if enemy.shared_walker_state > 0 {
+                true
+            } else if enemy.wait_timer > 0 {
                 enemy.wait_timer -= 1;
+                enemy.wait_timer == 0
+            } else {
+                true
+            };
+
+            if checks_proximity
+                && let Some(px) = player_x_pos
+                && let OrcaLungeDecisionLoc3D2F4::BeginWindup { launch_facing, .. } =
+                    orca_lunge_decision_loc_3d2f4(enemy.x_pos, px, enemy.facing)
+            {
+                // ASM Orca.asm loc_3D320: begin a six-frame hibernated wind-up
+                // before loc_3D340/loc_3D348 seed the lunge velocities.
+                enemy.orca_state = OrcaState::Windup;
+                enemy.facing = launch_facing;
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+                enemy.wait_timer = u16::from(
+                    orca_lunge_windup_loc_3d320(ORCA_LUNGE_WINDUP_DBF_SEED_LOC_3D320)
+                        .hibernate_frames,
+                );
                 return;
             }
 
-            // Proximity detection
-            let Some(px) = player_x_pos else {
-                return;
-            };
-            let OrcaLungeDecisionLoc3D2F4::BeginWindup { launch_facing, .. } =
-                orca_lunge_decision_loc_3d2f4(enemy.x_pos, px, enemy.facing)
-            else {
-                return;
-            };
-
-            // ASM Orca.asm loc_3D320: begin a six-frame hibernated wind-up
-            // before loc_3D340/loc_3D348 seed the lunge velocities.
-            enemy.orca_state = OrcaState::Windup;
-            enemy.facing = launch_facing;
-            enemy.x_velocity = 0;
-            enemy.y_velocity = 0;
-            enemy.wait_timer = u16::from(
-                orca_lunge_windup_loc_3d320(ORCA_LUNGE_WINDUP_DBF_SEED_LOC_3D320).hibernate_frames,
-            );
+            // ASM Orca.asm loc_3D466 enters Lion.asm's Kid-aware shared
+            // walker. Its loc_3E604 charge gate owns the `$4C(a5)` step.
+            step_pacer(enemy, block_grid, player_x_pos);
         }
         OrcaState::Windup => {
             if enemy.wait_timer > 1 {

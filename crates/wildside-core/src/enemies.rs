@@ -392,6 +392,9 @@ pub(crate) fn pacer_probe_half_width(family: EnemyFamily) -> i32 {
         | EnemyFamily::Tank
         | EnemyFamily::TankShooting
         | EnemyFamily::Ninja => 11,
+        // ASM Orca.asm loc_3D194 seeds `$48(a5)=$E` before entering the
+        // Lion.asm shared terrain scans.
+        EnemyFamily::Orca => 0x0E,
         // ASM Armadillo.asm loc_3C766, Dragon.asm loc_3CDFC, Goat.asm
         // loc_3CA7E, and Scorpion.asm loc_3DBD8 seed `$48(a5)=9`.
         EnemyFamily::Armadillo
@@ -411,6 +414,9 @@ pub(crate) fn pacer_probe_height(family: EnemyFamily) -> i32 {
         // Tank_Shooting.asm loc_3B5A6 seed `$4A(a5)=$20` before entering the
         // shared walker loops.
         EnemyFamily::Robot | EnemyFamily::Tank | EnemyFamily::TankShooting => 32,
+        // ASM Orca.asm loc_3D194 seeds `$4A(a5)=$1B` before entering the
+        // Lion.asm shared terrain scans.
+        EnemyFamily::Orca => 0x1B,
         // ASM Ninja.asm loc_3D554 seeds `$4A(a5)=$1D` before entering
         // Lion.asm loc_3E392/loc_3E546 and its shared terrain scans.
         EnemyFamily::Ninja => 0x1D,
@@ -8538,7 +8544,11 @@ fn fresh_enemy_no_step_passes_loc_3691e(family: EnemyFamily, enemy_level: u8) ->
     // reaches the opening hibernate. Driller has three init/walker defers.
     // Scorpion's linked-tail scheduler adds six more passes at level 1+.
     match family {
-        EnemyFamily::Goat | EnemyFamily::Ninja | EnemyFamily::Armadillo => 1,
+        // These inits branch into Lion.asm loc_3E392/loc_3E546, whose first
+        // action is `Hibernate_Object_1Frame`; no walk step occurs on the
+        // allocation pass. Orca.asm Enemy08_Orca_Init reaches the same entry
+        // directly after installing loc_3D21E as its callback.
+        EnemyFamily::Goat | EnemyFamily::Ninja | EnemyFamily::Armadillo | EnemyFamily::Orca => 1,
         // ASM Crab.asm Enemy09_Crab_Init opens with one hibernate, then its
         // loc_3C0D2/loc_3C026 shared-walker entry hibernates once more.
         EnemyFamily::Crab => 2,
@@ -8558,6 +8568,12 @@ pub(crate) fn goat_charge_step_loc_3e4ce(hit_points: u8) -> i32 {
     let charge_word: i32 = if hit_points > 4 { 4 } else { 3 };
     let walk = pacer_walk_speed(EnemyFamily::Goat, hit_points);
     (charge_word << 16) + (walk & 0xFFFF)
+}
+
+/// ASM Orca.asm loc_3D194 + Lion.asm loc_3E4CE/loc_3E50A: Orca seeds
+/// `$4C(a5)` with 3, which replaces the high word of its `$8000` walk step.
+pub(crate) fn orca_charge_step_loc_3e4ce() -> i32 {
+    0x0003_8000
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -8831,12 +8847,17 @@ pub(crate) fn step_pacer(
 
     let current_x_px = (enemy.x_pos >> 16) as i32;
     let current_y_px = (enemy.y_pos >> 16) as i32;
+    // ASM Orca.asm loc_3D194 gives the shared Lion walker a 27px body while
+    // Level $64 spawns both Orcas one pixel above the grid row. Native terrain
+    // stores the support row directly, so compensate at this adapter boundary
+    // instead of changing sub_36972/sub_36A58 semantics for every family.
+    let scan_y_px = current_y_px + i32::from(matches!(enemy.family, EnemyFamily::Orca));
     let moving_right = enemy.x_velocity >= 0;
     let scan = if moving_right {
         terrain::grounded_walker_scan_right_sub_36972(
             grid,
             current_x_px,
-            current_y_px,
+            scan_y_px,
             probe_half_width,
             probe_height,
         )
@@ -8844,7 +8865,7 @@ pub(crate) fn step_pacer(
         terrain::grounded_walker_scan_left_sub_36A58(
             grid,
             current_x_px,
-            current_y_px,
+            scan_y_px,
             probe_half_width,
             probe_height,
         )
@@ -8973,8 +8994,10 @@ pub(crate) fn step_pacer(
             // ASM loc_3E406 `btst #0,d7; beq.s loc_3E434`: a bit0-clear
             // crossing still runs the charge controller and commits the step.
         }
-        if matches!(enemy.family, EnemyFamily::Goat | EnemyFamily::Armadillo)
-            && let Some(kid_x_px) = kid_x_px
+        if matches!(
+            enemy.family,
+            EnemyFamily::Goat | EnemyFamily::Armadillo | EnemyFamily::Orca
+        ) && let Some(kid_x_px) = kid_x_px
         {
             match goat_charge_controller_loc_3e434(
                 enemy.shared_walker_state,
@@ -8991,10 +9014,12 @@ pub(crate) fn step_pacer(
                     } else {
                         SHARED_WALKER_STATE_FACE_LEFT
                     };
-                    enemy.walk_speed_override = if matches!(enemy.family, EnemyFamily::Armadillo) {
-                        armadillo_charge_step_loc_3e4ce(enemy.enemy_level)
-                    } else {
-                        goat_charge_step_loc_3e4ce(enemy.hit_points)
+                    enemy.walk_speed_override = match enemy.family {
+                        EnemyFamily::Armadillo => {
+                            armadillo_charge_step_loc_3e4ce(enemy.enemy_level)
+                        }
+                        EnemyFamily::Orca => orca_charge_step_loc_3e4ce(),
+                        _ => goat_charge_step_loc_3e4ce(enemy.hit_points),
                     };
                     if matches!(enemy.family, EnemyFamily::Armadillo) {
                         // ASM loc_3E4CE/loc_3E50A initialises the saved `$66`

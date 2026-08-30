@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Orca shared Lion patrol path)
+
+- Level `$64`'s Orcas used generic probe dimensions and read the support row
+  above the ROM's row, so both fell on their first patrol pass and cascaded
+  right. The broad shared-row interpretation was rejected when it moved the
+  oracle-pinned Level `$60` Goat by 48 pixels.
+- Core now applies Orca's `$E`/`$1B` geometry and one-pixel support adaptation
+  at the family boundary. Its callback runs before the Kid-aware Lion walker;
+  `loc_3E604`/`loc_3E50A` now hibernates and installs the `$38000` charge step
+  on the same frames as oracle.
+- Level `$64` stays state-clean. Settle remains 1,372 mismatched pixels and idle
+  improves from 780 to 761. Fresh frame sweep `1788110293` retains only the
+  known Level `$33` Heady Metal blocker. `verify-slice-fast` and full 37,759-frame
+  `verify-tas-full` pass with unchanged 37,518 exact / 241 divergent frame and
+  2,391 frozen HUD pixel ratchets.
+
 ## 2026-08-30 handoff (Crab shared-walker edge latch)
 
 - A proactive enemy-frontier comparison found authoritative Crab position drift

@@ -21889,6 +21889,62 @@ mod tests {
     }
 
     #[test]
+    fn level64_orcas_follow_lion_loc_3e604_charge_entry() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x64);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x64 sweep trace");
+        let mut orcas = run.trace[0]
+            .active_enemy_details
+            .iter()
+            .filter_map(|enemy| match enemy.kind {
+                wildside_core::NativeObjectKind::Enemy { object_type: 0x08 } => Some((
+                    enemy.layout_index.expect("Orca layout index"),
+                    enemy.x_pos,
+                    enemy.y_pos,
+                    enemy.facing,
+                )),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        orcas.sort_unstable_by_key(|(layout_index, _, _, _)| *layout_index);
+
+        assert_eq!(
+            orcas,
+            [
+                (1, 0x0181_0000, 0x00B0_0000, Some(Direction::Left)),
+                (3, 0x0171_0000, 0x0110_0000, Some(Direction::Left)),
+            ],
+            "oracle frame 0: both Orcas have taken 110 half-pixel leftward steps from their layout spawns and still hold before Lion.asm loc_3E79E's ledge-fall entry"
+        );
+
+        let lower_orca_x = |frame: usize| {
+            run.trace[frame]
+                .active_enemy_details
+                .iter()
+                .find(|enemy| {
+                    matches!(
+                        enemy.kind,
+                        wildside_core::NativeObjectKind::Enemy { object_type: 0x08 }
+                    ) && enemy.layout_index == Some(3)
+                })
+                .map(|enemy| enemy.x_pos)
+                .expect("lower Level 0x64 Orca")
+        };
+        assert_eq!(
+            [321, 322, 323].map(lower_orca_x),
+            [0x00D0_8000, 0x00D0_8000, 0x00CD_0000],
+            "oracle frames 321..323: Lion.asm loc_3E604 detects Kid at the inclusive -$60 boundary, loc_3E50A hibernates once, then installs Orca's $30000 charge step"
+        );
+    }
+
+    #[test]
     fn level03_settled_hand_reverses_from_slopedown_collision_loc_3299c() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
