@@ -481,34 +481,27 @@ pub(crate) fn step_crab_freeze(
     let abs_dx = i64::from(dx).abs();
 
     let was_frozen = enemy.crab_frozen;
-    if !was_frozen {
+    let tracking_latched = enemy.scorpion_tracking_lock;
+    if !was_frozen && !tracking_latched {
         enemy.facing = crab_facing_toward_kid_loc_3b0e0(dx);
     }
 
-    // ASM loc_3B142-loc_3B170: unfreeze when distance > 224px
-    if abs_dx > CRAB_UNFREEZE_DISTANCE {
-        enemy.crab_frozen = false;
-        if was_frozen {
+    // ASM loc_3B142-loc_3B170 handles both the loc_3B104 proximity freeze
+    // and the loc_3C160 floor-edge latch stored in `$6E(a5)`. While set, the
+    // callback preserves the shared walker's post-edge direction.
+    if tracking_latched || was_frozen {
+        // ASM Crab.asm loc_3B16C: close-range Kid movement toward the crab
+        // clears `$6E(a5)` for either source of the latch.
+        let player_moving_toward_crab = abs_dx <= CRAB_FREEZE_DISTANCE
+            && player_x_velocity.is_some_and(|p_vel| if dx >= 0 { p_vel > 0 } else { p_vel < 0 });
+        if abs_dx > CRAB_UNFREEZE_DISTANCE || player_moving_toward_crab {
+            enemy.scorpion_tracking_lock = false;
+            enemy.crab_frozen = false;
+        }
+        if was_frozen && !enemy.crab_frozen {
             // ASM Crab.asm loc_3B11E restores `stru_3AF62` through
             // Init_Animation when the fixed proximity pose is released.
             enemy.dragon_descent_frames = 0;
-        }
-        return;
-    }
-
-    if was_frozen {
-        if abs_dx <= CRAB_FREEZE_DISTANCE {
-            // ASM loc_3B142-loc_3B16C: while frozen, close-range movement toward
-            // the crab clears `$6E(a5)` and resumes the walking sprite.
-            if let Some(p_vel) = player_x_velocity {
-                let player_moving_toward_crab = if dx >= 0 { p_vel > 0 } else { p_vel < 0 };
-                if player_moving_toward_crab {
-                    enemy.crab_frozen = false;
-                    // ASM Crab.asm loc_3B11E restores `stru_3AF62` through
-                    // Init_Animation when the fixed proximity pose is released.
-                    enemy.dragon_descent_frames = 0;
-                }
-            }
         }
         return;
     }
@@ -523,6 +516,7 @@ pub(crate) fn step_crab_freeze(
             // sf is_animated(a3) - stop animation
             // bset #7,object_meta(a3) - set freeze bit
             // move.l #0,$50(a5) - zero x_velocity
+            enemy.scorpion_tracking_lock = true;
             enemy.crab_frozen = true;
             enemy.x_velocity = 0;
         }

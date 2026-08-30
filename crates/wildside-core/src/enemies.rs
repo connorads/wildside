@@ -8539,6 +8539,9 @@ fn fresh_enemy_no_step_passes_loc_3691e(family: EnemyFamily, enemy_level: u8) ->
     // Scorpion's linked-tail scheduler adds six more passes at level 1+.
     match family {
         EnemyFamily::Goat | EnemyFamily::Ninja | EnemyFamily::Armadillo => 1,
+        // ASM Crab.asm Enemy09_Crab_Init opens with one hibernate, then its
+        // loc_3C0D2/loc_3C026 shared-walker entry hibernates once more.
+        EnemyFamily::Crab => 2,
         EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses | EnemyFamily::BagelBrothers => 2,
         EnemyFamily::Driller => 3,
         EnemyFamily::Scorpion if enemy_level >= 1 => 7,
@@ -9065,7 +9068,7 @@ pub(crate) fn step_pacer(
     }
 
     if !moving_right
-        && matches!(enemy.family, EnemyFamily::Driller)
+        && matches!(enemy.family, EnemyFamily::Crab | EnemyFamily::Driller)
         && pixel_delta > 0
         && tile_remainder < pixel_delta
         && scan.flags_d7.trailing_zeros() >= 2
@@ -9080,10 +9083,17 @@ pub(crate) fn step_pacer(
         // following-row lead cell's `$4000` bit sets d7 bit 1 first. Oracle
         // 0x55 li=2 (census run 1786662123 t107/t108): the patroller holds
         // at exactly x=364 for one frame before walking back right. Restrict
-        // this exact crossing arm to Driller until the other shared-walker
-        // families have family-specific oracle routes; enabling it for Crab
-        // regresses the 0x64 state sweep because that lifecycle still relies
-        // on the documented shared-walker approximation above.
+        // this exact crossing arm to families with strict oracle routes. Level
+        // 0x64 frame 0 proves Crab li=5 turns here and walks back to x=333;
+        // the older aggregate sweep omitted per-enemy positions and therefore
+        // misclassified that correction as a lifecycle regression.
+        if matches!(enemy.family, EnemyFamily::Crab) {
+            // ASM loc_3C160 sets `$6E(a5)` before loc_3C026 turns. Crab.asm
+            // loc_3B0BE then takes its latched loc_3B142 arm instead of facing
+            // Kid again on the next pass. This family reuses the generic
+            // tracking-lock state that Scorpion and Lion already own.
+            enemy.scorpion_tracking_lock = true;
+        }
         reverse_enemy_direction(enemy);
         enemy.x_velocity = 0;
         enemy.y_velocity = 0;

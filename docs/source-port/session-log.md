@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Crab shared-walker edge latch)
+
+- A proactive enemy-frontier comparison found authoritative Crab position drift
+  hidden by Level `$64`'s aggregate state-clean result. The first Crab repeatedly
+  faced Kid after a floor-edge turn, then exhausted its turnaround counter.
+- Core now gives Crab both ROM init hibernations and restores the shared
+  `loc_3C160` `$6E(a5)` latch. `loc_3B142` preserves the post-edge direction
+  until the ROM's distance or Kid-motion release condition. Both Crab positions
+  and directions match oracle exactly at the standard frame-zero checkpoint.
+- Level `$64` remains state-clean. Settle improves from 2,470 to 1,372
+  mismatched pixels and idle from 1,479 to 780. Fresh 69-level frame sweep
+  `1788107380` retains only the known Level `$33` state blocker.
+- `verify-slice-fast` and the full 37,759-frame `verify-tas-full` pass with
+  unchanged published ratchets: 37,518 exact frames, 241 divergent frames, and
+  2,391 changed frozen HUD pixels. The remaining Level `$64` residue points to
+  Orca's shared Lion-lineage terrain path, which still needs ASM and oracle proof.
+
 ## 2026-08-30 handoff (Spinning Twins linked orbit body)
 
 - The proactive 69-level frame sweep found that Level `$63` rendered only the

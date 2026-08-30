@@ -21853,6 +21853,42 @@ mod tests {
     }
 
     #[test]
+    fn level64_crabs_take_shared_loc_3c160_left_edge_turn() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x64);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x64 sweep trace");
+        let mut crabs = run.trace[0]
+            .active_enemy_details
+            .iter()
+            .filter_map(|enemy| match enemy.kind {
+                wildside_core::NativeObjectKind::Enemy { object_type: 0x09 } => Some((
+                    enemy.layout_index.expect("Crab layout index"),
+                    enemy.x_pos,
+                    enemy.facing,
+                )),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        crabs.sort_unstable_by_key(|(layout_index, _, _)| *layout_index);
+
+        assert_eq!(
+            crabs,
+            [
+                (5, 0x014D_0000, Some(Direction::Left)),
+                (6, 0x0141_8000, Some(Direction::Left)),
+            ],
+            "oracle frame 0: Crab li=5 has already taken loc_3C160 at the left floor edge and walked back to x=333, while li=6 approaches the same edge at x=321.5"
+        );
+    }
+
+    #[test]
     fn level03_settled_hand_reverses_from_slopedown_collision_loc_3299c() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
