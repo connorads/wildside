@@ -5546,7 +5546,11 @@ pub(crate) fn step_active_enemies_with_rng(
             }
             EnemyArchetype::Tracker => {
                 if is_multi_head_boss(enemy.family) {
-                    step_multi_head_boss_movement(enemy);
+                    // ASM loc_39548/loc_3966E/loc_39794: sub_398BC prepares
+                    // velocity, the animation gate may call sub_397E4 from
+                    // the current GfxObject position, then the engine
+                    // movement pass integrates that position.
+                    prepare_multi_head_boss_velocity_sub_39846(enemy);
                 } else {
                     step_tracker(enemy, player_x_pos, player_y_pos);
                 }
@@ -5559,6 +5563,9 @@ pub(crate) fn step_active_enemies_with_rng(
                         player_y_pos,
                         played_sound_effects.as_deref_mut(),
                     );
+                }
+                if is_multi_head_boss(enemy.family) {
+                    integrate_multi_head_boss_gfx_object(enemy);
                 }
             }
         }
@@ -10763,7 +10770,7 @@ pub(crate) fn step_tracker(
     enemy.y_pos = (ey + i64::from(enemy.y_velocity)).clamp(0, i64::from(u32::MAX)) as u32;
 }
 
-pub(crate) fn step_multi_head_boss_movement(enemy: &mut ActiveEnemy) {
+fn prepare_multi_head_boss_velocity_sub_39846(enemy: &mut ActiveEnemy) {
     let movement = boss_head_movement_step_for_family_sub_39846(
         enemy.family,
         enemy.boss_head_index,
@@ -10778,11 +10785,13 @@ pub(crate) fn step_multi_head_boss_movement(enemy: &mut ActiveEnemy) {
     if let Some(y_velocity) = movement.next_y_velocity {
         enemy.y_velocity = y_velocity;
     }
+}
 
-    // ASM sub_39846 loads the fixed script velocity, then the engine's object
-    // integration updates the 16.16 longs with wrapping 68000 addition. In
-    // particular, Shishkaboss's top head crosses y=0 instead of sticking to
-    // the top edge.
+fn integrate_multi_head_boss_gfx_object(enemy: &mut ActiveEnemy) {
+    // ASM sub_39846 loads the fixed script velocity. Execute_Objects can then
+    // call sub_397E4 from the current GfxObject position before the engine's
+    // movement pass integrates the 16.16 longs. In particular, Shishkaboss's
+    // top head crosses y=0 instead of sticking to the top edge.
     enemy.x_pos = enemy.x_pos.wrapping_add_signed(enemy.x_velocity);
     enemy.y_pos = enemy.y_pos.wrapping_add_signed(enemy.y_velocity);
     let parent_animation =
@@ -10796,6 +10805,12 @@ pub(crate) fn step_multi_head_boss_movement(enemy: &mut ActiveEnemy) {
             parent_animation.parent_phase_word_22,
             parent_animation.parent_x_direction_byte_16,
         );
+}
+
+#[cfg(test)]
+pub(crate) fn step_multi_head_boss_movement(enemy: &mut ActiveEnemy) {
+    prepare_multi_head_boss_velocity_sub_39846(enemy);
+    integrate_multi_head_boss_gfx_object(enemy);
 }
 
 /// Boss periodic projectile fire interval (frames).

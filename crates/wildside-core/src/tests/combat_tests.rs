@@ -3269,6 +3269,36 @@ fn live_shishkaboss_projectile_uses_sub_397e4_horizontal_spawn() {
 }
 
 #[test]
+fn live_shishkaboss_projectile_spawns_before_gfx_integration_sub_397e4() {
+    let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0080_0000, 20);
+    boss.wait_timer = BOSS_HEAD_ATTACK_READY_TIMER_LOC_39566;
+    boss.boss_movement_delay_counter = 2;
+    boss.y_velocity = -0x0000_8000;
+    let mut active = [boss];
+    let mut projectiles = Vec::new();
+    let mut drilled_blocks = Vec::new();
+
+    step_active_enemies(
+        &mut active,
+        None,
+        Some(0x0070_0000),
+        Some(0x0080_0000),
+        None,
+        None,
+        PlayerForm::TheKid,
+        Some(&mut projectiles),
+        &mut drilled_blocks,
+    );
+
+    assert_eq!(active[0].y_pos, 0x007F_8000);
+    assert_eq!(projectiles.len(), 1);
+    assert_eq!(
+        projectiles[0].y_pos, 0x0080_0000,
+        "ASM loc_39548 calls sub_398BC to prepare velocity, loc_39566 calls sub_397E4 from the current GfxObject word, and engine integration moves the parent afterwards",
+    );
+}
+
+#[test]
 fn live_shishkaboss_ready_animation_does_not_recheck_kid_window_loc_39566() {
     let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0080_0000, 20);
     boss.wait_timer = BOSS_HEAD_ATTACK_READY_TIMER_LOC_39566;

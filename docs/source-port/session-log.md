@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Shishkaboss pre-integration spawn order)
+
+- Oracle settle trace `1788060533` shows `sub_397E4` copies the parent position
+  before the GfxObject movement pass. Native integrated the parent first, placing
+  the first arrow at y=121 instead of y=122.
+- The boss-head pipeline now prepares velocity, fires, then integrates. A focused
+  regression pins the child to the pre-integration Y, and the renderer emits
+  object `$21`'s palette-line-1 SAT attributes.
+- Focused run `1788060975` remains state-exact and improves the six pixel totals
+  from 39/195/419/419/39/312 to 39/181/361/361/39/312. Frame 300 remains exact
+  outside the 39-pixel HUD residue.
+- Rejected experiments: arithmetic child offsets, global deferred projectile
+  initialisation, renderer scanline saturation, and deriving `stru_3A1D6` from
+  `$42`. Oracle SAT frames 119/120 prove the remaining arrow residue needs an
+  explicit object-local animation phase. `verify-slice-fast` and
+  `verify-tas-full` pass.
+
 ## 2026-08-30 handoff (Shishkaboss arrow SAT semantics)
 
 - Raw oracle WRAM, VRAM and SAT dumps prove the C8510/C8520 art is byte-exact

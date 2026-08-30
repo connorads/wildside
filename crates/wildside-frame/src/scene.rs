@@ -7684,7 +7684,10 @@ fn build_game_scene_filtered(
                                 y: draw_y,
                                 tile_sheet: Arc::new(tile_sheet.clone()),
                                 palette: Arc::new(palette.clone()),
-                                tiles: build_sprite_tiles(frame, facing, 0),
+                                // ASM loc_3A0D2 registers object_meta `$21`;
+                                // loc_32146 resolves its SAT attributes as
+                                // `$2347` for C8520, including palette line 1.
+                                tiles: build_sprite_tiles(frame, facing, 1),
                             });
                             Some(())
                         })
@@ -12167,6 +12170,26 @@ mod tests {
             sprite_sources,
             Some((0x21, 0x0210)),
             "ASM loc_3A0D2 uses C8528 geometry after registering object_meta `$21`, so its tile page and palette both come from the resident Boss Eyes object"
+        );
+
+        let sprite_palette_lines = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::SatSprite { tiles, .. } => Some(
+                    tiles
+                        .iter()
+                        .map(|tile| tile.tile.palette_line)
+                        .collect::<Vec<_>>(),
+                ),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            sprite_palette_lines
+                .iter()
+                .all(|lines| lines.iter().all(|line| *line == 1)),
+            "ASM loc_3A0D2 -> loc_32146 emits SAT word `$2347` for C8520, whose bits 14..13 select palette line 1"
         );
 
         let sprite_flip_x = scene

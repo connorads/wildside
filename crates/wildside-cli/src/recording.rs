@@ -3868,7 +3868,7 @@ mod tests {
             head_coroutines,
             [
                 "head=0 wait=0x0043 move_delay=0x00fa move_index=1",
-                "head=1 wait=0x8038 move_delay=0x00fa move_index=1",
+                "head=1 wait=0x8039 move_delay=0x00fa move_index=1",
                 "head=2 wait=0x0000 move_delay=0x00fa move_index=1",
             ],
             "ASM loc_74E0 -> Execute_Objects loc_E12 and loc_394E8..loc_397DA: recording frame 0 must retain the oracle title-wait and 60-frame live-window coroutine history",
