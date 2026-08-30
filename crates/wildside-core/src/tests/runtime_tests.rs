@@ -11359,6 +11359,14 @@ mod chunk_09 {
             .map(|_| runtime.step_frame(FrameInput::default()))
             .collect::<Vec<_>>();
 
+        assert!(
+            trace.iter().any(|frame| {
+                !frame.island_shore_dma_uploads_loc_1202a.is_empty()
+                    && frame.island_shore_post_visible_dma_latch_loc_1202a
+            }),
+            "ASM Mode_Level -> loc_12098/loc_12110/loc_12188 issues Island shore DMAs below the visible field, so the settled Level 0x10 recording must mark an issuing frame for previous-band rendering",
+        );
+
         assert_eq!(
             trace[60].number_objects, 24,
             "ASM Enemy22_Shiskaboss_Init keeps nine skewer workers live while loc_39566 has two boss-arrow workers allocated at the oracle Level 0x10 settle checkpoint",

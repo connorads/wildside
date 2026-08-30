@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Island shore visible-field DMA latch)
+
+- Raw oracle VRAM at Level `$10` frames 0/30/60/120/300/359 identifies
+  each `$F600/$F6C0/$F760` band exactly. On every mismatching update frame,
+  oracle displays the preceding native tuple component because ASM
+  `loc_12098/loc_12110/loc_12188` commits below the visible field.
+- `Mode_Level` now marks issuing frames for the existing per-band render
+  latch. Ordinary Demo 1 keeps its proven post-update trace clock, while the
+  IntroSequence6 hidden-wrap lineage keeps its existing latch.
+- Focused run `1788057474` remains state-exact and reduces the six pixel totals
+  from 652/1072/423/1549/1260/460 to 39/195/423/625/346/460. Visual inspection
+  confirms the ocean is exact; the remaining scene residue is boss
+  arrows/effects. `verify-slice-fast` and `verify-tas-full` pass.
+
 ## 2026-08-30 handoff (recording warp lifecycle parity)
 
 - `record-scenario-file` initialised settled warps with the compatibility
