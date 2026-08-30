@@ -73,6 +73,7 @@ const ROBOT_OBJECT_TYPE: u8 = 0x03;
 const FLYING_DRAGON_OBJECT_TYPE: u8 = 0x0C;
 const WALKING_DRAGON_OBJECT_TYPE: u8 = 0x0D;
 const CLOUD_OBJECT_TYPE: u8 = 0x0E;
+const UFO_OBJECT_TYPE: u8 = 0x0F;
 const LION_OBJECT_TYPE: u8 = 0x12;
 const DRIPS_OBJECT_TYPE: u8 = 0x16;
 const BOSS_EYE_OBJECT_TYPE: u8 = 0x21;
@@ -423,6 +424,22 @@ fn cloud_lightning_child_frame_loc_35df0(
         width_px,
         height_px,
         tile_base_index,
+        tile_sheet,
+    })
+}
+
+fn ufo_beam_child_frame_enemy0f_ufo_beam_init(
+    visuals: &wildside_render::AnimatedSpriteVisual,
+) -> Option<wildside_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    Some(wildside_render::SpriteFrame {
+        // ASM UFO.asm Enemy0F_UFOBeam_Init writes `LnkTo_unk_C83A0`.
+        // kid.asm `unk_C83A0` is `sprite_frame_vram $0AC,$04,$00,$08,$10`.
+        origin_x: 0x04,
+        origin_y: 0x00,
+        width_px: 0x08,
+        height_px: 0x10,
+        tile_base_index: 0x0AC,
         tile_sheet,
     })
 }
@@ -7746,17 +7763,39 @@ fn build_game_scene_filtered(
                     });
                 }
                 ActiveProjectileKind::UfoBeam => {
-                    // ASM UFO.asm Enemy0F_UFOBeam_Init uses LnkTo_unk_C83A0.
-                    // TODO(fidelity): compile that exact mapping; meanwhile
-                    // keep its narrow laser footprint distinct from the
-                    // stationary walking-Dragon breath rendering.
-                    commands.push(DrawCommand::Rect {
-                        x: sx - 2,
-                        y: sy - 4,
-                        width: 4,
-                        height: 8,
-                        colour: ENEMY_PROJECTILE_COLOUR,
-                    });
+                    let pushed_sprite = level_visuals
+                        .enemies
+                        .families
+                        .get(&UFO_OBJECT_TYPE)
+                        .and_then(|ufo_visuals| {
+                            let frame = ufo_beam_child_frame_enemy0f_ufo_beam_init(ufo_visuals)?;
+                            let (draw_x, draw_y) =
+                                sprite_draw_position(&frame, sx, sy, Direction::Right);
+                            commands.push(DrawCommand::Sprite {
+                                x: draw_x,
+                                y: draw_y,
+                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                                palette: Arc::new(
+                                    sprites::select_enemy_palette(
+                                        ufo_visuals,
+                                        projectile.palette_variant,
+                                    )
+                                    .clone(),
+                                ),
+                                tiles: build_sprite_tiles(&frame, Direction::Right, 0),
+                            });
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 2,
+                            y: sy - 4,
+                            width: 4,
+                            height: 8,
+                            colour: ENEMY_PROJECTILE_COLOUR,
+                        });
+                    }
                 }
                 ActiveProjectileKind::BossEyeAttack | ActiveProjectileKind::BossEyeSatellite => {
                     if !sprites::push_boss_eye_attack_sprite_sub_37abc(
@@ -11857,6 +11896,51 @@ mod tests {
             Some(0x0200),
             "ASM Dragon.asm loc_3D02A copies the walking Dragon parent's palette_line into the breath-child GfxObject"
         );
+    }
+
+    #[test]
+    fn ufo_beam_renders_rom_sprite_frame_enemy0f_ufo_beam_init() {
+        let mut visuals = sample_level_visuals(1);
+        let mut ufo = sample_animated_visual(sample_sprite_frame(0x0F));
+        ufo.palette = sample_palette_with_first_word(0x0100);
+        ufo.extra_palettes = vec![sample_palette_with_first_word(0x0200)];
+        visuals.enemies.families.insert(UFO_OBJECT_TYPE, ufo);
+        let trace = NativeTraceFrame {
+            active_projectile_details: vec![ActiveProjectileSnapshot {
+                x_pos: 100 << 16,
+                y_pos: 100 << 16,
+                kind: ActiveProjectileKind::UfoBeam,
+                palette_variant: 1,
+                ..ActiveProjectileSnapshot::default()
+            }],
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("effects"),
+            None,
+        )
+        .0;
+        let sprite = scene
+            .commands
+            .iter()
+            .find(|command| matches!(command, DrawCommand::Sprite { .. }))
+            .expect("ASM UFO.asm Enemy0F_UFOBeam_Init emits LnkTo_unk_C83A0");
+
+        assert_eq!(
+            sprite_tile_snapshot(sprite),
+            (96, 84, 0x0AC, 0, false, false, false, 0, 0),
+            "ASM unk_C83A0 is sprite_frame_vram $0AC,$04,$00,$08,$10"
+        );
+        let DrawCommand::Sprite { palette, tiles, .. } = sprite else {
+            unreachable!();
+        };
+        assert_eq!(tiles.len(), 2, "C83A0 is an aligned 1x2 tile sprite");
+        assert_eq!(palette.colours[0].raw_word, 0x0200);
     }
 
     #[test]

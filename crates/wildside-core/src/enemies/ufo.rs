@@ -871,6 +871,9 @@ pub(crate) fn step_ufo_beam_with_rng(
                 // boundary) is latched and consumed on the next wake (#422).
                 lifetime: u16::MAX,
                 kind: EnemyProjectileKind::UfoBeam,
+                // ASM Enemy0F_UFOBeam_Init calls loc_32146 with the same UFO
+                // object_meta, selecting the parent enemy palette variant.
+                palette_variant: enemy.palette_variant,
                 ..Default::default()
             });
         }
@@ -2116,6 +2119,7 @@ mod tests {
         enemy.x_pos = (0xFFFE << 16) | 0xBEEF;
         enemy.y_pos = (0xFFFA << 16) | 0xCAFE;
         enemy.facing = Direction::Right;
+        enemy.palette_variant = 2;
         enemy.ufo_beam_segments = 2;
         enemy.ufo_beam_interval = 1;
         let mut projectiles = Vec::new();
@@ -2138,6 +2142,10 @@ mod tests {
         assert_eq!(
             projectiles[0].y_pos, 0x0004_0000,
             "ASM UFO.asm Enemy0F_UFOBeam_Init copies Y as a word and wraps ADDI.W #$A"
+        );
+        assert_eq!(
+            projectiles[0].palette_variant, 2,
+            "ASM Enemy0F_UFOBeam_Init loc_32146 selects the beam palette from the UFO object_meta"
         );
     }
 

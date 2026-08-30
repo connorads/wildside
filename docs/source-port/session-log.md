@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (UFO beam ROM sprite)
+
+- `Enemy0F_UFOBeam_Init` assigns `LnkTo_unk_C83A0`, whose exact descriptor is
+  `sprite_frame_vram $0AC,$04,$00,$08,$10`; native previously drew an invented
+  4x8 projectile rectangle. The renderer now builds the two-tile UFO sprite
+  from ROM art and the beam inherits its parent enemy palette variant.
+- The Level `$48` settled-warp route exercises live native and oracle beams,
+  but broader enemy/SAT divergence leaves all 120 sampled frames non-exact, so
+  its 17,153 changed pixels are context rather than a beam-only ratchet.
+- The coverage fallback's lone `loc_32454` is an unreferenced Tar Monster
+  continuation after `return_3243E`; citing it would not add shipped behaviour.
+  Focused UFO/renderer tests, `verify-slice-fast`, and the full 37,759-frame
+  `verify-tas-full` pass with unchanged published-route ratchets.
+
 ## 2026-08-30 handoff (Driller linked side drills)
 
 - `Enemy1A_Driller_Init` allocates two visible side-drill GfxObjects, but the
