@@ -444,6 +444,22 @@ fn ufo_beam_child_frame_enemy0f_ufo_beam_init(
     })
 }
 
+fn ufo_first_hurt_debris_frame_loc_354da(
+    visuals: &wildside_render::AnimatedSpriteVisual,
+) -> Option<wildside_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    Some(wildside_render::SpriteFrame {
+        // ASM UFO.asm loc_354DA writes `LnkTo_unk_C8408`.
+        // kid.asm `unk_C8408` is `sprite_frame_vram $157,$04,$00,$07,$08`.
+        origin_x: 0x04,
+        origin_y: 0x00,
+        width_px: 0x07,
+        height_px: 0x08,
+        tile_base_index: 0x157,
+        tile_sheet,
+    })
+}
+
 fn dragon_walking_breath_child_frame(
     visuals: &wildside_render::AnimatedSpriteVisual,
     remaining_frames: u16,
@@ -7525,6 +7541,7 @@ fn build_game_scene_filtered(
                         animation_elapsed_frames: 0,
                         kind: ActiveProjectileKind::Generic,
                         palette_variant: 0,
+                        ufo_first_hurt_debris_flipped: false,
                         boss_eye_sprite_mapping_index: 0,
                         boss_eye_sprite_order_word_a: 0,
                         boss_head_projectile_sprite_frame: BossHeadProjectileSpriteFrame::None,
@@ -7818,14 +7835,43 @@ fn build_game_scene_filtered(
                     });
                 }
                 ActiveProjectileKind::UfoFirstHurtDebris => {
-                    // ASM UFO.asm loc_354DA links debris children to sprite mapping LnkTo_unk_C8408.
-                    commands.push(DrawCommand::Rect {
-                        x: sx - 2,
-                        y: sy - 2,
-                        width: 4,
-                        height: 4,
-                        colour: ENEMY_PROJECTILE_COLOUR,
-                    });
+                    let facing = if projectile.ufo_first_hurt_debris_flipped {
+                        Direction::Left
+                    } else {
+                        Direction::Right
+                    };
+                    let pushed_sprite = level_visuals
+                        .enemies
+                        .families
+                        .get(&UFO_OBJECT_TYPE)
+                        .and_then(|ufo_visuals| {
+                            let frame = ufo_first_hurt_debris_frame_loc_354da(ufo_visuals)?;
+                            let (draw_x, draw_y) = sprite_draw_position(&frame, sx, sy, facing);
+                            commands.push(DrawCommand::Sprite {
+                                x: draw_x,
+                                y: draw_y,
+                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                                palette: Arc::new(
+                                    sprites::select_enemy_palette(
+                                        ufo_visuals,
+                                        projectile.palette_variant,
+                                    )
+                                    .clone(),
+                                ),
+                                tiles: build_sprite_tiles(&frame, facing, 0),
+                            });
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 2,
+                            y: sy - 2,
+                            width: 4,
+                            height: 4,
+                            colour: ENEMY_PROJECTILE_COLOUR,
+                        });
+                    }
                 }
                 ActiveProjectileKind::UfoBeam => {
                     let pushed_sprite = level_visuals
@@ -12006,6 +12052,74 @@ mod tests {
         };
         assert_eq!(tiles.len(), 2, "C83A0 is an aligned 1x2 tile sprite");
         assert_eq!(palette.colours[0].raw_word, 0x0200);
+    }
+
+    #[test]
+    fn ufo_first_hurt_debris_renders_c8408_with_timed_flip_loc_3554a() {
+        let mut visuals = sample_level_visuals(1);
+        let mut ufo_frame = sample_sprite_frame(0x0F);
+        ufo_frame.tile_sheet = sample_tile_sheet_with_pixel(0x158, 0xA5);
+        let mut ufo = sample_animated_visual(ufo_frame);
+        ufo.palette = sample_palette_with_first_word(0x0100);
+        ufo.extra_palettes = vec![
+            sample_palette_with_first_word(0x0200),
+            sample_palette_with_first_word(0x0300),
+        ];
+        visuals.enemies.families.insert(UFO_OBJECT_TYPE, ufo);
+        let trace = NativeTraceFrame {
+            active_projectile_details: vec![
+                ActiveProjectileSnapshot {
+                    x_pos: 100 << 16,
+                    y_pos: 100 << 16,
+                    kind: ActiveProjectileKind::UfoFirstHurtDebris,
+                    palette_variant: 2,
+                    ..ActiveProjectileSnapshot::default()
+                },
+                ActiveProjectileSnapshot {
+                    x_pos: 120 << 16,
+                    y_pos: 100 << 16,
+                    kind: ActiveProjectileKind::UfoFirstHurtDebris,
+                    palette_variant: 2,
+                    ufo_first_hurt_debris_flipped: true,
+                    ..ActiveProjectileSnapshot::default()
+                },
+            ],
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("effects"),
+            None,
+        )
+        .0;
+        let sprites: Vec<_> = scene
+            .commands
+            .iter()
+            .filter(|command| matches!(command, DrawCommand::Sprite { .. }))
+            .collect();
+
+        assert_eq!(sprites.len(), 2);
+        assert_eq!(
+            sprite_tile_snapshot(sprites[0]),
+            (96, 92, 0x157, 0, false, false, false, 0, 0),
+            "ASM UFO.asm loc_354DA selects C8408 unflipped while x_direction is clear"
+        );
+        assert_eq!(
+            sprite_tile_snapshot(sprites[1]),
+            (116, 92, 0x157, 0, false, true, false, 0, 0),
+            "ASM UFO.asm loc_3554A not.b x_direction flips C8408 horizontally"
+        );
+        for sprite in sprites {
+            let DrawCommand::Sprite { palette, tiles, .. } = sprite else {
+                unreachable!();
+            };
+            assert_eq!(tiles.len(), 1, "C8408 is an aligned 1x1 tile sprite");
+            assert_eq!(palette.colours[0].raw_word, 0x0300);
+        }
     }
 
     #[test]

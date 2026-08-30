@@ -2335,6 +2335,7 @@ impl ActiveEnemy {
         let parent_y_pos = self.y_pos;
         let parent_x_velocity = self.x_velocity;
         let parent_facing = self.facing;
+        let parent_palette_variant = self.palette_variant;
         let dies = self.take_colid_hurt_or_queue_death(player_x_pos);
         if spawn_ufo_first_hurt_debris && !dies {
             // ASM UFO.asm loc_35150: clear `$47(a5)` routes the first hit
@@ -2346,6 +2347,7 @@ impl ActiveEnemy {
                 parent_y_pos,
                 parent_x_velocity,
                 parent_facing,
+                parent_palette_variant,
             );
         }
         dies
@@ -2598,6 +2600,7 @@ impl ActiveEnemy {
         let parent_y_pos = self.y_pos;
         let parent_x_velocity = self.x_velocity;
         let parent_facing = self.facing;
+        let parent_palette_variant = self.palette_variant;
         let dies = self.take_damage_or_queue_death();
         if spawn_ufo_first_hurt_debris && !dies {
             // ASM UFO.asm loc_35150: clear `$47(a5)` routes the first hit
@@ -2609,6 +2612,7 @@ impl ActiveEnemy {
                 parent_y_pos,
                 parent_x_velocity,
                 parent_facing,
+                parent_palette_variant,
             );
         }
         dies

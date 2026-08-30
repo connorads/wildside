@@ -200,6 +200,10 @@ pub struct ActiveProjectileSnapshot {
     /// Enemy palette variant resolved from the level's enemy type slot.
     #[serde(default)]
     pub palette_variant: u8,
+    /// ASM UFO.asm loc_3554A toggles debris `x_direction(a3)` after five
+    /// frames, then every ten frames.
+    #[serde(default)]
+    pub ufo_first_hurt_debris_flipped: bool,
     #[serde(default)]
     pub boss_eye_sprite_mapping_index: u8,
     /// ROM sprite-order word `$A(a3)` for boss-eye workers. ASM `sub_393C8`

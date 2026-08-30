@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (UFO first-hurt debris ROM sprite)
+
+- `loc_354DA` assigns first-hurt debris `LnkTo_unk_C8408`; native previously
+  drew every worker as an invented 4x4 rectangle. The renderer now builds the
+  exact one-tile mapping from the UFO ROM tile page and inherited palette.
+- A dedicated typed trace field carries the live `x_direction` state. This
+  preserves `loc_3554A`'s flip after five ticks and every ten ticks thereafter;
+  velocity inference was rejected because orientation is an independent timer.
+- No cached recording strikes a UFO and emits this debris. ASM-cited spawn,
+  flip, trace, and render tests pass. `verify-slice-fast` and the full
+  37,759-frame `verify-tas-full` pass with unchanged published ratchets: 37,518
+  exact frames, 241 divergent frames, and 2,391 changed HUD pixels.
+
 ## 2026-08-30 handoff (launched Shishkaboss skewer ROM sprites)
 
 - Waiting Shishkaboss skewers already render C85F8/C85F0/C85E8 through a

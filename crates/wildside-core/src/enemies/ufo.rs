@@ -1192,6 +1192,7 @@ pub(crate) fn spawn_ufo_first_hurt_debris_loc_351ee(
     parent_y_pos: u32,
     parent_x_velocity: i32,
     parent_facing: Direction,
+    parent_palette_variant: u8,
 ) {
     let child_x_direction = match parent_facing {
         Direction::Left => 0,
@@ -1220,6 +1221,7 @@ pub(crate) fn spawn_ufo_first_hurt_debris_loc_351ee(
             terrain_kill: true,
             lifetime: u16::MAX,
             kind: EnemyProjectileKind::UfoFirstHurtDebris,
+            palette_variant: parent_palette_variant,
             ufo_beam_child_x_direction: child_x_direction,
             ufo_beam_child_loop_timer_loc_3554a: child.loop_timer,
             ..EnemyProjectile::default()
@@ -3434,6 +3436,7 @@ mod tests {
             0x0100_0000,
             0x0002_0000,
             Direction::Right,
+            2,
         );
 
         assert_eq!(
@@ -3452,6 +3455,7 @@ mod tests {
                 terrain_kill: true,
                 lifetime: u16::MAX,
                 kind: EnemyProjectileKind::UfoFirstHurtDebris,
+                palette_variant: 2,
                 ufo_beam_child_x_direction: 0xFF,
                 ufo_beam_child_loop_timer_loc_3554a: 5,
                 ..Default::default()
@@ -3460,8 +3464,9 @@ mod tests {
         );
         assert!(
             projectiles.iter().all(|projectile| projectile.terrain_kill
-                && projectile.ufo_beam_child_x_direction == 0xFF),
-            "ASM UFO.asm loc_35512 gives every first-hurt debris child the parent's raw x_direction and terrain-kill lifecycle"
+                && projectile.ufo_beam_child_x_direction == 0xFF
+                && projectile.palette_variant == 2),
+            "ASM UFO.asm loc_354DA/loc_35512 gives every first-hurt debris child the parent's palette, raw x_direction, and terrain-kill lifecycle"
         );
     }
 

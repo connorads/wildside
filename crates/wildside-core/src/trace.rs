@@ -12585,6 +12585,7 @@ impl NativeRuntime {
                     animation_elapsed_frames: p.animation_elapsed_frames,
                     kind: active_projectile_kind(p),
                     palette_variant: p.palette_variant,
+                    ufo_first_hurt_debris_flipped: p.ufo_beam_child_x_direction != 0,
                     boss_eye_sprite_mapping_index: boss_eye_sprite_mapping_index(
                         p.boss_eye_sprite_mapping_label,
                     ),
@@ -12612,6 +12613,7 @@ impl NativeRuntime {
                             animation_elapsed_frames: 0,
                             kind: ActiveProjectileKind::Generic,
                             palette_variant: 0,
+                            ufo_first_hurt_debris_flipped: false,
                             boss_eye_sprite_mapping_index: 0,
                             boss_eye_sprite_order_word_a: 0,
                             boss_head_projectile_sprite_frame:
@@ -12633,6 +12635,7 @@ impl NativeRuntime {
                             animation_elapsed_frames: 0,
                             kind: ActiveProjectileKind::FireDemonDeathTrail,
                             palette_variant: 0,
+                            ufo_first_hurt_debris_flipped: false,
                             boss_eye_sprite_mapping_index: 0,
                             boss_eye_sprite_order_word_a: 0,
                             boss_head_projectile_sprite_frame:
@@ -13028,6 +13031,7 @@ impl NativeRuntime {
                         animation_elapsed_frames: 0,
                         kind: ActiveProjectileKind::BossEyeSatellite,
                         palette_variant: 0,
+                        ufo_first_hurt_debris_flipped: false,
                         boss_eye_sprite_mapping_index: boss_eye_sprite_mapping_index(
                             slot.sprite_mapping,
                         ),
