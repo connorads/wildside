@@ -166,7 +166,7 @@ pub enum ActiveProjectileKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub enum BossHeadArrowSpriteFrame {
+pub enum BossHeadProjectileSpriteFrame {
     #[default]
     None,
     C8510,
@@ -206,7 +206,7 @@ pub struct ActiveProjectileSnapshot {
     /// Selected boss-head projectile GfxObject mapping from `stru_3A1CC`,
     /// `stru_3A1D6`, or `stru_3A308`.
     #[serde(default)]
-    pub boss_head_arrow_sprite_frame: BossHeadArrowSpriteFrame,
+    pub boss_head_projectile_sprite_frame: BossHeadProjectileSpriteFrame,
     #[serde(default)]
     pub dragon_flying_descent_fire_state: DragonFlyingDescentFireState,
     #[serde(default)]
@@ -5138,14 +5138,14 @@ pub(crate) enum BossDeathBurstState {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct BossHeadArrowAnimationCursor {
-    pub(crate) sprite_frame: BossHeadArrowSpriteFrame,
+    pub(crate) sprite_frame: BossHeadProjectileSpriteFrame,
     timer: u8,
     next_is_second: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct BossHeadBoomerangAnimationCursor {
-    pub(crate) sprite_frame: BossHeadArrowSpriteFrame,
+    pub(crate) sprite_frame: BossHeadProjectileSpriteFrame,
     timer: u8,
     next_frame_index: u8,
 }
@@ -5162,7 +5162,7 @@ impl BossHeadArrowAnimationCursor {
     /// ASM loc_3A0D2 calls Init_Animation for `stru_3A1CC`.
     pub(crate) fn moving_stru_3a1cc() -> Self {
         Self {
-            sprite_frame: BossHeadArrowSpriteFrame::C8510,
+            sprite_frame: BossHeadProjectileSpriteFrame::C8510,
             timer: 1,
             next_is_second: false,
         }
@@ -5170,7 +5170,7 @@ impl BossHeadArrowAnimationCursor {
 
     /// ASM loc_3A134 calls Init_Animation for `stru_3A1D6`.
     pub(crate) fn reset_stuck_stru_3a1d6(&mut self) {
-        self.sprite_frame = BossHeadArrowSpriteFrame::C8520;
+        self.sprite_frame = BossHeadProjectileSpriteFrame::C8520;
         self.timer = 1;
         self.next_is_second = false;
     }
@@ -5184,26 +5184,28 @@ impl BossHeadArrowAnimationCursor {
         }
         self.timer = 5;
         self.sprite_frame = match (self.sprite_frame, self.next_is_second) {
-            (BossHeadArrowSpriteFrame::C8510 | BossHeadArrowSpriteFrame::C8518, false) => {
-                BossHeadArrowSpriteFrame::C8510
-            }
-            (BossHeadArrowSpriteFrame::C8510 | BossHeadArrowSpriteFrame::C8518, true) => {
-                BossHeadArrowSpriteFrame::C8518
-            }
-            (BossHeadArrowSpriteFrame::C8520 | BossHeadArrowSpriteFrame::C8528, false) => {
-                BossHeadArrowSpriteFrame::C8520
-            }
-            (BossHeadArrowSpriteFrame::C8520 | BossHeadArrowSpriteFrame::C8528, true) => {
-                BossHeadArrowSpriteFrame::C8528
+            (
+                BossHeadProjectileSpriteFrame::C8510 | BossHeadProjectileSpriteFrame::C8518,
+                false,
+            ) => BossHeadProjectileSpriteFrame::C8510,
+            (BossHeadProjectileSpriteFrame::C8510 | BossHeadProjectileSpriteFrame::C8518, true) => {
+                BossHeadProjectileSpriteFrame::C8518
             }
             (
-                BossHeadArrowSpriteFrame::None
-                | BossHeadArrowSpriteFrame::C8530
-                | BossHeadArrowSpriteFrame::C8538
-                | BossHeadArrowSpriteFrame::C8540
-                | BossHeadArrowSpriteFrame::C8548,
+                BossHeadProjectileSpriteFrame::C8520 | BossHeadProjectileSpriteFrame::C8528,
+                false,
+            ) => BossHeadProjectileSpriteFrame::C8520,
+            (BossHeadProjectileSpriteFrame::C8520 | BossHeadProjectileSpriteFrame::C8528, true) => {
+                BossHeadProjectileSpriteFrame::C8528
+            }
+            (
+                BossHeadProjectileSpriteFrame::None
+                | BossHeadProjectileSpriteFrame::C8530
+                | BossHeadProjectileSpriteFrame::C8538
+                | BossHeadProjectileSpriteFrame::C8540
+                | BossHeadProjectileSpriteFrame::C8548,
                 _,
-            ) => BossHeadArrowSpriteFrame::None,
+            ) => BossHeadProjectileSpriteFrame::None,
         };
         self.next_is_second = !self.next_is_second;
     }
@@ -5213,7 +5215,7 @@ impl BossHeadBoomerangAnimationCursor {
     /// ASM loc_3A1EA calls Init_Animation for `stru_3A308`.
     pub(crate) fn new_stru_3a308() -> Self {
         Self {
-            sprite_frame: BossHeadArrowSpriteFrame::C8530,
+            sprite_frame: BossHeadProjectileSpriteFrame::C8530,
             timer: 1,
             next_frame_index: 0,
         }
@@ -5227,10 +5229,10 @@ impl BossHeadBoomerangAnimationCursor {
         }
         self.timer = 4;
         self.sprite_frame = match self.next_frame_index {
-            0 => BossHeadArrowSpriteFrame::C8530,
-            1 => BossHeadArrowSpriteFrame::C8538,
-            2 => BossHeadArrowSpriteFrame::C8540,
-            _ => BossHeadArrowSpriteFrame::C8548,
+            0 => BossHeadProjectileSpriteFrame::C8530,
+            1 => BossHeadProjectileSpriteFrame::C8538,
+            2 => BossHeadProjectileSpriteFrame::C8540,
+            _ => BossHeadProjectileSpriteFrame::C8548,
         };
         self.next_frame_index = (self.next_frame_index + 1) % 4;
     }
@@ -5506,22 +5508,22 @@ mod tests {
         assert_eq!(
             observed,
             vec![
-                BossHeadArrowSpriteFrame::C8530,
-                BossHeadArrowSpriteFrame::C8530,
-                BossHeadArrowSpriteFrame::C8530,
-                BossHeadArrowSpriteFrame::C8530,
-                BossHeadArrowSpriteFrame::C8538,
-                BossHeadArrowSpriteFrame::C8538,
-                BossHeadArrowSpriteFrame::C8538,
-                BossHeadArrowSpriteFrame::C8538,
-                BossHeadArrowSpriteFrame::C8540,
-                BossHeadArrowSpriteFrame::C8540,
-                BossHeadArrowSpriteFrame::C8540,
-                BossHeadArrowSpriteFrame::C8540,
-                BossHeadArrowSpriteFrame::C8548,
-                BossHeadArrowSpriteFrame::C8548,
-                BossHeadArrowSpriteFrame::C8548,
-                BossHeadArrowSpriteFrame::C8548,
+                BossHeadProjectileSpriteFrame::C8530,
+                BossHeadProjectileSpriteFrame::C8530,
+                BossHeadProjectileSpriteFrame::C8530,
+                BossHeadProjectileSpriteFrame::C8530,
+                BossHeadProjectileSpriteFrame::C8538,
+                BossHeadProjectileSpriteFrame::C8538,
+                BossHeadProjectileSpriteFrame::C8538,
+                BossHeadProjectileSpriteFrame::C8538,
+                BossHeadProjectileSpriteFrame::C8540,
+                BossHeadProjectileSpriteFrame::C8540,
+                BossHeadProjectileSpriteFrame::C8540,
+                BossHeadProjectileSpriteFrame::C8540,
+                BossHeadProjectileSpriteFrame::C8548,
+                BossHeadProjectileSpriteFrame::C8548,
+                BossHeadProjectileSpriteFrame::C8548,
+                BossHeadProjectileSpriteFrame::C8548,
             ],
             "ASM loc_3A1EA/stru_3A308 starts on C8530, then GfxObject_Animate/sub_1194 holds each mapping for four ticks before looping"
         );

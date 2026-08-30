@@ -4240,7 +4240,7 @@ fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
         runtime.projectiles[0]
             .boss_head_arrow_animation
             .sprite_frame,
-        BossHeadArrowSpriteFrame::C8510,
+        BossHeadProjectileSpriteFrame::C8510,
         "ASM Init_Animation/sub_1040 and GfxObject_Animate/sub_113E load the first `stru_3A1CC` mapping C8510"
     );
     for _ in 0..4 {
@@ -4250,7 +4250,7 @@ fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
         runtime.projectiles[0]
             .boss_head_arrow_animation
             .sprite_frame,
-        BossHeadArrowSpriteFrame::C8510,
+        BossHeadProjectileSpriteFrame::C8510,
         "ASM stru_3A1CC holds C8510 for five animation passes"
     );
     runtime.step_projectiles();
@@ -4258,7 +4258,7 @@ fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
         runtime.projectiles[0]
             .boss_head_arrow_animation
             .sprite_frame,
-        BossHeadArrowSpriteFrame::C8518,
+        BossHeadProjectileSpriteFrame::C8518,
         "ASM stru_3A1CC selects C8518 on the sixth animation pass"
     );
 
@@ -4286,7 +4286,7 @@ fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
         runtime.projectiles[0]
             .boss_head_arrow_animation
             .sprite_frame,
-        BossHeadArrowSpriteFrame::C8520,
+        BossHeadProjectileSpriteFrame::C8520,
         "ASM loc_3A134 resets the object-local animation to `stru_3A1D6` mapping C8520"
     );
     assert_eq!(
@@ -4304,7 +4304,7 @@ fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
         runtime.projectiles[0]
             .boss_head_arrow_animation
             .sprite_frame,
-        BossHeadArrowSpriteFrame::C8528,
+        BossHeadProjectileSpriteFrame::C8528,
         "ASM stru_3A1D6 selects C8528 after C8520's five animation passes"
     );
 }
@@ -4333,7 +4333,7 @@ fn recording_handoff_defers_only_the_preexisting_boss_arrow_loc_e12() {
                 .boss_head_arrow_animation
                 .sprite_frame,
         ),
-        (0x015B_0000, 0x0031, BossHeadArrowSpriteFrame::C8510),
+        (0x015B_0000, 0x0031, BossHeadProjectileSpriteFrame::C8510),
         "ASM loc_1AE2E/Execute_Objects loc_E12 exposes the already-linked arrow at the recording handoff without a second native wake"
     );
 

@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use wildside_core::{
-    ActiveProjectileKind, ActiveProjectileSnapshot, BlockBounceTraceKind, BossHeadArrowSpriteFrame,
-    DiamondPowerSpriteSnapshot, DragonFlyingDescentFireState, GameMode, NativeObjectKind,
-    NativeObjectSnapshot, NativeTraceFrame, PlayerForm,
+    ActiveProjectileKind, ActiveProjectileSnapshot, BlockBounceTraceKind,
+    BossHeadProjectileSpriteFrame, DiamondPowerSpriteSnapshot, DragonFlyingDescentFireState,
+    GameMode, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame, PlayerForm,
     TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE, physics::Direction,
     terrain::BlockGrid,
 };
@@ -7527,7 +7527,7 @@ fn build_game_scene_filtered(
                         palette_variant: 0,
                         boss_eye_sprite_mapping_index: 0,
                         boss_eye_sprite_order_word_a: 0,
-                        boss_head_arrow_sprite_frame: BossHeadArrowSpriteFrame::None,
+                        boss_head_projectile_sprite_frame: BossHeadProjectileSpriteFrame::None,
                         dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
                         dragon_flying_descent_fire_counter: 0,
                     })
@@ -7668,16 +7668,16 @@ fn build_game_scene_filtered(
                             // ASM loc_3A0D2/stru_3A1CC alternates C8510/C8518
                             // while `$40` is non-zero. loc_3A14E/stru_3A1D6
                             // alternates the larger stopped C8520/C8528 frames.
-                            let frame_index = match projectile.boss_head_arrow_sprite_frame {
-                                BossHeadArrowSpriteFrame::C8510 => 8,
-                                BossHeadArrowSpriteFrame::C8518 => 9,
-                                BossHeadArrowSpriteFrame::C8520 => 10,
-                                BossHeadArrowSpriteFrame::C8528 => 11,
-                                BossHeadArrowSpriteFrame::None
-                                | BossHeadArrowSpriteFrame::C8530
-                                | BossHeadArrowSpriteFrame::C8538
-                                | BossHeadArrowSpriteFrame::C8540
-                                | BossHeadArrowSpriteFrame::C8548 => return None,
+                            let frame_index = match projectile.boss_head_projectile_sprite_frame {
+                                BossHeadProjectileSpriteFrame::C8510 => 8,
+                                BossHeadProjectileSpriteFrame::C8518 => 9,
+                                BossHeadProjectileSpriteFrame::C8520 => 10,
+                                BossHeadProjectileSpriteFrame::C8528 => 11,
+                                BossHeadProjectileSpriteFrame::None
+                                | BossHeadProjectileSpriteFrame::C8530
+                                | BossHeadProjectileSpriteFrame::C8538
+                                | BossHeadProjectileSpriteFrame::C8540
+                                | BossHeadProjectileSpriteFrame::C8548 => return None,
                             };
                             let frame = visuals.frames.get(frame_index)?;
                             // ASM sub_397E4 copies `x_direction` into the
@@ -7726,11 +7726,11 @@ fn build_game_scene_filtered(
                         .families
                         .get(&0x22)
                         .and_then(|visuals| {
-                            let frame_index = match projectile.boss_head_arrow_sprite_frame {
-                                BossHeadArrowSpriteFrame::C8530 => 12,
-                                BossHeadArrowSpriteFrame::C8538 => 13,
-                                BossHeadArrowSpriteFrame::C8540 => 14,
-                                BossHeadArrowSpriteFrame::C8548 => 15,
+                            let frame_index = match projectile.boss_head_projectile_sprite_frame {
+                                BossHeadProjectileSpriteFrame::C8530 => 12,
+                                BossHeadProjectileSpriteFrame::C8538 => 13,
+                                BossHeadProjectileSpriteFrame::C8540 => 14,
+                                BossHeadProjectileSpriteFrame::C8548 => 15,
                                 _ => return None,
                             };
                             let frame = visuals.frames.get(frame_index)?;
@@ -12246,7 +12246,7 @@ mod tests {
                     remaining_frames: 0,
                     animation_elapsed_frames: 141,
                     kind: ActiveProjectileKind::BossHeadArrowRight,
-                    boss_head_arrow_sprite_frame: BossHeadArrowSpriteFrame::C8528,
+                    boss_head_projectile_sprite_frame: BossHeadProjectileSpriteFrame::C8528,
                     ..ActiveProjectileSnapshot::default()
                 },
                 ActiveProjectileSnapshot {
@@ -12255,7 +12255,7 @@ mod tests {
                     remaining_frames: 0,
                     animation_elapsed_frames: 141,
                     kind: ActiveProjectileKind::BossHeadArrow,
-                    boss_head_arrow_sprite_frame: BossHeadArrowSpriteFrame::C8528,
+                    boss_head_projectile_sprite_frame: BossHeadProjectileSpriteFrame::C8528,
                     ..ActiveProjectileSnapshot::default()
                 },
             ],
@@ -12347,7 +12347,7 @@ mod tests {
                 x_pos: 100 << 16,
                 y_pos: 100 << 16,
                 kind: ActiveProjectileKind::BossHeadBoomerang,
-                boss_head_arrow_sprite_frame: BossHeadArrowSpriteFrame::C8538,
+                boss_head_projectile_sprite_frame: BossHeadProjectileSpriteFrame::C8538,
                 ..ActiveProjectileSnapshot::default()
             }],
             ..NativeTraceFrame::default()

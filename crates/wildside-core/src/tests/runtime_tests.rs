@@ -11368,9 +11368,9 @@ mod chunk_09 {
             (
                 first_arrow.x_pos,
                 first_arrow.remaining_frames,
-                first_arrow.boss_head_arrow_sprite_frame,
+                first_arrow.boss_head_projectile_sprite_frame,
             ),
-            (0x015B_0000, 0x0031, BossHeadArrowSpriteFrame::C8510),
+            (0x015B_0000, 0x0031, BossHeadProjectileSpriteFrame::C8510),
             "ASM Execute_Objects loc_E12 and loc_3A0D2 expose the pre-existing first boss arrow at oracle recording frame 0 without an extra native handoff wake"
         );
 
