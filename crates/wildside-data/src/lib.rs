@@ -6217,6 +6217,17 @@ mod tests {
             [1; 32 * 12],
         )
         .expect("kid walk");
+        for (name, fill) in [
+            ("kid_crawl_1.bin", 4),
+            ("kid_crawl_2.bin", 5),
+            ("kid_crawl_3.bin", 6),
+        ] {
+            fs::write(
+                source_root.join("ingame/artunc_kid").join(name),
+                [fill; 32 * 12],
+            )
+            .expect("kid crawl");
+        }
         fs::write(
             source_root.join("ingame/artunc_kid/kid_jumping_1.bin"),
             [2; 32 * 12],
@@ -7239,7 +7250,7 @@ BackgroundLayout_0E:  dc.w    $8000
         );
         assert_eq!(manifest.enemy_sources.len(), 1);
         assert_eq!(manifest.theme_assets.len(), 1);
-        assert_eq!(manifest.ingame_assets.len(), 12);
+        assert_eq!(manifest.ingame_assets.len(), 15);
         assert!(
             manifest
                 .ingame_assets

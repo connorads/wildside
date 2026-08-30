@@ -1490,6 +1490,7 @@ struct PlayerFormSpec {
     palette_family: &'static str,
     idle: PlayerFrameDescriptor,
     walk: &'static [PlayerFrameDescriptor],
+    crawl: &'static [PlayerFrameDescriptor],
     /// ASM `sub_B270 loc_B2A0`: Cyclone flight spin frames.
     flight_spin: &'static [PlayerFrameDescriptor],
     /// ASM stru_8B6A: pre-drawn tilted slope walk frames (right-facing).
@@ -1508,6 +1509,44 @@ struct PlayerFormSpec {
     transform_palette: Option<(&'static str, &'static str)>,
     transform_steps: &'static [PlayerTransformStepDescriptor],
 }
+
+const KID_CRAWL_FRAMES: [PlayerFrameDescriptor; 3] = [
+    pfd("artunc_kid/kid_crawl_1.bin", 0x13, 0x01, 0x24, 0x10),
+    pfd("artunc_kid/kid_crawl_2.bin", 0x13, 0x01, 0x23, 0x10),
+    pfd("artunc_kid/kid_crawl_3.bin", 0x13, 0x01, 0x25, 0x10),
+];
+const SKYCUTTER_CRAWL_FRAMES: [PlayerFrameDescriptor; 3] =
+    [pfd("artunc_kid/skycutter_crawl.bin", 0x11, 0x00, 0x22, 0x10); 3];
+const CYCLONE_CRAWL_FRAMES: [PlayerFrameDescriptor; 3] = [
+    pfd("artunc_kid/cyclone_crawl_1.bin", 0x13, 0x01, 0x26, 0x0F),
+    pfd("artunc_kid/cyclone_crawl_2.bin", 0x13, 0x01, 0x24, 0x10),
+    pfd("artunc_kid/cyclone_crawl_3.bin", 0x13, 0x01, 0x26, 0x10),
+];
+const RED_STEALTH_CRAWL_FRAMES: [PlayerFrameDescriptor; 3] = [
+    pfd("artunc_kid/red_stealth_crawl_1.bin", 0x14, 0x01, 0x28, 0x10),
+    pfd("artunc_kid/red_stealth_crawl_2.bin", 0x14, 0x01, 0x26, 0x10),
+    pfd("artunc_kid/red_stealth_crawl_3.bin", 0x14, 0x01, 0x28, 0x10),
+];
+const EYECLOPS_CRAWL_FRAMES: [PlayerFrameDescriptor; 3] = [
+    pfd("artunc_kid/eyeclops_crawl_1.bin", 0x13, 0x01, 0x27, 0x10),
+    pfd("artunc_kid/eyeclops_crawl_2.bin", 0x13, 0x01, 0x26, 0x10),
+    pfd("artunc_kid/eyeclops_crawl_3.bin", 0x13, 0x01, 0x28, 0x10),
+];
+const IRON_KNIGHT_CRAWL_FRAMES: [PlayerFrameDescriptor; 3] = [
+    pfd("artunc_kid/iron_knight_crawl_1.bin", 0x13, 0x01, 0x25, 0x10),
+    pfd("artunc_kid/iron_knight_crawl_2.bin", 0x13, 0x01, 0x24, 0x10),
+    pfd("artunc_kid/iron_knight_crawl_3.bin", 0x13, 0x01, 0x26, 0x10),
+];
+const BERZERKER_CRAWL_FRAMES: [PlayerFrameDescriptor; 3] = [
+    pfd("artunc_kid/berzerker_crawl_1.bin", 0x11, 0x01, 0x25, 0x10),
+    pfd("artunc_kid/berzerker_crawl_2.bin", 0x11, 0x01, 0x23, 0x10),
+    pfd("artunc_kid/berzerker_crawl_3.bin", 0x11, 0x01, 0x24, 0x10),
+];
+const MANIAXE_CRAWL_FRAMES: [PlayerFrameDescriptor; 3] = [
+    pfd("artunc_kid/maniaxe_crawl_1.bin", 0x11, 0x01, 0x22, 0x10),
+    pfd("artunc_kid/maniaxe_crawl_2.bin", 0x0F, 0x01, 0x20, 0x10),
+    pfd("artunc_kid/maniaxe_crawl_3.bin", 0x13, 0x01, 0x26, 0x10),
+];
 
 const fn pfd(
     relative_path: &'static str,
@@ -3891,6 +3930,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Kid palette",
         idle: KID_IDLE_FRAME,
         walk: &KID_WALK_FRAMES,
+        crawl: &KID_CRAWL_FRAMES,
         flight_spin: &[],
         slope_walk: &KID_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &KID_SLOPE_WALK_LEFT_FRAMES,
@@ -3909,6 +3949,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Skycutter palette",
         idle: SKYCUTTER_IDLE_FRAME,
         walk: &SKYCUTTER_WALK_FRAMES,
+        crawl: &SKYCUTTER_CRAWL_FRAMES,
         flight_spin: &[],
         slope_walk: &[],
         slope_walk_left: &[],
@@ -3930,6 +3971,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Cyclone palette",
         idle: CYCLONE_IDLE_FRAME,
         walk: &CYCLONE_WALK_FRAMES,
+        crawl: &CYCLONE_CRAWL_FRAMES,
         flight_spin: &CYCLONE_FLIGHT_SPIN_FRAMES,
         slope_walk: &[],
         slope_walk_left: &[],
@@ -3953,6 +3995,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Red Stealth palette",
         idle: RED_STEALTH_IDLE_FRAME,
         walk: &RED_STEALTH_WALK_FRAMES,
+        crawl: &RED_STEALTH_CRAWL_FRAMES,
         flight_spin: &[],
         slope_walk: &RED_STEALTH_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &RED_STEALTH_SLOPE_WALK_LEFT_FRAMES,
@@ -4003,6 +4046,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Eyeclops palette",
         idle: EYECLOPS_IDLE_FRAME,
         walk: &EYECLOPS_WALK_FRAMES,
+        crawl: &EYECLOPS_CRAWL_FRAMES,
         flight_spin: &[],
         slope_walk: &[],
         slope_walk_left: &[],
@@ -4029,6 +4073,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Iron Knight palette",
         idle: IRON_KNIGHT_IDLE_FRAME,
         walk: &IRON_KNIGHT_WALK_FRAMES,
+        crawl: &IRON_KNIGHT_CRAWL_FRAMES,
         flight_spin: &[],
         slope_walk: &IRON_KNIGHT_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &IRON_KNIGHT_SLOPE_WALK_LEFT_FRAMES,
@@ -4050,6 +4095,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Berzerker palette",
         idle: BERZERKER_IDLE_FRAME,
         walk: &BERZERKER_WALK_FRAMES,
+        crawl: &BERZERKER_CRAWL_FRAMES,
         flight_spin: &[],
         slope_walk: &BERZERKER_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &BERZERKER_SLOPE_WALK_LEFT_FRAMES,
@@ -4076,6 +4122,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Maniaxe palette",
         idle: MANIAXE_IDLE_FRAME,
         walk: &MANIAXE_WALK_FRAMES,
+        crawl: &MANIAXE_CRAWL_FRAMES,
         flight_spin: &[],
         slope_walk: &[],
         slope_walk_left: &[],
@@ -4099,6 +4146,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Micromax palette",
         idle: MICROMAX_IDLE_FRAME,
         walk: &MICROMAX_WALK_FRAMES,
+        crawl: &[],
         flight_spin: &[],
         slope_walk: &[],
         slope_walk_left: &[],
@@ -4582,6 +4630,7 @@ fn load_juggernaut_form_visuals_if_present(
                 load_composite_player_frame(manifest, source, &[bottom, head])
             })
             .collect::<Result<Vec<_>>>()?,
+        crawl: Vec::new(),
         skid: None,
         flight_spin: Vec::new(),
         charge: Vec::new(),
@@ -4687,6 +4736,7 @@ fn load_player_form_visuals(
             .copied()
             .map(|descriptor| load_player_frame(manifest, source, descriptor))
             .collect::<Result<Vec<_>>>()?,
+        crawl: load_player_frames(manifest, source, spec.crawl)?,
         skid: (spec.form_id == PLAYER_FORM_THE_KID)
             .then(|| load_player_frame(manifest, source, KID_SKID_FRAME))
             .transpose()?,

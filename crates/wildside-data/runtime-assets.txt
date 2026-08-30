@@ -367,6 +367,9 @@ ingame/artunc/shore_2.bin
 ingame/artunc/shore_3.bin
 ingame/artunc/shore_4.bin
 ingame/artunc_kid/berzerker.bin
+ingame/artunc_kid/berzerker_crawl_1.bin
+ingame/artunc_kid/berzerker_crawl_2.bin
+ingame/artunc_kid/berzerker_crawl_3.bin
 ingame/artunc_kid/berzerker_jumping_1.bin
 ingame/artunc_kid/berzerker_jumping_2.bin
 ingame/artunc_kid/berzerker_jumping_3.bin
@@ -398,6 +401,9 @@ ingame/artunc_kid/berzerker_walk_4.bin
 ingame/artunc_kid/berzerker_walk_5.bin
 ingame/artunc_kid/berzerker_walk_6.bin
 ingame/artunc_kid/cyclone.bin
+ingame/artunc_kid/cyclone_crawl_1.bin
+ingame/artunc_kid/cyclone_crawl_2.bin
+ingame/artunc_kid/cyclone_crawl_3.bin
 ingame/artunc_kid/cyclone_jumping_1.bin
 ingame/artunc_kid/cyclone_jumping_2.bin
 ingame/artunc_kid/cyclone_jumping_3.bin
@@ -414,6 +420,9 @@ ingame/artunc_kid/cyclone_walk_4.bin
 ingame/artunc_kid/cyclone_walk_5.bin
 ingame/artunc_kid/cyclone_walk_6.bin
 ingame/artunc_kid/eyeclops.bin
+ingame/artunc_kid/eyeclops_crawl_1.bin
+ingame/artunc_kid/eyeclops_crawl_2.bin
+ingame/artunc_kid/eyeclops_crawl_3.bin
 ingame/artunc_kid/eyeclops_jumping_1.bin
 ingame/artunc_kid/eyeclops_jumping_2.bin
 ingame/artunc_kid/eyeclops_mask.bin
@@ -432,6 +441,9 @@ ingame/artunc_kid/iron_knight.bin
 ingame/artunc_kid/iron_knight_climbing_1.bin
 ingame/artunc_kid/iron_knight_climbing_2.bin
 ingame/artunc_kid/iron_knight_climbing_3.bin
+ingame/artunc_kid/iron_knight_crawl_1.bin
+ingame/artunc_kid/iron_knight_crawl_2.bin
+ingame/artunc_kid/iron_knight_crawl_3.bin
 ingame/artunc_kid/iron_knight_jumping_1.bin
 ingame/artunc_kid/iron_knight_jumping_2.bin
 ingame/artunc_kid/iron_knight_jumping_3.bin
@@ -478,6 +490,9 @@ ingame/artunc_kid/juggernaut_transformation_2.bin
 ingame/artunc_kid/juggernaut_transformation_3.bin
 ingame/artunc_kid/juggernaut_transformation_4.bin
 ingame/artunc_kid/kid.bin
+ingame/artunc_kid/kid_crawl_1.bin
+ingame/artunc_kid/kid_crawl_2.bin
+ingame/artunc_kid/kid_crawl_3.bin
 ingame/artunc_kid/kid_death.bin
 ingame/artunc_kid/kid_flip_1.bin
 ingame/artunc_kid/kid_flip_2.bin
@@ -512,6 +527,9 @@ ingame/artunc_kid/maniaxe_axe_1.bin
 ingame/artunc_kid/maniaxe_axe_2.bin
 ingame/artunc_kid/maniaxe_axe_3.bin
 ingame/artunc_kid/maniaxe_axe_4.bin
+ingame/artunc_kid/maniaxe_crawl_1.bin
+ingame/artunc_kid/maniaxe_crawl_2.bin
+ingame/artunc_kid/maniaxe_crawl_3.bin
 ingame/artunc_kid/maniaxe_jumping_1.bin
 ingame/artunc_kid/maniaxe_jumping_2.bin
 ingame/artunc_kid/maniaxe_mask.bin
@@ -539,6 +557,9 @@ ingame/artunc_kid/micromax_walk_4.bin
 ingame/artunc_kid/micromax_walk_5.bin
 ingame/artunc_kid/micromax_walk_6.bin
 ingame/artunc_kid/red_stealth.bin
+ingame/artunc_kid/red_stealth_crawl_1.bin
+ingame/artunc_kid/red_stealth_crawl_2.bin
+ingame/artunc_kid/red_stealth_crawl_3.bin
 ingame/artunc_kid/red_stealth_jumping_1.bin
 ingame/artunc_kid/red_stealth_jumping_2.bin
 ingame/artunc_kid/red_stealth_mask.bin
@@ -561,6 +582,7 @@ ingame/artunc_kid/red_stealth_walk_4.bin
 ingame/artunc_kid/red_stealth_walk_5.bin
 ingame/artunc_kid/red_stealth_walk_6.bin
 ingame/artunc_kid/skycutter.bin
+ingame/artunc_kid/skycutter_crawl.bin
 ingame/artunc_kid/skycutter_mask.bin
 ingame/artunc_kid/skycutter_transformation_1.bin
 ingame/artunc_kid/skycutter_transformation_2.bin

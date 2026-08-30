@@ -31,6 +31,9 @@ pub struct PlayerFormVisuals {
     pub palette: Palette,
     pub idle: SpriteFrame,
     pub walk: Vec<SpriteFrame>,
+    /// ASM `sub_8446` / `off_84A2`: three-frame grounded crawl mapping.
+    /// Empty for forms which cannot enter `MoveID_Crawling`.
+    pub crawl: Vec<SpriteFrame>,
     /// ASM `sub_942A loc_959C`: The Kid's fixed backward-motion skid mapping.
     /// `None` for helmet forms, which continue through their walk tables.
     pub skid: Option<SpriteFrame>,

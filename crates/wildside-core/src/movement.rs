@@ -1504,6 +1504,20 @@ pub(crate) fn grounded_walk_visual_accumulator_loc_95da(
     }
 }
 
+pub(crate) fn crawl_visual_accumulator_sub_8446(current_accumulator: u16, x_velocity: i32) -> u16 {
+    // ASM sub_8446 loc_8456/loc_8460/loc_8470 (kid.asm:9212): non-Skycutter
+    // crawl takes abs(d0), uses `swap; rol.l #5` as the phase increment, and
+    // wraps `$FFFFF8F0` once at `$300` before indexing the three-frame row.
+    let speed = x_velocity.unsigned_abs();
+    let delta = (speed.rotate_left(21) & 0xFFFF) as u16;
+    let next = current_accumulator.wrapping_add(delta);
+    if next >= 0x0300 {
+        next.wrapping_sub(0x0300)
+    } else {
+        next
+    }
+}
+
 pub(crate) fn should_advance_grounded_walk_visual_accumulator_loc_95da(
     form: PlayerForm,
     facing: Direction,
@@ -4162,6 +4176,20 @@ impl OpeningSliceState {
                             self.player.x_pos = crawl_slope.x_pos;
                             self.player.x_velocity = 0;
                         }
+                    }
+                    if input.down
+                        && self.player.on_ground
+                        && !matches!(
+                            form,
+                            PlayerForm::Skycutter | PlayerForm::Juggernaut | PlayerForm::Micromax
+                        )
+                    {
+                        // ASM loc_83BC/loc_83D8 -> sub_8446: moving and
+                        // stopped crawl tails both refresh the crawl mapping.
+                        self.walk_visual_accumulator = crawl_visual_accumulator_sub_8446(
+                            self.walk_visual_accumulator,
+                            self.player.x_velocity,
+                        );
                     }
                     // ASM loc_A8DE -> loc_A9E4 hibernates into the wall-cling loop
                     // before loc_ABA4 can consume B for The Kid's ledge pull-up.
@@ -8639,12 +8667,6 @@ pub(crate) fn crawl_slope_snap_sub_83E6(
     // x_vel on wall contact or slope snap. Native: wall collision already
     // snaps x_pos and clears x_vel; the integrated slope snap mirrors the
     // same stop tail when sub_83E6 returns NE.
-    //
-    // TODO(fidelity): ASM sub_8446 loc_8456/loc_8460/loc_8470 advances the
-    // non-Skycutter `off_84A2` crawling/platform sprite phase from abs(d0),
-    // wraps `$FFFFF8F0` at `$300`, then writes `addroffset_sprite(a3)`.
-    // Native currently preserves the gameplay stop/snap state here but does
-    // not model that visual-only sprite-table refresh.
     //
     // ASM sub_83E6 (kid.asm:9163): when crawling without a direct wall hit,
     // inspect the motion-side foot cell. Rightward or neutral motion accepts

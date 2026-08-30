@@ -747,7 +747,13 @@ pub fn select_player_frame<'a>(
     }
 
     if on_ground {
-        if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
+        if trace.character_movement == Some(4) && !player_visuals.crawl.is_empty() {
+            // ASM MoveID_Crawling loc_83BC/loc_83D8 -> sub_8446 indexes the
+            // current form's off_84A2 row with `$FFFFF8F0 >> 8`.
+            let frame_index =
+                usize::from(trace.walk_visual_accumulator >> 8).min(player_visuals.crawl.len() - 1);
+            &player_visuals.crawl[frame_index]
+        } else if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
             && (trace.berzerker_charging || trace.berzerker_charge_pose)
             && !player_visuals.charge.is_empty()
         {
@@ -3299,6 +3305,11 @@ mod tests {
                 labelled_frame(0x0201),
                 labelled_frame(0x0202),
             ],
+            crawl: vec![
+                labelled_frame(0x0260),
+                labelled_frame(0x0261),
+                labelled_frame(0x0262),
+            ],
             skid: Some(labelled_frame(0x0250)),
             flight_spin: vec![
                 labelled_frame(0x0300),
@@ -5832,6 +5843,21 @@ mod tests {
     #[test]
     fn select_player_frame_prefers_asm_specific_pose_branches() {
         let visuals = labelled_player_visuals();
+
+        // ASM MoveID_Crawling -> sub_8446/off_84A2: crawl consumes its own
+        // three-frame mapping rather than the six-frame upright walk table.
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    character_movement: Some(4),
+                    kid_on_ground: Some(true),
+                    walk_visual_accumulator: 0x0200,
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0262
+        );
 
         // ASM loc_ABF0: pull-up hibernate advances every three frames and
         // takes precedence over ordinary motion.

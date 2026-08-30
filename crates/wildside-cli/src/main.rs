@@ -5703,6 +5703,13 @@ mod tests {
             [0; 32 * 12],
         )
         .expect("kid walk");
+        for name in ["kid_crawl_1.bin", "kid_crawl_2.bin", "kid_crawl_3.bin"] {
+            fs::write(
+                source_root.join("ingame/artunc_kid").join(name),
+                [0; 32 * 12],
+            )
+            .expect("kid crawl");
+        }
         fs::write(
             source_root.join("ingame/artunc_kid/kid_jumping_1.bin"),
             [0; 32 * 12],

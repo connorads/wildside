@@ -5077,6 +5077,44 @@ mod chunk_11 {
         );
     }
 
+    #[test]
+    fn loc_83bc_crawl_frame_persists_sub_8446_visual_phase() {
+        let mut grid = grid_with_cells(8, 4, &[(2, 2, 0x60, 0x00), (3, 2, 0x60, 0x00)]);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 4 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 32 << 16;
+        slice.player.x_velocity = 0x1_0000;
+        slice.player.facing = Direction::Right;
+        slice.walk_visual_accumulator = 0x0100;
+
+        slice.step_with_order(
+            FrameInput {
+                down: true,
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.walk_visual_accumulator,
+            crawl_visual_accumulator_sub_8446(0x0100, slice.player.x_velocity),
+            "ASM loc_83BC -> sub_8446 must persist the crawl phase selected for rendering"
+        );
+    }
+
     // ---------------------------------------------------------------------------
     // sub_942A loc_95DA (kid.asm:11059): upright walk sprite animation accumulator
     // ---------------------------------------------------------------------------
@@ -5132,6 +5170,25 @@ mod chunk_11 {
             0x0123,
             "ASM loc_95E4: zero x_vel produces zero walk phase increment"
         );
+    }
+
+    /// ASM sub_8446 loc_8456/loc_8460/loc_8470: crawl uses the magnitude of
+    /// d0, the same `swap; rol #5` increment, and a three-frame `$300` wrap.
+    #[test]
+    fn sub_8446_crawl_phase_advances_and_wraps_from_velocity() {
+        assert_eq!(
+            crawl_visual_accumulator_sub_8446(0x0100, 0x0002_0000),
+            0x0140
+        );
+        assert_eq!(
+            crawl_visual_accumulator_sub_8446(0x0100, -0x0002_0000),
+            0x0140
+        );
+        assert_eq!(
+            crawl_visual_accumulator_sub_8446(0x02F0, 0x0002_0000),
+            0x0030
+        );
+        assert_eq!(crawl_visual_accumulator_sub_8446(0x0123, 0), 0x0123);
     }
 
     /// ASM sub_942A loc_9580/loc_9596/loc_959C: The Kid's backward-motion

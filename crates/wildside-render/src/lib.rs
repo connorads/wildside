@@ -280,6 +280,9 @@ mod tests {
         assert_eq!(kid.walk.len(), 6);
         assert_eq!(kid.walk[0].origin_x, 0x0A);
         assert_eq!(kid.walk[0].width_px, 0x13);
+        assert_eq!(kid.crawl.len(), 3);
+        assert_eq!(kid.crawl[0].origin_x, 0x13);
+        assert_eq!(kid.crawl[2].width_px, 0x25);
         assert_eq!(kid.airborne[0].origin_x, 0x0A);
         assert_eq!(kid.airborne[0].width_px, 0x16);
         assert_eq!(kid.airborne[2].origin_x, 0x09);
@@ -1540,6 +1543,19 @@ mod tests {
                 "ingame/artunc_kid/kid_walk_6.bin",
                 &vec![0x27; 32 * 12],
             )?;
+            for (path, fill) in [
+                ("ingame/artunc_kid/kid_crawl_1.bin", 0x28),
+                ("ingame/artunc_kid/kid_crawl_2.bin", 0x29),
+                ("ingame/artunc_kid/kid_crawl_3.bin", 0x2A),
+                ("ingame/artunc_kid/red_stealth_crawl_1.bin", 0x2B),
+                ("ingame/artunc_kid/red_stealth_crawl_2.bin", 0x2C),
+                ("ingame/artunc_kid/red_stealth_crawl_3.bin", 0x2D),
+                ("ingame/artunc_kid/iron_knight_crawl_1.bin", 0x2E),
+                ("ingame/artunc_kid/iron_knight_crawl_2.bin", 0x2F),
+                ("ingame/artunc_kid/iron_knight_crawl_3.bin", 0x30),
+            ] {
+                write_file(root.path(), path, &vec![fill; 32 * 12])?;
+            }
             write_file(
                 root.path(),
                 "ingame/artunc_kid/kid_jumping_1.bin",
@@ -1976,6 +1992,15 @@ mod tests {
                     asset_file(root.path(), "ingame/artunc_kid/kid_walk_4.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_walk_5.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_walk_6.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_crawl_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_crawl_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_crawl_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_crawl_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_crawl_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_crawl_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_crawl_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_crawl_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_crawl_3.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_jumping_1.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_jumping_2.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_death.bin"),

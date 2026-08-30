@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (player crawl ROM frames and phase)
+
+- `sub_8446`'s three-frame crawl mapping was explicitly unimplemented. Native
+  kept crawl collision and velocity but rendered the ordinary upright walk or
+  idle art.
+- The core now applies the ROM's absolute-velocity `swap; rol #5` phase step
+  and `$300` wrap. `MoveID_Crawling` selects dedicated `off_84A2` ROM frames;
+  Juggernaut and Micromax remain excluded by their crawl-entry guards.
+- The runtime asset catalogue and canonical-ROM extraction recipe carry all 22
+  crawl binaries. Arithmetic, integrated movement, bundle geometry, renderer,
+  catalogue, and extraction parity regressions pass. `verify-slice-fast` and
+  the full 37,759-frame `verify-tas-full` pass with unchanged ratchets: 37,518
+  exact frames, 241 divergent frames, and 2,391 changed HUD pixels.
+
 ## 2026-08-30 handoff (exact murder-wall animation phase)
 
 - The murder-wall asset pipeline already decoded `Murder_wall.bin` and emitted
