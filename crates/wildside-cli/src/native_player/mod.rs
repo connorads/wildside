@@ -6929,13 +6929,18 @@ mod tests {
                 },
                 extra_palettes: vec![],
                 frames: vec![
-                    sample_object_frame_with_base(59, 0x1B, 0x20, 0x0AC),
-                    sample_object_frame_with_base(60, 0x1B, 0x20, 0x044),
-                    sample_object_frame_with_base(61, 0x1F, 0x1F, 0x074),
-                    sample_object_frame_with_base(62, 0x1F, 0x1F, 0x084),
-                    sample_object_frame_with_base(63, 0x1F, 0x18, 0x094),
-                    sample_object_frame_with_base(64, 0x20, 0x10, 0x0A0),
-                    sample_object_frame_with_base(65, 0x20, 0x07, 0x0A8),
+                    sample_object_frame_with_base(59, 0x1E, 0x03, 0x000),
+                    sample_object_frame_with_base(60, 0x1E, 0x08, 0x004),
+                    sample_object_frame_with_base(61, 0x1F, 0x17, 0x008),
+                    sample_object_frame_with_base(62, 0x1E, 0x1F, 0x014),
+                    sample_object_frame_with_base(63, 0x20, 0x1F, 0x024),
+                    sample_object_frame_with_base(64, 0x1E, 0x20, 0x034),
+                    sample_object_frame_with_base(65, 0x1B, 0x20, 0x044),
+                    sample_object_frame_with_base(66, 0x1F, 0x1F, 0x074),
+                    sample_object_frame_with_base(67, 0x1F, 0x1F, 0x084),
+                    sample_object_frame_with_base(68, 0x1F, 0x18, 0x094),
+                    sample_object_frame_with_base(69, 0x20, 0x10, 0x0A0),
+                    sample_object_frame_with_base(70, 0x20, 0x07, 0x0A8),
                 ],
                 frame_duration: 3,
             },
@@ -8021,14 +8026,15 @@ mod tests {
             debug_fields: std::collections::BTreeMap::new(),
         };
 
-        // Tar Monster 0x05: hidden phase holds frame 0 (C77A6, sig 59); visible
-        // phase holds frame 1 (C77D6, sig 60). Never the 61..=65 submerge tail.
-        // frame_index 12 makes the pre-fix free-run pick frame (12/3)%7 = 4
-        // (sig 63, a death frame), so these phase assertions fail without the helper.
+        // Tar Monster 0x05: the live phase walks frames 0..=6
+        // (C77A6..=C77D6, sigs 59..=65). Never the 66..=70 submerge tail.
+        // frame_index 12 makes the generic free-run choose the wrong live phase,
+        // so these explicit phase assertions fail without the helper.
         trace.frame_index = 12;
         let tar = visuals.enemies.families.get(&0x05).expect("tar visuals");
         let mut tar_hidden = base(0x05);
         tar_hidden.contact_phase = Some(NativeContactPhase::TarMonsterHidden);
+        tar_hidden.sprite_animation_phase = Some(0);
         assert_eq!(
             sprites::select_enemy_frame(&trace, tar, &tar_hidden)
                 .tile_sheet
@@ -8037,13 +8043,14 @@ mod tests {
             59,
             "ASM Tar_Monster.asm stru_3274C: hidden tar holds the underground body frame, not the submerge death tail"
         );
-        let tar_visible = base(0x05); // contact_phase None => Visible/Attacking
+        let mut tar_visible = base(0x05);
+        tar_visible.sprite_animation_phase = Some(6);
         assert_eq!(
             sprites::select_enemy_frame(&trace, tar, &tar_visible)
                 .tile_sheet
                 .tiles[0]
                 .pixels[0],
-            60,
+            65,
             "ASM Tar_Monster.asm stru_3272E: visible tar holds the emerged body frame C77D6"
         );
 
@@ -20088,17 +20095,17 @@ mod tests {
             .get(&0x05)
             .expect("tar monster visuals");
         for (remaining, signature) in [
-            (63, 61),
-            (54, 62),
-            (45, 63),
-            (42, 62),
-            (39, 63),
-            (30, 64),
-            (27, 63),
-            (24, 64),
-            (15, 65),
-            (12, 64),
-            (9, 65),
+            (63, 66),
+            (54, 67),
+            (45, 68),
+            (42, 67),
+            (39, 68),
+            (30, 69),
+            (27, 68),
+            (24, 69),
+            (15, 70),
+            (12, 69),
+            (9, 70),
         ] {
             object.wait_timer = Some(remaining);
             assert_eq!(

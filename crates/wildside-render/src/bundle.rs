@@ -1814,7 +1814,14 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         ],
         frame_duration: 3,
         frames: &[
-            fd(0x0AC, 0x11, 0x00, 0x1B, 0x20),
+            // ASM Tar_Monster.asm stru_3272E/stru_3274C: the live linked
+            // GfxObject walks all seven four-frame body mappings.
+            fd(0x000, 0x10, 0x00, 0x1E, 0x03),
+            fd(0x004, 0x0F, 0x00, 0x1E, 0x08),
+            fd(0x008, 0x10, 0x00, 0x1F, 0x17),
+            fd(0x014, 0x10, 0x00, 0x1E, 0x1F),
+            fd(0x024, 0x10, 0x00, 0x20, 0x1F),
+            fd(0x034, 0x10, 0x00, 0x1E, 0x20),
             fd(0x044, 0x10, 0x00, 0x1B, 0x20),
             // ASM Tar_Monster.asm loc_323E6 / `stru_32700`: C77EE,
             // C77F6, C77FE, C7806, C780E are the submerge death tail.
@@ -6310,7 +6317,7 @@ mod tests {
             "ASM Armadillo.asm loc_3C886 / stru_3C69A death frames C76D6/C76DE/C76E6 must be selectable"
         );
         assert_eq!(
-            death_tiles(0x05, 2..7),
+            death_tiles(0x05, 7..12),
             vec![0x0074, 0x0084, 0x0094, 0x00A0, 0x00A8],
             "ASM Tar_Monster.asm loc_323E6 / stru_32700 death frames C77EE/C77F6/C77FE/C7806/C780E must be selectable"
         );

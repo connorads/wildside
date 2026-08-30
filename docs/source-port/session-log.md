@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Tar Monster emergence mappings)
+
+- `Tar_Monster.asm` defines seven four-frame live mappings in `stru_3272E` and
+  the reverse sequence `stru_3274C`; native previously rendered only the two
+  endpoints. The atlas now extracts all seven without mixing in `stru_32700`'s
+  five death mappings.
+- Core derives and exports the linked GfxObject phase from the 28-frame wait:
+  0..6 while emerging, 6 while visible, and 6..0 while submerging. Unit and
+  trace-export tests pin every timer interval and both directions.
+- The Level `$64` idle comparison remains phase/state-misaligned, so it is not
+  an individual-frame exactness claim. Its total falls from 829,759 to 730,592
+  changed pixels, a 99,167-pixel improvement. `verify-slice-fast` and the full
+  37,759-frame `verify-tas-full` pass with unchanged published-route ratchets.
+
 ## 2026-08-30 handoff (Shishkaboss SAT worker phases)
 
 - Raw oracle SAT, WRAM, VRAM, CRAM, and decoded-art comparisons proved the

@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use wildside_core::{
-    CycloneGroundedSpriteSource, NativeContactPhase, NativeObjectKind, NativeObjectSnapshot,
-    NativeTraceFrame, PlatformSpriteDispatchInputLoc244C, PlatformSpriteDispatchLoc244C,
-    PlatformSpriteEntryLoc2548, PlatformSpriteVariantLoc244C, PlayerForm, ShishkabossSkewerMapping,
-    TransformHandler, physics::Direction, presented_transform_phase,
+    CycloneGroundedSpriteSource, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame,
+    PlatformSpriteDispatchInputLoc244C, PlatformSpriteDispatchLoc244C, PlatformSpriteEntryLoc2548,
+    PlatformSpriteVariantLoc244C, PlayerForm, ShishkabossSkewerMapping, TransformHandler,
+    physics::Direction, presented_transform_phase,
 };
 use wildside_render::{MdColour, NativeLevelVisuals, Palette, SpriteFrame, TileRef};
 
@@ -1506,36 +1506,21 @@ fn select_flying_dragon_dive_frame<'a>(
 }
 
 fn select_live_tar_monster_frame<'a>(
-    trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
 ) -> Option<&'a wildside_render::SpriteFrame> {
-    let _ = trace;
     if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x05 })
         || object.hit_points == Some(0)
-        || enemy_visuals.frames.len() < 2
+        || enemy_visuals.frames.len() < 7
     {
         return None;
     }
-    // ASM Tar_Monster.asm off_32290 dispatches stru_3272E (emerge,
-    // C77A6->C77D6) and stru_3274C (submerge, C77D6->C77A6). The extracted
-    // sheet keeps only the hidden body (frame 0 = C77A6) and the fully emerged
-    // body (frame 1 = C77D6); frames 2.. are the stru_32700 submerge DEATH
-    // tail. A live tar monster holds one of the two body frames off its phase
-    // instead of free-running the whole sheet into the death frames. The 7-frame
-    // emerge/submerge intermediates are not extracted, so the transition pops
-    // rather than tweens (atlas limit, not a regression). contact_phase
-    // TarMonsterHidden is set whenever tar_monster_state is not Visible/Attacking
-    // (enemies.rs:9399-9408).
-    let frame = if matches!(
-        object.contact_phase,
-        Some(NativeContactPhase::TarMonsterHidden)
-    ) {
-        0
-    } else {
-        1
-    };
-    Some(&enemy_visuals.frames[frame])
+    // ASM Tar_Monster.asm off_32290 dispatches stru_3272E (C77A6..C77D6)
+    // and reversed stru_3274C. Core exports the linked GfxObject's exact
+    // seven-step phase; atlas frames 7..11 remain exclusive to stru_32700's
+    // death tail.
+    let frame = usize::from(object.sprite_animation_phase?);
+    enemy_visuals.frames.get(frame).filter(|_| frame < 7)
 }
 
 fn select_live_cloud_attack_frame<'a>(
@@ -2099,20 +2084,20 @@ pub fn select_enemy_frame<'a>(
             ),
             // ASM Tar_Monster.asm loc_323E6 runs `stru_32700`: five
             // shrinking submerge frames before the status/delete tail.
-            0x05 if enemy_visuals.frames.len() >= 7 => select_waited_sequence_frame(
+            0x05 if enemy_visuals.frames.len() >= 12 => select_waited_sequence_frame(
                 remaining,
                 &[
-                    (0x09, 2),
-                    (0x09, 3),
-                    (0x03, 4),
-                    (0x03, 3),
-                    (0x09, 4),
-                    (0x03, 5),
-                    (0x03, 4),
-                    (0x09, 5),
-                    (0x03, 6),
-                    (0x03, 5),
-                    (0x09, 6),
+                    (0x09, 7),
+                    (0x09, 8),
+                    (0x03, 9),
+                    (0x03, 8),
+                    (0x09, 9),
+                    (0x03, 10),
+                    (0x03, 9),
+                    (0x09, 10),
+                    (0x03, 11),
+                    (0x03, 10),
+                    (0x09, 11),
                 ],
             ),
             // ASM Orca.asm loc_3D268/loc_3D4BC runs `stru_3D11E`: C7656
@@ -2419,7 +2404,7 @@ pub fn select_enemy_frame<'a>(
     if let Some(frame) = select_live_flying_dragon_frame(trace, enemy_visuals, object) {
         return frame;
     }
-    if let Some(frame) = select_live_tar_monster_frame(trace, enemy_visuals, object) {
+    if let Some(frame) = select_live_tar_monster_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_cloud_attack_frame(enemy_visuals, object) {
@@ -3115,6 +3100,7 @@ fn platform_art_for_mapping_word_loc_2548(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wildside_core::NativeContactPhase;
 
     fn marked_dynamic_art_frame(marker: u8, tile_count: usize) -> SpriteFrame {
         SpriteFrame {
@@ -4254,15 +4240,12 @@ mod tests {
 
         let mut rejected = live_enemy_object(0x05);
         rejected.kind = NativeObjectKind::Enemy { object_type: 0x06 };
-        assert!(select_live_tar_monster_frame(&trace, &full, &rejected).is_none());
+        assert!(select_live_tar_monster_frame(&full, &rejected).is_none());
         rejected = live_enemy_object(0x05);
         rejected.hit_points = Some(0);
-        assert!(select_live_tar_monster_frame(&trace, &full, &rejected).is_none());
+        assert!(select_live_tar_monster_frame(&full, &rejected).is_none());
         let too_short_tar = labelled_enemy_visuals(1, 3);
-        assert!(
-            select_live_tar_monster_frame(&trace, &too_short_tar, &live_enemy_object(0x05))
-                .is_none()
-        );
+        assert!(select_live_tar_monster_frame(&too_short_tar, &live_enemy_object(0x05)).is_none());
 
         let mut rejected = live_enemy_object(0x04);
         rejected.sprite_animation_phase = Some(0);
@@ -4397,13 +4380,14 @@ mod tests {
             )),
             0x0100
         );
+        let mut tar_monster = live_enemy_object(0x05);
+        tar_monster.sprite_animation_phase = Some(6);
         assert_eq!(
             selected_live_tile_base(select_live_tar_monster_frame(
-                &trace,
-                &labelled_enemy_visuals(2, 3),
-                &live_enemy_object(0x05)
+                &labelled_enemy_visuals(7, 3),
+                &tar_monster
             )),
-            0x0101
+            0x0106
         );
         let mut armadillo = live_enemy_object(0x04);
         armadillo.sprite_animation_phase = Some(0);
@@ -4693,18 +4677,20 @@ mod tests {
         let visuals = labelled_enemy_visuals(8, 7);
         let trace = NativeTraceFrame::default();
 
-        // ASM Tar_Monster.asm off_32290: hidden and visible live states hold
-        // distinct body frames.
+        // ASM Tar_Monster.asm off_32290: core exports the exact seven-step
+        // stru_3272E/stru_3274C body phase.
         let mut tar = live_enemy_object(0x05);
+        tar.sprite_animation_phase = Some(0);
         tar.contact_phase = Some(NativeContactPhase::TarMonsterHidden);
         assert_eq!(
-            selected_live_tile_base(select_live_tar_monster_frame(&trace, &visuals, &tar)),
+            selected_live_tile_base(select_live_tar_monster_frame(&visuals, &tar)),
             0x0100
         );
+        tar.sprite_animation_phase = Some(6);
         tar.contact_phase = None;
         assert_eq!(
-            selected_live_tile_base(select_live_tar_monster_frame(&trace, &visuals, &tar)),
-            0x0101
+            selected_live_tile_base(select_live_tar_monster_frame(&visuals, &tar)),
+            0x0106
         );
 
         // ASM Hand.asm live scripts: walk, jump attack, and grab start from
@@ -5568,7 +5554,7 @@ mod tests {
             ),
             (0x07, 12, 8, "ASM Archer.asm loc_3414A `stru_33FC2`"),
             (0x04, 15, 12, "ASM Armadillo.asm loc_3C886 `stru_3C69A`"),
-            (0x05, 7, 2, "ASM Tar_Monster.asm loc_323E6 `stru_32700`"),
+            (0x05, 12, 7, "ASM Tar_Monster.asm loc_323E6 `stru_32700`"),
             (0x08, 11, 6, "ASM Orca.asm loc_3D268/loc_3D4BC `stru_3D11E`"),
             (0x09, 9, 6, "ASM Crab.asm loc_3B094 `stru_3AF82`"),
             (0x0A, 6, 3, "ASM Tank.asm loc_3B480 `stru_3B29A`"),
@@ -5722,19 +5708,19 @@ mod tests {
             ),
             (
                 0x05,
-                7,
+                12,
                 &[
-                    (63, 2),
-                    (54, 3),
-                    (45, 4),
-                    (42, 3),
-                    (39, 4),
-                    (30, 5),
-                    (27, 4),
-                    (24, 5),
-                    (15, 6),
-                    (12, 5),
-                    (9, 6),
+                    (63, 7),
+                    (54, 8),
+                    (45, 9),
+                    (42, 8),
+                    (39, 9),
+                    (30, 10),
+                    (27, 9),
+                    (24, 10),
+                    (15, 11),
+                    (12, 10),
+                    (9, 11),
                 ],
                 "ASM Tar_Monster.asm loc_323E6 `stru_32700`",
             ),

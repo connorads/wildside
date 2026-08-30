@@ -2705,6 +2705,11 @@ impl ActiveEnemy {
             && self.ufo_beam_segments != 0
         {
             cloud_attack_sprite_phase_stru_35ec8(self.dragon_descent_frames)
+        } else if matches!(self.family, EnemyFamily::TarMonster) && !self.death_animation_active {
+            Some(tar_monster_live_sprite_phase_stru_3272e_3274c(
+                self.tar_monster_state,
+                self.wait_timer,
+            ))
         } else if matches!(self.family, EnemyFamily::FireDemon)
             && !self.death_animation_active
             && self.wait_timer != FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610
@@ -11661,6 +11666,25 @@ mod tests {
             enemy.snapshot().sprite_animation_phase,
             Some(2),
             "ASM Tornado.asm loc_35908 / stru_35B10 must export C785E for per-object animation ticks 10..14"
+        );
+    }
+
+    #[test]
+    fn tar_monster_trace_exports_linked_gfx_phase_stru_3272e_3274c() {
+        let mut enemy = tar_monster_test_enemy();
+        enemy.tar_monster_state = TarMonsterState::Emerging;
+        enemy.wait_timer = 20;
+        assert_eq!(
+            enemy.snapshot().sprite_animation_phase,
+            Some(2),
+            "ASM Tar_Monster.asm stru_3272E exports the third live mapping after eight animation ticks"
+        );
+
+        enemy.tar_monster_state = TarMonsterState::Submerging;
+        assert_eq!(
+            enemy.snapshot().sprite_animation_phase,
+            Some(4),
+            "ASM Tar_Monster.asm stru_3274C reverses the seven live mappings during disappearance"
         );
     }
 

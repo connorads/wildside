@@ -12,6 +12,24 @@ pub(crate) const TAR_MONSTER_ATTACK_FRAMES: u16 = 27;
 pub(crate) const TAR_MONSTER_ATTACK_FIRE_FRAME: u16 = 8;
 /// Submerge animation duration (`stru_3274C`: seven four-frame entries).
 pub(crate) const TAR_MONSTER_SUBMERGE_FRAMES: u16 = 28;
+
+pub(crate) fn tar_monster_live_sprite_phase_stru_3272e_3274c(
+    state: TarMonsterState,
+    wait_timer: u16,
+) -> u8 {
+    // ASM stru_3272E/stru_3274C contain seven four-frame mappings. The
+    // Object coroutine hibernates while the linked GfxObject walks the table;
+    // native's remaining wait reproduces that independent animation cursor.
+    let elapsed =
+        TAR_MONSTER_EMERGE_FRAMES.saturating_sub(wait_timer.min(TAR_MONSTER_EMERGE_FRAMES));
+    let transition_phase = (elapsed / 4).min(6) as u8;
+    match state {
+        TarMonsterState::Submerged => 0,
+        TarMonsterState::Emerging => transition_phase,
+        TarMonsterState::Visible | TarMonsterState::Attacking => 6,
+        TarMonsterState::Submerging => 6 - transition_phase,
+    }
+}
 /// Horizontal glob shot speed: ±4px/frame (Tar_Monster.asm line 316: $FFFC = -4).
 pub(crate) const TAR_MONSTER_GLOB_SPEED_X: i32 = 4 << 16;
 /// ASM loc_32534: final three child velocities in the Tar Monster burst sequence.
@@ -1300,6 +1318,48 @@ pub(crate) fn spawn_tar_monster_retaliation(
 mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
+
+    #[test]
+    fn tar_monster_live_sprite_phase_walks_and_reverses_stru_3272e_3274c() {
+        // ASM stru_3272E/stru_3274C: seven mappings last four frames each,
+        // with the disappearance table reversing the emergence table.
+        for (wait_timer, emerging, submerging) in [
+            (28, 0, 6),
+            (25, 0, 6),
+            (24, 1, 5),
+            (20, 2, 4),
+            (8, 5, 1),
+            (4, 6, 0),
+            (1, 6, 0),
+        ] {
+            assert_eq!(
+                tar_monster_live_sprite_phase_stru_3272e_3274c(
+                    TarMonsterState::Emerging,
+                    wait_timer,
+                ),
+                emerging
+            );
+            assert_eq!(
+                tar_monster_live_sprite_phase_stru_3272e_3274c(
+                    TarMonsterState::Submerging,
+                    wait_timer,
+                ),
+                submerging
+            );
+        }
+        assert_eq!(
+            tar_monster_live_sprite_phase_stru_3272e_3274c(TarMonsterState::Submerged, 0),
+            0
+        );
+        assert_eq!(
+            tar_monster_live_sprite_phase_stru_3272e_3274c(TarMonsterState::Visible, 0),
+            6
+        );
+        assert_eq!(
+            tar_monster_live_sprite_phase_stru_3272e_3274c(TarMonsterState::Attacking, 27),
+            6
+        );
+    }
 
     #[test]
     fn tar_monster_hp_matches_loc_321c6_hitpoint_table() {
