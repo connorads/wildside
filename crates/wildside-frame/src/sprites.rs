@@ -1458,7 +1458,6 @@ fn select_live_diamond_frame<'a>(
 }
 
 fn select_live_flying_dragon_frame<'a>(
-    trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
 ) -> Option<&'a wildside_render::SpriteFrame> {
@@ -1469,44 +1468,12 @@ fn select_live_flying_dragon_frame<'a>(
         return None;
     }
 
-    if let Some(frame) = select_flying_dragon_dive_frame(enemy_visuals, object) {
-        return Some(frame);
-    }
-
-    // ASM Dragon_Flying.asm loc_346DA runs `stru_34600`, whose visible
-    // sequence repeats C75EE/C75F6/C75FE/C7606 before occasionally showing
-    // C760E. It is not the simple five-frame loop used by the fallback path.
-    const STRU_34600_FRAME_SEQUENCE: [usize; 20] =
-        [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3];
-    let phase =
-        (trace.frame_index / enemy_visuals.frame_duration.max(1)) % STRU_34600_FRAME_SEQUENCE.len();
-    Some(&enemy_visuals.frames[STRU_34600_FRAME_SEQUENCE[phase]])
-}
-
-fn select_flying_dragon_dive_frame<'a>(
-    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
-    object: &NativeObjectSnapshot,
-) -> Option<&'a wildside_render::SpriteFrame> {
-    if enemy_visuals.frames.len() < 9 {
-        return None;
-    }
-    let x_px = object.x_velocity? / 0x0001_0000;
-    let y_px = object.y_velocity? / 0x0001_0000;
-    let facing = object.facing?;
-
-    // ASM Dragon_Flying.asm loc_348CE reads the dive script's sprite byte and
-    // indexes `off_345F6`: C75FE, C7616, C761E, C762E, C7636. Native does not
-    // yet expose the script pointer, so match the exact pixel/frame velocity
-    // bands from `unk_34554`.
-    let frame_index = match (x_px.abs(), y_px, facing) {
-        (1, 1, _) | (2, 1..=3, _) => 5,                   // LnkTo_unk_C7616
-        (1, 2..=4, _) => 6,                               // LnkTo_unk_C761E
-        (2, 0, _) => 2,                                   // LnkTo_unk_C75FE
-        (2, -3..=-1, _) | (1, -1, _) => 7,                // LnkTo_unk_C762E
-        (1, -4, _) | (1, -3..=-2, Direction::Right) => 8, // LnkTo_unk_C7636
-        _ => return None,
-    };
-    Some(&enemy_visuals.frames[frame_index])
+    // ASM loc_346C4/loc_349DE and loc_348CE select mappings from the private
+    // `stru_34600`, `stru_34652`, or `unk_34554` script pointer. Core exports
+    // that mapping directly; velocity and global time are not authoritative.
+    enemy_visuals
+        .frames
+        .get(usize::from(object.sprite_animation_phase?))
 }
 
 fn select_live_tar_monster_frame<'a>(
@@ -2423,7 +2390,7 @@ pub fn select_enemy_frame<'a>(
     if let Some(frame) = select_live_diamond_frame(enemy_visuals, object) {
         return frame;
     }
-    if let Some(frame) = select_live_flying_dragon_frame(trace, enemy_visuals, object) {
+    if let Some(frame) = select_live_flying_dragon_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_tar_monster_frame(enemy_visuals, object) {
@@ -3643,6 +3610,13 @@ mod tests {
         }
     }
 
+    fn live_flying_dragon_object(phase: u8) -> NativeObjectSnapshot {
+        NativeObjectSnapshot {
+            sprite_animation_phase: Some(phase),
+            ..live_enemy_object(0x0C)
+        }
+    }
+
     fn selected_enemy_tile_base(
         trace: &NativeTraceFrame,
         visuals: &wildside_render::AnimatedSpriteVisual,
@@ -4199,7 +4173,7 @@ mod tests {
             ),
             (
                 0x0C,
-                select_live_flying_dragon_frame(&trace, &full, &live_enemy_object(0x0C)).is_some(),
+                select_live_flying_dragon_frame(&full, &live_flying_dragon_object(0)).is_some(),
             ),
             (0x04, {
                 let mut armadillo = live_enemy_object(0x04);
@@ -4265,15 +4239,13 @@ mod tests {
         assert!(select_live_diamond_frame(&full, &rejected).is_none());
         assert!(select_live_diamond_frame(&short, &live_diamond_object(0)).is_none());
 
-        let mut rejected = live_enemy_object(0x0C);
+        let mut rejected = live_flying_dragon_object(0);
         rejected.kind = NativeObjectKind::Enemy { object_type: 0x0D };
-        assert!(select_live_flying_dragon_frame(&trace, &full, &rejected).is_none());
-        rejected = live_enemy_object(0x0C);
+        assert!(select_live_flying_dragon_frame(&full, &rejected).is_none());
+        rejected = live_flying_dragon_object(0);
         rejected.hit_points = Some(0);
-        assert!(select_live_flying_dragon_frame(&trace, &full, &rejected).is_none());
-        assert!(
-            select_live_flying_dragon_frame(&trace, &short, &live_enemy_object(0x0C)).is_none()
-        );
+        assert!(select_live_flying_dragon_frame(&full, &rejected).is_none());
+        assert!(select_live_flying_dragon_frame(&short, &live_flying_dragon_object(8)).is_none());
 
         let mut rejected = live_enemy_object(0x05);
         rejected.kind = NativeObjectKind::Enemy { object_type: 0x06 };
@@ -4410,9 +4382,8 @@ mod tests {
         );
         assert_eq!(
             selected_live_tile_base(select_live_flying_dragon_frame(
-                &trace,
                 &labelled_enemy_visuals(5, 3),
-                &live_enemy_object(0x0C)
+                &live_flying_dragon_object(0)
             )),
             0x0100
         );
@@ -4648,24 +4619,20 @@ mod tests {
         );
 
         // ASM Dragon_Flying.asm loc_346DA/loc_348CE: the normal wing sequence
-        // and dive velocity table are both distinct from the generic loop.
+        // and dive mapping table are both distinct from the generic loop.
         let flying_visuals = labelled_enemy_visuals(9, 7);
         trace.frame_index = 84;
-        let mut flying_dragon = live_enemy_object(0x0C);
+        let mut flying_dragon = live_flying_dragon_object(4);
         assert_eq!(
             selected_live_tile_base(select_live_flying_dragon_frame(
-                &trace,
                 &flying_visuals,
                 &flying_dragon
             )),
             0x0104
         );
-        flying_dragon.x_velocity = Some(-0x0002_0000);
-        flying_dragon.y_velocity = Some(-0x0003_0000);
-        flying_dragon.facing = Some(Direction::Left);
+        flying_dragon.sprite_animation_phase = Some(7);
         assert_eq!(
             selected_live_tile_base(select_live_flying_dragon_frame(
-                &trace,
                 &flying_visuals,
                 &flying_dragon
             )),
@@ -4674,35 +4641,24 @@ mod tests {
     }
 
     #[test]
-    fn flying_dragon_dive_selector_covers_loc_348ce_velocity_bands() {
+    fn flying_dragon_selector_consumes_loc_348ce_script_mapping() {
         let visuals = labelled_enemy_visuals(9, 7);
-        let mut dragon = live_enemy_object(0x0C);
+        let mut dragon = live_flying_dragon_object(8);
 
-        dragon.x_velocity = Some(0x0001_0000);
-        dragon.y_velocity = Some(0x0001_0000);
-        dragon.facing = Some(Direction::Right);
         assert!(
-            select_flying_dragon_dive_frame(&labelled_enemy_visuals(8, 7), &dragon).is_none(),
+            select_live_flying_dragon_frame(&labelled_enemy_visuals(8, 7), &dragon).is_none(),
             "ASM Dragon_Flying.asm loc_348CE indexes C7636 at frame 8, so dive sheets need nine frames"
         );
 
-        // ASM Dragon_Flying.asm loc_348CE splits `unk_34554` velocity bytes and
-        // indexes `off_345F6`; native maps those visible bands back to the
-        // extracted C75FE/C7616/C761E/C762E/C7636 frames.
-        for (x_px, y_px, facing, expected_tile) in [
-            (1, 1, Direction::Right, 0x0105),  // LnkTo_unk_C7616
-            (1, 4, Direction::Left, 0x0106),   // LnkTo_unk_C761E
-            (-2, 0, Direction::Left, 0x0102),  // LnkTo_unk_C75FE
-            (2, -3, Direction::Left, 0x0107),  // LnkTo_unk_C762E
-            (1, -4, Direction::Right, 0x0108), // LnkTo_unk_C7636
-        ] {
-            dragon.x_velocity = Some(x_px * 0x0001_0000);
-            dragon.y_velocity = Some(y_px * 0x0001_0000);
-            dragon.facing = Some(facing);
+        // Core decodes loc_348CE's explicit off_345F6 byte offset. Rendering
+        // consumes that selected mapping without reconstructing it from
+        // velocities, which are not unique across the dive script.
+        for (phase, expected_tile) in [(6, 0x0106), (8, 0x0108), (2, 0x0102), (7, 0x0107)] {
+            dragon.sprite_animation_phase = Some(phase);
             assert_eq!(
-                selected_live_tile_base(select_flying_dragon_dive_frame(&visuals, &dragon)),
+                selected_live_tile_base(select_live_flying_dragon_frame(&visuals, &dragon)),
                 expected_tile,
-                "ASM Dragon_Flying.asm loc_348CE should preserve the dive script velocity band"
+                "ASM Dragon_Flying.asm loc_348CE should preserve the script-selected mapping"
             );
         }
     }

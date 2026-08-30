@@ -409,6 +409,7 @@ fn dragon_flying_contact_uses_rom_collision_size_union_loc_1bce() {
 fn dragon_flying_descent_zero_contact_uses_off_345f6_loc_348ce() {
     let mut dragon = test_enemy(EnemyFamily::Dragon, 101 << 16, 100 << 16, 1);
     dragon.dragon_phase = DragonFlyingState::Descending;
+    dragon.dragon_descent_index = 8;
     dragon.x_velocity = -2 << 16;
     dragon.y_velocity = 0;
 
@@ -442,6 +443,7 @@ fn dragon_flying_descent_zero_contact_uses_off_345f6_loc_348ce() {
 fn dragon_flying_descent_nonzero_contact_keeps_off_345f6_body_row_loc_348ce() {
     let mut dragon = test_enemy(EnemyFamily::Dragon, 101 << 16, 100 << 16, 1);
     dragon.dragon_phase = DragonFlyingState::Descending;
+    dragon.dragon_descent_index = 9;
     dragon.x_velocity = -2 << 16;
     dragon.y_velocity = -1 << 16;
 
@@ -12880,6 +12882,7 @@ mod chunk_03 {
         enemy.dragon_phase = DragonFlyingState::Descending;
         enemy.dragon_descent_index = 0;
         enemy.dragon_descent_frames = 1;
+        enemy.facing = Direction::Right;
         enemy.x_velocity = 1 << 16;
         enemy.y_velocity = 0;
 

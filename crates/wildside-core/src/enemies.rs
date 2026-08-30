@@ -2031,17 +2031,6 @@ const DRAGON_FLYING_COLID_FLOOR: u16 = colid::FLOOR;
 const DRAGON_FLYING_COLID_CEILING: u16 = colid::CEILING;
 const DRAGON_FLYING_COLID_SLOPEUP: u16 = colid::SLOPEUP;
 const DRAGON_FLYING_COLID_SLOPEDOWN: u16 = colid::SLOPEDOWN;
-const DRAGON_FLYING_MAIN_ANIMATION_FRAME_TICKS: u16 = 7;
-const DRAGON_FLYING_MAIN_ANIMATION_FRAMES: u16 = 20;
-const DRAGON_FLYING_MAIN_ANIMATION_TICKS: u16 =
-    DRAGON_FLYING_MAIN_ANIMATION_FRAME_TICKS * DRAGON_FLYING_MAIN_ANIMATION_FRAMES;
-
-pub(crate) fn dragon_flying_main_zero_contact_row_stru_34600(animation_tick: u16) -> bool {
-    let frame = (animation_tick % DRAGON_FLYING_MAIN_ANIMATION_TICKS)
-        / DRAGON_FLYING_MAIN_ANIMATION_FRAME_TICKS;
-    matches!(frame, 2 | 3 | 6 | 7 | 10 | 11 | 14 | 15 | 18 | 19)
-}
-
 fn fp16_from_signed_word(word: i16) -> i32 {
     i32::from(word) << 16
 }
@@ -2705,9 +2694,9 @@ impl ActiveEnemy {
         } else {
             None
         };
-        let sprite_animation_phase = if matches!(self.family, EnemyFamily::Tank)
-            && !self.death_animation_active
-        {
+        let sprite_animation_phase = if matches!(self.family, EnemyFamily::Dragon) {
+            dragon_flying_sprite_animation_phase(self)
+        } else if matches!(self.family, EnemyFamily::Tank) && !self.death_animation_active {
             // ASM Tank.asm loc_3B372 initialises parent `stru_3B270` beside
             // child `stru_3B27E`. `dragon_descent_frames` is the parent's
             // independent 18-tick GfxObject clock; the Object coroutine may
@@ -3065,18 +3054,16 @@ impl ActiveEnemy {
         };
         let contact_phase = if matches!(self.family, EnemyFamily::Dragon)
             && matches!(self.dragon_phase, DragonFlyingState::Descending)
-            && dragon_flying_dive_zero_contact_row_loc_348ce(self.x_velocity, self.y_velocity)
+            && dragon_flying_sprite_animation_phase(self) == Some(2)
         {
             // ASM Dragon_Flying.asm loc_348CE indexes `off_345F6` from the
-            // current dive-script velocity byte. `LnkTo_unk_C75FE` and
-            // `LnkTo_unk_C7616` resolve through GfxObjects_CollisionKid
-            // loc_1BCE to CollisionSize row `unk_31DE0`, so those descent
-            // frames have no parent Kid contact.
+            // dive entry's explicit sprite byte. The live script selects
+            // zero-contact `LnkTo_unk_C75FE` at its level-flight segment.
             Some(NativeContactPhase::DragonFlyingDiveZero)
         } else if matches!(self.family, EnemyFamily::Dragon)
             && !self.death_animation_active
             && !matches!(self.dragon_phase, DragonFlyingState::Descending)
-            && dragon_flying_main_zero_contact_row_stru_34600(self.wait_timer)
+            && matches!(dragon_flying_sprite_animation_phase(self), Some(2 | 3))
         {
             // ASM Dragon_Flying.asm `stru_34600` repeats 20 seven-tick
             // normal-animation frames. `LnkTo_unk_C75FE` and
@@ -4702,18 +4689,6 @@ fn manage_enemy_loading_status_step_loc_36840(
     const RELOAD_WORDS_UNK_3680C: [u16; 4] = [0x00F0, 0x01E0, 0x02D0, 0x03C0];
     *status_word |= RELOAD_WORDS_UNK_3680C[selector];
     Some(ManageEnemyLoadingSpawnStateLoc36840::CountdownReload)
-}
-
-fn dragon_flying_dive_zero_contact_row_loc_348ce(x_velocity: i32, y_velocity: i32) -> bool {
-    let x_px = x_velocity / 0x0001_0000;
-    let y_px = y_velocity / 0x0001_0000;
-    matches!(
-        (x_px.abs(), y_px),
-        // ASM Dragon_Flying.asm loc_348CE / off_345F6: `(2, 0)` selects
-        // `LnkTo_unk_C75FE`; `(1, 1)` and `(2, 1..=3)` select
-        // `LnkTo_unk_C7616`. All three route to `unk_31DE0`.
-        (2, 0..=3) | (1, 1)
-    )
 }
 
 /// Step all active enemies: apply movement, gravity, and terrain collision.

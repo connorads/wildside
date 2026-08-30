@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Flying Dragon script-selected mappings)
+
+- Flying Dragon rendering used global time for its live animation and inferred
+  dive mappings from velocity, despite `stru_34600`, `stru_34652`, and
+  `unk_34554` selecting exact mappings on each object.
+- Core now exports those ROM-selected phases. The descent interpreter also
+  follows `loc_34924` into `loc_3488A`, installing and ticking the next movement
+  entry in the same frame after DBF underflow.
+- Level `$06` oracle diagnosis passes with no state divergence. Focused
+  regressions, `verify-slice-fast`, and the full 37,759-frame `verify-tas-full`
+  pass with unchanged ratchets: 37,518 exact frames, 241 divergent frames, and
+  2,391 changed frozen HUD pixels.
+
 ## 2026-08-30 handoff (Diamond object-local animation clock)
 
 - Diamond rendering used `(frame_index / 6) % 5`, so every instance shared one

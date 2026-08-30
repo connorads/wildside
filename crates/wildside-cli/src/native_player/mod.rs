@@ -19561,7 +19561,7 @@ mod tests {
     fn flying_dragon_live_snapshot_uses_stru_34600_sequence() {
         let visuals = sample_level_visuals();
         let dragon_visuals = visuals.enemies.families.get(&0x0C).expect("dragon visuals");
-        let object = NativeObjectSnapshot {
+        let mut object = NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy { object_type: 0x0C },
             x_pos: 0x0040_0000,
             y_pos: 0x0010_0000,
@@ -19583,18 +19583,10 @@ mod tests {
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
-        let mut trace = sample_trace(GameMode::InGame);
+        let trace = sample_trace(GameMode::InGame);
 
-        for (frame_index, signature) in [
-            (0, 141),
-            (21, 144),
-            (28, 141),
-            (84, 145),
-            (91, 142),
-            (112, 145),
-            (119, 142),
-        ] {
-            trace.frame_index = frame_index;
+        for (phase, signature) in [(0, 141), (3, 144), (0, 141), (4, 145), (1, 142)] {
+            object.sprite_animation_phase = Some(phase);
             let frame = sprites::select_enemy_frame(&trace, dragon_visuals, &object);
             assert_eq!(
                 frame.tile_sheet.tiles[0].pixels[0], signature,
@@ -19629,8 +19621,8 @@ mod tests {
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
-        let mut trace = sample_trace(GameMode::InGame);
-        trace.frame_index = 60;
+        let trace = sample_trace(GameMode::InGame);
+        object.sprite_animation_phase = Some(7);
 
         assert_eq!(
             sprites::select_enemy_frame(&trace, dragon_visuals, &object)
@@ -19641,7 +19633,7 @@ mod tests {
             "ASM Dragon_Flying.asm loc_348CE should map `unk_34554` velocity -2,-3 through `off_345F6+$0006` to `LnkTo_unk_C762E`, not anonymous `unk_C7626`"
         );
 
-        object.y_velocity = Some(0);
+        object.sprite_animation_phase = Some(2);
         assert_eq!(
             sprites::select_enemy_frame(&trace, dragon_visuals, &object)
                 .tile_sheet

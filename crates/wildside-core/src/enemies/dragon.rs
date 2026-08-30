@@ -1189,6 +1189,68 @@ const DRAGON_DIVE_SCRIPT: &[DragonDiveAction] = &[
     DragonDiveAction::RestartScript,
 ];
 
+const DRAGON_FLYING_MAIN_SPRITE_PHASES_STRU_34600: [u8; 20] =
+    [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3];
+const DRAGON_FLYING_MAIN_ANIMATION_TICKS: u16 = 7 * 20;
+
+// ASM unk_34554 stores an off_345F6 mapping offset in each movement entry's
+// second word. Atlas slots 0..=4 are shared with the main animation; 5..=8 are
+// dive-only mappings. Sentinel entries do not install a mapping.
+const DRAGON_FLYING_DIVE_SPRITE_PHASES_UNK_34554: [Option<u8>; 18] = [
+    Some(6),
+    Some(8),
+    Some(8),
+    None,
+    Some(8),
+    Some(6),
+    Some(6),
+    Some(6),
+    Some(2),
+    Some(7),
+    Some(7),
+    Some(7),
+    Some(8),
+    None,
+    Some(8),
+    Some(8),
+    Some(7),
+    None,
+];
+
+pub(crate) fn dragon_flying_sprite_animation_phase(enemy: &ActiveEnemy) -> Option<u8> {
+    debug_assert!(matches!(enemy.family, EnemyFamily::Dragon));
+    if enemy.death_animation_active {
+        return None;
+    }
+    match enemy.dragon_phase {
+        DragonFlyingState::None => None,
+        DragonFlyingState::Descending => DRAGON_FLYING_DIVE_SPRITE_PHASES_UNK_34554
+            .get(usize::from(enemy.dragon_descent_index))
+            .copied()
+            .flatten(),
+        DragonFlyingState::TerrainSlideRight
+        | DragonFlyingState::TerrainSlideLeft
+        | DragonFlyingState::TerrainSlideUp
+        | DragonFlyingState::TerrainSlideDown
+        | DragonFlyingState::TerrainReboundLeft
+        | DragonFlyingState::TerrainReboundRight => {
+            // ASM loc_349DE installs `stru_34652`: four four-tick mappings.
+            Some((enemy.wait_timer / 4) as u8)
+        }
+        DragonFlyingState::Hovering
+        | DragonFlyingState::Drifting
+        | DragonFlyingState::DriftingWithFire
+        | DragonFlyingState::ReturningToAnchor => {
+            // ASM loc_346C4 installs `stru_34600`. `wait_timer` is the
+            // established object-local seven-tick phase counter used by
+            // contact parity.
+            let script_phase = usize::from(enemy.wait_timer / 7)
+                % DRAGON_FLYING_MAIN_SPRITE_PHASES_STRU_34600.len();
+            Some(DRAGON_FLYING_MAIN_SPRITE_PHASES_STRU_34600[script_phase])
+        }
+    }
+}
+
 /// Dragon Flying script interpreter (Dragon_Flying.asm).
 /// Reads commands from one of 3 variant scripts, executing each per-frame.
 /// Commands: Hover (idle), Drift (accelerate), DriftWithFire (drift + cone check),
@@ -1200,12 +1262,29 @@ pub(crate) fn step_dragon(
     player_y_pos: Option<u32>,
     projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
 ) {
-    if !matches!(enemy.dragon_phase, DragonFlyingState::None) && !enemy.death_animation_active {
+    if !matches!(
+        enemy.dragon_phase,
+        DragonFlyingState::None | DragonFlyingState::Descending
+    ) && !enemy.death_animation_active
+    {
         // ASM Dragon_Flying.asm loc_346C4 initialises `stru_34600`; each
         // hibernated script frame lets the GfxObject animation advance. Native
-        // stores the live normal-animation tick in `wait_timer` for contact
-        // row selection through GfxObjects_CollisionKid loc_1BCE.
-        enemy.wait_timer = (enemy.wait_timer + 1) % DRAGON_FLYING_MAIN_ANIMATION_TICKS;
+        // stores the current GfxObject animation tick in `wait_timer` for
+        // contact row selection through GfxObjects_CollisionKid loc_1BCE.
+        let animation_ticks = if matches!(
+            enemy.dragon_phase,
+            DragonFlyingState::TerrainSlideRight
+                | DragonFlyingState::TerrainSlideLeft
+                | DragonFlyingState::TerrainSlideUp
+                | DragonFlyingState::TerrainSlideDown
+                | DragonFlyingState::TerrainReboundLeft
+                | DragonFlyingState::TerrainReboundRight
+        ) {
+            4 * 4
+        } else {
+            DRAGON_FLYING_MAIN_ANIMATION_TICKS
+        };
+        enemy.wait_timer = (enemy.wait_timer + 1) % animation_ticks;
     }
     match enemy.dragon_phase {
         DragonFlyingState::None => {}
@@ -1401,6 +1480,9 @@ fn dragon_enter_terrain_response(enemy: &mut ActiveEnemy, collision_type: u16) {
             dragon_restart_script(enemy);
         }
         DragonTerrainDispatchLoc349DE::ResponseTable { byte_offset, .. } => {
+            // ASM loc_349DE installs `stru_34652` before dispatching through
+            // off_349C6, resetting this GfxObject's private animation timer.
+            enemy.wait_timer = 0;
             match byte_offset {
                 // ASM Dragon_Flying.asm off_349C6: collision `$04` dispatches
                 // to loc_34A24 and `$08` to loc_34A00.
@@ -1737,6 +1819,10 @@ fn step_dragon_descent(
                 };
                 if descent_tail.advances_descent_script {
                     enemy.dragon_descent_index += 1;
+                    // ASM loc_34924 branches straight to loc_3488A after the
+                    // DBF underflow. Process sentinels and install the next
+                    // movement mapping before this frame's GfxObject move.
+                    continue;
                 }
                 return; // Consume one frame.
             }
@@ -2214,7 +2300,7 @@ mod tests {
     }
 
     #[test]
-    fn dragon_descent_move_tail_advances_to_next_script_entry_loc_34924() {
+    fn dragon_descent_move_tail_installs_next_script_entry_loc_34924_348ce() {
         let mut enemy = dragon_flying_test_enemy(100, 80, 0, 0);
         enemy.facing = Direction::Left;
         enemy.dragon_descent_index = 0;
@@ -2224,9 +2310,51 @@ mod tests {
 
         assert_eq!(
             enemy.dragon_descent_index, 1,
-            "ASM Dragon_Flying.asm loc_34924 advances the descent script only after the DBF tail underflows"
+            "ASM Dragon_Flying.asm loc_34924 advances the descent script after the DBF tail underflows"
         );
-        assert_eq!(enemy.dragon_descent_frames, 0);
+        assert_eq!(
+            enemy.dragon_descent_frames, 8,
+            "ASM loc_3488A/loc_348CE immediately installs and consumes the next nine-frame entry"
+        );
+        assert_eq!(
+            (enemy.x_velocity, enemy.y_velocity),
+            (-0x0001_0000, 0x0002_0000)
+        );
+    }
+
+    #[test]
+    fn dragon_flying_exports_main_and_dive_script_mappings() {
+        let mut enemy = dragon_flying_test_enemy(100, 80, 0, 0);
+        enemy.dragon_phase = DragonFlyingState::Hovering;
+
+        for (elapsed, expected) in [(0, 0), (1, 0), (6, 0), (7, 1), (21, 3), (84, 4), (139, 3)] {
+            enemy.wait_timer = elapsed;
+            assert_eq!(
+                dragon_flying_sprite_animation_phase(&enemy),
+                Some(expected),
+                "ASM Init_Animation loc_1040 and Dragon_Flying.asm stru_34600 tick {elapsed}"
+            );
+        }
+
+        enemy.dragon_phase = DragonFlyingState::Descending;
+        for (script_index, expected) in [
+            (0, Some(6)),
+            (1, Some(8)),
+            (4, Some(8)),
+            (5, Some(6)),
+            (8, Some(2)),
+            (9, Some(7)),
+            (12, Some(8)),
+            (14, Some(8)),
+            (16, Some(7)),
+        ] {
+            enemy.dragon_descent_index = script_index;
+            assert_eq!(
+                dragon_flying_sprite_animation_phase(&enemy),
+                expected,
+                "ASM Dragon_Flying.asm unk_34554 entry {script_index} indexes off_345F6"
+            );
+        }
     }
 
     #[test]
