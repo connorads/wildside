@@ -1439,7 +1439,6 @@ fn select_live_rock_tank_body_frame<'a>(
 }
 
 fn select_live_diamond_frame<'a>(
-    trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
 ) -> Option<&'a wildside_render::SpriteFrame> {
@@ -1450,13 +1449,12 @@ fn select_live_diamond_frame<'a>(
         return None;
     }
 
-    // ASM Diamond.asm Enemy01_Diamond_Init installs `stru_3ACA8`: five
-    // six-tick live frames, then dispatch selector 2 rewinds to the start.
-    // The later extracted frames are hurt/death-only (`stru_3ACBE`/`stru_3ACC4`),
-    // so live Diamonds must not cycle the whole sheet or desynchronise by
-    // layout index.
-    let phase = (trace.frame_index / 6) % 5;
-    Some(&enemy_visuals.frames[phase])
+    // ASM Diamond.asm loc_3AD4C/loc_3AD7C owns a private `stru_3ACA8`
+    // animation timer. Core also exports phase 5 while `stru_3ACBE` replaces
+    // that script during a surviving hit.
+    enemy_visuals
+        .frames
+        .get(usize::from(object.sprite_animation_phase?))
 }
 
 fn select_live_flying_dragon_frame<'a>(
@@ -2422,7 +2420,7 @@ pub fn select_enemy_frame<'a>(
     if let Some(frame) = select_live_rock_tank_body_frame(trace, enemy_visuals, object) {
         return frame;
     }
-    if let Some(frame) = select_live_diamond_frame(trace, enemy_visuals, object) {
+    if let Some(frame) = select_live_diamond_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_flying_dragon_frame(trace, enemy_visuals, object) {
@@ -3638,6 +3636,13 @@ mod tests {
         }
     }
 
+    fn live_diamond_object(phase: u8) -> NativeObjectSnapshot {
+        NativeObjectSnapshot {
+            sprite_animation_phase: Some(phase),
+            ..live_enemy_object(0x01)
+        }
+    }
+
     fn selected_enemy_tile_base(
         trace: &NativeTraceFrame,
         visuals: &wildside_render::AnimatedSpriteVisual,
@@ -4190,7 +4195,7 @@ mod tests {
             ),
             (
                 0x01,
-                select_live_diamond_frame(&trace, &full, &live_enemy_object(0x01)).is_some(),
+                select_live_diamond_frame(&full, &live_diamond_object(0)).is_some(),
             ),
             (
                 0x0C,
@@ -4252,13 +4257,13 @@ mod tests {
             select_live_rock_tank_body_frame(&trace, &short, &live_enemy_object(0x0A)).is_none()
         );
 
-        let mut rejected = live_enemy_object(0x01);
+        let mut rejected = live_diamond_object(0);
         rejected.kind = NativeObjectKind::Enemy { object_type: 0x0D };
-        assert!(select_live_diamond_frame(&trace, &full, &rejected).is_none());
-        rejected = live_enemy_object(0x01);
+        assert!(select_live_diamond_frame(&full, &rejected).is_none());
+        rejected = live_diamond_object(0);
         rejected.hit_points = Some(0);
-        assert!(select_live_diamond_frame(&trace, &full, &rejected).is_none());
-        assert!(select_live_diamond_frame(&trace, &short, &live_enemy_object(0x01)).is_none());
+        assert!(select_live_diamond_frame(&full, &rejected).is_none());
+        assert!(select_live_diamond_frame(&short, &live_diamond_object(0)).is_none());
 
         let mut rejected = live_enemy_object(0x0C);
         rejected.kind = NativeObjectKind::Enemy { object_type: 0x0D };
@@ -4398,9 +4403,8 @@ mod tests {
         // reject only shorter sheets; appended frames are hurt/death tails.
         assert_eq!(
             selected_live_tile_base(select_live_diamond_frame(
-                &trace,
                 &labelled_enemy_visuals(5, 3),
-                &live_enemy_object(0x01)
+                &live_diamond_object(0)
             )),
             0x0100
         );
@@ -4508,9 +4512,8 @@ mod tests {
         trace.frame_index = 13;
         assert_eq!(
             selected_live_tile_base(select_live_diamond_frame(
-                &trace,
                 &diamond_visuals,
-                &live_enemy_object(0x01)
+                &live_diamond_object(2)
             )),
             0x0102
         );

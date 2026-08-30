@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Diamond object-local animation clock)
+
+- Diamond rendering used `(frame_index / 6) % 5`, so every instance shared one
+  phase and the surviving-hit `stru_3ACBE` mapping was unreachable.
+- Core now mirrors `Init_Animation`'s one-tick bootstrap and the five six-tick
+  `stru_3ACA8` entries on each Diamond. A nonfatal hit exposes `stru_3ACBE`, then
+  `loc_3AE16`/`loc_3AF0E` resets only that object's live clock.
+- Trace exports the typed mapping phase and rendering no longer reads global
+  time. Focused core and renderer regressions pass. `verify-slice-fast` and the
+  full 37,759-frame `verify-tas-full` pass with unchanged ratchets: 37,518 exact
+  frames, 241 divergent frames, and 2,391 changed frozen HUD pixels.
+
 ## 2026-08-30 handoff (player crawl ROM frames and phase)
 
 - `sub_8446`'s three-frame crawl mapping was explicitly unimplemented. Native

@@ -8162,7 +8162,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
-            sprite_animation_phase: None,
+            sprite_animation_phase: Some(0),
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -8170,7 +8170,9 @@ mod tests {
         trace.frame_index = 0;
         let first = sprites::select_enemy_frame(&trace, diamond_visuals, &object);
         trace.frame_index = 6;
-        let second = sprites::select_enemy_frame(&trace, diamond_visuals, &object);
+        let mut second_phase = object.clone();
+        second_phase.sprite_animation_phase = Some(1);
+        let second = sprites::select_enemy_frame(&trace, diamond_visuals, &second_phase);
 
         assert_eq!(
             first.tile_base_index, 0x02F,

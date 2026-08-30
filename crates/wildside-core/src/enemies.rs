@@ -1381,6 +1381,7 @@ pub(crate) struct ActiveEnemy {
     /// Driller reuses it as the elapsed `stru_3BCB2` parent-animation tick.
     /// Armadillo and Goat reuse it as the elapsed live walk/charge animation tick.
     /// Robot reuses it for the parent body's independent animation tick.
+    /// Diamond reuses this for the live `stru_3ACA8` GfxObject animation tick.
     pub(crate) dragon_descent_frames: u8,
     pub(crate) ninja_state: NinjaState,
     pub(crate) hand_state: HandState,
@@ -1750,6 +1751,14 @@ pub(crate) const ROBOT_HURT_ANIMATION_FRAMES_STRU_3A744: u8 = 0x09;
 /// ASM Diamond.asm loc_3AEE6 / loc_3AE28 plays `stru_3ACC4`: $08, $06,
 /// $03, $03, then $02 ticks before the shared delete tail at loc_3C46E.
 pub(crate) const DIAMOND_DEATH_ANIMATION_FRAMES: u16 = 0x08 + 0x06 + 0x03 + 0x03 + 0x02;
+const DIAMOND_LIVE_ANIMATION_TICKS_STRU_3ACA8: u8 = 5 * 6;
+
+fn diamond_live_sprite_animation_phase_stru_3aca8(elapsed: u8) -> u8 {
+    // ASM Init_Animation loc_1040 selects the first mapping immediately and
+    // seeds a one-tick bootstrap timer. GfxObject_Animate loc_113E then gives
+    // each `stru_3ACA8` entry six ticks before selector 2 rewinds `$15` bytes.
+    elapsed.saturating_sub(1) / 6
+}
 /// ASM Dragon.asm loc_3CEFC plays `stru_3CCEC`: $07, $06, $03, $16, $05,
 /// $04, $04, $0C, $05, then $63 ticks before loc_3E956.
 pub(crate) const DRAGON_WALKING_DEATH_ANIMATION_FRAMES: u16 =
@@ -2714,6 +2723,15 @@ impl ActiveEnemy {
                 self.tar_monster_state,
                 self.wait_timer,
             ))
+        } else if matches!(self.family, EnemyFamily::Diamond) && !self.death_animation_active {
+            // ASM Diamond.asm loc_3AD4C/loc_3AD7C installs `stru_3ACA8`.
+            // Nonfatal hurt replaces it with the one-frame `stru_3ACBE` and
+            // restores the live script from its first mapping afterwards.
+            Some(if self.damage_flash_frames > 0 {
+                5
+            } else {
+                diamond_live_sprite_animation_phase_stru_3aca8(self.dragon_descent_frames)
+            })
         } else if matches!(self.family, EnemyFamily::BigHoppingSkull)
             && !self.death_animation_active
         {
@@ -4916,6 +4934,17 @@ pub(crate) fn step_active_enemies_with_rng(
             // runs independently from loc_3B41C and the shared-walker Object.
             enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1) % 18;
         }
+        if matches!(enemy.family, EnemyFamily::Diamond)
+            && enemy.damage_flash_frames == 0
+            && !enemy.death_animation_active
+            && enemy.wait_timer != DIAMOND_HIGH_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AEB2
+            && enemy.wait_timer != DIAMOND_LOW_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AF50
+        {
+            // ASM GfxObjects_MoveAndAnimate loc_142E advances the Diamond's
+            // `stru_3ACA8` GfxObject independently from either Object worker.
+            enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1)
+                % DIAMOND_LIVE_ANIMATION_TICKS_STRU_3ACA8;
+        }
         if matches!(enemy.family, EnemyFamily::Scorpion)
             && enemy.damage_flash_frames == 0
             && enemy.scorpion_sting_frames == 0
@@ -5006,6 +5035,8 @@ pub(crate) fn step_active_enemies_with_rng(
             matches!(enemy.family, EnemyFamily::Goat) && enemy.damage_flash_frames == 1;
         let restores_robot_animation =
             matches!(enemy.family, EnemyFamily::Robot) && enemy.damage_flash_frames == 1;
+        let restores_diamond_animation =
+            matches!(enemy.family, EnemyFamily::Diamond) && enemy.damage_flash_frames == 1;
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
         if restores_dragon_walking_animation {
             // ASM Dragon.asm loc_3CEBE restores `$62(a5)` through
@@ -5031,6 +5062,11 @@ pub(crate) fn step_active_enemies_with_rng(
             // stru_3A6E2 and linked-head stru_3A716 after a surviving hit.
             enemy.dragon_descent_frames = 0;
             enemy.dragon_descent_index = 0;
+        }
+        if restores_diamond_animation {
+            // ASM Diamond.asm loc_3AE16/loc_3AF0E re-installs `stru_3ACA8`
+            // through Init_Animation after the one-frame hurt script ends.
+            enemy.dragon_descent_frames = 0;
         }
         if matches!(enemy.family, EnemyFamily::FireDemon) {
             // ASM Fire_Demon.asm loc_3A48E allocates a separate palette helper
@@ -11751,6 +11787,38 @@ mod tests {
             enemy.snapshot().sprite_animation_phase,
             Some(2),
             "ASM Tornado.asm loc_35908 / stru_35B10 must export C785E for per-object animation ticks 10..14"
+        );
+    }
+
+    #[test]
+    fn diamond_exports_object_local_stru_3aca8_and_hurt_phases() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Diamond;
+
+        for (elapsed, expected_phase) in [
+            (0, 0),
+            (1, 0),
+            (6, 0),
+            (7, 1),
+            (12, 1),
+            (13, 2),
+            (24, 3),
+            (25, 4),
+            (29, 4),
+        ] {
+            enemy.dragon_descent_frames = elapsed;
+            assert_eq!(
+                enemy.snapshot().sprite_animation_phase,
+                Some(expected_phase),
+                "ASM Init_Animation loc_1040 and Diamond.asm stru_3ACA8 elapsed tick {elapsed}"
+            );
+        }
+
+        enemy.damage_flash_frames = DIAMOND_HURT_ANIMATION_FRAMES_STRU_3ACBE;
+        assert_eq!(
+            enemy.snapshot().sprite_animation_phase,
+            Some(5),
+            "ASM Diamond.asm loc_3ADFA/loc_3AEF8 replaces the live script with stru_3ACBE"
         );
     }
 
