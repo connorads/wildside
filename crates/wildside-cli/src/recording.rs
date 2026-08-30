@@ -3053,6 +3053,7 @@ mod tests {
             level_speed_bonus_awarded: false,
             level_path_bonus_amount: 0,
             murder_wall_x: None,
+            murder_wall_warning_animation_frame_sub_5e02: 0,
             active_projectiles: Vec::new(),
             active_projectile_details: Vec::new(),
             diamond_power_sprites: Vec::new(),

@@ -3218,6 +3218,9 @@ pub struct NativeTraceFrame {
     #[serde(default)]
     pub level_path_bonus_amount: u32,
     pub murder_wall_x: Option<i64>,
+    /// ASM `$FFFFFABF`: exact `sub_5E02` murder-wall pattern index.
+    #[serde(default)]
+    pub murder_wall_warning_animation_frame_sub_5e02: u8,
     /// Active projectiles: (x_pos, y_pos, friendly).
     pub active_projectiles: Vec<(u32, u32, bool)>,
     /// Active projectile details for the native player renderer. This stays
@@ -3610,6 +3613,7 @@ impl Default for NativeTraceFrame {
             level_speed_bonus_awarded: false,
             level_path_bonus_amount: 0,
             murder_wall_x: None,
+            murder_wall_warning_animation_frame_sub_5e02: 0,
             active_projectiles: Vec::new(),
             active_projectile_details: Vec::new(),
             diamond_power_sprites: Vec::new(),

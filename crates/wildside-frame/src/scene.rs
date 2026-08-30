@@ -7491,11 +7491,6 @@ fn build_game_scene_filtered(
         // warning strip as 24 hardware sprites using `Murder_wall.bin`, which
         // Murderwall loc_140D2 uploads to VRAM tile `$2FB`.
         if let Some(wall_x_fp) = trace.murder_wall_x {
-            // NativeTraceFrame does not yet expose `$FFFFFAC0/$FFFFFABF`;
-            // this keeps the ASM sprite geometry and four ROM tile pages,
-            // with the phase derived from frame time for native-player
-            // presentation only.
-            let animation_frame = ((trace.frame_index / 5) & 3) as u8;
             let render = wildside_core::compile_murder_wall_warning_sprites_sub_5E02(
                 wildside_core::MurderWallWarningInputSub5E02 {
                     murder_wall_enabled: true,
@@ -7506,7 +7501,7 @@ fn build_game_scene_filtered(
                     camera_x_px: (trace.camera_x_pos >> 16) as i16,
                     camera_y_px: (trace.camera_y_pos >> 16) as u16,
                     animation_timer: 2,
-                    animation_frame,
+                    animation_frame: trace.murder_wall_warning_animation_frame_sub_5e02,
                     starting_number_sprites: 0,
                 },
             );

@@ -12577,6 +12577,8 @@ impl NativeRuntime {
             level_speed_bonus_awarded: self.level_speed_bonus_awarded,
             level_path_bonus_amount: self.level_path_bonus_amount,
             murder_wall_x: self.murder_wall.map(|w| w.x_pos),
+            murder_wall_warning_animation_frame_sub_5e02: self
+                .murder_wall_warning_animation_frame_fabf,
             active_projectiles: self
                 .projectiles
                 .iter()

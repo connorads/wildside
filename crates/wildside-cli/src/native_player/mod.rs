@@ -2827,6 +2827,7 @@ mod tests {
             level_speed_bonus_awarded: false,
             level_path_bonus_amount: 0,
             murder_wall_x: None,
+            murder_wall_warning_animation_frame_sub_5e02: 0,
             active_projectiles: Vec::new(),
             active_projectile_details: Vec::new(),
             diamond_power_sprites: Vec::new(),
@@ -11242,6 +11243,7 @@ mod tests {
         trace.camera_y_pos = 0;
         trace.level_timer_seconds = 179;
         trace.murder_wall_x = Some(16 << 16);
+        trace.murder_wall_warning_animation_frame_sub_5e02 = 2;
         let mut visuals = sample_level_visuals();
         visuals.level.murder_wall_flags = 2;
         visuals.murder_wall = Some(wildside_render::MurderWallVisuals {
@@ -11291,6 +11293,16 @@ mod tests {
                 )
             })
             .expect("murder-wall strip command");
+        let wall_tile_index = match &scene.commands[wall_index] {
+            DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. } => {
+                tiles[0].tile.tile_index
+            }
+            _ => unreachable!(),
+        };
+        assert_eq!(
+            wall_tile_index, 0x48,
+            "ASM loc_5E94 `$FFFFFABF=2` selects absolute tile `$343`, local tile `$48` in Murder_wall.bin"
+        );
         let clear_index = scene
             .commands
             .iter()
@@ -11404,7 +11416,7 @@ mod tests {
                         camera_x_px: (frame.camera_x_pos >> 16) as i16,
                         camera_y_px: (frame.camera_y_pos >> 16) as u16,
                         animation_timer: 2,
-                        animation_frame: ((frame.frame_index / 5) & 3) as u8,
+                        animation_frame: frame.murder_wall_warning_animation_frame_sub_5e02,
                         starting_number_sprites: 0,
                     },
                 );

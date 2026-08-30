@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (exact murder-wall animation phase)
+
+- The murder-wall asset pipeline already decoded `Murder_wall.bin` and emitted
+  the ROM's 24-sprite strip. Its pattern page was still inferred as
+  `(frame_index / 5) & 3`, ignoring `sub_5E02`'s camera gate.
+- Native now mirrors `$FFFFFAC0/$FFFFFABF`: `Murderwall` seeds timer 1/frame 0,
+  visible calls reload every five ticks and advance the two-bit phase, and the
+  exact `$30` off-screen boundary holds both globals. Trace carries that phase
+  directly to the renderer.
+- Focused state and selected-tile regressions pass. The generated Level `0x08`
+  asset route renders all 24 ROM-art sprites. `verify-slice-fast` and the full
+  37,759-frame `verify-tas-full` pass with unchanged published ratchets: 37,518
+  exact frames, 241 divergent frames, and 2,391 changed HUD pixels. The
+  published route does not enter a murder-wall level.
+
 ## 2026-08-30 handoff (Heady Metal eye-pop lifecycle and ROM sprites)
 
 - `sub_3729E` was classified as a Generic projectile, rendered as an invented

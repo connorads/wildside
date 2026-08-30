@@ -26957,6 +26957,38 @@ mod chunk_05 {
     }
 
     #[test]
+    fn live_murder_wall_warning_phase_uses_fac0_fabf_camera_gate_sub_5e02() {
+        let mut manifest = manifest_with_levels(1);
+        manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .unwrap()
+            .murder_wall_flags = 0b10;
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.init_murder_wall(LevelId(0), 100);
+
+        assert_eq!(runtime.murder_wall_warning_animation_timer_fac0, 1);
+        assert_eq!(runtime.murder_wall_warning_animation_frame_fabf, 0);
+
+        runtime.step_murder_wall_warning_animation_sub_5e02();
+        assert_eq!(runtime.murder_wall_warning_animation_timer_fac0, 5);
+        assert_eq!(runtime.murder_wall_warning_animation_frame_fabf, 1);
+
+        runtime.murder_wall = Some(MurderWallState {
+            x_pos: -(0x30_i64 << 16),
+            speed: 0,
+            max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+            reversed: false,
+        });
+        runtime.step_murder_wall_warning_animation_sub_5e02();
+        assert_eq!(
+            runtime.murder_wall_warning_animation_timer_fac0, 5,
+            "ASM loc_5E4A returns before decrementing `$FFFFFAC0` at a camera distance of exactly `$30`"
+        );
+        assert_eq!(runtime.murder_wall_warning_animation_frame_fabf, 1);
+    }
+
+    #[test]
     fn sub_5e02_emits_forward_warning_strip_and_push_state() {
         let render = compile_murder_wall_warning_sprites_sub_5E02(MurderWallWarningInputSub5E02 {
             murder_wall_enabled: true,

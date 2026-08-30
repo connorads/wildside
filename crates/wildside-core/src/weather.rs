@@ -3033,6 +3033,34 @@ impl NativeRuntime {
         }
     }
 
+    pub(crate) fn step_murder_wall_warning_animation_sub_5e02(&mut self) {
+        let Some(wall) = self.murder_wall else {
+            return;
+        };
+        let camera_x_px = (self.current_camera_state().x_pos >> 16) as i16;
+        let wall_x_px = (wall.x_pos >> 16) as i16;
+        let mut relative_wall_x = camera_x_px.wrapping_sub(wall_x_px);
+        if wall.reversed {
+            relative_wall_x = relative_wall_x.wrapping_neg();
+        }
+        // ASM sub_5E02 loc_5E4A returns before touching `$FAC0/$FABF` while
+        // the wall is at least `$30` pixels beyond its visible camera edge.
+        if relative_wall_x >= 0x30 {
+            return;
+        }
+
+        self.murder_wall_warning_animation_timer_fac0 = self
+            .murder_wall_warning_animation_timer_fac0
+            .wrapping_sub(1);
+        if self.murder_wall_warning_animation_timer_fac0 == 0 {
+            self.murder_wall_warning_animation_timer_fac0 = 5;
+            self.murder_wall_warning_animation_frame_fabf = self
+                .murder_wall_warning_animation_frame_fabf
+                .wrapping_add(1)
+                & 3;
+        }
+    }
+
     /// Check if the murder wall overlaps the player, triggering instant death.
     pub(crate) fn murder_wall_kills_player(&self, slice: &OpeningSliceState) -> bool {
         let Some(wall) = &self.murder_wall else {
@@ -3624,6 +3652,10 @@ impl NativeRuntime {
                 max_speed,
                 reversed,
             });
+            // ASM Murderwall (kid.asm:26887) initialises these globals before
+            // uploading ArtComp_13AA4 and the eight-word wall palette.
+            self.murder_wall_warning_animation_timer_fac0 = 1;
+            self.murder_wall_warning_animation_frame_fabf = 0;
             if let Some(palette) =
                 self.ingame_palette_words::<8>(MURDER_WALL_PALETTE_PATH_LOC_140EE)
             {

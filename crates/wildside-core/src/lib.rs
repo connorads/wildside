@@ -532,6 +532,10 @@ pub struct NativeRuntime {
     island_shore_dma_uploads_loc_1202a: Vec<IslandShoreDmaUploadLoc1202A>,
     lava_geyser_art_uploads_loc_14c6a: Vec<LavaGeyserArtUploadLoc14C6A>,
     murder_wall: Option<MurderWallState>,
+    /// ASM `$FFFFFAC0`: five-tick murder-wall pattern countdown.
+    murder_wall_warning_animation_timer_fac0: u8,
+    /// ASM `$FFFFFABF`: two-bit murder-wall pattern index.
+    murder_wall_warning_animation_frame_fabf: u8,
     /// Metal block bounce animations in progress.
     block_bounces: Vec<BlockBounceAnim>,
     /// ASM sub_1007A count-only prize-block worker tail after the visible
@@ -1601,6 +1605,8 @@ impl NativeRuntime {
             island_shore_dma_uploads_loc_1202a: Vec::new(),
             lava_geyser_art_uploads_loc_14c6a: Vec::new(),
             murder_wall: None,
+            murder_wall_warning_animation_timer_fac0: 0,
+            murder_wall_warning_animation_frame_fabf: 0,
             block_bounces: Vec::new(),
             prize_block_worker_tails: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
@@ -4699,6 +4705,12 @@ impl NativeRuntime {
             // measured startup frames. The loc_7E90 cleanup frame returns to
             // the suspended outer pass and reaches it normally.
             self.advance_mode_level_tail_loc_892();
+        }
+        if matches!(
+            self.game_mode(),
+            GameMode::LevelTransition | GameMode::InGame | GameMode::DemoPlay
+        ) {
+            self.step_murder_wall_warning_animation_sub_5e02();
         }
         let trace = self.trace_frame();
         if self.demo_post_transform_trace_velocity_hold_frames > 0 {
