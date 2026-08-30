@@ -1290,6 +1290,7 @@ level-layout/0E.bin
 level-layout/0E.blocklist.bin
 level-layout/0F.bin
 level-layout/0F.blocklist.bin
+level-layout/0F.json
 level-layout/10.bin
 level-layout/10.blocklist.bin
 level-layout/10.json

@@ -11132,6 +11132,12 @@ impl NativeRuntime {
                     snapshots.push(enemy.snapshot());
                 }
                 snapshots.extend(enemy.child_attachment_snapshot());
+                snapshots.extend(
+                    enemy
+                        .driller_child_attachment_snapshots()
+                        .into_iter()
+                        .flatten(),
+                );
                 snapshots
             })
             .chain(

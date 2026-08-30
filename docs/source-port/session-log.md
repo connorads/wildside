@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Driller linked side drills)
+
+- `Enemy1A_Driller_Init` allocates two visible side-drill GfxObjects, but the
+  native renderer exposed only the parent, hurt, and death mappings. The atlas
+  now includes C80A8..C80C0 from their shared `stru_3BCBC` loop.
+- Core exports both linked children with their exact positions, fixed left and
+  right facings, collision-steering velocities, and independent six-tick
+  animation phase. Roster accounting preserves three GfxObject slots while
+  collapsing the adjacent snapshots to one Object_RAM slot.
+- A patched logical Level `$0F` route could not serve as an oracle pixel
+  ratchet because its post-settle camera patch occurs after oracle enemy
+  loading. Source-derived focused tests, `verify-slice-fast`, and the full
+  37,759-frame `verify-tas-full` pass with unchanged published-route ratchets.
+
 ## 2026-08-30 handoff (Big Hopping Skull live scripts)
 
 - `Big_Hopping_Skull.asm` uses all twelve C7FA0..C7FF8 mappings across its

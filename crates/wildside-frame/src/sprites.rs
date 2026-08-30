@@ -1692,16 +1692,17 @@ fn select_live_driller_frame<'a>(
     object: &NativeObjectSnapshot,
 ) -> Option<&'a wildside_render::SpriteFrame> {
     if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x1A })
-        || object.hit_points == Some(0)
-        || enemy_visuals.frames.len() < 5
+        || enemy_visuals.frames.len() < 9
     {
         return None;
     }
-    // ASM Driller.asm stru_3BCB2/loc_3BF4E: core exports either the live
-    // C80E0/C80E8 parent phase or the fixed stru_3BCCE C80D8 hurt mapping.
-    enemy_visuals
-        .frames
-        .get(usize::from(object.sprite_animation_phase?))
+    // ASM Driller.asm stru_3BCB2/loc_3BF4E and Enemy1A init `stru_3BCBC`:
+    // core exports the live parent, hurt, or linked side-drill mapping.
+    let phase = usize::from(object.sprite_animation_phase?);
+    if object.hit_points == Some(0) && phase < 5 {
+        return None;
+    }
+    enemy_visuals.frames.get(phase)
 }
 
 fn select_live_hand_frame<'a>(
@@ -4440,7 +4441,7 @@ mod tests {
         driller.sprite_animation_phase = Some(0);
         assert_eq!(
             selected_live_tile_base(select_live_driller_frame(
-                &labelled_enemy_visuals(5, 3),
+                &labelled_enemy_visuals(9, 3),
                 &driller
             )),
             0x0100
@@ -4615,7 +4616,7 @@ mod tests {
 
         // ASM Driller.asm stru_3BCB2 alternates only C80E0/C80E8 while
         // alive; loc_3BF4E temporarily replaces it with C80D8.
-        let driller_visuals = labelled_enemy_visuals(5, 9);
+        let driller_visuals = labelled_enemy_visuals(9, 9);
         trace.frame_index = 18;
         let mut driller = live_enemy_object(0x1A);
         driller.sprite_animation_phase = Some(0);
@@ -4783,6 +4784,22 @@ mod tests {
         }
         skull.sprite_animation_phase = Some(9);
         assert!(select_live_big_hopping_skull_frame(&visuals, &skull).is_none());
+    }
+
+    #[test]
+    fn driller_live_selector_renders_both_linked_side_drills_stru_3bcbc() {
+        let visuals = labelled_enemy_visuals(9, 7);
+        let mut child = live_enemy_object(0x1A);
+        child.hit_points = Some(0);
+
+        for (phase, expected_tile) in [(5, 0x0105), (6, 0x0106), (7, 0x0107), (8, 0x0108)] {
+            child.sprite_animation_phase = Some(phase);
+            assert_eq!(
+                selected_live_tile_base(select_live_driller_frame(&visuals, &child)),
+                expected_tile,
+                "ASM stru_3BCBC linked drill mapping phase {phase}",
+            );
+        }
     }
 
     #[test]

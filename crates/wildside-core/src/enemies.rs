@@ -3297,6 +3297,49 @@ impl ActiveEnemy {
             debug_fields: std::collections::BTreeMap::new(),
         })
     }
+
+    pub(crate) fn driller_child_attachment_snapshots(&self) -> Option<[NativeObjectSnapshot; 2]> {
+        if !matches!(self.family, EnemyFamily::Driller) || self.death_animation_active {
+            return None;
+        }
+        let children = self.driller_children?;
+        let phase = driller_child_sprite_phase_stru_3bcbc(self.dragon_descent_index);
+        let snapshot = |child: DrillerDrillChildSub3BF72,
+                        x_velocity: i32,
+                        facing: Direction|
+         -> NativeObjectSnapshot {
+            NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 0x1A },
+                x_pos: u32::from(child.x_pos as u16) << 16,
+                y_pos: u32::from(child.y_pos as u16) << 16,
+                layout_index: Some(self.layout_index),
+                x_velocity: Some(x_velocity),
+                y_velocity: Some(0),
+                facing: Some(facing),
+                on_ground: None,
+                hit_points: Some(0),
+                damage_flash: false,
+                palette_variant: self.palette_variant,
+                stationary: false,
+                contact_phase: None,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                sprite_animation_phase: Some(phase),
+                wait_timer: None,
+                debug_fields: std::collections::BTreeMap::new(),
+            }
+        };
+        // ASM Enemy1A_Driller_Init: `$3A(a5)` remains unflipped on the left;
+        // `$3E(a5)` is created with `st x_direction(a1)` on the right. Their
+        // ∓$8000 velocities steer solid-collision resolution but are not
+        // integrated because neither child sets `is_moved`.
+        Some([
+            snapshot(children.left, -0x8000, Direction::Left),
+            snapshot(children.right, 0x8000, Direction::Right),
+        ])
+    }
 }
 
 fn tank_child_y_offset_loc_3b372_3b49a(
@@ -3513,18 +3556,19 @@ impl EnemyFamily {
     /// `NativeObjectSnapshot` (see `child_attachment_snapshot`). The ROM
     /// child owns only a GfxObject slot, so the object COUNT must collapse
     /// each exported pair back to its single Object_RAM slot.
-    pub(crate) fn exports_child_attachment_snapshot(self) -> bool {
-        matches!(
-            self,
-            Self::Robot | Self::Tank | Self::TankShooting | Self::Scorpion
-        )
+    pub(crate) fn exported_child_attachment_snapshot_count(self) -> u16 {
+        match self {
+            Self::Robot | Self::Tank | Self::TankShooting | Self::Scorpion => 1,
+            Self::Driller => 2,
+            _ => 0,
+        }
     }
 
     /// Linked gfx children the native roster does NOT export as snapshots:
     /// the family's ROM gfx slots minus its exported roster entries. These
     /// are pure Number_GfxObjects workers (#449).
     pub(crate) fn unexported_gfx_child_slots(self) -> u16 {
-        let exported_entries = 1 + u16::from(self.exports_child_attachment_snapshot());
+        let exported_entries = 1 + self.exported_child_attachment_snapshot_count();
         self.child_slots()
             .gfx_slots
             .saturating_sub(exported_entries)
@@ -3532,10 +3576,10 @@ impl EnemyFamily {
 }
 
 /// Object types whose adjacent same-layout roster snapshot pairs share one
-/// ROM Object_RAM slot: the `exports_child_attachment_snapshot` families by
+/// ROM Object_RAM slot: families with exported child attachment snapshots by
 /// their `object_type()` (a unit test pins the two in lock-step).
 pub(crate) fn enemy_object_type_pair_shares_object_slot(object_type: u8) -> bool {
-    matches!(object_type, 0x03 | 0x0A | 0x0B | 0x13)
+    matches!(object_type, 0x03 | 0x0A | 0x0B | 0x13 | 0x1A)
 }
 
 #[cfg(test)]
@@ -3551,7 +3595,11 @@ mod family_child_slot_tests {
             EnemyFamily::Scorpion,
         ];
         for family in attachment_families {
-            assert!(family.exports_child_attachment_snapshot(), "{family:?}");
+            assert_eq!(
+                family.exported_child_attachment_snapshot_count(),
+                1,
+                "{family:?}"
+            );
             assert!(
                 enemy_object_type_pair_shares_object_slot(family.object_type()),
                 "{family:?} exports an attachment snapshot, so its roster pairs must collapse"
@@ -3566,16 +3614,32 @@ mod family_child_slot_tests {
             );
             assert_eq!(family.unexported_gfx_child_slots(), 0, "{family:?}");
         }
+        assert_eq!(
+            EnemyFamily::Driller.exported_child_attachment_snapshot_count(),
+            2
+        );
+        assert!(enemy_object_type_pair_shares_object_slot(0x1A));
+        assert_eq!(
+            EnemyFamily::Driller.child_slots(),
+            FamilyChildSlots {
+                object_slots: 1,
+                gfx_slots: 3,
+            }
+        );
+        assert_eq!(EnemyFamily::Driller.unexported_gfx_child_slots(), 0);
         for family in [
             EnemyFamily::Goat,
             EnemyFamily::UFO,
             EnemyFamily::Tornado,
             EnemyFamily::SpinningTwins,
-            EnemyFamily::Driller,
             EnemyFamily::Archer,
             EnemyFamily::TarMonster,
         ] {
-            assert!(!family.exports_child_attachment_snapshot(), "{family:?}");
+            assert_eq!(
+                family.exported_child_attachment_snapshot_count(),
+                0,
+                "{family:?}"
+            );
             assert!(
                 !enemy_object_type_pair_shares_object_slot(family.object_type()),
                 "{family:?}"
@@ -3587,8 +3651,9 @@ mod family_child_slot_tests {
     fn gfx_only_child_slots_follow_the_family_init_allocations() {
         // ASM Spinning_Twins.asm init: one Allocate_GfxObjectSlot_a1 twin.
         assert_eq!(EnemyFamily::SpinningTwins.unexported_gfx_child_slots(), 1);
-        // ASM Driller.asm init: two Allocate_GfxObjectSlot_a1 side drills.
-        assert_eq!(EnemyFamily::Driller.unexported_gfx_child_slots(), 2);
+        // ASM Driller.asm init: both Allocate_GfxObjectSlot_a1 side drills
+        // are exported as linked presentation snapshots.
+        assert_eq!(EnemyFamily::Driller.unexported_gfx_child_slots(), 0);
         // ASM Archer.asm loc_33FDA -> loc_32188 held arrow.
         assert_eq!(EnemyFamily::Archer.unexported_gfx_child_slots(), 1);
         // ASM Tar_Monster.asm loc_32200 spliced gfx child.
@@ -4856,13 +4921,16 @@ pub(crate) fn step_active_enemies_with_rng(
             // six-tick mapping entries independently from the walker coroutine.
             enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1) % 36;
         }
-        if matches!(enemy.family, EnemyFamily::Driller)
-            && enemy.damage_flash_frames == 0
-            && !enemy.death_animation_active
-        {
-            // ASM Driller.asm stru_3BCB2: the parent GfxObject animation runs
-            // independently from the hibernating shared-walker Object.
-            enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1) % 18;
+        if matches!(enemy.family, EnemyFamily::Driller) && !enemy.death_animation_active {
+            // ASM Driller.asm stru_3BCB2/stru_3BCBC: parent and both linked
+            // drill GfxObjects animate independently from the Object
+            // coroutine. A surviving hit replaces only the parent script.
+            if enemy.damage_flash_frames == 0 {
+                enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1) % 18;
+            }
+            if enemy.driller_children.is_some() {
+                enemy.dragon_descent_index = enemy.dragon_descent_index.wrapping_add(1) % 24;
+            }
         }
         if matches!(enemy.family, EnemyFamily::Armadillo)
             && enemy.damage_flash_frames == 0
@@ -11709,6 +11777,36 @@ mod tests {
         enemy.wait_timer = 0;
         enemy.grounded_frames = 88;
         assert_eq!(enemy.snapshot().sprite_animation_phase, Some(2));
+    }
+
+    #[test]
+    fn driller_trace_exports_both_linked_side_drills_stru_3bcbc() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Driller;
+        enemy.layout_index = 7;
+        enemy.palette_variant = 2;
+        enemy.dragon_descent_index = 12;
+        enemy.driller_children = Some(driller_spawn_children_enemy1a_init(120, 176));
+
+        let [left, right] = enemy
+            .driller_child_attachment_snapshots()
+            .expect("live Driller owns two linked drill GfxObjects");
+        assert_eq!((left.x_pos >> 16, right.x_pos >> 16), (96, 144));
+        assert_eq!((left.y_pos >> 16, right.y_pos >> 16), (176, 176));
+        assert_eq!(
+            (left.facing, right.facing),
+            (Some(Direction::Left), Some(Direction::Right))
+        );
+        assert_eq!(
+            (left.x_velocity, right.x_velocity),
+            (Some(-0x8000), Some(0x8000))
+        );
+        assert_eq!(
+            (left.sprite_animation_phase, right.sprite_animation_phase),
+            (Some(7), Some(7))
+        );
+        assert_eq!((left.layout_index, right.layout_index), (Some(7), Some(7)));
+        assert_eq!((left.palette_variant, right.palette_variant), (2, 2));
     }
 
     #[test]

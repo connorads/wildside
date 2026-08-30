@@ -4551,11 +4551,18 @@ mod tests {
         let baseline = runtime.object_counts_from_roster(&[], 0, 0);
         let mut driller = drips_test_enemy(0, 0);
         driller.family = EnemyFamily::Driller;
-        let snapshot = driller.snapshot();
+        driller.driller_children = Some(driller_spawn_children_enemy1a_init(64, 32));
+        let mut snapshots = vec![driller.snapshot()];
+        snapshots.extend(
+            driller
+                .driller_child_attachment_snapshots()
+                .into_iter()
+                .flatten(),
+        );
         runtime.active_enemies.push(driller);
 
         assert_eq!(
-            runtime.object_counts_from_roster(&[snapshot], 0, 0),
+            runtime.object_counts_from_roster(&snapshots, 0, 0),
             (baseline.0 + 1, baseline.1 + 3),
             "ASM Driller.asm Enemy1A init allocates TWO side drills with j_Allocate_GfxObjectSlot_a1 (`$3A(a5)` and `$3E(a5)`, both stru_3BCBC): one Object_RAM coroutine, three GfxObject slots",
         );
@@ -11898,6 +11905,12 @@ impl NativeRuntime {
             .flat_map(|enemy| {
                 let mut snapshots = vec![enemy.snapshot()];
                 snapshots.extend(enemy.child_attachment_snapshot());
+                snapshots.extend(
+                    enemy
+                        .driller_child_attachment_snapshots()
+                        .into_iter()
+                        .flatten(),
+                );
                 snapshots.extend(boss_eye_orbit_object_slot_details_loc_3931a(
                     enemy,
                     boss_eye_orbit_mapping_indices_from_state_loc_37abc(
@@ -15885,7 +15898,7 @@ impl NativeRuntime {
         // snapshots for entity-position parity, so the object COUNT must
         // collapse each exported pair back to its single ROM object slot
         // (issue-271 jugg40 pinned the Tank shape; #449 generalises it to
-        // every `exports_child_attachment_snapshot` family).
+        // every family with exported child attachment snapshots).
         let shared_object_child_entries = active_objects
             .windows(2)
             .filter(|pair| {

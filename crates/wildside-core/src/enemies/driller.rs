@@ -2,6 +2,13 @@ use super::*;
 
 pub(crate) const DRILLER_COLID_KIDABOVE: u16 = colid::KIDABOVE;
 
+/// Atlas phase for either linked drill child running `stru_3BCBC`.
+/// ASM Driller.asm Enemy1A_Driller_Init installs the same four six-tick
+/// C80A8/C80B0/C80B8/C80C0 loop on both children.
+pub(crate) fn driller_child_sprite_phase_stru_3bcbc(animation_tick: u8) -> u8 {
+    5 + (animation_tick % 24) / 6
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DrillerInitTailRouteLoc3BE60 {
     ClearDirectionLoc3C0D2,
@@ -756,6 +763,24 @@ mod tests {
         // throughout the surviving-stomp hibernate.
         assert_eq!(driller_live_sprite_phase_stru_3bcb2(9, 0x1E), 2);
         assert_eq!(driller_live_sprite_phase_stru_3bcb2(9, 1), 2);
+    }
+
+    #[test]
+    fn driller_child_sprite_phase_follows_stru_3bcbc() {
+        // ASM stru_3BCBC: four mappings, each held for six animation ticks.
+        for (tick, expected) in [
+            (0, 5),
+            (5, 5),
+            (6, 6),
+            (11, 6),
+            (12, 7),
+            (17, 7),
+            (18, 8),
+            (23, 8),
+            (24, 5),
+        ] {
+            assert_eq!(driller_child_sprite_phase_stru_3bcbc(tick), expected);
+        }
     }
 
     #[test]
