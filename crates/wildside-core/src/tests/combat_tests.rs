@@ -15909,6 +15909,14 @@ mod chunk_03 {
             Some("255"),
             "ASM loc_3893E/loc_389D6 carry parent x_direction `$16(a2)` through d0 for sprite-order reranks"
         );
+        assert_eq!(
+            snapshot
+                .debug_fields
+                .get("boss_head_coroutine_loc_394e8_397da")
+                .map(String::as_str),
+            Some("head=0 wait=0x0000 move_delay=0x0000 move_index=0"),
+            "ASM loc_394E8..loc_397DA give every boss head an independent hibernated movement/attack continuation"
+        );
     }
 
     #[test]

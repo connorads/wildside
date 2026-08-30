@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Shishkaboss coroutine identity)
+
+- Oracle Sprite Table entry 13 at `(184,148)` and raw GfxObject mappings
+  prove the lower green frame-120 residue is a second stopped boss arrow, not
+  Island shore art. Head pointers `$FFFFFB7A/$7E/$82` identify oracle Gfx
+  slots 21/20/19 as head 1/2/3 despite the reversed linked-list order.
+- Native traces now register each head's `loc_394E8..loc_397DA` coroutine
+  inputs - head index, wait word, movement delay, and movement-script index -
+  so projectile timing can be compared without inferring identity from pixels.
+- A global +18 settled-warp fork regressed frame 120 to 5,495 pixels and added
+  authoritative object-count failures. A uniform -25px head-anchor fork
+  regressed the tail to 4,018 pixels with four authoritative failures. Both
+  are reverted. Continue by matching per-head oracle animation pointers/timers
+  to the new native coroutine witness.
+
 ## 2026-08-30 handoff (boss-projectile direction typed)
 
 - ASM `sub_397E4` copies the parent `x_direction` byte into each boss
@@ -32,8 +47,9 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   `+3` and `+2` reached 2,108 and 1,889, `+1` fell below frame 120's 1,549-pixel
   ceiling, and the ROM identity coordinate reached 460.
 - Focused run `1788045893` remains state-exact and unmasked. Frame 120 is now
-  the worst checkpoint at 1,549 pixels. Later VRAM evidence identifies the
-  lower green shape as Island shore art rather than a second stopped arrow.
+  the worst checkpoint at 1,549 pixels. This session initially attributed the
+  lower green shape to Island shore art; later Sprite Table and raw GfxObject
+  evidence corrected it to a second stopped arrow.
 
 ## 2026-08-29 handoff (Shishkaboss parent mapping phase)
 

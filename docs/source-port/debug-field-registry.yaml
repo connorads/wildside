@@ -49,6 +49,15 @@
       "promotion_trigger": "Promote if true boss-head parent animation parity or checked-in oracle comparisons depend on this field beyond the temporary orbit-worker bridge."
     },
     {
+      "key": "boss_head_coroutine_loc_394e8_397da",
+      "scope": "object",
+      "status": "candidate",
+      "owner": "boss-head-coroutines",
+      "first_added_commit": "70dd4e1f8",
+      "intended_meaning": "Native multi-head boss head index, attack wait word, movement delay and movement-script index corresponding to the independent ASM loc_394E8..loc_397DA coroutine.",
+      "promotion_trigger": "Promote the control state to typed trace fields when it enters oracle parity or a checked-in gameplay assertion."
+    },
+    {
       "key": "boss_eye_parent_frame_byte_16_loc_3893e",
       "scope": "object",
       "status": "exploratory",

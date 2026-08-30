@@ -2980,6 +2980,20 @@ impl ActiveEnemy {
                     .current_parent_x_direction_byte_16
                     .to_string(),
             );
+            // ASM loc_394E8..loc_397DA: each boss head owns an independent
+            // hibernated movement/attack coroutine. Keep its native control
+            // inputs observable while Level $10 projectile timing is compared
+            // with the three oracle GfxObject workers.
+            debug_fields.insert(
+                "boss_head_coroutine_loc_394e8_397da".into(),
+                format!(
+                    "head={} wait={:#06x} move_delay={:#06x} move_index={}",
+                    self.boss_head_index,
+                    self.wait_timer,
+                    self.boss_movement_delay_counter,
+                    self.boss_movement_script_index,
+                ),
+            );
         }
         if is_multi_head_boss(self.family)
             && self.death_animation_active
