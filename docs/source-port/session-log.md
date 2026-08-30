@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (recording warp lifecycle parity)
+
+- `record-scenario-file` initialised settled warps with the compatibility
+  bootstrap, while dynamic sweeps and the oracle helper used the measured
+  `loc_74E0` recording lifecycle. This made the earlier Level `$10` recorder
+  trace report a different boss-head history from the pixel sweep it was meant
+  to explain.
+- The recorder now calls `boot_to_level_for_recording_oracle` before the shared
+  60-frame settle. A cache-backed regression pins frame-0 head continuations at
+  post-projectile `$0043`, wind-up `$8038`, and idle `$0000` for
+  `loc_394E8..loc_397DA`.
+- The fresh lifecycle trace agrees with the oracle's phase ordering. Treat
+  `level10-coroutine-phase-v2` as invalid timing evidence. Next recapture and
+  attribute the Level `$10` pixel residue through the shared bootstrap.
+
 ## 2026-08-30 handoff (boss-head Data_Index stride)
 
 - Oracle head mappings `$EE0/$EE4/$EE8/$EEC/$EF0` exposed a native type

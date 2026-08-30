@@ -702,7 +702,11 @@ fn initialise_recording_runtime(
     if let Some(level_id) = start.warp_level {
         let level_id = LevelId(level_id);
         if start.settled {
-            runtime.boot_to_level(level_id);
+            // ASM loc_74E0 -> loc_6E2/Load_TitleCard: settled recordings use
+            // the same measured debug-warp lifecycle as dynamic sweeps and
+            // the oracle helper. The compatibility bootstrap skips that live
+            // title shell and produces a different object-coroutine history.
+            runtime.boot_to_level_for_recording_oracle(level_id);
             runtime.settle_recording_oracle_warp_live_window(level_id);
         } else {
             runtime.warp_to_level(level_id);
@@ -3815,6 +3819,59 @@ mod tests {
             unsettled_buttons,
             vec![0, 1 << 3, 1 << 3, 0],
             "non-settled recordings keep the local script phase"
+        );
+    }
+
+    #[test]
+    fn settled_level_10_recording_keeps_loc_74e0_boss_coroutine_history() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = DynamicScenario {
+            slug: "level_10_recording_lifecycle".into(),
+            script: vec![0],
+            frame_count: 1,
+            checkpoints: Vec::new(),
+            start_position: None,
+            start_velocity: None,
+            camera_position: None,
+            playtest_form: None,
+            initial_diamond_count: None,
+            initial_lives: None,
+            warp_to_level: Some(0x10),
+            settle_oracle_warp: true,
+        };
+
+        let trace = run_recorded_trace(
+            &manifest,
+            RecordingStart {
+                warp_level: Some(0x10),
+                settled: true,
+                record_frames: None,
+            },
+            &scenario,
+        )
+        .expect("record Level 0x10 through the recording-oracle lifecycle");
+        let mut head_coroutines = trace[0]
+            .active_objects
+            .iter()
+            .filter_map(|object| {
+                object
+                    .debug_fields
+                    .get("boss_head_coroutine_loc_394e8_397da")
+                    .cloned()
+            })
+            .collect::<Vec<_>>();
+        head_coroutines.sort();
+
+        assert_eq!(
+            head_coroutines,
+            [
+                "head=0 wait=0x0043 move_delay=0x00fa move_index=1",
+                "head=1 wait=0x8038 move_delay=0x00fa move_index=1",
+                "head=2 wait=0x0000 move_delay=0x00fa move_index=1",
+            ],
+            "ASM loc_74E0 -> Execute_Objects loc_E12 and loc_394E8..loc_397DA: recording frame 0 must retain the oracle title-wait and 60-frame live-window coroutine history",
         );
     }
 
