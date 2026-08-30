@@ -3403,6 +3403,21 @@ impl NativeRuntime {
     /// Homing projectiles accelerate toward `player_pos` each frame.
     /// Re-aiming projectiles (Archer arrows) adjust angle ±1 every `reaim_interval` frames.
     /// Wall-bounce projectiles (Lion) reverse velocity on terrain collision (Lion.asm loc_3E260).
+    pub(crate) fn defer_recording_handoff_boss_arrows_loc_e12(&mut self) {
+        for projectile in &mut self.projectiles {
+            if projectile.kind == EnemyProjectileKind::BossHeadArrow {
+                // ASM Execute_Objects loc_E12: an arrow already linked when
+                // the recording helper releases its hidden Mode_Level shell
+                // resumes on the first recorded pass. Native's collapsed
+                // shell has already applied that wake, so retain the current
+                // GfxObject sample for one trace boundary. Arrows allocated
+                // after frame 0 never take this handoff state.
+                projectile.boss_head_arrow_coroutine_state =
+                    crate::types::BossHeadArrowCoroutineState::AwaitingRecordingHandoffWakeLocE12;
+            }
+        }
+    }
+
     pub(crate) fn step_projectiles(&mut self) {
         self.step_fire_demon_trails();
         self.step_diamond_power_rain_slots();
@@ -3473,6 +3488,14 @@ impl NativeRuntime {
             })
             .count() as u16;
         self.projectiles.retain_mut(|p| {
+            if p.boss_head_arrow_coroutine_state
+                == crate::types::BossHeadArrowCoroutineState::AwaitingRecordingHandoffWakeLocE12
+            {
+                debug_assert_eq!(p.kind, EnemyProjectileKind::BossHeadArrow);
+                p.boss_head_arrow_coroutine_state =
+                    crate::types::BossHeadArrowCoroutineState::Running;
+                return true;
+            }
             if p.kind == EnemyProjectileKind::TarMonsterStraightGlob
                 && p.animation_elapsed_frames == 1
             {

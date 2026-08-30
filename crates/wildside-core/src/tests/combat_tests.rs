@@ -4310,6 +4310,45 @@ fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
 }
 
 #[test]
+fn recording_handoff_defers_only_the_preexisting_boss_arrow_loc_e12() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.projectiles.push(EnemyProjectile {
+        kind: EnemyProjectileKind::BossHeadArrow,
+        x_pos: 0x015B_0000,
+        y_pos: 0x007A_0000,
+        x_velocity: -0x0003_0000,
+        lifetime: 0x0031,
+        boss_head_arrow_animation: BossHeadArrowAnimationCursor::moving_stru_3a1cc(),
+        boss_head_arrow_coroutine_state: BossHeadArrowCoroutineState::Running,
+        ..Default::default()
+    });
+
+    runtime.defer_recording_handoff_boss_arrows_loc_e12();
+    runtime.step_projectiles();
+    assert_eq!(
+        (
+            runtime.projectiles[0].x_pos,
+            runtime.projectiles[0].lifetime,
+            runtime.projectiles[0]
+                .boss_head_arrow_animation
+                .sprite_frame,
+        ),
+        (0x015B_0000, 0x0031, BossHeadArrowSpriteFrame::C8510),
+        "ASM loc_1AE2E/Execute_Objects loc_E12 exposes the already-linked arrow at the recording handoff without a second native wake"
+    );
+
+    runtime.step_projectiles();
+    assert_eq!(
+        (
+            runtime.projectiles[0].x_pos,
+            runtime.projectiles[0].lifetime
+        ),
+        (0x0158_0000, 0x0030),
+        "ASM loc_3A134 resumes the ordinary arrow coroutine on the following recorded frame"
+    );
+}
+
+#[test]
 fn live_boomerang_boss_projectile_uses_loc_3a1ea_lifecycle_seed() {
     let mut boss = test_enemy(EnemyFamily::BoomerangBosses, 0x0080_0000, 0x0080_0000, 20);
     boss.wait_timer = BOSS_HEAD_ATTACK_READY_TIMER_LOC_39566;

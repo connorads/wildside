@@ -421,6 +421,11 @@ impl NativeRuntime {
             recording_oracle_warp_target_live_frames(level_id, debug_lifecycle_completed)
         });
         self.settle_target_level_live_window(level_id, target_live_frames);
+        // ASM loc_1AE2E -> Mode_Level -> Execute_Objects loc_E12: preserve
+        // the first visible sample of any boss arrow which crossed the
+        // recording helper's hidden-to-visible handoff. Later gameplay
+        // allocations use the ordinary loc_3A0D2 coroutine path unchanged.
+        self.defer_recording_handoff_boss_arrows_loc_e12();
         if debug_lifecycle_completed {
             self.time_frames_loc_3038a =
                 recording_oracle_time_frames_loc_3038a(level_id, self.time_frames_loc_3038a);

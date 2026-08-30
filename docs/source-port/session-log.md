@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (recording-handoff boss arrow)
+
+- Per-frame comparison isolated the Level `$10` burst residue to one arrow
+  already alive at the recording helper handoff. Raw oracle WRAM pins frame 0
+  at x=347, `$40=$31`; arrows allocated after frame 0 were already exact.
+- The projectile now carries a typed one-wake state only when it crosses
+  `loc_1AE2E`/`Execute_Objects loc_E12` into the recorded window. Ordinary
+  `loc_3A0D2` gameplay allocation and timing are unchanged.
+- Frames 35..130 are scene-pixel exact. Six checkpoint totals improve from
+  39/181/361/361/39/312 to 39/45/39/39/39/312; through frame 300 only HUD
+  residue remains. Frame 359 retains a separate right-edge boss/SAT cluster.
+  `verify-slice-fast` and `verify-tas-full` pass.
+
 ## 2026-08-30 handoff (boss-arrow coroutine ordering)
 
 - Raw oracle WRAM proves `loc_3A0D2` hibernates before its first `$40`

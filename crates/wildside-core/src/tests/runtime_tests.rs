@@ -11359,6 +11359,21 @@ mod chunk_09 {
             .map(|_| runtime.step_frame(FrameInput::default()))
             .collect::<Vec<_>>();
 
+        let first_arrow = trace[0]
+            .active_projectile_details
+            .iter()
+            .find(|projectile| projectile.kind == ActiveProjectileKind::BossHeadArrow)
+            .expect("settled Level 0x10 frame 0 should retain the first boss arrow");
+        assert_eq!(
+            (
+                first_arrow.x_pos,
+                first_arrow.remaining_frames,
+                first_arrow.boss_head_arrow_sprite_frame,
+            ),
+            (0x015B_0000, 0x0031, BossHeadArrowSpriteFrame::C8510),
+            "ASM Execute_Objects loc_E12 and loc_3A0D2 expose the pre-existing first boss arrow at oracle recording frame 0 without an extra native handoff wake"
+        );
+
         assert!(
             trace.iter().any(|frame| {
                 !frame.island_shore_dma_uploads_loc_1202a.is_empty()

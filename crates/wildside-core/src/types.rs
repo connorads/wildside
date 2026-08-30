@@ -5141,6 +5141,7 @@ pub(crate) struct BossHeadArrowAnimationCursor {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum BossHeadArrowCoroutineState {
     AwaitingFirstWakeLoc3A134,
+    AwaitingRecordingHandoffWakeLocE12,
     #[default]
     Running,
 }
