@@ -1542,7 +1542,9 @@ impl BossEyeOrbitWorkers {
         let parent_x_direction_byte_16 = boss_head_x_direction_byte_16(facing);
         let mut workers = Self {
             active: true,
-            parent_phase_word_22: 0x0EE0 + (u16::from(phase_index % 5) * 2),
+            // ASM Data_Index stores long pointers, so adjacent C8600..C8620
+            // sprite links are four byte offsets apart.
+            parent_phase_word_22: 0x0EE0 + (u16::from(phase_index % 5) * 4),
             current_parent_x_direction_byte_16: parent_x_direction_byte_16,
             phase_index: phase_index % 5,
             previous_parent_x_direction_byte_16: parent_x_direction_byte_16,
@@ -1603,7 +1605,7 @@ impl BossEyeOrbitWorkers {
         let prior_parent_x_direction = self.previous_parent_x_direction_byte_16;
         self.parent_phase_word_22 = parent_phase_word_22;
         self.current_parent_x_direction_byte_16 = current_parent_x_direction_byte_16;
-        self.phase_index = ((parent_phase_word_22.saturating_sub(0x0EE0) >> 1) % 5) as u8;
+        self.phase_index = ((parent_phase_word_22.saturating_sub(0x0EE0) >> 2) % 5) as u8;
         self.refresh_with_prior_x_direction_loc_3893e_389d6(
             parent_x,
             parent_y,
@@ -10810,10 +10812,10 @@ pub(crate) const BOSS_HEAD_ATTACK_READY_TIMER_LOC_39566: u16 =
 /// hibernate/check `$18(a3)` until its five frame holds complete.
 pub(crate) const BOSS_HEAD_POST_PROJECTILE_TIMER_LOC_39570: u16 = 0x22 + 0x05 + 0x0A + 0x0A + 0x0A;
 pub(crate) const BOSS_HEAD_SPRITE_C8600_LINK_OFFSET: u16 = 0x0EE0;
-pub(crate) const BOSS_HEAD_SPRITE_C8608_LINK_OFFSET: u16 = 0x0EE2;
-pub(crate) const BOSS_HEAD_SPRITE_C8610_LINK_OFFSET: u16 = 0x0EE4;
-pub(crate) const BOSS_HEAD_SPRITE_C8618_LINK_OFFSET: u16 = 0x0EE6;
-pub(crate) const BOSS_HEAD_SPRITE_C8620_LINK_OFFSET: u16 = 0x0EE8;
+pub(crate) const BOSS_HEAD_SPRITE_C8608_LINK_OFFSET: u16 = 0x0EE4;
+pub(crate) const BOSS_HEAD_SPRITE_C8610_LINK_OFFSET: u16 = 0x0EE8;
+pub(crate) const BOSS_HEAD_SPRITE_C8618_LINK_OFFSET: u16 = 0x0EEC;
+pub(crate) const BOSS_HEAD_SPRITE_C8620_LINK_OFFSET: u16 = 0x0EF0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BossHeadParentAnimationStateLoc39538 {

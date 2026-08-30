@@ -3135,7 +3135,10 @@ pub(crate) fn boss_eye_orbit_placement_sub_393C8(
     // `$22(a2)`, place the orbit child at `$1A/$1E(a2)` with a fixed `-$25`
     // Y shift, then nudge `$A(a3)` by `+1/-1` and run sub_FF6 when `$16(a2)`
     // changed since the last frame tracked in `d0`.
-    let phase_index = usize::from(parent_phase_word_22.saturating_sub(0x0EE0) >> 1);
+    // ASM divides the Data_Index byte offset by two, then uses that result as
+    // a byte displacement into a word table. Rust indexes words directly, so
+    // divide by two once more: adjacent dc.l sprite links are four bytes.
+    let phase_index = usize::from(parent_phase_word_22.saturating_sub(0x0EE0) >> 2);
     let x_offset = if side_flag_d2 == 0 {
         BOSS_EYE_ORBIT_X_OFFSETS_RIGHT_SUB_393C8[phase_index]
     } else {
@@ -3179,7 +3182,9 @@ pub(crate) fn boss_eye_counter_orbit_placement_sub_39420(
     // tables rooted at `word_39464/word_3946E`, keep the child at `$1E(a2)-$25`,
     // then nudge `$A(a3)` by `-1/+1` and rerun sub_FF6 when the parent's `$16(a2)`
     // frame byte changed since the previous `d0`.
-    let phase_index = usize::from(parent_phase_word_22.saturating_sub(0x0EE0) >> 1);
+    // ASM's `asr.w #1` yields a byte displacement for `move.w`; convert that
+    // displacement to a Rust word index as well.
+    let phase_index = usize::from(parent_phase_word_22.saturating_sub(0x0EE0) >> 2);
     let x_offset = if side_flag_d2 == 0 {
         BOSS_EYE_COUNTER_ORBIT_X_OFFSETS_RIGHT_SUB_39420[phase_index]
     } else {

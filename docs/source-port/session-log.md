@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (boss-head Data_Index stride)
+
+- Oracle head mappings `$EE0/$EE4/$EE8/$EEC/$EF0` exposed a native type
+  error: `addroffset_sprite` is a byte offset into `Data_Index`'s `dc.l`
+  entries, so adjacent C8600..C8620 links advance by four, not two.
+- Native link constants and typed render phases now use the real four-byte
+  stride. `sub_393C8/sub_39420` still perform ASM's `asr #1` byte-offset
+  conversion, then divide once more when indexing Rust word arrays. The old
+  combination panicked on the source-valid `$EF0` phase.
+- Focused run `1788054828` stays state-exact and retains the same six pixel
+  totals, including frame 120 at 1,549. The two wrong conversions had cancelled
+  in rendering, so this is a source-correct state-boundary fix rather than the
+  visual frontier. Continue at per-head coroutine timing.
+
 ## 2026-08-30 handoff (Shishkaboss coroutine identity)
 
 - Oracle Sprite Table entry 13 at `(184,148)` and raw GfxObject mappings

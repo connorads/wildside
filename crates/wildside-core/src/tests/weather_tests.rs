@@ -470,7 +470,7 @@ mod chunk_07 {
     #[test]
     fn boss_eye_orbit_placement_sub_393c8_uses_the_right_side_table_and_leaves_order_unchanged_when_frame_matches()
      {
-        let result = boss_eye_orbit_placement_sub_393C8(0x0200, 0x0100, 0x0EE2, 0, 3, 3, 0x0010);
+        let result = boss_eye_orbit_placement_sub_393C8(0x0200, 0x0100, 0x0EE4, 0, 3, 3, 0x0010);
 
         assert_eq!(
             (result.x_pos, result.y_pos),
@@ -490,7 +490,7 @@ mod chunk_07 {
     #[test]
     fn boss_eye_orbit_placement_sub_393c8_uses_the_left_table_and_increments_order_after_zero_frame()
      {
-        let result = boss_eye_orbit_placement_sub_393C8(0x0200, 0x0100, 0x0EE4, 1, 0, 2, 0x0010);
+        let result = boss_eye_orbit_placement_sub_393C8(0x0200, 0x0100, 0x0EE8, 1, 0, 2, 0x0010);
 
         assert_eq!(
             (result.x_pos, result.y_pos),
@@ -525,7 +525,7 @@ mod chunk_07 {
     fn boss_eye_counter_orbit_placement_sub_39420_uses_the_right_side_table_and_leaves_order_unchanged_when_frame_matches()
      {
         let result =
-            boss_eye_counter_orbit_placement_sub_39420(0x0200, 0x0100, 0x0EE2, 0, 3, 3, 0x0010);
+            boss_eye_counter_orbit_placement_sub_39420(0x0200, 0x0100, 0x0EE4, 0, 3, 3, 0x0010);
 
         assert_eq!(
             (result.x_pos, result.y_pos),
@@ -546,7 +546,7 @@ mod chunk_07 {
     fn boss_eye_counter_orbit_placement_sub_39420_uses_the_left_side_table_and_decrements_order_after_zero_frame()
      {
         let result =
-            boss_eye_counter_orbit_placement_sub_39420(0x0200, 0x0100, 0x0EE4, 1, 0, 2, 0x0010);
+            boss_eye_counter_orbit_placement_sub_39420(0x0200, 0x0100, 0x0EE8, 1, 0, 2, 0x0010);
 
         assert_eq!(
             (result.x_pos, result.y_pos),

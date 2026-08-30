@@ -15757,12 +15757,12 @@ mod chunk_03 {
             "ASM loc_3893E/loc_389D6 copy the parent x_direction byte `$16(a2)` into d0 after each orbit refresh"
         );
         assert_eq!(
-            workers.primary_x_pos_word, 0x01E8,
-            "ASM sub_393C8 with right-facing parent `$22=$0EE4` selects word_39416[2] = -24"
+            workers.primary_x_pos_word, 0x01EC,
+            "ASM sub_393C8 with right-facing parent `$22=$0EE4` selects word_39416[1] = -20"
         );
         assert_eq!(
-            workers.counter_x_pos_word, 0x01F3,
-            "ASM sub_39420 with right-facing parent `$22=$0EE4` selects word_3946E[2] = -13"
+            workers.counter_x_pos_word, 0x0200,
+            "ASM sub_39420 with right-facing parent `$22=$0EE4` selects word_3946E[1] = 0"
         );
     }
 
@@ -15836,7 +15836,7 @@ mod chunk_03 {
                 Direction::Left,
             ),
             BossHeadParentAnimationStateLoc39538 {
-                parent_phase_word_22: 0x0EE2,
+                parent_phase_word_22: 0x0EE4,
                 parent_x_direction_byte_16: 0x00,
             },
             "ASM loc_39538 starts `stru_39FC6` on LnkTo_unk_C8608 and keeps x_direction `$16(a3)` facing left as zero"
@@ -15847,7 +15847,7 @@ mod chunk_03 {
                 Direction::Right,
             )
             .parent_phase_word_22,
-            0x0EE4,
+            0x0EE8,
             "ASM `stru_39FC6` switches to LnkTo_unk_C8610 after the first `$14` frame hold"
         );
         assert_eq!(
@@ -15856,7 +15856,7 @@ mod chunk_03 {
                 Direction::Right,
             ),
             BossHeadParentAnimationStateLoc39538 {
-                parent_phase_word_22: 0x0EE6,
+                parent_phase_word_22: 0x0EEC,
                 parent_x_direction_byte_16: 0xFF,
             },
             "ASM `stru_39FD8` switches from LnkTo_unk_C8620 to LnkTo_unk_C8618 after `$22` frames"
@@ -15882,7 +15882,7 @@ mod chunk_03 {
 
         assert_eq!(
             snapshot.sprite_animation_phase,
-            Some(2),
+            Some(1),
             "ASM loc_39538/loc_39570 `$22(a3)` phase must cross the trace boundary as a typed C8600..C8620 frame index"
         );
         assert_eq!(
