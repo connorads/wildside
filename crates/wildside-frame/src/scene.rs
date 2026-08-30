@@ -7665,14 +7665,21 @@ fn build_game_scene_filtered(
                             // ASM sub_397E4 copies `x_direction` into the
                             // child. loc_3A134 clears `x_vel` when the arrow
                             // sticks but leaves that orientation intact.
+                            // `Direction` controls the final tile flip here,
+                            // not the projectile's logical travel direction.
+                            // ASM sub_397E4 copies x_direction=$00 for the
+                            // default C8510..C8528 art and `$FF` for flipped.
                             let facing =
                                 if projectile.kind == ActiveProjectileKind::BossHeadArrowRight {
-                                    Direction::Right
-                                } else {
                                     Direction::Left
+                                } else {
+                                    Direction::Right
                                 };
                             let (draw_x, draw_y) = sprite_draw_position(frame, sx, sy, facing);
-                            commands.push(DrawCommand::Sprite {
+                            // ASM loc_32146 links this GfxObject into the SAT.
+                            // Preserve the Mega Drive's first-opaque priority
+                            // when stopped C8520/C8528 phases overlap.
+                            commands.push(DrawCommand::SatSprite {
                                 x: draw_x,
                                 y: draw_y,
                                 tile_sheet: Arc::new(tile_sheet.clone()),
@@ -12114,14 +12121,24 @@ mod tests {
             },
         );
         let trace = NativeTraceFrame {
-            active_projectile_details: vec![ActiveProjectileSnapshot {
-                x_pos: 100 << 16,
-                y_pos: 100 << 16,
-                remaining_frames: 0,
-                animation_elapsed_frames: 141,
-                kind: ActiveProjectileKind::BossHeadArrowRight,
-                ..ActiveProjectileSnapshot::default()
-            }],
+            active_projectile_details: vec![
+                ActiveProjectileSnapshot {
+                    x_pos: 100 << 16,
+                    y_pos: 100 << 16,
+                    remaining_frames: 0,
+                    animation_elapsed_frames: 141,
+                    kind: ActiveProjectileKind::BossHeadArrowRight,
+                    ..ActiveProjectileSnapshot::default()
+                },
+                ActiveProjectileSnapshot {
+                    x_pos: 140 << 16,
+                    y_pos: 100 << 16,
+                    remaining_frames: 0,
+                    animation_elapsed_frames: 141,
+                    kind: ActiveProjectileKind::BossHeadArrow,
+                    ..ActiveProjectileSnapshot::default()
+                },
+            ],
             ..NativeTraceFrame::default()
         };
 
@@ -12135,7 +12152,7 @@ mod tests {
         )
         .0;
         let sprite_sources = scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite {
+            DrawCommand::SatSprite {
                 tile_sheet,
                 palette,
                 ..
@@ -12152,14 +12169,18 @@ mod tests {
             "ASM loc_3A0D2 uses C8528 geometry after registering object_meta `$21`, so its tile page and palette both come from the resident Boss Eyes object"
         );
 
-        let sprite_flip_x = scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { tiles, .. } => tiles.first().map(|tile| tile.tile.flip_x),
-            _ => None,
-        });
+        let sprite_flip_x = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::SatSprite { tiles, .. } => tiles.first().map(|tile| tile.tile.flip_x),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
         assert_eq!(
             sprite_flip_x,
-            Some(false),
-            "ASM sub_397E4/loc_3A134 preserves the flipped x_direction after the stopped arrow clears x_vel",
+            vec![true, false],
+            "ASM sub_397E4 copies parent x_direction into the child: `$FF` is horizontally flipped and `$00` keeps C8510..C8528's default orientation after loc_3A134 clears x_vel",
         );
     }
 

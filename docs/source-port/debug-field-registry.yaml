@@ -55,7 +55,8 @@
       "owner": "boss-head-coroutines",
       "first_added_commit": "70dd4e1f8",
       "intended_meaning": "Native multi-head boss head index, attack wait word, movement delay and movement-script index corresponding to the independent ASM loc_394E8..loc_397DA coroutine.",
-      "promotion_trigger": "Promote the control state to typed trace fields when it enters oracle parity or a checked-in gameplay assertion."
+      "promotion_trigger": "Promote the control state to typed trace fields when it enters oracle parity or a checked-in gameplay assertion.",
+      "stale_candidate_exemption": "Investigation-only correlation for the Level $10 hidden lifecycle; retain the raw tuple until a component drives parity or a checked-in regression assertion."
     },
     {
       "key": "boss_eye_parent_frame_byte_16_loc_3893e",

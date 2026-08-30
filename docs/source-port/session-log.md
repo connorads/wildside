@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (Shishkaboss arrow SAT semantics)
+
+- Raw oracle WRAM, VRAM and SAT dumps prove the C8510/C8520 art is byte-exact
+  and `sub_397E4` uses `$00` for the default orientation and `$FF` for
+  horizontal flip. Native had the two render directions reversed.
+- Boss-arrow GfxObjects now emit first-opaque `SatSprite` commands in allocation
+  order, matching `loc_32146`. This resolves overlapping stopped C8520/C8528
+  phases: frame 300 falls from 154 mismatched pixels to the 39-pixel HUD residue.
+- Focused run `1788059860` remains state-exact at 39/195/419/419/39/312 pixels.
+  The remaining top arrow is stored at y=121 natively versus y=122 in oracle;
+  later live spawns agree, so continue at the hidden parent/spawn lifecycle.
+  `verify-slice-fast` and `verify-tas-full` pass.
+
 ## 2026-08-30 handoff (Island shore visible-field DMA latch)
 
 - Raw oracle VRAM at Level `$10` frames 0/30/60/120/300/359 identifies
