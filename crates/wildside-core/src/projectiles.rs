@@ -4006,7 +4006,13 @@ impl NativeRuntime {
                     return false;
                 }
             }
-            if !is_lion_projectile && !tar_monster_collision_latched {
+            let boss_head_arrow_clears_velocity_before_move = is_boss_head_arrow
+                && p.lifetime == 0
+                && p.animation_elapsed_frames == 0;
+            if !is_lion_projectile
+                && !tar_monster_collision_latched
+                && !boss_head_arrow_clears_velocity_before_move
+            {
                 p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
                 p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
             }
@@ -4095,7 +4101,19 @@ impl NativeRuntime {
                 return y_pos_word <= level_bounds.height_pixels;
             }
             if is_boss_head_arrow {
-                if p.lifetime > 0 {
+                let callback_ready = p.boss_head_arrow_coroutine_state
+                    == crate::types::BossHeadArrowCoroutineState::Running;
+                if !callback_ready {
+                    debug_assert_eq!(
+                        p.boss_head_arrow_coroutine_state,
+                        crate::types::BossHeadArrowCoroutineState::AwaitingFirstWakeLoc3A134
+                    );
+                    // ASM loc_3A0D2 falls through to loc_3A134, which
+                    // hibernates before its first `$40` decrement. The shared
+                    // GfxObject pass still moves and animates the new child.
+                    p.boss_head_arrow_coroutine_state =
+                        crate::types::BossHeadArrowCoroutineState::Running;
+                } else if p.lifetime > 0 {
                     let step =
                         crate::combat::fire_demon_fragment_movement_step_loc_3A134(p.lifetime);
                     debug_assert!(step.hibernates_one_frame);

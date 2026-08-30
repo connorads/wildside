@@ -672,6 +672,7 @@ fn cloud_projectile_spawn_loc_35df0(
         animation_elapsed_frames: 0,
         boss_head_boomerang_direction_byte_d0: 0,
         boss_head_arrow_animation: crate::types::BossHeadArrowAnimationCursor::default(),
+        boss_head_arrow_coroutine_state: crate::types::BossHeadArrowCoroutineState::Running,
         drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,
         drips_surface_crawler_x_direction_flipped: false,
         ufo_beam_child_x_direction: 0,

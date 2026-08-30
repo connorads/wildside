@@ -4223,10 +4223,19 @@ fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
         lifetime: 0x0032,
         animation_elapsed_frames: 0,
         boss_head_arrow_animation: BossHeadArrowAnimationCursor::moving_stru_3a1cc(),
+        boss_head_arrow_coroutine_state: BossHeadArrowCoroutineState::AwaitingFirstWakeLoc3A134,
         ..Default::default()
     });
 
     runtime.step_projectiles();
+    assert_eq!(
+        runtime.projectiles[0].lifetime, 0x0032,
+        "ASM loc_3A0D2 falls into loc_3A134's initial Hibernate_Object_1Frame; the spawn pass moves and animates the GfxObject without decrementing `$40`"
+    );
+    assert_eq!(
+        runtime.projectiles[0].x_pos, 0x01FD_0000,
+        "ASM GfxObjects_MoveAndAnimate/sub_1444 moves the new child after loc_3A134's initial hibernate"
+    );
     assert_eq!(
         runtime.projectiles[0]
             .boss_head_arrow_animation
@@ -4253,14 +4262,14 @@ fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
         "ASM stru_3A1CC selects C8518 on the sixth animation pass"
     );
 
-    for _ in 6..0x0032 {
+    for _ in 6..=0x0032 {
         runtime.step_projectiles();
     }
 
     assert_eq!(runtime.projectiles.len(), 1);
     assert_eq!(
-        runtime.projectiles[0].x_pos, 0x016A_0000,
-        "ASM loc_3A134/loc_3A168 keeps moving the boss arrow while `$40(a3)` decrements from `$32` to zero"
+        runtime.projectiles[0].x_pos, 0x0167_0000,
+        "ASM loc_3A0D2's initial hibernate movement precedes the 50 loc_3A134/loc_3A168 decrement passes"
     );
     assert_eq!(runtime.projectiles[0].x_velocity, -0x0003_0000);
     assert_eq!(runtime.projectiles[0].lifetime, 0);
@@ -4270,7 +4279,7 @@ fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
     assert_eq!(runtime.projectiles.len(), 1);
     assert_eq!(
         runtime.projectiles[0].x_pos, 0x0167_0000,
-        "ASM Execute_Objects moves the GfxObject before loc_3A134 observes `$40(a3)==0`, so the transition into the stuck phase retains one final -3px movement"
+        "ASM loc_3A134 clears x_vel during Execute_Objects before GfxObjects_MoveAndAnimate, so the stuck transition adds no extra movement"
     );
     assert_eq!(runtime.projectiles[0].x_velocity, 0);
     assert_eq!(

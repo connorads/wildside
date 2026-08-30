@@ -5138,6 +5138,13 @@ pub(crate) struct BossHeadArrowAnimationCursor {
     next_is_second: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum BossHeadArrowCoroutineState {
+    AwaitingFirstWakeLoc3A134,
+    #[default]
+    Running,
+}
+
 impl BossHeadArrowAnimationCursor {
     /// ASM loc_3A0D2 calls Init_Animation for `stru_3A1CC`.
     pub(crate) fn moving_stru_3a1cc() -> Self {
@@ -5249,6 +5256,9 @@ pub(crate) struct EnemyProjectile {
     pub(crate) boss_head_boomerang_direction_byte_d0: u8,
     /// Object-local GfxObject animation cursor for `stru_3A1CC`/`stru_3A1D6`.
     pub(crate) boss_head_arrow_animation: BossHeadArrowAnimationCursor,
+    /// `loc_3A0D2` falls into `loc_3A134`, whose first action is a one-frame
+    /// hibernate. Movement and animation still run before `$40` is decremented.
+    pub(crate) boss_head_arrow_coroutine_state: BossHeadArrowCoroutineState,
     /// Drips surface-crawler movement coroutine label. ASM turn scripts under
     /// `loc_33AF6` dispatch through `off_33ADA`; native persists the subset of
     /// labels wired into the simplified projectile carrier.

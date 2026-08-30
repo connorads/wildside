@@ -11327,6 +11327,11 @@ pub(crate) fn step_boss_fire_with_sounds(
                 } else {
                     crate::types::BossHeadArrowAnimationCursor::moving_stru_3a1cc()
                 },
+                boss_head_arrow_coroutine_state: if is_boomerang {
+                    crate::types::BossHeadArrowCoroutineState::Running
+                } else {
+                    crate::types::BossHeadArrowCoroutineState::AwaitingFirstWakeLoc3A134
+                },
                 gravity: 0,
                 friendly: false,
                 homing_accel: 0,

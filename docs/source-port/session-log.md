@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (boss-arrow coroutine ordering)
+
+- Raw oracle WRAM proves `loc_3A0D2` hibernates before its first `$40`
+  decrement, while the shared GfxObject pass still moves and animates the child.
+  Native now represents that first wake as an explicit projectile state.
+- When `$40` reaches zero, `loc_3A134` clears velocity before
+  `GfxObjects_MoveAndAnimate`. The focused regression pins the spawn pass at
+  `$40=$32` and the stopped transition at x=200 without an extra movement.
+- Fresh native traces match those two object-lifecycle boundaries. Focused
+  Level `$10` remains state-exact with unchanged pixel totals
+  39/181/361/361/39/312, excluding coroutine ordering as the remaining visual
+  cause. `verify-slice-fast` and `verify-tas-full` pass.
+
 ## 2026-08-30 handoff (boss-arrow object-local animation)
 
 - Boss arrows now carry the ROM's independent `stru_3A1CC`/`stru_3A1D6`
