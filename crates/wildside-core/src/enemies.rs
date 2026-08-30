@@ -1382,6 +1382,7 @@ pub(crate) struct ActiveEnemy {
     /// Armadillo and Goat reuse it as the elapsed live walk/charge animation tick.
     /// Robot reuses it for the parent body's independent animation tick.
     /// Diamond reuses this for the live `stru_3ACA8` GfxObject animation tick.
+    /// UFO reuses it for the intact/damaged parent GfxObject animation tick.
     pub(crate) dragon_descent_frames: u8,
     pub(crate) ninja_state: NinjaState,
     pub(crate) hand_state: HandState,
@@ -1722,6 +1723,33 @@ pub(crate) const CLOUD_DEATH_ANIMATION_FRAMES: u16 = 7 + 7 + 7;
 /// ASM UFO.asm loc_35174/loc_35180 plays parent `stru_34CA0`: three
 /// 7-tick frames before loc_351B6 observes `$19(a3)` and deletes the saucer.
 pub(crate) const UFO_DEATH_ANIMATION_FRAMES: u16 = 7 + 7 + 7;
+const UFO_LIVE_ANIMATION_TICKS: u8 = 5 * 3;
+
+fn ufo_next_live_animation_tick_stru_34c7e_34c92(animation_tick: u8) -> u8 {
+    // ASM Init_Animation starts with timer 1. The first GfxObject_Animate call
+    // installs the first five-tick entry; `dc.b 2,$D` then rewinds every 15
+    // calls without another bootstrap tick.
+    if animation_tick == 0 || animation_tick >= UFO_LIVE_ANIMATION_TICKS {
+        1
+    } else {
+        animation_tick + 1
+    }
+}
+
+fn ufo_live_sprite_animation_phase_stru_34c7e_34c92(animation_tick: u8, hit_points: u8) -> u8 {
+    let script_phase = if animation_tick == 0 {
+        0
+    } else {
+        (animation_tick - 1) / 5
+    };
+    // ASM loc_35228 permanently replaces intact `stru_34C7E` with damaged
+    // `stru_34C92`; the extracted atlas stores those three mappings at 3..=5.
+    if hit_points == 1 {
+        script_phase + 3
+    } else {
+        script_phase
+    }
+}
 /// ASM Sphere.asm Enemy06_Sphere_Kill plays `stru_36182`: three $0A-tick
 /// frames before the loc_36096 delete tail.
 pub(crate) const SPHERE_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x0A + 0x0A;
@@ -2509,6 +2537,9 @@ impl ActiveEnemy {
             self.y_acceleration = first_hurt.d2;
             self.target_y_velocity = first_hurt.d3;
             self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+            // ASM loc_35228 installs damaged `stru_34C92` through
+            // Init_Animation, resetting only the parent GfxObject clock.
+            self.dragon_descent_frames = 0;
             return false;
         }
         if matches!(self.family, EnemyFamily::Tank) {
@@ -2731,6 +2762,11 @@ impl ActiveEnemy {
         } else if matches!(self.family, EnemyFamily::Sphere) && !self.death_animation_active {
             Some(sphere_live_sprite_animation_phase_stru_36174(
                 self.wait_timer,
+            ))
+        } else if matches!(self.family, EnemyFamily::UFO) && !self.death_animation_active {
+            Some(ufo_live_sprite_animation_phase_stru_34c7e_34c92(
+                self.dragon_descent_frames,
+                self.hit_points,
             ))
         } else if matches!(self.family, EnemyFamily::BigHoppingSkull)
             && !self.death_animation_active
@@ -4984,6 +5020,13 @@ pub(crate) fn step_active_enemies_with_rng(
                 % robot_live_body_animation_cycle_ticks(enemy.robot_state);
             enemy.dragon_descent_index =
                 robot_next_head_animation_tick(enemy.robot_state, enemy.dragon_descent_index);
+        }
+        if matches!(enemy.family, EnemyFamily::UFO) && !enemy.death_animation_active {
+            // ASM UFO.asm Enemy0F_UFO_Init/loc_35228 installs parent
+            // `stru_34C7E` or `stru_34C92`. GfxObject_Animate advances it
+            // independently from the one-second Object coroutine.
+            enemy.dragon_descent_frames =
+                ufo_next_live_animation_tick_stru_34c7e_34c92(enemy.dragon_descent_frames);
         }
         if executable_enemy_indices.next_if_eq(&enemy_index).is_none() {
             continue;
@@ -12352,6 +12395,42 @@ mod tests {
             sound_effects,
             vec![QueuedSoundEffect::UfoHovering],
             "ASM UFO.asm loc_34F5A starts sfx_UFO_hovering when Number_UFOs_OnScreen was zero",
+        );
+        assert_eq!(
+            enemies[0].dragon_descent_frames, 1,
+            "ASM GfxObjects_MoveAndAnimate should advance newly initialised UFO stru_34C7E independently of the Object coroutine"
+        );
+    }
+
+    #[test]
+    fn ufo_live_clock_exports_stru_34c7e_and_resets_to_stru_34c92() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::UFO;
+        enemy.hit_points = 2;
+        enemy.death_animation_active = false;
+
+        for (tick, phase) in [(0, 0), (1, 0), (5, 0), (6, 1), (10, 1), (11, 2), (15, 2)] {
+            enemy.dragon_descent_frames = tick;
+            assert_eq!(
+                enemy.snapshot().sprite_animation_phase,
+                Some(phase),
+                "ASM UFO.asm stru_34C7E mapping at GfxObject animation tick {tick}"
+            );
+        }
+        assert_eq!(
+            ufo_next_live_animation_tick_stru_34c7e_34c92(15),
+            1,
+            "ASM UFO.asm stru_34C7E dc.b 2,$D rewinds directly to its first five-tick entry"
+        );
+
+        enemy.dragon_descent_frames = 11;
+        assert!(!enemy.take_damage_or_queue_death());
+        assert_eq!(enemy.hit_points, 1);
+        assert_eq!(enemy.dragon_descent_frames, 0);
+        assert_eq!(
+            enemy.snapshot().sprite_animation_phase,
+            Some(3),
+            "ASM UFO.asm loc_35228 Init_Animation resets damaged stru_34C92 to C83E8"
         );
     }
 

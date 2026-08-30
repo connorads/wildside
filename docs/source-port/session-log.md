@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-30 handoff (UFO object-local intact and damaged animation)
+
+- UFO rendering advanced both live scripts from global frame time, despite
+  `Init_Animation` giving each parent its own bootstrap and animation clock.
+- Core now models the one-tick bootstrap and 15-tick `stru_34C7E`/`stru_34C92`
+  loops. First hurt resets the clock when `loc_35228` installs the damaged
+  script; final `stru_34CA0` remains owned by the existing death state.
+- Level `$20` oracle diagnosis passes with no state divergence. Its standard
+  checkpoint totals remain 84/47 mismatched pixels because neither checkpoint
+  exercises a changed phase. `verify-slice-fast` and the full 37,759-frame
+  `verify-tas-full` pass with unchanged ratchets: 37,518 exact frames, 241
+  divergent frames, and 2,391 changed frozen HUD pixels.
+
 ## 2026-08-30 handoff (Sphere object-local live animation)
 
 - Sphere's nominal live selector rejected HP zero, but `Enemy06_Sphere_Init`

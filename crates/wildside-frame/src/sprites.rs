@@ -1736,7 +1736,6 @@ fn select_live_lion_frame<'a>(
 }
 
 fn select_live_ufo_frame<'a>(
-    trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
 ) -> Option<&'a wildside_render::SpriteFrame> {
@@ -1747,12 +1746,11 @@ fn select_live_ufo_frame<'a>(
         return None;
     }
 
-    // ASM UFO.asm Enemy0F_UFO_Hurt / loc_35228 sets `$47(a5)` on the first
-    // hit and permanently replaces `stru_34C7E` with `stru_34C92`. Native's
-    // surviving-hit state is HP 1; the terminal hit enters the death route.
-    let first_frame = if object.hit_points == Some(1) { 3 } else { 0 };
-    let phase = (trace.frame_index / 5) % 3;
-    enemy_visuals.frames.get(first_frame + phase)
+    // ASM UFO.asm Enemy0F_UFO_Init / loc_35228: core exports the exact parent
+    // mapping from intact `stru_34C7E` or permanently damaged `stru_34C92`.
+    enemy_visuals
+        .frames
+        .get(usize::from(object.sprite_animation_phase?))
 }
 
 fn select_live_crab_frame<'a>(
@@ -2426,7 +2424,7 @@ pub fn select_enemy_frame<'a>(
     if let Some(frame) = select_live_lion_frame(trace, enemy_visuals, object) {
         return frame;
     }
-    if let Some(frame) = select_live_ufo_frame(trace, enemy_visuals, object) {
+    if let Some(frame) = select_live_ufo_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_crab_frame(trace, enemy_visuals, object) {
@@ -4881,41 +4879,42 @@ mod tests {
         let exact_visuals = labelled_enemy_visuals(6, 1);
         let short_visuals = labelled_enemy_visuals(5, 1);
         let long_visuals = labelled_enemy_visuals(7, 1);
-        let mut trace = NativeTraceFrame::default();
         let mut ufo = live_enemy_object(0x0F);
         ufo.hit_points = Some(2);
 
         // ASM UFO.asm `stru_34C7E` and `stru_34C92`: healthy and surviving-hit
-        // loops each hold three mappings for five ticks before rewinding.
-        for (frame, healthy, hurt) in [(0, 0, 3), (4, 0, 3), (5, 1, 4), (14, 2, 5), (15, 0, 3)] {
-            trace.frame_index = frame;
+        // loops export their exact current parent mapping.
+        for (healthy, hurt) in [(0, 3), (1, 4), (2, 5), (0, 3)] {
+            ufo.sprite_animation_phase = Some(healthy);
             assert_eq!(
-                selected_live_tile_base(select_live_ufo_frame(&trace, &exact_visuals, &ufo)),
-                0x0100 + healthy,
-                "ASM UFO.asm stru_34C7E healthy boundary {frame}"
+                selected_live_tile_base(select_live_ufo_frame(&exact_visuals, &ufo)),
+                0x0100 + u16::from(healthy),
+                "ASM UFO.asm stru_34C7E healthy mapping {healthy}"
             );
             ufo.hit_points = Some(1);
+            ufo.sprite_animation_phase = Some(hurt);
             assert_eq!(
-                selected_live_tile_base(select_live_ufo_frame(&trace, &exact_visuals, &ufo)),
-                0x0100 + hurt,
-                "ASM UFO.asm loc_35228/stru_34C92 hurt boundary {frame}"
+                selected_live_tile_base(select_live_ufo_frame(&exact_visuals, &ufo)),
+                0x0100 + u16::from(hurt),
+                "ASM UFO.asm loc_35228/stru_34C92 hurt mapping {hurt}"
             );
             ufo.hit_points = Some(2);
         }
 
+        ufo.sprite_animation_phase = Some(0);
         assert_eq!(
-            selected_live_tile_base(select_live_ufo_frame(&trace, &long_visuals, &ufo)),
+            selected_live_tile_base(select_live_ufo_frame(&long_visuals, &ufo)),
             0x0100
         );
-        assert!(select_live_ufo_frame(&trace, &short_visuals, &ufo).is_none());
+        assert!(select_live_ufo_frame(&short_visuals, &ufo).is_none());
 
         // ASM UFO.asm Enemy0F_UFO_Init/Enemy0F_UFO_Hurt: only a live type-$0F
         // parent uses these loops; the terminal hit enters `stru_34CA0`.
         let mut wrong_family = ufo.clone();
         wrong_family.kind = NativeObjectKind::Enemy { object_type: 0x0E };
-        assert!(select_live_ufo_frame(&trace, &exact_visuals, &wrong_family).is_none());
+        assert!(select_live_ufo_frame(&exact_visuals, &wrong_family).is_none());
         ufo.hit_points = Some(0);
-        assert!(select_live_ufo_frame(&trace, &exact_visuals, &ufo).is_none());
+        assert!(select_live_ufo_frame(&exact_visuals, &ufo).is_none());
     }
 
     #[test]

@@ -19743,14 +19743,15 @@ mod tests {
         object.hit_points = Some(1);
         object.damage_flash = false;
         let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 999;
 
-        for (frame_index, signature, tile_base) in [
-            (0, 217, 0x117),
-            (5, 218, 0x127),
-            (10, 219, 0x137),
-            (20, 218, 0x127),
+        for (phase, signature, tile_base) in [
+            (3, 217, 0x117),
+            (4, 218, 0x127),
+            (5, 219, 0x137),
+            (4, 218, 0x127),
         ] {
-            trace.frame_index = frame_index;
+            object.sprite_animation_phase = Some(phase);
             let frame = sprites::select_enemy_frame(&trace, ufo_visuals, &object);
             assert_eq!(
                 frame.tile_sheet.tiles[0].pixels[0], signature,
