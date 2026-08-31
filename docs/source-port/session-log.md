@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-31 handoff (Crab pre-allocation Gfx clock)
+
+- Sprite-only rendering of settled VDP snapshots established the exact oracle
+  SAT boundary without background planes. Oracle memory dump N is presented in
+  PNG N+1; the earlier frame-51 interpretation used post-update memory.
+- `Enemy09_Crab_Init loc_3AF96` hibernates before `j_Load_GfxObjectSlot`, but
+  native advanced `stru_3AF62` on that pass. Suppressing only that impossible
+  call preserves the ROM's 40-call cycle and makes Crab crops exact at frames
+  50, 51, and 52.
+- Commits `648f36cfc` and `0ba330773` add the settled sprite-layer diagnostic,
+  opacity-mask regression, and allocation-timing correction.
+- `verify-slice-fast` and full 37,759-frame `verify-tas-full` pass with the
+  published 37,518 exact / 241 divergent frame and 2,391 frozen HUD-pixel
+  ratchets unchanged.
+- The nine Level `$64` checkpoints retain 1,757 changed pixels. Visual triage
+  assigns 943 pixels across six frames to enemy palette-0 sprite recolour;
+  continue with frame 90 as the largest checkpoint witness.
+
 ## 2026-08-31 handoff (Crab transition instrumentation)
 
 - Level `$64` frames 50 and 52 are pixel-exact; only frame 51 differs during
