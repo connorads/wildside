@@ -21906,6 +21906,140 @@ mod tests {
     }
 
     #[test]
+    fn level64_frame51_crab_scene_matches_post_frame50_oracle_sat() {
+        let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let dump_dir = workspace.join(".cache/oracle-probe/oracle");
+        let Ok(vram) = std::fs::read(dump_dir.join("vram_frame_50.bin")) else {
+            return;
+        };
+        let Ok(cram) = std::fs::read(dump_dir.join("cram_frame_50.bin")) else {
+            return;
+        };
+        let Ok(vsram) = std::fs::read(dump_dir.join("vsram_frame_50.bin")) else {
+            return;
+        };
+        let mut registers = [0; 0x20];
+        // ASM VDPGameInitValues (kid.asm:550-569): Sprite_Table at `$1000`
+        // in H40 mode. The sprite-only renderer needs no plane registers.
+        registers[5] = 0x08;
+        registers[0x0C] = 0x81;
+        let vdp = wildside_md::VdpSnapshot {
+            registers,
+            vram,
+            cram,
+            vsram,
+            raster_frame: None,
+        };
+        let mut sprite_rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        let opaque = wildside_md::render_vdp_sprites_into(&vdp, &mut sprite_rgb);
+        let oracle_opaque_count = (60usize..110)
+            .flat_map(|y| (280usize..320).map(move |x| y * FRAME_WIDTH as usize + x))
+            .filter(|pixel| opaque[*pixel])
+            .count();
+        assert!(oracle_opaque_count > 0, "frame-50 oracle Crab SAT crop");
+
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x64);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest.clone(),
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x64 sweep trace");
+        let render_trace = trace_frame_with_vdp_latch_at_checkpoint(
+            &run.trace,
+            51,
+            Some(&run.initial_render_latch),
+            "frame_051",
+        )
+        .expect("Level 0x64 frame-51 render trace");
+        let visuals = load_level_visuals(&manifest, 0x64).expect("Level 0x64 visuals");
+        let scene = build_scene_filtered(
+            &render_trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: true,
+                player: false,
+                effects: false,
+                eol_score: false,
+                hud: false,
+            },
+        );
+        let mut native_rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        render_scene(&scene, &mut native_rgb);
+        let blank_scene = build_scene_filtered(
+            &render_trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: false,
+                eol_score: false,
+                hud: false,
+            },
+        );
+        let mut blank_rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        render_scene(&blank_scene, &mut blank_rgb);
+        let native_mismatches = opaque
+            .iter()
+            .enumerate()
+            .filter(|(pixel, is_opaque)| {
+                **is_opaque
+                    && (280..320).contains(&(pixel % FRAME_WIDTH as usize))
+                    && (60..110).contains(&(pixel / FRAME_WIDTH as usize))
+                    && native_rgb[*pixel * 3..*pixel * 3 + 3]
+                        != sprite_rgb[*pixel * 3..*pixel * 3 + 3]
+            })
+            .map(|(pixel, _)| pixel)
+            .collect::<Vec<_>>();
+        assert!(
+            native_mismatches.is_empty(),
+            "native enemy scene must reproduce the post-frame-50 oracle Crab SAT layer; {} opaque pixels differ, first coordinates: {:?}",
+            native_mismatches.len(),
+            native_mismatches
+                .iter()
+                .take(12)
+                .map(|pixel| (pixel % FRAME_WIDTH as usize, pixel / FRAME_WIDTH as usize))
+                .collect::<Vec<_>>()
+        );
+        let extra_native_pixels = opaque
+            .iter()
+            .enumerate()
+            .filter(|(pixel, is_opaque)| {
+                !**is_opaque
+                    && (280..320).contains(&(pixel % FRAME_WIDTH as usize))
+                    && (60..110).contains(&(pixel / FRAME_WIDTH as usize))
+                    && native_rgb[*pixel * 3..*pixel * 3 + 3]
+                        != blank_rgb[*pixel * 3..*pixel * 3 + 3]
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            extra_native_pixels.is_empty(),
+            "native enemy scene draws {} Crab pixels outside the {oracle_opaque_count}-pixel oracle SAT mask; first coordinates: {:?}",
+            extra_native_pixels.len(),
+            extra_native_pixels
+                .iter()
+                .take(20)
+                .map(|(pixel, _)| (pixel % FRAME_WIDTH as usize, pixel / FRAME_WIDTH as usize))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn level64_orcas_follow_lion_loc_3e604_charge_entry() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

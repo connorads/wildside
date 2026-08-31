@@ -5111,13 +5111,20 @@ pub(crate) fn step_active_enemies_with_rng(
             enemy.dragon_descent_frames =
                 ufo_next_live_animation_tick_stru_34c7e_34c92(enemy.dragon_descent_frames);
         }
+        let crab_gfx_object_allocated = freshly_loaded_enemies
+            .get(&ActiveEnemyKey::from_enemy(enemy))
+            .is_none_or(|remaining| *remaining < 2);
         if matches!(enemy.family, EnemyFamily::Crab)
             && !enemy.death_animation_active
             && !enemy.crab_frozen
             && enemy.damage_flash_frames == 0
+            && crab_gfx_object_allocated
         {
-            // ASM Crab.asm stru_3AF62: GfxObject_Animate advances the live
-            // mapping independently from the shared-walker Object coroutine.
+            // ASM Enemy09_Crab_Init loc_3AF96 hibernates before
+            // j_Load_GfxObjectSlot. GfxObject_Animate cannot advance on that
+            // first fresh-object pass because the GfxObject does not exist;
+            // after allocation, stru_3AF62 advances independently from the
+            // shared-walker Object coroutine.
             enemy.dragon_descent_frames =
                 crab_next_live_animation_tick_stru_3af62(enemy.dragon_descent_frames);
         }
@@ -12652,6 +12659,53 @@ mod tests {
         assert_eq!(
             enemies[0].dragon_descent_frames, 1,
             "ASM GfxObjects_MoveAndAnimate advances Crab stru_3AF62 independently from its shared-walker Object"
+        );
+    }
+
+    #[test]
+    fn fresh_crab_does_not_animate_before_gfx_allocation_loc_3af96() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Crab;
+        enemy.hit_points = 2;
+        enemy.dragon_descent_frames = 0;
+        let key = ActiveEnemyKey::from_enemy(&enemy);
+        let mut enemies = [enemy];
+        let mut fresh = std::collections::HashMap::from([(key, 2)]);
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+
+        let mut step = |enemies: &mut [ActiveEnemy],
+                        fresh: &mut std::collections::HashMap<_, _>| {
+            step_active_enemies_with_rng(
+                enemies,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                0,
+                false,
+                None,
+                &mut rng,
+                &mut drilled_blocks,
+                None,
+                fresh,
+            );
+        };
+
+        step(&mut enemies, &mut fresh);
+        assert_eq!(
+            enemies[0].dragon_descent_frames, 0,
+            "ASM Enemy09_Crab_Init loc_3AF96 hibernates before j_Load_GfxObjectSlot, so no GfxObject exists to animate on the first pass"
+        );
+        step(&mut enemies, &mut fresh);
+        assert_eq!(
+            enemies[0].dragon_descent_frames, 1,
+            "ASM loc_3AFD0 Init_Animation makes stru_3AF62 available to the following GfxObjects_MoveAndAnimate pass"
         );
     }
 
