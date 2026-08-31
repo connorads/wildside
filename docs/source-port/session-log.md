@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-31 handoff (Forest ripple display latch)
+
+- Level `$64` visual triage identified Forest's `loc_305E6` water ripple as the
+  largest remaining pixel cluster. Its every-fourth-frame cadence matched the
+  ROM's `Time_Frames >> 2` phase boundary.
+- Rendering now distinguishes the current ROM calculation clock from the
+  prior-frame H-scroll table visible in the sampled VDP frame. The focused
+  360-frame probe improves from 210,803 to 107,996 changed pixel instances;
+  player and camera remain exact on every frame.
+- Fresh Level `$64` frame sweep `1788168666` improves settle from 1,372 to 311
+  mismatched pixels and retains idle at 761. Inspected diffs show the ripple
+  rows are gone; remaining residue is sprite-sized or isolated tile points.
+- Fresh 69-level frame sweep `1788169195` retains only the known Level `$33`
+  Heady Metal blocker. `verify-slice-fast` and full 37,759-frame
+  `verify-tas-full` pass with unchanged 37,518 exact / 241 divergent frame and
+  2,391 frozen HUD pixel ratchets.
+
 ## 2026-08-30 handoff (Orca shared Lion patrol path)
 
 - Level `$64`'s Orcas used generic probe dimensions and read the support row

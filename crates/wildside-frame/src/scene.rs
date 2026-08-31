@@ -5834,6 +5834,16 @@ pub fn forest_water_ripple_time_frames_for_trace_loc_305e6(trace: &NativeTraceFr
     background_time_frames_for_trace_loc_3050a(trace)
 }
 
+pub fn forest_water_ripple_display_time_frames_for_trace_loc_305e6(
+    trace: &NativeTraceFrame,
+) -> usize {
+    // ASM loc_305E6 writes the ripple into Horiz_Scroll_Buffer for the next
+    // VBlank transfer. The rendered VDP frame still displays the table built
+    // from the preceding Time_Frames value, matching loc_3050A's display
+    // latch for the other H-scroll rows.
+    forest_water_ripple_time_frames_for_trace_loc_305e6(trace).saturating_sub(1)
+}
+
 fn background_ripple_offset_for_screen_y_sub_30598(
     trace: &NativeTraceFrame,
     background_theme_id: u8,
@@ -5845,7 +5855,7 @@ fn background_ripple_offset_for_screen_y_sub_30598(
     {
         wildside_core::BackgroundScrollThemeDispatchLoc30598::ApplyForestWaterRipple => {
             forest_water_ripple_offset_for_screen_y_sub_30598(
-                forest_water_ripple_time_frames_for_trace_loc_305e6(trace),
+                forest_water_ripple_display_time_frames_for_trace_loc_305e6(trace),
                 screen_y,
                 effect_start_row_selector,
                 camera_y_px,

@@ -13411,6 +13411,23 @@ mod tests {
     }
 
     #[test]
+    fn forest_ripple_display_uses_previous_hscroll_table_loc_305e6() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.time_frames_loc_3038a = 112;
+
+        assert_eq!(
+            super::scene::forest_water_ripple_display_time_frames_for_trace_loc_305e6(&trace),
+            111,
+            "ASM loc_305E6 builds the next H-scroll table from Time_Frames; the sampled VDP frame still displays the table built on the preceding VBlank"
+        );
+        assert_ne!(
+            super::scene::forest_water_ripple_offset_for_screen_y_sub_30598(111, 100, 0x11, 224),
+            super::scene::forest_water_ripple_offset_for_screen_y_sub_30598(112, 100, 0x11, 224),
+            "Level 0x64 scanline 100 crosses a four-frame ripple phase boundary and guards the visible prior-frame table"
+        );
+    }
+
+    #[test]
     fn auto_scroll_rows_use_rom_time_frames_for_settled_warp_loc_3050a() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.frame_index = 60;
