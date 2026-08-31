@@ -194,6 +194,43 @@ pub fn render_vdp_into(vdp: &VdpSnapshot, rgb: &mut [u8]) {
     }
 }
 
+/// Render only a settled hardware sprite layer and return its opaque-pixel mask.
+///
+/// This follows the same linked SAT scan, per-line sprite limit, tile-fetch
+/// budget, priority passes and first-opaque-pixel rule as [`render_vdp_into`].
+/// Pixels outside the returned mask are left unchanged. Raster-timed writes
+/// are intentionally rejected until this diagnostic path models their
+/// scanline effects explicitly.
+pub fn render_vdp_sprites_into(vdp: &VdpSnapshot, rgb: &mut [u8]) -> Vec<bool> {
+    let width = 320usize;
+    let height = 224usize;
+    assert_eq!(rgb.len(), width * height * 3);
+    assert!(
+        vdp.raster_frame.is_none(),
+        "sprite-only rendering requires a settled VDP snapshot"
+    );
+
+    let sprite_table_base = sprite_table_base(&vdp.registers);
+    let sprite_scan = SpriteLineScan::build(&vdp.vram, sprite_table_base, height, width);
+    let mut opaque = vec![false; width * height];
+
+    for y in 0..height {
+        let line_sprites = sprite_scan.sprites_on_line(y);
+        for x in 0..width {
+            for priority in [false, true] {
+                if let Some(colour) =
+                    scanline_sprite_pixel_rgb(vdp, &sprite_scan, line_sprites, x, y, priority)
+                {
+                    write_rgb(rgb, width, x, y, colour);
+                    opaque[y * width + x] = true;
+                }
+            }
+        }
+    }
+
+    opaque
+}
+
 fn apply_vram_raster_writes_before_scanline(
     raster_frame: &VdpRasterFrame,
     vdp: &mut VdpSnapshot,

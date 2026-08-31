@@ -20,5 +20,5 @@ pub use r68k_emu;
 
 pub use vdp::{
     FrameBuffer, VdpPixelLayerSample, VdpPixelSample, VdpRasterFrame, VdpRasterVramWordWrite,
-    VdpSnapshot, render_vdp_into, sample_vdp_pixel,
+    VdpSnapshot, render_vdp_into, render_vdp_sprites_into, sample_vdp_pixel,
 };

@@ -2469,7 +2469,8 @@ mod tests {
     };
     use crate::vdp::{
         ScrollPlane, SpriteLineScan, VdpRasterFrame, VdpRasterVramWordWrite, VdpSnapshot,
-        WindowPlane, WindowRegion, cram_rgb, render_vdp_into, scale_channel,
+        WindowPlane, WindowRegion, cram_rgb, render_vdp_into, render_vdp_sprites_into,
+        scale_channel,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
     use std::cell::RefCell;
@@ -5215,6 +5216,26 @@ mod tests {
             None,
             "a later high-priority sprite must not replace an earlier low-priority opaque sprite pixel",
         );
+    }
+
+    #[test]
+    fn render_vdp_sprites_into_preserves_background_and_reports_opaque_pixels() {
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[5] = 0x18;
+        let sprite_table_base = 0x3000;
+        write_sprite_entry(&mut vdp.vram, sprite_table_base, 0, 10, 0, 1, 12);
+        set_tile_pixel(&mut vdp.vram, 1, 0, 0, 2);
+        write_cram_colour(&mut vdp.cram, 2, 0x0E0);
+
+        let background = [7, 11, 13];
+        let mut rgb = background.repeat(320 * 224);
+        let opaque = render_vdp_sprites_into(&vdp, &mut rgb);
+
+        let sprite_pixel = 10 * 320 + 12;
+        assert_eq!(rgb[sprite_pixel * 3..sprite_pixel * 3 + 3], [0, 255, 0]);
+        assert!(opaque[sprite_pixel]);
+        assert_eq!(rgb[..3], background);
+        assert!(!opaque[0]);
     }
 
     #[test]
