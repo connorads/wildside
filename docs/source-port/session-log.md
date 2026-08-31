@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-31 handoff (Crab transition instrumentation)
+
+- Level `$64` frames 50 and 52 are pixel-exact; only frame 51 differs during
+  Crab phase `$05` to `$00` transition.
+- Oracle SAT frame 51 contains two 4x4 entries at `(286,65)` and `(292,65)`,
+  both tile `$547`, with the expected opposite flips. Native positions, phase,
+  tile geometry, Crab_1 colours, and specially permuted VRAM bytes agree.
+- Current-object, opposite-order, SAT-first-opaque, and third-slot art/palette
+  experiments either leave the frame unchanged or regress an exact neighbour.
+  None landed.
+- `tas-diff` now includes `sprite_phase` in native enemy roster diagnostics.
+  Continue at the frame-51 VDP fetch/presentation boundary, not Crab gameplay.
+
 ## 2026-08-31 handoff (Tar Monster primary GfxObject)
 
 - Level `$64` sprite triage identified Tar Monster as the first remaining

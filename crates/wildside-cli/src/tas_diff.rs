@@ -714,6 +714,10 @@ fn format_native_enemy_debug(
         .walk_phase
         .map(|phase| format!(" phase={phase:#04x}"))
         .unwrap_or_default();
+    let sprite_phase = object
+        .sprite_animation_phase
+        .map(|phase| format!(" sprite_phase={phase:#04x}"))
+        .unwrap_or_default();
     let wait_timer = object
         .wait_timer
         .map(|wait_timer| format!(" wait={wait_timer:#06x}"))
@@ -724,7 +728,7 @@ fn format_native_enemy_debug(
         format!(" debug={:?}", object.debug_fields)
     };
     format!(
-        "enemy_{object_type:02X}{layout}@{:#010x},{:#010x}{velocity}{facing}{on_ground}{hit_points}{stationary}{shared_walker}{walk_phase}{wait_timer}{debug_fields}",
+        "enemy_{object_type:02X}{layout}@{:#010x},{:#010x}{velocity}{facing}{on_ground}{hit_points}{stationary}{shared_walker}{walk_phase}{sprite_phase}{wait_timer}{debug_fields}",
         object.x_pos, object.y_pos,
     )
 }
@@ -1343,7 +1347,7 @@ mod tests {
                 shared_walker_patrol_timer: Some(0x0029),
                 shared_walker_patrol_short_next: Some(false),
                 walk_phase: Some(0),
-                sprite_animation_phase: None,
+                sprite_animation_phase: Some(3),
                 wait_timer: Some(0x01df),
                 debug_fields: std::collections::BTreeMap::new(),
             },
@@ -1351,7 +1355,7 @@ mod tests {
 
         assert_eq!(
             debug,
-            "enemy_0D#04@0x035e8000,0x02700000 vel=0x00000000,0x00000000 face=Left ground=1 hp=2 walker=0x000a/0x0029/short=0 phase=0x00 wait=0x01df",
+            "enemy_0D#04@0x035e8000,0x02700000 vel=0x00000000,0x00000000 face=Left ground=1 hp=2 walker=0x000a/0x0029/short=0 phase=0x00 sprite_phase=0x03 wait=0x01df",
         );
     }
 
