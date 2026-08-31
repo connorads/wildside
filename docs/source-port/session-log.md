@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-08-31 handoff (Tar Monster primary GfxObject)
+
+- Level `$64` sprite triage identified Tar Monster as the first remaining
+  enemy witness. Oracle exposes two mappings per live monster; native exported
+  only linked `stru_3272E`/`stru_3274C`.
+- Core now mirrors primary `$13(a2)` visibility across `loc_32308`,
+  `loc_32310`, `loc_322DA`, and hurt flash. The always-allocated primary
+  snapshot precedes the animated body and renders fixed `unk_C7826` with its
+  signed `-$10` Y origin.
+- The 360-frame Level `$64` corpus improves from 107,996 to 107,235 changed
+  pixel instances and makes frame 359 exact. Frame 0 remains at 56 because the
+  linked body masks the primary there, matching the inspected oracle frame.
+- `verify-slice-fast` and full 37,759-frame `verify-tas-full` pass with
+  unchanged 37,518 exact / 241 divergent frame and 2,391 frozen HUD pixel
+  ratchets.
+
 ## 2026-08-31 handoff (Forest ripple display latch)
 
 - Level `$64` visual triage identified Forest's `loc_305E6` water ripple as the

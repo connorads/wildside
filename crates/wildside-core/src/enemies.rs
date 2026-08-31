@@ -1359,7 +1359,8 @@ pub(crate) struct ActiveEnemy {
     /// parent-spawned-child flag and bit 6 for Kid_Transform loc_7E90's retained
     /// callback phase; no layout walking-dragon variant uses either bit.
     /// Archer reuses bit 7 for table-selection initialisation and bit 0 for
-    /// the cycle's selected vertical shooting table.
+    /// the cycle's selected vertical shooting table. Tar Monster reuses bit 0
+    /// for primary GfxObject `$13(a2)` visibility from loc_32308.
     pub(crate) dragon_script_variant: u8,
     /// Dragon Flying: current command index within the script.
     /// Tornado reuses this as the next `loc_359F2` pattern index from `unk_35A0C`.
@@ -3417,6 +3418,24 @@ impl ActiveEnemy {
         })
     }
 
+    /// ASM Tar_Monster.asm loc_32200/loc_32308: static primary GfxObject
+    /// `unk_C7826`, exported separately from the linked animated body.
+    pub(crate) fn tar_monster_primary_snapshot(&self) -> Option<NativeObjectSnapshot> {
+        if !matches!(self.family, EnemyFamily::TarMonster) || self.death_animation_active {
+            return None;
+        }
+
+        let mut snapshot = self.snapshot();
+        snapshot.hit_points = Some(0);
+        // The hidden GfxObject remains allocated. Atlas index 12 is
+        // `unk_C7826`; `None` mirrors its cleared `$13(a2)` visibility byte.
+        snapshot.sprite_animation_phase = (self.damage_flash_frames == 0
+            && self.dragon_script_variant & TAR_MONSTER_PRIMARY_VISIBLE_LOC_32308 != 0)
+            .then_some(12);
+        snapshot.contact_phase = None;
+        Some(snapshot)
+    }
+
     pub(crate) fn driller_child_attachment_snapshots(&self) -> Option<[NativeObjectSnapshot; 2]> {
         if !matches!(self.family, EnemyFamily::Driller) || self.death_animation_active {
             return None;
@@ -3677,7 +3696,7 @@ impl EnemyFamily {
     /// each exported pair back to its single Object_RAM slot.
     pub(crate) fn exported_child_attachment_snapshot_count(self) -> u16 {
         match self {
-            Self::Robot | Self::Tank | Self::TankShooting | Self::Scorpion => 1,
+            Self::Robot | Self::TarMonster | Self::Tank | Self::TankShooting | Self::Scorpion => 1,
             Self::Driller => 2,
             _ => 0,
         }
@@ -3698,7 +3717,7 @@ impl EnemyFamily {
 /// ROM Object_RAM slot: families with exported child attachment snapshots by
 /// their `object_type()` (a unit test pins the two in lock-step).
 pub(crate) fn enemy_object_type_pair_shares_object_slot(object_type: u8) -> bool {
-    matches!(object_type, 0x03 | 0x0A | 0x0B | 0x13 | 0x1A)
+    matches!(object_type, 0x03 | 0x05 | 0x0A | 0x0B | 0x13 | 0x1A)
 }
 
 #[cfg(test)]
@@ -3709,6 +3728,7 @@ mod family_child_slot_tests {
     fn pair_collapse_set_matches_the_attachment_exporting_families() {
         let attachment_families = [
             EnemyFamily::Robot,
+            EnemyFamily::TarMonster,
             EnemyFamily::Tank,
             EnemyFamily::TankShooting,
             EnemyFamily::Scorpion,
@@ -3752,7 +3772,6 @@ mod family_child_slot_tests {
             EnemyFamily::Tornado,
             EnemyFamily::SpinningTwins,
             EnemyFamily::Archer,
-            EnemyFamily::TarMonster,
         ] {
             assert_eq!(
                 family.exported_child_attachment_snapshot_count(),
@@ -3775,8 +3794,9 @@ mod family_child_slot_tests {
         assert_eq!(EnemyFamily::Driller.unexported_gfx_child_slots(), 0);
         // ASM Archer.asm loc_33FDA -> loc_32188 held arrow.
         assert_eq!(EnemyFamily::Archer.unexported_gfx_child_slots(), 1);
-        // ASM Tar_Monster.asm loc_32200 spliced gfx child.
-        assert_eq!(EnemyFamily::TarMonster.unexported_gfx_child_slots(), 1);
+        // ASM Tar_Monster.asm loc_32200 spliced primary and live body are
+        // exported as adjacent presentation snapshots while `$13(a2)` is set.
+        assert_eq!(EnemyFamily::TarMonster.unexported_gfx_child_slots(), 0);
         // 1:1 families own no hidden gfx children.
         assert_eq!(EnemyFamily::Goat.unexported_gfx_child_slots(), 0);
         assert_eq!(

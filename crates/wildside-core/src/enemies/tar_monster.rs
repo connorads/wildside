@@ -12,6 +12,10 @@ pub(crate) const TAR_MONSTER_ATTACK_FRAMES: u16 = 27;
 pub(crate) const TAR_MONSTER_ATTACK_FIRE_FRAME: u16 = 8;
 /// Submerge animation duration (`stru_3274C`: seven four-frame entries).
 pub(crate) const TAR_MONSTER_SUBMERGE_FRAMES: u16 = 28;
+/// `status_flag_13` on the primary GfxObject at `$3A(a5)`.
+/// Tar Monster has no layout script variant, so its private byte stores this
+/// one-bit visibility latch without widening every `ActiveEnemy`.
+pub(crate) const TAR_MONSTER_PRIMARY_VISIBLE_LOC_32308: u8 = 1;
 
 pub(crate) fn tar_monster_live_sprite_phase_stru_3272e_3274c(
     state: TarMonsterState,
@@ -61,7 +65,7 @@ pub(crate) enum TarMonsterScriptCommandLoc32256 {
     Appear,
     Disappear,
     ToggleDirection,
-    ToggleLinkedChild,
+    TogglePrimary,
     Attack,
     Restart,
 }
@@ -465,7 +469,7 @@ pub(crate) fn tar_monster_script_step_loc_32256(offset: u8) -> TarMonsterScriptS
             TarMonsterScriptCommandLoc32256::ToggleDirection
         }
         TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc32308) => {
-            TarMonsterScriptCommandLoc32256::ToggleLinkedChild
+            TarMonsterScriptCommandLoc32256::TogglePrimary
         }
         TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc32310) => {
             TarMonsterScriptCommandLoc32256::Attack
@@ -1244,7 +1248,9 @@ pub(crate) fn step_tar_monster_with_sounds(
                 return;
             }
             TarMonsterScriptCommandLoc32256::Disappear => {
-                // ASM loc_322DA hides the linked child and runs `stru_3274C`.
+                // ASM loc_322DA hides primary GfxObject `$13(a2)` and runs
+                // `stru_3274C` on the linked animated body.
+                enemy.dragon_script_variant &= !TAR_MONSTER_PRIMARY_VISIBLE_LOC_32308;
                 played_sound_effects.push(QueuedSoundEffect::TarMonsterDisappears);
                 enemy.tar_monster_state = TarMonsterState::Submerging;
                 enemy.wait_timer = TAR_MONSTER_SUBMERGE_FRAMES;
@@ -1254,11 +1260,14 @@ pub(crate) fn step_tar_monster_with_sounds(
                 // ASM loc_322FC toggles both the body and linked child direction.
                 enemy.facing = opposite_direction(enemy.facing);
             }
-            TarMonsterScriptCommandLoc32256::ToggleLinkedChild => {
-                // ASM loc_32308 toggles only `$13(a2)`. Native represents the
-                // linked sprite and parent as one Tar Monster render phase.
+            TarMonsterScriptCommandLoc32256::TogglePrimary => {
+                // ASM loc_32308: `not.b $13(a2)` toggles the static primary
+                // GfxObject independently from the linked animated body.
+                enemy.dragon_script_variant ^= TAR_MONSTER_PRIMARY_VISIBLE_LOC_32308;
             }
             TarMonsterScriptCommandLoc32256::Attack => {
+                // ASM loc_32310: `sf $13(a2)`.
+                enemy.dragon_script_variant &= !TAR_MONSTER_PRIMARY_VISIBLE_LOC_32308;
                 enemy.tar_monster_state = TarMonsterState::Attacking;
                 enemy.wait_timer = TAR_MONSTER_ATTACK_FRAMES;
                 return;
@@ -1481,18 +1490,18 @@ mod tests {
 
         let expected = [
             (0, Command::Appear),
-            (2, Command::ToggleLinkedChild),
+            (2, Command::TogglePrimary),
             (4, Command::Wait { dbf_seed: 0x5A }),
-            (6, Command::ToggleLinkedChild),
+            (6, Command::TogglePrimary),
             (8, Command::Wait { dbf_seed: 0x05 }),
-            (10, Command::ToggleLinkedChild),
+            (10, Command::TogglePrimary),
             (12, Command::Wait { dbf_seed: 0x0A }),
-            (14, Command::ToggleLinkedChild),
+            (14, Command::TogglePrimary),
             (16, Command::Wait { dbf_seed: 0x07 }),
-            (18, Command::ToggleLinkedChild),
+            (18, Command::TogglePrimary),
             (20, Command::Wait { dbf_seed: 0x32 }),
             (22, Command::Attack),
-            (24, Command::ToggleLinkedChild),
+            (24, Command::TogglePrimary),
             (26, Command::Wait { dbf_seed: 0x1E }),
             (28, Command::Disappear),
             (30, Command::Wait { dbf_seed: 0x46 }),
@@ -2391,6 +2400,48 @@ mod tests {
             "ASM Tar_Monster.asm loc_322DA plays sfx_Tar_Monster_disappears before the submerge animation",
         );
         assert_eq!(sound_effects[0].sound_id(), 0x53);
+    }
+
+    #[test]
+    fn tar_monster_primary_gfx_visibility_follows_loc_32308_32310_322da() {
+        let mut enemy = tar_monster_test_enemy();
+        enemy.tar_monster_state = TarMonsterState::Visible;
+        enemy.wait_timer = 0;
+        enemy.dragon_script_cmd = 2;
+        let mut projectiles = Vec::new();
+
+        step_tar_monster(&mut enemy, &mut projectiles);
+        let primary = enemy
+            .tar_monster_primary_snapshot()
+            .expect("ASM loc_32308 toggles primary `$13(a2)` visible");
+        assert_eq!(primary.sprite_animation_phase, Some(12));
+        assert_eq!(primary.hit_points, Some(0));
+        assert_eq!((primary.x_pos, primary.y_pos), (enemy.x_pos, enemy.y_pos));
+
+        enemy.wait_timer = 0;
+        enemy.dragon_script_cmd = 22;
+        step_tar_monster(&mut enemy, &mut projectiles);
+        assert_eq!(
+            enemy
+                .tar_monster_primary_snapshot()
+                .expect("primary GfxObject remains allocated")
+                .sprite_animation_phase,
+            None,
+            "ASM loc_32310 clears primary `$13(a2)` before the attack"
+        );
+
+        enemy.dragon_script_variant = TAR_MONSTER_PRIMARY_VISIBLE_LOC_32308;
+        enemy.wait_timer = 0;
+        enemy.dragon_script_cmd = 28;
+        step_tar_monster(&mut enemy, &mut projectiles);
+        assert_eq!(
+            enemy
+                .tar_monster_primary_snapshot()
+                .expect("primary GfxObject remains allocated")
+                .sprite_animation_phase,
+            None,
+            "ASM loc_322DA clears primary `$13(a2)` before submerging"
+        );
     }
 
     #[test]

@@ -11142,6 +11142,11 @@ impl NativeRuntime {
                     // before loading the visible gfx object; after the native
                     // first skipped tick this object exists only as the hidden
                     // pending init slot seen in oracle object-slot traces.
+                } else if matches!(enemy.family, EnemyFamily::TarMonster) {
+                    // ASM loc_321E4/loc_32200 links primary `a2` before the
+                    // animated `a3`; the first SAT entry wins overlap pixels.
+                    snapshots.extend(enemy.tar_monster_primary_snapshot());
+                    snapshots.push(enemy.snapshot());
                 } else if !matches!(enemy.family, EnemyFamily::Drips) {
                     // ASM Drips.asm Enemy16_Drip_Init/loc_33488 keeps the
                     // parent/controller gfx object hidden; visible Drips

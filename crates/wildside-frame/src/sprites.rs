@@ -1480,10 +1480,15 @@ fn select_live_tar_monster_frame<'a>(
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
 ) -> Option<&'a wildside_render::SpriteFrame> {
-    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x05 })
-        || object.hit_points == Some(0)
-        || enemy_visuals.frames.len() < 7
-    {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x05 }) {
+        return None;
+    }
+    if object.hit_points == Some(0) && object.sprite_animation_phase == Some(12) {
+        // ASM Tar_Monster.asm loc_32200: primary `$3A(a5)` uses the fixed
+        // `unk_C7826` mapping while the linked live body animates separately.
+        return enemy_visuals.frames.get(12);
+    }
+    if object.hit_points == Some(0) || enemy_visuals.frames.len() < 7 {
         return None;
     }
     // ASM Tar_Monster.asm off_32290 dispatches stru_3272E (C77A6..C77D6)
@@ -2483,6 +2488,14 @@ pub fn push_enemy_sprite(
     level_visuals: &NativeLevelVisuals,
     object_type: u8,
 ) {
+    if object_type == 0x05
+        && object.hit_points == Some(0)
+        && object.sprite_animation_phase.is_none()
+    {
+        // ASM Tar_Monster.asm loc_322DA/loc_32310/loc_323C0: clearing
+        // primary `$13(a2)` hides its sprite without freeing the GfxObject.
+        return;
+    }
     let Some(enemy_visuals) = level_visuals.enemies.families.get(&object_type) else {
         let colour = if object.damage_flash {
             ENEMY_FLASH_COLOUR
@@ -4289,6 +4302,16 @@ mod tests {
         assert!(select_live_tar_monster_frame(&full, &rejected).is_none());
         let too_short_tar = labelled_enemy_visuals(1, 3);
         assert!(select_live_tar_monster_frame(&too_short_tar, &live_enemy_object(0x05)).is_none());
+        let tar_visuals = labelled_enemy_visuals(13, 3);
+        let mut primary = live_enemy_object(0x05);
+        primary.hit_points = Some(0);
+        primary.sprite_animation_phase = Some(12);
+        assert_eq!(
+            select_live_tar_monster_frame(&tar_visuals, &primary)
+                .expect("ASM loc_32200 primary mapping")
+                .tile_base_index,
+            tar_visuals.frames[12].tile_base_index
+        );
 
         let mut rejected = live_enemy_object(0x04);
         rejected.sprite_animation_phase = Some(0);

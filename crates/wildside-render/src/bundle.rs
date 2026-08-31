@@ -1869,6 +1869,9 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x094, 0x11, 0x00, 0x1F, 0x18),
             fd(0x0A0, 0x11, 0x00, 0x20, 0x10),
             fd(0x0A8, 0x11, 0x00, 0x20, 0x07),
+            // ASM Tar_Monster.asm loc_32200: the independent primary
+            // GfxObject keeps the fixed `unk_C7826` mapping.
+            fd(0x0C0, 0x0E, -0x10, 0x08, 0x08),
         ],
     },
     EnemyFamilySpec {

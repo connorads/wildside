@@ -4394,11 +4394,16 @@ mod tests {
         let baseline = runtime.object_counts_from_roster(&[], 0, 0);
         let mut tar_monster = drips_test_enemy(0, 0);
         tar_monster.family = EnemyFamily::TarMonster;
-        let snapshot = tar_monster.snapshot();
+        let snapshots = [
+            tar_monster.snapshot(),
+            tar_monster
+                .tar_monster_primary_snapshot()
+                .expect("Tar Monster primary GfxObject remains allocated while hidden"),
+        ];
         runtime.active_enemies.push(tar_monster);
 
         assert_eq!(
-            runtime.object_counts_from_roster(&[snapshot], 0, 0),
+            runtime.object_counts_from_roster(&snapshots, 0, 0),
             (baseline.0 + 1, baseline.1 + 2),
             "ASM Tar_Monster.asm loc_321E4 loads the parent's GfxObject, then loc_32200 calls loc_32188 to splice a second Gfx-only child into the same Object lifecycle",
         );
@@ -11923,7 +11928,16 @@ impl NativeRuntime {
             .active_enemies
             .iter()
             .flat_map(|enemy| {
-                let mut snapshots = vec![enemy.snapshot()];
+                let mut snapshots = if matches!(enemy.family, EnemyFamily::TarMonster) {
+                    let mut snapshots = enemy
+                        .tar_monster_primary_snapshot()
+                        .into_iter()
+                        .collect::<Vec<_>>();
+                    snapshots.push(enemy.snapshot());
+                    snapshots
+                } else {
+                    vec![enemy.snapshot()]
+                };
                 snapshots.extend(enemy.child_attachment_snapshot());
                 snapshots.extend(
                     enemy
