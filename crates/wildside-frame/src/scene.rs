@@ -3679,31 +3679,17 @@ impl ChunkedPlaneBRowsLoc307D8 {
             .rem_euclid(i32::try_from(self.source.width).ok()?)
             as usize;
         let mut history = ChunkedPlaneBRowHistoryLoc30744::from_old_plane_b_row_loc_307d8(row);
-        if trace.level_skip_cheat_enabled != 0 {
-            if !self.apply_preload_rows_loc_2ffe8(
-                &mut history,
-                trace,
-                level_visuals,
-                camera_x_px,
-                row,
-            ) {
-                history.apply_row_upload_loc_307d8(
-                    &self.source,
-                    row,
-                    destination_column,
-                    source_column,
-                );
-            }
-        } else {
+        if !self.apply_preload_rows_loc_2ffe8(&mut history, trace, level_visuals, camera_x_px, row)
+        {
             history.apply_row_upload_loc_307d8(
-                &self.source,
+                self.source_buffer_loc_12824(),
                 row,
                 destination_column,
                 source_column,
             );
         }
 
-        let changed_column_source = self.source_buffer_for_trace_loc_12824(trace);
+        let changed_column_source = self.source_buffer_loc_12824();
         let changed_column_row = source_row_for_plane_b_changed_column_loc_30744(
             trace,
             row,
@@ -3773,19 +3759,18 @@ impl ChunkedPlaneBRowsLoc307D8 {
         let upload_data_column = usize::from((upload_data_word >> 3) & 0x003F);
         let upload_data_source =
             (usize::from(upload_data_word >> 3) + source_column_bias as usize) % self.source.width;
-        let changed_column_source = self.source_buffer_for_trace_loc_12824(trace);
+        let changed_column_source = self.source_buffer_loc_12824();
         let changed_column_row = source_row_for_plane_b_changed_column_loc_30744(
             trace,
             row,
             changed_column_source.height,
         )
         .unwrap_or(row);
-        let changed_source_kind =
-            if trace.level_skip_cheat_enabled != 0 && self.alias_source_loc_12824.is_some() {
-                "alias"
-            } else {
-                "direct"
-            };
+        let changed_source_kind = if self.alias_source_loc_12824.is_some() {
+            "alias"
+        } else {
+            "direct"
+        };
         let mut changed_writes = Vec::new();
         if preload_time_frames != current_time_frames {
             let mut previous_scroll =
@@ -3826,13 +3811,11 @@ impl ChunkedPlaneBRowsLoc307D8 {
         ))
     }
 
-    fn source_buffer_for_trace_loc_12824(
-        &self,
-        trace: &NativeTraceFrame,
-    ) -> &ChunkedBackgroundSourceLoc12848 {
-        if trace.level_skip_cheat_enabled != 0
-            && let Some(source) = self.alias_source_loc_12824.as_ref()
-        {
+    fn source_buffer_loc_12824(&self) -> &ChunkedBackgroundSourceLoc12848 {
+        // ASM Load_BackgroundMappings loc_1280A/loc_12824 selects the alias
+        // solely from the `$8000` marker in the active background layout.
+        // The route used to enter the level does not affect this source.
+        if let Some(source) = self.alias_source_loc_12824.as_ref() {
             return source;
         }
         &self.source
@@ -3846,7 +3829,7 @@ impl ChunkedPlaneBRowsLoc307D8 {
         camera_x_px: i32,
         row: usize,
     ) -> bool {
-        let source_buffer = self.source_buffer_for_trace_loc_12824(trace);
+        let source_buffer = self.source_buffer_loc_12824();
         let Some(background_scroll) = level_visuals.level.background_scroll.as_ref() else {
             return false;
         };
@@ -14034,6 +14017,17 @@ mod tests {
             }],
         });
 
+        let BackgroundVisuals::Chunked(background) = &visuals.background else {
+            unreachable!("fixture uses a chunked background")
+        };
+        let plane_b = ChunkedPlaneBRowsLoc307D8::from_background(&visuals, background)
+            .expect("chunked Plane-B source");
+        assert_eq!(
+            plane_b.source_buffer_loc_12824().tile_index_at(18, 49),
+            Some(1),
+            "ASM Load_BackgroundMappings loc_1280A/loc_12824 must select the `$8000` alias source without consulting level-skip state"
+        );
+
         let debug = chunked_plane_b_row_debug_for_trace_loc_30744(&trace, &visuals, 292, 18)
             .expect("settled chunked Plane-B row debug");
 
@@ -14053,16 +14047,16 @@ mod tests {
             );
         }
 
-        let direct_trace = NativeTraceFrame {
+        let ordinary_trace = NativeTraceFrame {
             level_skip_cheat_enabled: 0,
             ..trace
         };
-        let direct_debug =
-            chunked_plane_b_row_debug_for_trace_loc_30744(&direct_trace, &visuals, 292, 18)
+        let ordinary_debug =
+            chunked_plane_b_row_debug_for_trace_loc_30744(&ordinary_trace, &visuals, 292, 18)
                 .expect("direct chunked Plane-B row debug");
         assert!(
-            direct_debug.contains("changed_src=direct"),
-            "ASM loc_30744 only reads the loc_12824 alias source during level-skip settle; normal live row diagnostics keep the direct source even when an alias definition exists: {direct_debug}"
+            ordinary_debug.contains("changed_src=alias"),
+            "ASM Load_BackgroundMappings loc_1280A/loc_12824 follows the selected layout's `$8000` alias marker on every route, independent of the level-skip flag: {ordinary_debug}"
         );
     }
 
