@@ -722,13 +722,14 @@ fn format_native_enemy_debug(
         .wait_timer
         .map(|wait_timer| format!(" wait={wait_timer:#06x}"))
         .unwrap_or_default();
+    let damage_flash = if object.damage_flash { " flash=1" } else { "" };
     let debug_fields = if object.debug_fields.is_empty() {
         String::new()
     } else {
         format!(" debug={:?}", object.debug_fields)
     };
     format!(
-        "enemy_{object_type:02X}{layout}@{:#010x},{:#010x}{velocity}{facing}{on_ground}{hit_points}{stationary}{shared_walker}{walk_phase}{sprite_phase}{wait_timer}{debug_fields}",
+        "enemy_{object_type:02X}{layout}@{:#010x},{:#010x}{velocity}{facing}{on_ground}{hit_points}{stationary}{shared_walker}{walk_phase}{sprite_phase}{wait_timer}{damage_flash}{debug_fields}",
         object.x_pos, object.y_pos,
     )
 }
