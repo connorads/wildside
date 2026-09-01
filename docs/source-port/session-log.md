@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (warped SolidGhost residue rejected)
+
+- Oracle linked-SAT probes show `$024E` at frame 90, `$024A` at frame 92,
+  and no SolidGhost entry at frame 94. VDP pixel samples show the framebuffer
+  presenting the preceding pattern at each of those boundaries.
+- A typed projection of the ROM's two-tick `sub_F730` ladder is exact across
+  dense frames 86..94 and improves the warped 13-checkpoint corpus 614 -> 571,
+  removing all 43 SolidGhost pixels.
+- The authoritative full route rejects it: 16 previously exact SolidGhost
+  frames regress by 1,368 pixels, moving the gate from 241/2,391 to
+  253/3,723. Its equivalent cycles are already exact.
+- The Level `$64` route is a warned self-consistency warp, not cold-boot
+  authority. Production code is reverted. Do not use this residue to change
+  engine presentation without a cold-boot or published-route mismatch.
+- `mise run verify-slice-fast` passed before the expected-red full gate.
+  Next select a different proactive verification target.
+
 ## 2026-09-01 handoff (SolidGhost SAT boundary narrowed)
 
 - The remaining unfrozen Level `$64` corpus is 44 pixels: 43 from the

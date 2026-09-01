@@ -2965,11 +2965,21 @@ not retry a previous-frame or frame-owned SolidGhost latch from this witness.
 A dense frame 86..94 follow-up rejected two narrower alternatives. Suppressing
 the negative-state entry edge left frame 90 wrong and removed 128 correct
 pixels at frame 92. Converting the direct `loc_F9CC` entries from plain sprites
-to source-ordered `SatSprite` commands fixes frame 90, but the native-only
-duplicate enemy roster then owns the first opaque pixels and masks 128 correct
-SolidGhost pixels at frame 92. The block renderer is not the safe repair
-boundary. Resolve the warped Level `$64` enemy roster/direct-SAT ordering before
-retrying SolidGhost presentation.
+to source-ordered `SatSprite` commands shifts the residue between frames 90 and
+92 rather than modelling it.
+
+Oracle SAT and VDP pixel probes then established the actual local timeline.
+The linked table contains `$024E` at frame 90, `$024A` at frame 92, and no
+entry at frame 94, while the visible framebuffer presents none, the prior
+pattern, and the prior final pattern respectively. A typed projection of the
+two-tick `sub_F730` ladder removes all 43 SolidGhost pixels from the warped
+13-checkpoint corpus (614 -> 571) and is exact across dense frames 86..94.
+The authoritative published route rejects that projection: its equivalent
+SolidGhost cycles were already exact, and the change adds 16 divergent frames
+and 1,368 pixels (241/2,391 -> 253/3,723). The warped scenario is explicitly a
+self-consistency probe, not a cold-boot authority; its settle/frame boundary
+cannot authorise engine presentation changes. Production code is reverted.
+Do not revisit this residue without a cold-boot or published-route mismatch.
 
 Resolved the remaining Tar presentation residue 2026-09-01. An exhaustive
 oracle search across all 120 child orders and 32 flip combinations found one
