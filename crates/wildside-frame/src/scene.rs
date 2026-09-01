@@ -1504,6 +1504,7 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.camera_x_pos = previous_trace.camera_x_pos;
         render_trace.camera_y_pos = previous_trace.camera_y_pos;
         latch_previous_sprite_sources_loc_901(&mut render_trace, previous_trace);
+        latch_rock_tank_gfx_positions_loc_3c03a(&mut render_trace, trace, previous_trace);
         // ASM Mode_Level loc_901 presents the CRAM state transferred before
         // Animation_Geyser loc_14B2A rotates Palette_Buffer for the next
         // field. Keep the live geyser palette with its latched SAT sprites.
@@ -1799,6 +1800,43 @@ fn latch_previous_sprite_sources_loc_901(
             render_trace
                 .floating_items_transferred_loc_901
                 .push(*previous);
+        }
+    }
+}
+
+fn latch_rock_tank_gfx_positions_loc_3c03a(
+    render_trace: &mut NativeTraceFrame,
+    current_trace: &NativeTraceFrame,
+    previous_trace: &NativeTraceFrame,
+) {
+    for previous_body in previous_trace.active_objects.iter().filter(|object| {
+        matches!(
+            object.kind,
+            NativeObjectKind::Enemy {
+                object_type: 0x0A | 0x0B
+            }
+        ) && object.hit_points.is_some_and(|hit_points| hit_points > 0)
+    }) {
+        let Some(current_body) = current_trace.active_objects.iter().find(|object| {
+            object.kind == previous_body.kind
+                && object.layout_index == previous_body.layout_index
+                && object.hit_points.is_some_and(|hit_points| hit_points > 0)
+        }) else {
+            continue;
+        };
+
+        // ASM Mode_Level loc_901 transfers the table built after the prior
+        // GfxObject pass. Tank.asm loc_3C03A/loc_3C044 copies the parent's
+        // pre-continuation X word to its linked mouth before the Object
+        // coroutine advances the parent by its next half-pixel step. Native
+        // collapses those workers into one ActiveEnemy update, so recover that
+        // pre-step Gfx position from two consecutive typed object snapshots.
+        let step = current_body.x_pos.wrapping_sub(previous_body.x_pos);
+        let presented_x_pos = previous_body.x_pos.wrapping_sub(step);
+        for rendered in render_trace.active_objects.iter_mut().filter(|object| {
+            object.kind == previous_body.kind && object.layout_index == previous_body.layout_index
+        }) {
+            rendered.x_pos = presented_x_pos;
         }
     }
 }
@@ -10444,6 +10482,43 @@ mod tests {
         assert!(
             render_trace.prize_diamond_hud_flight_transferred_loc_fe3e,
             "renderer must distinguish a transferred `$86F2` entry from the creation-frame source"
+        );
+    }
+
+    #[test]
+    fn rock_tank_latch_recovers_parent_and_child_pre_step_x_loc_3c03a() {
+        let tank = |x_pos, hit_points| NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0A },
+            x_pos,
+            y_pos: if hit_points == Some(0) {
+                0x00D8_0000
+            } else {
+                0x00E0_0000
+            },
+            layout_index: Some(1),
+            hit_points,
+            ..sample_object_snapshot()
+        };
+        let previous = NativeTraceFrame {
+            active_objects: vec![tank(0x00C9_8000, Some(2)), tank(0x00C9_0000, Some(0))],
+            ..NativeTraceFrame::default()
+        };
+        let current = NativeTraceFrame {
+            active_objects: vec![tank(0x00C9_0000, Some(2)), tank(0x00C9_0000, Some(0))],
+            ..NativeTraceFrame::default()
+        };
+        let mut rendered = previous.clone();
+
+        latch_rock_tank_gfx_positions_loc_3c03a(&mut rendered, &current, &previous);
+
+        assert_eq!(
+            rendered
+                .active_objects
+                .iter()
+                .map(|object| object.x_pos)
+                .collect::<Vec<_>>(),
+            vec![0x00CA_0000, 0x00CA_0000],
+            "ASM Tank.asm loc_3C03A/loc_3C044 builds both linked GfxObject entries from the parent X word before its next half-pixel continuation"
         );
     }
 

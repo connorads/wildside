@@ -2778,7 +2778,7 @@ impl ActiveEnemy {
             // child `stru_3B27E`. `dragon_descent_frames` is the parent's
             // independent 18-tick GfxObject clock; the Object coroutine may
             // hibernate while GfxObject_Animate loc_113E keeps advancing it.
-            Some((self.dragon_descent_frames.wrapping_add(16) % 18) / 6)
+            Some((self.dragon_descent_frames % 18) / 6)
         } else if matches!(self.family, EnemyFamily::Cloud)
             && !self.death_animation_active
             && self.ufo_beam_segments != 0
@@ -12100,14 +12100,16 @@ mod tests {
     fn tank_exports_independent_parent_and_child_animation_phases_loc_3b372() {
         let mut enemy = mini_hopping_skull_test_enemy();
         enemy.family = EnemyFamily::Tank;
-        enemy.dragon_descent_frames = 5;
         enemy.tank_mouth_animation_phase = 71;
 
-        assert_eq!(
-            enemy.snapshot().sprite_animation_phase,
-            Some(0),
-            "ASM Tank.asm loc_3B372 / stru_3B270 samples the parent's independent 18-tick GfxObject clock before the two-tick Object continuation"
-        );
+        for (tick, expected_phase) in [(0, 0), (5, 0), (6, 1), (11, 1), (12, 2), (17, 2)] {
+            enemy.dragon_descent_frames = tick;
+            assert_eq!(
+                enemy.snapshot().sprite_animation_phase,
+                Some(expected_phase),
+                "ASM Tank.asm loc_3B372 / stru_3B270 mapping at GfxObject animation tick {tick}"
+            );
+        }
         assert_eq!(
             enemy
                 .child_attachment_snapshot()

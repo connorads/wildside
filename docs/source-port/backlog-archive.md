@@ -781,6 +781,21 @@ presentation state. Any follow-up must expose or reconstruct the typed
 GfxObject-to-VDP latch instead of changing gameplay animation state or sprite
 overlap order.
 
+Resolution 2026-09-01: consecutive native/oracle roster and
+`oracle_gfx_sprite_order_loc_14a4` evidence isolated two independent parts of
+the completed table. Native had collapsed the Tank Object continuation and
+linked GfxObject sync into one update, so the prior trace's post-step X was a
+half-pixel ahead of the table source. The loc_901 render latch now reconstructs
+the pre-step parent X and applies its word position to both linked entries,
+matching `loc_3C03A/loc_3C044`. The parent `stru_3B270` clock also exports its
+direct six-tick phase instead of an inferred two-tick offset. Level 1
+`idle_tail` improves from 412 changed pixels in `1788300124` to 46 in
+`1788301660`; visual inspection confirms all Tank and occluded-terrain residue
+is gone, leaving only frozen #409 HUD pixels. The other five checkpoints remain
+at 39/45/39/39/39. `verify-slice-fast` and `verify-tas-full` pass, including all
+37,759 gameplay/enemy frames and the unchanged 2,391-pixel published HUD
+baseline.
+
 ### #461
 
 Closed [x] 2026-08-26. A proactive release-gate audit found Level 0's walking
