@@ -2941,6 +2941,17 @@ passes on current HEAD, including Object/Gfx transitions at frames 288/289, and
 fresh state sweep report `1784577126` passes Level 0x64 with no blocking
 difference. No gameplay patch is warranted.
 
+Investigated 2026-09-01 after the typed C782E -> C7836 presentation fix left
+52 effect pixels in the nine-checkpoint visual corpus. Rejected four Tar
+presentation hypotheses against the Level 0x64 oracle: fixed child orientation,
+global child-order reversal, lifetime-cohort reversal, and special handling for
+the `$2000` centre fragment all regress pixels without changing authoritative
+state. A one-page HUD diamond resident-selector lead reduced the widened local
+13-checkpoint corpus 1,057 -> 514, but the full published-route gate disproved
+it: 241/2,391 pixel debt regressed to 11,004/456,795, first mismatch 1730 ->
+906. The warp-local HUD phase is not an engine-wide presentation authority;
+retain the published-route resident-page model and do not retry these forks.
+
 ### #429
 
 Kid warp-settle wall nudge (0x29, 4 blockers) — root-caused. kid_x_pos native
