@@ -22040,16 +22040,16 @@ mod tests {
     }
 
     #[test]
-    fn level64_frame90_tar_attack_scene_matches_post_frame89_oracle_sat() {
+    fn level64_frame1_tar_overlap_matches_post_frame0_oracle_sat() {
         let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
         let dump_dir = workspace.join(".cache/oracle-probe/oracle");
-        let Ok(vram) = std::fs::read(dump_dir.join("vram_frame_89.bin")) else {
+        let Ok(vram) = std::fs::read(dump_dir.join("vram_frame_0.bin")) else {
             return;
         };
-        let Ok(cram) = std::fs::read(dump_dir.join("cram_frame_89.bin")) else {
+        let Ok(cram) = std::fs::read(dump_dir.join("cram_frame_0.bin")) else {
             return;
         };
-        let Ok(vsram) = std::fs::read(dump_dir.join("vsram_frame_89.bin")) else {
+        let Ok(vsram) = std::fs::read(dump_dir.join("vsram_frame_0.bin")) else {
             return;
         };
         let mut registers = [0; 0x20];
@@ -22076,11 +22076,11 @@ mod tests {
         .expect("Level 0x64 sweep trace");
         let base = trace_frame_with_vdp_latch_at_checkpoint(
             &run.trace,
-            90,
+            1,
             Some(&run.initial_render_latch),
-            "frame_090",
+            "frame_001",
         )
-        .expect("Level 0x64 frame-90 render trace");
+        .expect("Level 0x64 frame-1 render trace");
         let visuals = load_level_visuals(&manifest, 0x64).expect("Level 0x64 visuals");
         let blank_scene = build_scene_filtered(
             &base,
@@ -22137,7 +22137,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(
             mismatches.is_empty(),
-            "ASM Tar_Monster.asm loc_32310 must present C77DE at Level 0x64 frame 90; mismatches: {:?}",
+            "ASM Tar_Monster.asm loc_321E4/loc_32200 primary SAT entry must win the Level 0x64 frame-1 overlap; mismatches: {:?}",
             mismatches.iter().take(20).collect::<Vec<_>>(),
         );
     }

@@ -7386,7 +7386,29 @@ fn build_game_scene_filtered(
                 {
                     continue;
                 }
+                if object_type == 0x05
+                    && object.hit_points == Some(0)
+                    && object.sprite_animation_phase == Some(12)
+                {
+                    // ASM Tar_Monster.asm loc_321E4/loc_32200 links this
+                    // fixed primary before the animated body, so hardware's
+                    // first SAT entry wins their overlap. Defer it until the
+                    // body below because the native painter is back-to-front.
+                    continue;
+                }
                 push_enemy_sprite(&mut commands, object, trace, level_visuals, object_type);
+                if object_type == 0x05
+                    && let Some(primary) = trace.active_objects.iter().find(|candidate| {
+                        matches!(
+                            candidate.kind,
+                            NativeObjectKind::Enemy { object_type: 0x05 }
+                        ) && candidate.layout_index == object.layout_index
+                            && candidate.hit_points == Some(0)
+                            && candidate.sprite_animation_phase == Some(12)
+                    })
+                {
+                    push_enemy_sprite(&mut commands, primary, trace, level_visuals, object_type);
+                }
                 // Debug: show enemy HP above each enemy
                 if debug_overlay_visible && let Some(hp) = object.hit_points {
                     let ex = (object.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;

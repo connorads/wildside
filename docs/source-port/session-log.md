@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (Tar Monster SAT overlap order)
+
+- Level `$64` frame 0's 16 Tar pixels came from the fixed primary and animated
+  body overlap. Oracle VRAM art and CRAM words match native exactly.
+- ASM `loc_321E4`/`loc_32200` puts the primary first in SAT order, where the
+  first opaque sprite wins. Native's back-to-front painter now emits the body
+  before the primary without changing the domain or trace roster order.
+- A cached post-frame-0 SAT regression pins the natural frame-1 crop. The same
+  overlap at frames 60 and 120 removes 48 pixels from the nine-checkpoint
+  corpus, improving 1,369 -> 1,321.
+- Fresh visual triage `1788224322` leaves 512 enemy pixels across frames 90,
+  120, and 359. Continue at worst frame 359; do not reopen palette loading,
+  art decode, primary order, or the fixed attack spans.
+
 ## 2026-09-01 handoff (Tar Monster fixed attack mappings)
 
 - Level `$64` frame 90's largest enemy residue was a mapping mismatch that
