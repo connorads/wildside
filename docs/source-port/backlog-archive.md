@@ -2952,6 +2952,18 @@ it: 241/2,391 pixel debt regressed to 11,004/456,795, first mismatch 1730 ->
 906. The warp-local HUD phase is not an engine-wide presentation authority;
 retain the published-route resident-page model and do not retry these forks.
 
+Investigated 2026-09-01 after the frame-90 visual residue was assigned to
+`solid_ghost_transitions_sub_f730`, not a block override. Latching that trace
+through `Mode_Level loc_901` removed exactly 43 pixels at frame 90 and improved
+the dense frame 86..94 window 847 -> 721 pixels. Rejected the implementation
+after the authoritative full route regressed 241/2,391 -> 257/3,895 pixels,
+adding 1,540 terrain pixels across 20 frames. The renderer's
+`previous_trace` can be the previous requested checkpoint rather than the
+immediately previous emulated frame, so it cannot represent Sprite_Table
+history for transient workers. Preserve SolidGhost presentation state in the
+emulated trace or an explicit per-frame raster timeline before retrying this
+ASM ordering model.
+
 ### #429
 
 Kid warp-settle wall nudge (0x29, 4 blockers) — root-caused. kid_x_pos native

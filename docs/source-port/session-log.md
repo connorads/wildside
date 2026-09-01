@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (rejected SolidGhost checkpoint latch)
+
+- Frame 90's 43-pixel Level `$64` residue is the `$024E` SolidGhost transition
+  sprite from `sub_F730`, not a terrain block override.
+- Latching its previous trace at `Mode_Level loc_901` removed exactly those 43
+  pixels and improved the dense frame 86..94 window 847 -> 721 pixels.
+- The full route rejected the renderer-side mechanism: pixel debt regressed
+  241/2,391 -> 257/3,895, adding 1,540 terrain pixels across 20 frames.
+  `previous_trace` is checkpoint-relative, not reliably frame-relative.
+- The production patch and focused test were reverted. Next preserve the
+  completed SolidGhost Sprite_Table in the emulated trace or an explicit
+  per-frame raster timeline; do not retry a renderer checkpoint latch.
+- Verification: focused Level `$64` visual corpus, `mise run verify-slice-fast`
+  green, then expected-red `mise run verify-tas-full` supplied the rejection.
+
 ## 2026-09-01 handoff (Tar burst collision mapping)
 
 - Visual triage assigned 331 Level `$64` pixels to Tar Monster effect tiles.
