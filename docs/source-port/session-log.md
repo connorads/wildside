@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (end-of-level score composition boundary)
+
+- Current-head mutation refreshes found no normal-path gaps in Heady Metal
+  eye-pop art, hail SAT geometry, or launched Shishkaboss skewer art. The four
+  skewer misses affect only its missing-bundle diagnostic rectangle.
+- The end-of-level overlay had no composed row-grid regression: removing the
+  overlay or corrupting visibility, worker timing, row positions, and optional
+  row accumulation left 49 of 56 focused mutations alive.
+- One `loc_D4CE..loc_D702` regression now covers the hidden fade frame, first
+  visible text/number timing, and settled all-bonus grid. The identical focused
+  census catches all 56 mutations with no misses.
+
 ## 2026-09-01 handoff (murder-wall SAT coordinate boundary)
 
 - The scene's remaining murder-wall TODO was stale: generated bundles already

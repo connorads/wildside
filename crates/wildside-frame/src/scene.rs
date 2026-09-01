@@ -10992,6 +10992,134 @@ mod tests {
     }
 
     #[test]
+    fn eol_score_overlay_composes_the_settled_loc_d4ce_d702_row_grid() {
+        let eol = sample_eol_score_visuals();
+        let mut hidden_commands = Vec::new();
+        push_eol_score_overlay(
+            &mut hidden_commands,
+            &NativeTraceFrame {
+                level_complete_score_rows_elapsed_frames:
+                    EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE - 1,
+                ..NativeTraceFrame::default()
+            },
+            &eol,
+        );
+        assert!(
+            hidden_commands.is_empty(),
+            "ASM loc_D734 keeps score-row workers hidden through the final palette-fade hibernate"
+        );
+
+        let mut entry_commands = Vec::new();
+        push_eol_score_overlay(
+            &mut entry_commands,
+            &NativeTraceFrame {
+                level_complete: true,
+                level_complete_initial_score: 1_000,
+                level_timer_seconds: 20,
+                level_damage_taken: false,
+                level_prize_collected: false,
+                level_path_bonus_amount: 7_000,
+                level_speed_bonus_awarded: true,
+                current_level: wildside_core::LevelId(0),
+                level_complete_score_rows_elapsed_frames:
+                    EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE,
+                ..NativeTraceFrame::default()
+            },
+            &eol,
+        );
+        assert_eq!(
+            sprite_snapshots(&entry_commands),
+            vec![
+                (-64, 196, 192, false),
+                (60, 196, 0, false),
+                (16, 172, 193, false),
+                (356, 172, 1, false),
+                (368, 172, 0, false),
+                (380, 172, 0, false),
+                (392, 172, 0, false),
+                (-104, 148, 165, false),
+                (-48, 148, 176, false),
+                (432, 148, 2, false),
+                (444, 148, 0, false),
+                (456, 148, 0, false),
+                (-208, 124, 161, false),
+                (-112, 124, 176, false),
+                (484, 124, 5, false),
+                (496, 124, 0, false),
+                (508, 124, 0, false),
+                (520, 124, 0, false),
+                (-296, 100, 162, false),
+                (-176, 100, 176, false),
+                (548, 100, 5, false),
+                (560, 100, 0, false),
+                (572, 100, 0, false),
+                (584, 100, 0, false),
+                (-304, 76, 163, false),
+                (-240, 76, 176, false),
+                (612, 76, 7, false),
+                (624, 76, 0, false),
+                (636, 76, 0, false),
+                (648, 76, 0, false),
+                (-376, 52, 164, false),
+                (-304, 52, 176, false),
+                (664, 52, 1, false),
+                (676, 52, 0, false),
+                (688, 52, 0, false),
+                (700, 52, 0, false),
+                (712, 52, 0, false),
+                (-440, 28, 166, false),
+                (-376, 28, 2, false),
+                (-364, 28, 0, false),
+                (-340, 28, 94, false),
+            ],
+            "ASM loc_D4CE..loc_D702 presents each text worker after its first loc_C5A2 movement while number workers retain loc_C48C's one-tick lag"
+        );
+
+        let trace = NativeTraceFrame {
+            level_complete: true,
+            level_complete_initial_score: 1_000,
+            level_timer_seconds: 20,
+            level_damage_taken: false,
+            level_prize_collected: false,
+            level_path_bonus_amount: 7_000,
+            level_speed_bonus_awarded: true,
+            current_level: wildside_core::LevelId(0),
+            // Eight loc_D734 fade frames plus enough loc_C5A2 worker ticks for
+            // the final UNDER/SECONDS row to reach its settled coordinate.
+            level_complete_score_rows_elapsed_frames: 73,
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_eol_score_overlay(&mut commands, &trace, &eol);
+
+        let labels = sprite_snapshots(&commands)
+            .into_iter()
+            .filter(|(_, _, tile, _)| *tile >= 0x50)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            labels,
+            vec![
+                (0x28, 0xC4, 0xC0, false),
+                (0x78, 0xAC, 0xC1, false),
+                (0x40, 0x94, 0xA5, false),
+                (0x78, 0x94, 0xB0, false),
+                (0x18, 0x7C, 0xA1, false),
+                (0x78, 0x7C, 0xB0, false),
+                (0x00, 0x64, 0xA2, false),
+                (0x78, 0x64, 0xB0, false),
+                (0x38, 0x4C, 0xA3, false),
+                (0x78, 0x4C, 0xB0, false),
+                (0x30, 0x34, 0xA4, false),
+                (0x78, 0x34, 0xB0, false),
+                (0x30, 0x1C, 0xA6, false),
+                (0x94, 0x1C, 0x5E, false),
+            ],
+            "ASM loc_D4CE..loc_D702 composes CONTINUES/SCORE, five bonus rows, then UNDER/SECONDS on the settled 24-pixel row grid"
+        );
+    }
+
+    #[test]
     fn eol_score_counter_snapshot_uses_loc_d17e_initial_score_gate() {
         let captured_initial_score_trace = NativeTraceFrame {
             level_complete: true,
