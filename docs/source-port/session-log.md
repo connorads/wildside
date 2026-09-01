@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (SolidGhost SAT boundary narrowed)
+
+- The remaining unfrozen Level `$64` corpus is 44 pixels: 43 from the
+  `sub_F730 loc_F9CC` SolidGhost sprite at frame 90 and one background pixel.
+- Dense frames 86..94 reject a negative-state entry flag. It leaves frame 90
+  wrong and removes 128 correct pixels at frame 92.
+- Treating the direct entries as source-ordered `SatSprite` fixes frame 90.
+  It also lets a native-only duplicate enemy sprite claim the first opaque
+  pixels and hide 128 correct SolidGhost pixels at frame 92.
+- Both production experiments were reverted. The next safe boundary is the
+  warped Level `$64` enemy roster/direct-SAT ordering, not SolidGhost state or
+  a renderer-wide previous-frame latch.
+- Verification: focused renderer/core tests and exact dense oracle pixels.
+  No production code changed, so the stop rule applies.
+
 ## 2026-09-01 handoff (Orca charge animation)
 
 - Level `$64` frame 330's apparent enemy-plus-background cluster was one Orca

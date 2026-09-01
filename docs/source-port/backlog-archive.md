@@ -2962,6 +2962,14 @@ frame, so checkpoint spacing cannot explain that regression: current
 post-`sub_F730` presentation is correct for the exercised cycles, while the
 sparse Level 0x64 checkpoint happened to make the prior state look better. Do
 not retry a previous-frame or frame-owned SolidGhost latch from this witness.
+A dense frame 86..94 follow-up rejected two narrower alternatives. Suppressing
+the negative-state entry edge left frame 90 wrong and removed 128 correct
+pixels at frame 92. Converting the direct `loc_F9CC` entries from plain sprites
+to source-ordered `SatSprite` commands fixes frame 90, but the native-only
+duplicate enemy roster then owns the first opaque pixels and masks 128 correct
+SolidGhost pixels at frame 92. The block renderer is not the safe repair
+boundary. Resolve the warped Level `$64` enemy roster/direct-SAT ordering before
+retrying SolidGhost presentation.
 
 Resolved the remaining Tar presentation residue 2026-09-01. An exhaustive
 oracle search across all 120 child orders and 32 flip combinations found one
