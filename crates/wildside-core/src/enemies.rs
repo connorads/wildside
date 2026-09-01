@@ -2853,7 +2853,14 @@ impl ActiveEnemy {
             )
             .or_else(|| {
                 matches!(self.orca_state, OrcaState::Walking).then(|| {
-                    orca_patrol_sprite_animation_phase_stru_3d0a2(self.dragon_descent_frames)
+                    if matches!(
+                        self.shared_walker_state,
+                        SHARED_WALKER_STATE_FACE_RIGHT | SHARED_WALKER_STATE_FACE_LEFT
+                    ) {
+                        orca_charge_sprite_animation_phase_stru_3d0d4(self.dragon_descent_frames)
+                    } else {
+                        orca_patrol_sprite_animation_phase_stru_3d0a2(self.dragon_descent_frames)
+                    }
                 })
             })
         } else if matches!(self.family, EnemyFamily::DragonWalking) {
@@ -5145,8 +5152,14 @@ pub(crate) fn step_active_enemies_with_rng(
         {
             // ASM Orca.asm stru_3D0A2: GfxObject_Animate advances the patrol
             // mapping independently from both the walker and lunge callback.
-            enemy.dragon_descent_frames =
-                orca_next_patrol_animation_tick_stru_3d0a2(enemy.dragon_descent_frames);
+            enemy.dragon_descent_frames = if matches!(
+                enemy.shared_walker_state,
+                SHARED_WALKER_STATE_FACE_RIGHT | SHARED_WALKER_STATE_FACE_LEFT
+            ) {
+                orca_next_charge_animation_tick_stru_3d0d4(enemy.dragon_descent_frames)
+            } else {
+                orca_next_patrol_animation_tick_stru_3d0a2(enemy.dragon_descent_frames)
+            };
         }
         if executable_enemy_indices.next_if_eq(&enemy_index).is_none() {
             continue;
@@ -9064,6 +9077,11 @@ pub(crate) fn step_pacer(
                     }
                     if matches!(enemy.family, EnemyFamily::Goat) {
                         // ASM loc_3E4CE/loc_3E50A installs Goat `$66(a5)`.
+                        enemy.dragon_descent_frames = 0;
+                    }
+                    if matches!(enemy.family, EnemyFamily::Orca) {
+                        // ASM Orca.asm stores stru_3D0D4 in `$66(a5)`;
+                        // Lion.asm loc_3E4CE/loc_3E50A installs it from entry 0.
                         enemy.dragon_descent_frames = 0;
                     }
                     enemy.x_velocity = 0;

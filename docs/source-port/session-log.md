@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (Orca charge animation)
+
+- Level `$64` frame 330's apparent enemy-plus-background cluster was one Orca
+  silhouette mismatch. Position, facing, mapping address, CRAM, and palette
+  were already exact.
+- ASM `stru_3D0D4` uses the patrol mapping order at four ticks per entry.
+  `loc_3E4CE`/`loc_3E50A` installs it from entry zero when the shared Lion
+  walker enters charge state 1/2. Native kept its nine-tick patrol clock.
+- Native now resets, advances, and presents the charge clock in the Orca core.
+  A unit regression pins its cadence and an exact frame-330 oracle crop pins
+  the transition. The 13-checkpoint corpus improves 931 -> 679 pixels.
+- `mise run verify-slice-fast` and `mise run verify-tas-full` pass. The full
+  published route remains 37,518 exact / 241 divergent / 2,391 pixels because
+  it does not exercise this Level `$64` charge.
+- Next re-triage the remaining unfrozen Level `$64` corpus residue. Do not
+  treat exposed terrain around a sprite silhouette as palette drift.
+
 ## 2026-09-01 handoff (Tar burst children retain cleared direction)
 
 - Level `$64`'s remaining Tar pixels came from velocity-facing the five

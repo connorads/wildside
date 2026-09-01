@@ -535,6 +535,7 @@ pub(crate) fn orca_lunge_y_velocity_loc_3d3b4(y_velocity: i32) -> i32 {
 pub(crate) const ORCA_LUNGE_X_ACCEL: i32 = 0x200;
 
 pub(crate) const ORCA_PATROL_ANIMATION_TICKS_STRU_3D0A2: u8 = 12 * 9;
+pub(crate) const ORCA_CHARGE_ANIMATION_TICKS_STRU_3D0D4: u8 = 12 * 4;
 pub(crate) const ORCA_PATROL_ANIMATION_BOOTSTRAP_SEED_STRU_3D0A2: u8 = 0xFB;
 
 pub(crate) fn orca_next_patrol_animation_tick_stru_3d0a2(animation_tick: u8) -> u8 {
@@ -565,6 +566,22 @@ pub(crate) fn orca_patrol_sprite_animation_phase_stru_3d0a2(animation_tick: u8) 
     }
     let entry = usize::from(animation_tick.saturating_sub(1) / 9);
     MAPPINGS[entry.min(MAPPINGS.len() - 1)]
+}
+
+pub(crate) fn orca_charge_sprite_animation_phase_stru_3d0d4(animation_tick: u8) -> u8 {
+    // ASM Orca.asm stru_3D0D4 uses the patrol mapping order with four ticks
+    // per entry while Lion.asm loc_3E4CE/loc_3E50A holds charge state 1/2.
+    const MAPPINGS: [u8; 12] = [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 11, 5];
+    let entry = usize::from(animation_tick / 4);
+    MAPPINGS[entry.min(MAPPINGS.len() - 1)]
+}
+
+pub(crate) fn orca_next_charge_animation_tick_stru_3d0d4(animation_tick: u8) -> u8 {
+    if animation_tick + 1 >= ORCA_CHARGE_ANIMATION_TICKS_STRU_3D0D4 {
+        0
+    } else {
+        animation_tick + 1
+    }
 }
 
 /// Returns the atlas index for Orca poses whose ROM animation is disabled.
@@ -902,6 +919,15 @@ mod tests {
             enemy.dragon_descent_frames, 0,
             "ASM Orca.asm loc_3D44A Init_Animation resets stru_3D0A2 before loc_3D466 resumes walking"
         );
+    }
+
+    #[test]
+    fn charge_animation_clock_tracks_stru_3d0d4() {
+        assert_eq!(orca_charge_sprite_animation_phase_stru_3d0d4(0), 0);
+        assert_eq!(orca_charge_sprite_animation_phase_stru_3d0d4(3), 0);
+        assert_eq!(orca_charge_sprite_animation_phase_stru_3d0d4(4), 1);
+        assert_eq!(orca_charge_sprite_animation_phase_stru_3d0d4(40), 11);
+        assert_eq!(orca_next_charge_animation_tick_stru_3d0d4(47), 0);
     }
 
     #[test]

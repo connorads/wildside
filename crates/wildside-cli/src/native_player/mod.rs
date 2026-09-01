@@ -22234,6 +22234,16 @@ mod tests {
     }
 
     #[test]
+    fn level64_frame330_orca_charge_animation_matches_oracle_crop() {
+        assert_level64_oracle_crop(
+            330,
+            155..215,
+            20..65,
+            "ASM Orca.asm stru_3D0D4 and Lion.asm loc_3E4CE/loc_3E50A must reset and advance the fast charge animation",
+        );
+    }
+
+    #[test]
     fn level64_frame120_tar_burst_children_keep_cleared_x_direction() {
         assert_level64_oracle_crop(
             120,
