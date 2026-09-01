@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (Tar Monster fixed attack mappings)
+
+- Level `$64` frame 90's largest enemy residue was a mapping mismatch that
+  visual triage classified as recolour. Oracle CRAM matched native exactly.
+- Oracle SAT tile `$45D` proves Tar Monster uses second-slot base `$409` plus
+  `C77DE` offset `$54`. Native held emerge frame `C77D6` at offset `$44` for
+  the whole attack.
+- Native now follows `loc_32310`/`loc_3231C`/`loc_32348`: C77DE, C77E6, then
+  C77DE across three nine-hibernate spans. A cached sprite-only regression
+  compares the natural frame-90 crop with post-frame-89 oracle VDP state.
+- The nine Level `$64` checkpoints improve from 1,757 to 1,369 changed pixels,
+  removing the complete 388-pixel witness. The remaining enemy cluster is 560
+  pixels across six frames; continue at frame 0.
+- `verify-slice-fast` and full 37,759-frame `verify-tas-full` pass with the
+  published 37,518 exact / 241 divergent frame and 2,391 frozen HUD-pixel
+  ratchets unchanged.
+
 ## 2026-08-31 handoff (Crab pre-allocation Gfx clock)
 
 - Sprite-only rendering of settled VDP snapshots established the exact oracle

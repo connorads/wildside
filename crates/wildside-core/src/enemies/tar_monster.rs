@@ -30,7 +30,16 @@ pub(crate) fn tar_monster_live_sprite_phase_stru_3272e_3274c(
     match state {
         TarMonsterState::Submerged => 0,
         TarMonsterState::Emerging => transition_phase,
-        TarMonsterState::Visible | TarMonsterState::Attacking => 6,
+        TarMonsterState::Visible => 6,
+        TarMonsterState::Attacking => {
+            // ASM loc_32310/loc_3231C/loc_32348/loc_32360 holds C77DE for
+            // nine hibernates, C77E6 for nine, then C77DE for nine before
+            // restoring C77D6. These are fixed mappings, not stru_3272E
+            // animation entries.
+            let elapsed =
+                TAR_MONSTER_ATTACK_FRAMES.saturating_sub(wait_timer.min(TAR_MONSTER_ATTACK_FRAMES));
+            if (9..18).contains(&elapsed) { 14 } else { 13 }
+        }
         TarMonsterState::Submerging => 6 - transition_phase,
     }
 }
@@ -1364,10 +1373,16 @@ mod tests {
             tar_monster_live_sprite_phase_stru_3272e_3274c(TarMonsterState::Visible, 0),
             6
         );
-        assert_eq!(
-            tar_monster_live_sprite_phase_stru_3272e_3274c(TarMonsterState::Attacking, 27),
-            6
-        );
+        for (wait_timer, expected) in [(27, 13), (19, 13), (18, 14), (10, 14), (9, 13), (1, 13)] {
+            assert_eq!(
+                tar_monster_live_sprite_phase_stru_3272e_3274c(
+                    TarMonsterState::Attacking,
+                    wait_timer,
+                ),
+                expected,
+                "ASM loc_32310/loc_3231C/loc_32348 holds C77DE/C77E6/C77DE for three nine-frame attack spans",
+            );
+        }
     }
 
     #[test]

@@ -22040,6 +22040,109 @@ mod tests {
     }
 
     #[test]
+    fn level64_frame90_tar_attack_scene_matches_post_frame89_oracle_sat() {
+        let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let dump_dir = workspace.join(".cache/oracle-probe/oracle");
+        let Ok(vram) = std::fs::read(dump_dir.join("vram_frame_89.bin")) else {
+            return;
+        };
+        let Ok(cram) = std::fs::read(dump_dir.join("cram_frame_89.bin")) else {
+            return;
+        };
+        let Ok(vsram) = std::fs::read(dump_dir.join("vsram_frame_89.bin")) else {
+            return;
+        };
+        let mut registers = [0; 0x20];
+        registers[5] = 0x08;
+        registers[0x0C] = 0x81;
+        let vdp = wildside_md::VdpSnapshot {
+            registers,
+            vram,
+            cram,
+            vsram,
+            raster_frame: None,
+        };
+        let mut oracle_rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        let opaque = wildside_md::render_vdp_sprites_into(&vdp, &mut oracle_rgb);
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x64);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest.clone(),
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x64 sweep trace");
+        let base = trace_frame_with_vdp_latch_at_checkpoint(
+            &run.trace,
+            90,
+            Some(&run.initial_render_latch),
+            "frame_090",
+        )
+        .expect("Level 0x64 frame-90 render trace");
+        let visuals = load_level_visuals(&manifest, 0x64).expect("Level 0x64 visuals");
+        let blank_scene = build_scene_filtered(
+            &base,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: false,
+                eol_score: false,
+                hud: false,
+            },
+        );
+        let mut blank_rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        render_scene(&blank_scene, &mut blank_rgb);
+        let scene = build_scene_filtered(
+            &base,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: true,
+                player: false,
+                effects: false,
+                eol_score: false,
+                hud: false,
+            },
+        );
+        let mut native_rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        render_scene(&scene, &mut native_rgb);
+        let mismatches = opaque
+            .iter()
+            .enumerate()
+            .filter(|(pixel, is_opaque)| {
+                let native_opaque =
+                    native_rgb[*pixel * 3..*pixel * 3 + 3] != blank_rgb[*pixel * 3..*pixel * 3 + 3];
+                (205..250).contains(&(pixel % FRAME_WIDTH as usize))
+                    && (130..180).contains(&(pixel / FRAME_WIDTH as usize))
+                    && (native_opaque != **is_opaque
+                        || (native_opaque
+                            && native_rgb[*pixel * 3..*pixel * 3 + 3]
+                                != oracle_rgb[*pixel * 3..*pixel * 3 + 3]))
+            })
+            .map(|(pixel, _)| (pixel % FRAME_WIDTH as usize, pixel / FRAME_WIDTH as usize))
+            .collect::<Vec<_>>();
+        assert!(
+            mismatches.is_empty(),
+            "ASM Tar_Monster.asm loc_32310 must present C77DE at Level 0x64 frame 90; mismatches: {:?}",
+            mismatches.iter().take(20).collect::<Vec<_>>(),
+        );
+    }
+
+    #[test]
     fn level64_orcas_follow_lion_loc_3e604_charge_entry() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

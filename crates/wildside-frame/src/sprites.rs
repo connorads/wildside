@@ -1493,10 +1493,14 @@ fn select_live_tar_monster_frame<'a>(
     }
     // ASM Tar_Monster.asm off_32290 dispatches stru_3272E (C77A6..C77D6)
     // and reversed stru_3274C. Core exports the linked GfxObject's exact
-    // seven-step phase; atlas frames 7..11 remain exclusive to stru_32700's
-    // death tail.
+    // seven-step phase. Attack fixed mappings C77DE/C77E6 are appended at
+    // indices 13/14; atlas frames 7..11 remain exclusive to stru_32700's
+    // death tail and index 12 is the independent primary GfxObject.
     let frame = usize::from(object.sprite_animation_phase?);
-    enemy_visuals.frames.get(frame).filter(|_| frame < 7)
+    enemy_visuals
+        .frames
+        .get(frame)
+        .filter(|_| frame < 7 || matches!(frame, 13 | 14))
 }
 
 fn select_live_cloud_attack_frame<'a>(
