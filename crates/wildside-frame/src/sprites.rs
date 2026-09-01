@@ -5399,6 +5399,39 @@ mod tests {
     }
 
     #[test]
+    fn orca_live_selector_requires_live_type_and_complete_atlas_loc_3d158_3d420() {
+        let full = labelled_enemy_visuals(14, 8);
+        let mut live = live_enemy_object(0x08);
+        live.sprite_animation_phase = Some(13);
+        assert_eq!(
+            selected_live_tile_base(select_live_orca_frame(&full, &live)),
+            0x010D,
+            "ASM stru_3D0A2 and loc_3D2F4..loc_3D420 use the complete fourteen-mapping live atlas"
+        );
+
+        let mut wrong_family = live.clone();
+        wrong_family.kind = NativeObjectKind::Enemy { object_type: 0x07 };
+        assert!(
+            select_live_orca_frame(&full, &wrong_family).is_none(),
+            "ASM Enemy08_Orca_Init installs these scripts only for enemy type $08"
+        );
+
+        let mut dead = live.clone();
+        dead.hit_points = Some(0);
+        assert!(
+            select_live_orca_frame(&full, &dead).is_none(),
+            "ASM loc_3D268/loc_3D4BC transfers a fatal Orca to stru_3D11E"
+        );
+
+        let incomplete = labelled_enemy_visuals(13, 8);
+        live.sprite_animation_phase = Some(0);
+        assert!(
+            select_live_orca_frame(&incomplete, &live).is_none(),
+            "the live Orca selector requires all fourteen extracted mappings"
+        );
+    }
+
+    #[test]
     fn fire_demon_selector_keeps_normal_hurt_and_death_scripts_distinct() {
         let visuals = labelled_enemy_visuals(13, 6);
         let trace = NativeTraceFrame::default();

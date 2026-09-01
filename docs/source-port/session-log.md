@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (Orca live-selector boundary)
+
+- The Orca animation-clock render change postdated its older family audit. Its
+  direct selector initially missed all seven focused mutations because only
+  fallback-obscured composition assertions exercised the path.
+- One ASM-cited contract now proves a live type `$08` object selects the last
+  atlas frame, while wrong-family, dead, and thirteen-frame-atlas inputs are
+  rejected independently.
+- The focused rerun catches all seven mutations with no misses. Continue with
+  another recent live render or enemy path that postdates its last audit.
+
 ## 2026-09-01 handoff (recent animation-clock selector audit)
 
 - Current-HEAD focused mutation refreshes found no gaps in the newer Driller
