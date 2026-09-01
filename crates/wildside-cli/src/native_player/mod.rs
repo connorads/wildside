@@ -22142,11 +22142,16 @@ mod tests {
         );
     }
 
-    #[test]
-    fn level64_frame359_orca_lunge_matches_post_frame358_oracle_sat() {
+    fn assert_level64_oracle_crop(
+        frame_index: usize,
+        x_range: std::ops::Range<usize>,
+        y_range: std::ops::Range<usize>,
+        evidence: &str,
+    ) {
         let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let oracle_path =
-            workspace.join(".cache/tas-verify/level64_orca_timeline/oracle/0359_f359.png");
+        let oracle_path = workspace.join(format!(
+            ".cache/tas-verify/level64_orca_timeline/oracle/{frame_index:04}_f{frame_index}.png"
+        ));
         let Ok(oracle_image) = image::open(&oracle_path) else {
             return;
         };
@@ -22167,11 +22172,11 @@ mod tests {
         .expect("Level 0x64 Orca timeline trace");
         let base = trace_frame_with_vdp_latch_at_checkpoint(
             &run.trace,
-            359,
+            frame_index,
             Some(&run.initial_render_latch),
-            "frame_359",
+            &format!("frame_{frame_index}"),
         )
-        .expect("Level 0x64 frame-359 render trace");
+        .expect("Level 0x64 render trace");
         let visuals = load_level_visuals(&manifest, 0x64).expect("Level 0x64 visuals");
         let runtime = NativeRuntime::new(manifest);
         let block_grid = runtime
@@ -22187,15 +22192,35 @@ mod tests {
             .filter(|(pixel, (native, oracle))| {
                 let x = pixel % FRAME_WIDTH as usize;
                 let y = pixel / FRAME_WIDTH as usize;
-                (90..140).contains(&x) && (0..30).contains(&y) && native != oracle
+                x_range.contains(&x) && y_range.contains(&y) && native != oracle
             })
             .map(|(pixel, _)| (pixel % FRAME_WIDTH as usize, pixel / FRAME_WIDTH as usize))
             .collect::<Vec<_>>();
         assert!(
             mismatches.is_empty(),
-            "ASM Orca.asm loc_3D348 fixed C765E lunge mapping must reproduce the frame-359 oracle crop; {} mismatches: {:?}",
+            "{evidence}; {} mismatches: {:?}",
             mismatches.len(),
             mismatches.iter().take(20).collect::<Vec<_>>(),
+        );
+    }
+
+    #[test]
+    fn level64_frame180_orca_patrol_bootstrap_matches_oracle_crop() {
+        assert_level64_oracle_crop(
+            180,
+            250..289,
+            0..50,
+            "ASM Enemy08_Orca_Init loc_3D194 / stru_3D0A2 bootstrap must reproduce the frame-180 oracle crop",
+        );
+    }
+
+    #[test]
+    fn level64_frame359_orca_lunge_matches_post_frame358_oracle_sat() {
+        assert_level64_oracle_crop(
+            359,
+            90..140,
+            0..30,
+            "ASM Orca.asm loc_3D348 fixed C765E lunge mapping must reproduce the frame-359 oracle crop",
         );
     }
 

@@ -535,12 +535,19 @@ pub(crate) fn orca_lunge_y_velocity_loc_3d3b4(y_velocity: i32) -> i32 {
 pub(crate) const ORCA_LUNGE_X_ACCEL: i32 = 0x200;
 
 pub(crate) const ORCA_PATROL_ANIMATION_TICKS_STRU_3D0A2: u8 = 12 * 9;
+pub(crate) const ORCA_PATROL_ANIMATION_BOOTSTRAP_SEED_STRU_3D0A2: u8 = 0xFB;
 
 pub(crate) fn orca_next_patrol_animation_tick_stru_3d0a2(animation_tick: u8) -> u8 {
     // ASM Init_Animation starts with timer 1. The first GfxObject_Animate call
     // installs the first nine-tick entry; `dc.b 2,$31` then rewinds every 108
     // calls without another bootstrap tick.
-    if animation_tick == 0 || animation_tick >= ORCA_PATROL_ANIMATION_TICKS_STRU_3D0A2 {
+    if animation_tick >= ORCA_PATROL_ANIMATION_BOOTSTRAP_SEED_STRU_3D0A2 {
+        if animation_tick == u8::MAX {
+            1
+        } else {
+            animation_tick + 1
+        }
+    } else if animation_tick == 0 || animation_tick >= ORCA_PATROL_ANIMATION_TICKS_STRU_3D0A2 {
         1
     } else {
         animation_tick + 1
@@ -551,6 +558,11 @@ pub(crate) fn orca_patrol_sprite_animation_phase_stru_3d0a2(animation_tick: u8) 
     // The extracted atlas stores unique mappings, while `stru_3D0A2` repeats
     // its first four swim mappings before the C769E turn entry.
     const MAPPINGS: [u8; 12] = [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 11, 5];
+    if animation_tick >= ORCA_PATROL_ANIMATION_BOOTSTRAP_SEED_STRU_3D0A2 {
+        // Enemy08_Orca_Init installs stru_3D0A2 after the initial displayed
+        // Sprite_Table has already retained its final patrol mapping.
+        return 5;
+    }
     let entry = usize::from(animation_tick.saturating_sub(1) / 9);
     MAPPINGS[entry.min(MAPPINGS.len() - 1)]
 }
@@ -838,6 +850,21 @@ mod tests {
             Some(6),
             "ASM Orca.asm loc_3D27E holds C7656 during Berzerker knockback"
         );
+    }
+
+    #[test]
+    fn initial_patrol_animation_retains_stale_c7696_before_stru_3d0a2() {
+        let mut tick = ORCA_PATROL_ANIMATION_BOOTSTRAP_SEED_STRU_3D0A2;
+        for _ in 0..5 {
+            assert_eq!(
+                orca_patrol_sprite_animation_phase_stru_3d0a2(tick),
+                5,
+                "ASM Enemy08_Orca_Init loc_3D194 has not presented stru_3D0A2 C766E while the initial Gfx slot retains C7696"
+            );
+            tick = orca_next_patrol_animation_tick_stru_3d0a2(tick);
+        }
+        assert_eq!(tick, 1);
+        assert_eq!(orca_patrol_sprite_animation_phase_stru_3d0a2(tick), 0);
     }
 
     #[test]

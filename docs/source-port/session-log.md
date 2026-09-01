@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (initial Orca patrol mapping bootstrap)
+
+- Level `$64` frame 180's 198-pixel enemy residue was clipped Orca patrol
+  art, not Crab. Oracle retains stale C7696 for its first two presented frames,
+  then starts `stru_3D0A2` at C766E with exact nine-tick phases.
+- Global current-object presentation regressed the corpus to 3,280 pixels;
+  Crab-only current presentation regressed it to 3,045. Neither model matches
+  the ROM boundary.
+- Native now models the five `GfxObject` calls spanning only the initial Orca
+  load boundary. A core sequence test and exact frame-180 oracle crop pin the
+  behaviour.
+- The nine-checkpoint Level `$64` corpus improves 1,088 -> 758 pixels. Frame
+  180 improves 340 -> 130 and frame 90 improves 214 -> 94, eliminating the
+  enemy cluster. Continue with the effects/Tar residue at frame 240 or frame
+  180. Do not reopen the global latch or Orca patrol phase duration.
+
 ## 2026-09-01 handoff (Orca launch-wake movement)
 
 - Level `$64` frame 359's 240-pixel airborne Orca crop was not an art,

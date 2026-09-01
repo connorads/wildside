@@ -4625,6 +4625,15 @@ fn activate_enemies_with_rng_inner(
                 // regular scheduler sample.
                 dragon_descent_frames: if matches!(family, EnemyFamily::Scorpion) {
                     6
+                } else if matches!(family, EnemyFamily::Orca)
+                    && !enemy_loading_initial_pass_complete
+                {
+                    // ORIGINAL_QUIRK: the initial Enemy08_Orca_Init loc_3D194
+                    // slots expose their stale C7696 mapping before stru_3D0A2
+                    // installs C766E. Five GfxObject calls span that bootstrap;
+                    // later scrolling loads do not inherit this level-entry
+                    // presentation boundary.
+                    ORCA_PATROL_ANIMATION_BOOTSTRAP_SEED_STRU_3D0A2
                 } else {
                     0
                 },
