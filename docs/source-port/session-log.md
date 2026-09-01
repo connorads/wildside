@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (Orca launch-wake movement)
+
+- Level `$64` frame 359's 240-pixel airborne Orca crop was not an art,
+  palette, mapping, clipping, or SAT-order mismatch. C765E is the correct
+  `loc_3D348` lunge mapping; substituting C7656 made the crop worse.
+- Global current-object presentation made this Orca crop exact but broke the
+  established frame-51 Crab SAT regression. Trace comparison exposed the real
+  cause: oracle frame 343 had already moved by `$FFFD0000/$FFFD8000`, while
+  native only entered `Lunging` and held its wind-up position.
+- ASM `loc_3D348` falls through `loc_3D35A`. Native now executes the first
+  lunge frame on that launch wake. Core state and exact frame-359 PNG crop
+  regressions pin the behaviour.
+- The nine-checkpoint Level `$64` corpus improves 1,321 -> 1,088 pixels;
+  frame 359 improves 307 -> 74. Continue with its Tar glob or the larger
+  frame-180 cluster. Do not reopen C765E or the global latch model.
+
 ## 2026-09-01 handoff (Tar Monster SAT overlap order)
 
 - Level `$64` frame 0's 16 Tar pixels came from the fixed primary and animated

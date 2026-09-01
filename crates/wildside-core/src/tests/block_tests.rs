@@ -14007,7 +14007,13 @@ mod chunk_04 {
             step_orca(&mut enemy, Some(&grid), player_x);
         }
         assert_eq!(enemy.orca_state, OrcaState::Lunging);
-        assert_eq!(enemy.x_velocity, -ORCA_LUNGE_X_SPEED);
+        assert_eq!(enemy.x_pos, (60 << 16) - ORCA_LUNGE_X_SPEED as u32);
+        assert_eq!(enemy.y_pos, floor_y - ORCA_LUNGE_Y_SPEED.unsigned_abs());
+        assert_eq!(
+            enemy.x_velocity,
+            -ORCA_LUNGE_X_SPEED - ORCA_LUNGE_X_ACCEL,
+            "ASM Orca.asm loc_3D348 falls through loc_3D35A, so the first GfxObject move and loc_3D3D2 acceleration occur on the launch wake"
+        );
     }
 
     #[test]

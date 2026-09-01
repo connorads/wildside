@@ -22143,6 +22143,63 @@ mod tests {
     }
 
     #[test]
+    fn level64_frame359_orca_lunge_matches_post_frame358_oracle_sat() {
+        let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let oracle_path =
+            workspace.join(".cache/tas-verify/level64_orca_timeline/oracle/0359_f359.png");
+        let Ok(oracle_image) = image::open(&oracle_path) else {
+            return;
+        };
+        let oracle_rgb = oracle_image.to_rgb8().into_raw();
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = serde_json::from_slice::<crate::scenarios::DynamicScenario>(
+            &std::fs::read(workspace.join(".cache/scenarios/level64-orca-timeline.json"))
+                .expect("cached Level 0x64 Orca timeline"),
+        )
+        .expect("Level 0x64 Orca timeline scenario");
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest.clone(),
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x64 Orca timeline trace");
+        let base = trace_frame_with_vdp_latch_at_checkpoint(
+            &run.trace,
+            359,
+            Some(&run.initial_render_latch),
+            "frame_359",
+        )
+        .expect("Level 0x64 frame-359 render trace");
+        let visuals = load_level_visuals(&manifest, 0x64).expect("Level 0x64 visuals");
+        let runtime = NativeRuntime::new(manifest);
+        let block_grid = runtime
+            .block_grid_for_level(LevelId(0x64))
+            .expect("Level 0x64 block grid");
+        let scene = build_scene(&base, false, Some(&visuals), Some(&block_grid));
+        let mut native_rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        render_scene(&scene, &mut native_rgb);
+        let mismatches = native_rgb
+            .chunks_exact(3)
+            .zip(oracle_rgb.chunks_exact(3))
+            .enumerate()
+            .filter(|(pixel, (native, oracle))| {
+                let x = pixel % FRAME_WIDTH as usize;
+                let y = pixel / FRAME_WIDTH as usize;
+                (90..140).contains(&x) && (0..30).contains(&y) && native != oracle
+            })
+            .map(|(pixel, _)| (pixel % FRAME_WIDTH as usize, pixel / FRAME_WIDTH as usize))
+            .collect::<Vec<_>>();
+        assert!(
+            mismatches.is_empty(),
+            "ASM Orca.asm loc_3D348 fixed C765E lunge mapping must reproduce the frame-359 oracle crop; {} mismatches: {:?}",
+            mismatches.len(),
+            mismatches.iter().take(20).collect::<Vec<_>>(),
+        );
+    }
+
+    #[test]
     fn level64_orcas_follow_lion_loc_3e604_charge_entry() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

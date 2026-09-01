@@ -626,6 +626,11 @@ pub(crate) fn step_orca(
             enemy.on_ground = false;
             enemy.x_velocity = orca_lunge_x_velocity_loc_3d340(enemy.facing);
             enemy.y_velocity = orca_lunge_launch_tail_loc_3d348().y_velocity;
+            // ASM Orca.asm loc_3D348 falls straight into loc_3D35A. The
+            // newly armed GfxObject therefore takes its first lunge movement
+            // on this wake instead of holding the wind-up position for one
+            // extra native frame.
+            step_orca(enemy, block_grid, player_x_pos);
         }
         OrcaState::Lunging => {
             // ASM Orca.asm loc_3D35A: Hibernate_Object_1Frame applies the
