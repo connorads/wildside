@@ -228,7 +228,6 @@ pub(crate) fn robot_charge_entry_loc_3a96c(facing: Direction) -> RobotChargeEntr
     }
 }
 
-#[cfg(test)]
 pub(crate) fn robot_direction_branch_loc_3aa0c(x_direction: u8) -> Direction {
     // ASM Robot.asm loc_3AA0C: `tst.b x_direction(a3); beq.w loc_3C0FA;
     // bra.w loc_3C04E`. Native stores the decoded shared-walker branch.
@@ -635,14 +634,6 @@ fn robot_x_direction_byte(facing: Direction) -> u8 {
     }
 }
 
-fn robot_facing_from_x_direction_byte(x_direction: u8) -> Direction {
-    if x_direction == 0 {
-        Direction::Left
-    } else {
-        Direction::Right
-    }
-}
-
 fn push_robot_shot(
     enemy: &ActiveEnemy,
     projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
@@ -761,7 +752,7 @@ pub(crate) fn step_robot_with_rng(
                         random_word: rng.next_long() as u16,
                     });
 
-                enemy.facing = robot_facing_from_x_direction_byte(result.next_parent_x_direction);
+                enemy.facing = robot_direction_branch_loc_3aa0c(result.next_parent_x_direction);
                 if result.branch_to_robot_shoot {
                     push_robot_shot(enemy, projectiles, played_sound_effects.as_deref_mut());
                     finish_robot_shoot_sequence(enemy);

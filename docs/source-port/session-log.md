@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (Robot direction citation reaches production)
+
+- Proactive coverage rechecked the sole ordinary gap, Tar Monster `loc_32454`.
+  It remains an evidenced orphan/code-as-data alias, so no false citation was
+  added.
+- Robot production already decoded `x_direction` exactly like ASM `loc_3AA0C`
+  through a duplicate helper. The shipped path now calls the labelled domain
+  function directly.
+- ASM coverage moves 3,950/152 -> 3,951/151 reachable/test-only, and the
+  downward-only baseline removes `loc_3AA0C`.
+- Continue with another test-only production gap or a fresh live oracle route.
+
 ## 2026-09-01 handoff (warped SolidGhost residue rejected)
 
 - Oracle linked-SAT probes show `$024E` at frame 90, `$024A` at frame 92,
