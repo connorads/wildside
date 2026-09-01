@@ -4888,6 +4888,26 @@ mod tests {
     }
 
     #[test]
+    fn big_hopping_skull_live_selector_rejects_dead_and_incomplete_atlas_loc_365d8_3664e() {
+        let full = labelled_enemy_visuals(12, 7);
+        let mut dead = live_enemy_object(0x1D);
+        dead.hit_points = Some(0);
+        dead.sprite_animation_phase = Some(0);
+        assert!(
+            select_live_big_hopping_skull_frame(&full, &dead).is_none(),
+            "ASM loc_3664E transfers a fatal hit from the live scripts to stru_367FA"
+        );
+
+        let incomplete = labelled_enemy_visuals(11, 7);
+        let mut live = live_enemy_object(0x1D);
+        live.sprite_animation_phase = Some(0);
+        assert!(
+            select_live_big_hopping_skull_frame(&incomplete, &live).is_none(),
+            "ASM stru_367AE..stru_367FA requires all twelve C7FA0..C7FF8 mappings"
+        );
+    }
+
+    #[test]
     fn driller_live_selector_renders_both_linked_side_drills_stru_3bcbc() {
         let visuals = labelled_enemy_visuals(9, 7);
         let mut child = live_enemy_object(0x1A);

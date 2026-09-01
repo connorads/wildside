@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (Big Hopping Skull selector boundary)
+
+- The full twelve-mapping Big Hopping Skull render path landed after the last
+  family mutation audit, so the proactive fallback targeted its live selector.
+- The initial eight-mutant census found two survivors: a fatal snapshot with a
+  stale live phase could still select body art, and an eleven-frame atlas could
+  render phase 0 despite lacking the complete `stru_367AE..stru_367FA` mapping
+  contract.
+- One ASM-cited regression now rejects both cases. The focused rerun catches
+  all eight mutations with no misses. Continue with another recent live render
+  or enemy path whose implementation postdates its last audit.
+
 ## 2026-09-01 handoff (Tar Monster live-selector boundary)
 
 - The red Level 0 source-port visual probe was rechecked and localised to the
