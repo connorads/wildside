@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (Spinning Twins parent ownership)
+
+- Current-HEAD focused refreshes found no gaps in the newer Flying Dragon or
+  Diamond ROM-clock selectors; each catches all seven mutations.
+- The Spinning Twins parent selector had one survivor: combining its family and
+  atlas guards could admit a non-`$14` object when the full fourteen-frame
+  atlas was present.
+- A direct ASM-cited ownership assertion closes that boundary. The focused
+  rerun catches all six parent-selector mutations with no misses.
+
 ## 2026-09-01 handoff (Spinning Twins orbit presentation)
 
 - The current Sphere animation-clock selector catches all five focused mutants.

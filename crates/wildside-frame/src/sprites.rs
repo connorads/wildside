@@ -4272,6 +4272,13 @@ mod tests {
             );
         }
 
+        let mut wrong_twin_family = live_enemy_object(0x13);
+        wrong_twin_family.sprite_animation_phase = Some(4);
+        assert!(
+            select_live_spinning_twins_frame(&full, &wrong_twin_family).is_none(),
+            "ASM Enemy14_SpinningTwins_Init owns the fourteen-frame parent atlas only for type $14"
+        );
+
         let mut rejected = live_enemy_object(0x0A);
         rejected.kind = NativeObjectKind::Enemy { object_type: 0x0C };
         assert!(select_live_rock_tank_body_frame(&trace, &full, &rejected).is_none());
