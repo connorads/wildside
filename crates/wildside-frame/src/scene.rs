@@ -346,6 +346,23 @@ fn tar_monster_burst_child_frame(
     })
 }
 
+fn tar_monster_projectile_facing_loc_325e6(projectile: &ActiveProjectileSnapshot) -> Direction {
+    // ASM Tar_Monster.asm loc_325E6 allocates a cleared GfxObject and never
+    // writes x_direction. Straight globs receive x_direction at loc_3247E;
+    // Drips fragments merely share this renderer and retain velocity-facing.
+    if matches!(
+        projectile.kind,
+        ActiveProjectileKind::TarMonsterBurstChild
+            | ActiveProjectileKind::TarMonsterBurstChildC7836
+    ) {
+        Direction::Right
+    } else if projectile.x_velocity < 0 {
+        Direction::Left
+    } else {
+        Direction::Right
+    }
+}
+
 fn tank_bullet_child_frame(
     visuals: &wildside_render::AnimatedSpriteVisual,
     remaining_frames: u16,
@@ -8486,14 +8503,7 @@ fn build_game_scene_filtered(
                                 }
                                 _ => return None,
                             };
-                            // ASM Tar_Monster.asm loc_324D0/loc_324DC mirrors the
-                            // glob when `x_direction != 0`, so face the sprite by
-                            // travel direction. Burst fragments scatter both ways.
-                            let facing = if projectile.x_velocity < 0 {
-                                Direction::Left
-                            } else {
-                                Direction::Right
-                            };
+                            let facing = tar_monster_projectile_facing_loc_325e6(&projectile);
                             let (draw_x, draw_y) = sprite_draw_position(&frame, sx, sy, facing);
                             commands.push(DrawCommand::Sprite {
                                 x: draw_x,
@@ -14613,6 +14623,33 @@ mod tests {
         assert_eq!(
             tile_sheet.tiles[usize::from(expected_tile_base)].pixels[0],
             0x77
+        );
+    }
+
+    #[test]
+    fn tar_burst_children_keep_cleared_x_direction_loc_325e6() {
+        for kind in [
+            ActiveProjectileKind::TarMonsterBurstChild,
+            ActiveProjectileKind::TarMonsterBurstChildC7836,
+        ] {
+            assert_eq!(
+                tar_monster_projectile_facing_loc_325e6(&ActiveProjectileSnapshot {
+                    kind,
+                    x_velocity: -0x0001_0000,
+                    ..ActiveProjectileSnapshot::default()
+                }),
+                Direction::Right,
+                "ASM Tar_Monster.asm loc_325E6 leaves the cleared GfxObject x_direction unchanged even for a left-moving fragment",
+            );
+        }
+        assert_eq!(
+            tar_monster_projectile_facing_loc_325e6(&ActiveProjectileSnapshot {
+                kind: ActiveProjectileKind::DripsSurfaceCrawlerBurst,
+                x_velocity: -0x0001_0000,
+                ..ActiveProjectileSnapshot::default()
+            }),
+            Direction::Left,
+            "the shared Drips fragment renderer must not inherit Tar Monster loc_325E6 state",
         );
     }
 

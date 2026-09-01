@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (Tar burst children retain cleared direction)
+
+- Level `$64`'s remaining Tar pixels came from velocity-facing the five
+  overlapping burst fragments. Exhaustive oracle scoring of all 120 orders
+  and 32 flip masks found one exact frame-120 model: existing allocation order,
+  no child flips.
+- ASM `loc_325E6` allocates a cleared GfxObject and never writes
+  `x_direction`. Native now keeps Tar `$C1/$C2` fragments unflipped while the
+  shared Drips path remains velocity-facing.
+- The 13-checkpoint corpus improves 1,057 -> 931 pixels. Six Tar checkpoints
+  improve by 126 pixels; every other checkpoint is unchanged and effect debt
+  is zero.
+- `mise run verify-slice-fast` and `mise run verify-tas-full` pass. The full
+  route remains 37,518 exact / 241 divergent / 2,391 pixels because it does
+  not exercise this Level `$64` burst.
+- Next trace frame 330's shared palette boundary: 252 enemy pixels across tiles
+  `$5D..$6F` and 65 background pixels differ in colour with matching geometry.
+
 ## 2026-09-01 handoff (rejected SolidGhost checkpoint latch)
 
 - Frame 90's 43-pixel Level `$64` residue is the `$024E` SolidGhost transition
@@ -15,10 +33,11 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   pixels and improved the dense frame 86..94 window 847 -> 721 pixels.
 - The full route rejected the renderer-side mechanism: pixel debt regressed
   241/2,391 -> 257/3,895, adding 1,540 terrain pixels across 20 frames.
-  `previous_trace` is checkpoint-relative, not reliably frame-relative.
-- The production patch and focused test were reverted. Next preserve the
-  completed SolidGhost Sprite_Table in the emulated trace or an explicit
-  per-frame raster timeline; do not retry a renderer checkpoint latch.
+  Correction from the next session: that route captures every frame, so sparse
+  checkpoint spacing cannot explain the regression. The local prior-state
+  alignment was not a valid engine-wide presentation model.
+- The production patch and focused test were reverted. Do not retry a
+  previous-frame or frame-owned SolidGhost latch from this witness.
 - Verification: focused Level `$64` visual corpus, `mise run verify-slice-fast`
   green, then expected-red `mise run verify-tas-full` supplied the rejection.
 

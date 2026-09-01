@@ -2957,12 +2957,23 @@ Investigated 2026-09-01 after the frame-90 visual residue was assigned to
 through `Mode_Level loc_901` removed exactly 43 pixels at frame 90 and improved
 the dense frame 86..94 window 847 -> 721 pixels. Rejected the implementation
 after the authoritative full route regressed 241/2,391 -> 257/3,895 pixels,
-adding 1,540 terrain pixels across 20 frames. The renderer's
-`previous_trace` can be the previous requested checkpoint rather than the
-immediately previous emulated frame, so it cannot represent Sprite_Table
-history for transient workers. Preserve SolidGhost presentation state in the
-emulated trace or an explicit per-frame raster timeline before retrying this
-ASM ordering model.
+adding 1,540 terrain pixels across 20 frames. The full route captures every
+frame, so checkpoint spacing cannot explain that regression: current
+post-`sub_F730` presentation is correct for the exercised cycles, while the
+sparse Level 0x64 checkpoint happened to make the prior state look better. Do
+not retry a previous-frame or frame-owned SolidGhost latch from this witness.
+
+Resolved the remaining Tar presentation residue 2026-09-01. An exhaustive
+oracle search across all 120 child orders and 32 flip combinations found one
+exact frame-120 model: retain allocation order and leave all five fragments
+unflipped. ASM `loc_325E6` explains it: `j_Load_GfxObjectSlot` supplies a
+cleared GfxObject and the child path never writes `x_direction`; velocity is
+not presentation state. Applying this only to Tar burst children, not the
+shared Drips renderer, removes every effect mismatch in the 13-checkpoint
+Level 0x64 corpus: 1,057 -> 931 pixels, with six Tar checkpoints improving by
+126 pixels and all other checkpoints unchanged. The published full route is
+green and unchanged at 241 frames / 2,391 pixels because it does not exercise
+this warp-local burst.
 
 ### #429
 

@@ -22234,6 +22234,16 @@ mod tests {
     }
 
     #[test]
+    fn level64_frame120_tar_burst_children_keep_cleared_x_direction() {
+        assert_level64_oracle_crop(
+            120,
+            108..132,
+            145..165,
+            "ASM Tar_Monster.asm loc_325E6 leaves cleared GfxObject x_direction unchanged for every burst child",
+        );
+    }
+
+    #[test]
     fn level64_frame300_tar_burst_collision_mapping_matches_oracle_gameplay_crop() {
         assert_level64_oracle_crop(
             300,
