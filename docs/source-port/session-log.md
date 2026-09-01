@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (Tar Monster live-selector boundary)
+
+- The red Level 0 source-port visual probe was rechecked and localised to the
+  seven frozen #409 life-icon pixels at frames 30/120. That lane remains
+  untouched under its ADR freeze.
+- The new crawl presentation path is mutation-clean: all three `sub_8446`
+  accumulator mutants are caught. Four of six renderer mutations are caught;
+  the two `len() - 1` variants are equivalent while the ASM accumulator stays
+  below `$300`.
+- The newer Tar Monster selector had two real survivors: stale live art after
+  death and acceptance of phase 7, the first `stru_32700` death-tail frame. An
+  ASM-cited regression now rejects both. The focused rerun catches all 13
+  mutations with no misses. Continue with a different live render/enemy target.
+
 ## 2026-09-01 handoff (render-level mutation boundary)
 
 - A current Robot shoot route remains unavailable. Logical `$14` and `$10`

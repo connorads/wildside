@@ -4775,6 +4775,26 @@ mod tests {
     }
 
     #[test]
+    fn tar_monster_live_selector_rejects_stale_death_and_death_tail_loc_32200_32700() {
+        let visuals = labelled_enemy_visuals(15, 3);
+
+        let mut dead = live_enemy_object(0x05);
+        dead.hit_points = Some(0);
+        dead.sprite_animation_phase = Some(0);
+        assert!(
+            select_live_tar_monster_frame(&visuals, &dead).is_none(),
+            "ASM loc_32200 renders only the independent primary mapping after the live body dies"
+        );
+
+        let mut death_tail = live_enemy_object(0x05);
+        death_tail.sprite_animation_phase = Some(7);
+        assert!(
+            select_live_tar_monster_frame(&visuals, &death_tail).is_none(),
+            "ASM stru_32700 owns phase 7 and later death-tail mappings outside the live selector"
+        );
+    }
+
+    #[test]
     fn live_enemy_phase_selectors_use_contact_and_walk_phase() {
         let visuals = labelled_enemy_visuals(8, 7);
         let trace = NativeTraceFrame::default();
