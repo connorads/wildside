@@ -4650,6 +4650,13 @@ mod tests {
             Some((-0x10, -0x1A, 7)),
             "ASM loc_3B904/word_3B9A0 positions the initial C7D26 child"
         );
+        spinning_twin.walk_phase = Some(7);
+        spinning_twin.wait_timer = Some(1);
+        assert_eq!(
+            spinning_twins_orbit_child_spec_loc_3b904(&spinning_twin),
+            Some((-0x11, -0x1A, 6)),
+            "ASM loc_3B904 presents prior block 6's C7D1E frame until timer 1 advances orbit block 7"
+        );
         spinning_twin.walk_phase = None;
         spinning_twin.wait_timer = None;
         spinning_twin.sprite_animation_phase = Some(4);

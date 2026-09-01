@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (Spinning Twins orbit presentation)
+
+- The current Sphere animation-clock selector catches all five focused mutants.
+- The newer Spinning Twins linked-orbit helper had three survivors around the
+  `animation_timer == 1` presentation boundary. Existing coverage exercised
+  only the initial non-boundary orbit position.
+- An exact ASM-cited regression now proves orbit index 7 retains `word_3B9A0`'s
+  `-17px` X offset while presenting prior block 6's C7D1E frame. The focused
+  rerun catches all eight helper mutations with no misses.
+
 ## 2026-09-01 handoff (Orca live-selector boundary)
 
 - The Orca animation-clock render change postdated its older family audit. Its
