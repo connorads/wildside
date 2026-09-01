@@ -403,17 +403,24 @@ struct MismatchFrameInput {
     changed_pixels: usize,
 }
 
-/// Frame index encoded in an oracle PNG file name, keyed off the `frame_N`
-/// label suffix — the numeric prefix is a zero-padded sequence number whose
-/// width varies, so it is not trusted. The second field is true for a plain
-/// periodic capture (`<seq>_frame_N.png`); transition checkpoints re-capture
-/// the same frame under labels like `transition_00_to_1b_post_frame_N`.
+/// Frame index encoded in an oracle PNG file name. Prefer an explicit
+/// `frame_N` label suffix; named checkpoints such as `level_settle` and
+/// `idle_tail` carry the same index in the numeric prefix written by
+/// `capture_tas_pngs`. The second field is true for a plain periodic capture
+/// (`<index>_frame_N.png`); other labels are checkpoint captures.
 pub(crate) fn oracle_png_frame_index(file_name: &str) -> Option<(usize, bool)> {
     let stem = file_name.strip_suffix(".png")?;
-    let (label_prefix, label_index) = stem.rsplit_once("_frame_")?;
-    let frame_index = label_index.parse().ok()?;
-    let plain = !label_prefix.is_empty() && label_prefix.bytes().all(|byte| byte.is_ascii_digit());
-    Some((frame_index, plain))
+    if let Some((label_prefix, label_index)) = stem.rsplit_once("_frame_") {
+        let frame_index = label_index.parse().ok()?;
+        let plain =
+            !label_prefix.is_empty() && label_prefix.bytes().all(|byte| byte.is_ascii_digit());
+        return Some((frame_index, plain));
+    }
+    let (index, label) = stem.split_once('_')?;
+    (!label.is_empty())
+        .then(|| index.parse().ok())
+        .flatten()
+        .map(|index| (index, false))
 }
 
 /// Reconstruct `frame_index -> PNG path` from the cached oracle directory;
@@ -1314,6 +1321,14 @@ mod tests {
         assert_eq!(
             oracle_png_frame_index("11017_transition_00_to_1b_post_frame_11017.png"),
             Some((11017, false))
+        );
+        assert_eq!(
+            oracle_png_frame_index("0060_level_settle.png"),
+            Some((60, false))
+        );
+        assert_eq!(
+            oracle_png_frame_index("0359_idle_tail.png"),
+            Some((359, false))
         );
         assert_eq!(oracle_png_frame_index("audio.wav"), None);
         assert_eq!(oracle_png_frame_index("frame_12.png"), None);
