@@ -324,18 +324,24 @@ fn tar_monster_glob_child_frame(
 
 fn tar_monster_burst_child_frame(
     visuals: &wildside_render::AnimatedSpriteVisual,
+    after_collision: bool,
 ) -> Option<wildside_render::SpriteFrame> {
     let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    let (origin, size, tile_base_index) = if after_collision {
+        // ASM Tar_Monster.asm loc_32682: the first non-zero collision switches
+        // a surviving child from LnkTo_unk_C782E to LnkTo_unk_C7836.
+        (0x02, 0x04, 0x0C2)
+    } else {
+        (0x03, 0x06, 0x0C1)
+    };
     Some(wildside_render::SpriteFrame {
-        // ASM Tar_Monster.asm loc_325E6 writes `LnkTo_unk_C782E` to each
-        // retaliation fragment. `unk_C782E` is `sprite_frame_vram
-        // $0C1,$03,$03,$06,$06` (decoded from kid.bin @ $C782E) — a small dark
-        // tar blob.
-        origin_x: 0x03,
-        origin_y: 0x03,
-        width_px: 0x06,
-        height_px: 0x06,
-        tile_base_index: 0x0C1,
+        // ASM loc_325E6 starts at `unk_C782E` (`$0C1,$03,$03,$06,$06`);
+        // loc_32682 changes it to `unk_C7836` (`$0C2,$02,$02,$04,$04`).
+        origin_x: origin,
+        origin_y: origin,
+        width_px: size,
+        height_px: size,
+        tile_base_index,
         tile_sheet,
     })
 }
@@ -8458,6 +8464,7 @@ fn build_game_scene_filtered(
                 }
                 ActiveProjectileKind::TarMonsterGlob
                 | ActiveProjectileKind::TarMonsterBurstChild
+                | ActiveProjectileKind::TarMonsterBurstChildC7836
                 | ActiveProjectileKind::DripsSurfaceCrawlerBurst => {
                     let pushed_sprite = level_visuals
                         .enemies
@@ -8469,10 +8476,13 @@ fn build_game_scene_filtered(
                                     tar_monster_glob_child_frame(tar_visuals)?
                                 }
                                 ActiveProjectileKind::TarMonsterBurstChild => {
-                                    tar_monster_burst_child_frame(tar_visuals)?
+                                    tar_monster_burst_child_frame(tar_visuals, false)?
+                                }
+                                ActiveProjectileKind::TarMonsterBurstChildC7836 => {
+                                    tar_monster_burst_child_frame(tar_visuals, true)?
                                 }
                                 ActiveProjectileKind::DripsSurfaceCrawlerBurst => {
-                                    tar_monster_burst_child_frame(tar_visuals)?
+                                    tar_monster_burst_child_frame(tar_visuals, false)?
                                 }
                                 _ => return None,
                             };
@@ -11707,9 +11717,14 @@ mod tests {
             "ASM Tar_Monster.asm loc_3247E straight glob `unk_C781E`",
         );
         assert_child_frame(
-            tar_monster_burst_child_frame(&visuals),
+            tar_monster_burst_child_frame(&visuals, false),
             (0x0C1, 0x03, 0x03, 0x06, 0x06),
             "ASM Tar_Monster.asm loc_325E6 burst fragment `unk_C782E`",
+        );
+        assert_child_frame(
+            tar_monster_burst_child_frame(&visuals, true),
+            (0x0C2, 0x02, 0x02, 0x04, 0x04),
+            "ASM Tar_Monster.asm loc_32682 collided burst fragment `unk_C7836`",
         );
         assert_child_frame(
             dragon_flying_descent_fire_child_frame(

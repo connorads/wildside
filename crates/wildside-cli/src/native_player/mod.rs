@@ -4328,6 +4328,25 @@ mod tests {
             )),
             "Tar Monster burst fragments must not fall back to the generic red projectile dot",
         );
+
+        trace.active_projectile_details[0].kind = ActiveProjectileKind::TarMonsterBurstChildC7836;
+        let collided_scene = build_scene(&trace, false, Some(&visuals), None);
+        assert!(
+            collided_scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. }
+                    if tiles.iter().any(|tile| tile.tile.tile_index == 0x0C2)
+            )),
+            "ASM Tar_Monster.asm loc_32682 should render a collided burst fragment from ROM tile `unk_C7836` ($0C2)",
+        );
+        assert!(
+            !collided_scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Sprite { tiles, .. } | DrawCommand::SatSprite { tiles, .. }
+                    if tiles.iter().any(|tile| tile.tile.tile_index == 0x0C1)
+            )),
+            "ASM Tar_Monster.asm loc_32682 replaces `unk_C782E`; it does not retain both mappings",
+        );
     }
 
     #[test]
@@ -22211,6 +22230,16 @@ mod tests {
             250..289,
             0..50,
             "ASM Enemy08_Orca_Init loc_3D194 / stru_3D0A2 bootstrap must reproduce the frame-180 oracle crop",
+        );
+    }
+
+    #[test]
+    fn level64_frame300_tar_burst_collision_mapping_matches_oracle_gameplay_crop() {
+        assert_level64_oracle_crop(
+            300,
+            0..289,
+            0..224,
+            "ASM Tar_Monster.asm loc_32682 collided burst mappings must reproduce the frame-300 gameplay crop",
         );
     }
 

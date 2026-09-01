@@ -168,6 +168,10 @@ pub enum ActiveProjectileKind {
     /// scatters fragments using sprite `LnkTo_unk_C782E`
     /// (`sprite_frame_vram $0C1,$03,$03,$06,$06`).
     TarMonsterBurstChild,
+    /// Tar Monster burst child after its first surviving collision response.
+    /// ASM `loc_32682` switches to `LnkTo_unk_C7836`
+    /// (`sprite_frame_vram $0C2,$02,$02,$04,$04`).
+    TarMonsterBurstChildC7836,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

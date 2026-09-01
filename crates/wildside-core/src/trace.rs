@@ -697,7 +697,11 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
         return ActiveProjectileKind::TarMonsterGlob;
     }
     if projectile.kind == EnemyProjectileKind::TarMonsterBurstChild {
-        return ActiveProjectileKind::TarMonsterBurstChild;
+        return if projectile.tar_monster_collision_response_budget < 2 {
+            ActiveProjectileKind::TarMonsterBurstChildC7836
+        } else {
+            ActiveProjectileKind::TarMonsterBurstChild
+        };
     }
 
     // ASM Fire_Demon loc_3A63C initialises a separate fire-trail object that
@@ -4427,6 +4431,26 @@ mod tests {
             runtime.object_counts_from_roster(&[], 0, 0),
             (baseline.0 + 6, baseline.1 + 6),
             "ASM Tar_Monster.asm loc_32468 and loc_325E6 load a GfxObject for every allocated straight-glob and burst-child Object worker",
+        );
+    }
+
+    #[test]
+    fn tar_monster_burst_trace_exposes_loc_32682_mapping_transition() {
+        let mut projectile = EnemyProjectile {
+            kind: EnemyProjectileKind::TarMonsterBurstChild,
+            tar_monster_collision_response_budget: 2,
+            ..Default::default()
+        };
+        assert_eq!(
+            active_projectile_kind(&projectile),
+            ActiveProjectileKind::TarMonsterBurstChild,
+        );
+
+        projectile.tar_monster_collision_response_budget = 1;
+        assert_eq!(
+            active_projectile_kind(&projectile),
+            ActiveProjectileKind::TarMonsterBurstChildC7836,
+            "ASM Tar_Monster.asm loc_32682 permanently selects LnkTo_unk_C7836 after the first surviving collision response",
         );
     }
 

@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (Tar burst collision mapping)
+
+- Visual triage assigned 331 Level `$64` pixels to Tar Monster effect tiles.
+  ASM `loc_325E6` starts burst children on `unk_C782E` (tile `$C1`, 6x6),
+  while the first surviving `loc_32682` collision permanently selects
+  `unk_C7836` (tile `$C2`, 4x4).
+- Native already carries the two-response `d3` budget. Its typed projectile
+  snapshot now exposes the post-collision mapping from that state; a separate
+  mutable frame flag would duplicate it and velocity cannot identify it.
+- Core trace, descriptor, rendered-scene, and exact frame-300 gameplay crop
+  regressions pin the transition. The nine-checkpoint corpus improves
+  758 -> 479 pixels; frame 240 improves 180 -> 59 and frame 180 improves
+  130 -> 56.
+- Visual triage leaves 52 effects pixels at frames 120/180/240, 43 block
+  override pixels at frame 90, one background pixel, and 383 HUD pixels.
+  Continue with the remaining `$C1/$C2` effects; do not reopen projectile
+  physics or infer mappings from velocity.
+
 ## 2026-09-01 handoff (initial Orca patrol mapping bootstrap)
 
 - Level `$64` frame 180's 198-pixel enemy residue was clipped Orca patrol
