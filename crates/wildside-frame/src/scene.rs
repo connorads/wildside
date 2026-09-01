@@ -4738,10 +4738,8 @@ fn push_murder_wall_warning_fallback_sub_5e02(
     max_x: i32,
 ) {
     let width = (max_x - min_x).max(8);
-    // TODO(fidelity): decode/render exact `Murder_wall.bin` drill art from
-    // ASM Murderwall loc_140D2. This fallback is intentionally conspicuous so
-    // live playtests can see the active `sub_5E02` wall instead of a flat red
-    // placeholder while the ArtComp/Saxman path is still unresolved.
+    // Missing-bundle fallback only. The normal path decodes `Murder_wall.bin`
+    // and its palette; keep this conspicuous when either asset is unavailable.
     commands.push(DrawCommand::Rect {
         x: min_x,
         y: 0,
@@ -9847,6 +9845,35 @@ mod tests {
         PlatformVisuals, PlayerFormVisuals, PlayerVisuals, SpecialEffectUnknownVisuals,
         SpriteFrame, Tile, TileQuad, WeatherVisuals,
     };
+
+    #[test]
+    fn murder_wall_sprite_strips_vdp_coordinate_bias_sub_5e02() {
+        let visuals = wildside_render::MurderWallVisuals {
+            palette: sample_palette(),
+            tile_sheet: sample_tile_sheet(9),
+            vram_base_tile_index: 0x02FB,
+        };
+        let mut commands = Vec::new();
+
+        assert!(push_murder_wall_warning_sprite_sub_5e02(
+            &mut commands,
+            &visuals,
+            wildside_core::MurderWallWarningSpriteSub5E02 {
+                y: 0x008C,
+                link: 0x0A01,
+                tile_word: 0x02FB,
+                x: 0x0098,
+            },
+        ));
+
+        assert!(
+            matches!(
+                commands.as_slice(),
+                [DrawCommand::Sprite { x: 24, y: 12, .. }]
+            ),
+            "ASM sub_5E02 writes $80-biased SAT coordinates; scene commands use screen pixels"
+        );
+    }
 
     #[test]
     fn manual_demo_return_renders_resident_gameplay_during_pal_fade_loc_119d8_28c6() {

@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (murder-wall SAT coordinate boundary)
+
+- The scene's remaining murder-wall TODO was stale: generated bundles already
+  carry the palette and decode exact `Murder_wall.bin` art; the patterned path
+  is only a missing-asset fallback.
+- Focused mutation found four surviving coordinate corruptions on the real art
+  path. No test proved conversion from `$80`-biased SAT coordinates to native
+  screen pixels.
+- A direct `sub_5E02` sprite-command regression now pins X and Y independently.
+  The focused rerun catches all eleven selected scene mutations with no misses.
+
 ## 2026-09-01 handoff (Spinning Twins parent ownership)
 
 - Current-HEAD focused refreshes found no gaps in the newer Flying Dragon or
