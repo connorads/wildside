@@ -276,6 +276,18 @@ mod tests {
         );
     }
 
+    #[test]
+    fn blank_top_rows_leave_zero_width_layout_unchanged_sub_140f6() {
+        let layout = ForegroundLayout::parse(&[], 0, 1).expect("zero-width layout");
+
+        let shifted = layout.clone().with_blank_top_rows_sub_140f6(3);
+
+        assert_eq!(
+            shifted, layout,
+            "ASM sub_140F6 cannot shift or clear rows when the level has no cells per row"
+        );
+    }
+
     fn patterned_bytes(len: usize) -> Vec<u8> {
         (0..len).map(|index| (index % 251) as u8).collect()
     }

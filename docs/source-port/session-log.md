@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (render-level mutation boundary)
+
+- A current Robot shoot route remains unavailable. Logical `$14` and `$10`
+  synthetic warps disagree before Robot execution, `$09` does not settle, and
+  direct probes cannot seed the Object/GfxObject pair. No gameplay patch was
+  made from that evidence.
+- Mutation-testing `wildside-render/src/level.rs` found the zero-width
+  `sub_140F6` blank-row guard untested. A public `ForegroundLayout` regression
+  now proves the no-op boundary.
+- The rerun tests 50 mutants: 44 caught, 6 unviable, zero missed. Continue with
+  a different live render/enemy mutation target unless authoritative Robot
+  route support becomes available.
+
 ## 2026-09-01 handoff (Robot direction citation reaches production)
 
 - Proactive coverage rechecked the sole ordinary gap, Tar Monster `loc_32454`.
