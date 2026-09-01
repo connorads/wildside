@@ -769,6 +769,18 @@ published route keeps all 37,759 gameplay/enemy frames and all 37,743
 post-`Init_RNG` frames exact, with the established 2,391-pixel frozen HUD
 ratchet unchanged.
 
+Follow-up 2026-09-01: a 360-frame oracle GfxObject census and focused Level 1
+full-frame sweep reject two plausible explanations for the remaining
+Tank-shaped `idle_tail` residue. Routing the parent and linked child through
+native first-opaque SAT arbitration leaves every checkpoint unchanged at 412
+pixels, so parent/child painter order is not causal. Removing the inferred
+two-tick parent phase offset matches live oracle mapping `$0AD0` at frame 359
+but worsens the rendered checkpoint to 426 pixels. The oracle changes the live
+parent mapping at frame 358 while the completed scanout still needs the prior
+presentation state. Any follow-up must expose or reconstruct the typed
+GfxObject-to-VDP latch instead of changing gameplay animation state or sprite
+overlap order.
+
 ### #461
 
 Closed [x] 2026-08-26. A proactive release-gate audit found Level 0's walking
