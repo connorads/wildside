@@ -5372,6 +5372,33 @@ mod tests {
     }
 
     #[test]
+    fn crab_live_selector_rejects_non_live_and_incomplete_inputs_loc_3af96_3b104() {
+        let full = labelled_enemy_visuals(10, 8);
+        let mut wrong_family = live_enemy_object(0x08);
+        wrong_family.sprite_animation_phase = Some(0);
+        assert!(
+            select_live_crab_frame(&full, &wrong_family).is_none(),
+            "ASM Enemy09_Crab_Init installs the Crab scripts only for enemy type $09"
+        );
+
+        let mut dead = live_enemy_object(0x09);
+        dead.hit_points = Some(0);
+        dead.sprite_animation_phase = Some(0);
+        assert!(
+            select_live_crab_frame(&full, &dead).is_none(),
+            "ASM loc_3B094 transfers a fatal hit from the live scripts to stru_3AF82"
+        );
+
+        let incomplete = labelled_enemy_visuals(9, 8);
+        let mut live = live_enemy_object(0x09);
+        live.sprite_animation_phase = Some(0);
+        assert!(
+            select_live_crab_frame(&incomplete, &live).is_none(),
+            "ASM stru_3AF62..loc_3B104 requires all ten C7C06..C7C4E mappings"
+        );
+    }
+
+    #[test]
     fn fire_demon_selector_keeps_normal_hurt_and_death_scripts_distinct() {
         let visuals = labelled_enemy_visuals(13, 6);
         let trace = NativeTraceFrame::default();

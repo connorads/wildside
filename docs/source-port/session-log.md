@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-01 handoff (recent animation-clock selector audit)
+
+- Current-HEAD focused mutation refreshes found no gaps in the newer Driller
+  side-drill selector (10 caught) or UFO animation-clock selector (7 caught).
+- The adjacent Crab selector had three survivors: combined guards could admit
+  wrong-family or dead snapshots, and a nine-frame atlas could satisfy a
+  ten-mapping live contract.
+- One ASM-cited regression covers those observable rejection boundaries. The
+  focused rerun catches all seven Crab mutations with no misses. Continue with
+  another recent live render or enemy path that postdates its last audit.
+
 ## 2026-09-01 handoff (Big Hopping Skull selector boundary)
 
 - The full twelve-mapping Big Hopping Skull render path landed after the last
