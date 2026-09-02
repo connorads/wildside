@@ -21535,7 +21535,7 @@ mod tests {
     }
 
     #[test]
-    fn level48_idle_tail_draws_drips_surface_children_loc_3350e() {
+    fn level48_ufo_beams_and_drips_children_match_gfx_object_sources() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
@@ -21546,6 +21546,26 @@ mod tests {
             crate::scenarios::NativeDynamicRunOptions::default(),
         )
         .expect("Level 0x48 sweep trace");
+        let frame_zero = trace_frame_with_vdp_latch_at_checkpoint(
+            &run.trace,
+            0,
+            Some(&run.initial_render_latch),
+            "frame_000",
+        )
+        .expect("Level 0x48 frame-0 render trace");
+        let frame_zero_ufo_beams = frame_zero
+            .active_projectile_details
+            .iter()
+            .filter(|projectile| projectile.kind == ActiveProjectileKind::UfoBeam)
+            .map(|projectile| (projectile.x_pos >> 16, projectile.y_pos >> 16))
+            .collect::<Vec<_>>();
+        let mut frame_zero_ufo_beams = frame_zero_ufo_beams;
+        frame_zero_ufo_beams.sort_unstable();
+        assert_eq!(
+            frame_zero_ufo_beams,
+            vec![(0x0282, 0x01B5), (0x0282, 0x01C4)],
+            "oracle frame 0 exposes two Enemy0F_UFOBeam_Init GfxObjects at `$0282,$01B5` and `$0282,$01C4`; the native presentation latch must not include the following loc_34FD6 allocation"
+        );
         let render_trace = trace_frame_with_vdp_latch_at_checkpoint(
             &run.trace,
             359,

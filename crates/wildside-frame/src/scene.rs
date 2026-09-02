@@ -1721,6 +1721,12 @@ fn latch_previous_sprite_sources_loc_901(
     render_trace: &mut NativeTraceFrame,
     previous_trace: &NativeTraceFrame,
 ) {
+    let current_ufo_beams = render_trace
+        .active_projectile_details
+        .iter()
+        .filter(|projectile| projectile.kind == ActiveProjectileKind::UfoBeam)
+        .copied()
+        .collect::<Vec<_>>();
     render_trace
         .active_objects
         .clone_from(&previous_trace.active_objects);
@@ -1730,6 +1736,18 @@ fn latch_previous_sprite_sources_loc_901(
     render_trace
         .active_projectile_details
         .clone_from(&previous_trace.active_projectile_details);
+    // ASM Enemy0F_UFOBeam_Init/Loop owns a resident GfxObject. The native
+    // projectile snapshot already records the source seen by
+    // Make_SpritesFromGfxObjects, including the movement pass and any worker
+    // deleted before that table is built. Do not replace it with the prior
+    // gameplay-projectile set: Level 0x48's oracle frame 0 contains the two
+    // current beams at `$0282,$01B5`/`$01C4`, not the three stale workers.
+    render_trace
+        .active_projectile_details
+        .retain(|projectile| projectile.kind != ActiveProjectileKind::UfoBeam);
+    render_trace
+        .active_projectile_details
+        .extend(current_ufo_beams);
     render_trace
         .drips_surface_children_loc_3350e
         .clone_from(&previous_trace.drips_surface_children_loc_3350e);
@@ -10560,6 +10578,36 @@ mod tests {
         assert!(
             render_trace.prize_diamond_hud_flight_transferred_loc_fe3e,
             "renderer must distinguish a transferred `$86F2` entry from the creation-frame source"
+        );
+    }
+
+    #[test]
+    fn mode_level_loc_901_uses_current_ufo_beam_gfx_objects() {
+        let beam = |y_pos| ActiveProjectileSnapshot {
+            kind: ActiveProjectileKind::UfoBeam,
+            x_pos: 0x0282_0000,
+            y_pos,
+            ..ActiveProjectileSnapshot::default()
+        };
+        let mut render_trace = NativeTraceFrame {
+            active_projectile_details: vec![beam(0x01C4_0000), beam(0x01B5_0000)],
+            ..NativeTraceFrame::default()
+        };
+        let previous_trace = NativeTraceFrame {
+            active_projectile_details: vec![
+                beam(0x01D0_0000),
+                beam(0x01C1_0000),
+                beam(0x01B2_0000),
+            ],
+            ..NativeTraceFrame::default()
+        };
+
+        latch_previous_sprite_sources_loc_901(&mut render_trace, &previous_trace);
+
+        assert_eq!(
+            render_trace.active_projectile_details,
+            vec![beam(0x01C4_0000), beam(0x01B5_0000)],
+            "ASM Enemy0F_UFOBeam_Init/Loop presents the current GfxObject set after movement and deletion, as observed in Level 0x48 oracle frame 0"
         );
     }
 
