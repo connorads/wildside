@@ -2236,7 +2236,9 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x16, // Drip
         art_path: "artcomp/Enemy16_Drip.bin",
         palette_path: "palette_enemy/Drips_1.bin",
-        extra_palette_paths: &["palette_enemy/Drips_2.bin", "palette_enemy/Drips_3.bin"],
+        // ASM kid.asm LnkTo_Pal_A2082: the Drips palette pointer table is
+        // deliberately numbered out of file-name order: _1, _3, _2.
+        extra_palette_paths: &["palette_enemy/Drips_3.bin", "palette_enemy/Drips_2.bin"],
         frame_duration: 8,
         frames: &[
             fd(0x000, 0x0C, 0x00, 0x0F, 0x0E),
@@ -6692,6 +6694,20 @@ mod tests {
                 "artunc_kid/juggernaut_bottom_move_2.bin",
             ],
             "ASM loc_94B4/off_94E6 selects C0246,C03CC,C0552,C06D8,C0246,C03CC for Juggernaut body phases; the idle body is standing-only"
+        );
+    }
+
+    #[test]
+    fn drips_palette_variants_follow_rom_pointer_order_loc_36d16() {
+        let drips = super::ENEMY_FAMILIES
+            .iter()
+            .find(|family| family.object_type == 0x16)
+            .expect("Drips visual family");
+
+        assert_eq!(
+            drips.extra_palette_paths,
+            &["palette_enemy/Drips_3.bin", "palette_enemy/Drips_2.bin"],
+            "ASM kid.asm LnkTo_Pal_A2082 stores Drips variants as _1, _3, _2; loc_36D16 variant 2 must therefore select Drips_2"
         );
     }
 }
