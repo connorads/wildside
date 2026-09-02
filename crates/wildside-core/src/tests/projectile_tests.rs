@@ -8343,7 +8343,7 @@ mod chunk_06 {
     }
 
     #[test]
-    fn drips_drop_gravity_applies_after_hibernated_movement_loc_3345c() {
+    fn drips_drop_gravity_applies_before_gfx_movement_loc_3345c() {
         let mut rt = NativeRuntime::new(manifest());
 
         let mut projectile = make_projectile(0x0120, 0x0080);
@@ -8357,12 +8357,12 @@ mod chunk_06 {
 
         assert_eq!(
             rt.projectiles[0].y_pos,
-            0x0080 << 16,
-            "ASM Drips.asm loc_3345C hibernates/moves with the previous `$2A(a1)` y-velocity before adding gravity; a fresh drop must not advance on its first frame"
+            (0x0080 << 16) + DRIPS_DROP_GRAVITY as u32,
+            "ASM Mode_Level runs Drips.asm loc_3345C before GfxObjects_MoveAndAnimate, so `addi.l #$2000,$2A(a1)` advances a fresh drop on its first visible movement pass"
         );
         assert_eq!(
             rt.projectiles[0].y_velocity, DRIPS_DROP_GRAVITY,
-            "ASM Drips.asm loc_3345C applies `addi.l #$2000,$2A(a1)` after movement so the new velocity affects the next frame"
+            "ASM Drips.asm loc_3345C applies `addi.l #$2000,$2A(a1)` before the same frame's generic gfx movement"
         );
     }
 

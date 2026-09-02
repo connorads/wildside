@@ -45,6 +45,10 @@ const DRIPS_PRE_DROP_ANIMATION_FLAG_LOC_33424: u16 = 0x8000;
 /// GfxObject_Animate loc_1158/sub_1194 therefore finishes it in one tick.
 pub(crate) const DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488: u16 = 1;
 const DRIPS_SPLASH_ANIMATION_FLAG_LOC_33488: u16 = 0x4000;
+/// Native-only bridge between `stru_33332` reaching its terminator and the
+/// parent coroutine resuming from `Hibernate_UntilAnimFinished` on its next
+/// `Execute_Objects` pass.
+pub(crate) const DRIPS_SPLASH_RESUME_PENDING_TIMER_LOC_33488: u16 = 0x3FFF;
 
 fn drips_pre_drop_animation_timer_loc_33424(frames_remaining: u16) -> u16 {
     DRIPS_PRE_DROP_ANIMATION_FLAG_LOC_33424 | frames_remaining
@@ -1533,9 +1537,19 @@ pub(crate) fn step_drips(
         return;
     }
     if let Some(frames_remaining) = drips_splash_animation_remaining_loc_33488(enemy.wait_timer) {
-        if frames_remaining > 0 {
+        if frames_remaining > 1 {
             enemy.wait_timer = drips_splash_animation_timer_loc_33488(frames_remaining - 1);
+        } else if frames_remaining == 1 {
+            // ASM Mode_Level loc_901 runs Execute_Objects before
+            // GfxObject_Animate. The duration-1 `stru_33332` frame reaches
+            // its terminator later on this pass; the hibernating parent does
+            // not resume through loc_33488 until the next object pass.
+            enemy.wait_timer = DRIPS_SPLASH_RESUME_PENDING_TIMER_LOC_33488;
         }
+        return;
+    }
+    if enemy.wait_timer == DRIPS_SPLASH_RESUME_PENDING_TIMER_LOC_33488 {
+        enemy.wait_timer = drips_splash_animation_timer_loc_33488(0);
         return;
     }
     if let Some(frames_remaining) = drips_pre_drop_animation_remaining_loc_33424(enemy.wait_timer) {
@@ -1871,18 +1885,15 @@ mod tests {
         );
 
         let mut projectiles = Vec::new();
-        for expected_remaining in (0..DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488).rev() {
-            step_drips(&mut enemy, &mut projectiles, None);
-            assert_eq!(
-                drips_splash_animation_remaining_loc_33488(enemy.wait_timer),
-                Some(expected_remaining),
-                "ASM Drips.asm loc_33488 hibernates through stru_33332 before off_33520; issue-260 oracle frames 305..340 show the splash child finishing before the table entry advances"
-            );
-            assert!(
-                projectiles.is_empty(),
-                "loc_33488 must not start the next loc_33424 drop before the splash hibernate finishes"
-            );
-        }
+        step_drips(&mut enemy, &mut projectiles, None);
+        assert_eq!(
+            enemy.wait_timer, DRIPS_SPLASH_RESUME_PENDING_TIMER_LOC_33488,
+            "ASM Mode_Level reaches stru_33332's terminator after Execute_Objects, so the parent remains hibernated until the following object pass"
+        );
+        assert!(
+            projectiles.is_empty(),
+            "loc_33488 must not start the next loc_33424 drop before the splash hibernate finishes"
+        );
 
         step_drips(&mut enemy, &mut projectiles, None);
 

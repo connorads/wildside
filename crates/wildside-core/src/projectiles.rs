@@ -3629,7 +3629,6 @@ impl NativeRuntime {
                 p.kind == EnemyProjectileKind::DragonFlyingDescentFire;
             let is_hail = p.kind == EnemyProjectileKind::Hail;
             let is_maniaxe_axe = p.kind == EnemyProjectileKind::ManiaxeAxe;
-            let is_drips_drop = p.kind == EnemyProjectileKind::DripsDrop;
             let is_lion_projectile = p.kind == EnemyProjectileKind::LionProjectile;
             let lion_in_bounce_loop_loc_3e2a8 =
                 is_lion_projectile && p.lion_projectile_bounce_empty_checks_loc_3e2c0 > 0;
@@ -3862,8 +3861,11 @@ impl NativeRuntime {
             {
                 p.animation_elapsed_frames -= 1;
             }
-            if !is_drips_drop && !uses_loc_3263c_post_move_gravity && !is_tar_monster_burst_child
-            {
+            if !uses_loc_3263c_post_move_gravity && !is_tar_monster_burst_child {
+                // ASM Mode_Level executes the Drips parent coroutine before
+                // GfxObjects_MoveAndAnimate. loc_3345C therefore adds `$2000`
+                // to the falling child's `$2A(a1)` before GfxObject_Move uses
+                // that velocity on the same pass.
                 p.y_velocity += p.gravity;
             }
 
@@ -4350,10 +4352,9 @@ impl NativeRuntime {
                 // after the hibernated projectile worker runs each frame.
                 p.boss_head_boomerang_animation.animate_sub_113e();
             }
-            if is_drips_drop || (uses_loc_3263c_post_move_gravity && !is_ufo_first_hurt_debris) {
-                // ASM Drips.asm loc_3345C and Tar_Monster.asm loc_3263C: the
-                // hibernated object movement uses the previous y-velocity; the
-                // gravity step prepares the next frame.
+            if uses_loc_3263c_post_move_gravity && !is_ufo_first_hurt_debris {
+                // ASM Tar_Monster.asm loc_3263C applies gravity after this
+                // native movement shell; UFO debris owns a separate gate.
                 p.y_velocity += p.gravity;
             }
 

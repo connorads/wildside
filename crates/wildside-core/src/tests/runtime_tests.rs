@@ -20073,8 +20073,9 @@ mod chunk_09 {
         assert_eq!(drips.drips_pending_splash_x_pos, 0x0020_0000);
         assert_eq!(drips.drips_pending_splash_y_pos, 0x0030_0000);
 
-        // ASM Drips.asm loc_33488 / stru_33332: the one duration-1 splash
-        // frame finishes before the next off_33520 entry resumes.
+        // ASM Drips.asm loc_33488 / stru_33332: GfxObject_Animate reaches the
+        // terminator after Execute_Objects, so the parent resumes one object
+        // pass after the one duration-1 splash frame finishes.
         let mut drilled_blocks = Vec::new();
         for _ in 0..DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488 {
             step_active_enemies(
@@ -20090,6 +20091,22 @@ mod chunk_09 {
             );
             rt.step_projectiles();
         }
+        assert_eq!(
+            rt.active_enemies[0].drips_surface_table_index, 0,
+            "ASM loc_33488 must remain hibernated on the pass where stru_33332 first reaches its terminator"
+        );
+        step_active_enemies(
+            &mut rt.active_enemies,
+            rt.block_grid.as_ref(),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            Some(&mut rt.projectiles),
+            &mut drilled_blocks,
+        );
+        rt.step_projectiles();
 
         let drips = rt
             .active_enemies
