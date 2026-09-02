@@ -2892,6 +2892,8 @@ impl ActiveEnemy {
                 self.hand_state,
                 self.dragon_descent_frames,
             ))
+        } else if matches!(self.family, EnemyFamily::Drips) && !self.death_animation_active {
+            Some(drips_parent_sprite_phase_stru_33f90(self.wait_timer))
         } else if matches!(self.family, EnemyFamily::SpinningTwins) && !self.death_animation_active
         {
             if matches!(self.spinning_twins_phase, SpinningTwinsPhase::Orbiting) {

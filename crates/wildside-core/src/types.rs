@@ -3091,8 +3091,8 @@ pub struct NativeTraceFrame {
     #[serde(default)]
     pub kid_on_slope: i8,
     pub active_objects: Vec<NativeObjectSnapshot>,
-    /// Authoritative active enemy objects, including hidden controllers such as
-    /// Drips parents that are not part of the visible gfx roster.
+    /// Authoritative active enemy objects, including controllers such as Drips
+    /// parents that stay outside the parity-normalised `active_objects` roster.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub active_enemy_details: Vec<NativeObjectSnapshot>,
     pub camera_x_pos: u32,

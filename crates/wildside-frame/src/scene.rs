@@ -305,6 +305,30 @@ fn drips_drop_child_frame(
     })
 }
 
+fn drips_parent_frame_stru_33f90(
+    visuals: &wildside_render::AnimatedSpriteVisual,
+    phase: u8,
+) -> Option<wildside_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    let (tile_base_index, origin_x, origin_y, width_px, height_px) = match phase {
+        // ASM Drips.asm Enemy16_Drip_Init / stru_33F90 mapping order:
+        // C7B0E, C7B16, C7B1E, C7B2E.
+        0 => (0x07E, 0x03, 0x00, 0x07, 0x02),
+        1 => (0x07F, 0x03, 0x03, 0x08, 0x05),
+        2 => (0x080, 0x03, 0x08, 0x08, 0x0A),
+        3 => (0x084, 0x03, 0x06, 0x08, 0x08),
+        _ => return None,
+    };
+    Some(wildside_render::SpriteFrame {
+        origin_x,
+        origin_y,
+        width_px,
+        height_px,
+        tile_base_index,
+        tile_sheet,
+    })
+}
+
 fn tar_monster_glob_child_frame(
     visuals: &wildside_render::AnimatedSpriteVisual,
 ) -> Option<wildside_render::SpriteFrame> {
@@ -7403,6 +7427,35 @@ fn build_game_scene_filtered(
                 );
             }
         }
+        // ASM Drips.asm Enemy16_Drip_Init sets display `$13(a3)` and installs
+        // C7B0E on the parent GfxObject. Core keeps those controllers out of
+        // the parity-normalised `active_objects` roster, so render them from
+        // the authoritative enemy details without changing object counts.
+        for object in trace.active_enemy_details.iter().filter(|object| {
+            matches!(
+                object.kind,
+                NativeObjectKind::Enemy {
+                    object_type: DRIPS_OBJECT_TYPE
+                }
+            )
+        }) {
+            if let Some(drips_visuals) = level_visuals.enemies.families.get(&DRIPS_OBJECT_TYPE)
+                && let Some(frame) = drips_parent_frame_stru_33f90(
+                    drips_visuals,
+                    object.sprite_animation_phase.unwrap_or_default(),
+                )
+            {
+                let sx = (object.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+                let sy = (object.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
+                push_sprite_frame(
+                    &mut commands,
+                    &frame,
+                    sprites::select_enemy_palette(drips_visuals, object.palette_variant),
+                    sx,
+                    sy,
+                );
+            }
+        }
         for object in trace
             .active_objects
             .iter()
@@ -7417,10 +7470,8 @@ fn build_game_scene_filtered(
                     continue;
                 }
                 if object_type == DRIPS_OBJECT_TYPE {
-                    // ASM Drips.asm Enemy16_Drip_Init/loc_33488 keeps the
-                    // parent/controller gfx object hidden via `$13`; native
-                    // renders only the falling child and hostile surface
-                    // crawler through typed projectile snapshots.
+                    // Drips parents are sourced from `active_enemy_details`
+                    // above so a parity-roster projection cannot duplicate one.
                     continue;
                 }
                 if object_type == BOSS_EYE_OBJECT_TYPE
@@ -12475,6 +12526,64 @@ mod tests {
             Some(0x0200),
             "ASM Dragon.asm loc_3D02A copies the walking Dragon parent's palette_line into the breath-child GfxObject"
         );
+    }
+
+    #[test]
+    fn drips_parent_gfx_snapshot_renders_while_parity_roster_stays_suppressed_enemy16_drip_init() {
+        let mut visuals = sample_level_visuals(1);
+        let mut drips = sample_animated_visual(sample_sprite_frame(0x16));
+        drips.palette = sample_palette_with_first_word(0x0100);
+        drips.extra_palettes = vec![
+            sample_palette_with_first_word(0x0200),
+            sample_palette_with_first_word(0x0300),
+        ];
+        visuals.enemies.families.insert(DRIPS_OBJECT_TYPE, drips);
+        let trace = NativeTraceFrame {
+            active_enemy_details: vec![NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy {
+                    object_type: DRIPS_OBJECT_TYPE,
+                },
+                x_pos: 100 << 16,
+                y_pos: 100 << 16,
+                layout_index: Some(12),
+                facing: Some(Direction::Right),
+                hit_points: Some(2),
+                palette_variant: 2,
+                sprite_animation_phase: Some(0),
+                ..sample_object_snapshot()
+            }],
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("enemies"),
+            None,
+        )
+        .0;
+        let sprites = scene
+            .commands
+            .iter()
+            .filter(|command| matches!(command, DrawCommand::Sprite { .. }))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            sprites.len(),
+            1,
+            "ASM Drips.asm Enemy16_Drip_Init sets display `$13(a3)` and LnkTo_unk_C7B0E on the attached parent even though native keeps that controller out of the parity roster"
+        );
+        assert_eq!(
+            sprite_tile_snapshot(sprites[0]),
+            (97, 98, 0x07E, 0, false, false, false, 0, 0),
+            "ASM unk_C7B0E is sprite_frame_vram $07E,$03,$00,$07,$02"
+        );
+        let DrawCommand::Sprite { palette, .. } = sprites[0] else {
+            unreachable!();
+        };
+        assert_eq!(palette.colours[0].raw_word, 0x0300);
     }
 
     #[test]

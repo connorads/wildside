@@ -58,6 +58,23 @@ fn drips_pre_drop_animation_remaining_loc_33424(wait_timer: u16) -> Option<u16> 
     }
 }
 
+/// Current parent mapping in ASM `stru_33F90` while `loc_33424` forms a drop.
+/// The returned index addresses the Drips live-frame atlas as
+/// C7B0E, C7B16, C7B1E, C7B2E. Outside that animation the parent retains C7B0E.
+pub(crate) fn drips_parent_sprite_phase_stru_33f90(wait_timer: u16) -> u8 {
+    let Some(remaining) = drips_pre_drop_animation_remaining_loc_33424(wait_timer) else {
+        return 0;
+    };
+    let elapsed = DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424.saturating_sub(remaining);
+    match elapsed {
+        0..=9 => 0,
+        10..=19 => 1,
+        20..=27 => 3,
+        28..=33 => 2,
+        _ => 0,
+    }
+}
+
 pub(crate) fn drips_splash_animation_timer_loc_33488(frames_remaining: u16) -> u16 {
     DRIPS_SPLASH_ANIMATION_FLAG_LOC_33488 | frames_remaining
 }
@@ -1666,6 +1683,22 @@ mod tests {
             Some(0x0027),
             "the loc_33488 helper masks only the native coroutine flag when reading the remaining splash frames",
         );
+    }
+
+    #[test]
+    fn drips_parent_sprite_phase_matches_stru_33f90() {
+        let phase = |remaining| {
+            drips_parent_sprite_phase_stru_33f90(drips_pre_drop_animation_timer_loc_33424(
+                remaining,
+            ))
+        };
+
+        assert_eq!(
+            [phase(35), phase(25), phase(15), phase(7), phase(1)],
+            [0, 1, 3, 2, 0],
+            "ASM Drips.asm loc_33424 / stru_33F90 selects C7B0E, C7B16, C7B2E, C7B1E, then C7B0E for 10/10/8/6/1 ticks"
+        );
+        assert_eq!(drips_parent_sprite_phase_stru_33f90(0x0042), 0);
     }
 
     #[test]
