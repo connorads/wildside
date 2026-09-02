@@ -558,7 +558,9 @@ pub(crate) fn step_ufo_with_player_and_rng(
         if let Some(wall) = wall.filter(|_| enemy.x_velocity != 0) {
             let collision_type = if moving_right { 0x0004 } else { 0x0008 };
             let snapped_x = if moving_right {
-                wall.wall_x_px - UFO_COLLISION_HALF_WIDTH_LOC_31CE0
+                // ASM GfxObjects_Collision loc_197E: after subtracting the
+                // right hitbox offset, `subq.w #1` leaves a one-pixel gap.
+                wall.wall_x_px - UFO_COLLISION_HALF_WIDTH_LOC_31CE0 - 1
             } else {
                 wall.wall_x_px + UFO_COLLISION_HALF_WIDTH_LOC_31CE0
             };
@@ -611,7 +613,6 @@ fn apply_ufo_terrain_collision_loc_35056(enemy: &mut ActiveEnemy, collision_type
             enemy.x_velocity = bounce.x_velocity;
             enemy.x_acceleration = bounce.d0;
             enemy.target_x_velocity = 0;
-            enemy.facing = opposite_direction(enemy.facing);
         }
         Some(UfoCollisionBehaviorLoc35056::BounceFloorCeil) => {
             let bounce =
@@ -2926,8 +2927,8 @@ mod tests {
                 ufo.target_x_velocity,
                 ufo.facing
             ),
-            (-0x0001_0000, 0x0000_1000, 0, Direction::Left),
-            "ASM UFO.asm loc_35056 wall dispatch enters Enemy0F_UFO_BounceWall/loc_35120 and reverses velocity while acceleration opposes the bounce"
+            (-0x0001_0000, 0x0000_1000, 0, Direction::Right),
+            "ASM UFO.asm loc_35056 wall dispatch enters Enemy0F_UFO_BounceWall/loc_35120 and reverses velocity while preserving x_direction"
         );
     }
 
@@ -3002,8 +3003,8 @@ mod tests {
 
         assert_eq!(
             (ufo.x_pos, ufo.dragon_phase_frames),
-            (66 << 16, 0x0004),
-            "ASM GfxObjects_Collision loc_197E snaps unk_31CE0's +14px right edge to the wall and latches rightwall `$04`",
+            (65 << 16, 0x0004),
+            "ASM GfxObjects_Collision loc_197E snaps unk_31CE0's +14px right edge one pixel before the wall and latches rightwall `$04`",
         );
     }
 

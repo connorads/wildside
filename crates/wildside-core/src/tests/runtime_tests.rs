@@ -11187,6 +11187,63 @@ mod chunk_09 {
     }
 
     #[test]
+    fn level48_ufo_right_wall_snap_and_bounce_match_loc_197e_35120() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x48)
+            .settle_recording_warp()
+            .run(&[0; 150], 150);
+        let ufo = |frame: usize| {
+            trace[frame]
+                .active_enemy_details
+                .iter()
+                .find(|object| {
+                    object.kind == NativeObjectKind::Enemy { object_type: 0x0F }
+                        && object.layout_index == Some(8)
+                })
+                .expect("Level 0x48 should retain UFO layout #8")
+        };
+
+        assert_eq!(
+            (
+                ufo(148).x_pos,
+                ufo(148).y_pos,
+                ufo(148).x_velocity,
+                ufo(148).y_velocity,
+                ufo(148).facing,
+            ),
+            (
+                0x02F1_0000,
+                0x0172_B000,
+                Some(0x0004_0000),
+                Some(0x0000_F000),
+                Some(Direction::Right),
+            ),
+            "ASM GfxObjects_Collision loc_197E subtracts one pixel after placing unk_31CE0's right edge at the wall",
+        );
+        assert_eq!(
+            (
+                ufo(149).x_pos,
+                ufo(149).y_pos,
+                ufo(149).x_velocity,
+                ufo(149).y_velocity,
+                ufo(149).facing,
+            ),
+            (
+                0x02ED_2000,
+                0x0173_B000,
+                Some(-0x0003_E000),
+                Some(0x0001_0000),
+                Some(Direction::Right),
+            ),
+            "ASM UFO.asm Enemy0F_UFO_BounceWall/loc_35120 negates x_vel without changing x_direction before the next movement pass",
+        );
+    }
+
+    #[test]
     fn settled_recording_warp_level_eight_keeps_murder_wall_level_skip_tail_age() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
