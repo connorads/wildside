@@ -2777,6 +2777,7 @@ mod tests {
             kid_on_slope: 0,
             active_objects: Vec::new(),
             active_enemy_details: Vec::new(),
+            drips_surface_children_loc_3350e: Vec::new(),
             camera_x_pos: 0x0010_0000,
             camera_y_pos: 0x0008_0000,
             resident_gameplay_vdp_camera_loc_300ba: None,
@@ -21530,6 +21531,63 @@ mod tests {
         assert!(
             player_palette.colours.iter().any(|colour| *colour != white),
             "oracle frame 60 keeps Kid's normal palette: ASM loc_BC40 hibernates once before observing Just_received_damage and entering loc_BC56"
+        );
+    }
+
+    #[test]
+    fn level48_idle_tail_draws_drips_surface_children_loc_3350e() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x48);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest.clone(),
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x48 sweep trace");
+        let render_trace = trace_frame_with_vdp_latch_at_checkpoint(
+            &run.trace,
+            359,
+            Some(&run.initial_render_latch),
+            "idle_tail",
+        )
+        .expect("Level 0x48 frame-359 render trace");
+        let (visuals, block_grid) =
+            load_session_assets(&manifest, 0x48).expect("Level 0x48 visuals");
+        let scene = build_scene(&render_trace, false, Some(&visuals), Some(&block_grid));
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        render_scene(&scene, &mut rgb);
+        let mut drips_surface_sprites = scene
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(command, DrawCommand::Sprite { tiles, .. } if tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x0B9))
+            })
+            .filter_map(|command| match command {
+                DrawCommand::Sprite { x, y, tiles, .. } => {
+                    Some((*x, *y, tiles[0].tile.tile_index))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        drips_surface_sprites.sort_unstable();
+        assert_eq!(
+            drips_surface_sprites,
+            vec![
+                (-2, 162, 0x0B9),
+                (14, 162, 0x0B9),
+                (158, 162, 0x0B9),
+                (174, 162, 0x0B9),
+            ],
+            "ASM Drips.asm loc_33488/loc_3350E keeps all four first-stage pool children in the frame-359 SAT source"
+        );
+        let offset = (162 * FRAME_WIDTH as usize + 18) * 3;
+
+        assert_eq!(
+            &rgb[offset..offset + 3],
+            &[146, 73, 0],
+            "oracle frame 359 shows the x=488 Drips pool at screen (18,162): ASM loc_33488 copies the landed child position into a2 and loc_3350E selects unk_C7B9E"
         );
     }
 

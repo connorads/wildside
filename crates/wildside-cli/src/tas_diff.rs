@@ -1671,6 +1671,7 @@ mod tests {
                 debug_fields: std::collections::BTreeMap::new(),
             }],
             active_enemy_details: Vec::new(),
+            drips_surface_children_loc_3350e: Vec::new(),
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
             solid_ghost_transitions_sub_f730: Vec::new(),

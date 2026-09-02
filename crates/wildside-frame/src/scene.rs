@@ -329,6 +329,27 @@ fn drips_parent_frame_stru_33f90(
     })
 }
 
+fn drips_surface_child_frame_loc_3350e(
+    visuals: &wildside_render::AnimatedSpriteVisual,
+    mapping: wildside_core::DripsSurfaceChildMappingLoc3350E,
+) -> Option<wildside_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    let (tile_base_index, origin_x, width_px, height_px) = match mapping {
+        // ASM off_33520 selects these exact mappings for the persistent `a2`
+        // pool GfxObject after its first and second splashes.
+        wildside_core::DripsSurfaceChildMappingLoc3350E::C7B9E => (0x0B9, 0x06, 0x0C, 0x02),
+        wildside_core::DripsSurfaceChildMappingLoc3350E::C7BA6 => (0x0BB, 0x07, 0x0F, 0x03),
+    };
+    Some(wildside_render::SpriteFrame {
+        origin_x,
+        origin_y: 0,
+        width_px,
+        height_px,
+        tile_base_index,
+        tile_sheet,
+    })
+}
+
 fn tar_monster_glob_child_frame(
     visuals: &wildside_render::AnimatedSpriteVisual,
 ) -> Option<wildside_render::SpriteFrame> {
@@ -1709,6 +1730,9 @@ fn latch_previous_sprite_sources_loc_901(
     render_trace
         .active_projectile_details
         .clone_from(&previous_trace.active_projectile_details);
+    render_trace
+        .drips_surface_children_loc_3350e
+        .clone_from(&previous_trace.drips_surface_children_loc_3350e);
     // ASM Mode_Level loc_901 transfers the completed lava Sprite_Table before
     // Obj_Lava_Geyser loc_147BA/loc_14874 advances its script for the next
     // table. Keep both native geyser representations on that same latch.
@@ -7454,6 +7478,26 @@ fn build_game_scene_filtered(
                     sx,
                     sy,
                 );
+            }
+        }
+        // ASM Drips.asm loc_33488 copies the impact point into the controller's
+        // persistent `a2` GfxObject. loc_3350E keeps that pool sprite visible
+        // independently of both the attached parent and the falling `a1` child.
+        if let Some(drips_visuals) = level_visuals.enemies.families.get(&DRIPS_OBJECT_TYPE) {
+            for child in &trace.drips_surface_children_loc_3350e {
+                if let Some(frame) =
+                    drips_surface_child_frame_loc_3350e(drips_visuals, child.mapping)
+                {
+                    let sx = (child.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+                    let sy = (child.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
+                    push_sprite_frame(
+                        &mut commands,
+                        &frame,
+                        sprites::select_enemy_palette(drips_visuals, child.palette_variant),
+                        sx,
+                        sy,
+                    );
+                }
             }
         }
         for object in trace

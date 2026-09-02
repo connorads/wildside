@@ -20121,8 +20121,8 @@ mod chunk_09 {
             drips.wait_timer, DRIPS_DROP_IN_FLIGHT_TIMER,
             "ASM Drips.asm loc_3350E should reseed the dormant timer after loc_33488 finishes"
         );
-        assert_eq!(drips.drips_pending_splash_x_pos, 0);
-        assert_eq!(drips.drips_pending_splash_y_pos, 0);
+        assert_eq!(drips.drips_pending_splash_x_pos, 0x0020_0000);
+        assert_eq!(drips.drips_pending_splash_y_pos, 0x0030_0000);
         assert!(
             rt.projectiles
                 .iter()

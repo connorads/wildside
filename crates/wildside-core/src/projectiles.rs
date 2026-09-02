@@ -1689,24 +1689,7 @@ fn projectile_terrain_contact_loc_3345c(
         // A child whose origin row is already inside terrain takes the
         // wall-classified branch of GfxObjects_Collision_Solid, not `$0C`,
         // and keeps falling.
-        let bottom_row =
-            terrain::pixel_to_cell(py_i + DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C).max(0) as u16;
-        let origin_row = terrain::pixel_to_cell(py_i).max(0) as u16;
-        let left_col = terrain::pixel_to_cell(px_i - DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C)
-            .max(0) as u16;
-        let right_col = terrain::pixel_to_cell(px_i + DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C)
-            .max(0) as u16;
-        let row_has_floor_tile = |row: u16| {
-            (left_col..=right_col).any(|col| {
-                matches!(
-                    grid.cell_at(col, row).collision,
-                    terrain::CollisionKind::Solid
-                        | terrain::CollisionKind::SlopeUp
-                        | terrain::CollisionKind::SlopeDown
-                )
-            })
-        };
-        return row_has_floor_tile(bottom_row) && !row_has_floor_tile(origin_row);
+        return drips_drop_floor_contact_y_loc_1a44(grid, projectile).is_some();
     }
 
     {
@@ -1721,6 +1704,50 @@ fn projectile_terrain_contact_loc_3345c(
         }
         cell.has_block && cell.collision != terrain::CollisionKind::Empty
     }
+}
+
+fn drips_drop_floor_contact_y_loc_1a44(
+    grid: &terrain::BlockGrid,
+    projectile: &EnemyProjectile,
+) -> Option<u32> {
+    let px_i = (projectile.x_pos >> 16) as i32;
+    let py_i = (projectile.y_pos >> 16) as i32;
+    let bottom_row =
+        terrain::pixel_to_cell(py_i + DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C).max(0) as u16;
+    let origin_row = terrain::pixel_to_cell(py_i).max(0) as u16;
+    let left_col =
+        terrain::pixel_to_cell(px_i - DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C).max(0) as u16;
+    let right_col =
+        terrain::pixel_to_cell(px_i + DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C).max(0) as u16;
+    let row_has_floor_tile = |row: u16| {
+        (left_col..=right_col).any(|col| {
+            matches!(
+                grid.cell_at(col, row).collision,
+                terrain::CollisionKind::Solid
+                    | terrain::CollisionKind::SlopeUp
+                    | terrain::CollisionKind::SlopeDown
+            )
+        })
+    };
+    if row_has_floor_tile(origin_row) {
+        return None;
+    }
+
+    (left_col..=right_col).find_map(|col| match grid.cell_at(col, bottom_row).collision {
+        terrain::CollisionKind::Solid => {
+            // ASM GfxObjects_Collision_Solid loc_1A44 sets colid_floor and
+            // snaps y_pos so the inclusive +$A hitbox bottom is one pixel
+            // above the tile. The word write also clears the Y fraction.
+            let snapped_y = i32::from(bottom_row) * 16 - DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C;
+            Some((snapped_y as u32) << 16)
+        }
+        terrain::CollisionKind::SlopeUp | terrain::CollisionKind::SlopeDown => {
+            // ASM loc_1A94/loc_1AB8 sets the slope collision class without
+            // rewriting y_pos.
+            Some(projectile.y_pos)
+        }
+        _ => None,
+    })
 }
 
 #[cfg(test)]
@@ -1744,6 +1771,24 @@ mod terrain_contact_tests {
         );
         grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0x60, 0x00));
         assert!(projectile_terrain_contact_loc_3345c(&grid, &projectile));
+    }
+
+    #[test]
+    fn drips_solid_floor_contact_snaps_inclusive_bottom_loc_1a44() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0x60, 0x00));
+        let projectile = EnemyProjectile {
+            x_pos: 32 << 16,
+            y_pos: (30 << 16) | 0x8000,
+            kind: EnemyProjectileKind::DripsDrop,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            drips_drop_floor_contact_y_loc_1a44(&grid, &projectile),
+            Some(22 << 16),
+            "ASM GfxObjects_Collision_Solid loc_1A44 places the +$A bottom at tile-top minus one and clears the fraction",
+        );
     }
 }
 
@@ -3348,8 +3393,6 @@ impl NativeRuntime {
                 wait_timer
             ));
             enemy.wait_timer = wait_timer;
-            enemy.drips_pending_splash_x_pos = 0;
-            enemy.drips_pending_splash_y_pos = 0;
         }
         if !reseed_events.is_empty() {
             self.last_drips_splash_reseed_probe = Some(reseed_events.join(";"));
@@ -4625,7 +4668,11 @@ impl NativeRuntime {
                         // before handing the falling child to loc_33488.
                         pending_projectile_sound_effects
                             .push(crate::combat::QueuedSoundEffect::DripsDripping);
-                        pending_drips_splashes.push(PendingDripsSplash { owner, drop: *p });
+                        let mut drop = *p;
+                        if let Some(snapped_y) = drips_drop_floor_contact_y_loc_1a44(g, p) {
+                            drop.y_pos = snapped_y;
+                        }
+                        pending_drips_splashes.push(PendingDripsSplash { owner, drop });
                     } else if p.drips_spawn_crawler_on_splash
                         && drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
                     {

@@ -1413,10 +1413,10 @@ pub(crate) struct ActiveEnemy {
     /// entries 0 and 1 are pool-growth sprites; entry 2 is the negative
     /// sentinel that resets via loc_33506 and may allocate loc_335D8.
     pub(crate) drips_surface_table_index: u8,
-    /// Drips.asm loc_33488 hibernates on `stru_33332` before copying the
-    /// falling child's adjusted position into the surface child and advancing
-    /// `off_33520`. Native stores that adjusted child position until the
-    /// projectile shell consumes the splash state.
+    /// Drips.asm loc_33488 copies the falling child's adjusted position into
+    /// the persistent `a2` surface GfxObject before advancing `off_33520`.
+    /// The historic `pending` name remains internal, but the coordinates stay
+    /// resident until the next splash just like `$1A/$1E(a2)` in Object RAM.
     pub(crate) drips_pending_splash_x_pos: u32,
     pub(crate) drips_pending_splash_y_pos: u32,
     pub(crate) tar_monster_state: TarMonsterState,
@@ -2735,6 +2735,30 @@ impl ActiveEnemy {
             return false;
         }
         true
+    }
+
+    pub(crate) fn drips_surface_child_snapshot_loc_3350e(
+        &self,
+    ) -> Option<DripsSurfaceChildSnapshotLoc3350E> {
+        if !matches!(self.family, EnemyFamily::Drips) || self.death_animation_active {
+            return None;
+        }
+        let mapping = match self.drips_surface_table_index {
+            // ASM off_33520: after loc_33488 consumes an entry, the stored
+            // cursor points at the following word while `a2` retains the
+            // mapping just written by loc_3350E.
+            1 => DripsSurfaceChildMappingLoc3350E::C7B9E,
+            2 => DripsSurfaceChildMappingLoc3350E::C7BA6,
+            // The negative sentinel reaches loc_33506, which clears d7 and
+            // removes the surface mapping until the next splash.
+            _ => return None,
+        };
+        Some(DripsSurfaceChildSnapshotLoc3350E {
+            x_pos: self.drips_pending_splash_x_pos,
+            y_pos: self.drips_pending_splash_y_pos,
+            palette_variant: self.palette_variant,
+            mapping,
+        })
     }
 
     pub(crate) fn snapshot(&self) -> NativeObjectSnapshot {

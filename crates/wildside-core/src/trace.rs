@@ -11982,6 +11982,11 @@ impl NativeRuntime {
                 snapshots
             })
             .collect::<Vec<_>>();
+        let drips_surface_children_loc_3350e = self
+            .active_enemies
+            .iter()
+            .filter_map(ActiveEnemy::drips_surface_child_snapshot_loc_3350e)
+            .collect::<Vec<_>>();
         let (number_objects, number_gfx_objects) = self
             .early_start_load_ingame_object_counts()
             .or_else(|| self.title_card_live_handoff_object_counts_loc_1ae2e())
@@ -12469,6 +12474,7 @@ impl NativeRuntime {
                 .unwrap_or(0),
             active_objects,
             active_enemy_details,
+            drips_surface_children_loc_3350e,
             camera_x_pos: camera_state.x_pos,
             camera_y_pos: camera_state.y_pos,
             resident_gameplay_vdp_camera_loc_300ba: self

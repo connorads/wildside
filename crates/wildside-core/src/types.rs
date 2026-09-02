@@ -3095,6 +3095,9 @@ pub struct NativeTraceFrame {
     /// parents that stay outside the parity-normalised `active_objects` roster.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub active_enemy_details: Vec<NativeObjectSnapshot>,
+    /// Attached Drips `a2` GfxObjects presented through `off_33520`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub drips_surface_children_loc_3350e: Vec<DripsSurfaceChildSnapshotLoc3350E>,
     pub camera_x_pos: u32,
     pub camera_y_pos: u32,
     /// Camera words most recently presented by ASM Mode_Level ->
@@ -3568,6 +3571,7 @@ impl Default for NativeTraceFrame {
             kid_on_slope: 0,
             active_objects: Vec::new(),
             active_enemy_details: Vec::new(),
+            drips_surface_children_loc_3350e: Vec::new(),
             camera_x_pos: 0,
             camera_y_pos: 0,
             resident_gameplay_vdp_camera_loc_300ba: None,
@@ -3895,6 +3899,25 @@ pub struct NativeObjectSnapshot {
     /// recurring decision-making fields into typed members.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub debug_fields: BTreeMap<String, String>,
+}
+
+/// Visible Drips pool GfxObject owned by the controller's `a2` slot.
+///
+/// ASM `Drips.asm loc_33488..loc_3350E` parks this child at the falling
+/// drop's impact point and advances its mapping through `off_33520`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DripsSurfaceChildSnapshotLoc3350E {
+    pub x_pos: u32,
+    pub y_pos: u32,
+    pub palette_variant: u8,
+    pub mapping: DripsSurfaceChildMappingLoc3350E,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DripsSurfaceChildMappingLoc3350E {
+    C7B9E,
+    C7BA6,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
