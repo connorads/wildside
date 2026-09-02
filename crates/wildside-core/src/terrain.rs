@@ -1412,6 +1412,34 @@ pub fn probe_floor(grid: &BlockGrid, x_px: i32, foot_y_px: i32) -> FloorProbe {
     }
 }
 
+/// Check for a floor surface overlapped by the given pixel position.
+///
+/// Unlike [`probe_floor`], this does not bridge a one-pixel gap into the next
+/// tile row. It models collision boxes whose inclusive bottom edge must
+/// overlap a terrain cell before the ROM's tile scan can classify a floor.
+///
+/// ASM `GfxObjects_Collision` loc_173E..loc_1792 derives the last scanned row
+/// directly from the hitbox bottom edge with `asr.w #4`.
+pub fn probe_floor_overlap(grid: &BlockGrid, x_px: i32, bottom_y_px: i32) -> FloorProbe {
+    let col = pixel_to_cell(x_px).max(0) as u16;
+    let row = pixel_to_cell(bottom_y_px).max(0) as u16;
+    let cell = grid.cell_at(col, row);
+    let floor_y = slope_floor_y(cell.collision, i32::from(row) * 16, x_px);
+    let on_ground = match cell.collision {
+        CollisionKind::Solid => true,
+        CollisionKind::SlopeUp | CollisionKind::SlopeDown => bottom_y_px >= floor_y,
+        _ => false,
+    };
+
+    FloorProbe {
+        on_ground,
+        floor_y_px: floor_y,
+        cell,
+        cell_x: col,
+        cell_y: row,
+    }
+}
+
 /// Find the floor Y position below a given point by scanning downward.
 /// Used during entry animation to find where the player should land.
 /// Returns the pixel Y of the floor surface of the first Solid/Spikes cell

@@ -11244,6 +11244,59 @@ mod chunk_09 {
     }
 
     #[test]
+    fn level48_ufo_floor_contact_starts_on_overlap_loc_1792_1a44() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x48)
+            .settle_recording_warp()
+            .run(&[0; 170], 170);
+        let ufo = |frame: usize| {
+            trace[frame]
+                .active_enemy_details
+                .iter()
+                .find(|object| {
+                    object.kind == NativeObjectKind::Enemy { object_type: 0x0F }
+                        && object.layout_index == Some(15)
+                })
+                .expect("Level 0x48 should retain UFO layout #15")
+        };
+
+        assert_eq!(
+            (
+                ufo(168).x_pos,
+                ufo(168).y_pos,
+                ufo(168).x_velocity,
+                ufo(168).y_velocity,
+            ),
+            (
+                0x0259_A800,
+                0x0322_1000,
+                Some(0x0003_0000),
+                Some(0x0003_0000),
+            ),
+            "ASM GfxObjects_Collision loc_173E..loc_1792 leaves layout #15 airborne while unk_31CE0's bottom edge is one pixel above the floor",
+        );
+        assert_eq!(
+            (
+                ufo(169).x_pos,
+                ufo(169).y_pos,
+                ufo(169).x_velocity,
+                ufo(169).y_velocity,
+            ),
+            (
+                0x025C_A800,
+                0x0322_0000,
+                Some(0x0003_0000),
+                Some(0x0003_0000),
+            ),
+            "ASM GfxObjects_Collision loc_1A44 snaps the first overlapping frame and leaves floor `$0C` for the following UFO coroutine pass",
+        );
+    }
+
+    #[test]
     fn settled_recording_warp_level_eight_keeps_murder_wall_level_skip_tail_age() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

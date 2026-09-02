@@ -10736,7 +10736,7 @@ mod chunk_04 {
 
     #[test]
     fn ufo_floor_collision_uses_loc_35056_floorceil_bounce() {
-        let mut enemy = test_enemy(EnemyFamily::UFO, 72 << 16, 49 << 16, 1);
+        let mut enemy = test_enemy(EnemyFamily::UFO, 72 << 16, 50 << 16, 1);
         enemy.y_velocity = 0x0001_0000;
         enemy.y_acceleration = 0x0000_0800;
         enemy.target_y_velocity = 0x0003_0000;

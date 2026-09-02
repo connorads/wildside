@@ -569,7 +569,8 @@ pub(crate) fn step_ufo_with_player_and_rng(
             return;
         }
 
-        let floor = terrain::probe_floor(grid, cx, cy + UFO_COLLISION_BOTTOM_OFFSET_LOC_31CE0);
+        let floor =
+            terrain::probe_floor_overlap(grid, cx, cy + UFO_COLLISION_BOTTOM_OFFSET_LOC_31CE0);
         if floor.on_ground {
             let collision_type = match floor.cell.collision {
                 terrain::CollisionKind::SlopeUp => 0x0014,
@@ -3050,7 +3051,7 @@ mod tests {
     #[test]
     fn ufo_floor_collision_snaps_and_hibernates_before_loc_35146_bounce() {
         let grid = ufo_test_grid(8, 8, &[(5, 5, 0x60, 0x00)]);
-        let mut ufo = ufo_test_enemy(80, 81);
+        let mut ufo = ufo_test_enemy(80, 82);
         ufo.y_velocity = 0x0001_0000;
         ufo.y_acceleration = 0;
         ufo.target_y_velocity = 0x0001_0000;
@@ -3086,6 +3087,27 @@ mod tests {
         assert_eq!(
             above_flat.dragon_phase_frames, 0,
             "ASM unk_31CE0 probes its y-3 bottom: anchor y=80 remains above the row-5 flat floor",
+        );
+
+        let mut one_pixel_above_flat = ufo_test_enemy(80, 81);
+        one_pixel_above_flat.y_velocity = 0x0001_0000;
+        one_pixel_above_flat.y_acceleration = 0;
+        one_pixel_above_flat.target_y_velocity = 0x0001_0000;
+        let mut rng = RomRandomState::default();
+        step_ufo_with_player(
+            &mut one_pixel_above_flat,
+            Some(&flat_grid),
+            None,
+            None,
+            &mut rng,
+        );
+        assert_eq!(
+            (
+                one_pixel_above_flat.y_pos,
+                one_pixel_above_flat.dragon_phase_frames,
+            ),
+            (82 << 16, 0),
+            "ASM GfxObjects_Collision loc_173E..loc_1792 scans only rows overlapped by unk_31CE0: a bottom edge at y=79 does not touch the row-5 floor at y=80",
         );
 
         let mut inside_flat = ufo_test_enemy(80, 82);
