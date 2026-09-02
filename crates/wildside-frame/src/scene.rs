@@ -1736,18 +1736,29 @@ fn latch_previous_sprite_sources_loc_901(
     render_trace
         .active_projectile_details
         .clone_from(&previous_trace.active_projectile_details);
-    // ASM Enemy0F_UFOBeam_Init/Loop owns a resident GfxObject. The native
-    // projectile snapshot already records the source seen by
-    // Make_SpritesFromGfxObjects, including the movement pass and any worker
-    // deleted before that table is built. Do not replace it with the prior
-    // gameplay-projectile set: Level 0x48's oracle frame 0 contains the two
-    // current beams at `$0282,$01B5`/`$01C4`, not the three stale workers.
-    render_trace
-        .active_projectile_details
-        .retain(|projectile| projectile.kind != ActiveProjectileKind::UfoBeam);
-    render_trace
-        .active_projectile_details
-        .extend(current_ufo_beams);
+    // ASM Mode_Level loc_901 transfers the completed Sprite_Table before
+    // Enemy0F_UFOBeam_Loop moves or deletes its resident GfxObject. Reconcile
+    // against the current workers only to remove deleted entries: survivors
+    // retain the position used to build the transferred table, while newly
+    // allocated workers do not become visible until the following transfer.
+    let mut matched_current_beams = vec![false; current_ufo_beams.len()];
+    render_trace.active_projectile_details.retain(|previous| {
+        if previous.kind != ActiveProjectileKind::UfoBeam {
+            return true;
+        }
+        current_ufo_beams
+            .iter()
+            .enumerate()
+            .find(|(index, current)| {
+                !matched_current_beams[*index]
+                    && current.x_pos == previous.x_pos.wrapping_add_signed(previous.x_velocity)
+                    && current.y_pos == previous.y_pos.wrapping_add_signed(previous.y_velocity)
+            })
+            .is_some_and(|(index, _)| {
+                matched_current_beams[index] = true;
+                true
+            })
+    });
     render_trace
         .drips_surface_children_loc_3350e
         .clone_from(&previous_trace.drips_surface_children_loc_3350e);
@@ -10582,11 +10593,12 @@ mod tests {
     }
 
     #[test]
-    fn mode_level_loc_901_uses_current_ufo_beam_gfx_objects() {
+    fn mode_level_loc_901_reconciles_ufo_beam_membership_before_transfer() {
         let beam = |y_pos| ActiveProjectileSnapshot {
             kind: ActiveProjectileKind::UfoBeam,
             x_pos: 0x0282_0000,
             y_pos,
+            y_velocity: 0x0003_0000,
             ..ActiveProjectileSnapshot::default()
         };
         let mut render_trace = NativeTraceFrame {
@@ -10606,8 +10618,8 @@ mod tests {
 
         assert_eq!(
             render_trace.active_projectile_details,
-            vec![beam(0x01C4_0000), beam(0x01B5_0000)],
-            "ASM Enemy0F_UFOBeam_Init/Loop presents the current GfxObject set after movement and deletion, as observed in Level 0x48 oracle frame 0"
+            vec![beam(0x01C1_0000), beam(0x01B2_0000)],
+            "ASM Mode_Level loc_901 transfers the previous positions, while Enemy0F_UFOBeam_Loop's current membership removes the deleted `$01D0` worker"
         );
     }
 

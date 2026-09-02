@@ -21563,8 +21563,27 @@ mod tests {
         frame_zero_ufo_beams.sort_unstable();
         assert_eq!(
             frame_zero_ufo_beams,
-            vec![(0x0282, 0x01B5), (0x0282, 0x01C4)],
-            "oracle frame 0 exposes two Enemy0F_UFOBeam_Init GfxObjects at `$0282,$01B5` and `$0282,$01C4`; the native presentation latch must not include the following loc_34FD6 allocation"
+            vec![(0x0282, 0x01B2), (0x0282, 0x01C1)],
+            "ASM Mode_Level loc_901 transfers the two Enemy0F_UFOBeam_Init entries which oracle frame 0's SAT places at x=154, y=-39/-24"
+        );
+        let frame_three = trace_frame_with_vdp_latch_at_checkpoint(
+            &run.trace,
+            3,
+            Some(&run.initial_render_latch),
+            "frame_003",
+        )
+        .expect("Level 0x48 frame-3 render trace");
+        let mut frame_three_ufo_beams = frame_three
+            .active_projectile_details
+            .iter()
+            .filter(|projectile| projectile.kind == ActiveProjectileKind::UfoBeam)
+            .map(|projectile| (projectile.x_pos >> 16, projectile.y_pos >> 16))
+            .collect::<Vec<_>>();
+        frame_three_ufo_beams.sort_unstable();
+        assert_eq!(
+            frame_three_ufo_beams,
+            vec![(0x0282, 0x01BB), (0x0282, 0x01CA)],
+            "ASM Mode_Level loc_901 transfers the previous beam positions which oracle frame 3's SAT places at x=154, y=-30/-15"
         );
         let render_trace = trace_frame_with_vdp_latch_at_checkpoint(
             &run.trace,
