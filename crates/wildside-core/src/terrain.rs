@@ -1440,6 +1440,30 @@ pub fn probe_floor_overlap(grid: &BlockGrid, x_px: i32, bottom_y_px: i32) -> Flo
     }
 }
 
+/// Scan an inclusive hitbox width for an overlapped floor, left-to-right.
+///
+/// ASM `GfxObjects_Collision` loc_1792/loc_1796 visits every tile column from
+/// the hitbox's left edge through its right edge before advancing a row. A
+/// centre-only point probe therefore misses narrow support under either edge.
+pub fn probe_floor_overlap_span(
+    grid: &BlockGrid,
+    left_x_px: i32,
+    right_x_px: i32,
+    bottom_y_px: i32,
+) -> FloorProbe {
+    let start_x = left_x_px.min(right_x_px);
+    let end_x = left_x_px.max(right_x_px);
+
+    for x_px in start_x..=end_x {
+        let probe = probe_floor_overlap(grid, x_px, bottom_y_px);
+        if probe.on_ground {
+            return probe;
+        }
+    }
+
+    probe_floor_overlap(grid, start_x + (end_x - start_x) / 2, bottom_y_px)
+}
+
 /// Find the floor Y position below a given point by scanning downward.
 /// Used during entry animation to find where the player should land.
 /// Returns the pixel Y of the floor surface of the first Solid/Spikes cell

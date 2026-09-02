@@ -11297,6 +11297,112 @@ mod chunk_09 {
     }
 
     #[test]
+    fn level48_ufo_floor_scan_uses_full_hitbox_width_loc_1792_1a44() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x48)
+            .settle_recording_warp()
+            .run(&[0; 260], 260);
+        let ufo = |frame: usize| {
+            trace[frame]
+                .active_enemy_details
+                .iter()
+                .find(|object| {
+                    object.kind == NativeObjectKind::Enemy { object_type: 0x0F }
+                        && object.layout_index == Some(8)
+                })
+                .expect("Level 0x48 should retain UFO layout #8")
+        };
+
+        assert_eq!(
+            (
+                ufo(258).x_pos,
+                ufo(258).y_pos,
+                ufo(258).x_velocity,
+                ufo(258).y_velocity,
+            ),
+            (
+                0x0243_E800,
+                0x01D2_0000,
+                Some(0x0000_7800),
+                Some(0x0000_7800),
+            ),
+            "ASM GfxObjects_Collision loc_1792 scans unk_31CE0 from x-14 through x+14, so row 29 column 37 supplies floor `$0C` even though the centre column is empty",
+        );
+        assert_eq!(
+            (
+                ufo(259).x_pos,
+                ufo(259).y_pos,
+                ufo(259).x_velocity,
+                ufo(259).y_velocity,
+            ),
+            (
+                0x0244_7800,
+                0x01D1_A000,
+                Some(0x0000_9000),
+                Some(-0x0000_6000),
+            ),
+            "ASM UFO.asm loc_35146 consumes the prior floor word before acceleration and movement",
+        );
+    }
+
+    #[test]
+    fn level48_ufo_bottom_corner_uses_swept_wall_classification_loc_18e4_19ba() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x48)
+            .settle_recording_warp()
+            .run(&[0; 326], 326);
+        let ufo = |frame: usize| {
+            trace[frame]
+                .active_enemy_details
+                .iter()
+                .find(|object| {
+                    object.kind == NativeObjectKind::Enemy { object_type: 0x0F }
+                        && object.layout_index == Some(8)
+                })
+                .expect("Level 0x48 should retain UFO layout #8")
+        };
+
+        assert_eq!(
+            (
+                ufo(324).x_pos,
+                ufo(324).y_pos,
+                ufo(324).x_velocity,
+                ufo(324).y_velocity,
+            ),
+            (
+                0x02DE_0000,
+                0x01D7_4000,
+                Some(-0x0002_F800),
+                Some(0x0001_0800),
+            ),
+            "ASM GfxObjects_Collision moving-left/down loc_18E4 reaches loc_19BA: the fast horizontal sweep snaps unk_31CE0 to the wall instead of treating its bottom-row overlap as floor",
+        );
+        assert_eq!(
+            (
+                ufo(325).x_pos,
+                ufo(325).y_pos,
+                ufo(325).x_velocity,
+                ufo(325).y_velocity,
+            ),
+            (
+                0x02E0_E000,
+                0x01D8_6000,
+                Some(0x0002_E000),
+                Some(0x0001_2000),
+            ),
+            "ASM UFO.asm loc_35120 consumes leftwall `$08`, reverses x_vel, then runs the next acceleration and movement pass",
+        );
+    }
+
+    #[test]
     fn settled_recording_warp_level_eight_keeps_murder_wall_level_skip_tail_age() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

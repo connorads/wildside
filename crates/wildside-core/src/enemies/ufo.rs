@@ -14,12 +14,13 @@ fn ufo_probe_wall_loc_16f0(
     grid: &terrain::BlockGrid,
     center_x_px: i32,
     center_y_px: i32,
+    x_velocity: i32,
     y_velocity: i32,
-    moving_right: bool,
 ) -> Option<terrain::WallProbe> {
     // ASM GfxObjects_Collision loc_173E-loc_1796 scans every tile row touched
     // by unk_31CE0, including a one-pixel overlap at the hitbox top. The
     // generic three-point character probe can miss that top row.
+    let moving_right = x_velocity >= 0;
     let edge_x = if moving_right {
         center_x_px + UFO_COLLISION_HALF_WIDTH_LOC_31CE0
     } else {
@@ -36,17 +37,51 @@ fn ufo_probe_wall_loc_16f0(
         if y_velocity < 0 && row == first_row {
             continue;
         }
-        // ASM GfxObjects_Collision_Solid chooses the floor branch when a
-        // descending UFO's first overlap is confined to its bottom tile row.
-        if y_velocity >= 0 && row == last_row {
-            continue;
-        }
         let probe_y = top_y.max(row * 16);
         let probe = terrain::probe_at(grid, edge_x, probe_y);
         if matches!(
             probe.cell.collision,
             terrain::CollisionKind::Solid | terrain::CollisionKind::HiddenBlock
         ) {
+            if y_velocity >= 0 && row == last_row {
+                // ASM GfxObjects_Collision_Solid moving-down branches
+                // loc_1864/loc_18E4 first honour solid horizontal and vertical
+                // neighbours, then compare the swept corner products. A fast
+                // horizontal approach reaches the wall before the floor even
+                // when the first solid lies on the hitbox's bottom row.
+                if probe.cell.collision != terrain::CollisionKind::Solid {
+                    continue;
+                }
+                let behind_col = if moving_right {
+                    probe.cell_x.saturating_sub(1)
+                } else {
+                    probe.cell_x.saturating_add(1)
+                };
+                if grid.cell_at(behind_col, probe.cell_y).collision == terrain::CollisionKind::Solid
+                {
+                    continue;
+                }
+                if grid
+                    .cell_at(probe.cell_x, probe.cell_y.saturating_sub(1))
+                    .collision
+                    != terrain::CollisionKind::Solid
+                {
+                    let tile_left = i32::from(probe.cell_x) * 16;
+                    let horizontal_overlap = if moving_right {
+                        edge_x - tile_left
+                    } else {
+                        tile_left + 16 - edge_x
+                    };
+                    let vertical_overlap = bottom_y - row * 16;
+                    let horizontal_time_product =
+                        (x_velocity >> 8).unsigned_abs() as i64 * i64::from(vertical_overlap);
+                    let vertical_time_product =
+                        i64::from(y_velocity >> 8) * i64::from(horizontal_overlap);
+                    if horizontal_time_product <= vertical_time_product {
+                        continue;
+                    }
+                }
+            }
             let wall_x_px = if moving_right {
                 i32::from(probe.cell_x) * 16
             } else {
@@ -554,7 +589,7 @@ pub(crate) fn step_ufo_with_player_and_rng(
         let cx = (enemy.x_pos >> 16) as i32;
         let cy = (enemy.y_pos >> 16) as i32;
         let moving_right = enemy.x_velocity >= 0;
-        let wall = ufo_probe_wall_loc_16f0(grid, cx, cy, enemy.y_velocity, moving_right);
+        let wall = ufo_probe_wall_loc_16f0(grid, cx, cy, enemy.x_velocity, enemy.y_velocity);
         if let Some(wall) = wall.filter(|_| enemy.x_velocity != 0) {
             let collision_type = if moving_right { 0x0004 } else { 0x0008 };
             let snapped_x = if moving_right {
@@ -569,8 +604,12 @@ pub(crate) fn step_ufo_with_player_and_rng(
             return;
         }
 
-        let floor =
-            terrain::probe_floor_overlap(grid, cx, cy + UFO_COLLISION_BOTTOM_OFFSET_LOC_31CE0);
+        let floor = terrain::probe_floor_overlap_span(
+            grid,
+            cx - UFO_COLLISION_HALF_WIDTH_LOC_31CE0,
+            cx + UFO_COLLISION_HALF_WIDTH_LOC_31CE0,
+            cy + UFO_COLLISION_BOTTOM_OFFSET_LOC_31CE0,
+        );
         if floor.on_ground {
             let collision_type = match floor.cell.collision {
                 terrain::CollisionKind::SlopeUp => 0x0014,
@@ -2936,7 +2975,7 @@ mod tests {
     #[test]
     fn ufo_wall_probe_pins_unk_31ce0_edges_rows_and_surfaces_loc_16f0() {
         let middle_row = ufo_test_grid(8, 8, &[(4, 3, 0x60, 0x00)]);
-        let middle_hit = ufo_probe_wall_loc_16f0(&middle_row, 50, 64, -1, true)
+        let middle_hit = ufo_probe_wall_loc_16f0(&middle_row, 50, 64, 0x0001_0000, -0x0001_0000)
             .expect("the ascending UFO scans the middle row after its ceiling row");
         assert_eq!(
             (middle_hit.wall_x_px, middle_hit.cell_x, middle_hit.cell_y,),
@@ -2946,21 +2985,31 @@ mod tests {
 
         let top_row = ufo_test_grid(8, 8, &[(4, 2, 0x60, 0x00)]);
         assert_eq!(
-            ufo_probe_wall_loc_16f0(&top_row, 50, 64, -1, true),
+            ufo_probe_wall_loc_16f0(&top_row, 50, 64, 0x0001_0000, -0x0001_0000,),
             None,
             "ASM loc_16F0 classifies an ascending UFO's first unk_31CE0 row as ceiling rather than side wall",
         );
 
         let bottom_row = ufo_test_grid(8, 8, &[(4, 3, 0x60, 0x00)]);
         assert_eq!(
-            ufo_probe_wall_loc_16f0(&bottom_row, 50, 64, 0, true),
+            ufo_probe_wall_loc_16f0(&bottom_row, 52, 64, 0x0000_1000, 0x0001_0000),
             None,
-            "ASM loc_16F0 classifies a non-ascending UFO's last unk_31CE0 row as floor rather than side wall",
+            "ASM GfxObjects_Collision loc_1864 compares swept corner products and classifies this slow horizontal, fast downward overlap as floor",
+        );
+
+        let bottom_corner_wall = ufo_test_grid(8, 8, &[(3, 3, 0x60, 0x00)]);
+        let corner_hit =
+            ufo_probe_wall_loc_16f0(&bottom_corner_wall, 77, 55, -0x0002_F800, 0x0001_0800)
+                .expect("fast leftward sweep reaches the corner tile's wall first");
+        assert_eq!(
+            (corner_hit.wall_x_px, corner_hit.cell_x, corner_hit.cell_y),
+            (64, 3, 3),
+            "ASM GfxObjects_Collision moving-left/down loc_18E4 compares abs(x_vel)*y_overlap against y_vel*x_overlap and selects loc_19BA leftwall",
         );
 
         let beyond_bottom = ufo_test_grid(8, 8, &[(4, 4, 0x60, 0x00)]);
         assert_eq!(
-            ufo_probe_wall_loc_16f0(&beyond_bottom, 50, 61, -1, true),
+            ufo_probe_wall_loc_16f0(&beyond_bottom, 50, 61, 0x0001_0000, -0x0001_0000,),
             None,
             "ASM unk_31CE0 ends at anchor y-3, so anchor y=61 does not scan tile row 4",
         );
@@ -3108,6 +3157,25 @@ mod tests {
             ),
             (82 << 16, 0),
             "ASM GfxObjects_Collision loc_173E..loc_1792 scans only rows overlapped by unk_31CE0: a bottom edge at y=79 does not touch the row-5 floor at y=80",
+        );
+
+        let right_edge_grid = ufo_test_grid(8, 8, &[(5, 5, 0x60, 0x00)]);
+        let mut right_edge_floor = ufo_test_enemy(66, 82);
+        right_edge_floor.y_velocity = 0x0001_0000;
+        right_edge_floor.y_acceleration = 0;
+        right_edge_floor.target_y_velocity = 0x0001_0000;
+        let mut rng = RomRandomState::default();
+        step_ufo_with_player(
+            &mut right_edge_floor,
+            Some(&right_edge_grid),
+            None,
+            None,
+            &mut rng,
+        );
+        assert_eq!(
+            (right_edge_floor.y_pos, right_edge_floor.dragon_phase_frames),
+            (82 << 16, 0x000C),
+            "ASM GfxObjects_Collision loc_1792 scans unk_31CE0's full 28px width: the x+14 edge reaches the row-5 column-5 floor while the centre remains in empty column 4",
         );
 
         let mut inside_flat = ufo_test_enemy(80, 82);
