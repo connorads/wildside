@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (published-route player death-art mutation closure)
+
+- A fresh native replay of all 37,759 published-route frames replaced
+  layout-roster guesses with actual exposure evidence. Walking Dragon is the
+  only typed enemy renderer reached by this TAS: 5,951 frames and 14,511 object
+  instances. Its selector already catches 18 mutants; one is compiler-unviable.
+- The route-dominant player dynamic-art selector instead exposed three
+  surviving mutations at the death-windup boundary. A direct `Death loc_B7FA
+  -> loc_141A` contract now proves elapsed 0 keeps live Kid art and elapsed 2
+  queues `unk_A3FF8` death art. The focused census improves from 0 caught / 3
+  missed / 2 compiler-unviable to 3 caught / 0 missed / 2 compiler-unviable.
+
 ## 2026-09-03 handoff (published-route Fireball selector mutation closure)
 
 - Madmaze Mountain's published-route roster selected its twelve Fireballs as a

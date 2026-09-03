@@ -7167,6 +7167,31 @@ mod tests {
     }
 
     #[test]
+    fn player_dynamic_art_switches_to_death_mapping_after_loc_b7fa_starts() {
+        let mut visuals = minimal_level_visuals_for_platforms().player;
+        visuals.forms.get_mut(&0).expect("Kid visuals").death = Some(labelled_frame(0x0D00));
+
+        assert_eq!(
+            select_player_dynamic_art_frame_loc_141a(&NativeTraceFrame::default(), &visuals)
+                .tile_base_index,
+            0x0100,
+            "before ASM Death loc_B7FA, loc_141A must retain the live Kid mapping",
+        );
+        assert_eq!(
+            select_player_dynamic_art_frame_loc_141a(
+                &NativeTraceFrame {
+                    death_windup_elapsed: 2,
+                    ..NativeTraceFrame::default()
+                },
+                &visuals,
+            )
+            .tile_base_index,
+            0x0D00,
+            "after ASM Death loc_B7FA installs unk_A3FF8, loc_141A must queue Kid death art",
+        );
+    }
+
+    #[test]
     fn heady_metal_palette_word_only_replaces_slot_15_sub_379e8() {
         let palette = marked_palette(0x0700);
         let mut object = live_enemy_object(0x20);
