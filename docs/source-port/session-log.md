@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-03 handoff (Tar Monster data-alias classification)
+
+- The sole ordinary ASM-coverage gap was Tar Monster `loc_32454`. Cross-reference
+  tracing showed no control-flow entry: palette-only `Data_Index[612..614]`
+  entries use its address as their parallel `CollisionSize_Index` filler, which
+  no GfxObject sprite link can select.
+- The live Tar Monster sprite selector and state-to-animation phase were checked
+  independently before excluding the alias. Their focused mutation censuses are
+  14 caught / 1 compiler-unviable and 21 caught / 0 missed.
+- `asm-coverage` now separates this proven non-executable data alias from real
+  implementation gaps. The report moves from one ordinary uncovered label to
+  zero without inventing a dead native helper or a false production citation.
+
 ## 2026-09-03 handoff (Plane-B source-scroll mutation closure)
 
 - With no ready/open risk, the live Cloud lightning mapping was checked first

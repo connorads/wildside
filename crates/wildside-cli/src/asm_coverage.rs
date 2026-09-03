@@ -77,6 +77,8 @@ pub(crate) struct CoverageSummary {
     #[serde(default)]
     pub(crate) emulated_gems_labels: usize,
     #[serde(default)]
+    pub(crate) non_executable_data_alias_labels: usize,
+    #[serde(default)]
     /// Backward-compatible alias for `uncovered_labels` after the GEMS split.
     pub(crate) non_emulated_uncovered_labels: usize,
 }
@@ -104,6 +106,7 @@ enum CoverageState {
     #[serde(alias = "mentioned")]
     Uncovered,
     EmulatedGems,
+    NonExecutableDataAlias,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -412,7 +415,9 @@ fn classify_label_coverage(
     let implementation_cited = !breakdown.implementation.is_empty();
     let test_cited = !breakdown.tests.is_empty();
     let emulated_gems = is_emulated_gems_label(label);
-    let state = if implementation_cited {
+    let state = if is_non_executable_data_alias_label(label) {
+        CoverageState::NonExecutableDataAlias
+    } else if implementation_cited {
         CoverageState::Reachable
     } else if test_cited {
         CoverageState::TestOnlyDebt
@@ -433,6 +438,15 @@ fn classify_label_coverage(
 
 fn is_emulated_gems_label(label: &str) -> bool {
     label_address(label).is_some_and(|address| (0xE133C..=0xE15E8).contains(&address))
+}
+
+fn is_non_executable_data_alias_label(label: &str) -> bool {
+    // ASM CollisionSize_Index[612..614] uses loc_32454 as filler alongside
+    // Data_Index[612..614]'s Pal_A2100/A210E/A211C pointers. Those palette
+    // entries can never become a GfxObject sprite link, so the bytes at this
+    // address are not an executable Tar Monster path or a collision row that
+    // native gameplay can select.
+    matches!(label, "loc_32454")
 }
 
 fn label_address(label: &str) -> Option<u32> {
@@ -478,6 +492,7 @@ fn build_coverage_map(
     let mut test_only_debt_labels = 0usize;
     let mut uncovered_labels = 0usize;
     let mut emulated_gems_labels = 0usize;
+    let mut non_executable_data_alias_labels = 0usize;
 
     let mut subsystem_map: BTreeMap<String, SubsystemCoverage> = BTreeMap::new();
     for (name, labels) in subsystems {
@@ -506,6 +521,9 @@ fn build_coverage_map(
                 Some(CoverageState::TestOnlyDebt) => test_only_debt_labels += 1,
                 Some(CoverageState::Uncovered) => uncovered_labels += 1,
                 Some(CoverageState::EmulatedGems) => emulated_gems_labels += 1,
+                Some(CoverageState::NonExecutableDataAlias) => {
+                    non_executable_data_alias_labels += 1;
+                }
                 None => uncovered_labels += 1,
             }
         }
@@ -548,6 +566,7 @@ fn build_coverage_map(
             test_only_debt_labels,
             uncovered_labels,
             emulated_gems_labels,
+            non_executable_data_alias_labels,
             non_emulated_uncovered_labels: uncovered_labels,
         },
         subsystems: subsystem_map,
@@ -1057,11 +1076,12 @@ pub(crate) fn run_asm_coverage(
     println!("ASM Coverage Report");
     println!("═══════════════════");
     println!(
-        "labels: {} reachable / {} test-only debt / {} ordinary uncovered / {} emulated GEMS",
+        "labels: {} reachable / {} test-only debt / {} ordinary uncovered / {} emulated GEMS / {} non-executable data alias",
         map.summary.reachable_labels,
         map.summary.test_only_debt_labels,
         map.summary.uncovered_labels,
-        map.summary.emulated_gems_labels
+        map.summary.emulated_gems_labels,
+        map.summary.non_executable_data_alias_labels
     );
     println!(
         "legacy citation presence: sub_ {}/{} ({:.1}%), loc_ {}/{} ({:.1}%)",
@@ -1073,7 +1093,7 @@ pub(crate) fn run_asm_coverage(
         map.summary.loc_coverage_pct
     );
     println!(
-        "interpretation: reachable means scanned non-test implementation citation; test-only ports are fidelity debt; emulated GEMS wrappers are out of native hand-port scope"
+        "interpretation: reachable means scanned non-test implementation citation; test-only ports are fidelity debt; emulated GEMS wrappers and non-executable data aliases are out of native hand-port scope"
     );
     let backlog_signals = load_open_backlog_signal_counts(repo_root);
     if !backlog_signals.is_empty() {
@@ -1240,6 +1260,7 @@ mod tests {
                 test_only_debt_labels: 0,
                 uncovered_labels: 0,
                 emulated_gems_labels: 0,
+                non_executable_data_alias_labels: 0,
                 non_emulated_uncovered_labels: 0,
             },
             subsystems,
@@ -1548,7 +1569,7 @@ labels:
     }
 
     #[test]
-    fn coverage_state_separates_reachable_test_only_uncovered_and_gems() {
+    fn coverage_state_separates_reachable_test_only_uncovered_and_out_of_scope_labels() {
         let citation_breakdowns = BTreeMap::from([
             (
                 "loc_1111".to_owned(),
@@ -1615,11 +1636,15 @@ labels:
             coverage_state_for_label(&citation_breakdowns, &overlay, "sub_E1416", &[]),
             CoverageState::EmulatedGems
         );
+        assert_eq!(
+            coverage_state_for_label(&citation_breakdowns, &overlay, "loc_32454", &[]),
+            CoverageState::NonExecutableDataAlias
+        );
     }
 
     #[test]
     fn uncovered_report_includes_loc_gaps_and_out_of_scope_gems_labels() {
-        let uncovered_loc = make_label_with_state("loc_32454", CoverageState::Uncovered);
+        let uncovered_loc = make_label_with_state("loc_3333", CoverageState::Uncovered);
         let test_only_loc = make_label_with_state("loc_3AA4C", CoverageState::TestOnlyDebt);
         let mut gems_sub = make_label_with_state("sub_E1416", CoverageState::EmulatedGems);
         gems_sub.kind = LabelKind::Sub;
@@ -1688,6 +1713,7 @@ labels:
         assert_eq!(map.summary.test_only_debt_labels, 1);
         assert_eq!(map.summary.uncovered_labels, 1);
         assert_eq!(map.summary.emulated_gems_labels, 1);
+        assert_eq!(map.summary.non_executable_data_alias_labels, 0);
         assert_eq!(map.summary.non_emulated_uncovered_labels, 1);
         assert_eq!(
             map.subsystems["kid_main"].labels[3].coverage_state,
