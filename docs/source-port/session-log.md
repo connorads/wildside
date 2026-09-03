@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-03 handoff (published-route Tornado selector mutation closure)
+
+- With no ready/open risk and no ordinary ASM-coverage gaps, published-route
+  rosters selected the five Tornadoes in Skydragon Castle 1 as a live pixel
+  surface.
+- The existing scene-level test allowed seven selector mutations: all live
+  rendering could disappear, the wrong enemy family could enter, the atlas
+  boundary could weaken, or the `stru_35B10` live arm could be deleted.
+- A direct `loc_35908` / `stru_35B10` contract pins phases 0 and 2, rejects the
+  wrong family and zero-HP object independently, excludes death phase 3, and
+  requires all five atlas frames. The focused census improves from 2 caught / 7
+  missed / 1 compiler-unviable to 9 caught / 0 missed / 1 compiler-unviable.
+
 ## 2026-09-03 handoff (Tar Monster data-alias classification)
 
 - The sole ordinary ASM-coverage gap was Tar Monster `loc_32454`. Cross-reference

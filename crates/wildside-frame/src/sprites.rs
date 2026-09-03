@@ -5595,6 +5595,40 @@ mod tests {
     }
 
     #[test]
+    fn tornado_live_selector_pins_stru_35b10_family_atlas_and_phase_bounds() {
+        let visuals = labelled_enemy_visuals(5, 5);
+
+        for phase in [0, 2] {
+            let mut tornado = live_enemy_object(0x18);
+            tornado.sprite_animation_phase = Some(phase);
+            assert_eq!(
+                select_live_tornado_frame(&visuals, &tornado)
+                    .expect("ASM stru_35B10 live Tornado mapping")
+                    .tile_base_index,
+                visuals.frames[usize::from(phase)].tile_base_index,
+            );
+        }
+
+        let mut wrong_family = live_enemy_object(0x17);
+        wrong_family.sprite_animation_phase = Some(0);
+        assert!(select_live_tornado_frame(&visuals, &wrong_family).is_none());
+
+        let mut dead = live_enemy_object(0x18);
+        dead.hit_points = Some(0);
+        dead.sprite_animation_phase = Some(0);
+        assert!(select_live_tornado_frame(&visuals, &dead).is_none());
+
+        let mut death_phase = live_enemy_object(0x18);
+        death_phase.sprite_animation_phase = Some(3);
+        assert!(select_live_tornado_frame(&visuals, &death_phase).is_none());
+
+        let short_atlas = labelled_enemy_visuals(4, 4);
+        let mut live = live_enemy_object(0x18);
+        live.sprite_animation_phase = Some(0);
+        assert!(select_live_tornado_frame(&short_atlas, &live).is_none());
+    }
+
+    #[test]
     fn enemy_palette_variant_indexes_extra_palettes_after_base_line() {
         let mut visuals = labelled_enemy_visuals(1, 1);
         visuals.palette = marked_palette(0x0100);
