@@ -10828,6 +10828,86 @@ mod tests {
     }
 
     #[test]
+    fn block_destroy_loc_901_matches_workers_by_full_anchor_and_removes_only_new_debris() {
+        let previous_effect = (80, 96, 7, 1);
+        let initial_debris = block_destroy_initial_debris_positions_sub_292e(
+            previous_effect.0,
+            previous_effect.1,
+            previous_effect.3,
+        );
+        let unrelated_piece = (300, 200);
+        let previous_trace = NativeTraceFrame {
+            block_destroy_effects: vec![previous_effect],
+            block_destroy_ice_effects: vec![(previous_effect.0, previous_effect.1)],
+            block_debris_pieces: initial_debris
+                .into_iter()
+                .chain([unrelated_piece])
+                .collect(),
+            ..NativeTraceFrame::default()
+        };
+        let mut render_trace = NativeTraceFrame {
+            // Neither worker is the prior one: sub_292E identity includes both
+            // coordinates, even when one coordinate happens to match.
+            block_destroy_effects: vec![(80, 112, 6, 1), (96, 96, 6, 1)],
+            ..NativeTraceFrame::default()
+        };
+
+        latch_previous_sprite_sources_loc_901(&mut render_trace, &previous_trace);
+
+        assert!(
+            render_trace
+                .block_destroy_effects
+                .contains(&previous_effect)
+        );
+        assert_eq!(render_trace.block_debris_pieces, vec![unrelated_piece]);
+        assert!(
+            render_trace
+                .block_destroy_ice_effects
+                .contains(&(previous_effect.0, previous_effect.1)),
+            "ASM Mode_Level loc_901 presents the prior sub_292E worker while rejecting its not-yet-transferred initial debris"
+        );
+    }
+
+    #[test]
+    fn prize_diamond_loc_901_matches_full_identity_before_position_latch_or_final_transfer() {
+        let current_diamond = (80, 100, 498, 0);
+        let correct_previous = (80, 97, 499, 0);
+        let previous_trace = NativeTraceFrame {
+            floating_items: vec![(90, 99, 499, 0), (80, 98, 499, 3), correct_previous],
+            ..NativeTraceFrame::default()
+        };
+        let mut render_trace = NativeTraceFrame {
+            floating_items: vec![current_diamond],
+            ..NativeTraceFrame::default()
+        };
+
+        latch_previous_sprite_sources_loc_901(&mut render_trace, &previous_trace);
+
+        assert_eq!(render_trace.floating_items[0], correct_previous);
+
+        let final_previous = (112, 96, 499, 0);
+        let previous_trace = NativeTraceFrame {
+            floating_items: vec![final_previous],
+            ..NativeTraceFrame::default()
+        };
+        let mut render_trace = NativeTraceFrame {
+            // Same X and same content belong to different workers. Neither may
+            // suppress loc_10404's last transferred sprite independently.
+            floating_items: vec![(112, 96, 799, 3), (128, 96, 499, 0)],
+            ..NativeTraceFrame::default()
+        };
+
+        latch_previous_sprite_sources_loc_901(&mut render_trace, &previous_trace);
+
+        assert!(render_trace.floating_items.contains(&final_previous));
+        assert_eq!(
+            render_trace.floating_items_transferred_loc_901,
+            vec![final_previous],
+            "ASM PrizeDiamond_Init loc_10404 retains the prior GfxObject only when no current item has the same X/content identity"
+        );
+    }
+
+    #[test]
     fn collected_diamond_loc_10404_replaces_transferred_source_once() {
         let visuals = sample_level_visuals(0x300);
         let previous_trace = NativeTraceFrame {

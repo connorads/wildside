@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-03 handoff (loc_901 worker identity boundary)
+
+- `project-status` offered no ready/open risk. The sole ordinary uncovered label,
+  Tar Monster `loc_32454`, remains instruction bytes referenced as collision data
+  only by palette `Data_Index` rows 612-614, so it did not receive a false
+  gameplay citation.
+- A focused `latch_previous_sprite_sources_loc_901` mutation census found seven
+  survivors. Block-destroy worker identity did not independently prove both
+  anchor coordinates or distinguish initial debris from unrelated prior pieces.
+  Floating-diamond identity did not independently prove X plus content for
+  position latching and final transferred-sprite retention.
+- Two ASM-cited regressions cover those observable boundaries. The identical
+  census improves from 27 caught / 7 missed / 1 unviable to 34 caught / 0 missed
+  / 1 unviable.
+
 ## 2026-09-01 handoff (end-of-level score composition boundary)
 
 - Current-head mutation refreshes found no normal-path gaps in Heady Metal
