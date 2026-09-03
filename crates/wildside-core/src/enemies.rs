@@ -2150,17 +2150,34 @@ impl ActivationWindow {
 }
 
 fn enemy_spawn_inside_visible_inner_window_loc_36900(
-    object_x_px: u32,
-    object_y_px: u32,
+    object_x_word: u16,
+    object_y_word: u16,
     camera_x_px: u32,
     camera_y_px: u32,
 ) -> bool {
-    let dx = object_x_px as i32 - camera_x_px as i32;
-    let dy = object_y_px as i32 - camera_y_px as i32;
+    let dx = object_x_word.wrapping_sub(camera_x_px as u16) as i16;
+    let dy = object_y_word.wrapping_sub(camera_y_px as u16) as i16;
     // ASM Manage_EnemyLoading loc_36900 (kid.asm:38042-38053): after
     // `$FFFFFB51` has been set by the first pass, objects already inside the
     // visible inner box are skipped so they do not pop into view.
     (-0x20..=0x160).contains(&dx) && (-0x20..=0x100).contains(&dy)
+}
+
+#[allow(non_snake_case)]
+fn enemy_layout_object_in_load_window_loc_368A8(
+    object_x_word: u16,
+    object_y_word: u16,
+    camera_x_px: u32,
+    camera_y_px: u32,
+    blank_top_rows: u16,
+) -> bool {
+    // ASM Manage_EnemyLoading loc_368A8 (kid.asm:38023-38049) performs word
+    // arithmetic, then uses signed BLT/BGT comparisons. Layout coordinates
+    // such as Heady Metal's Y `$FFDF` therefore mean -33, not 65,503.
+    let dx = object_x_word.wrapping_sub(camera_x_px as u16) as i16;
+    let padded_y = object_y_word.wrapping_add(blank_top_rows.wrapping_shl(3));
+    let dy = padded_y.wrapping_sub(camera_y_px as u16) as i16;
+    (-0x80..=0x01C0).contains(&dx) && (-0x80..=0x0160).contains(&dy)
 }
 
 impl ActiveEnemy {
@@ -3721,6 +3738,10 @@ impl EnemyFamily {
             // ASM Archer.asm Enemy07_Archer_Init loc_33FDA -> loc_32188:
             // the held-arrow child gfx slot linked at `$36/$3A(a5)`.
             Self::Archer => (1, 2),
+            // ASM Enemy20_HeadyMetal_Init (kid.asm:39247-39334) owns one
+            // Object_RAM controller and allocates 3 main-head, 12 body-piece,
+            // and 2 eye GfxObjects through sub_3764A/sub_37680/sub_376B6.
+            Self::HeadyMetal => (1, 17),
             // ASM Tar_Monster.asm loc_321E4/loc_32200: loc_32188 splices a
             // second gfx-only child into the same Object lifecycle.
             Self::TarMonster => (1, 2),
@@ -3836,6 +3857,16 @@ mod family_child_slot_tests {
         assert_eq!(EnemyFamily::Driller.unexported_gfx_child_slots(), 0);
         // ASM Archer.asm loc_33FDA -> loc_32188 held arrow.
         assert_eq!(EnemyFamily::Archer.unexported_gfx_child_slots(), 1);
+        // ASM Enemy20_HeadyMetal_Init allocates 17 GfxObjects under one
+        // Object_RAM controller through sub_3764A/sub_37680/sub_376B6.
+        assert_eq!(
+            EnemyFamily::HeadyMetal.child_slots(),
+            FamilyChildSlots {
+                object_slots: 1,
+                gfx_slots: 17,
+            }
+        );
+        assert_eq!(EnemyFamily::HeadyMetal.unexported_gfx_child_slots(), 16);
         // ASM Tar_Monster.asm loc_32200 spliced primary and live body are
         // exported as adjacent presentation snapshots while `$13(a2)` is set.
         assert_eq!(EnemyFamily::TarMonster.unexported_gfx_child_slots(), 0);
@@ -4125,15 +4156,21 @@ fn activate_enemies_with_rng_inner(
         };
         let object_x = u32::from(object.x);
         let object_y = u32::from(object.y);
-        let object_y_with_blank_rows = object_y + u32::from(blank_top_rows) * 8;
+        let object_y_with_blank_rows = object.y.wrapping_add(blank_top_rows.wrapping_shl(3));
         // ASM Manage_EnemyLoading loc_368A8: add Number_blank_top_rows * 8
-        // before both the padded load-window and visible inner-window tests.
-        if !window.contains(object_x, object_y_with_blank_rows) {
+        // with word wrapping before both signed camera-relative window tests.
+        if !enemy_layout_object_in_load_window_loc_368A8(
+            object.x,
+            object.y,
+            camera_x_px,
+            camera_y_px,
+            blank_top_rows,
+        ) {
             continue;
         }
         if enemy_loading_initial_pass_complete
             && enemy_spawn_inside_visible_inner_window_loc_36900(
-                object_x,
+                object.x,
                 object_y_with_blank_rows,
                 camera_x_px,
                 camera_y_px,
@@ -13498,6 +13535,56 @@ mod tests {
             "ASM Manage_EnemyLoading loc_368A8 adds Number_blank_top_rows * 8 before testing the activation window"
         );
         assert_eq!(active[0].family, EnemyFamily::Sphere);
+    }
+
+    #[test]
+    fn manage_enemy_loading_loc_368a8_loads_signed_negative_layout_y() {
+        let object = wildside_data::EnemyLayoutObject {
+            object_type: 0x20,
+            flags: 0,
+            hit_points_plus_one: 0,
+            x: 0x0100,
+            y: 0xFFDF,
+        };
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![0x0020, 0xFFFF, 0xFFFF],
+            unknown_word: 0x7D00,
+            header_byte: 0x80,
+            object_count: 1,
+            objects: vec![object.clone()],
+            segments: vec![wildside_data::EnemyLayoutSegment {
+                lower_bound: 0,
+                upper_bound: 0x7D00,
+                enemy_type_slots: vec![0x0020, 0xFFFF, 0xFFFF],
+                object_batch_flags: 0x80,
+                object_count: 1,
+                objects: vec![object],
+            }],
+        };
+        let window = ActivationWindow::from_camera(CameraState { x_pos: 0, y_pos: 0 });
+        let bounds = physics::LevelBounds {
+            width_pixels: 640,
+            height_pixels: 448,
+        };
+        let killed = std::collections::HashSet::new();
+        let mut active = Vec::new();
+
+        activate_enemies(&mut active, &layout, window, 0, 0, bounds, 0, 0, &killed);
+
+        let boss = active
+            .first()
+            .expect("ASM loc_368A8 treats layout Y `$FFDF` as -33 inside the -$80 load edge");
+        assert_eq!(boss.family, EnemyFamily::HeadyMetal);
+        assert_eq!(boss.y_pos, 0xFFDF_0000);
+
+        activate_enemies(&mut active, &layout, window, 0, 0, bounds, 0, 0, &killed);
+        assert_eq!(
+            active.len(),
+            1,
+            "ASM Enemy20_HeadyMetal_Init keeps the allocated boss controller alive after loc_368A8 loads its signed-negative anchor"
+        );
     }
 
     #[test]

@@ -17864,7 +17864,7 @@ mod tests {
     }
 
     #[test]
-    fn heady_metal_renderer_marks_sub_37abc_body_piece_positions() {
+    fn heady_metal_renderer_draws_sub_37abc_body_piece_positions() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
@@ -17922,13 +17922,24 @@ mod tests {
 
         sprites::push_enemy_sprite(&mut commands, &object, &trace, &visuals, 0x20);
 
-        assert!(
-            has_rect_command(&commands, 44, 66, 16, 16, [120, 200, 255]),
-            "ASM Enemy20_HeadyMetal_Init seeds the first `$FFFFFB7E` body piece at anchor+(-$C,-$56), and sub_37ABC refreshes it as a visible 16x16 worker"
+        assert_eq!(
+            commands.len(),
+            7,
+            "ASM Enemy20_HeadyMetal_Init and sub_37ABC render the two traced body workers alongside five fixed head/eye workers"
         );
-        assert!(
-            has_rect_command(&commands, 68, 146, 16, 16, [120, 200, 255]),
-            "ASM Enemy20_HeadyMetal_Init seeds the twelfth `$FFFFFBAA` body piece at anchor+(+$C,-6), and sub_37ABC scans all twelve workers"
+        let sprite = |index: usize| match &commands[index] {
+            DrawCommand::Sprite { x, y, tiles, .. } => (*x, *y, tiles[0].tile.tile_index),
+            command => panic!("expected sprite command, got {command:?}"),
+        };
+        assert_eq!(
+            sprite(2),
+            (68, 146, 0x000),
+            "ASM sub_37ABC renders the later `$FFFFFBAA` worker first in the native reverse-paint projection"
+        );
+        assert_eq!(
+            sprite(3),
+            (44, 66, 0x014),
+            "ASM sub_37ABC renders the `$FFFFFB7E` worker with its traced off_37AE0 mapping"
         );
     }
 

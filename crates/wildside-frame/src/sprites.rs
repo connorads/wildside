@@ -1064,9 +1064,12 @@ pub fn player_screen_position(
     object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
 ) -> (i32, i32) {
+    let screen_word = |world: u32, camera: u32| {
+        ((world >> 16) as u16).wrapping_sub((camera >> 16) as u16) as i16 as i32
+    };
     (
-        (object.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32,
-        (object.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32,
+        screen_word(object.x_pos, trace.camera_x_pos),
+        screen_word(object.y_pos, trace.camera_y_pos),
     )
 }
 
@@ -2565,6 +2568,17 @@ pub fn push_enemy_sprite(
         return;
     }
 
+    if object_type == 0x20 {
+        push_heady_metal_composite_enemy20_loc_39247(
+            commands,
+            object,
+            trace,
+            enemy_visuals,
+            level_visuals,
+        );
+        return;
+    }
+
     let frame = select_enemy_frame(trace, enemy_visuals, object);
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
     let palette = enemy_palette_for_heady_metal_sub_379e8(
@@ -2606,10 +2620,6 @@ pub fn push_enemy_sprite(
             tiles: build_sprite_tiles(child_frame, render_facing, 0),
         });
     }
-    if object_type == 0x20 {
-        push_heady_metal_sub_37abc_body_piece_markers(commands, object, trace);
-    }
-
     if is_rock_tank_parent_without_child_snapshot(object_type, object, trace)
         && let Some(turret_frame) =
             rock_tank_turret_frame(object, trace, enemy_visuals, object_type)
@@ -2636,58 +2646,128 @@ pub fn push_enemy_sprite(
     }
 }
 
+fn push_heady_metal_composite_enemy20_loc_39247(
+    commands: &mut Vec<DrawCommand>,
+    object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+    visuals: &wildside_render::AnimatedSpriteVisual,
+    level_visuals: &NativeLevelVisuals,
+) {
+    let Some(tile_sheet) = visuals.frames.first().map(|frame| frame.tile_sheet.clone()) else {
+        return;
+    };
+    let palette = enemy_palette_for_heady_metal_sub_379e8(
+        select_enemy_palette(
+            visuals,
+            enemy_palette_variant(level_visuals, 0x20, object.palette_variant),
+        ),
+        object,
+        0x20,
+    );
+    let palette = Arc::new(enemy_palette_for_damage_flash(
+        &palette,
+        enemy_damage_palette_white_phase(0x20, object.damage_flash),
+    ));
+    let anchor_x = (object.x_pos >> 16) as u16;
+    let anchor_y = (object.y_pos >> 16) as u16;
+    let camera_x = (trace.camera_x_pos >> 16) as u16;
+    let camera_y = (trace.camera_y_pos >> 16) as u16;
+    let screen = |world_x: u16, world_y: u16| {
+        (
+            world_x.wrapping_sub(camera_x) as i16 as i32,
+            world_y.wrapping_sub(camera_y) as i16 as i32,
+        )
+    };
+    let frame =
+        |tile_base_index, origin_x, origin_y, width_px, height_px| wildside_render::SpriteFrame {
+            origin_x,
+            origin_y,
+            width_px,
+            height_px,
+            tile_base_index,
+            tile_sheet: tile_sheet.clone(),
+        };
+    let mut push =
+        |frame: wildside_render::SpriteFrame, world_x: u16, world_y: u16, facing: Direction| {
+            let (screen_x, screen_y) = screen(world_x, world_y);
+            let (draw_x, draw_y) = sprite_draw_position(&frame, screen_x, screen_y, facing);
+            commands.push(DrawCommand::Sprite {
+                x: draw_x,
+                y: draw_y,
+                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                palette: palette.clone(),
+                tiles: build_sprite_tiles(&frame, facing, 0),
+            });
+        };
+
+    // ASM Enemy20_HeadyMetal_Init stores the workers at `$FFFFFB72..$FBB2`.
+    // Mega Drive SAT overlap favours earlier entries; native paints later
+    // commands on top, so emit the pointer table in reverse order.
+    let eye_frame = frame(0x0FD, 0x06, 0x00, 0x0B, 0x58); // unk_C8480
+    push(
+        eye_frame.clone(),
+        anchor_x.wrapping_add(0x000C),
+        anchor_y.wrapping_sub(0x0003),
+        Direction::Right,
+    );
+    push(
+        eye_frame,
+        anchor_x.wrapping_sub(0x000B),
+        anchor_y.wrapping_sub(0x0003),
+        Direction::Right,
+    );
+
+    let body_pieces = if trace.heady_metal_body_pieces_sub_37abc.is_empty() {
+        wildside_core::HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266
+            .iter()
+            .map(|&(x_offset, y_offset)| {
+                let x_pos = anchor_x.wrapping_add_signed(x_offset);
+                let y_pos = anchor_y.wrapping_add_signed(y_offset);
+                let kid_x = trace.kid_x_pos.map_or(anchor_x, |x| (x >> 16) as u16);
+                let kid_y = trace.kid_y_pos.map_or(anchor_y, |y| (y >> 16) as u16);
+                (
+                    x_pos,
+                    y_pos,
+                    wildside_core::heady_metal_piece_sprite_index_sub_37A22(
+                        false, 0, x_pos, y_pos, kid_x, kid_y,
+                    ),
+                )
+            })
+            .collect::<Vec<_>>()
+    } else {
+        trace
+            .heady_metal_body_pieces_sub_37abc
+            .iter()
+            .map(|piece| (piece.x_pos, piece.y_pos, piece.sprite_mapping_index))
+            .collect::<Vec<_>>()
+    };
+    for &(x_pos, y_pos, mapping_index) in body_pieces.iter().rev() {
+        // ASM sub_37ABC/off_37AE0 selects unk_C8488..unk_C84C0.
+        push(
+            frame(u16::from(mapping_index & 0x07) * 4, 0x08, 0x08, 0x10, 0x10),
+            x_pos,
+            y_pos,
+            Direction::Right,
+        );
+    }
+
+    push(
+        frame(0x038, 0x1F, 0x00, 0x3E, 0x1F), // unk_C8438
+        anchor_x,
+        anchor_y.wrapping_add(0x001F),
+        Direction::Right,
+    );
+    let side_frame = frame(0x000, 0x20, 0x00, 0x20, 0x70); // unk_C8430
+    push(side_frame.clone(), anchor_x, anchor_y, Direction::Left);
+    push(side_frame, anchor_x, anchor_y, Direction::Right);
+}
+
 fn enemy_damage_palette_white_phase(object_type: u8, damage_flash: bool) -> bool {
     // ASM Dragon.asm loc_3CEBE swaps to stru_3CCE6 and hibernates until the
     // hurt animation completes; it does not write the enemy palette. Native's
     // shared damage_flash timer also carries that animation duration, so it
     // must not imply a white palette for walking Dragons.
     damage_flash && object_type != 0x0D
-}
-
-fn push_heady_metal_sub_37abc_body_piece_markers(
-    commands: &mut Vec<DrawCommand>,
-    object: &NativeObjectSnapshot,
-    trace: &NativeTraceFrame,
-) {
-    let anchor_x = (object.x_pos >> 16) as u16;
-    let anchor_y = (object.y_pos >> 16) as u16;
-    let kid_x = trace.kid_x_pos.map_or(anchor_x, |x| (x >> 16) as u16);
-    let kid_y = trace.kid_y_pos.map_or(anchor_y, |y| (y >> 16) as u16);
-    let camera_x = (trace.camera_x_pos >> 16) as i32;
-    let camera_y = (trace.camera_y_pos >> 16) as i32;
-
-    if !trace.heady_metal_body_pieces_sub_37abc.is_empty() {
-        for piece in &trace.heady_metal_body_pieces_sub_37abc {
-            // ASM loc_37AC6 refreshes each non-null `$FFFFFB7E..$FFFFFBAA`
-            // worker through `sub_37AF0`; the trace carries the refreshed
-            // mapping so rendering does not have to reconstruct it.
-            push_boss_eye_attack_marker_sub_37abc(
-                commands,
-                i32::from(piece.x_pos) - camera_x,
-                i32::from(piece.y_pos) - camera_y,
-                piece.sprite_mapping_index,
-            );
-        }
-        return;
-    }
-
-    for &(x_offset, y_offset) in &wildside_core::HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266
-    {
-        // ASM Enemy20_HeadyMetal_Init (kid.asm:39266-39321) seeds the twelve
-        // `$FFFFFB7E` body-piece workers with these offsets. ASM sub_37ABC
-        // then refreshes each worker's mapping every `loc_3763A` loop.
-        let piece_x = anchor_x.wrapping_add_signed(x_offset);
-        let piece_y = anchor_y.wrapping_add_signed(y_offset);
-        let mapping_index = wildside_core::heady_metal_piece_sprite_index_sub_37A22(
-            false, 0, piece_x, piece_y, kid_x, kid_y,
-        );
-        push_boss_eye_attack_marker_sub_37abc(
-            commands,
-            i32::from(piece_x) - camera_x,
-            i32::from(piece_y) - camera_y,
-            mapping_index,
-        );
-    }
 }
 
 fn is_rock_tank_type(object_type: u8) -> bool {
@@ -7157,6 +7237,14 @@ mod tests {
             ),
             (0x0103, 0x0035)
         );
+        assert_eq!(
+            player_screen_position(
+                &native_object_at(0x0100_0000, 0xFFDF_0000),
+                &NativeTraceFrame::default()
+            ),
+            (0x0100, -0x21),
+            "ASM Manage_EnemyLoading loc_368A8 and Make_SpriteFromGfxObject keep Heady Metal's `$FFDF` layout Y as a signed word"
+        );
 
         assert_eq!(boss_eye_attack_highlight_offset_sub_37abc(0), (-4, -4));
         assert_eq!(boss_eye_attack_highlight_offset_sub_37abc(1), (0, -5));
@@ -7206,7 +7294,12 @@ mod tests {
     }
 
     #[test]
-    fn heady_metal_renderer_marks_traced_sub_37abc_body_piece_positions() {
+    fn heady_metal_renderer_uses_traced_sub_37abc_body_piece_positions() {
+        let mut level_visuals = minimal_level_visuals_for_platforms();
+        level_visuals
+            .enemies
+            .families
+            .insert(0x20, labelled_enemy_visuals(1, 1));
         let object = NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy { object_type: 0x20 },
             x_pos: 0x0200_0000,
@@ -7234,42 +7327,19 @@ mod tests {
         };
         let mut commands = Vec::new();
 
-        push_heady_metal_sub_37abc_body_piece_markers(&mut commands, &object, &trace);
+        push_enemy_sprite(&mut commands, &object, &trace, &level_visuals, 0x20);
 
         assert_eq!(
-            commands,
-            vec![
-                DrawCommand::Rect {
-                    x: 24,
-                    y: 8,
-                    width: 16,
-                    height: 16,
-                    colour: [120, 200, 255],
-                },
-                DrawCommand::Rect {
-                    x: 34,
-                    y: 18,
-                    width: 4,
-                    height: 4,
-                    colour: [255, 255, 255],
-                },
-                DrawCommand::Rect {
-                    x: -24,
-                    y: 56,
-                    width: 16,
-                    height: 16,
-                    colour: [120, 200, 255],
-                },
-                DrawCommand::Rect {
-                    x: -23,
-                    y: 62,
-                    width: 4,
-                    height: 4,
-                    colour: [255, 255, 255],
-                },
-            ],
-            "ASM sub_37ABC loc_37AC6 refreshes only live body-piece workers and renders them at camera-relative word coordinates"
+            commands.len(),
+            7,
+            "ASM sub_37ABC loc_37AC6 refreshes only the two live traced body workers alongside Heady Metal's five fixed workers"
         );
+        let sprite = |index: usize| match &commands[index] {
+            DrawCommand::Sprite { x, y, tiles, .. } => (*x, *y, tiles[0].tile.tile_index),
+            command => panic!("expected sprite command, got {command:?}"),
+        };
+        assert_eq!(sprite(2), (-24, 56, 0x00C));
+        assert_eq!(sprite(3), (24, 8, 0x01C));
     }
 
     #[test]
@@ -7298,52 +7368,49 @@ mod tests {
 
         assert_eq!(
             commands.len(),
-            25,
-            "ASM Enemy20_HeadyMetal_Init loc_39266 seeds twelve sub_37ABC body workers in addition to the parent sprite"
+            17,
+            "ASM Enemy20_HeadyMetal_Init loc_39247 seeds three head, twelve body, and two eye GfxObjects"
+        );
+        let sprite = |index: usize| match &commands[index] {
+            DrawCommand::Sprite { x, y, tiles, .. } => {
+                (*x, *y, tiles[0].tile.tile_index, tiles[0].tile.flip_x)
+            }
+            command => panic!("expected sprite command, got {command:?}"),
+        };
+        assert_eq!(
+            sprite(0),
+            (86, 21, 0x0FD, false),
+            "ASM loc_3931A creates the right eye at anchor+(+$C,-3) with unk_C8480"
         );
         assert_eq!(
-            commands[1],
-            DrawCommand::Rect {
-                x: 60,
-                y: 18,
-                width: 16,
-                height: 16,
-                colour: [120, 200, 255],
-            },
-            "ASM loc_39266 first body worker is anchor+(-$C,-$56), then sub_37ABC renders camera-relative"
+            sprite(1),
+            (63, 21, 0x0FD, false),
+            "ASM loc_39356 creates the left eye at anchor+(-$B,-3) with unk_C8480"
         );
         assert_eq!(
-            commands[2],
-            DrawCommand::Rect {
-                x: 62,
-                y: 28,
-                width: 4,
-                height: 4,
-                colour: [255, 255, 255],
-            },
-            "ASM sub_37A22 selects the below-right mapping for Kid below/right of the first body worker"
+            sprite(2),
+            (84, 98, 0x00C, false),
+            "ASM loc_39266 twelfth body worker is anchor+(+$C,-6), and sub_37A22 selects the below-left mapping"
         );
         assert_eq!(
-            commands[23],
-            DrawCommand::Rect {
-                x: 84,
-                y: 98,
-                width: 16,
-                height: 16,
-                colour: [120, 200, 255],
-            },
-            "ASM loc_39266 twelfth body worker is anchor+(+$C,-6)"
+            sprite(13),
+            (60, 18, 0x014, false),
+            "ASM loc_39266 first body worker is anchor+(-$C,-$56), and sub_37A22 selects the below-right mapping"
         );
         assert_eq!(
-            commands[24],
-            DrawCommand::Rect {
-                x: 85,
-                y: 104,
-                width: 4,
-                height: 4,
-                colour: [255, 255, 255],
-            },
-            "ASM sub_37A22 selects the below-left mapping for Kid below/left of the twelfth body worker"
+            sprite(14),
+            (49, 112, 0x038, false),
+            "ASM loc_39258 creates the central unk_C8438 worker at anchor_y+$1F"
+        );
+        assert_eq!(
+            sprite(15),
+            (80, 0, 0x000, true),
+            "ASM loc_39250 creates the flipped unk_C8430 half"
+        );
+        assert_eq!(
+            sprite(16),
+            (48, 0, 0x000, false),
+            "ASM loc_39247 creates the unflipped unk_C8430 half"
         );
     }
 

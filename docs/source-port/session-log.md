@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-03 handoff (Heady Metal signed loader and composite)
+
+- The last whole-level sweep failure, Level `$33`, stores Heady Metal at layout
+  Y `$FFDF`. `Manage_EnemyLoading loc_368A8` treats it as signed word `-33`,
+  while native widened it to unsigned `65,503` and rejected the boss.
+- Native now performs the ROM's wrapping word-relative load tests and accounts
+  for all 17 GfxObjects allocated by `Enemy20_HeadyMetal_Init`. Focused report
+  `1788451594` has exact settle state at 6 objects / 21 graphics workers.
+- Rendering now composes the three head, twelve body, and two eye workers with
+  their real `C8430..C84C0` mappings and reversed native paint order for the
+  Mega Drive's earlier-SAT-wins overlap rule. The boss face is visible in the
+  captured frame instead of being clipped above the viewport.
+- Four authoritative idle-tail diffs remain around one native-only damage and
+  transient-worker expiry. The generic recording probe cannot settle a direct
+  `$33` warp and lands in `$12`, so the next investigation must use the settled
+  sweep execution path. Fast verification and the complete 37,759-frame TAS
+  gate pass.
+
 ## 2026-09-03 handoff (Drips surface-pool frame boundary)
 
 - `project-status` offered no ready/open risk. The sole ordinary uncovered label,

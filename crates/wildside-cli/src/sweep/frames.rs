@@ -530,6 +530,18 @@ pub(crate) fn diagnose_frame(
         "  objects={}  gfx_objects={}",
         frame.number_objects, frame.number_gfx_objects
     );
+    for enemy in &frame.active_enemy_details {
+        if let wildside_core::NativeObjectKind::Enemy { object_type } = enemy.kind {
+            println!(
+                "  enemy={object_type:#04x} layout={:?} pos=({:#010x}, {:#010x}) hp={:?} phase={:?}",
+                enemy.layout_index,
+                enemy.x_pos,
+                enemy.y_pos,
+                enemy.hit_points,
+                enemy.sprite_animation_phase,
+            );
+        }
+    }
 
     Ok(())
 }
