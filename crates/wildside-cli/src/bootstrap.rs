@@ -385,21 +385,13 @@ where
 {
     let (start_level, end_level) = scenario.required_level_layout_range();
     let layout_dir = manifest.output_root.join("level-layout");
-    let missing_levels = (start_level..=end_level)
-        .filter(|level_id| !level_layout_dump_complete(&layout_dir, *level_id))
-        .collect::<Vec<_>>();
+    let missing_levels =
+        missing_oracle_dumpable_level_layouts(&layout_dir, start_level..=end_level);
     if missing_levels.is_empty() {
         return Ok(());
     }
 
     for level_id in missing_levels {
-        if oracle_warp_broken_level(level_id) {
-            // jgenesis still fails warped entry on a small set of levels with
-            // `game_mode=0x4E73`; native can fall back to the decoded block
-            // layout for those levels, so do not block gameplay verification
-            // on an oracle-only extraction failure.
-            continue;
-        }
         dump_level_layout_fn(rom_bytes, level_id, &layout_dir)?;
     }
     Ok(())
@@ -415,11 +407,8 @@ where
     FDump: Fn(&[u8], u8, &Path) -> Result<()>,
 {
     let layout_dir = manifest.output_root.join("level-layout");
-    let missing_levels = level_ids
-        .iter()
-        .copied()
-        .filter(|level_id| !level_layout_dump_complete(&layout_dir, *level_id))
-        .collect::<Vec<_>>();
+    let missing_levels =
+        missing_oracle_dumpable_level_layouts(&layout_dir, level_ids.iter().copied());
     if missing_levels.is_empty() {
         return Ok(());
     }
@@ -430,6 +419,19 @@ where
     Ok(())
 }
 
+fn missing_oracle_dumpable_level_layouts(
+    layout_dir: &Path,
+    level_ids: impl IntoIterator<Item = u8>,
+) -> Vec<u8> {
+    level_ids
+        .into_iter()
+        .filter(|level_id| {
+            !level_layout_dump_complete(layout_dir, *level_id)
+                && !oracle_warp_broken_level(*level_id)
+        })
+        .collect()
+}
+
 fn level_layout_dump_complete(layout_dir: &Path, level_id: u8) -> bool {
     let data_path = layout_dir.join(format!("{level_id:02X}.bin"));
     let metadata_path = layout_dir.join(format!("{level_id:02X}.json"));
@@ -438,6 +440,9 @@ fn level_layout_dump_complete(layout_dir: &Path, level_id: u8) -> bool {
 }
 
 fn oracle_warp_broken_level(level_id: u8) -> bool {
+    // The jgenesis level-skip path reaches invalid game mode `$4E73` for
+    // these logical IDs. Native consumes the disassembly-decoded block layout
+    // instead, so no CLI entry point should retry the impossible RAM dump.
     matches!(
         level_id,
         0x09 | 0x32 | 0x33 | 0x50 | 0x57 | 0x5A | 0x5D | 0x5E | 0x63
@@ -952,7 +957,7 @@ mod tests {
         ensure_level_layouts_with(
             b"rom",
             &manifest,
-            &[0x01, 0x02, 0x03],
+            &[0x01, 0x02, 0x03, 0x33],
             |rom, level_id, dir| {
                 assert_eq!(rom, b"rom");
                 assert_eq!(dir, layout_dir.as_path());
@@ -962,7 +967,11 @@ mod tests {
         )
         .expect("missing explicit layouts should be dumped");
 
-        assert_eq!(calls.into_inner(), vec![0x02, 0x03]);
+        assert_eq!(
+            calls.into_inner(),
+            vec![0x02, 0x03],
+            "known jgenesis warp failures such as Level `$33` use the decoded native layout fallback instead of retrying an impossible RAM dump"
+        );
     }
 
     #[test]
