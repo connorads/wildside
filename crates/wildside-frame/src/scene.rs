@@ -3426,7 +3426,7 @@ fn chunked_background_row_window_applies_loc_30744(
 ) -> bool {
     let layer_speed = background_layer_speed_loc_3050a(level_visuals, y_tiles);
     matches!(layer_speed, 0x00 | 0x08)
-        || matches!(layer_speed, 0x18..=0x88 if (layer_speed - 0x10).is_multiple_of(8))
+        || matches!(layer_speed, 0x18..=0x88 if layer_speed.is_multiple_of(8))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -4067,7 +4067,7 @@ impl ChunkedPlaneBRowsLoc307D8 {
     ) {
         let current_time_frames = background_time_frames_for_trace_loc_3050a(trace);
         let preload_time_frames = current_time_frames.saturating_sub(trace.frame_index);
-        if matches!(layer_speed, 0x18..=0x88) && (layer_speed - 0x10).is_multiple_of(8) {
+        if matches!(layer_speed, 0x18..=0x88) && layer_speed.is_multiple_of(8) {
             // ASM Load_InGame loc_11F48/loc_2FFE8 seeds Plane B at the
             // player-start screen grid. Each later camera crossing changes a
             // loc_30452 slot and sub_30744 writes the newly exposed far-edge
@@ -4278,7 +4278,7 @@ pub fn background_scroll_data_word_loc_30452(
         0x00 => (time_frames as i32).wrapping_add(i32::from(camera_column)),
         0x08 => ((time_frames as i32) >> 1).wrapping_add(i32::from(camera_column)),
         0x10 => 0,
-        0x18..=0x88 if (layer_speed - 0x10).is_multiple_of(8) => {
+        0x18..=0x88 if layer_speed.is_multiple_of(8) => {
             let step = i32::from((layer_speed - 0x10) / 8);
             camera_x_px.saturating_mul(step) / 16
         }
@@ -6335,7 +6335,7 @@ fn background_scroll_x_px_unwrapped_for_time_loc_3050a(
         0x00 => time_frames as i32 / 2,
         0x08 => time_frames as i32 / 4,
         0x10 => 0,
-        0x18..=0x88 if (layer_speed - 0x10).is_multiple_of(8) => {
+        0x18..=0x88 if layer_speed.is_multiple_of(8) => {
             let step = i32::from((layer_speed - 0x10) / 8);
             camera_x_px.saturating_mul(step) / 16
         }
@@ -14377,6 +14377,32 @@ mod tests {
                 forest_water_ripple_display_time_frames_for_trace_loc_305e6(&trace),
                 expected_display_time,
                 "ASM loc_305E6 builds the next Horiz_Scroll_Buffer from Time_Frames while the visible VDP table retains the preceding frame, saturating at power-on",
+            );
+        }
+    }
+
+    #[test]
+    fn background_source_scroll_pins_loc_30452_layer_table() {
+        let time_frames = 112;
+        let camera_x_px = 481;
+
+        for (layer_speed, expected_scroll_x_px) in [
+            (0x00, 56),
+            (0x08, 28),
+            (0x10, 0),
+            (0x18, 30),
+            (0x20, 60),
+            (0x88, 450),
+            (0x19, 481),
+        ] {
+            assert_eq!(
+                background_scroll_x_px_unwrapped_for_time_loc_3050a(
+                    time_frames,
+                    camera_x_px,
+                    layer_speed,
+                ),
+                expected_scroll_x_px,
+                "ASM BackgroundScroll_ComputeShiftData loc_30452 builds two Time_Frames layers, a stationary layer, then 1/16 through 15/16 Camera_X_pos layers at eight-byte Horiz_Scroll_Data strides",
             );
         }
     }

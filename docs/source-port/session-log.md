@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-03 handoff (Plane-B source-scroll mutation closure)
+
+- With no ready/open risk, the live Cloud lightning mapping was checked first
+  and needed no new test: 12 mutants were caught and one was compiler-unviable.
+- The Plane-B source-scroll table then exposed 14 surviving mutants across both
+  `Time_Frames` layers, the stationary entry, fractional camera layers, and the
+  invalid-stride fallback.
+- A direct `BackgroundScroll_ComputeShiftData` `loc_30452` contract now pins
+  those table identities and both fractional endpoints. The equivalent
+  subtract-`$10` stride guard is expressed as the byte's direct eight-byte
+  alignment rule. The focused census improves from 22 caught / 14 missed to 34
+  caught / 0 missed.
+
 ## 2026-09-03 handoff (Forest ripple display-latch mutation closure)
 
 - With no ready/open risk, the static Drips palette pointer-order contract and
