@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-03 handoff (UFO swept-corner mutation closure)
+
+- With no ready/open risk, proactive mutation checks found zero survivors in
+  Tornado (59 caught / 7 unviable) and Fire Demon (47 caught / 19 unviable);
+  Sphere's three sites were all compile-unviable.
+- The September UFO collision rewrite post-dated its last full audit. Its
+  focused 66-site census found seven survivors in tile-edge and swept-product
+  arithmetic used by `GfxObjects_Collision_Solid`.
+- Exact right/down `loc_1864` and left/down `loc_18E4` boundary tests now pin
+  the ROM's `tile_x*16`, opposite-edge, and velocity-product calculations. The
+  identical census improves from 58 caught / 7 missed / 1 unviable to 65
+  caught / 0 missed / 1 unviable.
+
 ## 2026-09-03 handoff (green 1p-accurate gate and Goat animation hardening)
 
 - Full state sweep `1788457361` passes 69/69 levels with zero authoritative

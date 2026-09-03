@@ -3007,6 +3007,20 @@ mod tests {
             "ASM GfxObjects_Collision moving-left/down loc_18E4 compares abs(x_vel)*y_overlap against y_vel*x_overlap and selects loc_19BA leftwall",
         );
 
+        let right_boundary_wall = ufo_test_grid(8, 8, &[(1, 4, 0x60, 0x00)]);
+        assert!(
+            ufo_probe_wall_loc_16f0(&right_boundary_wall, 2, 68, 0x0000_0100, 0x0000_0100,)
+                .is_some(),
+            "ASM GfxObjects_Collision moving-right/down loc_1864 measures the corner from tile_x*16: zero horizontal overlap reaches the wall before one pixel of vertical overlap",
+        );
+
+        let left_boundary_floor = ufo_test_grid(8, 8, &[(2, 4, 0x60, 0x00)]);
+        assert_eq!(
+            ufo_probe_wall_loc_16f0(&left_boundary_floor, 61, 67, -0x0000_0200, 0x0000_0100,),
+            None,
+            "ASM GfxObjects_Collision moving-left/down loc_18E4 measures one pixel from tile_x*16+16 and classifies zero vertical overlap as floor",
+        );
+
         let beyond_bottom = ufo_test_grid(8, 8, &[(4, 4, 0x60, 0x00)]);
         assert_eq!(
             ufo_probe_wall_loc_16f0(&beyond_bottom, 50, 61, 0x0001_0000, -0x0001_0000,),
