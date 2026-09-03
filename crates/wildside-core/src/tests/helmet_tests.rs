@@ -1364,6 +1364,28 @@ mod chunk_08 {
     }
 
     #[test]
+    fn heady_metal_render_index_sub_37a22_preserves_all_off_37ae0_mapping_identities() {
+        let cases = [
+            ((0x0040, 0x003B), 0),
+            ((0x003B, 0x003B), 1),
+            ((0x0037, 0x0040), 2),
+            ((0x003B, 0x0045), 3),
+            ((0x0040, 0x0045), 4),
+            ((0x0045, 0x0045), 5),
+            ((0x0038, 0x0040), 6),
+            ((0x0045, 0x003B), 7),
+        ];
+
+        for ((kid_x, kid_y), expected_index) in cases {
+            assert_eq!(
+                heady_metal_piece_sprite_index_sub_37A22(false, 0, 0x0040, 0x0040, kid_x, kid_y,),
+                expected_index,
+                "ASM sub_37A22/loc_37AAE must preserve the selected `off_37AE0` mapping identity for renderer frame selection",
+            );
+        }
+    }
+
+    #[test]
     fn heady_metal_breakup_step_loc_37710_ignores_anchor_without_collision() {
         let result = heady_metal_breakup_step_sub_37708(true, 0, 12, 9, 0, [None; 13]);
 

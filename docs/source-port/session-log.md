@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-03 handoff (Heady Metal render-index mutation closure)
+
+- With no ready/open risk, focused current-head checks found zero survivors in
+  the new Heady Metal composite renderer (11 caught) and the complete `loc_901`
+  sprite-source latch (34 caught / 1 unviable).
+- The renderer-facing Heady Metal body mapping decoder had no direct contract:
+  replacing it with constant index 0 or 1 and deleting any of its eight match
+  arms all survived.
+- One `sub_37A22`/`loc_37AAE` table regression now pins every `off_37AE0`
+  identity selected by the eight Kid-relative buckets. The rerun records all ten
+  decoder mutations as caught before entering unrelated configured combat sites.
+
 ## 2026-09-03 handoff (UFO swept-corner mutation closure)
 
 - With no ready/open risk, proactive mutation checks found zero survivors in
