@@ -5595,6 +5595,30 @@ mod tests {
     }
 
     #[test]
+    fn cloud_live_selector_pins_stru_35ea0_35ec8_family_death_and_atlas_gates() {
+        let visuals = labelled_enemy_visuals(13, 13);
+        let mut cloud = live_enemy_object(0x0E);
+        cloud.sprite_animation_phase = Some(12);
+        assert_eq!(
+            select_live_cloud_attack_frame(&visuals, &cloud)
+                .expect("ASM stru_35EA0/stru_35EC8 live Cloud mapping")
+                .tile_base_index,
+            visuals.frames[12].tile_base_index,
+        );
+
+        let mut wrong_family = cloud.clone();
+        wrong_family.kind = NativeObjectKind::Enemy { object_type: 0x0D };
+        assert!(select_live_cloud_attack_frame(&visuals, &wrong_family).is_none());
+
+        let mut dead = cloud.clone();
+        dead.hit_points = Some(0);
+        assert!(select_live_cloud_attack_frame(&visuals, &dead).is_none());
+
+        let short_atlas = labelled_enemy_visuals(12, 12);
+        assert!(select_live_cloud_attack_frame(&short_atlas, &cloud).is_none());
+    }
+
+    #[test]
     fn tornado_live_selector_pins_stru_35b10_family_atlas_and_phase_bounds() {
         let visuals = labelled_enemy_visuals(5, 5);
 

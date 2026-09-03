@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-03 handoff (published-route Cloud selector mutation closure)
+
+- The five route-visible Spheres in Skydragon Castle 1 were checked first and
+  needed no new contract: 6 mutants were caught and one was compiler-unviable.
+- The four Clouds in the same level exposed one surviving selector guard
+  mutation. Combining the family, death, and atlas rejections allowed invalid
+  objects through while the existing scene-level happy path stayed green.
+- A direct `stru_35EA0` / `stru_35EC8` contract now pins the terminal live frame
+  and rejects wrong-family, zero-HP, and 12-frame-atlas inputs independently.
+  The focused census improves from 7 caught / 1 missed / 1 compiler-unviable to
+  8 caught / 0 missed / 1 compiler-unviable.
+
 ## 2026-09-03 handoff (published-route Tornado selector mutation closure)
 
 - With no ready/open risk and no ordinary ASM-coverage gaps, published-route
