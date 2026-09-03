@@ -10661,6 +10661,78 @@ mod tests {
     }
 
     #[test]
+    fn rock_tank_latch_requires_live_current_family_and_layout_identity_loc_3c03a() {
+        let tank = |object_type, layout_index, x_pos, hit_points| NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type },
+            x_pos,
+            y_pos: 0x00E0_0000,
+            layout_index: Some(layout_index),
+            hit_points,
+            ..sample_object_snapshot()
+        };
+        let previous = NativeTraceFrame {
+            active_objects: vec![tank(0x0A, 1, 0x00C9_8000, Some(2))],
+            ..NativeTraceFrame::default()
+        };
+        let current = NativeTraceFrame {
+            active_objects: vec![
+                tank(0x0B, 1, 0x00C9_0000, Some(2)),
+                tank(0x0A, 2, 0x00C9_0000, Some(2)),
+                tank(0x0A, 1, 0x00C9_0000, Some(0)),
+            ],
+            ..NativeTraceFrame::default()
+        };
+        let mut rendered = previous.clone();
+
+        latch_rock_tank_gfx_positions_loc_3c03a(&mut rendered, &current, &previous);
+
+        assert_eq!(
+            rendered.active_objects[0].x_pos, 0x00C9_8000,
+            "ASM Tank.asm loc_3C03A/loc_3C044 must not reconstruct from a different Tank family, layout slot, or dead current object",
+        );
+    }
+
+    #[test]
+    fn rock_tank_latch_updates_only_matching_rendered_family_and_layout_loc_3c03a() {
+        let tank = |object_type, layout_index, x_pos| NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type },
+            x_pos,
+            y_pos: 0x00E0_0000,
+            layout_index: Some(layout_index),
+            hit_points: Some(2),
+            ..sample_object_snapshot()
+        };
+        let previous = NativeTraceFrame {
+            active_objects: vec![tank(0x0A, 1, 0x00C9_8000)],
+            ..NativeTraceFrame::default()
+        };
+        let current = NativeTraceFrame {
+            active_objects: vec![tank(0x0A, 1, 0x00C9_0000)],
+            ..NativeTraceFrame::default()
+        };
+        let mut rendered = NativeTraceFrame {
+            active_objects: vec![
+                tank(0x0A, 1, 0x00C9_8000),
+                tank(0x0B, 1, 0x00D1_0000),
+                tank(0x0A, 2, 0x00D9_0000),
+            ],
+            ..NativeTraceFrame::default()
+        };
+
+        latch_rock_tank_gfx_positions_loc_3c03a(&mut rendered, &current, &previous);
+
+        assert_eq!(
+            rendered
+                .active_objects
+                .iter()
+                .map(|object| object.x_pos)
+                .collect::<Vec<_>>(),
+            vec![0x00CA_0000, 0x00D1_0000, 0x00D9_0000],
+            "ASM Tank.asm loc_3C03A/loc_3C044 links the mouth worker to its own parent; unrelated family and layout identities retain their transferred positions",
+        );
+    }
+
+    #[test]
     fn mode_level_loc_901_latches_airborne_mapping_sub_b270() {
         let previous_trace = NativeTraceFrame {
             game_mode: GameMode::DemoPlay,

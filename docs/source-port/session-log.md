@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-03 handoff (RockTank presentation-latch mutation closure)
+
+- With no ready/open risk, the newer route-independent background alias source
+  remained mutation-clean at 7 caught / 1 unviable.
+- The September RockTank presentation latch had five survivors. Existing
+  coverage recovered one happy-path parent/mouth pair but allowed a current or
+  rendered object to match on only family, only layout identity, or zero HP.
+- Two `Tank.asm loc_3C03A/loc_3C044` rejection regressions now require a live
+  current object with the same family and layout slot, then update only rendered
+  workers sharing both identities. The identical census improves from 17 caught
+  / 5 missed to 22 caught / 0 missed.
+
 ## 2026-09-03 handoff (Heady Metal render-index mutation closure)
 
 - With no ready/open risk, focused current-head checks found zero survivors in
