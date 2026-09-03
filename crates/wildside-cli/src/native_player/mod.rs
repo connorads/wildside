@@ -2770,6 +2770,7 @@ mod tests {
             hud_diamond_count_loc_bdc0: None,
             hud_life_frame_offset: None,
             hud_life_icon_vram_page_loc_4586: None,
+            recording_oracle_settle_completed: false,
             berzerker_charging: false,
             berzerker_charge_pose: false,
             berzerker_walk_pose: false,
@@ -21444,6 +21445,33 @@ mod tests {
             ),
             (Some(2), 0, 2),
             "ASM loc_720 clears the diamond phase before sub_44B0 re-seeds its countdown; sub_44DC loc_45EE exposes offset 2 at the release checkpoint"
+        );
+        let walking_dragon_phase = |frame_index, label| {
+            trace_frame_with_vdp_latch_at_checkpoint(
+                &run.trace,
+                frame_index,
+                Some(&run.initial_render_latch),
+                label,
+            )
+            .expect("release visual render trace")
+            .active_objects
+            .iter()
+            .find_map(|object| match object.kind {
+                wildside_core::NativeObjectKind::Enemy { object_type: 0x0D } => {
+                    object.sprite_animation_phase
+                }
+                _ => None,
+            })
+        };
+        assert_eq!(
+            [
+                walking_dragon_phase(0, "frame_000"),
+                walking_dragon_phase(30, "frame_030"),
+                walking_dragon_phase(60, "level_settle"),
+                walking_dragon_phase(120, "frame_120"),
+            ],
+            [Some(6), Some(9), Some(0), Some(7)],
+            "ASM Dragon.asm loc_3CE48 / stru_3CC5E: release-oracle GfxObject watches fix the four visible walking-Dragon mapping phases"
         );
     }
 

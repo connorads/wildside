@@ -355,6 +355,7 @@ pub struct NativeRuntime {
     /// that path leaves this false.
     debug_level_entry_runs_live_shell_loc_74e0: bool,
     recording_oracle_debug_lifecycle_completed: bool,
+    recording_oracle_settle_completed: bool,
     start_press_count: usize,
     current_level: LevelId,
     level_start_frame: Option<usize>,
@@ -1503,6 +1504,7 @@ impl NativeRuntime {
             debug_level_entry_suppresses_title_card_live_handoff: false,
             debug_level_entry_runs_live_shell_loc_74e0: false,
             recording_oracle_debug_lifecycle_completed: false,
+            recording_oracle_settle_completed: false,
             start_press_count: 0,
             current_level: LevelId(0),
             level_start_frame: None,

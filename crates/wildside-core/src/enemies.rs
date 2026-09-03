@@ -9807,11 +9807,11 @@ pub(crate) const DRAGON_WALKING_GRAVITY: i32 = 0x4000;
 const DRAGON_WALKING_ANIMATION_PHASES_STRU_3CC5E: u8 = 12;
 const DRAGON_WALKING_NORMAL_FRAME_TICKS_STRU_3CC5E: u8 = 9;
 const DRAGON_WALKING_HP3_FRAME_TICKS_STRU_3CC90: u8 = 6;
-// Oracle frame 60's completed scanout fetches `LnkTo_unk_C75B6` (mapping
-// $056C) from `stru_3CC5E`. Native collapses 59 hidden settle ticks before
-// recording frame 0, then Mode_Level loc_901 latches frame 60 after another
-// 59 ticks. Prime 82 ticks before zero so that latch presents phase four.
-const DRAGON_WALKING_RECORDING_SETTLE_ANIMATION_LEAD_TICKS: u8 = 82;
+// ASM loc_1AE2E's direct title route exposes five live object ticks before the
+// Dragon GfxObject cycle. The debug-warp route has already traversed its typed
+// loader lifecycle; Level 9's oracle scanout needs the separate 82-tick lead.
+const DRAGON_WALKING_TITLE_RECORDING_ANIMATION_LEAD_TICKS: u8 = 5;
+const DRAGON_WALKING_DEBUG_WARP_ANIMATION_LEAD_TICKS: u8 = 82;
 const ARMADILLO_RECORDING_PRESENTATION_LEAD_TICKS_LOC_73D0: usize = 24;
 pub(crate) const SHARED_WALKER_STATE_PATROL: i16 = 10;
 pub(crate) const SHARED_WALKER_STATE_FACE_RIGHT: i16 = 1;
@@ -9848,9 +9848,17 @@ fn dragon_walking_sprite_animation_phase_stru_3cc5e(elapsed: u8, hit_points: u8)
     elapsed / dragon_walking_animation_frame_ticks(hit_points)
 }
 
-fn dragon_walking_recording_settle_animation_seed_stru_3cc5e(hit_points: u8) -> u8 {
+fn dragon_walking_recording_settle_animation_seed_stru_3cc5e(
+    hit_points: u8,
+    debug_warp_lifecycle_completed: bool,
+) -> u8 {
     let cycle_ticks = dragon_walking_animation_cycle_ticks(hit_points);
-    (cycle_ticks - DRAGON_WALKING_RECORDING_SETTLE_ANIMATION_LEAD_TICKS % cycle_ticks) % cycle_ticks
+    let lead_ticks = if debug_warp_lifecycle_completed {
+        DRAGON_WALKING_DEBUG_WARP_ANIMATION_LEAD_TICKS
+    } else {
+        DRAGON_WALKING_TITLE_RECORDING_ANIMATION_LEAD_TICKS
+    };
+    (cycle_ticks - lead_ticks % cycle_ticks) % cycle_ticks
 }
 
 fn dragon_walking_spawn_animation_seed_loc_3cd46(hit_points: u8) -> u8 {
@@ -12999,8 +13007,8 @@ mod tests {
     }
 
     #[test]
-    fn walking_dragon_recording_settle_seed_lands_on_frame60_oracle_phase() {
-        let mut elapsed = dragon_walking_recording_settle_animation_seed_stru_3cc5e(1);
+    fn walking_dragon_recording_settle_seeds_follow_entry_lifecycle() {
+        let mut elapsed = dragon_walking_recording_settle_animation_seed_stru_3cc5e(1, true);
         for _ in 0..118 {
             elapsed = dragon_walking_sprite_animation_tick_stru_3cc5e(elapsed, 1);
         }
@@ -13011,9 +13019,18 @@ mod tests {
             "ASM Init_Animation/GfxObject_Animate loc_1040-loc_1194 and jgenesis' frame-60 sprite fetches present stru_3CC5E phase 4 (`LnkTo_unk_C75B6`, mapping 0x056C)"
         );
         assert_eq!(
-            dragon_walking_recording_settle_animation_seed_stru_3cc5e(3),
+            dragon_walking_recording_settle_animation_seed_stru_3cc5e(3, true),
             62,
             "ASM stru_3CC90's 72-tick HP-3 cycle wraps the shared recording lead",
+        );
+        let mut title_elapsed = dragon_walking_recording_settle_animation_seed_stru_3cc5e(1, false);
+        for _ in 0..118 {
+            title_elapsed = dragon_walking_sprite_animation_tick_stru_3cc5e(title_elapsed, 1);
+        }
+        assert_eq!(
+            dragon_walking_sprite_animation_phase_stru_3cc5e(title_elapsed, 1),
+            0,
+            "ASM loc_1AE2E direct-title recording keeps the original five-tick Dragon allocation lead instead of inheriting the debug-warp phase"
         );
     }
 
@@ -15366,7 +15383,10 @@ impl NativeRuntime {
         self.fire_demon_trails.extend(spawned_trails);
     }
 
-    pub(crate) fn prime_recording_warp_sprite_animation_clocks(&mut self) {
+    pub(crate) fn prime_recording_warp_sprite_animation_clocks(
+        &mut self,
+        debug_warp_lifecycle_completed: bool,
+    ) {
         let first_fire_demon_loader_cohort_phase = self
             .active_enemies
             .iter()
@@ -15387,7 +15407,10 @@ impl NativeRuntime {
                 // the recording level-skip shell has five live object ticks
                 // before the allocated Dragon GfxObject begins its cycle.
                 enemy.dragon_descent_index =
-                    dragon_walking_recording_settle_animation_seed_stru_3cc5e(enemy.hit_points);
+                    dragon_walking_recording_settle_animation_seed_stru_3cc5e(
+                        enemy.hit_points,
+                        debug_warp_lifecycle_completed,
+                    );
             } else if matches!(enemy.family, EnemyFamily::Hand) {
                 // ASM Hand.asm loc_327F2 -> stru_32B6A: at the settled
                 // recording boundary the native settle helper will still run

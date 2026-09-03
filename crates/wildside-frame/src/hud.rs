@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use wildside_core::{
-    GameMode, HudDmaEventSub44DC, HudRasterUploadTimingSub44DC, LevelId, NativeObjectKind,
-    NativeTraceFrame, PlayerForm, hitpoint_display_art_dma_loop_loc_12C34,
+    GameMode, HudDmaEventSub44DC, HudRasterUploadTimingSub44DC, LevelId, NativeTraceFrame,
+    PlayerForm, hitpoint_display_art_dma_loop_loc_12C34,
     vdp::{
         VdpRasterVramWordWrite, try_schedule_h40_vram_dma_word_writes,
         try_schedule_h40_vram_fifo_word_writes,
@@ -588,15 +588,10 @@ fn hud_life_icon_tile_base_index_loc_4546(trace: &NativeTraceFrame) -> u16 {
     } else if trace.level_skip_cheat_enabled == 0
         && trace.level_completion_time > 0
         && !trace.level_complete
-        && !trace
-            .active_objects
-            .iter()
-            .any(|object| matches!(object.kind, NativeObjectKind::Player))
+        && trace.recording_oracle_settle_completed
     {
         // ASM sub_44DC loc_4546/loc_4586 (kid.asm:5592): direct loc_1AE2E
-        // recording hand-offs present the first `AniArt_LifeIcon` DMA page
-        // before `Load_InGame` creates the Kid object. Once Mode_Level is
-        // live, use its actual cursor/resident DMA state instead.
+        // recording hand-offs present the first `AniArt_LifeIcon` DMA page.
         // Oracle VRAM `$4620` matches ROM page 0 throughout release frames
         // 0/30/60/120, independently of the reduced native animation offset.
         0
@@ -903,7 +898,7 @@ mod tests {
     use std::collections::{BTreeMap, HashMap};
     use wildside_core::{
         EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE, HudRasterUploadTimingSub44DC,
-        HudTimerSpritePositionSubBD0A, NativeObjectSnapshot,
+        HudTimerSpritePositionSubBD0A, NativeObjectKind, NativeObjectSnapshot,
     };
     use wildside_render::{
         AnimatedSpriteVisual, BackgroundVisuals, BlockVisualMapping, ChunkedBackgroundVisuals,
@@ -1052,6 +1047,7 @@ mod tests {
                     level_skip_cheat_enabled: 0,
                     level_completion_time,
                     level_complete: false,
+                    recording_oracle_settle_completed: true,
                     ..NativeTraceFrame::default()
                 }),
                 0
@@ -1064,6 +1060,7 @@ mod tests {
                 level_skip_cheat_enabled: 0,
                 level_completion_time: 1,
                 level_complete: false,
+                recording_oracle_settle_completed: true,
                 active_objects: vec![NativeObjectSnapshot {
                     kind: NativeObjectKind::Player,
                     x_pos: 0,
@@ -1088,8 +1085,8 @@ mod tests {
                 }],
                 ..NativeTraceFrame::default()
             }),
-            8,
-            "ASM sub_44DC loc_4546/loc_4586 keeps the resident DMA page after Load_InGame creates Kid"
+            0,
+            "ASM loc_1AE2E direct-recording oracle VRAM retains page 0 after Load_InGame creates Kid"
         );
         assert_eq!(
             hud_life_icon_settled_recording_tile_base_index_loc_4586(Some(4)),

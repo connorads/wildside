@@ -413,7 +413,7 @@ impl NativeRuntime {
         if recording_settle_primes_respawn(level_id, debug_lifecycle_completed) {
             self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
         }
-        self.prime_recording_warp_sprite_animation_clocks();
+        self.prime_recording_warp_sprite_animation_clocks(debug_lifecycle_completed);
         // #442: the measured window model — the debug lifecycle ages the
         // level from its per-level load completion, so the residual window is
         // the per-route table with no family adjustments.
@@ -485,6 +485,7 @@ impl NativeRuntime {
                 self.step_rotate_palette_lava_water_loc_1223c();
             }
         }
+        self.recording_oracle_settle_completed = true;
     }
 }
 

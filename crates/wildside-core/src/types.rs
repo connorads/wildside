@@ -3043,6 +3043,10 @@ pub struct NativeTraceFrame {
     /// VRAM `$4620`, represented as the `off_457A` byte offset (0, 4, or 8).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hud_life_icon_vram_page_loc_4586: Option<u8>,
+    /// Scenario boundary: the recording-oracle adapter has collapsed the
+    /// hidden loc_1AE2E/loc_74E0 settle window before this trace frame.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub recording_oracle_settle_completed: bool,
     /// ASM `sub_44DC` loc_4586/loc_4626: ROM-ordered HUD DMA commands emitted
     /// during this frame, before raster timing assigns their VDP write cycles.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -3558,6 +3562,7 @@ impl Default for NativeTraceFrame {
             hud_diamond_count_loc_bdc0: None,
             hud_life_frame_offset: None,
             hud_life_icon_vram_page_loc_4586: None,
+            recording_oracle_settle_completed: false,
             hud_dma_events_sub_44dc: Vec::new(),
             hud_raster_upload_timings_sub_44dc: Vec::new(),
             mode_level_vblank_work_before_sub_e12: None,

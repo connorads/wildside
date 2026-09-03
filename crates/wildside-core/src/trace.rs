@@ -12436,6 +12436,7 @@ impl NativeRuntime {
             hud_diamond_count_loc_bdc0: Some(self.hud_diamond_count_loc_bdc0),
             hud_life_frame_offset: Some(self.hud_animation_state.life_frame_offset_fb5e),
             hud_life_icon_vram_page_loc_4586: Some(self.hud_life_icon_vram_page_loc_4586),
+            recording_oracle_settle_completed: self.recording_oracle_settle_completed,
             hud_dma_events_sub_44dc: self.hud_dma_events_sub_44dc.clone(),
             hud_raster_upload_timings_sub_44dc: self.hud_raster_upload_timings_sub_44dc.clone(),
             mode_level_vblank_work_before_sub_e12: self.mode_level_vblank_work_before_sub_e12,

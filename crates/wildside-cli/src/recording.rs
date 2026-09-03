@@ -2997,6 +2997,7 @@ mod tests {
             hud_diamond_count_loc_bdc0: None,
             hud_life_frame_offset: None,
             hud_life_icon_vram_page_loc_4586: None,
+            recording_oracle_settle_completed: false,
             berzerker_charging: false,
             berzerker_charge_pose: false,
             berzerker_walk_pose: false,
