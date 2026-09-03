@@ -265,3 +265,51 @@ pub(crate) fn goat_collision_clear_resume_loc_3cbf6(
         next,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn goat_live_animation_cycle_selects_the_rom_patrol_and_charge_scripts() {
+        // ASM Goat.asm loc_3CACA/loc_3CAE8: HP 4+ patrol uses the 28-tick
+        // stru_3C996 script. A charging HP-4 Goat resumes the 40-tick
+        // stru_3C9B0 script; HP 5+ resumes the 28-tick stru_3C9CA script.
+        assert_eq!(goat_live_animation_cycle_ticks(3, false), 40);
+        assert_eq!(goat_live_animation_cycle_ticks(4, false), 28);
+        assert_eq!(goat_live_animation_cycle_ticks(4, true), 40);
+        assert_eq!(goat_live_animation_cycle_ticks(5, true), 28);
+    }
+
+    #[test]
+    fn goat_live_sprite_phase_matches_each_rom_script_boundary_and_wrap() {
+        // ASM Goat animation scripts stru_3C97C/stru_3C9B0 hold their six
+        // mappings for 8,6,6,8,6,6 ticks. stru_3C996/stru_3C9CA hold them for
+        // 6,4,4,6,4,4 ticks. Charging mappings occupy atlas phases 9..14.
+        let slow = [
+            0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4,
+            4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
+        ];
+        let fast = [
+            0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5,
+        ];
+
+        for (current_hp, charging, expected, atlas_offset) in [
+            (3, false, slow.as_slice(), 0),
+            (4, false, fast.as_slice(), 0),
+            (4, true, slow.as_slice(), 9),
+            (5, true, fast.as_slice(), 9),
+        ] {
+            let actual = (0..expected.len() * 2)
+                .map(|elapsed| goat_live_sprite_phase(current_hp, charging, elapsed as u8))
+                .collect::<Vec<_>>();
+            let expected_two_cycles = expected
+                .iter()
+                .cycle()
+                .take(expected.len() * 2)
+                .map(|phase| phase + atlas_offset)
+                .collect::<Vec<_>>();
+            assert_eq!(actual, expected_two_cycles);
+        }
+    }
+}

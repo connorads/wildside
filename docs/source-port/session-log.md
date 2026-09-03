@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-03 handoff (green 1p-accurate gate and Goat animation hardening)
+
+- Full state sweep `1788457361` passes 69/69 levels with zero authoritative
+  differences or errors. The canonical `1p-accurate` release report
+  `1788457320` now passes; 66 levels have comparable checkpoints and three are
+  explicitly unverified because all their checkpoints are oracle limitations.
+- A proactive mutation run on the live Goat module found 12 surviving mutants,
+  all in the rendered animation cycle/phase selectors. Existing tests would
+  accept constant output, inverted HP/charge selection, broken wraparound, or
+  off-by-one frame boundaries.
+- Exact table tests now pin both cycles of the four ROM scripts
+  `stru_3C97C`, `stru_3C996`, `stru_3C9B0`, and `stru_3C9CA`, including the
+  charging atlas offset. The identical 45-mutant census improves from 25
+  caught / 12 missed / 8 unviable to 37 caught / 0 missed / 8 unviable.
+
 ## 2026-09-03 handoff (Heady Metal non-collidable death bursts)
 
 - The settled Level `$33` probe isolates the first idle-tail divergence at frame
