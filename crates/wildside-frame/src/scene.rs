@@ -12771,6 +12771,35 @@ mod tests {
     }
 
     #[test]
+    fn drips_surface_pool_frames_decode_both_off_33520_mappings() {
+        let visuals = sample_animated_visual(sample_sprite_frame(0));
+
+        for (mapping, expected) in [
+            (
+                wildside_core::DripsSurfaceChildMappingLoc3350E::C7B9E,
+                (0x0B9, 0x06, 0x0C, 0x02),
+            ),
+            (
+                wildside_core::DripsSurfaceChildMappingLoc3350E::C7BA6,
+                (0x0BB, 0x07, 0x0F, 0x03),
+            ),
+        ] {
+            let frame = drips_surface_child_frame_loc_3350e(&visuals, mapping)
+                .expect("ASM loc_3350E writes each off_33520 mapping to the persistent pool");
+            assert_eq!(
+                (
+                    frame.tile_base_index,
+                    frame.origin_x,
+                    frame.width_px,
+                    frame.height_px,
+                ),
+                expected,
+                "ASM unk_C7B9E/unk_C7BA6 sprite_frame_vram geometry must survive as a renderable frame"
+            );
+        }
+    }
+
+    #[test]
     fn ufo_beam_renders_rom_sprite_frame_enemy0f_ufo_beam_init() {
         let mut visuals = sample_level_visuals(1);
         let mut ufo = sample_animated_visual(sample_sprite_frame(0x0F));

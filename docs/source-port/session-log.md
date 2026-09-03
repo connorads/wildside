@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-03 handoff (Drips surface-pool frame boundary)
+
+- `project-status` offered no ready/open risk. The sole ordinary uncovered label,
+  Tar Monster `loc_32454`, remains instruction bytes referenced as collision data
+  only by palette `Data_Index` rows 612-614, so it did not receive a false
+  gameplay citation.
+- A focused `drips_surface_child_frame_loc_3350e` mutation census found one
+  survivor: replacing the whole mapping helper with `None` did not fail a test.
+- A direct `loc_3350E` regression now requires both `off_33520` mappings to
+  produce renderable frames with the `unk_C7B9E` and `unk_C7BA6` tile and
+  geometry fields. The identical census improves from 7 caught / 1 missed / 1
+  unviable to 8 caught / 0 missed / 1 unviable.
+
 ## 2026-09-03 handoff (loc_901 worker identity boundary)
 
 - `project-status` offered no ready/open risk. The sole ordinary uncovered label,
