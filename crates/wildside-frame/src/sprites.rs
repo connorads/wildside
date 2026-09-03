@@ -5564,17 +5564,31 @@ mod tests {
     }
 
     #[test]
-    fn fireball_live_snapshot_selects_loc_33072_angle_frame() {
+    fn fireball_live_selector_pins_off_33026_phase_family_and_atlas_bounds() {
         let visuals = labelled_enemy_visuals(24, 6);
-        let trace = NativeTraceFrame::default();
         let mut fireball = live_enemy_object(0x19);
-        fireball.sprite_animation_phase = Some(14);
+        for phase in [6, 23] {
+            fireball.sprite_animation_phase = Some(phase);
+            assert_eq!(
+                select_live_fireball_frame(&visuals, &fireball)
+                    .expect("ASM Fireball.asm loc_33072 live off_33026 mapping")
+                    .tile_base_index,
+                visuals.frames[usize::from(phase)].tile_base_index,
+            );
+        }
 
-        assert_eq!(
-            selected_enemy_tile_base(&trace, &visuals, &fireball),
-            0x010E,
-            "ASM Fireball.asm loc_32F3E/loc_3304A/loc_33072 must render the selected live angle mapping instead of cycling death art"
-        );
+        for phase in [5, 24] {
+            fireball.sprite_animation_phase = Some(phase);
+            assert!(select_live_fireball_frame(&visuals, &fireball).is_none());
+        }
+
+        fireball.sprite_animation_phase = Some(14);
+        let mut wrong_family = fireball.clone();
+        wrong_family.kind = NativeObjectKind::Enemy { object_type: 0x18 };
+        assert!(select_live_fireball_frame(&visuals, &wrong_family).is_none());
+
+        let short_atlas = labelled_enemy_visuals(23, 6);
+        assert!(select_live_fireball_frame(&short_atlas, &fireball).is_none());
     }
 
     #[test]

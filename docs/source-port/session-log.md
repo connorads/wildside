@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-03 handoff (published-route Fireball selector mutation closure)
+
+- Madmaze Mountain's published-route roster selected its twelve Fireballs as a
+  live pixel-gate target. The focused selector census exposed two survivors:
+  the 24-frame atlas floor and a combined family/atlas guard.
+- A direct `loc_33072` / `off_33026` contract now pins live phases 6 and 23,
+  rejects adjacent phases 5 and 24, and rejects wrong-family and 23-frame-atlas
+  inputs independently. The focused census improves from 5 caught / 2 missed /
+  1 compiler-unviable to 7 caught / 0 missed / 1 compiler-unviable.
+
 ## 2026-09-03 handoff (published-route Cloud selector mutation closure)
 
 - The five route-visible Spheres in Skydragon Castle 1 were checked first and
