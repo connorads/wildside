@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-03 handoff (Heady Metal non-collidable death bursts)
+
+- The settled Level `$33` probe isolates the first idle-tail divergence at frame
+  348: native lets an overlapping `BossDeathBurst` damage Kid, removes the
+  worker, and ends with one fewer object/GfxObject than oracle.
+- ASM `sub_370D2` and its shared `sub_37002` helper allocate visible, moved
+  GfxObjects but never set `has_kid_collision`. Native now models that
+  capability at the projectile contact boundary while preserving movement,
+  rendering, and non-Kid collision responses.
+- `ensure_level_layouts_with` now shares the gameplay sweep's known-broken warp
+  filter. Direct recording probes for `$33` use the decoded layout fallback
+  instead of retrying a jgenesis warp that lands in `$12`.
+- Focused state report `1788455225` passes both Level `$33` checkpoints. The
+  complete 37,759-frame TAS gate and `verify-slice-fast` pass.
+
 ## 2026-09-03 handoff (Heady Metal signed loader and composite)
 
 - The last whole-level sweep failure, Level `$33`, stores Heady Metal at layout

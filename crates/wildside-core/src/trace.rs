@@ -13800,6 +13800,9 @@ impl NativeRuntime {
         }
 
         for (index, projectile) in self.projectiles.iter().enumerate() {
+            if !crate::projectiles::projectile_participates_in_kid_collision(projectile) {
+                continue;
+            }
             if matches!(
                 projectile.kind,
                 EnemyProjectileKind::DripsSurfaceCrawlerBurst

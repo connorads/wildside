@@ -1562,6 +1562,32 @@ mod drips_surface_crawler_tests {
     }
 
     #[test]
+    fn heady_metal_death_burst_has_no_kid_collision_sub_370d2() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 32 << 16;
+        slice.player.y_pos = 127 << 16;
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::BossDeathBurst,
+            boss_death_burst_state: BossDeathBurstState::ChaseLoc37148,
+            x_pos: 33 << 16,
+            y_pos: 146 << 16,
+            lifetime: 15,
+            ..Default::default()
+        });
+
+        assert_eq!(
+            runtime.projectile_player_contact_loc_b640(&slice, false),
+            ProjectilePlayerContactLocB640::None,
+            "ASM sub_370D2 never sets has_kid_collision, so its overlapping eye burst must bypass GfxObjects_CollisionKid"
+        );
+        assert_eq!(runtime.projectiles.len(), 1);
+    }
+
+    #[test]
     fn drips_surface_crawler_burst_offsets_match_loc_33550_callers() {
         let cases = [
             (
@@ -4912,6 +4938,9 @@ impl NativeRuntime {
             self.progression.current_form.half_width(),
         );
         self.projectiles.iter().any(|p| {
+            if !projectile_participates_in_kid_collision(p) {
+                return false;
+            }
             if matches!(
                 p.kind,
                 EnemyProjectileKind::DripsSurfaceCrawlerBurst
@@ -4958,6 +4987,9 @@ impl NativeRuntime {
         let stomp_registration_blocked = self.stomp_registration_blocked_loc_1ce4(slice.player);
         self.last_projectile_damage_probe = None;
         self.projectiles.retain_mut(|p| {
+            if !projectile_participates_in_kid_collision(p) {
+                return true;
+            }
             if matches!(
                 p.kind,
                 EnemyProjectileKind::DripsSurfaceCrawlerBurst
@@ -5166,6 +5198,13 @@ fn inclusive_bounds_overlap_loc_1bce(
     player: ProjectilePlayerBoundsPx,
 ) -> bool {
     left <= player.right && right >= player.left && top <= player.bottom && bottom >= player.top
+}
+
+pub(crate) fn projectile_participates_in_kid_collision(projectile: &EnemyProjectile) -> bool {
+    // ASM sub_370D2 (kid.asm:38972) and sub_37002 allocate visible, moved
+    // GfxObjects but never set `has_kid_collision(a3)`. Their collision_type
+    // checks consume terrain/other-object contacts, not Kid overlap.
+    projectile.kind != EnemyProjectileKind::BossDeathBurst
 }
 
 fn projectile_overlaps_player_loc_1c18(
