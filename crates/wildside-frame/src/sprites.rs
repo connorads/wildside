@@ -6457,6 +6457,19 @@ mod tests {
             ),
             0x0502
         );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    current_helmet_id: PlayerForm::TheKid.helmet_id(),
+                    iron_knight_climbing: true,
+                    iron_knight_climb_pose_accum: 0x80,
+                    ..NativeTraceFrame::default()
+                },
+                &visuals,
+            ),
+            0x0100,
+            "ASM sub_A3BC/off_A420 climb art belongs to Iron Knight only",
+        );
         let mut short_climb_visuals = labelled_player_visuals();
         short_climb_visuals.climb.truncate(2);
         assert_eq!(
@@ -6647,6 +6660,20 @@ mod tests {
                 &visuals
             ),
             0x0202
+        );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    current_helmet_id: PlayerForm::TheKid.helmet_id(),
+                    berzerker_walk_pose: true,
+                    walk_visual_accumulator: 0x0200,
+                    kid_x_velocity: Some(0),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals,
+            ),
+            0x0100,
+            "ASM loc_9580/off_967C retained walk art belongs to Berzerker only",
         );
         assert_eq!(
             selected_tile_base(

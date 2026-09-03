@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (player pose ownership mutation closure)
+
+- The 37,759-frame route census confirms live Kid, Cyclone, and Iron Knight
+  rendering. Downstream sprite position, chunk partition, tile placement, and
+  priority helpers were checked first; every behavioural mutant was caught.
+- The full `select_player_frame` census exposed cross-form guard gaps. Direct
+  assertions now prove `sub_A3BC/off_A420` climb art belongs only to Iron
+  Knight and `loc_9580/off_967C` retained-walk art only to Berzerker. The
+  119-mutant census improves from 96 caught / 17 missed / 6 compiler-unviable
+  to 98 caught / 15 missed / 6 compiler-unviable. Remaining survivors belong
+  to separate slope/crawl/airborne atlas-bound contracts or equivalent clamps.
+
 ## 2026-09-04 handoff (published-route player death-art mutation closure)
 
 - A fresh native replay of all 37,759 published-route frames replaced
