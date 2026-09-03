@@ -21585,6 +21585,36 @@ mod tests {
             vec![(0x0282, 0x01BB), (0x0282, 0x01CA)],
             "ASM Mode_Level loc_901 transfers the previous beam positions which oracle frame 3's SAT places at x=154, y=-30/-15"
         );
+        let (visuals, block_grid) =
+            load_session_assets(&manifest, 0x48).expect("Level 0x48 visuals");
+        let drips_child_sprite = |frame_index, tile_index| {
+            let render_trace = trace_frame_with_vdp_latch_at_checkpoint(
+                &run.trace,
+                frame_index,
+                Some(&run.initial_render_latch),
+                "drips_child_transfer",
+            )
+            .expect("Level 0x48 Drips child render trace");
+            let scene = build_scene(&render_trace, false, Some(&visuals), Some(&block_grid));
+            scene
+                .commands
+                .into_iter()
+                .find_map(|command| match command {
+                    DrawCommand::Sprite { x, y, tiles, .. }
+                        if tiles
+                            .first()
+                            .is_some_and(|tile| tile.tile.tile_index == tile_index) =>
+                    {
+                        Some((x, y, tile_index))
+                    }
+                    _ => None,
+                })
+        };
+        assert_eq!(
+            drips_child_sprite(115, 0x0B9),
+            Some((158, 162, 0x0B9)),
+            "ASM Drips.asm loc_33488/loc_3350E transfers the new `a2` C7B9E pool which oracle frame 115 places at SAT anchor x=164, y=164"
+        );
         let render_trace = trace_frame_with_vdp_latch_at_checkpoint(
             &run.trace,
             359,
@@ -21592,8 +21622,6 @@ mod tests {
             "idle_tail",
         )
         .expect("Level 0x48 frame-359 render trace");
-        let (visuals, block_grid) =
-            load_session_assets(&manifest, 0x48).expect("Level 0x48 visuals");
         let scene = build_scene(&render_trace, false, Some(&visuals), Some(&block_grid));
         let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
         render_scene(&scene, &mut rgb);

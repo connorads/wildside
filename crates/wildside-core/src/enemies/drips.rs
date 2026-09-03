@@ -1905,6 +1905,35 @@ mod tests {
     }
 
     #[test]
+    fn drips_pool_exposes_resume_pending_mapping_loc_33488() {
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::Drips,
+            wait_timer: DRIPS_SPLASH_RESUME_PENDING_TIMER_LOC_33488,
+            drips_pending_splash_x_pos: 0x0288_0000,
+            drips_pending_splash_y_pos: 0x0270_0000,
+            palette_variant: 2,
+            ..mini_hopping_skull_test_enemy()
+        };
+        assert_eq!(
+            enemy
+                .drips_surface_child_snapshot_loc_3350e()
+                .map(|snapshot| snapshot.mapping),
+            Some(DripsSurfaceChildMappingLoc3350E::C7B9E),
+            "ASM loc_33488/loc_3350E exposes the newly written `a2` mapping for the following transfer"
+        );
+
+        enemy.drips_surface_table_index = 1;
+        assert_eq!(
+            enemy
+                .drips_surface_child_snapshot_loc_3350e()
+                .map(|snapshot| snapshot.mapping),
+            Some(DripsSurfaceChildMappingLoc3350E::C7BA6)
+        );
+        enemy.drips_surface_table_index = 2;
+        assert_eq!(enemy.drips_surface_child_snapshot_loc_3350e(), None);
+    }
+
+    #[test]
     fn drips_surface_table_reset_matches_loc_33506() {
         assert_eq!(
             drips_surface_table_reset_loc_33506(),
