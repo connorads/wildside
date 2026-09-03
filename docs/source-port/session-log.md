@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-03 handoff (Forest ripple display-latch mutation closure)
+
+- With no ready/open risk, the static Drips palette pointer-order contract and
+  frozen HUD timing lane were left untouched. The newer background-alias source
+  remained clean at 7 caught / 1 unviable.
+- The Forest ripple display latch previously removed more than 100,000 changed
+  pixel instances, but replacing its visible phase with constant frame 0 or 1
+  passed all `wildside-frame` tests.
+- A direct `loc_305E6` contract now pins the preceding `Time_Frames` H-scroll
+  table and its saturating power-on boundary at 0, 1 and 112. The identical
+  census improves from 7 caught / 2 missed to 9 caught / 0 missed.
+
 ## 2026-09-03 handoff (RockTank presentation-latch mutation closure)
 
 - With no ready/open risk, the newer route-independent background alias source

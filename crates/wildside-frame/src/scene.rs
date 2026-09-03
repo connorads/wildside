@@ -14366,6 +14366,22 @@ mod tests {
     }
 
     #[test]
+    fn forest_ripple_display_uses_previous_time_frames_table_loc_305e6() {
+        for (time_frames, expected_display_time) in [(0, 0), (1, 0), (112, 111)] {
+            let trace = NativeTraceFrame {
+                time_frames_loc_3038a: time_frames,
+                ..NativeTraceFrame::default()
+            };
+
+            assert_eq!(
+                forest_water_ripple_display_time_frames_for_trace_loc_305e6(&trace),
+                expected_display_time,
+                "ASM loc_305E6 builds the next Horiz_Scroll_Buffer from Time_Frames while the visible VDP table retains the preceding frame, saturating at power-on",
+            );
+        }
+    }
+
+    #[test]
     fn chunked_plane_b_row_debug_reports_loc_30744_provenance() {
         let trace = NativeTraceFrame {
             frame_index: 60,
