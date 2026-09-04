@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (forest-water ripple band and phase)
+
+- A focused `forest_water_ripple_offset_for_screen_y_sub_30598` mutation audit
+  found 23 of 30 mutations surviving, including disabling the effect and
+  corrupting its band origin, clipping, table offset, and phase arithmetic.
+- The new contract pins `loc_30598-loc_3060A` at both edges of a normal
+  64-scanline band, the clipped 56-line negative-start path, and a non-zero
+  `Time_Frames` phase. The census improves to 29 caught / 1 equivalent
+  survivor: scanline 224 still returns `None` at the fixed buffer boundary.
+
 ## 2026-09-04 handoff (Shishkaboss head/skewer atlas boundary)
 
 - A focused `select_live_shishkaboss_head_frame_loc_39538` mutation audit

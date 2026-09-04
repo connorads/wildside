@@ -14382,6 +14382,56 @@ mod tests {
     }
 
     #[test]
+    fn forest_water_ripple_pins_visible_band_clipping_and_phase_sub_30598() {
+        // ASM BackgroundScroll_ApplyForestWaterRipple loc_30598-loc_3060A:
+        // selector 2 starts the 64-line band at scanline 16. Time_Frames 16
+        // advances the byte-table phase by four entries.
+        assert_eq!(
+            forest_water_ripple_offset_for_screen_y_sub_30598(0, 15, 2, 0),
+            None
+        );
+        assert_eq!(
+            forest_water_ripple_offset_for_screen_y_sub_30598(0, 16, 2, 0),
+            Some(0)
+        );
+        assert_eq!(
+            forest_water_ripple_offset_for_screen_y_sub_30598(16, 16, 2, 0),
+            Some(1)
+        );
+        assert_eq!(
+            forest_water_ripple_offset_for_screen_y_sub_30598(0, 79, 2, 0),
+            Some(1)
+        );
+        assert_eq!(
+            forest_water_ripple_offset_for_screen_y_sub_30598(0, 80, 2, 0),
+            None
+        );
+
+        // ASM loc_305C2-loc_305E6 clips a band starting eight lines above
+        // the display, skips eight table bytes, and renders 56 scanlines.
+        assert_eq!(
+            forest_water_ripple_offset_for_screen_y_sub_30598(0, -1, 0, 32),
+            None
+        );
+        assert_eq!(
+            forest_water_ripple_offset_for_screen_y_sub_30598(0, 0, 0, 32),
+            Some(2)
+        );
+        assert_eq!(
+            forest_water_ripple_offset_for_screen_y_sub_30598(0, 55, 0, 32),
+            Some(1)
+        );
+        assert_eq!(
+            forest_water_ripple_offset_for_screen_y_sub_30598(0, 56, 0, 32),
+            None
+        );
+        assert_eq!(
+            forest_water_ripple_offset_for_screen_y_sub_30598(0, FRAME_HEIGHT as i32, 2, 0),
+            None
+        );
+    }
+
+    #[test]
     fn background_source_scroll_pins_loc_30452_layer_table() {
         let time_frames = 112;
         let camera_x_px = 481;
