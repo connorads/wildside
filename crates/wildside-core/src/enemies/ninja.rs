@@ -891,11 +891,14 @@ pub(crate) fn ninja_far_kid_facing_loc_3d92a(
 pub(crate) const NINJA_ATTACK_PERIOD_SHORT_LOC_3D960: u16 = 0x0032;
 pub(crate) const NINJA_ATTACK_PERIOD_LONG_LOC_3D960: u16 = 0x012C;
 pub(crate) const NINJA_WALK_ANIMATION_CYCLE_FRAMES_LOC_3D4EA: u16 = 40;
-pub(crate) const NINJA_THROW_FRAME_PHASE_LOC_3D958: u16 = 37;
+pub(crate) const NINJA_THROW_FRAME_PHASE_LOC_3D958: u16 = 1;
 
 pub(crate) fn ninja_walk_throw_frame_phase_loc_3d958(walk_phase: u16) -> bool {
-    // ASM ingame/anim/enemy/Ninja.asm stru_3D4EA: frame C7DBE starts after
-    // 34 ticks; loc_3D958 wants its third remaining animation tick.
+    // ASM Ninja.asm loc_3D958 tests C7DBE with animation_timer(a3) == 3.
+    // GfxObject_Animate advances the six-frame stru_3D4EA tail before the
+    // object callback observes it, so the matching callback phase is one
+    // tick after the synthetic 40-frame cycle wraps. Oracle level $45 enters
+    // loc_3D9A4 four frames after a phase-37 approximation would launch.
     walk_phase % NINJA_WALK_ANIMATION_CYCLE_FRAMES_LOC_3D4EA == NINJA_THROW_FRAME_PHASE_LOC_3D958
 }
 
@@ -1223,6 +1226,12 @@ fn step_ninja_stealth_cadence_loc_3d942(enemy: &mut ActiveEnemy) -> bool {
             enemy.ninja_state = NinjaState::JumpAttack;
             enemy.x_velocity = jump.x_velocity;
             enemy.y_velocity = jump.y_velocity;
+            // ASM Ninja.asm loc_3D9A4 -> loc_3D9DA sets is_moved before its
+            // first hibernate, so the object mover commits the launch vector
+            // in the same frame. Deferring this to the next native step shifts
+            // the whole arc one frame and can select a different landing tile.
+            enemy.x_pos = (i64::from(enemy.x_pos) + i64::from(jump.x_velocity)) as u32;
+            enemy.y_pos = (i64::from(enemy.y_pos) + i64::from(jump.y_velocity)) as u32;
             enemy.on_ground = false;
             true
         }
@@ -2647,10 +2656,10 @@ mod tests {
 
     #[test]
     fn ninja_walk_throw_frame_phase_loc_3d958_matches_c7dbe_timer_three() {
-        assert!(!ninja_walk_throw_frame_phase_loc_3d958(36));
+        assert!(!ninja_walk_throw_frame_phase_loc_3d958(0));
         assert!(
-            ninja_walk_throw_frame_phase_loc_3d958(37),
-            "ASM ingame/anim/enemy/Ninja.asm stru_3D4EA should expose C7DBE with animation_timer(a3) == 3 on phase 37"
+            ninja_walk_throw_frame_phase_loc_3d958(1),
+            "ASM Ninja.asm loc_3D958 should observe C7DBE with animation_timer(a3) == 3 after the animation cycle wraps"
         );
         assert_eq!(
             ninja_advance_walk_phase_loc_3d4ea(39),
@@ -2671,6 +2680,8 @@ mod tests {
         enemy.wait_timer = NINJA_THROW_FRAME_PHASE_LOC_3D958;
         enemy.shared_walker_patrol_short_next = true;
         enemy.shared_walker_state = 0;
+        enemy.x_pos = 0x0073_0000;
+        enemy.y_pos = 0x0090_0000;
 
         assert!(
             step_ninja_stealth_cadence_loc_3d942(&mut enemy),
@@ -2683,6 +2694,8 @@ mod tests {
                 enemy.ninja_state,
                 enemy.x_velocity,
                 enemy.y_velocity,
+                enemy.x_pos,
+                enemy.y_pos,
             ),
             (
                 NINJA_ATTACK_PERIOD_SHORT_LOC_3D960,
@@ -2690,8 +2703,10 @@ mod tests {
                 NinjaState::JumpAttack,
                 -0x0001_8000,
                 -0x0004_8000,
+                0x0071_8000,
+                0x008B_8000,
             ),
-            "ASM Ninja.asm loc_3D960 stores `$0032/$012C` as a word pair, swaps it, copies the new low word into `$54(a5)`, and then launches left when x_direction is clear"
+            "ASM Ninja.asm loc_3D960 stores `$0032/$012C` as a word pair, swaps it, copies the new low word into `$54(a5)`, then loc_3D9A4 launches and moves left in the same frame"
         );
     }
 

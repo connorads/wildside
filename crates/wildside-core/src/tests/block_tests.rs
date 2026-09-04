@@ -11761,7 +11761,7 @@ mod chunk_04 {
         enemy.facing = Direction::Right;
         enemy.shared_walker_patrol_timer = 1;
         enemy.shared_walker_patrol_short_next = true;
-        enemy.wait_timer = 37;
+        enemy.wait_timer = 1;
         let player_x = Some(100 << 16);
         let player_y = Some(200 << 16);
 
@@ -11783,6 +11783,8 @@ mod chunk_04 {
         assert!(!enemy.shared_walker_patrol_short_next);
         assert_eq!(enemy.x_velocity, 0x0001_0000);
         assert_eq!(enemy.y_velocity, -0x0004_8000);
+        assert_eq!(enemy.x_pos, 101 << 16);
+        assert_eq!(enemy.y_pos, 0x00C3_8000);
         assert!(!enemy.on_ground);
     }
 
