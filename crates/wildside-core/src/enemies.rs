@@ -8637,8 +8637,8 @@ fn register_shared_walker_turnaround(enemy: &mut ActiveEnemy) -> bool {
 /// (loc_3C30C -> loc_3C0D2). The Lion.asm loc_3E3B2/loc_3E566 walker (Goat,
 /// Lion, Orca, Armadillo, Scorpion, Ninja, walking Dragon) has NO look-ahead
 /// cliff turn — `tst.w d6; bmi loc_3E682` walks off the edge into the
-/// falling loop — and lands through loc_3E732 -> loc_3E392 (face Right,
-/// restore the walk step, seed the -120 charge cooldown). Partition measured
+/// falling loop — and lands through direction-specific loc_3E732 -> loc_3E392
+/// or loc_3E84E -> loc_3E546 tails. Partition measured
 /// from the per-family `include`/branch targets in code/enemy/*.asm.
 ///
 /// Goat, Lion, Orca, Armadillo, walking Dragon, Scorpion, and Ninja run the
@@ -8765,6 +8765,14 @@ fn lion_landing_native_shared_state_loc_3e732(
         GOAT_CHARGE_COOLDOWN_LOC_3E48E
     } else {
         native_shared_state
+    }
+}
+
+fn lion_landing_facing_loc_3e732_3e84e(moving_right: bool) -> Direction {
+    if moving_right {
+        Direction::Right
+    } else {
+        Direction::Left
     }
 }
 
@@ -9492,10 +9500,10 @@ fn shared_walker_falling_gravity_loc_3c246_3c332(y_velocity: i32) -> i32 {
 /// ASM Lion.asm loc_3E6AE (#419): the Goat-lineage falling loop. X keeps the
 /// walk/charge step (loc_3E682 seeds `x_vel = $50(a5)`) with a wall snap that
 /// clears it; gravity adds `$4000` per frame capped at `$180000` (loc_3E77E).
-/// Landing (loc_3E732) snaps to the floor, restores the walk step from
-/// `$5E(a5)`, seeds the `$42 = $FF88` charge cooldown, and exits through
-/// loc_3E392 — which faces the walker RIGHT (`st x_direction`) regardless of
-/// its previous direction; the oracle's 0x60 Goats land facing Right.
+/// Landing snaps to the floor, restores the walk step from `$5E(a5)`, and
+/// seeds the `$42 = $FF88` charge cooldown. The right loop exits through
+/// loc_3E732 -> loc_3E392; the mirrored left loop exits through loc_3E84E ->
+/// loc_3E546, so landing preserves the direction-specific loop.
 fn step_lion_walker_falling_loc_3e6ae(enemy: &mut ActiveEnemy, grid: &terrain::BlockGrid) {
     let probe_half_width = pacer_probe_half_width(enemy.family);
     let probe_height = pacer_probe_height(enemy.family);
@@ -9553,7 +9561,8 @@ fn step_lion_walker_falling_loc_3e6ae(enemy: &mut ActiveEnemy, grid: &terrain::B
         );
         let floor_y_fp = (floor_y_px as u32) << 16;
         if floor.on_ground {
-            // ASM loc_3E732 landing tail -> loc_3E392.
+            // ASM Lion.asm loc_3E732 -> loc_3E392 (right) and loc_3E84E ->
+            // loc_3E546 (left): the mirrored landing tails preserve facing.
             enemy.y_pos = floor_y_fp;
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
@@ -9566,7 +9575,7 @@ fn step_lion_walker_falling_loc_3e6ae(enemy: &mut ActiveEnemy, grid: &terrain::B
                 // Init_Animation before entering loc_3E392.
                 enemy.dragon_descent_frames = 0;
             }
-            enemy.facing = Direction::Right;
+            enemy.facing = lion_landing_facing_loc_3e732_3e84e(moving_right);
             return;
         }
     }
@@ -12234,6 +12243,20 @@ mod tests {
             goat.y_velocity,
             i32::MIN,
             "ASM Lion.asm loc_3E77E performs ADDI.L #$4000 before the signed terminal-speed comparison"
+        );
+    }
+
+    #[test]
+    fn lion_walker_landing_preserves_direction_specific_tail_loc_3e732_3e84e() {
+        assert_eq!(
+            lion_landing_facing_loc_3e732_3e84e(true),
+            Direction::Right,
+            "ASM Lion.asm loc_3E732 exits the right-moving falling loop through loc_3E392"
+        );
+        assert_eq!(
+            lion_landing_facing_loc_3e732_3e84e(false),
+            Direction::Left,
+            "ASM Lion.asm loc_3E84E exits the left-moving falling loop through loc_3E546"
         );
     }
 

@@ -6065,9 +6065,9 @@ mod chunk_02 {
             .expect("settled Level 0x11 Armadillo should be active at frame 0");
 
         assert_eq!(
-            (armadillo.x_pos, trace.number_objects),
-            (0x0163_0000, 4),
-            "ASM sub_73D0 keeps Mode_Level scheduling the Armadillo through loc_3E546 while the opening palette ramps; Allocate_PlatformSlot keeps the scripted platform outside Number_Objects, and the Level 0x11 oracle reaches x=$0163 with four objects at recording frame 0"
+            (armadillo.x_pos, armadillo.facing, trace.number_objects),
+            (0x0163_0000, Some(Direction::Left), 4),
+            "ASM sub_73D0 keeps Mode_Level scheduling the Armadillo through Lion.asm loc_3E84E -> loc_3E546 while the opening palette ramps; Allocate_PlatformSlot keeps the scripted platform outside Number_Objects, and the Level 0x11 oracle reaches x=$0163 facing left with four objects at recording frame 0"
         );
     }
 
