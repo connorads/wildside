@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (Shishkaboss skewer projection)
+
+- A focused mutation audit found all nine
+  `push_shishkaboss_skewer_loc_38494_38884` mutations surviving, including
+  deleting the emitter and corrupting either world-to-screen axis. Existing
+  tests covered only the helper that determines the retained-SAT X carry.
+- A public-emitter contract now projects top, shaft, and bottom workers through
+  non-zero camera coordinates while exercising the integral-half-step carry.
+  It pins the appended C85F8, C85F0, and C85E8 frame order from
+  `loc_38494/loc_38512..loc_38806/loc_38884`. The focused census improves from
+  0 caught / 9 missed to 9 caught / 0 missed.
+
 ## 2026-09-04 handoff (enemy sprite emitter mutation closure)
 
 - The remaining `push_enemy_sprite` mutants exposed three public-boundary gaps.

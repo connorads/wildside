@@ -3718,6 +3718,57 @@ mod tests {
         assert_eq!(shishkaboss_eye_presentation_x_carry_loc_3931a(&trace), 0);
     }
 
+    #[test]
+    fn shishkaboss_skewer_emitter_projects_all_loc_38494_38884_mappings() {
+        let mut level_visuals = minimal_level_visuals_for_platforms();
+        level_visuals
+            .enemies
+            .families
+            .insert(0x22, labelled_enemy_visuals(8, 1));
+        let trace = NativeTraceFrame {
+            camera_x_pos: 0x0020_0000,
+            camera_y_pos: 0x0010_0000,
+            active_objects: vec![NativeObjectSnapshot {
+                x_pos: 0x0200_0000,
+                ..live_enemy_object(0x22)
+            }],
+            shishkaboss_skewer_pieces: vec![
+                wildside_core::ShishkabossSkewerPieceTrace {
+                    x_pos: 0x0123,
+                    y_pos: 0x0090,
+                    mapping: ShishkabossSkewerMapping::Top,
+                },
+                wildside_core::ShishkabossSkewerPieceTrace {
+                    x_pos: 0x0123,
+                    y_pos: 0x0090,
+                    mapping: ShishkabossSkewerMapping::Shaft,
+                },
+                wildside_core::ShishkabossSkewerPieceTrace {
+                    x_pos: 0x0123,
+                    y_pos: 0x0090,
+                    mapping: ShishkabossSkewerMapping::Bottom,
+                },
+            ],
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_shishkaboss_skewer_loc_38494_38884(&mut commands, &trace, &level_visuals);
+
+        let sprites = commands
+            .iter()
+            .map(|command| match command {
+                DrawCommand::Sprite { x, y, tiles, .. } => (*x, *y, tiles[0].tile.tile_index),
+                other => panic!("expected Shishkaboss skewer sprite, got {other:?}"),
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            sprites,
+            vec![(252, 112, 0x0105), (252, 112, 0x0106), (252, 112, 0x0107)],
+            "ASM loc_38494/loc_38512..loc_38806/loc_38884 projects C85F8, C85F0, and C85E8 workers from world space, including the retained integral-half-step X carry"
+        );
+    }
+
     fn dead_enemy_object(object_type: u8, wait_timer: u16) -> NativeObjectSnapshot {
         NativeObjectSnapshot {
             hit_points: Some(0),
