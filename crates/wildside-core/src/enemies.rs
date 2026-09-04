@@ -1788,10 +1788,24 @@ pub(crate) const SPHERE_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x0A + 0x0A;
 const SPHERE_LIVE_ANIMATION_FRAMES: u16 = 0x09 + 0x09 + 0x09;
 
 fn sphere_live_sprite_animation_phase_stru_36174(animation_tick: u16) -> u8 {
-    // ASM Sphere.asm Enemy06_Sphere_Init installs `stru_36174`: three
-    // nine-tick mappings followed by `dc.b 2,$D`, which rewinds to the first
-    // entry without reinitialising the GfxObject animation.
-    ((animation_tick % SPHERE_LIVE_ANIMATION_FRAMES) / 0x09) as u8
+    // ASM Init_Animation loc_1040 exposes the first mapping before animation
+    // starts. GfxObject_Animate sub_1194 then retains each mapping through its
+    // ninth pass; `stru_36174` rewinds after tick 27 without another bootstrap.
+    match animation_tick {
+        0..=0x09 => 0,
+        0x0A..=0x12 => 1,
+        _ => 2,
+    }
+}
+
+fn sphere_next_live_animation_tick_stru_36174(animation_tick: u16) -> u16 {
+    // ASM Sphere.asm stru_36174: after three nine-pass entries, `dc.b 2,$D`
+    // installs the first entry during the following GfxObject_Animate call.
+    if animation_tick == 0 || animation_tick >= SPHERE_LIVE_ANIMATION_FRAMES {
+        1
+    } else {
+        animation_tick + 1
+    }
 }
 /// ASM Goat.asm loc_3CB38 / stru_3C9E4: the nonfatal hurt animation is one
 /// `$14`-tick frame.
@@ -7258,7 +7272,7 @@ fn step_sphere_bouncer_loc_35f70(
     // `LnkTo_unk_C8120..C8130` all map through CollisionSize_Index to active
     // rows `unk_31AB0..31AC4`; the zero rows immediately before them belong
     // to the Sphere death frames, not the live loop.
-    enemy.wait_timer = (enemy.wait_timer + 1) % SPHERE_LIVE_ANIMATION_FRAMES;
+    enemy.wait_timer = sphere_next_live_animation_tick_stru_36174(enemy.wait_timer);
     if let Some(grid) = block_grid {
         let collision_type = sphere_gfx_collision_probe_loc_171c(enemy, grid);
         set_sphere_pending_collision_type_loc_171c(enemy, collision_type);
@@ -13166,7 +13180,7 @@ mod tests {
     fn stru_36174_exports_object_local_mapping_phase() {
         let mut sphere = sphere_test_enemy();
 
-        for (tick, expected_phase) in [(0, 0), (8, 0), (9, 1), (17, 1), (18, 2), (26, 2), (27, 0)] {
+        for (tick, expected_phase) in [(0, 0), (9, 0), (10, 1), (18, 1), (19, 2), (27, 2), (1, 0)] {
             sphere.wait_timer = tick;
             assert_eq!(
                 sphere.snapshot().sprite_animation_phase,
@@ -13180,6 +13194,25 @@ mod tests {
             sphere.snapshot().sprite_animation_phase,
             None,
             "ASM Enemy06_Sphere_Kill replaces stru_36174 with stru_36182"
+        );
+    }
+
+    #[test]
+    fn stru_36174_animation_clock_preserves_ninth_tick_and_rewinds_next_pass() {
+        assert_eq!(
+            sphere_next_live_animation_tick_stru_36174(8),
+            9,
+            "ASM GfxObject_Animate loc_1166 leaves Sphere's first mapping active when its timer reaches one"
+        );
+        assert_eq!(
+            sphere_next_live_animation_tick_stru_36174(9),
+            10,
+            "ASM GfxObject_Animate sub_1194 installs Sphere's second mapping on the pass after the ninth tick"
+        );
+        assert_eq!(
+            sphere_next_live_animation_tick_stru_36174(27),
+            1,
+            "ASM Sphere.asm stru_36174 `dc.b 2,$D` rewinds and installs the first mapping on the pass after tick 27"
         );
     }
 
