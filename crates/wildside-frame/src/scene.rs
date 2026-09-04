@@ -17086,6 +17086,57 @@ mod tests {
         assert_eq!(positions, vec![(0, 0), (8, 0), (0, 8), (8, 8)]);
     }
 
+    #[test]
+    fn eol_hologram_room_emits_full_loc_c186_scroll_b_map_in_row_major_order() {
+        let mut visuals = sample_level_visuals(1);
+        visuals.eol_hologram = Some(wildside_render::EolHologramVisuals {
+            palette: sample_palette(),
+            tile_sheet: sample_tile_sheet(40 * 28),
+            rows: (0..28)
+                .map(|row| {
+                    (0..40)
+                        .map(|col| sample_tile_ref((row * 40 + col) as u16))
+                        .collect()
+                })
+                .collect(),
+        });
+        let trace = NativeTraceFrame {
+            level_complete: true,
+            level_complete_elapsed_frames:
+                wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE,
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("background"),
+            None,
+        )
+        .0;
+
+        let indexed_tiles = scene.commands.indexed_tiles();
+        assert_eq!(
+            indexed_tiles.len(),
+            40 * 28,
+            "ASM loc_C186 writes all 40 MapEni_CC0E words on each of 28 Scroll B rows"
+        );
+        for (index, expected) in [
+            (0, (0, 0, 0, true)),
+            (1, (8, 0, 1, true)),
+            (40, (0, 8, 40, true)),
+            (40 * 28 - 1, (312, 216, 1119, true)),
+        ] {
+            assert_eq!(
+                indexed_tile_snapshot(indexed_tiles[index]),
+                expected,
+                "ASM loc_C186/loc_C188 preserves row-major MapEni_CC0E tile placement"
+            );
+        }
+    }
+
     trait SingleCommand {
         fn single(&self) -> &DrawCommand;
     }

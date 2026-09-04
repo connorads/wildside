@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (EOL hologram room map contract)
+
+- A focused `push_eol_hologram_room` audit found five of twelve mutations
+  surviving: the ROM-backed room could disappear, or tile columns and rows
+  could use addition/division instead of eight-pixel placement.
+- A public background-scene contract now pins `loc_C186/loc_C188`'s full 40x28
+  `MapEni_CC0E` upload, row transition, and final screen tile. The focused
+  census catches all twelve mutations.
+
 ## 2026-09-04 handoff (helmet-prize DMA association boundary)
 
 - Proactive audits found the live SolidGhost transition and prize-flash
