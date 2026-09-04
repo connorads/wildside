@@ -2999,10 +2999,9 @@ impl ActiveEnemy {
             // ASM Tornado.asm loc_35908 lets `stru_35B10` advance while the
             // object hibernates: C784E, C7856, and C785E each hold for five
             // ticks. Atlas slots 3..4 belong only to loc_359B2's death script.
-            Some(
-                (self.grounded_frames % TORNADO_LIVE_ANIMATION_TICKS)
-                    / TORNADO_LIVE_ANIMATION_FRAME_TICKS,
-            )
+            Some(tornado_live_animation_phase_stru_35b10(
+                self.grounded_frames,
+            ))
         } else if matches!(self.family, EnemyFamily::Goat) && !self.death_animation_active {
             Some(goat_live_sprite_phase(
                 self.hit_points,
@@ -6128,10 +6127,31 @@ const TORNADO_LIVE_ANIMATION_FRAMES: u8 = 3;
 const TORNADO_LIVE_ANIMATION_TICKS: u8 =
     TORNADO_LIVE_ANIMATION_FRAME_TICKS * TORNADO_LIVE_ANIMATION_FRAMES;
 
+fn tornado_live_animation_phase_stru_35b10(animation_tick: u8) -> u8 {
+    // ASM Init_Animation loc_1040 exposes C784E before animation starts.
+    // GfxObject_Animate sub_1194 retains each stru_35B10 mapping through its
+    // fifth pass, then installs the following mapping on the next pass.
+    match animation_tick {
+        0..=5 => 0,
+        6..=10 => 1,
+        _ => 2,
+    }
+}
+
+pub(crate) fn tornado_next_live_animation_tick_stru_35b10(animation_tick: u8) -> u8 {
+    // ASM Tornado.asm stru_35B10: `dc.b 2,$D` rewinds after the third
+    // five-pass entry and installs C784E on the following animation call.
+    if animation_tick == 0 || animation_tick >= TORNADO_LIVE_ANIMATION_TICKS {
+        1
+    } else {
+        animation_tick + 1
+    }
+}
+
 pub(crate) fn tornado_live_zero_contact_row_stru_35b10(animation_tick: u8) -> bool {
     // ASM Tornado.asm `stru_35B10`: C784E is the active row for 5 ticks,
     // then C7856/C785E are zero rows for the next 10 ticks before looping.
-    animation_tick % TORNADO_LIVE_ANIMATION_TICKS >= TORNADO_LIVE_ANIMATION_FRAME_TICKS
+    tornado_live_animation_phase_stru_35b10(animation_tick) != 0
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -12094,13 +12114,31 @@ mod tests {
     fn tornado_exports_stru_35b10_live_animation_phase() {
         let mut enemy = mini_hopping_skull_test_enemy();
         enemy.family = EnemyFamily::Tornado;
-        enemy.grounded_frames = 10;
 
-        assert_eq!(
-            enemy.snapshot().sprite_animation_phase,
-            Some(2),
-            "ASM Tornado.asm loc_35908 / stru_35B10 must export C785E for per-object animation ticks 10..14"
-        );
+        for (tick, expected_phase, expected_zero_contact) in [
+            (0, 0, false),
+            (5, 0, false),
+            (6, 1, true),
+            (10, 1, true),
+            (11, 2, true),
+            (15, 2, true),
+            (1, 0, false),
+        ] {
+            enemy.grounded_frames = tick;
+            assert_eq!(
+                enemy.snapshot().sprite_animation_phase,
+                Some(expected_phase),
+                "ASM Tornado.asm loc_35908 / stru_35B10 mapping at GfxObject animation tick {tick}"
+            );
+            assert_eq!(
+                tornado_live_zero_contact_row_stru_35b10(tick),
+                expected_zero_contact,
+                "ASM Tornado.asm stru_35B10 contact row at GfxObject animation tick {tick}"
+            );
+        }
+
+        assert_eq!(tornado_next_live_animation_tick_stru_35b10(5), 6);
+        assert_eq!(tornado_next_live_animation_tick_stru_35b10(15), 1);
     }
 
     #[test]

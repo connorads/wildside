@@ -1324,12 +1324,12 @@ fn tornado_contact_uses_rom_collision_size_row_loc_1bce() {
 #[test]
 fn tornado_live_zero_contact_uses_stru_35b10_loc_1bce() {
     let mut tornado = test_enemy(EnemyFamily::Tornado, 101 << 16, 100 << 16, 1);
-    tornado.grounded_frames = 5;
+    tornado.grounded_frames = 6;
 
     let bounds = enemy_contact_bounds(&tornado.snapshot());
     assert!(
         bounds.left_px > bounds.right_px && bounds.top_px > bounds.bottom_px,
-        "ASM Tornado.asm `stru_35B10` tick 5 selects LnkTo_unk_C7856, which indexes zero CollisionSize row unk_31D28 through GfxObjects_CollisionKid loc_1BCE"
+        "ASM GfxObject_Animate sub_1194 installs Tornado.asm `stru_35B10` LnkTo_unk_C7856 on tick 6, which indexes zero CollisionSize row unk_31D28 through GfxObjects_CollisionKid loc_1BCE"
     );
 
     let mut slice = combat_slice();
@@ -1361,12 +1361,21 @@ fn tornado_live_animation_tick_advances_during_loc_35908_hibernate() {
 
     assert_eq!(
         tornado.grounded_frames, 5,
-        "ASM Tornado.asm loc_35908 hibernates one frame while GfxObject animation `stru_35B10` advances from C784E to C7856 timing"
+        "ASM Tornado.asm loc_35908 hibernates one frame while GfxObject animation `stru_35B10` retains C784E through its fifth timer pass"
     );
     let bounds = enemy_contact_bounds(&tornado.snapshot());
     assert!(
+        bounds.left_px <= bounds.right_px && bounds.top_px <= bounds.bottom_px,
+        "ASM GfxObject_Animate loc_1166 retains Tornado's C784E contact row while animation_timer reaches one"
+    );
+
+    step_tornado(&mut tornado, None);
+
+    assert_eq!(tornado.grounded_frames, 6);
+    let bounds = enemy_contact_bounds(&tornado.snapshot());
+    assert!(
         bounds.left_px > bounds.right_px && bounds.top_px > bounds.bottom_px,
-        "advancing onto `stru_35B10` frame LnkTo_unk_C7856 must expose the ROM zero contact row"
+        "ASM GfxObject_Animate sub_1194 installs `stru_35B10` frame LnkTo_unk_C7856 on the following pass and exposes its ROM zero contact row"
     );
 }
 

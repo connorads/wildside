@@ -219,7 +219,7 @@ pub(crate) fn step_tornado_with_rng(
         // while `stru_35B10` continues to advance. Tornado never uses
         // `grounded_frames`, so native stores the live contact-animation tick
         // there for GfxObjects_CollisionKid loc_1BCE row selection.
-        enemy.grounded_frames = (enemy.grounded_frames + 1) % TORNADO_LIVE_ANIMATION_TICKS;
+        enemy.grounded_frames = tornado_next_live_animation_tick_stru_35b10(enemy.grounded_frames);
     }
 
     // ASM Tornado.asm loc_35948 uses Tornado's `off_35950` table, then shares
