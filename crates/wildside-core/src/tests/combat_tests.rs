@@ -10699,18 +10699,18 @@ mod chunk_03 {
     }
 
     #[test]
-    fn prize_10_diamonds_worker_countdown_gate_loc_10984_clears_display_only_on_frame_0x70() {
+    fn prize_10_diamonds_worker_countdown_gate_loc_10984_clears_movement_only_on_frame_0x70() {
         assert_eq!(
             NativeRuntime::prize_10_diamonds_worker_countdown_gate_loc_10984(0x0070),
             Prize10DiamondsWorkerCountdownGateLoc10984 {
-                should_clear_display_enabled: true,
+                should_clear_movement: true,
             },
             "ASM loc_10984 should clear `$14(a1)` exactly on the `$70` countdown frame before falling into loc_109E8",
         );
         assert_eq!(
             NativeRuntime::prize_10_diamonds_worker_countdown_gate_loc_10984(0x006F),
             Prize10DiamondsWorkerCountdownGateLoc10984 {
-                should_clear_display_enabled: false,
+                should_clear_movement: false,
             },
             "ASM loc_10984 should leave `$14(a1)` untouched for non-`$70` countdown values",
         );

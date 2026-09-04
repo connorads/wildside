@@ -517,7 +517,7 @@ Current TAS milestones prove `replay-matched` on their covered routes. They do n
 ### Visual fidelity, sprite extraction
 - **#033** [x] Transform animation visual sprites. Original `Kid_Transform` art and timing are wired for all forms. Juggernaut composes the split head/base sprites into native player frames.
 - Fire Demon death trail visual sprites. Live play renders the `Fire_Demon.asm` `stru_3A622` ROM frames for the death-trail signature (#025). The core still carries this with native projectile snapshots rather than the original child-object lifecycle.
-- Floating item ROM sprites. Diamond, helmets, Ankh, Clock, Continue, and the early `10000`/`10 diamonds` worker bursts use ROM sprite assets. Remaining visual debt is late worker lifecycle parity for those effect-like rewards after the first burst window.
+- Floating item ROM sprites. Diamond, helmets, Ankh, Clock, Continue, and the `10000`/`10 diamonds` worker bursts use ROM sprite assets. Ten Diamonds workers now keep their ROM display flag through the outward and frozen phases instead of disappearing when `loc_10984` clears movement; the monotonic `$0320 - remaining` age also prevents burst replay every 256 frames. Remaining visual debt is the final per-worker `loc_10988` HUD flight, which needs camera-relative state at each `$20` transition, plus exact late 10000-point star motion.
 
 ### Visual fidelity, rendering accuracy (not yet investigated)
 - Palette cycling per theme: some themes animate palette entries (water shimmer done). Lava, neon, and other themes may have CRAM cycling in the VBlank handler. Trace `kid.asm` VBlank for CRAM writes per theme ID. Extract cycle tables (which entries, rotation speed, colour sequence).

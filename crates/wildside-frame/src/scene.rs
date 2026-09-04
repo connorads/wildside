@@ -81,7 +81,8 @@ const DRIPS_OBJECT_TYPE: u8 = 0x16;
 const HEADY_METAL_OBJECT_TYPE: u8 = 0x20;
 const BOSS_EYE_OBJECT_TYPE: u8 = 0x21;
 const TAR_MONSTER_OBJECT_TYPE: u8 = 0x05;
-const PRIZE_GENERIC_LIFETIME_LOW_BYTE: u8 = 0x20;
+/// ASM sub_10C78/sub_10CB0 seed the shared native prize countdown with `$0320`.
+const PRIZE_GENERIC_INITIAL_LIFETIME: u16 = 0x0320;
 /// ASM PrizeDiamond_Init (kid.asm:21604): initial `object_timer` is `$01F4`.
 const PRIZE_DIAMOND_INITIAL_LIFETIME: u16 = 0x01F4;
 const PRIZE_BLOCK_RESIDENT_PAGE_SKIN_SUB_1007A: u8 = 0x02;
@@ -9515,26 +9516,31 @@ fn render_floating_prize_worker_effect(
     screen_y: i32,
     remaining_frames: u16,
 ) -> bool {
-    let remaining_low_byte = remaining_frames as u8;
-    if remaining_low_byte > PRIZE_GENERIC_LIFETIME_LOW_BYTE {
+    if remaining_frames > PRIZE_GENERIC_INITIAL_LIFETIME {
         return false;
     }
-    let effect_age = PRIZE_GENERIC_LIFETIME_LOW_BYTE.wrapping_sub(remaining_low_byte);
+    let effect_age = PRIZE_GENERIC_INITIAL_LIFETIME - remaining_frames;
     match content {
-        wildside_core::terrain::PrizeContent::TenDiamonds => render_ten_diamonds_worker_effect(
-            commands,
-            level_visuals,
-            screen_x,
-            screen_y,
-            effect_age,
-        ),
-        wildside_core::terrain::PrizeContent::Points10000 => render_10000_points_worker_effect(
-            commands,
-            level_visuals,
-            screen_x,
-            screen_y,
-            effect_age,
-        ),
+        wildside_core::terrain::PrizeContent::TenDiamonds => {
+            render_ten_diamonds_worker_effect(
+                commands,
+                level_visuals,
+                screen_x,
+                screen_y,
+                effect_age,
+            );
+            true
+        }
+        wildside_core::terrain::PrizeContent::Points10000 => {
+            render_10000_points_worker_effect(
+                commands,
+                level_visuals,
+                screen_x,
+                screen_y,
+                effect_age,
+            );
+            true
+        }
         _ => false,
     }
 }
@@ -9544,7 +9550,7 @@ fn render_ten_diamonds_worker_effect(
     level_visuals: &NativeLevelVisuals,
     screen_x: i32,
     screen_y: i32,
-    effect_age: u8,
+    effect_age: u16,
 ) -> bool {
     // ASM Prize10Diamonds_Init loc_108EE uses byte_108AC to spawn ten
     // workers on frames 0..3 and 24..29. Each worker uses unk_E1046:
@@ -9566,7 +9572,7 @@ fn render_ten_diamonds_worker_effect(
         worker_scan.worker_table_len_bytes / worker_scan.worker_slot_stride_bytes
     );
     let mut drew_worker = false;
-    for spawn_frame in 0..=u16::from(effect_age).min(0x001D) {
+    for spawn_frame in 0..=effect_age.min(0x001D) {
         let spawn = wildside_core::NativeRuntime::prize_10_diamonds_spawn_loc_108EE(
             spawn_frame,
             screen_x as u16,
@@ -9590,7 +9596,7 @@ fn render_ten_diamonds_worker_effect(
         debug_assert_eq!(spawn.lifetime_frames, Some(0x0078));
         debug_assert!(u16::from(spawn.burst_table_index.unwrap_or_default()) < max_worker_count);
 
-        let worker_age_u16 = u16::from(effect_age).wrapping_sub(spawn_frame);
+        let worker_age_u16 = effect_age.wrapping_sub(spawn_frame);
         let worker_lifetime = spawn
             .lifetime_frames
             .unwrap_or_default()
@@ -9599,11 +9605,23 @@ fn render_ten_diamonds_worker_effect(
             wildside_core::NativeRuntime::prize_10_diamonds_worker_countdown_gate_loc_10984(
                 worker_lifetime,
             );
-        if countdown_gate.should_clear_display_enabled || worker_lifetime < 0x0070 {
+        // ASM loc_10984 clears movement at `$70`; it does not clear the
+        // display flag at `$13(a1)`. The worker stays at its outward position
+        // until `$20`, when loc_10988 starts its camera-relative HUD flight.
+        // That later phase needs the camera position from each worker's
+        // individual `$20` transition, which the current trace does not carry.
+        // TODO(fidelity): carry each worker's loc_10988 camera-relative state
+        // in NativeTraceFrame and render the final 32-frame HUD flight.
+        if worker_lifetime <= 0x0020 {
             continue;
         }
 
-        let worker_age = i64::from(worker_age_u16);
+        let moving_age = if countdown_gate.should_clear_movement {
+            8
+        } else {
+            worker_age_u16.min(8)
+        };
+        let worker_age = i64::from(moving_age);
         let worker_x = screen_x
             + ((i64::from(spawn.x_velocity.unwrap_or_default()) * worker_age) >> 16) as i32;
         let worker_y = screen_y
@@ -9625,13 +9643,13 @@ fn render_10000_points_worker_effect(
     level_visuals: &NativeLevelVisuals,
     screen_x: i32,
     screen_y: i32,
-    effect_age: u8,
+    effect_age: u16,
 ) -> bool {
     // ASM Prize10000Points_Init loc_10B00 uses unk_10A7A to spawn five workers
     // on frames 0,5,10,15,20. Frame 0 uses unk_E1056 (tile $6BB); later
     // workers use unk_E104E (tile $6BA), both 8x8 over HUD number tiles.
     let mut drew_worker = false;
-    for spawn_frame in 0..=u16::from(effect_age).min(0x0014) {
+    for spawn_frame in 0..=effect_age.min(0x0014) {
         let Some(spawn) = wildside_core::prize_10000_points_star_spawn_loc_10B3A(
             spawn_frame,
             screen_x as u16,
@@ -9646,7 +9664,7 @@ fn render_10000_points_worker_effect(
         debug_assert!(spawn.is_moved);
         debug_assert_eq!(spawn.timer, 0x0078);
 
-        let worker_age = u16::from(effect_age).wrapping_sub(spawn_frame);
+        let worker_age = effect_age.wrapping_sub(spawn_frame);
         let tile_base_index = if spawn.sprite_mapping_label == "LnkTo_unk_E1056-Data_Index" {
             1
         } else {
@@ -13961,9 +13979,9 @@ mod tests {
                 PrizeContent::TenDiamonds,
                 80,
                 96,
-                u16::from(PRIZE_GENERIC_LIFETIME_LOW_BYTE + 1),
+                PRIZE_GENERIC_INITIAL_LIFETIME + 1,
             ),
-            "ASM prize worker effects only take over during the low-byte worker lifetime window"
+            "prize worker effects reject countdowns above their native initial lifetime"
         );
         assert!(commands.is_empty());
 
@@ -13973,7 +13991,7 @@ mod tests {
             PrizeContent::TenDiamonds,
             80,
             96,
-            u16::from(PRIZE_GENERIC_LIFETIME_LOW_BYTE),
+            PRIZE_GENERIC_INITIAL_LIFETIME,
         ));
         let DrawCommand::Sprite {
             x,
@@ -13996,7 +14014,7 @@ mod tests {
             PrizeContent::TenDiamonds,
             80,
             96,
-            u16::from(PRIZE_GENERIC_LIFETIME_LOW_BYTE - 1),
+            PRIZE_GENERIC_INITIAL_LIFETIME - 1,
         ));
         assert_eq!(
             commands.len(),
@@ -14024,16 +14042,37 @@ mod tests {
         ));
         assert_eq!(
             commands.len(),
-            3,
-            "ASM loc_10984 clears the oldest worker at countdown $70 while younger workers remain visible"
+            4,
+            "ASM loc_10984 clears only the oldest worker's movement flag at countdown $70; all four display flags remain set"
         );
 
         commands.clear();
-        assert!(
-            !render_ten_diamonds_worker_effect(&mut commands, &visuals, 80, 96, 40),
-            "ASM loc_10984 clears ten-diamond workers after the second burst's visible countdown window"
+        assert!(render_ten_diamonds_worker_effect(
+            &mut commands,
+            &visuals,
+            80,
+            96,
+            40
+        ));
+        assert_eq!(
+            commands.len(),
+            10,
+            "ASM loc_10984 keeps both Ten Diamonds bursts displayed and frozen above countdown $20"
         );
-        assert!(commands.is_empty());
+
+        commands.clear();
+        assert!(render_floating_prize_worker_effect(
+            &mut commands,
+            &visuals,
+            PrizeContent::TenDiamonds,
+            80,
+            96,
+            0x0220,
+        ));
+        assert!(
+            commands.is_empty(),
+            "the `$0320 - remaining` age must not replay the initial burst when the countdown low byte returns to $20"
+        );
 
         assert!(render_floating_prize_worker_effect(
             &mut commands,
@@ -14041,7 +14080,7 @@ mod tests {
             PrizeContent::Points10000,
             80,
             96,
-            u16::from(PRIZE_GENERIC_LIFETIME_LOW_BYTE),
+            PRIZE_GENERIC_INITIAL_LIFETIME,
         ));
         let DrawCommand::Sprite {
             x,
@@ -14103,7 +14142,7 @@ mod tests {
                 PrizeContent::Clock,
                 80,
                 96,
-                u16::from(PRIZE_GENERIC_LIFETIME_LOW_BYTE),
+                PRIZE_GENERIC_INITIAL_LIFETIME,
             ),
             "ordinary floating prizes stay on their sprite/fallback render path"
         );

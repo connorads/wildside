@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (Ten Diamonds worker display lifecycle)
+
+- A focused floating-prize worker-effect census exposed the Ten Diamonds
+  `$70` boundary as apparently equivalent. ASM showed `$14(a1)` is the movement
+  flag, not display: the old renderer dropped each worker when it should freeze.
+- Worker effect age now uses the full monotonic `$0320 - remaining` countdown,
+  so bursts cannot recur every 256 frames. Ten Diamonds workers retain their
+  ROM art through the exact outward and frozen phases above `$20`; all 42 viable
+  focused mutations are caught.
+- The final `loc_10988` HUD flight remains explicit fidelity debt because exact
+  replay needs each worker's camera-relative state at its own `$20` transition.
+
 ## 2026-09-04 handoff (floating-prize fallback colour)
 
 - The composed platform and worker/effect sprite emitters catch all 55 viable

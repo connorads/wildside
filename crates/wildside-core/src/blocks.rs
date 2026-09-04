@@ -355,7 +355,7 @@ pub struct Prize10DiamondsWorkerScanStartLoc10960 {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Prize10DiamondsWorkerCountdownGateLoc10984 {
-    pub should_clear_display_enabled: bool,
+    pub should_clear_movement: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1086,7 +1086,7 @@ impl NativeRuntime {
         // `$14(a1)` with `sf` before branching into the shared countdown at
         // `loc_109E8`; every other timer value just falls straight through.
         Prize10DiamondsWorkerCountdownGateLoc10984 {
-            should_clear_display_enabled: lifetime_frames == 0x0070,
+            should_clear_movement: lifetime_frames == 0x0070,
         }
     }
 
@@ -7053,13 +7053,13 @@ mod tests {
         assert_eq!(
             NativeRuntime::prize_10_diamonds_worker_countdown_gate_loc_10984(0x0070),
             Prize10DiamondsWorkerCountdownGateLoc10984 {
-                should_clear_display_enabled: true,
+                should_clear_movement: true,
             }
         );
         assert_eq!(
             NativeRuntime::prize_10_diamonds_worker_countdown_gate_loc_10984(0x006F),
             Prize10DiamondsWorkerCountdownGateLoc10984 {
-                should_clear_display_enabled: false,
+                should_clear_movement: false,
             }
         );
         assert_eq!(

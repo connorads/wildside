@@ -9942,7 +9942,9 @@ mod tests {
     #[test]
     fn build_scene_clamps_floating_item_alpha_before_colour_scaling() {
         let mut trace = sample_trace(GameMode::InGame);
-        trace.floating_items = vec![(48, 64, u16::from(u8::MAX), 0x01)];
+        // An out-of-range countdown bypasses the ROM worker-effect timeline
+        // and exercises the degraded-asset fallback with saturated alpha.
+        trace.floating_items = vec![(48, 64, 0x0321, 0x01)];
         let visuals = sample_level_visuals();
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -9959,9 +9961,9 @@ mod tests {
     fn build_scene_draws_10000_points_worker_star_from_hud_rom_tiles() {
         let mut trace = sample_trace(GameMode::InGame);
         // ASM Prize10000Points_Init loc_10B00 spawns the first worker when
-        // d3=0; generic prize lifetime low byte is 0x20 on that first visible
-        // frame, so the renderer can recover the local effect age from it.
-        trace.floating_items = vec![(48, 64, 0x20, 0x01)];
+        // d3=0; the native prize trace starts from the shared `$0320`
+        // countdown, so the renderer recovers local effect age zero.
+        trace.floating_items = vec![(48, 64, 0x0320, 0x01)];
         let visuals = sample_level_visuals();
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -9992,9 +9994,9 @@ mod tests {
     fn build_scene_draws_ten_diamonds_workers_from_hud_diamond_rom_tiles() {
         let mut trace = sample_trace(GameMode::InGame);
         // ASM Prize10Diamonds_Init loc_108EE uses byte_108AC to spawn the
-        // first four diamond workers on local frames 0..3. Remaining low byte
-        // 0x1D corresponds to local age 3 from the generic 0x0320 lifetime.
-        trace.floating_items = vec![(48, 64, 0x1D, 0x0E)];
+        // first four diamond workers on local frames 0..3. Countdown `$031D`
+        // corresponds to local age 3 from the native `$0320` trace lifetime.
+        trace.floating_items = vec![(48, 64, 0x031D, 0x0E)];
         let visuals = sample_level_visuals();
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
