@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (zero EOL path-bonus boundary)
+
+- Focused audits found the EOL palette, level-skip digits, bonus-row,
+  moving-text/number, slice draw, and pixel-provenance boundaries already
+  mutation-clean. The full score overlay caught 110 of 111 mutations; changing
+  the path amount guard from `> 0` to `>= 0` survived.
+- ASM `loc_D60E` multiplies the path-table byte by 1000 and branches on an exact
+  zero result. A settled command-stream contract now proves zero allocates no
+  PATH, BONUS, or number workers; all 111 overlay mutations are caught.
+
 ## 2026-09-04 handoff (EOL hologram screen-tile selection)
 
 - The composed `push_eol_foreground_reveal_tiles` path was already mutation-clean

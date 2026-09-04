@@ -11483,6 +11483,40 @@ mod tests {
     }
 
     #[test]
+    fn eol_score_overlay_omits_zero_path_bonus_row_loc_d60e() {
+        let eol = sample_eol_score_visuals();
+        let trace = NativeTraceFrame {
+            level_complete: true,
+            level_complete_initial_score: 1_000,
+            level_timer_seconds: 20,
+            level_damage_taken: true,
+            level_prize_collected: true,
+            level_path_bonus_amount: 0,
+            level_speed_bonus_awarded: false,
+            level_complete_score_rows_elapsed_frames: 73,
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_eol_score_overlay(&mut commands, &trace, &eol);
+
+        let labels = sprite_snapshots(&commands)
+            .into_iter()
+            .filter(|(_, _, tile, _)| *tile >= 0x50)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            labels,
+            vec![
+                (0x28, 0xC4, 0xC0, false),
+                (0x78, 0xAC, 0xC1, false),
+                (0x40, 0x94, 0xA5, false),
+                (0x78, 0x94, 0xB0, false),
+            ],
+            "ASM loc_D60E multiplies the path-table byte by 1000 and skips PATH/BONUS workers when the result is zero"
+        );
+    }
+
+    #[test]
     fn eol_score_counter_snapshot_uses_loc_d17e_initial_score_gate() {
         let captured_initial_score_trace = NativeTraceFrame {
             level_complete: true,
