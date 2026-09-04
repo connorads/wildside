@@ -15721,6 +15721,45 @@ mod tests {
     }
 
     #[test]
+    fn helmet_prize_flash_dma_handoff_is_bounded_to_its_source_block_sub_10cb0() {
+        use wildside_core::terrain::PrizeContent;
+
+        let mut visuals = sample_level_visuals(0x300);
+        visuals.floating_prizes.helmets.insert(
+            PrizeContent::RedStealth.to_id(),
+            sample_animated_visual(sample_sprite_frame(0)),
+        );
+
+        for (helmet_y, expected_commands, label) in [
+            (600, 0, "last Y associated with the source block"),
+            (601, 1, "adjacent unrelated helmet"),
+        ] {
+            let trace = NativeTraceFrame {
+                game_mode: GameMode::InGame,
+                floating_items: vec![(72, helmet_y, 0x031F, PrizeContent::RedStealth.to_id())],
+                prize_block_spawn_flashes: vec![(72, 568, 24)],
+                ..NativeTraceFrame::default()
+            };
+
+            let scene = build_game_scene_filtered(
+                &trace,
+                false,
+                &visuals,
+                None,
+                LayerFilter::solo("effects"),
+                None,
+            )
+            .0;
+
+            assert_eq!(
+                scene.commands.len(),
+                expected_commands,
+                "ASM sub_10CB0 DMA suppression must distinguish {label}; loc_102B8 remaining=24 still retains the prior P sprite"
+            );
+        }
+    }
+
+    #[test]
     fn push_prize_block_spawn_flash_reports_whether_rom_frame_was_available_loc_102b8() {
         let visuals = sample_level_visuals(0x300);
         let mut commands = Vec::new();

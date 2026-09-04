@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (helmet-prize DMA association boundary)
+
+- Proactive audits found the live SolidGhost transition and prize-flash
+  emitters mutation-clean at 22/22 and 9/9. The adjacent
+  `helmet_prize_hidden_during_spawn_flash_dma_sub_10cb0` helper missed one of
+  18 mutations: its source-block Y bound could multiply instead of add.
+- A public effects-scene contract now distinguishes the last associated helmet
+  Y from an unrelated same-column helmet one pixel beyond it during
+  `loc_102B8`'s retained-P frame. The focused census catches all 18 mutations.
+
 ## 2026-09-04 handoff (live block-grid override contract)
 
 - A focused `push_block_grid_overrides` audit found 82 of 89 mutations
