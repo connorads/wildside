@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (background split-CRAM palette contracts)
+
+- A focused `background_palette_for_scene` mutation audit found 14 of 43
+  mutations surviving across Hills/Mountain palette lengths, sparse CRAM slot
+  placement, Forest line-0 preservation, and palette index arithmetic.
+- ROM-derived contracts now pin `loc_12910/loc_1295E` for both valid
+  14/15-entry foreground shapes, `loc_11E16` background slots 9..15 and black
+  gaps, plus Forest `loc_128BA/sub_129AE`. The census improves to 42 caught /
+  0 missed / 1 compiler-unviable.
+
 ## 2026-09-04 handoff (Plane-B pixel diagnostic contract)
 
 - A focused `sample_background_tile_pixel` mutation audit found 36 of 44
