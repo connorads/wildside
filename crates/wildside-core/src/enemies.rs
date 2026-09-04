@@ -5211,11 +5211,11 @@ pub(crate) fn step_active_enemies_with_rng(
         {
             // ASM Armadillo.asm stru_3C632/stru_3C64C/stru_3C666/stru_3C680:
             // the GfxObject animation advances independently of Object waits.
-            enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1)
-                % armadillo_live_animation_cycle_ticks(
-                    enemy.enemy_level,
-                    enemy.shared_walker_state,
-                );
+            enemy.dragon_descent_frames = armadillo_next_live_animation_tick(
+                enemy.enemy_level,
+                enemy.shared_walker_state,
+                enemy.dragon_descent_frames,
+            );
         }
         if matches!(enemy.family, EnemyFamily::Goat)
             && enemy.damage_flash_frames == 0

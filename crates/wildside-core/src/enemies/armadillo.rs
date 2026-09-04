@@ -42,7 +42,7 @@ pub(crate) fn armadillo_live_sprite_phase(
         6
     };
     let first_frame = if charging { 6 } else { 0 };
-    first_frame + (animation_tick / frame_ticks) % 6
+    first_frame + animation_tick.saturating_sub(1) / frame_ticks
 }
 
 /// Full duration of the live animation script selected by Armadillo init or
@@ -61,6 +61,22 @@ pub(crate) fn armadillo_live_animation_cycle_ticks(
         66
     } else {
         36
+    }
+}
+
+pub(crate) fn armadillo_next_live_animation_tick(
+    enemy_level: u8,
+    shared_walker_state: i16,
+    animation_tick: u8,
+) -> u8 {
+    // ASM stru_3C632/stru_3C64C/stru_3C666/stru_3C680: selector 2 runs
+    // only after the sixth mapping's countdown reaches zero. The terminal
+    // tick therefore remains visible before Init_Animation rewinds to tick 1.
+    let cycle = armadillo_live_animation_cycle_ticks(enemy_level, shared_walker_state);
+    if animation_tick == 0 || animation_tick >= cycle {
+        1
+    } else {
+        animation_tick + 1
     }
 }
 
@@ -501,23 +517,23 @@ mod tests {
     fn armadillo_live_sprite_phase_follows_walk_charge_and_hurt_scripts() {
         // ASM stru_3C632/stru_3C64C: low-tier walk entries last 11 ticks;
         // every higher-tier walk entry lasts six ticks.
-        assert_eq!(armadillo_live_sprite_phase(0, 0, 10, 0), 0);
-        assert_eq!(armadillo_live_sprite_phase(0, 0, 11, 0), 1);
-        assert_eq!(armadillo_live_sprite_phase(1, 0, 5, 0), 0);
-        assert_eq!(armadillo_live_sprite_phase(1, 0, 6, 0), 1);
+        assert_eq!(armadillo_live_sprite_phase(0, 0, 11, 0), 0);
+        assert_eq!(armadillo_live_sprite_phase(0, 0, 12, 0), 1);
+        assert_eq!(armadillo_live_sprite_phase(1, 0, 6, 0), 0);
+        assert_eq!(armadillo_live_sprite_phase(1, 0, 7, 0), 1);
 
         // ASM loc_3E4CE/loc_3E50A install stru_3C666 (four ticks) below
         // enemy level 2 and stru_3C680 (two ticks) at level 2+.
         assert_eq!(
-            armadillo_live_sprite_phase(0, SHARED_WALKER_STATE_FACE_RIGHT, 3, 0),
+            armadillo_live_sprite_phase(0, SHARED_WALKER_STATE_FACE_RIGHT, 4, 0),
             6
         );
         assert_eq!(
-            armadillo_live_sprite_phase(0, SHARED_WALKER_STATE_FACE_RIGHT, 4, 0),
+            armadillo_live_sprite_phase(0, SHARED_WALKER_STATE_FACE_RIGHT, 5, 0),
             7
         );
         assert_eq!(
-            armadillo_live_sprite_phase(2, SHARED_WALKER_STATE_FACE_LEFT, 2, 0),
+            armadillo_live_sprite_phase(2, SHARED_WALKER_STATE_FACE_LEFT, 3, 0),
             7
         );
 
@@ -533,6 +549,12 @@ mod tests {
         assert_eq!(
             armadillo_live_animation_cycle_ticks(2, SHARED_WALKER_STATE_FACE_LEFT),
             12
+        );
+        assert_eq!(armadillo_next_live_animation_tick(0, 0, 65), 66);
+        assert_eq!(armadillo_next_live_animation_tick(0, 0, 66), 1);
+        assert_eq!(
+            armadillo_next_live_animation_tick(2, SHARED_WALKER_STATE_FACE_LEFT, 12),
+            1
         );
     }
 
