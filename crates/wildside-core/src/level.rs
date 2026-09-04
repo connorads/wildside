@@ -19085,6 +19085,7 @@ impl NativeRuntime {
         self.block_debris_sprite_pieces_sub_2a4c.clear();
         self.block_debris_scratch_cursor_sub_292e = 0;
         self.floating_items.clear();
+        self.prize_worker_effects.clear();
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);
         self.level_timer = LevelTimer::new();
@@ -19310,6 +19311,7 @@ impl NativeRuntime {
         self.active_platform_standing_on = None;
         self.active_lift_platform_standing_on = None;
         self.floating_items.clear();
+        self.prize_worker_effects.clear();
         self.projectiles.clear();
         self.clear_block_object_workers_loc_6e2();
         self.allow_pausing = false;

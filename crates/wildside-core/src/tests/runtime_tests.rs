@@ -12916,6 +12916,89 @@ mod chunk_09 {
     }
 
     #[test]
+    fn prize10diamonds_init_awards_on_spawn_without_creating_a_falling_item() {
+        // ASM Prize10Diamonds_Init (kid.asm:22160) runs
+        // OneTimePrize_CheckCollected and owns ten gfx workers itself. It does
+        // not enter the shared falling-prize loop or wait for Kid collision.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_level = LevelId(0x10);
+        rt.block_grid = Some(grid_with_cells(8, 8, &[]));
+        rt.block_state
+            .deferred_ceiling_clears
+            .push(DeferredCeilingClear {
+                col: 3,
+                row: 2,
+                content: terrain::PrizeContent::TenDiamonds,
+                restore_cell: terrain::Cell::from_be_bytes(0xE1, 0x02),
+                reveal_only: false,
+                deleted_frames_remaining: 0,
+                phase: DeferredPrizeBlockPhase::Restored,
+            });
+
+        rt.finish_deferred_ceiling_clears();
+
+        assert_eq!(rt.progression.diamond_count, 10);
+        assert!(rt.floating_items.is_empty());
+        assert_eq!(rt.prize_worker_effects.len(), 1);
+        assert_eq!(
+            rt.prize_worker_effects[0].content,
+            terrain::PrizeContent::TenDiamonds
+        );
+
+        rt.block_state
+            .deferred_ceiling_clears
+            .push(DeferredCeilingClear {
+                col: 3,
+                row: 2,
+                content: terrain::PrizeContent::TenDiamonds,
+                restore_cell: terrain::Cell::from_be_bytes(0xE1, 0x02),
+                reveal_only: false,
+                deleted_frames_remaining: 0,
+                phase: DeferredPrizeBlockPhase::Restored,
+            });
+        rt.finish_deferred_ceiling_clears();
+
+        assert_eq!(
+            rt.progression.diamond_count, 10,
+            "ASM OneTimePrize_CheckCollected redirects a repeated prize to PrizeDiamond_Init instead of awarding ten more"
+        );
+        assert_eq!(rt.prize_worker_effects.len(), 1);
+        assert_eq!(rt.floating_items.len(), 1);
+        assert_eq!(rt.floating_items[0].content, terrain::PrizeContent::Diamond);
+    }
+
+    #[test]
+    fn prize10000points_init_awards_on_spawn_without_creating_a_falling_item() {
+        // ASM Prize10000Points_Init (kid.asm:22358) updates Score before
+        // loc_10AE0 starts its five star workers. No player collision gates
+        // either action.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_level = LevelId(0x2C);
+        rt.block_grid = Some(grid_with_cells(8, 8, &[]));
+        rt.block_state
+            .deferred_ceiling_clears
+            .push(DeferredCeilingClear {
+                col: 3,
+                row: 2,
+                content: terrain::PrizeContent::Points10000,
+                restore_cell: terrain::Cell::from_be_bytes(0xE1, 0x02),
+                reveal_only: false,
+                deleted_frames_remaining: 0,
+                phase: DeferredPrizeBlockPhase::Restored,
+            });
+
+        rt.finish_deferred_ceiling_clears();
+
+        assert_eq!(rt.progression.score, 10_000);
+        assert!(rt.floating_items.is_empty());
+        assert_eq!(rt.prize_worker_effects.len(), 1);
+        assert_eq!(
+            rt.prize_worker_effects[0].content,
+            terrain::PrizeContent::Points10000
+        );
+    }
+
+    #[test]
     fn deferred_diamond_ceiling_clear_spawns_on_restored_wake_prizediamond_init() {
         let mut rt = NativeRuntime::new(manifest());
         rt.set_block_grid(grid_with_blocks());

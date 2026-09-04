@@ -6350,6 +6350,7 @@ impl NativeRuntime {
         self.block_debris_sprite_pieces_sub_2a4c.clear();
         self.block_debris_scratch_cursor_sub_292e = 0;
         self.floating_items.clear();
+        self.prize_worker_effects.clear();
         self.progression.current_form = PlayerForm::TheKid;
         self.progression.pending_form = None;
         self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();

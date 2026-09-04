@@ -12679,6 +12679,7 @@ impl NativeRuntime {
         self.multi_head_boss_death_count_fb4e = 0;
         self.boss_eye_breakup_trigger_words_fb72_fb74_fb76 = [0; 3];
         self.floating_items.clear();
+        self.prize_worker_effects.clear();
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.enemy_death_effects.clear();
     }

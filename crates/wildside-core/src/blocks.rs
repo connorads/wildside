@@ -3442,6 +3442,7 @@ impl NativeRuntime {
         self.pending_fg_update_cell_queue_sub_1596.clear();
         self.block_destroy_effects.clear();
         self.floating_items.clear();
+        self.prize_worker_effects.clear();
     }
 
     /// Tick prize-block bounce lifecycles. ASM sub_1007A holds 0x6F, briefly
@@ -3549,6 +3550,7 @@ impl NativeRuntime {
         }
 
         let mut spawned_items = Vec::new();
+        let mut spawned_worker_effects = Vec::new();
         let mut retained_entries = Vec::new();
         for mut entry in std::mem::take(&mut self.block_state.deferred_ceiling_clears) {
             match entry.phase {
@@ -3591,7 +3593,43 @@ impl NativeRuntime {
                     ) && !(entry.content == terrain::PrizeContent::Diamond
                         && entry.phase == DeferredPrizeBlockPhase::Restored)
                     {
-                        spawned_items.push(Self::floating_item_from_prize_clear(&entry));
+                        let layout_addr = self.block_grid.as_ref().map_or(0, |grid| {
+                            terrain::BlockList::level_layout_low_word_addr(
+                                entry.col,
+                                entry.row,
+                                grid.width_cells,
+                            )
+                        });
+                        let content = self.one_time_prize_content_or_diamond_loc_10848(
+                            entry.content,
+                            layout_addr,
+                        );
+                        if matches!(
+                            content,
+                            terrain::PrizeContent::TenDiamonds | terrain::PrizeContent::Points10000
+                        ) {
+                            // ASM Prize10Diamonds_Init / Prize10000Points_Init:
+                            // both apply their reward in the initialiser and
+                            // then run private gfx-worker loops. Neither
+                            // creates a falling object or waits for collision.
+                            let x_pos = entry.col.saturating_mul(16).saturating_add(8);
+                            let y_pos = entry.row.saturating_mul(16);
+                            self.apply_prize_content_at_world_pos(
+                                content,
+                                u32::from(x_pos) << 16,
+                                u32::from(y_pos) << 16,
+                            );
+                            spawned_worker_effects.push(PrizeWorkerEffect {
+                                x_pos,
+                                y_pos,
+                                elapsed_frames: 0,
+                                content,
+                            });
+                        } else {
+                            let mut item = Self::floating_item_from_prize_clear(&entry);
+                            item.content = content;
+                            spawned_items.push(item);
+                        }
                     }
                     // ASM sub_7196 creates Kid with priority #1, while
                     // sub_1007A runs as object #$2001 and spawns Prize_Init
@@ -3612,6 +3650,7 @@ impl NativeRuntime {
         // `0 -> first-clock` edge.
         let active_clock_prizes_before = self.active_clock_prize_count();
         self.floating_items.extend(spawned_items);
+        self.prize_worker_effects.extend(spawned_worker_effects);
         self.start_clock_prize_sound_on_first_spawn_loc_10792(active_clock_prizes_before);
     }
 
@@ -5607,6 +5646,13 @@ impl NativeRuntime {
 
     #[allow(non_snake_case)]
     fn age_floating_items_loc_10396(&mut self) {
+        // ASM loc_108EE/loc_10B00: both parent coroutines advance `d3` once
+        // per hibernated frame and stop after `$118` wakes.
+        for effect in &mut self.prize_worker_effects {
+            effect.elapsed_frames = effect.elapsed_frames.saturating_add(1);
+        }
+        self.prize_worker_effects
+            .retain(|effect| effect.elapsed_frames < 0x0118);
         // #342: snapshot the live falling-clock count before any
         // `floating_items` removal this tick so loc_107E0's stop can fire
         // when the last clock object leaves.

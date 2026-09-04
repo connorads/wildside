@@ -4117,6 +4117,17 @@ pub(crate) struct FloatingItem {
     pub(crate) collision_latched: bool,
 }
 
+/// Parent coroutine for prizes whose initialiser owns presentation workers
+/// and applies its reward immediately rather than entering the falling-prize
+/// collision flow.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PrizeWorkerEffect {
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) elapsed_frames: u16,
+    pub(crate) content: terrain::PrizeContent,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PrizeDiamondHudFlight {
     pub(crate) screen_x_fp: i32,

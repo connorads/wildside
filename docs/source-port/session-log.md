@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (immediate prize-worker domain model)
+
+- ASM proved Ten Diamonds and 10,000 points are immediate-effect parent
+  coroutines, not falling collectibles. Native now awards them when the prize
+  block spawns, records a typed stationary parent, and clears it on every
+  object-reset path.
+- `OneTimePrize_CheckCollected` now runs at spawn for the whole one-time prize
+  family. Repeating the same Ten Diamonds layout creates one ordinary falling
+  Diamond and does not grant another ten.
+- Trace compatibility still projects the typed parent through the old tuple so
+  the existing worker renderer remains stable. Next step is typed per-worker
+  snapshots carrying each `$20` camera latch; that removes renderer replay and
+  completes `loc_10988` plus late 10,000-point star motion.
+
 ## 2026-09-04 handoff (Ten Diamonds worker display lifecycle)
 
 - A focused floating-prize worker-effect census exposed the Ten Diamonds

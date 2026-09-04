@@ -565,6 +565,10 @@ pub struct NativeRuntime {
     block_debris_scratch_cursor_sub_292e: usize,
     /// Floating prize items rising from blocks.
     floating_items: Vec<FloatingItem>,
+    /// ASM Prize10Diamonds_Init / Prize10000Points_Init parent coroutines.
+    /// These award immediately and own gfx workers instead of a collectible
+    /// falling object.
+    prize_worker_effects: Vec<PrizeWorkerEffect>,
     /// ASM loc_104AE/loc_105D6: the PrizeHelmet worker sleeps ONE frame
     /// (`j_Hibernate_Object_1Frame`) between GfxObjects_CollisionKid latching
     /// its `$38` word and the wake that consumes it — so the award lands on
@@ -1620,6 +1624,7 @@ impl NativeRuntime {
             block_debris_sprite_pieces_sub_2a4c: Vec::new(),
             block_debris_scratch_cursor_sub_292e: 0,
             floating_items: Vec::new(),
+            prize_worker_effects: Vec::new(),
             latched_prize_wake_armed_loc_104ae: false,
             clock_prize_animation_swaps_loc_10796: Vec::new(),
             continue_prize_animation_swaps_loc_1080a: Vec::new(),
@@ -2284,6 +2289,7 @@ impl NativeRuntime {
         self.projectiles.clear();
         self.heady_metal_breakup_slots_sub_37708 = None;
         self.floating_items.clear();
+        self.prize_worker_effects.clear();
         self.enemy_death_effects.clear();
         self.pending_prize_diamond_awards.clear();
         self.pending_prize_diamond_hud_flights.clear();

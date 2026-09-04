@@ -12978,6 +12978,17 @@ impl NativeRuntime {
                     let y_px = (f.y_pos >> 16) as u16;
                     (x_px, y_px, f.remaining, f.content.to_id())
                 })
+                .chain(self.prize_worker_effects.iter().map(|effect| {
+                    // Compatibility projection for the current renderer. The
+                    // runtime state is authoritative and stationary; the
+                    // renderer recovers the parent `d3` age from this value.
+                    (
+                        effect.x_pos,
+                        effect.y_pos,
+                        0x0320u16.saturating_sub(effect.elapsed_frames),
+                        effect.content.to_id(),
+                    )
+                }))
                 .chain(self.pending_prize_clock_hud_flights.iter().map(|flight| {
                     // ASM loc_FF92 (kid.asm:21260) advances the collected
                     // clock's cached screen-space words before reprojecting
