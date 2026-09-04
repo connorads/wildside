@@ -9950,7 +9950,6 @@ fn floating_item_colour(
         // object metadata to keep placeholder helmets visually distinct until
         // the real sprite art is wired.
         (_, Some(spec)) if spec.palette_line == 3 => helmet_placeholder_colour(spec.object_meta),
-        (wildside_core::terrain::PrizeContent::Points10000, _) => [255, 255, 100],
         (wildside_core::terrain::PrizeContent::Ankh, _) => [255, 255, 200],
         (wildside_core::terrain::PrizeContent::Clock, _) => [200, 255, 200],
         (wildside_core::terrain::PrizeContent::Continue, _) => [255, 255, 255],

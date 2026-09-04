@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (floating-prize fallback colour)
+
+- The composed platform and worker/effect sprite emitters catch all 55 viable
+  mutations, covering tile decomposition, visual-family absence, placement,
+  facing, palette, and command construction.
+- Floating-prize visual selection and fallback colour handling caught 23 of 24
+  viable mutations. The survivor was an explicit 10,000-point colour arm whose
+  value equalled the generic fallback; removing the redundant distinction leaves
+  all 23 viable mutations caught with no pixel change.
+
 ## 2026-09-04 handoff (shared sprite tail decomposition)
 
 - A complete `render.rs` audit caught all 306 viable mutations, ruling out
