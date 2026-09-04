@@ -15614,6 +15614,153 @@ mod tests {
     }
 
     #[test]
+    fn terrain_scene_projects_complete_visible_layout_from_camera_sub_302f6_3034a() {
+        let mut visuals = sample_level_visuals(1);
+        visuals.foreground_tiles = sample_tile_sheet_with_pixel(32, 1);
+        let foreground_layout_bytes = (0..40 * 28)
+            .map(|index| (index % 8) as u8)
+            .collect::<Vec<_>>();
+        visuals.level.foreground_layout =
+            ForegroundLayout::parse(&foreground_layout_bytes, 2, 2).expect("foreground layout");
+        visuals.level.foreground_layout_bytes = foreground_layout_bytes;
+        visuals.level.block_mapping = BlockVisualMapping::new(
+            (0..8)
+                .map(|skin| sample_quad(FOREGROUND_TILE_VRAM_BASE + skin * 4))
+                .collect(),
+            (0..81)
+                .map(|skin| sample_quad(BLOCK_TILE_VRAM_BASE + skin * 4))
+                .collect(),
+        )
+        .expect("terrain mapping");
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            camera_x_pos: 8 << 16,
+            camera_y_pos: 4 << 16,
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: true,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: false,
+                eol_score: false,
+                hud: false,
+            },
+        );
+        let tiles = scene.commands.indexed_tiles();
+
+        assert_eq!(
+            tiles.len(),
+            21 * 15 * 4,
+            "ASM sub_302F6/sub_3034A streams every partially visible 16x16 layout cell"
+        );
+        assert_eq!(indexed_tile_snapshot(tiles[0]), (-8, -4, 0, true));
+        assert_eq!(indexed_tile_snapshot(tiles[3]), (0, 4, 3, true));
+        assert_eq!(
+            indexed_tile_snapshot(tiles[tiles.len() - 4]),
+            (312, 220, 16, true)
+        );
+        assert_eq!(
+            indexed_tile_snapshot(tiles[tiles.len() - 1]),
+            (320, 228, 19, true)
+        );
+    }
+
+    #[test]
+    fn terrain_scene_obeys_live_grid_block_prize_skin_and_priority_rules_sub_302f6_3034a() {
+        let mut visuals = sample_level_visuals(1);
+        visuals.foreground_tiles = sample_tile_sheet_with_pixel(32, 1);
+        let foreground_layout_bytes = vec![1; 20 * 14];
+        visuals.level.foreground_layout =
+            ForegroundLayout::parse(&foreground_layout_bytes, 1, 1).expect("foreground layout");
+        visuals.level.foreground_layout_bytes = foreground_layout_bytes;
+        visuals.level.block_mapping = BlockVisualMapping::new(
+            (0..8)
+                .map(|skin| {
+                    let mut quad = sample_quad(FOREGROUND_TILE_VRAM_BASE + skin * 4);
+                    for tile in &mut quad.tiles {
+                        tile.priority = false;
+                    }
+                    quad
+                })
+                .collect(),
+            (0..81)
+                .map(|skin| sample_quad(BLOCK_TILE_VRAM_BASE + skin * 4))
+                .collect(),
+        )
+        .expect("terrain mapping");
+
+        let mut grid_bytes = vec![0_u8; 20 * 14 * 2];
+        for (col, word) in [
+            (1, 0xE102), // live block: Block_Mappings owns the cell
+            (2, 0x0005), // non-colliding live skin
+            (3, 0x1006), // colliding live skin
+            (4, 0x0000), // empty live cell: immutable layout fallback
+            (5, 0x0100), // raw terrain-priority flag plus layout fallback
+            (6, 0x6F00), // active prize worker owns this rewritten cell
+            (7, 0x6E00), // active worker does not own another raw family
+            (8, 0x6F00), // `$6Fxx` alone does not suppress terrain
+        ] {
+            let offset = (20 + col) * 2;
+            grid_bytes[offset..offset + 2].copy_from_slice(&u16::to_be_bytes(word));
+        }
+        let grid = BlockGrid::from_level_layout(&grid_bytes, 20, 14);
+        let trace = NativeTraceFrame {
+            block_bounce_details: vec![BlockBounceTrace {
+                cell_x: 6,
+                cell_y: 1,
+                x_offset_px: 0,
+                remaining: 28,
+                y_offset_px: 0,
+                kind: BlockBounceTraceKind::Prize,
+            }],
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_level_layout_terrain(&mut commands, &trace, &visuals, Some(&grid));
+        let tile_at = |x, y| {
+            commands.iter().find_map(|command| match command {
+                DrawCommand::IndexedTile {
+                    x: tile_x,
+                    y: tile_y,
+                    tile,
+                    ..
+                } if (*tile_x, *tile_y) == (x, y) => Some((tile.tile_index, tile.priority)),
+                _ => None,
+            })
+        };
+
+        // ASM sub_302F6 routes negative layout words through Block_Mappings;
+        // sub_3034A must not draw the immutable terrain underneath.
+        assert_eq!(tile_at(16, 16), None);
+        assert_eq!(tile_at(32, 16), Some((20, false)));
+        assert_eq!(tile_at(48, 16), Some((24, false)));
+        assert_eq!(tile_at(64, 16), Some((4, false)));
+        assert_eq!(
+            tile_at(80, 16),
+            Some((4, true)),
+            "ASM sub_302F6/sub_3034A promotes raw `$0100` terrain to high-priority Scroll A"
+        );
+        assert_eq!(
+            tile_at(96, 16),
+            None,
+            "ASM sub_1007A owns an active rewritten `$6Fxx` prize cell"
+        );
+        assert_eq!(tile_at(112, 16), Some((0, false)));
+        assert_eq!(tile_at(128, 16), Some((0, true)));
+    }
+
+    #[test]
     fn prize_block_wobble_overrides_apply_camera_position_and_skip_non_prize_workers_sub_1007a() {
         let visuals = sample_level_visuals(0x300);
         let grid = wildside_core::terrain::BlockGrid::from_level_layout(

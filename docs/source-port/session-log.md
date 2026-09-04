@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (live terrain emitter contract)
+
+- A focused `push_level_layout_terrain` audit found 35 of 51 mutations
+  surviving, including deleting all terrain, corrupting camera-window bounds,
+  drawing under live blocks, ignoring rewritten skins, and losing priority.
+- Public scene contracts now pin the `sub_302F6/sub_3034A` two-screen camera
+  window and live-grid rules for block ownership, active `$6Fxx` prize cells,
+  skin replacement, layout fallback, and raw `$0100` priority. The focused
+  census improves to 51 caught / 0 missed.
+
 ## 2026-09-04 handoff (background split-CRAM palette contracts)
 
 - A focused `background_palette_for_scene` mutation audit found 14 of 43
