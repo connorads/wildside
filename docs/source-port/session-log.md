@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (Flying Dragon terrain animation cadence)
+
+- A focused `dragon_flying_sprite_animation_phase` audit found 2 of 17
+  mutations surviving: the terrain-response phase division could become
+  modulo or multiplication without a failure.
+- The exported animation contract now pins every `loc_349DE` / `stru_34652`
+  four-tick boundary and its adjacent counterexample. This guards both visible
+  sprite selection and the phase-derived contact row; the census improves to
+  17 caught / 0 missed.
+
 ## 2026-09-04 handoff (live terrain emitter contract)
 
 - A focused `push_level_layout_terrain` audit found 35 of 51 mutations

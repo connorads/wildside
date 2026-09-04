@@ -2323,7 +2323,7 @@ mod tests {
     }
 
     #[test]
-    fn dragon_flying_exports_main_and_dive_script_mappings() {
+    fn dragon_flying_exports_main_dive_and_terrain_script_mappings() {
         let mut enemy = dragon_flying_test_enemy(100, 80, 0, 0);
         enemy.dragon_phase = DragonFlyingState::Hovering;
 
@@ -2353,6 +2353,16 @@ mod tests {
                 dragon_flying_sprite_animation_phase(&enemy),
                 expected,
                 "ASM Dragon_Flying.asm unk_34554 entry {script_index} indexes off_345F6"
+            );
+        }
+
+        enemy.dragon_phase = DragonFlyingState::TerrainSlideRight;
+        for (elapsed, expected) in [(0, 0), (3, 0), (4, 1), (7, 1), (8, 2), (12, 3), (15, 3)] {
+            enemy.wait_timer = elapsed;
+            assert_eq!(
+                enemy.snapshot().sprite_animation_phase,
+                Some(expected),
+                "ASM Dragon_Flying.asm loc_349DE installs four four-tick stru_34652 mappings at tick {elapsed}"
             );
         }
     }
