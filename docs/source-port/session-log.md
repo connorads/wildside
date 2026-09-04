@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (enemy sprite emitter mutation closure)
+
+- The remaining `push_enemy_sprite` mutants exposed three public-boundary gaps.
+  Helper tests did not prove that `loc_39EE2/loc_39F7A` facing changes reach only
+  a dead 0x22 sprite, and the Spinning Twins and parent-only Tank tests did not
+  assert their emitted coordinates.
+- Public emitter contracts now distinguish live and wrong-family boss heads,
+  pin the linked Twins child at both `word_3B9A0[0]` and the fixed -$1A Y
+  offset, and pin the `Tank.asm loc_3B372` fallback turret at parent Y-8. The
+  focused 18-mutant census improves from 6 caught / 8 missed / 4
+  compiler-unviable to 14 caught / 0 missed / 4 compiler-unviable.
+
 ## 2026-09-04 handoff (Tar Monster sprite suppression)
 
 - A focused `push_enemy_sprite` mutation audit found that no test distinguished

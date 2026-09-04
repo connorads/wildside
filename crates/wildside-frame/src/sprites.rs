@@ -4832,17 +4832,17 @@ mod tests {
             2,
             "ASM Enemy14_SpinningTwins_Init allocates parent stru_3B7F0 plus linked stru_3B802 GfxObjects"
         );
-        let tile_bases = commands
+        let sprites = commands
             .iter()
             .map(|command| match command {
-                DrawCommand::Sprite { tiles, .. } => tiles[0].tile.tile_index,
+                DrawCommand::Sprite { x, y, tiles, .. } => (*x, *y, tiles[0].tile.tile_index),
                 other => panic!("expected Spinning Twins sprite command, got {other:?}"),
             })
             .collect::<Vec<_>>();
         assert_eq!(
-            tile_bases,
-            vec![0x0100, 0x0107],
-            "ASM stru_3B7F0/stru_3B802 begin on C7D36/C7D26"
+            sprites,
+            vec![(92, 84, 0x0100), (76, 58, 0x0107)],
+            "ASM Enemy14_SpinningTwins_Init/loc_3B904 places stru_3B802 at parent centre + word_3B9A0[0],-$1A while C7D36/C7D26 supply the initial mappings"
         );
     }
 
@@ -5436,6 +5436,33 @@ mod tests {
                 0x020
             );
         }
+    }
+
+    #[test]
+    fn rock_tank_parent_only_trace_synthesises_loc_3b372_turret_position() {
+        let mut level_visuals = minimal_level_visuals_for_platforms();
+        level_visuals
+            .enemies
+            .families
+            .insert(0x0A, labelled_enemy_visuals(3, 4));
+        let mut parent = live_enemy_object(0x0A);
+        parent.x_pos = 100 << 16;
+        parent.y_pos = 100 << 16;
+        parent.sprite_animation_phase = Some(0);
+        let trace = NativeTraceFrame::default();
+        let mut commands = Vec::new();
+
+        push_enemy_sprite(&mut commands, &parent, &trace, &level_visuals, 0x0A);
+
+        assert_eq!(commands.len(), 2);
+        let DrawCommand::Sprite { x, y, tiles, .. } = &commands[1] else {
+            panic!("expected synthesised Rock Tank turret sprite");
+        };
+        assert_eq!(
+            (*x, *y, tiles[0].tile.tile_index),
+            (83, 72, 0x020),
+            "ASM Tank.asm loc_3B372 copies the parent centre into the linked turret GfxObject, subtracts 8 from Y, and starts stru_3B27E on C7EC8"
+        );
     }
 
     #[test]
@@ -6092,6 +6119,39 @@ mod tests {
             0x0104,
             "ASM loc_39EBE starts boss-head death on the first C8620 sweep frame"
         );
+    }
+
+    #[test]
+    fn boss_head_death_facing_applies_only_to_dead_enemy22_sprite() {
+        let mut level_visuals = minimal_level_visuals_for_platforms();
+        level_visuals
+            .enemies
+            .families
+            .insert(0x21, labelled_enemy_visuals(5, 3));
+        level_visuals
+            .enemies
+            .families
+            .insert(0x22, labelled_enemy_visuals(5, 3));
+        let trace = NativeTraceFrame::default();
+        let toggled_remaining = BOSS_HEAD_DEATH_ANIMATION_FRAMES_LOC_39EBE - 30;
+
+        for (object_type, hit_points, expected_flip_x) in [
+            (0x22, Some(0), false),
+            (0x22, Some(1), true),
+            (0x21, Some(0), true),
+        ] {
+            let mut object = dead_enemy_object(object_type, toggled_remaining);
+            object.hit_points = hit_points;
+            let mut commands = Vec::new();
+
+            push_enemy_sprite(&mut commands, &object, &trace, &level_visuals, object_type);
+
+            let (_, _, _, tiles) = only_sprite_command(&commands);
+            assert!(
+                tiles.iter().all(|tile| tile.tile.flip_x == expected_flip_x),
+                "ASM loc_39EE2/loc_39F7A toggles x_direction only inside dead enemy 0x22's shared boss-head death spin"
+            );
+        }
     }
 
     #[test]
