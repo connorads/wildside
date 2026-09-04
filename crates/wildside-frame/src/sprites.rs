@@ -536,18 +536,16 @@ fn build_sprite_tiles_with_flip(
     }
 
     let tail_height_px = align_sprite_dimension(remaining_height_px);
-    if tail_height_px > 0 {
-        append_sprite_band_tiles(
-            &mut tiles,
-            &mut next_tile_index,
-            band_y_px,
-            tail_height_px,
-            frame.width_px,
-            aligned_width_px,
-            flip_x,
-            palette_line,
-        );
-    }
+    append_sprite_band_tiles(
+        &mut tiles,
+        &mut next_tile_index,
+        band_y_px,
+        tail_height_px,
+        frame.width_px,
+        aligned_width_px,
+        flip_x,
+        palette_line,
+    );
 
     tiles
 }
@@ -582,19 +580,17 @@ pub fn append_sprite_band_tiles(
     }
 
     let tail_width_px = align_sprite_dimension(remaining_width_px);
-    if tail_width_px > 0 {
-        append_sprite_chunk_tiles(
-            tiles,
-            next_tile_index,
-            chunk_x_px,
-            band_y_px,
-            tail_width_px,
-            band_height_px,
-            aligned_width_px,
-            flip_x,
-            palette_line,
-        );
-    }
+    append_sprite_chunk_tiles(
+        tiles,
+        next_tile_index,
+        chunk_x_px,
+        band_y_px,
+        tail_width_px,
+        band_height_px,
+        aligned_width_px,
+        flip_x,
+        palette_line,
+    );
 }
 
 pub fn append_sprite_chunk_tiles(

@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (shared sprite tail decomposition)
+
+- A complete `render.rs` audit caught all 306 viable mutations, ruling out
+  unguarded command dispatch, palette, clipping, priority, SAT arbitration, and
+  pixel-write branches. Shared sprite geometry then exposed equivalent `> 0`
+  tail guards in band and chunk decomposition.
+- Zero-sized tail chunks already produce empty row/column ranges and cannot
+  advance tile state. Removing both redundant guards leaves all 31 viable
+  combined sprite-position/band mutations caught without changing output.
+
 ## 2026-09-04 handoff (zero EOL path-bonus boundary)
 
 - Focused audits found the EOL palette, level-skip digits, bonus-row,
