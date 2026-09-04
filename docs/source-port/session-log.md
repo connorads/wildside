@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (EOL hologram reveal clipping contract)
+
+- A focused `push_eol_hologram_tile_clipped` audit found 15 of 25 mutations
+  surviving across total redraw deletion, all four clip edges, sampled rows and
+  columns, and empty intersections.
+- `loc_C21E/sub_C254`-cited slice contracts now pin partial fixed-tile exposure
+  and edge-touching rectangles. The focused census catches all 25 mutations.
+
 ## 2026-09-04 handoff (EOL hologram room map contract)
 
 - A focused `push_eol_hologram_room` audit found five of twelve mutations

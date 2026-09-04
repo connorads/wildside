@@ -17087,6 +17087,117 @@ mod tests {
     }
 
     #[test]
+    fn eol_hologram_reveal_clips_fixed_scroll_b_tile_loc_c21e_sub_c254() {
+        let hologram = sample_eol_hologram_visuals();
+        let tile_sheet = Arc::new(hologram.tile_sheet.clone());
+        let palette = Arc::new(hologram.palette.clone());
+        let mut commands = Vec::new();
+
+        push_eol_hologram_tile_clipped(
+            &mut commands,
+            &hologram,
+            0,
+            0,
+            0,
+            0,
+            2,
+            3,
+            10,
+            10,
+            &tile_sheet,
+            &palette,
+        );
+
+        let slices = commands
+            .iter()
+            .map(|command| match command {
+                DrawCommand::IndexedTileSlice {
+                    x,
+                    y,
+                    row,
+                    start_column,
+                    width,
+                    ..
+                } => (*x, *y, *row, *start_column, *width),
+                _ => panic!("ASM loc_C21E/sub_C254 reveal should emit only Scroll B slices"),
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            slices,
+            vec![
+                (0, 0, 3, 2, 6),
+                (0, 0, 4, 2, 6),
+                (0, 0, 5, 2, 6),
+                (0, 0, 6, 2, 6),
+                (0, 0, 7, 2, 6),
+            ],
+            "ASM loc_C21E/sub_C254 exposes only the intersection with each fixed 8x8 Scroll B tile"
+        );
+
+        commands.clear();
+        push_eol_hologram_tile_clipped(
+            &mut commands,
+            &hologram,
+            8,
+            8,
+            0,
+            0,
+            10,
+            11,
+            3,
+            2,
+            &tile_sheet,
+            &palette,
+        );
+        let slices = commands
+            .iter()
+            .map(|command| match command {
+                DrawCommand::IndexedTileSlice {
+                    row,
+                    start_column,
+                    width,
+                    ..
+                } => (*row, *start_column, *width),
+                _ => panic!("ASM loc_C21E/sub_C254 reveal should emit only Scroll B slices"),
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            slices,
+            vec![(3, 2, 3), (4, 2, 3)],
+            "ASM loc_C21E/sub_C254 derives slice offsets from the Scroll B tile origin"
+        );
+    }
+
+    #[test]
+    fn eol_hologram_reveal_omits_edge_touching_scroll_b_tiles_loc_c21e_sub_c254() {
+        let hologram = sample_eol_hologram_visuals();
+        let tile_sheet = Arc::new(hologram.tile_sheet.clone());
+        let palette = Arc::new(hologram.palette.clone());
+
+        for (clip_x, clip_y) in [(16, 10), (11, 16)] {
+            let mut commands = Vec::new();
+            push_eol_hologram_tile_clipped(
+                &mut commands,
+                &hologram,
+                8,
+                8,
+                0,
+                0,
+                clip_x,
+                clip_y,
+                5,
+                5,
+                &tile_sheet,
+                &palette,
+            );
+            assert!(
+                commands.is_empty(),
+                "ASM loc_C21E/sub_C254 edge-touching rectangles expose no Scroll B pixels"
+            );
+        }
+    }
+
+    #[test]
     fn eol_hologram_room_emits_full_loc_c186_scroll_b_map_in_row_major_order() {
         let mut visuals = sample_level_visuals(1);
         visuals.eol_hologram = Some(wildside_render::EolHologramVisuals {
