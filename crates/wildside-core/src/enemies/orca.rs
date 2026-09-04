@@ -572,13 +572,15 @@ pub(crate) fn orca_charge_sprite_animation_phase_stru_3d0d4(animation_tick: u8) 
     // ASM Orca.asm stru_3D0D4 uses the patrol mapping order with four ticks
     // per entry while Lion.asm loc_3E4CE/loc_3E50A holds charge state 1/2.
     const MAPPINGS: [u8; 12] = [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 11, 5];
-    let entry = usize::from(animation_tick / 4);
+    let entry = usize::from(animation_tick.saturating_sub(1) / 4);
     MAPPINGS[entry.min(MAPPINGS.len() - 1)]
 }
 
 pub(crate) fn orca_next_charge_animation_tick_stru_3d0d4(animation_tick: u8) -> u8 {
-    if animation_tick + 1 >= ORCA_CHARGE_ANIMATION_TICKS_STRU_3D0D4 {
-        0
+    // ASM stru_3D0D4 selector 2 rewinds only after the twelfth mapping's
+    // terminal countdown tick has been displayed.
+    if animation_tick == 0 || animation_tick >= ORCA_CHARGE_ANIMATION_TICKS_STRU_3D0D4 {
+        1
     } else {
         animation_tick + 1
     }
@@ -924,10 +926,12 @@ mod tests {
     #[test]
     fn charge_animation_clock_tracks_stru_3d0d4() {
         assert_eq!(orca_charge_sprite_animation_phase_stru_3d0d4(0), 0);
-        assert_eq!(orca_charge_sprite_animation_phase_stru_3d0d4(3), 0);
-        assert_eq!(orca_charge_sprite_animation_phase_stru_3d0d4(4), 1);
-        assert_eq!(orca_charge_sprite_animation_phase_stru_3d0d4(40), 11);
-        assert_eq!(orca_next_charge_animation_tick_stru_3d0d4(47), 0);
+        assert_eq!(orca_charge_sprite_animation_phase_stru_3d0d4(4), 0);
+        assert_eq!(orca_charge_sprite_animation_phase_stru_3d0d4(5), 1);
+        assert_eq!(orca_charge_sprite_animation_phase_stru_3d0d4(44), 11);
+        assert_eq!(orca_charge_sprite_animation_phase_stru_3d0d4(48), 5);
+        assert_eq!(orca_next_charge_animation_tick_stru_3d0d4(47), 48);
+        assert_eq!(orca_next_charge_animation_tick_stru_3d0d4(48), 1);
     }
 
     #[test]
