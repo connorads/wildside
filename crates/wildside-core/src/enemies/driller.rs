@@ -1,12 +1,24 @@
 use super::*;
 
 pub(crate) const DRILLER_COLID_KIDABOVE: u16 = colid::KIDABOVE;
+const DRILLER_CHILD_ANIMATION_TICKS_STRU_3BCBC: u8 = 4 * 6;
+const DRILLER_PARENT_ANIMATION_TICKS_STRU_3BCB2: u8 = 2 * 9;
 
 /// Atlas phase for either linked drill child running `stru_3BCBC`.
 /// ASM Driller.asm Enemy1A_Driller_Init installs the same four six-tick
 /// C80A8/C80B0/C80B8/C80C0 loop on both children.
 pub(crate) fn driller_child_sprite_phase_stru_3bcbc(animation_tick: u8) -> u8 {
-    5 + (animation_tick % 24) / 6
+    5 + animation_tick.saturating_sub(1) / 6
+}
+
+pub(crate) fn driller_child_next_animation_tick_stru_3bcbc(animation_tick: u8) -> u8 {
+    // ASM stru_3BCBC: selector 2 rewinds only after the fourth six-countdown
+    // mapping has remained selected through tick 24.
+    if animation_tick == 0 || animation_tick >= DRILLER_CHILD_ANIMATION_TICKS_STRU_3BCBC {
+        1
+    } else {
+        animation_tick + 1
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -255,7 +267,17 @@ pub(crate) fn driller_live_sprite_phase_stru_3bcb2(animation_tick: u8, hurt_rema
     if hurt_remaining > 0 {
         2
     } else {
-        (animation_tick / 9) % 2
+        animation_tick.saturating_sub(1) / 9
+    }
+}
+
+pub(crate) fn driller_parent_next_animation_tick_stru_3bcb2(animation_tick: u8) -> u8 {
+    // ASM stru_3BCB2: the second nine-countdown mapping remains selected
+    // through tick 18; selector 2 installs the first mapping on the next pass.
+    if animation_tick == 0 || animation_tick >= DRILLER_PARENT_ANIMATION_TICKS_STRU_3BCB2 {
+        1
+    } else {
+        animation_tick + 1
     }
 }
 
@@ -753,11 +775,11 @@ mod tests {
         // ASM Driller.asm stru_3BCB2: C80E0/C80E8 each last nine ticks and
         // dispatch selector 2 rewinds to the first entry.
         assert_eq!(driller_live_sprite_phase_stru_3bcb2(0, 0), 0);
-        assert_eq!(driller_live_sprite_phase_stru_3bcb2(8, 0), 0);
-        assert_eq!(driller_live_sprite_phase_stru_3bcb2(9, 0), 1);
+        assert_eq!(driller_live_sprite_phase_stru_3bcb2(9, 0), 0);
         assert_eq!(driller_live_sprite_phase_stru_3bcb2(10, 0), 1);
-        assert_eq!(driller_live_sprite_phase_stru_3bcb2(17, 0), 1);
-        assert_eq!(driller_live_sprite_phase_stru_3bcb2(18, 0), 0);
+        assert_eq!(driller_live_sprite_phase_stru_3bcb2(18, 0), 1);
+        assert_eq!(driller_parent_next_animation_tick_stru_3bcb2(17), 18);
+        assert_eq!(driller_parent_next_animation_tick_stru_3bcb2(18), 1);
 
         // ASM Driller.asm loc_3BF4E/stru_3BCCE: C80D8 replaces that loop
         // throughout the surviving-stomp hibernate.
@@ -770,17 +792,18 @@ mod tests {
         // ASM stru_3BCBC: four mappings, each held for six animation ticks.
         for (tick, expected) in [
             (0, 5),
-            (5, 5),
-            (6, 6),
-            (11, 6),
-            (12, 7),
-            (17, 7),
-            (18, 8),
-            (23, 8),
-            (24, 5),
+            (6, 5),
+            (7, 6),
+            (12, 6),
+            (13, 7),
+            (18, 7),
+            (19, 8),
+            (24, 8),
         ] {
             assert_eq!(driller_child_sprite_phase_stru_3bcbc(tick), expected);
         }
+        assert_eq!(driller_child_next_animation_tick_stru_3bcbc(23), 24);
+        assert_eq!(driller_child_next_animation_tick_stru_3bcbc(24), 1);
     }
 
     #[test]
@@ -805,7 +828,7 @@ mod tests {
             &mut drilled_blocks,
         );
         assert_eq!(enemies[0].dragon_descent_frames, 9);
-        assert_eq!(enemies[0].snapshot().sprite_animation_phase, Some(1));
+        assert_eq!(enemies[0].snapshot().sprite_animation_phase, Some(0));
 
         // ASM Driller.asm loc_3BF4E re-installs stru_3BCB2 at its first
         // C80E0 entry after the C80D8 hurt wait finishes.

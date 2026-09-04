@@ -5197,10 +5197,12 @@ pub(crate) fn step_active_enemies_with_rng(
             // drill GfxObjects animate independently from the Object
             // coroutine. A surviving hit replaces only the parent script.
             if enemy.damage_flash_frames == 0 {
-                enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1) % 18;
+                enemy.dragon_descent_frames =
+                    driller_parent_next_animation_tick_stru_3bcb2(enemy.dragon_descent_frames);
             }
             if enemy.driller_children.is_some() {
-                enemy.dragon_descent_index = enemy.dragon_descent_index.wrapping_add(1) % 24;
+                enemy.dragon_descent_index =
+                    driller_child_next_animation_tick_stru_3bcbc(enemy.dragon_descent_index);
             }
         }
         if matches!(enemy.family, EnemyFamily::Armadillo)
@@ -12267,7 +12269,8 @@ mod tests {
         );
         assert_eq!(
             (left.sprite_animation_phase, right.sprite_animation_phase),
-            (Some(7), Some(7))
+            (Some(6), Some(6)),
+            "ASM stru_3BCBC keeps its second mapping selected through countdown tick 12"
         );
         assert_eq!((left.layout_index, right.layout_index), (Some(7), Some(7)));
         assert_eq!((left.palette_variant, right.palette_variant), (2, 2));
