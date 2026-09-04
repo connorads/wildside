@@ -7238,20 +7238,19 @@ fn push_eol_hologram_tiles_for_screen_rect(
     tile_sheet: &Arc<TileSheet>,
     palette: &Arc<Palette>,
 ) {
-    let start_col = x.div_euclid(8).max(0);
-    let end_col = (x + width - 1)
-        .div_euclid(8)
-        .min((FRAME_WIDTH as i32 - 1) / 8);
-    let start_row = y.div_euclid(8).max(0);
-    let end_row = (y + height - 1)
-        .div_euclid(8)
-        .min((FRAME_HEIGHT as i32 - 1) / 8);
-    if start_col > end_col || start_row > end_row {
-        return;
-    }
+    let screen_width = FRAME_WIDTH as i32;
+    let screen_height = FRAME_HEIGHT as i32;
+    let start_col = usize::try_from(x.clamp(0, screen_width)).expect("screen column fits") / 8;
+    let end_col = usize::try_from((x + width).clamp(0, screen_width))
+        .expect("screen column fits")
+        .div_ceil(8);
+    let start_row = usize::try_from(y.clamp(0, screen_height)).expect("screen row fits") / 8;
+    let end_row = usize::try_from((y + height).clamp(0, screen_height))
+        .expect("screen row fits")
+        .div_ceil(8);
 
-    for tile_row in start_row..=end_row {
-        for tile_col in start_col..=end_col {
+    for tile_row in start_row..end_row {
+        for tile_col in start_col..end_col {
             // ASM loc_C21E/sub_C254 updates a clipped 16x16 Scroll A cell. The
             // Scroll B hologram stays on whole screen tiles underneath, but the
             // redraw must be clipped back to that foreground cell; otherwise
@@ -7259,10 +7258,10 @@ fn push_eol_hologram_tiles_for_screen_rect(
             push_eol_hologram_tile_clipped(
                 commands,
                 hologram,
-                tile_col * 8,
-                tile_row * 8,
-                usize::try_from(tile_col).expect("screen tile column fits"),
-                usize::try_from(tile_row).expect("screen tile row fits"),
+                i32::try_from(tile_col * 8).expect("screen tile column fits"),
+                i32::try_from(tile_row * 8).expect("screen tile row fits"),
+                tile_col,
+                tile_row,
                 x,
                 y,
                 width,
@@ -17193,6 +17192,124 @@ mod tests {
             assert!(
                 commands.is_empty(),
                 "ASM loc_C21E/sub_C254 edge-touching rectangles expose no Scroll B pixels"
+            );
+        }
+    }
+
+    #[test]
+    fn eol_hologram_reveal_selects_only_intersecting_screen_tiles_loc_c21e_sub_c254() {
+        let hologram = wildside_render::EolHologramVisuals {
+            palette: sample_palette(),
+            tile_sheet: sample_tile_sheet(40 * 28),
+            rows: (0..28)
+                .map(|row| {
+                    (0..40)
+                        .map(|col| sample_tile_ref((row * 40 + col) as u16))
+                        .collect()
+                })
+                .collect(),
+        };
+        let tile_sheet = Arc::new(hologram.tile_sheet.clone());
+        let palette = Arc::new(hologram.palette.clone());
+        let snapshot = |commands: &[DrawCommand]| {
+            commands
+                .iter()
+                .map(|command| match command {
+                    DrawCommand::IndexedTileSlice {
+                        x,
+                        y,
+                        tile,
+                        row,
+                        start_column,
+                        width,
+                        ..
+                    } => (*x, *y, tile.tile_index, *row, *start_column, *width),
+                    _ => panic!("ASM loc_C21E/sub_C254 reveal should emit only Scroll B slices"),
+                })
+                .collect::<Vec<_>>()
+        };
+
+        let mut commands = Vec::new();
+        push_eol_hologram_tiles_for_screen_rect(
+            &mut commands,
+            &hologram,
+            5,
+            6,
+            10,
+            9,
+            &tile_sheet,
+            &palette,
+        );
+        assert_eq!(
+            snapshot(&commands),
+            vec![
+                (0, 0, 0, 6, 5, 3),
+                (0, 0, 0, 7, 5, 3),
+                (8, 0, 1, 6, 0, 7),
+                (8, 0, 1, 7, 0, 7),
+                (0, 8, 40, 0, 5, 3),
+                (0, 8, 40, 1, 5, 3),
+                (0, 8, 40, 2, 5, 3),
+                (0, 8, 40, 3, 5, 3),
+                (0, 8, 40, 4, 5, 3),
+                (0, 8, 40, 5, 5, 3),
+                (0, 8, 40, 6, 5, 3),
+                (8, 8, 41, 0, 0, 7),
+                (8, 8, 41, 1, 0, 7),
+                (8, 8, 41, 2, 0, 7),
+                (8, 8, 41, 3, 0, 7),
+                (8, 8, 41, 4, 0, 7),
+                (8, 8, 41, 5, 0, 7),
+                (8, 8, 41, 6, 0, 7),
+            ],
+            "ASM loc_C21E/sub_C254 reveals the fixed Scroll B tiles intersecting the camera-aligned foreground cell"
+        );
+
+        for (rect, expected) in [
+            ((-3, -4, 5, 6), vec![(0, 0, 0, 0, 0, 2), (0, 0, 0, 1, 0, 2)]),
+            (
+                (318, 222, 8, 8),
+                vec![(312, 216, 1119, 6, 6, 2), (312, 216, 1119, 7, 6, 2)],
+            ),
+        ] {
+            commands.clear();
+            push_eol_hologram_tiles_for_screen_rect(
+                &mut commands,
+                &hologram,
+                rect.0,
+                rect.1,
+                rect.2,
+                rect.3,
+                &tile_sheet,
+                &palette,
+            );
+            assert_eq!(
+                snapshot(&commands),
+                expected,
+                "ASM loc_C21E/sub_C254 clips reveal cells to the visible Scroll B screen map"
+            );
+        }
+
+        for rect in [
+            (-8, 10, 4, 4),
+            (324, 10, 4, 4),
+            (10, -8, 4, 4),
+            (10, 228, 4, 4),
+        ] {
+            commands.clear();
+            push_eol_hologram_tiles_for_screen_rect(
+                &mut commands,
+                &hologram,
+                rect.0,
+                rect.1,
+                rect.2,
+                rect.3,
+                &tile_sheet,
+                &palette,
+            );
+            assert!(
+                commands.is_empty(),
+                "ASM loc_C21E/sub_C254 cannot reveal Scroll B tiles outside the visible screen map"
             );
         }
     }

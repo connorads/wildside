@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (EOL hologram screen-tile selection)
+
+- The composed `push_eol_foreground_reveal_tiles` path was already mutation-clean
+  at 43/43, but its screen-tile selector missed 19 of 35 mutations across total
+  deletion, rectangle endpoints, viewport clamps, and one-axis off-screen cells.
+- Exact `loc_C21E/sub_C254` command contracts now cover a misaligned interior
+  cell and all four viewport edges. Clamped half-open tile ranges remove eleven
+  observationally redundant boundary visits; all 20 remaining mutants are caught.
+
 ## 2026-09-04 handoff (EOL hologram reveal clipping contract)
 
 - A focused `push_eol_hologram_tile_clipped` audit found 15 of 25 mutations
