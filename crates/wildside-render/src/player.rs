@@ -32,8 +32,8 @@ pub struct PlayerFormVisuals {
     pub idle: SpriteFrame,
     pub walk: Vec<SpriteFrame>,
     /// ASM `sub_8446` / `off_84A2`: three-frame grounded crawl mapping.
-    /// Empty for forms which cannot enter `MoveID_Crawling`.
-    pub crawl: Vec<SpriteFrame>,
+    /// `None` for forms which cannot enter `MoveID_Crawling`.
+    pub crawl: Option<[SpriteFrame; 3]>,
     /// ASM `sub_942A loc_959C`: The Kid's fixed backward-motion skid mapping.
     /// `None` for helmet forms, which continue through their walk tables.
     pub skid: Option<SpriteFrame>,
@@ -56,7 +56,7 @@ pub struct PlayerFormVisuals {
     pub slope_walk_left: Vec<SpriteFrame>,
     /// ASM `sub_B270 loc_B334/loc_B350` indexes one of the four entries in
     /// the form's `off_B3B8` airborne mapping row.
-    pub airborne: Vec<SpriteFrame>,
+    pub airborne: [SpriteFrame; 4],
     /// ASM `Death` (kid.asm:14749) installs `unk_A3FF8` / `kid_death.bin`
     /// for the visible tumble before `lose_life`.
     pub death: Option<SpriteFrame>,

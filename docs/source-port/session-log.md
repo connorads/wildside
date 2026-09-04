@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (ROM-sized player mapping tables)
+
+- `sub_8446/off_84A2` always indexes a three-entry crawl row after wrapping
+  `$FFFFF8F0` at `$300`; `sub_B270/off_B3B8` selects exactly four airborne
+  entries for every form. `PlayerFormVisuals` now represents those facts as an
+  optional three-frame array and a mandatory four-frame array rather than
+  arbitrary vectors with silent renderer clamps.
+- The complete `select_player_frame` census shrinks from 119 to 114 generated
+  mutants and from nine to five misses: 102 caught, five equivalent misses,
+  and seven compiler-unviable. The removed operators are the two actionable
+  atlas clamps; no actionable selector survivor remains. Full TAS verification
+  preserves all 37,759 player/camera, gameplay, enemy, RNG, and rendered-pixel
+  comparisons plus the 2,391-pixel frozen timing baseline.
+
 ## 2026-09-04 handoff (player slope-table mutation closure)
 
 - `loc_A13A/off_A190` confirms `$FFFFFA26` canonicalises facing before table

@@ -1490,7 +1490,7 @@ struct PlayerFormSpec {
     palette_family: &'static str,
     idle: PlayerFrameDescriptor,
     walk: &'static [PlayerFrameDescriptor],
-    crawl: &'static [PlayerFrameDescriptor],
+    crawl: Option<[PlayerFrameDescriptor; 3]>,
     /// ASM `sub_B270 loc_B2A0`: Cyclone flight spin frames.
     flight_spin: &'static [PlayerFrameDescriptor],
     /// ASM stru_8B6A: pre-drawn tilted slope walk frames (right-facing).
@@ -3939,7 +3939,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Kid palette",
         idle: KID_IDLE_FRAME,
         walk: &KID_WALK_FRAMES,
-        crawl: &KID_CRAWL_FRAMES,
+        crawl: Some(KID_CRAWL_FRAMES),
         flight_spin: &[],
         slope_walk: &KID_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &KID_SLOPE_WALK_LEFT_FRAMES,
@@ -3958,7 +3958,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Skycutter palette",
         idle: SKYCUTTER_IDLE_FRAME,
         walk: &SKYCUTTER_WALK_FRAMES,
-        crawl: &SKYCUTTER_CRAWL_FRAMES,
+        crawl: Some(SKYCUTTER_CRAWL_FRAMES),
         flight_spin: &[],
         slope_walk: &[],
         slope_walk_left: &[],
@@ -3980,7 +3980,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Cyclone palette",
         idle: CYCLONE_IDLE_FRAME,
         walk: &CYCLONE_WALK_FRAMES,
-        crawl: &CYCLONE_CRAWL_FRAMES,
+        crawl: Some(CYCLONE_CRAWL_FRAMES),
         flight_spin: &CYCLONE_FLIGHT_SPIN_FRAMES,
         slope_walk: &[],
         slope_walk_left: &[],
@@ -4004,7 +4004,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Red Stealth palette",
         idle: RED_STEALTH_IDLE_FRAME,
         walk: &RED_STEALTH_WALK_FRAMES,
-        crawl: &RED_STEALTH_CRAWL_FRAMES,
+        crawl: Some(RED_STEALTH_CRAWL_FRAMES),
         flight_spin: &[],
         slope_walk: &RED_STEALTH_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &RED_STEALTH_SLOPE_WALK_LEFT_FRAMES,
@@ -4055,7 +4055,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Eyeclops palette",
         idle: EYECLOPS_IDLE_FRAME,
         walk: &EYECLOPS_WALK_FRAMES,
-        crawl: &EYECLOPS_CRAWL_FRAMES,
+        crawl: Some(EYECLOPS_CRAWL_FRAMES),
         flight_spin: &[],
         slope_walk: &[],
         slope_walk_left: &[],
@@ -4082,7 +4082,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Iron Knight palette",
         idle: IRON_KNIGHT_IDLE_FRAME,
         walk: &IRON_KNIGHT_WALK_FRAMES,
-        crawl: &IRON_KNIGHT_CRAWL_FRAMES,
+        crawl: Some(IRON_KNIGHT_CRAWL_FRAMES),
         flight_spin: &[],
         slope_walk: &IRON_KNIGHT_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &IRON_KNIGHT_SLOPE_WALK_LEFT_FRAMES,
@@ -4104,7 +4104,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Berzerker palette",
         idle: BERZERKER_IDLE_FRAME,
         walk: &BERZERKER_WALK_FRAMES,
-        crawl: &BERZERKER_CRAWL_FRAMES,
+        crawl: Some(BERZERKER_CRAWL_FRAMES),
         flight_spin: &[],
         slope_walk: &BERZERKER_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &BERZERKER_SLOPE_WALK_LEFT_FRAMES,
@@ -4131,7 +4131,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Maniaxe palette",
         idle: MANIAXE_IDLE_FRAME,
         walk: &MANIAXE_WALK_FRAMES,
-        crawl: &MANIAXE_CRAWL_FRAMES,
+        crawl: Some(MANIAXE_CRAWL_FRAMES),
         flight_spin: &[],
         slope_walk: &[],
         slope_walk_left: &[],
@@ -4155,7 +4155,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Micromax palette",
         idle: MICROMAX_IDLE_FRAME,
         walk: &MICROMAX_WALK_FRAMES,
-        crawl: &[],
+        crawl: None,
         flight_spin: &[],
         slope_walk: &[],
         slope_walk_left: &[],
@@ -4639,7 +4639,7 @@ fn load_juggernaut_form_visuals_if_present(
                 load_composite_player_frame(manifest, source, &[bottom, head])
             })
             .collect::<Result<Vec<_>>>()?,
-        crawl: Vec::new(),
+        crawl: None,
         skid: None,
         flight_spin: Vec::new(),
         charge: Vec::new(),
@@ -4689,7 +4689,9 @@ fn load_juggernaut_form_visuals_if_present(
         .map(|bottom| {
             load_composite_player_frame(manifest, source, &[bottom, JUGGERNAUT_HEAD_IDLE_FRAME])
         })
-        .collect::<Result<Vec<_>>>()?,
+        .collect::<Result<Vec<_>>>()?
+        .try_into()
+        .expect("Juggernaut airborne descriptor row has four entries"),
         death: None,
         pull_up: Vec::new(),
         slash_ground: Vec::new(),
@@ -4745,7 +4747,11 @@ fn load_player_form_visuals(
             .copied()
             .map(|descriptor| load_player_frame(manifest, source, descriptor))
             .collect::<Result<Vec<_>>>()?,
-        crawl: load_player_frames(manifest, source, spec.crawl)?,
+        crawl: spec
+            .crawl
+            .as_ref()
+            .map(|descriptors| load_player_frame_array(manifest, source, descriptors))
+            .transpose()?,
         skid: (spec.form_id == PLAYER_FORM_THE_KID)
             .then(|| load_player_frame(manifest, source, KID_SKID_FRAME))
             .transpose()?,
@@ -4775,7 +4781,7 @@ fn load_player_form_visuals(
             .copied()
             .filter_map(|descriptor| load_player_frame(manifest, source, descriptor).ok())
             .collect(),
-        airborne: load_player_frames(manifest, source, &spec.airborne)?,
+        airborne: load_player_frame_array(manifest, source, &spec.airborne)?,
         death: spec
             .death
             .map(|descriptor| load_player_frame(manifest, source, descriptor))
@@ -4838,6 +4844,16 @@ fn load_player_frames(
         .copied()
         .map(|descriptor| load_player_frame(manifest, source, descriptor))
         .collect()
+}
+
+fn load_player_frame_array<const N: usize>(
+    manifest: &AssetManifest,
+    source: &dyn AssetSource,
+    descriptors: &[PlayerFrameDescriptor; N],
+) -> Result<[SpriteFrame; N]> {
+    load_player_frames(manifest, source, descriptors)?
+        .try_into()
+        .map_err(|_| anyhow!("player frame descriptor count changed during loading"))
 }
 
 fn load_composite_player_frame(

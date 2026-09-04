@@ -280,9 +280,9 @@ mod tests {
         assert_eq!(kid.walk.len(), 6);
         assert_eq!(kid.walk[0].origin_x, 0x0A);
         assert_eq!(kid.walk[0].width_px, 0x13);
-        assert_eq!(kid.crawl.len(), 3);
-        assert_eq!(kid.crawl[0].origin_x, 0x13);
-        assert_eq!(kid.crawl[2].width_px, 0x25);
+        let crawl = kid.crawl.as_ref().expect("Kid has an off_84A2 crawl row");
+        assert_eq!(crawl[0].origin_x, 0x13);
+        assert_eq!(crawl[2].width_px, 0x25);
         assert_eq!(kid.airborne[0].origin_x, 0x0A);
         assert_eq!(kid.airborne[0].width_px, 0x16);
         assert_eq!(kid.airborne[2].origin_x, 0x09);

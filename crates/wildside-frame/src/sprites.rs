@@ -747,12 +747,13 @@ pub fn select_player_frame<'a>(
     }
 
     if on_ground {
-        if trace.character_movement == Some(4) && !player_visuals.crawl.is_empty() {
+        if trace.character_movement == Some(4)
+            && let Some(crawl) = &player_visuals.crawl
+        {
             // ASM MoveID_Crawling loc_83BC/loc_83D8 -> sub_8446 indexes the
             // current form's off_84A2 row with `$FFFFF8F0 >> 8`.
-            let frame_index =
-                usize::from(trace.walk_visual_accumulator >> 8).min(player_visuals.crawl.len() - 1);
-            &player_visuals.crawl[frame_index]
+            let frame_index = usize::from(trace.walk_visual_accumulator >> 8);
+            &crawl[frame_index]
         } else if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
             && (trace.berzerker_charging || trace.berzerker_charge_pose)
             && !player_visuals.charge.is_empty()
@@ -863,7 +864,7 @@ pub fn select_player_frame<'a>(
                 usize::from(y_velocity >= 0) * 3
             }
         };
-        &player_visuals.airborne[state_index.min(player_visuals.airborne.len() - 1)]
+        &player_visuals.airborne[state_index]
     }
 }
 
@@ -3392,11 +3393,11 @@ mod tests {
                 labelled_frame(0x0201),
                 labelled_frame(0x0202),
             ],
-            crawl: vec![
+            crawl: Some([
                 labelled_frame(0x0260),
                 labelled_frame(0x0261),
                 labelled_frame(0x0262),
-            ],
+            ]),
             skid: Some(labelled_frame(0x0250)),
             flight_spin: vec![
                 labelled_frame(0x0300),
@@ -3412,7 +3413,7 @@ mod tests {
             axe: Vec::new(),
             slope_walk: vec![labelled_frame(0x0600), labelled_frame(0x0601)],
             slope_walk_left: vec![labelled_frame(0x0700), labelled_frame(0x0701)],
-            airborne: vec![
+            airborne: [
                 labelled_frame(0x0800),
                 labelled_frame(0x0801),
                 labelled_frame(0x0802),
