@@ -30,7 +30,7 @@ pub(crate) fn goat_live_sprite_phase(current_hp: u8, charging: bool, elapsed: u8
     } else {
         [8, 6, 6, 8, 6, 6]
     };
-    let mut tick = elapsed % durations.iter().sum::<u8>();
+    let mut tick = elapsed.saturating_sub(1) % durations.iter().sum::<u8>();
     for (phase, duration) in durations.into_iter().enumerate() {
         if tick < duration {
             return u8::try_from(phase).expect("six Goat phases fit u8")
@@ -39,6 +39,22 @@ pub(crate) fn goat_live_sprite_phase(current_hp: u8, charging: bool, elapsed: u8
         tick -= duration;
     }
     unreachable!("Goat animation tick is reduced modulo its cycle")
+}
+
+pub(crate) fn goat_next_live_animation_tick(
+    current_hp: u8,
+    charging: bool,
+    animation_tick: u8,
+) -> u8 {
+    // ASM stru_3C97C/stru_3C996/stru_3C9B0/stru_3C9CA: selector 2 runs
+    // after the sixth unequal countdown finishes. The terminal tick remains
+    // visible before the first mapping is installed on the following pass.
+    let cycle = goat_live_animation_cycle_ticks(current_hp, charging);
+    if animation_tick == 0 || animation_tick >= cycle {
+        1
+    } else {
+        animation_tick + 1
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -300,7 +316,11 @@ mod tests {
             (4, true, slow.as_slice(), 9),
             (5, true, fast.as_slice(), 9),
         ] {
-            let actual = (0..expected.len() * 2)
+            assert_eq!(
+                goat_live_sprite_phase(current_hp, charging, 0),
+                atlas_offset
+            );
+            let actual = (1..=expected.len() * 2)
                 .map(|elapsed| goat_live_sprite_phase(current_hp, charging, elapsed as u8))
                 .collect::<Vec<_>>();
             let expected_two_cycles = expected
@@ -311,5 +331,9 @@ mod tests {
                 .collect::<Vec<_>>();
             assert_eq!(actual, expected_two_cycles);
         }
+
+        assert_eq!(goat_next_live_animation_tick(3, false, 39), 40);
+        assert_eq!(goat_next_live_animation_tick(3, false, 40), 1);
+        assert_eq!(goat_next_live_animation_tick(4, false, 28), 1);
     }
 }

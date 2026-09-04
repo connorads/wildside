@@ -5224,9 +5224,11 @@ pub(crate) fn step_active_enemies_with_rng(
         {
             // ASM GfxObjects_MoveAndAnimate loc_144E advances each Goat's
             // GfxObject independently from its shared-walker Object.
-            let cycle =
-                goat_live_animation_cycle_ticks(enemy.hit_points, enemy.shared_walker_state > 0);
-            enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1) % cycle;
+            enemy.dragon_descent_frames = goat_next_live_animation_tick(
+                enemy.hit_points,
+                enemy.shared_walker_state > 0,
+                enemy.dragon_descent_frames,
+            );
         }
         if matches!(enemy.family, EnemyFamily::Robot)
             && enemy.damage_flash_frames == 0
