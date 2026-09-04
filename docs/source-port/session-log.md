@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (boss-eye attack sprite selection)
+
+- A focused mutation audit found three of four
+  `push_boss_eye_attack_sprite_sub_37abc` mutations surviving: the function
+  could report failure after emitting, and OR/XOR corruption of its mapping
+  index was invisible to existing marker-only tests.
+- A public-emitter contract now proves successful emission at exact screen
+  coordinates and selects `off_37AE0` entry 2/C8498, distinguishing the valid
+  index from both corrupt operators. The focused census improves from 1 caught
+  / 3 missed to 4 caught / 0 missed.
+
 ## 2026-09-04 handoff (Shishkaboss skewer projection)
 
 - A focused mutation audit found all nine

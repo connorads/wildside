@@ -7581,6 +7581,27 @@ mod tests {
     }
 
     #[test]
+    fn boss_eye_attack_sprite_emits_selected_off_37ae0_mapping() {
+        let mut level_visuals = minimal_level_visuals_for_platforms();
+        level_visuals
+            .enemies
+            .families
+            .insert(0x21, labelled_enemy_visuals(8, 1));
+        let mut commands = Vec::new();
+
+        let emitted =
+            push_boss_eye_attack_sprite_sub_37abc(&mut commands, &level_visuals, 100, 80, 2);
+
+        assert!(emitted);
+        let (x, y, _, tiles) = only_sprite_command(&commands);
+        assert_eq!((*x, *y), (92, 64));
+        assert_eq!(
+            tiles[0].tile.tile_index, 0x0102,
+            "ASM sub_37ABC/sub_37AF0 indexes off_37AE0 entry 2 as the C8498 boss-eye mapping"
+        );
+    }
+
+    #[test]
     fn heady_metal_renderer_uses_traced_sub_37abc_body_piece_positions() {
         let mut level_visuals = minimal_level_visuals_for_platforms();
         level_visuals
