@@ -1823,6 +1823,24 @@ pub(crate) const TANK_DEATH_ANIMATION_FRAMES: u16 = 0x10 + 0x08 + 0x3C + 1;
 /// ASM Tank_Shooting.asm loc_3B6E6 plays `stru_3B518`: $10, $08, then $3C
 /// ticks before the shared delete tail at loc_3C46E.
 pub(crate) const TANK_SHOOTING_DEATH_ANIMATION_FRAMES: u16 = 0x10 + 0x08 + 0x3C;
+const TANK_PARENT_LIVE_ANIMATION_TICKS_STRU_3B270: u8 = 3 * 6;
+
+fn tank_parent_live_sprite_animation_phase_stru_3b270(animation_tick: u8) -> u8 {
+    // ASM Init_Animation loc_1040 selects the first mapping immediately and
+    // seeds a one-tick bootstrap timer. Each `stru_3B270` six-countdown entry
+    // remains selected through its terminal GfxObject_Animate pass.
+    animation_tick.saturating_sub(1) / 6
+}
+
+fn tank_parent_next_live_animation_tick_stru_3b270(animation_tick: u8) -> u8 {
+    // ASM Tank.asm stru_3B270: selector 2 rewinds `$0D` bytes only after the
+    // third entry's timer reaches zero, so tick 18 is visible before tick 1.
+    if animation_tick == 0 || animation_tick >= TANK_PARENT_LIVE_ANIMATION_TICKS_STRU_3B270 {
+        1
+    } else {
+        animation_tick + 1
+    }
+}
 /// ASM Robot.asm loc_3A9D2 plays `stru_3A74A`: two $09-tick frames before
 /// the shared delete tail at loc_3C46E.
 pub(crate) const ROBOT_DEATH_ANIMATION_FRAMES: u16 = 0x09 + 0x09;
@@ -2853,7 +2871,9 @@ impl ActiveEnemy {
             // child `stru_3B27E`. `dragon_descent_frames` is the parent's
             // independent 18-tick GfxObject clock; the Object coroutine may
             // hibernate while GfxObject_Animate loc_113E keeps advancing it.
-            Some((self.dragon_descent_frames % 18) / 6)
+            Some(tank_parent_live_sprite_animation_phase_stru_3b270(
+                self.dragon_descent_frames,
+            ))
         } else if matches!(self.family, EnemyFamily::Cloud)
             && !self.death_animation_active
             && self.ufo_beam_segments != 0
@@ -5149,7 +5169,8 @@ pub(crate) fn step_active_enemies_with_rng(
         {
             // ASM Tank.asm loc_3B372 `stru_3B270`: parent GfxObject animation
             // runs independently from loc_3B41C and the shared-walker Object.
-            enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1) % 18;
+            enemy.dragon_descent_frames =
+                tank_parent_next_live_animation_tick_stru_3b270(enemy.dragon_descent_frames);
         }
         if matches!(enemy.family, EnemyFamily::Diamond)
             && enemy.damage_flash_frames == 0
@@ -12258,7 +12279,7 @@ mod tests {
         enemy.family = EnemyFamily::Tank;
         enemy.tank_mouth_animation_phase = 71;
 
-        for (tick, expected_phase) in [(0, 0), (5, 0), (6, 1), (11, 1), (12, 2), (17, 2)] {
+        for (tick, expected_phase) in [(0, 0), (1, 0), (6, 0), (7, 1), (12, 1), (13, 2), (18, 2)] {
             enemy.dragon_descent_frames = tick;
             assert_eq!(
                 enemy.snapshot().sprite_animation_phase,
@@ -12274,6 +12295,8 @@ mod tests {
             Some(71),
             "ASM Tank.asm loc_3B372 / stru_3B27E exports the linked mouth's independent continuation"
         );
+        assert_eq!(tank_parent_next_live_animation_tick_stru_3b270(17), 18);
+        assert_eq!(tank_parent_next_live_animation_tick_stru_3b270(18), 1);
     }
 
     #[test]
