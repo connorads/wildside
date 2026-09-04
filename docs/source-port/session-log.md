@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (Plane-B pixel diagnostic contract)
+
+- A focused `sample_background_tile_pixel` mutation audit found 36 of 44
+  mutations surviving, including disabling background samples and corrupting
+  tile bounds, destination-to-source coordinates, flips, and source-row data.
+- A public `sample_background_pixel_loc_c070` contract now samples a
+  `sub_307D8` tile at a non-zero origin, pins all destination edges, H/V flips,
+  palette/source metadata, and the `loc_30598-loc_3060A` forest-ripple row
+  override. The census improves to 43 caught / 0 missed / 1 compiler-unviable.
+
 ## 2026-09-04 handoff (forest-water ripple band and phase)
 
 - A focused `forest_water_ripple_offset_for_screen_y_sub_30598` mutation audit

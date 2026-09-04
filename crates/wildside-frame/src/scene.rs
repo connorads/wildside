@@ -9986,9 +9986,9 @@ mod tests {
     use wildside_render::{
         AnimatedSpriteVisual, BackgroundChunk, BackgroundPlacement, BackgroundTile,
         BackgroundVisuals, BlockVisualMapping, ChunkedBackgroundVisuals, EnemyVisuals, FlagVisuals,
-        FloatingPrizeVisuals, ForegroundLayout, HudVisuals, LevelVisuals, PaletteSet,
-        PlatformVisuals, PlayerFormVisuals, PlayerVisuals, SpecialEffectUnknownVisuals,
-        SpriteFrame, Tile, TileQuad, WeatherVisuals,
+        FloatingPrizeVisuals, ForegroundLayout, HudVisuals, LayeredBackgroundRow,
+        LayeredBackgroundVisuals, LevelVisuals, PaletteSet, PlatformVisuals, PlayerFormVisuals,
+        PlayerVisuals, SpecialEffectUnknownVisuals, SpriteFrame, Tile, TileQuad, WeatherVisuals,
     };
 
     #[test]
@@ -14429,6 +14429,81 @@ mod tests {
             forest_water_ripple_offset_for_screen_y_sub_30598(0, FRAME_HEIGHT as i32, 2, 0),
             None
         );
+    }
+
+    #[test]
+    fn background_pixel_sample_pins_tile_bounds_flips_and_ripple_row_loc_c070_307d8() {
+        let mut visuals = sample_level_visuals(1);
+        let tile = Tile {
+            pixels: std::array::from_fn(|index| (index % 15 + 1) as u8),
+        };
+        visuals.background_tiles = TileSheet {
+            tiles: vec![tile.clone()],
+        };
+        visuals.level.background_theme_id = 9;
+        visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+            placements: vec![BackgroundPlacement {
+                chunk_id: 0,
+                x_tiles: 2,
+                y_tiles: 2,
+            }],
+            chunks: vec![BackgroundChunk {
+                width_tiles: 1,
+                height_tiles: 1,
+                tiles: vec![BackgroundTile {
+                    tile_index: 0,
+                    flip_x: true,
+                }],
+            }],
+        });
+        let trace = NativeTraceFrame::default();
+
+        // ASM sub_307D8 streams the tile's H-flip attribute into Plane B;
+        // VDP sampling therefore maps destination (2,3) to source (5,3).
+        let sample = sample_background_pixel_loc_c070(&trace, &visuals, 18, 19)
+            .expect("sub_307D8 tile should cover its eight-pixel destination bounds");
+        assert_eq!((sample.screen_x, sample.screen_y), (16, 16));
+        assert_eq!((sample.source_x, sample.source_y), (5, 3));
+        assert_eq!(sample.source_row_pixels, [10, 11, 12, 13, 14, 15, 1, 2]);
+        assert_eq!(sample.palette_index, 15);
+        assert_eq!(sample.tile_index, 0);
+        assert_eq!(sample.palette_line, 0);
+        assert_eq!(sample.background_row_index, Some(2));
+        assert_eq!(sample.background_column, Some(2));
+        let colour = visuals.palettes.background.colours[15];
+        assert_eq!(sample.rgb, [colour.red, colour.green, colour.blue]);
+        assert!(
+            sample_background_pixel_loc_c070(&trace, &visuals, 16, 19).is_some(),
+            "ASM Plane-B tile coverage includes its left destination edge"
+        );
+        for (x, y) in [(15, 19), (24, 19), (18, 15), (18, 24)] {
+            assert_eq!(
+                sample_background_pixel_loc_c070(&trace, &visuals, x, y),
+                None,
+                "ASM Plane-B tiles cover exactly one 8x8 destination cell"
+            );
+        }
+
+        // ASM BackgroundScroll_ApplyForestWaterRipple loc_30598-loc_3060A
+        // writes one displaced scanline at a time. Preserve that row override
+        // while applying both VDP flip axes to the sampled source pixel.
+        visuals.background = BackgroundVisuals::Layered(LayeredBackgroundVisuals {
+            effect_start_row_selector: Some(0),
+            rows: vec![LayeredBackgroundRow {
+                selector: 0,
+                tiles: vec![TileRef {
+                    flip_x: true,
+                    flip_y: true,
+                    ..sample_tile_ref(0)
+                }],
+            }],
+        });
+        let rippled = sample_background_pixel_loc_c070(&trace, &visuals, 2, 3)
+            .expect("loc_3060A should retain the sampled ripple scanline");
+        assert_eq!((rippled.source_x, rippled.source_y), (5, 4));
+        assert_eq!(rippled.source_row_pixels, [3, 4, 5, 6, 7, 8, 9, 10]);
+        assert_eq!(rippled.palette_index, 8);
+        assert_eq!(rippled.row_offset, Some(0));
     }
 
     #[test]
