@@ -4847,6 +4847,50 @@ mod tests {
     }
 
     #[test]
+    fn tar_monster_sprite_hides_only_after_primary_gfx_is_cleared() {
+        let mut level_visuals = minimal_level_visuals_for_platforms();
+        level_visuals
+            .enemies
+            .families
+            .insert(0x05, labelled_enemy_visuals(13, 6));
+        level_visuals
+            .enemies
+            .families
+            .insert(0x06, labelled_enemy_visuals(1, 6));
+        let trace = NativeTraceFrame::default();
+        let mut hidden = live_enemy_object(0x05);
+        hidden.hit_points = Some(0);
+        hidden.sprite_animation_phase = None;
+
+        let mut commands = Vec::new();
+        push_enemy_sprite(&mut commands, &hidden, &trace, &level_visuals, 0x05);
+        assert!(
+            commands.is_empty(),
+            "ASM Tar_Monster.asm loc_322DA/loc_32310/loc_323C0 clears primary `$13(a2)`, hiding the Tar Monster GfxObject"
+        );
+
+        for (object_type, hit_points, phase) in [
+            (0x06, Some(0), None),
+            (0x05, Some(1), None),
+            (0x05, Some(0), Some(0)),
+        ] {
+            let mut visible = hidden.clone();
+            visible.kind = NativeObjectKind::Enemy { object_type };
+            visible.hit_points = hit_points;
+            visible.sprite_animation_phase = phase;
+            commands.clear();
+
+            push_enemy_sprite(&mut commands, &visible, &trace, &level_visuals, object_type);
+
+            assert_eq!(
+                commands.len(),
+                1,
+                "ASM Tar_Monster.asm loc_322DA/loc_32310/loc_323C0 suppresses only the dead Tar Monster whose primary GfxObject has no live animation mapping"
+            );
+        }
+    }
+
+    #[test]
     fn flying_dragon_selector_consumes_loc_348ce_script_mapping() {
         let visuals = labelled_enemy_visuals(9, 7);
         let mut dragon = live_flying_dragon_object(8);

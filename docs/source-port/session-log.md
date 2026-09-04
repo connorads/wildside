@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (Tar Monster sprite suppression)
+
+- A focused `push_enemy_sprite` mutation audit found that no test distinguished
+  Tar Monster's complete three-part hide condition. `Tar_Monster.asm`
+  `loc_322DA/loc_32310/loc_323C0` clears the primary GfxObject mapping for the
+  dead 0x05 object; other families, live Tar Monsters, and mapped death phases
+  remain visible.
+- The new public-emitter contract covers the hidden state and all three
+  one-term counterexamples. The 18-mutant census improves from 3 caught / 11
+  missed / 4 compiler-unviable to 6 caught / 8 missed / 4 compiler-unviable.
+  The remaining survivors are isolated to boss-facing, Spinning Twins offsets,
+  and Tank fallback positioning. `verify-slice-fast` passes all gates and 7,376
+  main tests.
+
 ## 2026-09-04 handoff (Big Hopping Skull death-atlas guard)
 
 - An exhaustive 389-mutant `select_enemy_frame` census found one survivor:
