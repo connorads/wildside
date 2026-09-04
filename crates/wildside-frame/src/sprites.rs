@@ -6587,64 +6587,59 @@ mod tests {
             0x0401
         );
 
-        // ASM loc_A13A/off_A190: slope direction canonicalisation chooses
-        // opposite tables for reverse/uphill-facing cases, with phase >> 8.
-        assert_eq!(
-            selected_tile_base(
-                &NativeTraceFrame {
-                    kid_on_slope: 1,
-                    kid_facing: Some(Direction::Right),
-                    walk_visual_accumulator: 0x0100,
-                    kid_x_velocity: Some(0),
-                    ..NativeTraceFrame::default()
-                },
-                &visuals
-            ),
-            0x0701
-        );
-        assert_eq!(
-            selected_tile_base(
-                &NativeTraceFrame {
-                    current_helmet_id: PlayerForm::Berzerker.helmet_id(),
-                    kid_on_slope: -1,
-                    kid_facing: Some(Direction::Right),
-                    walk_visual_accumulator: 0x0100,
-                    kid_x_velocity: Some(0),
-                    ..NativeTraceFrame::default()
-                },
-                &visuals
-            ),
-            0x0601
-        );
-        let mut fallback_slope_visuals = labelled_player_visuals();
-        fallback_slope_visuals.slope_walk_left.clear();
-        assert_eq!(
-            selected_tile_base(
-                &NativeTraceFrame {
-                    kid_on_slope: 1,
-                    kid_facing: Some(Direction::Right),
-                    walk_visual_accumulator: 0x0100,
-                    kid_x_velocity: Some(0),
-                    ..NativeTraceFrame::default()
-                },
-                &fallback_slope_visuals
-            ),
-            0x0201
-        );
-        fallback_slope_visuals.slope_walk.clear();
-        assert_eq!(
-            selected_tile_base(
-                &NativeTraceFrame {
-                    kid_on_slope: 1,
-                    kid_facing: Some(Direction::Left),
-                    walk_visual_accumulator: 0x0200,
-                    kid_x_velocity: Some(0),
-                    ..NativeTraceFrame::default()
-                },
-                &fallback_slope_visuals
-            ),
-            0x0202
-        );
+        // ASM loc_A13A/off_A190: `$FFFFFA26` canonicalises the live facing
+        // before loc_A16C chooses one of the two six-entry slope table halves.
+        for helmet_id in [
+            PlayerForm::TheKid.helmet_id(),
+            PlayerForm::Berzerker.helmet_id(),
+        ] {
+            for (slope, facing, expected) in [
+                (1, Direction::Right, 0x0701),
+                (1, Direction::Left, 0x0601),
+                (-1, Direction::Right, 0x0601),
+                (-1, Direction::Left, 0x0701),
+            ] {
+                assert_eq!(
+                    selected_tile_base(
+                        &NativeTraceFrame {
+                            current_helmet_id: helmet_id,
+                            kid_on_slope: slope,
+                            kid_facing: Some(facing),
+                            walk_visual_accumulator: 0x0100,
+                            kid_x_velocity: Some(0),
+                            ..NativeTraceFrame::default()
+                        },
+                        &visuals,
+                    ),
+                    expected,
+                    "ASM loc_A13A/off_A190 slope {slope} facing {facing:?} helmet {helmet_id}",
+                );
+            }
+
+            for (clear_left_half, facing) in [(true, Direction::Right), (false, Direction::Left)] {
+                let mut fallback_visuals = labelled_player_visuals();
+                if clear_left_half {
+                    fallback_visuals.slope_walk_left.clear();
+                } else {
+                    fallback_visuals.slope_walk.clear();
+                }
+                assert_eq!(
+                    selected_tile_base(
+                        &NativeTraceFrame {
+                            current_helmet_id: helmet_id,
+                            kid_on_slope: 1,
+                            kid_facing: Some(facing),
+                            walk_visual_accumulator: 0x0200,
+                            kid_x_velocity: Some(0),
+                            ..NativeTraceFrame::default()
+                        },
+                        &fallback_visuals,
+                    ),
+                    0x0202,
+                    "missing ASM off_A190 slope half must fall back to walk art",
+                );
+            }
+        }
 
         // ASM loc_9580/loc_9600: Berzerker latched walk pose wins even when
         // sampled velocity is zero; ordinary walk still uses the same phase.

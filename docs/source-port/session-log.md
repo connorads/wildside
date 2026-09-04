@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (player slope-table mutation closure)
+
+- `loc_A13A/off_A190` confirms `$FFFFFA26` canonicalises facing before table
+  selection: positive/right and negative/left use the first half, while
+  positive/left and negative/right use the second.
+- The player selector contract now exercises all four combinations for Kid
+  and Berzerker and proves each missing table half falls back to walk art. The
+  119-mutant census improves from 98 caught / 15 missed / 6 compiler-unviable
+  to 104 caught / 9 missed / 6 compiler-unviable. The remaining slope `<= 0`
+  mutations are equivalent because the enclosing branch excludes zero;
+  actionable residue is isolated to crawl and airborne atlas clamps.
+
 ## 2026-09-04 handoff (player pose ownership mutation closure)
 
 - The 37,759-frame route census confirms live Kid, Cyclone, and Iron Knight
