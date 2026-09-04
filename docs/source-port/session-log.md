@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (live block-grid override contract)
+
+- A focused `push_block_grid_overrides` audit found 82 of 89 mutations
+  surviving across viewport selection, live skin and priority, camera-relative
+  placement, and transient-worker ownership.
+- Public command-stream contracts now pin `sub_302F6`, `sub_1007A`,
+  `loc_E0C2`, `loc_102B8`, and `sub_113C0/loc_113F4` behaviour. Removing a
+  redundant eligibility predicate leaves all 79 viable mutations caught.
+
 ## 2026-09-04 handoff (Plane-B command-stream contract)
 
 - A focused `push_background_tiles` audit found 42 of 49 mutations surviving,

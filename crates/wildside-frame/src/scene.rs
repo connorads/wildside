@@ -6929,13 +6929,6 @@ pub fn push_block_grid_overrides(
             let is_prize_bounce = bounce_kind == Some(BlockBounceTraceKind::Prize);
             let is_hidden_reveal_bounce = bounce_kind == Some(BlockBounceTraceKind::HiddenReveal);
             let is_shifting_bounce = bounce_kind == Some(BlockBounceTraceKind::Shifting);
-            if !cell.has_block
-                && !is_prize_bounce
-                && !is_hidden_reveal_bounce
-                && !is_shifting_bounce
-            {
-                continue;
-            }
             if !cell.has_block && bounce_y_offset.is_none() {
                 continue;
             }
@@ -7005,12 +6998,14 @@ pub fn push_block_grid_overrides(
                 // four quarter-tile reveal workers. Typed trace details carry
                 // the worker offsets; legacy compact traces fall through to the
                 // single whole-tile draw below.
-                for bounce in trace.block_bounce_details.iter().filter(|bounce| {
-                    bounce.cell_x == col
-                        && bounce.cell_y == row
-                        && bounce.remaining > 0
-                        && bounce.kind == BlockBounceTraceKind::HiddenReveal
-                }) {
+                for bounce in trace
+                    .block_bounce_details
+                    .iter()
+                    .filter(|bounce| bounce.cell_x == col)
+                    .filter(|bounce| bounce.cell_y == row)
+                    .filter(|bounce| bounce.remaining > 0)
+                    .filter(|bounce| bounce.kind == BlockBounceTraceKind::HiddenReveal)
+                {
                     push_tile_quad(
                         commands,
                         level_visuals,
@@ -15308,6 +15303,170 @@ mod tests {
                 "ASM stru_101B6/stru_10296 remaining={remaining}"
             );
         }
+    }
+
+    #[test]
+    fn block_grid_overrides_cover_fractional_camera_viewport_sub_302f6() {
+        let visuals = sample_level_visuals(0x300);
+        let mut grid = BlockGrid::from_level_layout(&vec![0; 30 * 20 * 2], 30, 20);
+        for (col, row, skin) in [
+            (2, 1, 2),
+            (22, 15, 3),
+            (1, 1, 4),
+            (23, 1, 5),
+            (2, 0, 6),
+            (2, 16, 7),
+        ] {
+            grid.set_raw_word_at(col, row, 0xE000 | skin);
+        }
+        let trace = NativeTraceFrame {
+            camera_x_pos: 35 << 16,
+            camera_y_pos: 18 << 16,
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_block_grid_overrides(&mut commands, &trace, &visuals, Some(&grid));
+
+        let indexed_tiles = commands.indexed_tiles();
+        assert_eq!(
+            indexed_tiles.len(),
+            8,
+            "ASM sub_302F6 submits only block cells in the 320x224 camera window, including partial cells at both far edges"
+        );
+        assert_eq!(indexed_tile_snapshot(indexed_tiles[0]), (-3, -2, 8, true));
+        assert_eq!(
+            indexed_tile_snapshot(indexed_tiles[4]),
+            (317, 222, 12, true),
+            "ASM sub_302F6 retains the partially visible final column and row"
+        );
+    }
+
+    #[test]
+    fn block_grid_overrides_follow_transient_worker_ownership() {
+        let mut visuals = sample_level_visuals(0x300);
+        let mut foreground_layout_bytes = vec![0; 20 * 14];
+        foreground_layout_bytes[20 + 3] = 5;
+        visuals.level.foreground_layout =
+            ForegroundLayout::parse(&foreground_layout_bytes, 1, 1).expect("foreground layout");
+        visuals.level.foreground_layout_bytes = foreground_layout_bytes;
+
+        let mut grid = BlockGrid::from_level_layout(&vec![0; 20 * 14 * 2], 20, 14);
+        grid.set_raw_word_at(1, 1, 0xE002);
+        grid.set_raw_word_at(2, 1, 0xE103);
+        grid.set_raw_word_at(3, 1, 0x6F00);
+        grid.set_raw_word_at(4, 1, 0x6F00);
+        grid.set_raw_word_at(5, 1, 0xE006);
+        grid.set_raw_word_at(6, 1, 0xE007);
+        let trace = NativeTraceFrame {
+            camera_x_pos: 1 << 16,
+            camera_y_pos: 2 << 16,
+            block_bounces: vec![(2, 1, 28, -4), (3, 1, 8, -2), (4, 1, 8, -6), (6, 1, 8, -3)],
+            block_bounce_details: vec![
+                BlockBounceTrace {
+                    cell_x: 2,
+                    cell_y: 1,
+                    x_offset_px: 0,
+                    remaining: 28,
+                    y_offset_px: -4,
+                    kind: BlockBounceTraceKind::Prize,
+                },
+                BlockBounceTrace {
+                    cell_x: 3,
+                    cell_y: 1,
+                    x_offset_px: -2,
+                    remaining: 8,
+                    y_offset_px: -1,
+                    kind: BlockBounceTraceKind::HiddenReveal,
+                },
+                BlockBounceTrace {
+                    cell_x: 3,
+                    cell_y: 1,
+                    x_offset_px: 6,
+                    remaining: 8,
+                    y_offset_px: 7,
+                    kind: BlockBounceTraceKind::HiddenReveal,
+                },
+                BlockBounceTrace {
+                    cell_x: 4,
+                    cell_y: 1,
+                    x_offset_px: 0,
+                    remaining: 8,
+                    y_offset_px: -6,
+                    kind: BlockBounceTraceKind::Shifting,
+                },
+                BlockBounceTrace {
+                    cell_x: 3,
+                    cell_y: 2,
+                    x_offset_px: 20,
+                    remaining: 8,
+                    y_offset_px: 20,
+                    kind: BlockBounceTraceKind::HiddenReveal,
+                },
+                BlockBounceTrace {
+                    cell_x: 4,
+                    cell_y: 1,
+                    x_offset_px: 20,
+                    remaining: 8,
+                    y_offset_px: 20,
+                    kind: BlockBounceTraceKind::HiddenReveal,
+                },
+                BlockBounceTrace {
+                    cell_x: 3,
+                    cell_y: 1,
+                    x_offset_px: 20,
+                    remaining: 0,
+                    y_offset_px: 20,
+                    kind: BlockBounceTraceKind::HiddenReveal,
+                },
+                BlockBounceTrace {
+                    cell_x: 3,
+                    cell_y: 1,
+                    x_offset_px: 20,
+                    remaining: 8,
+                    y_offset_px: 20,
+                    kind: BlockBounceTraceKind::Prize,
+                },
+            ],
+            prize_block_spawn_flashes: vec![(88, 8, 25)],
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_block_grid_overrides(&mut commands, &trace, &visuals, Some(&grid));
+
+        let indexed_tiles = commands.indexed_tiles();
+        assert_eq!(indexed_tiles.len(), 16);
+        assert_eq!(indexed_tile_snapshot(indexed_tiles[0]), (15, 14, 8, true));
+        assert_eq!(
+            indexed_tile_snapshot(indexed_tiles[4]),
+            (45, 13, 20, true),
+            "ASM loc_E0C2 draws each hidden-block quarter worker from the immutable foreground skin"
+        );
+        assert_eq!(indexed_tile_snapshot(indexed_tiles[8]), (53, 21, 20, true));
+        assert_eq!(
+            indexed_tile_snapshot(indexed_tiles[12]),
+            (95, 11, 28, true),
+            "ordinary live blocks keep their grid art and apply the engine-provided bounce offset"
+        );
+        let sprites = commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite { x, y, .. } => Some((*x, *y)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            sprites,
+            vec![(63, 8)],
+            "ASM sub_113C0/loc_113F4 gives the rising shifting worker sole ownership of its reserved `$6F00` cell"
+        );
+        assert!(
+            indexed_tiles
+                .iter()
+                .all(|command| !matches!(command, DrawCommand::IndexedTile { x: 31 | 79, .. })),
+            "ASM sub_1007A owns prize-wobble cells and delays the new grid tile until after the first loc_102B8 presentation"
+        );
     }
 
     #[test]
