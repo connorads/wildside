@@ -1840,6 +1840,17 @@ fn diamond_live_sprite_animation_phase_stru_3aca8(elapsed: u8) -> u8 {
     // each `stru_3ACA8` entry six ticks before selector 2 rewinds `$15` bytes.
     elapsed.saturating_sub(1) / 6
 }
+
+fn diamond_next_live_animation_tick_stru_3aca8(animation_tick: u8) -> u8 {
+    // ASM Diamond.asm stru_3ACA8: the fifth six-pass entry remains selected
+    // through tick 30; selector 2 rewinds and installs the first entry on the
+    // following GfxObject_Animate call.
+    if animation_tick == 0 || animation_tick >= DIAMOND_LIVE_ANIMATION_TICKS_STRU_3ACA8 {
+        1
+    } else {
+        animation_tick + 1
+    }
+}
 /// ASM Dragon.asm loc_3CEFC plays `stru_3CCEC`: $07, $06, $03, $16, $05,
 /// $04, $04, $0C, $05, then $63 ticks before loc_3E956.
 pub(crate) const DRAGON_WALKING_DEATH_ANIMATION_FRAMES: u16 =
@@ -5148,8 +5159,8 @@ pub(crate) fn step_active_enemies_with_rng(
         {
             // ASM GfxObjects_MoveAndAnimate loc_142E advances the Diamond's
             // `stru_3ACA8` GfxObject independently from either Object worker.
-            enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1)
-                % DIAMOND_LIVE_ANIMATION_TICKS_STRU_3ACA8;
+            enemy.dragon_descent_frames =
+                diamond_next_live_animation_tick_stru_3aca8(enemy.dragon_descent_frames);
         }
         if matches!(enemy.family, EnemyFamily::Scorpion)
             && enemy.damage_flash_frames == 0
@@ -12156,6 +12167,7 @@ mod tests {
             (24, 3),
             (25, 4),
             (29, 4),
+            (30, 4),
         ] {
             enemy.dragon_descent_frames = elapsed;
             assert_eq!(
@@ -12164,6 +12176,9 @@ mod tests {
                 "ASM Init_Animation loc_1040 and Diamond.asm stru_3ACA8 elapsed tick {elapsed}"
             );
         }
+
+        assert_eq!(diamond_next_live_animation_tick_stru_3aca8(29), 30);
+        assert_eq!(diamond_next_live_animation_tick_stru_3aca8(30), 1);
 
         enemy.damage_flash_frames = DIAMOND_HURT_ANIMATION_FRAMES_STRU_3ACBE;
         assert_eq!(
