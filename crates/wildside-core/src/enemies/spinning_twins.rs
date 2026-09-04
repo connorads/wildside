@@ -35,6 +35,7 @@ pub(crate) const SPINNING_TWINS_COLID_KIDABOVE: u16 = colid::KIDABOVE;
 pub(crate) const SPINNING_TWINS_HURT_ANIMATION_FRAMES_STRU_3B836: u8 = 0x14;
 pub(crate) const SPINNING_TWINS_DROP_SPLIT_PENDING_LOC_3B93C: u16 = 0xB93C;
 pub(crate) const SPINNING_TWINS_PARTNER_DEATH_SIGNAL_LOC_3BCA6: i16 = -1;
+const SPINNING_TWINS_WALK_ANIMATION_TICKS_STRU_3B81C: u8 = 6 + 5 + 5 + 6 + 5 + 5;
 
 pub(crate) fn spinning_twins_orbit_sprite_phases_loc_3b904(
     orbit_index: u8,
@@ -68,7 +69,7 @@ pub(crate) fn spinning_twins_live_sprite_phase(
     match phase {
         SpinningTwinsPhase::Orbiting => None,
         SpinningTwinsPhase::Walking if !on_ground || hurt_frames > 0 => Some(4),
-        SpinningTwinsPhase::Walking => Some(match animation_elapsed % 32 {
+        SpinningTwinsPhase::Walking => Some(match animation_elapsed.saturating_sub(1) % 32 {
             0..=5 => 8,
             6..=10 => 9,
             11..=15 => 10,
@@ -78,6 +79,16 @@ pub(crate) fn spinning_twins_live_sprite_phase(
             _ => unreachable!("modulo-32 Spinning Twins animation phase"),
         }),
         SpinningTwinsPhase::FallingVisual => Some(7),
+    }
+}
+
+pub(crate) fn spinning_twins_next_walk_animation_tick_stru_3b81c(animation_tick: u8) -> u8 {
+    // ASM stru_3B81C selector 2 rewinds after the sixth mapping's terminal
+    // countdown tick, without repeating Init_Animation's bootstrap pass.
+    if animation_tick == 0 || animation_tick >= SPINNING_TWINS_WALK_ANIMATION_TICKS_STRU_3B81C {
+        1
+    } else {
+        animation_tick + 1
     }
 }
 
@@ -845,7 +856,8 @@ pub(crate) fn step_spinning_twins(
             // Apply gravity while airborne until grounded, then walk as pacer
             if enemy.on_ground {
                 step_pacer(enemy, block_grid, None);
-                enemy.grounded_frames = enemy.grounded_frames.wrapping_add(1);
+                enemy.grounded_frames =
+                    spinning_twins_next_walk_animation_tick_stru_3b81c(enemy.grounded_frames);
             } else {
                 enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
                 enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;

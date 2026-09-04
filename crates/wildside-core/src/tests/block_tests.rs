@@ -15251,18 +15251,17 @@ mod chunk_04 {
         );
         for (elapsed, expected) in [
             (0, 8),
-            (5, 8),
-            (6, 9),
-            (10, 9),
-            (11, 10),
-            (15, 10),
-            (16, 11),
-            (21, 11),
-            (22, 12),
-            (26, 12),
-            (27, 13),
-            (31, 13),
-            (32, 8),
+            (6, 8),
+            (7, 9),
+            (11, 9),
+            (12, 10),
+            (16, 10),
+            (17, 11),
+            (22, 11),
+            (23, 12),
+            (27, 12),
+            (28, 13),
+            (32, 13),
         ] {
             assert_eq!(
                 spinning_twins_live_sprite_phase(SpinningTwinsPhase::Walking, true, 0, elapsed),
@@ -15270,6 +15269,8 @@ mod chunk_04 {
                 "ASM loc_3BB94 / stru_3B81C elapsed tick {elapsed}"
             );
         }
+        assert_eq!(spinning_twins_next_walk_animation_tick_stru_3b81c(31), 32);
+        assert_eq!(spinning_twins_next_walk_animation_tick_stru_3b81c(32), 1);
         assert_eq!(
             spinning_twins_live_sprite_phase(SpinningTwinsPhase::Walking, true, 1, 17),
             Some(4),

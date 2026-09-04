@@ -2566,6 +2566,10 @@ impl ActiveEnemy {
                     self.hit_points = recovery.next_hit_points as u8;
                     self.damage_flash_frames = SPINNING_TWINS_HURT_ANIMATION_FRAMES_STRU_3B836;
                     self.wait_timer = u16::from(SPINNING_TWINS_HURT_ANIMATION_FRAMES_STRU_3B836);
+                    // ASM loc_3BC34 replaces the current script with
+                    // stru_3B836, then restores stru_3B81C through
+                    // Init_Animation. Its cursor restarts at entry zero.
+                    self.grounded_frames = 0;
                     return false;
                 }
             }

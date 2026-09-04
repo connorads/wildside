@@ -19563,6 +19563,7 @@ mod chunk_03 {
         let mut twins = test_enemy(EnemyFamily::SpinningTwins, 100 << 16, 120 << 16, 2);
         twins.spinning_twins_phase = SpinningTwinsPhase::Walking;
         twins.x_velocity = 0x0001_8000;
+        twins.grounded_frames = 17;
         runtime.active_enemies = vec![twins];
         runtime.projectiles.push(EnemyProjectile {
             x_pos: 100 << 16,
@@ -19591,6 +19592,10 @@ mod chunk_03 {
         assert!(
             !runtime.active_enemies[0].death_animation_active,
             "nonfatal loc_3BC34 recovery must not enter loc_3BC56 death"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].grounded_frames, 0,
+            "ASM loc_3BC34 restores stru_3B81C through Init_Animation, resetting its mapping cursor"
         );
     }
 
