@@ -12191,7 +12191,7 @@ impl NativeRuntime {
         }
     }
 
-    fn award_prize_diamond(&mut self) {
+    pub(crate) fn award_prize_diamond(&mut self) {
         if self.progression.diamond_count >= 99 {
             return;
         }

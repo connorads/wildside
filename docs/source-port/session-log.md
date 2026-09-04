@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (authoritative prize-worker lifecycles)
+
+- Replaced renderer-side parent-age replay with typed runtime child workers for
+  Ten Diamonds and 10,000 points. Trace and rendering now consume one
+  authoritative position and sprite-kind snapshot per live GfxObject.
+- ASM corrected the Ten Diamonds reward timing: `loc_109E8` awards one Diamond
+  when each child expires, not ten at parent spawn. The runtime now models the
+  `$70` freeze, `$20` camera latch, 32-step `loc_109C0` HUD flight, and ten
+  separate expiries. The 10,000-point parent still scores immediately and its
+  five stars retain signed off-screen `loc_10B74` positions.
+- Object accounting now counts each effect parent as Object-only and each child
+  as GfxObject-only. `verify-slice-fast` passes 7,378 core tests and all
+  supporting gates. `verify-tas-full` checks all 37,759 published-route frames:
+  gameplay, enemies, RNG, and commands remain exact, with the existing
+  241-frame / 2,391-pixel and frozen GEMS witnesses unchanged.
+
 ## 2026-09-04 handoff (immediate prize-worker domain model)
 
 - ASM proved Ten Diamonds and 10,000 points are immediate-effect parent

@@ -6401,6 +6401,7 @@ AddrTbl_LevelNames:
             prize_block_worker_tails_sub_1007a: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
             kid_projectile_hit_sparks: Vec::new(),
+            prize_worker_sprites: Vec::new(),
             floating_items: Vec::new(),
             prize_diamond_hud_flights_loc_fe3e: Vec::new(),
             prize_diamond_hud_flight_transferred_loc_fe3e: false,

@@ -1100,6 +1100,7 @@ mod tests {
         ));
 
         let native_with_floating_item = NativeTraceFrame {
+            prize_worker_sprites: Vec::new(),
             floating_items: vec![(12, 34, 5, 0x64)],
             ..NativeTraceFrame::default()
         };
@@ -1140,6 +1141,7 @@ mod tests {
                 },
             ],
             block_bounces: vec![(0x0A, 0x0B, 3, -2)],
+            prize_worker_sprites: Vec::new(),
             floating_items: vec![(12, 34, 5, 0x64)],
             block_destroy_effects: vec![(6, 7, 8, 1)],
             ..NativeTraceFrame::default()
@@ -1676,6 +1678,7 @@ mod tests {
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
             solid_ghost_transitions_sub_f730: Vec::new(),
+            prize_worker_sprites: Vec::new(),
             floating_items: Vec::new(),
             prize_diamond_hud_flights_loc_fe3e: Vec::new(),
             prize_diamond_hud_flight_transferred_loc_fe3e: false,

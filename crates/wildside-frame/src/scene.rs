@@ -81,8 +81,6 @@ const DRIPS_OBJECT_TYPE: u8 = 0x16;
 const HEADY_METAL_OBJECT_TYPE: u8 = 0x20;
 const BOSS_EYE_OBJECT_TYPE: u8 = 0x21;
 const TAR_MONSTER_OBJECT_TYPE: u8 = 0x05;
-/// ASM sub_10C78/sub_10CB0 seed the shared native prize countdown with `$0320`.
-const PRIZE_GENERIC_INITIAL_LIFETIME: u16 = 0x0320;
 /// ASM PrizeDiamond_Init (kid.asm:21604): initial `object_timer` is `$01F4`.
 const PRIZE_DIAMOND_INITIAL_LIFETIME: u16 = 0x01F4;
 const PRIZE_BLOCK_RESIDENT_PAGE_SKIN_SUB_1007A: u8 = 0x02;
@@ -8882,16 +8880,6 @@ fn build_game_scene_filtered(
             let fx = i32::from(x_px) - (trace.camera_x_pos >> 16) as i32;
             let fy = i32::from(floating_prize_display_y_loc_104ae(content, y_px, remaining))
                 - (trace.camera_y_pos >> 16) as i32;
-            if render_floating_prize_worker_effect(
-                &mut commands,
-                level_visuals,
-                content,
-                fx,
-                fy,
-                remaining,
-            ) {
-                continue;
-            }
             let graphics_spec = floating_item_graphics_spec(content_id);
             if let Some(prize_visuals) = floating_prize_visuals(level_visuals, content_id) {
                 if !floating_prize_sprite_visible_loc_103b2(content, remaining) {
@@ -8986,7 +8974,7 @@ fn build_game_scene_filtered(
             // `floating_prize_visuals` to real ROM sprite frames (ASM
             // PrizeDiamond_Init `stru_10D6E`, sub_10CB0 helmet selectors,
             // `stru_10C08/10C18/10C28` icon tiles), and Points10000 /
-            // TenDiamonds render through `render_floating_prize_worker_effect`
+            // TenDiamonds render through typed `prize_worker_sprites`
             // (ASM Prize10000Points_Init / Prize10Diamonds_Init). The
             // previous Diamond / Ankh / Clock branches drew hand-invented
             // pixel-art "diamond", "cross", and "clock face" approximations
@@ -9008,6 +8996,16 @@ fn build_game_scene_filtered(
                 height: 1,
                 colour: [255, 255, 255],
             });
+        }
+
+        for worker in &trace.prize_worker_sprites {
+            render_prize_worker_sprite(
+                &mut commands,
+                level_visuals,
+                worker,
+                (trace.camera_x_pos >> 16) as i32,
+                (trace.camera_y_pos >> 16) as i32,
+            );
         }
 
         // ASM sub_1007A spawns the loc_102B8 flash at object priority #$2001
@@ -9508,241 +9506,51 @@ fn floating_diamond_frame_index_from_resident_page_loc_5d4a(
     })
 }
 
-fn render_floating_prize_worker_effect(
+fn render_prize_worker_sprite(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
-    content: wildside_core::terrain::PrizeContent,
-    screen_x: i32,
-    screen_y: i32,
-    remaining_frames: u16,
-) -> bool {
-    if remaining_frames > PRIZE_GENERIC_INITIAL_LIFETIME {
-        return false;
-    }
-    let effect_age = PRIZE_GENERIC_INITIAL_LIFETIME - remaining_frames;
-    match content {
-        wildside_core::terrain::PrizeContent::TenDiamonds => {
-            render_ten_diamonds_worker_effect(
-                commands,
-                level_visuals,
-                screen_x,
-                screen_y,
-                effect_age,
-            );
-            true
-        }
-        wildside_core::terrain::PrizeContent::Points10000 => {
-            render_10000_points_worker_effect(
-                commands,
-                level_visuals,
-                screen_x,
-                screen_y,
-                effect_age,
-            );
-            true
-        }
-        _ => false,
-    }
-}
+    worker: &wildside_core::PrizeWorkerSpriteSnapshot,
+    camera_x: i32,
+    camera_y: i32,
+) {
+    use wildside_core::PrizeWorkerSpriteKind;
 
-fn render_ten_diamonds_worker_effect(
-    commands: &mut Vec<DrawCommand>,
-    level_visuals: &NativeLevelVisuals,
-    screen_x: i32,
-    screen_y: i32,
-    effect_age: u16,
-) -> bool {
-    // ASM Prize10Diamonds_Init loc_108EE uses byte_108AC to spawn ten
-    // workers on frames 0..3 and 24..29. Each worker uses unk_E1046:
-    // sprite_frame_vram $6ED,$02,$FE,$08,$08 over the HUD diamond DMA page.
-    let frame = wildside_render::SpriteFrame {
-        origin_x: 0x02,
-        origin_y: -2,
-        width_px: 0x08,
-        height_px: 0x08,
-        tile_base_index: 0x06ED - level_visuals.hud.diamond_base_tile_index,
-        tile_sheet: level_visuals.hud.diamond_tiles.clone(),
+    let (frame, palette) = match worker.kind {
+        PrizeWorkerSpriteKind::TenDiamonds => (
+            wildside_render::SpriteFrame {
+                origin_x: 0x02,
+                origin_y: -2,
+                width_px: 0x08,
+                height_px: 0x08,
+                tile_base_index: 0x06ED - level_visuals.hud.diamond_base_tile_index,
+                tile_sheet: level_visuals.hud.diamond_tiles.clone(),
+            },
+            &level_visuals.palettes.foreground,
+        ),
+        PrizeWorkerSpriteKind::Points10000Primary | PrizeWorkerSpriteKind::Points10000Secondary => {
+            (
+                wildside_render::SpriteFrame {
+                    origin_x: 0x04,
+                    origin_y: -4,
+                    width_px: 0x08,
+                    height_px: 0x08,
+                    tile_base_index: u16::from(matches!(
+                        worker.kind,
+                        PrizeWorkerSpriteKind::Points10000Primary
+                    )),
+                    tile_sheet: level_visuals.hud.digits.clone(),
+                },
+                &level_visuals.palettes.foreground,
+            )
+        }
     };
-    let worker_scan = wildside_core::NativeRuntime::prize_10_diamonds_worker_scan_start_loc_10960();
-    let worker_slots = wildside_core::NativeRuntime::prize_10_diamonds_init_loc_108E8();
-    let max_worker_count = worker_slots.cleared_worker_slots.len() as u16;
-    debug_assert_eq!(worker_scan.first_worker_slot_byte_offset, 0);
-    debug_assert_eq!(
-        max_worker_count,
-        worker_scan.worker_table_len_bytes / worker_scan.worker_slot_stride_bytes
+    push_worker_sprite(
+        commands,
+        &frame,
+        palette,
+        worker.world_x - camera_x,
+        worker.world_y - camera_y,
     );
-    let mut drew_worker = false;
-    for spawn_frame in 0..=effect_age.min(0x001D) {
-        let spawn = wildside_core::NativeRuntime::prize_10_diamonds_spawn_loc_108EE(
-            spawn_frame,
-            screen_x as u16,
-            screen_y as u16,
-        );
-        if !spawn.should_spawn_worker {
-            continue;
-        }
-        debug_assert!(spawn.should_hibernate_one_frame);
-        debug_assert!(spawn.should_scan_workers);
-        debug_assert_eq!(spawn.allocation_spec, Some(0x00FE_0000));
-        debug_assert_eq!(spawn.priority, Some(1));
-        debug_assert_eq!(spawn.display_enabled, Some(true));
-        debug_assert_eq!(
-            spawn.animation_script_label,
-            Some("LnkTo_unk_E1046-Data_Index")
-        );
-        debug_assert_eq!(spawn.x_pos, Some(screen_x as u16));
-        debug_assert_eq!(spawn.y_pos, Some(screen_y as u16));
-        debug_assert_eq!(spawn.is_moved, Some(true));
-        debug_assert_eq!(spawn.lifetime_frames, Some(0x0078));
-        debug_assert!(u16::from(spawn.burst_table_index.unwrap_or_default()) < max_worker_count);
-
-        let worker_age_u16 = effect_age.wrapping_sub(spawn_frame);
-        let worker_lifetime = spawn
-            .lifetime_frames
-            .unwrap_or_default()
-            .saturating_sub(worker_age_u16);
-        let countdown_gate =
-            wildside_core::NativeRuntime::prize_10_diamonds_worker_countdown_gate_loc_10984(
-                worker_lifetime,
-            );
-        // ASM loc_10984 clears movement at `$70`; it does not clear the
-        // display flag at `$13(a1)`. The worker stays at its outward position
-        // until `$20`, when loc_10988 starts its camera-relative HUD flight.
-        // That later phase needs the camera position from each worker's
-        // individual `$20` transition, which the current trace does not carry.
-        // TODO(fidelity): carry each worker's loc_10988 camera-relative state
-        // in NativeTraceFrame and render the final 32-frame HUD flight.
-        if worker_lifetime <= 0x0020 {
-            continue;
-        }
-
-        let moving_age = if countdown_gate.should_clear_movement {
-            8
-        } else {
-            worker_age_u16.min(8)
-        };
-        let worker_age = i64::from(moving_age);
-        let worker_x = screen_x
-            + ((i64::from(spawn.x_velocity.unwrap_or_default()) * worker_age) >> 16) as i32;
-        let worker_y = screen_y
-            + ((i64::from(spawn.y_velocity.unwrap_or_default()) * worker_age) >> 16) as i32;
-        push_worker_sprite(
-            commands,
-            &frame,
-            &level_visuals.palettes.foreground,
-            worker_x,
-            worker_y,
-        );
-        drew_worker = true;
-    }
-    drew_worker
-}
-
-fn render_10000_points_worker_effect(
-    commands: &mut Vec<DrawCommand>,
-    level_visuals: &NativeLevelVisuals,
-    screen_x: i32,
-    screen_y: i32,
-    effect_age: u16,
-) -> bool {
-    // ASM Prize10000Points_Init loc_10B00 uses unk_10A7A to spawn five workers
-    // on frames 0,5,10,15,20. Frame 0 uses unk_E1056 (tile $6BB); later
-    // workers use unk_E104E (tile $6BA), both 8x8 over HUD number tiles.
-    let mut drew_worker = false;
-    for spawn_frame in 0..=effect_age.min(0x0014) {
-        let Some(spawn) = wildside_core::prize_10000_points_star_spawn_loc_10B3A(
-            spawn_frame,
-            screen_x as u16,
-            screen_y as u16,
-        ) else {
-            continue;
-        };
-        debug_assert_eq!(spawn.palette_line, 1);
-        debug_assert!(spawn.display_enabled);
-        debug_assert_eq!(spawn.x_pos, screen_x as u16);
-        debug_assert_eq!(spawn.y_pos, screen_y as u16);
-        debug_assert!(spawn.is_moved);
-        debug_assert_eq!(spawn.timer, 0x0078);
-
-        let worker_age = effect_age.wrapping_sub(spawn_frame);
-        let tile_base_index = if spawn.sprite_mapping_label == "LnkTo_unk_E1056-Data_Index" {
-            1
-        } else {
-            debug_assert_eq!(spawn.sprite_mapping_label, "LnkTo_unk_E104E-Data_Index");
-            0
-        };
-        let frame = wildside_render::SpriteFrame {
-            origin_x: 0x04,
-            origin_y: -4,
-            width_px: 0x08,
-            height_px: 0x08,
-            tile_base_index,
-            tile_sheet: level_visuals.hud.digits.clone(),
-        };
-        let slot_offset = (spawn_frame / 5) * 4;
-        let Some(star_step) = prize_10000_points_star_visible_step_loc_10b74(
-            slot_offset,
-            spawn.timer,
-            screen_x as i16,
-            screen_y as i16,
-            spawn.is_moved,
-            worker_age,
-        ) else {
-            continue;
-        };
-        push_worker_sprite(
-            commands,
-            &frame,
-            &level_visuals.palettes.foreground,
-            i32::from(star_step.x_pos),
-            screen_y,
-        );
-        drew_worker = true;
-    }
-    drew_worker
-}
-
-fn prize_10000_points_star_visible_step_loc_10b74(
-    slot_offset: u16,
-    initial_timer: u16,
-    initial_screen_x: i16,
-    initial_screen_y: i16,
-    initial_is_moved: bool,
-    worker_age: u16,
-) -> Option<wildside_core::Prize10000PointsStarStepLoc10B74> {
-    // ASM loc_10B74/loc_10BB2: the source-port renderer has screen-relative
-    // prize positions, so pass zero camera words and replay the star's age
-    // through the ROM step model before drawing this frame.
-    let mut timer = initial_timer;
-    let mut x_pos = initial_screen_x;
-    let mut is_moved = initial_is_moved;
-    let mut step = wildside_core::Prize10000PointsStarStepLoc10B74 {
-        latched_screen_pos: None,
-        x_pos,
-        is_moved,
-        timer,
-        delete_prize_worker: false,
-    };
-
-    for _ in 0..worker_age {
-        step = wildside_core::prize_10000_points_star_step_loc_10B74(
-            slot_offset,
-            timer,
-            x_pos,
-            initial_screen_y,
-            0,
-            0,
-            is_moved,
-        );
-        if step.delete_prize_worker {
-            return None;
-        }
-        timer = step.timer;
-        x_pos = step.x_pos;
-        is_moved = step.is_moved;
-    }
-
-    Some(step)
 }
 
 fn push_worker_sprite(
@@ -10870,10 +10678,12 @@ mod tests {
     #[test]
     fn prize_diamond_loc_10396_latches_only_post_initial_resident_sprite() {
         let previous_trace = NativeTraceFrame {
+            prize_worker_sprites: Vec::new(),
             floating_items: vec![(80, 96, 499, 0), (112, 96, 799, 3)],
             ..NativeTraceFrame::default()
         };
         let mut render_trace = NativeTraceFrame {
+            prize_worker_sprites: Vec::new(),
             floating_items: vec![(80, 98, 498, 0), (112, 98, 798, 3)],
             ..NativeTraceFrame::default()
         };
@@ -10887,10 +10697,12 @@ mod tests {
         );
 
         let initial = NativeTraceFrame {
+            prize_worker_sprites: Vec::new(),
             floating_items: vec![(80, 96, PRIZE_DIAMOND_INITIAL_LIFETIME, 0)],
             ..NativeTraceFrame::default()
         };
         let mut first_active = NativeTraceFrame {
+            prize_worker_sprites: Vec::new(),
             floating_items: vec![(80, 96, PRIZE_DIAMOND_INITIAL_LIFETIME - 1, 0)],
             ..NativeTraceFrame::default()
         };
@@ -10960,10 +10772,12 @@ mod tests {
         let current_diamond = (80, 100, 498, 0);
         let correct_previous = (80, 97, 499, 0);
         let previous_trace = NativeTraceFrame {
+            prize_worker_sprites: Vec::new(),
             floating_items: vec![(90, 99, 499, 0), (80, 98, 499, 3), correct_previous],
             ..NativeTraceFrame::default()
         };
         let mut render_trace = NativeTraceFrame {
+            prize_worker_sprites: Vec::new(),
             floating_items: vec![current_diamond],
             ..NativeTraceFrame::default()
         };
@@ -10974,12 +10788,14 @@ mod tests {
 
         let final_previous = (112, 96, 499, 0);
         let previous_trace = NativeTraceFrame {
+            prize_worker_sprites: Vec::new(),
             floating_items: vec![final_previous],
             ..NativeTraceFrame::default()
         };
         let mut render_trace = NativeTraceFrame {
             // Same X and same content belong to different workers. Neither may
             // suppress loc_10404's last transferred sprite independently.
+            prize_worker_sprites: Vec::new(),
             floating_items: vec![(112, 96, 799, 3), (128, 96, 499, 0)],
             ..NativeTraceFrame::default()
         };
@@ -10999,6 +10815,7 @@ mod tests {
         let visuals = sample_level_visuals(0x300);
         let previous_trace = NativeTraceFrame {
             game_mode: GameMode::InGame,
+            prize_worker_sprites: Vec::new(),
             floating_items: vec![(360, 226, 492, 0)],
             ..NativeTraceFrame::default()
         };
@@ -13962,9 +13779,8 @@ mod tests {
     }
 
     #[test]
-    fn floating_prize_worker_effect_dispatch_and_sprites_follow_prize_scripts() {
-        use wildside_core::terrain::PrizeContent;
-
+    fn typed_prize_worker_sprites_select_rom_art_and_world_position() {
+        use wildside_core::{PrizeWorkerSpriteKind, PrizeWorkerSpriteSnapshot};
         let mut visuals = sample_level_visuals(1);
         visuals.hud.diamond_base_tile_index = 0x06E0;
         visuals.hud.diamond_tiles = sample_tile_sheet_with_pixel(32, 0x44);
@@ -13972,27 +13788,17 @@ mod tests {
         visuals.hud.digits = sample_tile_sheet_with_pixel(4, 0x55);
 
         let mut commands = Vec::new();
-        assert!(
-            !render_floating_prize_worker_effect(
-                &mut commands,
-                &visuals,
-                PrizeContent::TenDiamonds,
-                80,
-                96,
-                PRIZE_GENERIC_INITIAL_LIFETIME + 1,
-            ),
-            "prize worker effects reject countdowns above their native initial lifetime"
-        );
-        assert!(commands.is_empty());
-
-        assert!(render_floating_prize_worker_effect(
+        render_prize_worker_sprite(
             &mut commands,
             &visuals,
-            PrizeContent::TenDiamonds,
-            80,
-            96,
-            PRIZE_GENERIC_INITIAL_LIFETIME,
-        ));
+            &PrizeWorkerSpriteSnapshot {
+                world_x: 80,
+                world_y: 96,
+                kind: PrizeWorkerSpriteKind::TenDiamonds,
+            },
+            10,
+            20,
+        );
         let DrawCommand::Sprite {
             x,
             y,
@@ -14001,87 +13807,24 @@ mod tests {
             ..
         } = commands.single()
         else {
-            panic!("ASM Prize10Diamonds_Init loc_108EE should draw the first HUD diamond worker");
+            panic!("ASM loc_108EE should draw the typed Diamond worker");
         };
-        assert_eq!((*x, *y), (78, 86));
+        assert_eq!((*x, *y), (68, 66));
         assert_eq!(tile_sheet.tiles[0].pixels[0], 0x44);
         assert_eq!(tiles[0].tile.tile_index, 0x000D);
 
         commands.clear();
-        assert!(render_floating_prize_worker_effect(
+        render_prize_worker_sprite(
             &mut commands,
             &visuals,
-            PrizeContent::TenDiamonds,
-            80,
-            96,
-            PRIZE_GENERIC_INITIAL_LIFETIME - 1,
-        ));
-        assert_eq!(
-            commands.len(),
-            2,
-            "ASM Prize10Diamonds_Init loc_108EE scans the previous moving worker and the new frame-1 worker"
-        );
-        let DrawCommand::Sprite { x, y, .. } = &commands[0] else {
-            panic!(
-                "ASM Prize10Diamonds_Init loc_108EE should keep drawing the moving frame-0 worker"
-            );
-        };
-        assert_eq!(
-            (*x, *y),
-            (75, 81),
-            "ASM Prize10Diamonds_Init loc_108EE applies the worker FP velocity before sprite-origin placement"
-        );
-
-        commands.clear();
-        assert!(render_ten_diamonds_worker_effect(
-            &mut commands,
-            &visuals,
-            80,
-            96,
-            8,
-        ));
-        assert_eq!(
-            commands.len(),
-            4,
-            "ASM loc_10984 clears only the oldest worker's movement flag at countdown $70; all four display flags remain set"
-        );
-
-        commands.clear();
-        assert!(render_ten_diamonds_worker_effect(
-            &mut commands,
-            &visuals,
-            80,
-            96,
-            40
-        ));
-        assert_eq!(
-            commands.len(),
+            &PrizeWorkerSpriteSnapshot {
+                world_x: 80,
+                world_y: 96,
+                kind: PrizeWorkerSpriteKind::Points10000Primary,
+            },
             10,
-            "ASM loc_10984 keeps both Ten Diamonds bursts displayed and frozen above countdown $20"
+            20,
         );
-
-        commands.clear();
-        assert!(render_floating_prize_worker_effect(
-            &mut commands,
-            &visuals,
-            PrizeContent::TenDiamonds,
-            80,
-            96,
-            0x0220,
-        ));
-        assert!(
-            commands.is_empty(),
-            "the `$0320 - remaining` age must not replay the initial burst when the countdown low byte returns to $20"
-        );
-
-        assert!(render_floating_prize_worker_effect(
-            &mut commands,
-            &visuals,
-            PrizeContent::Points10000,
-            80,
-            96,
-            PRIZE_GENERIC_INITIAL_LIFETIME,
-        ));
         let DrawCommand::Sprite {
             x,
             y,
@@ -14090,63 +13833,28 @@ mod tests {
             ..
         } = commands.single()
         else {
-            panic!("ASM Prize10000Points_Init loc_10B00 should draw the first star worker");
+            panic!("ASM loc_10B3A should draw the typed primary star worker");
         };
-        assert_eq!((*x, *y), (76, 84));
+        assert_eq!((*x, *y), (66, 64));
         assert_eq!(tile_sheet.tiles[0].pixels[0], 0x55);
         assert_eq!(tiles[0].tile.tile_index, 1);
 
         commands.clear();
-        assert!(render_10000_points_worker_effect(
+        render_prize_worker_sprite(
             &mut commands,
             &visuals,
-            80,
-            96,
-            5,
-        ));
-        assert_eq!(
-            commands.len(),
-            2,
-            "ASM Prize10000Points_Init loc_10B00 spawns the second star worker at effect age 5"
+            &PrizeWorkerSpriteSnapshot {
+                world_x: 80,
+                world_y: 96,
+                kind: PrizeWorkerSpriteKind::Points10000Secondary,
+            },
+            10,
+            20,
         );
-
-        commands.clear();
-        assert!(render_10000_points_worker_effect(
-            &mut commands,
-            &visuals,
-            80,
-            96,
-            150,
-        ));
-        assert_eq!(
-            commands.len(),
-            4,
-            "ASM Prize10000Points_Init loc_10B00 maps spawn frame 20 to slot offset $10 so the fifth star deletes after exiting left"
-        );
-
-        assert!(
-            prize_10000_points_star_visible_step_loc_10b74(0, 0x0078, 80, 96, true, 2).is_some(),
-            "ASM loc_10B74 keeps a fresh 10000-point star worker visible"
-        );
-        assert!(
-            prize_10000_points_star_visible_step_loc_10b74(0x0010, 0x0010, -0x001B, 96, true, 1,)
-                .is_none(),
-            "ASM loc_10B74 deletes the fifth star worker once its replayed screen X exits left"
-        );
-
-        commands.clear();
-        assert!(
-            !render_floating_prize_worker_effect(
-                &mut commands,
-                &visuals,
-                PrizeContent::Clock,
-                80,
-                96,
-                PRIZE_GENERIC_INITIAL_LIFETIME,
-            ),
-            "ordinary floating prizes stay on their sprite/fallback render path"
-        );
-        assert!(commands.is_empty());
+        let DrawCommand::Sprite { tiles, .. } = commands.single() else {
+            panic!("ASM loc_10B3A should draw the typed secondary star worker");
+        };
+        assert_eq!(tiles[0].tile.tile_index, 0);
     }
 
     #[test]
@@ -15807,6 +15515,7 @@ mod tests {
         ] {
             let trace = NativeTraceFrame {
                 game_mode: GameMode::InGame,
+                prize_worker_sprites: Vec::new(),
                 floating_items: vec![(72, helmet_y, 0x031F, PrizeContent::RedStealth.to_id())],
                 prize_block_spawn_flashes: vec![(72, 568, 24)],
                 ..NativeTraceFrame::default()

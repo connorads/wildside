@@ -2861,6 +2861,7 @@ mod tests {
             prize_block_worker_tails_sub_1007a: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
             kid_projectile_hit_sparks: Vec::new(),
+            prize_worker_sprites: Vec::new(),
             floating_items: Vec::new(),
             prize_diamond_hud_flights_loc_fe3e: Vec::new(),
             prize_diamond_hud_flight_transferred_loc_fe3e: false,
@@ -9961,9 +9962,12 @@ mod tests {
     fn build_scene_draws_10000_points_worker_star_from_hud_rom_tiles() {
         let mut trace = sample_trace(GameMode::InGame);
         // ASM Prize10000Points_Init loc_10B00 spawns the first worker when
-        // d3=0; the native prize trace starts from the shared `$0320`
-        // countdown, so the renderer recovers local effect age zero.
-        trace.floating_items = vec![(48, 64, 0x0320, 0x01)];
+        // d3=0; core exports its post-sub_1120 world position directly.
+        trace.prize_worker_sprites = vec![wildside_core::PrizeWorkerSpriteSnapshot {
+            world_x: 46,
+            world_y: 61,
+            kind: wildside_core::PrizeWorkerSpriteKind::Points10000Primary,
+        }];
         let visuals = sample_level_visuals();
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -9994,9 +9998,15 @@ mod tests {
     fn build_scene_draws_ten_diamonds_workers_from_hud_diamond_rom_tiles() {
         let mut trace = sample_trace(GameMode::InGame);
         // ASM Prize10Diamonds_Init loc_108EE uses byte_108AC to spawn the
-        // first four diamond workers on local frames 0..3. Countdown `$031D`
-        // corresponds to local age 3 from the native `$0320` trace lifetime.
-        trace.floating_items = vec![(48, 64, 0x031D, 0x0E)];
+        // first four diamond workers on local frames 0..3. Core exports the
+        // four independently advanced worker positions.
+        trace.prize_worker_sprites = (0..4)
+            .map(|index| wildside_core::PrizeWorkerSpriteSnapshot {
+                world_x: 48 - index,
+                world_y: 64 - index,
+                kind: wildside_core::PrizeWorkerSpriteKind::TenDiamonds,
+            })
+            .collect();
         let visuals = sample_level_visuals();
 
         let scene = build_scene(&trace, false, Some(&visuals), None);

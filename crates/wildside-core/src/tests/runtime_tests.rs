@@ -12916,11 +12916,12 @@ mod chunk_09 {
     }
 
     #[test]
-    fn prize10diamonds_init_awards_on_spawn_without_creating_a_falling_item() {
+    fn prize10diamonds_init_workers_award_one_diamond_each_at_loc_109e8() {
         // ASM Prize10Diamonds_Init (kid.asm:22160) runs
         // OneTimePrize_CheckCollected and owns ten gfx workers itself. It does
         // not enter the shared falling-prize loop or wait for Kid collision.
         let mut rt = NativeRuntime::new(manifest());
+        rt.boot_state = BootState::InGame;
         rt.current_level = LevelId(0x10);
         rt.block_grid = Some(grid_with_cells(8, 8, &[]));
         rt.block_state
@@ -12934,16 +12935,58 @@ mod chunk_09 {
                 deleted_frames_remaining: 0,
                 phase: DeferredPrizeBlockPhase::Restored,
             });
+        let camera = rt.current_camera_state();
+        let baseline_counts =
+            rt.object_counts_from_roster(&rt.active_objects(), camera.x_pos, camera.y_pos);
 
         rt.finish_deferred_ceiling_clears();
 
-        assert_eq!(rt.progression.diamond_count, 10);
+        assert_eq!(rt.progression.diamond_count, 0);
         assert!(rt.floating_items.is_empty());
         assert_eq!(rt.prize_worker_effects.len(), 1);
         assert_eq!(
             rt.prize_worker_effects[0].content,
             terrain::PrizeContent::TenDiamonds
         );
+        assert_eq!(
+            rt.object_counts_from_roster(&rt.active_objects(), camera.x_pos, camera.y_pos),
+            (baseline_counts.0.saturating_add(1), baseline_counts.1),
+            "ASM Prize10Diamonds_Init loc_108EE owns one Object slot before allocating its direct GfxObject children"
+        );
+
+        for _ in 0..89 {
+            rt.step_prize_worker_effects_loc_108ee_10b00();
+        }
+        assert_eq!(rt.progression.diamond_count, 0);
+        assert_eq!(rt.prize_worker_effects[0].workers.len(), 10);
+        assert_eq!(
+            rt.object_counts_from_roster(&rt.active_objects(), camera.x_pos, camera.y_pos),
+            (
+                baseline_counts.0.saturating_add(1),
+                baseline_counts.1.saturating_add(10),
+            ),
+            "ASM loc_108EE allocates ten GfxObject-only diamond children"
+        );
+        assert!(
+            rt.prize_worker_effects[0].workers[0]
+                .camera_relative_pos_fp
+                .is_some(),
+            "ASM loc_10988 must latch the first worker's camera-relative position when its timer reaches $20"
+        );
+
+        for _ in 0..31 {
+            rt.step_prize_worker_effects_loc_108ee_10b00();
+        }
+        assert_eq!(
+            rt.progression.diamond_count, 1,
+            "ASM loc_109E8 increments only the first expired worker after 120 wakes"
+        );
+
+        for _ in 0..29 {
+            rt.step_prize_worker_effects_loc_108ee_10b00();
+        }
+        assert_eq!(rt.progression.diamond_count, 10);
+        assert!(rt.prize_worker_effects[0].workers.is_empty());
 
         rt.block_state
             .deferred_ceiling_clears
@@ -12973,6 +13016,7 @@ mod chunk_09 {
         // loc_10AE0 starts its five star workers. No player collision gates
         // either action.
         let mut rt = NativeRuntime::new(manifest());
+        rt.boot_state = BootState::InGame;
         rt.current_level = LevelId(0x2C);
         rt.block_grid = Some(grid_with_cells(8, 8, &[]));
         rt.block_state
@@ -12986,6 +13030,9 @@ mod chunk_09 {
                 deleted_frames_remaining: 0,
                 phase: DeferredPrizeBlockPhase::Restored,
             });
+        let camera = rt.current_camera_state();
+        let baseline_counts =
+            rt.object_counts_from_roster(&rt.active_objects(), camera.x_pos, camera.y_pos);
 
         rt.finish_deferred_ceiling_clears();
 
@@ -12995,6 +13042,47 @@ mod chunk_09 {
         assert_eq!(
             rt.prize_worker_effects[0].content,
             terrain::PrizeContent::Points10000
+        );
+
+        rt.step_prize_worker_effects_loc_108ee_10b00();
+        let trace = rt.trace_frame();
+        assert_eq!(
+            rt.object_counts_from_roster(&rt.active_objects(), camera.x_pos, camera.y_pos),
+            (
+                baseline_counts.0.saturating_add(1),
+                baseline_counts.1.saturating_add(1),
+            ),
+            "ASM loc_10B00 owns one Object slot and loc_10B3A allocates its first GfxObject-only star"
+        );
+        assert_eq!(trace.prize_worker_sprites.len(), 1);
+        assert_eq!(
+            trace.prize_worker_sprites[0],
+            PrizeWorkerSpriteSnapshot {
+                world_x: 54,
+                world_y: 29,
+                kind: PrizeWorkerSpriteKind::Points10000Primary,
+            },
+            "ASM loc_10B3A creates the primary star and sub_1120 applies its first FP velocity in the same Mode_Level frame"
+        );
+
+        for _ in 0..5 {
+            rt.step_prize_worker_effects_loc_108ee_10b00();
+        }
+        assert_eq!(
+            rt.trace_frame().prize_worker_sprites.len(),
+            2,
+            "ASM loc_10B00 spawns the secondary worker when d3 reaches five"
+        );
+
+        for _ in 0..94 {
+            rt.step_prize_worker_effects_loc_108ee_10b00();
+        }
+        assert!(
+            rt.trace_frame()
+                .prize_worker_sprites
+                .iter()
+                .any(|worker| worker.world_x < 0),
+            "ASM loc_10B74 preserves signed off-screen star positions before the last worker deletes the parent"
         );
     }
 

@@ -12978,17 +12978,6 @@ impl NativeRuntime {
                     let y_px = (f.y_pos >> 16) as u16;
                     (x_px, y_px, f.remaining, f.content.to_id())
                 })
-                .chain(self.prize_worker_effects.iter().map(|effect| {
-                    // Compatibility projection for the current renderer. The
-                    // runtime state is authoritative and stationary; the
-                    // renderer recovers the parent `d3` age from this value.
-                    (
-                        effect.x_pos,
-                        effect.y_pos,
-                        0x0320u16.saturating_sub(effect.elapsed_frames),
-                        effect.content.to_id(),
-                    )
-                }))
                 .chain(self.pending_prize_clock_hud_flights.iter().map(|flight| {
                     // ASM loc_FF92 (kid.asm:21260) advances the collected
                     // clock's cached screen-space words before reprojecting
@@ -13010,6 +12999,31 @@ impl NativeRuntime {
                         terrain::PrizeContent::Clock.to_id(),
                     )
                 }))
+                .collect(),
+            prize_worker_sprites: self
+                .prize_worker_effects
+                .iter()
+                .flat_map(|effect| {
+                    effect
+                        .workers
+                        .iter()
+                        .map(|worker| PrizeWorkerSpriteSnapshot {
+                            world_x: worker.x_pos_fp >> 16,
+                            world_y: worker.y_pos_fp >> 16,
+                            kind: match effect.content {
+                                terrain::PrizeContent::TenDiamonds => {
+                                    PrizeWorkerSpriteKind::TenDiamonds
+                                }
+                                terrain::PrizeContent::Points10000 if worker.variant == 0 => {
+                                    PrizeWorkerSpriteKind::Points10000Primary
+                                }
+                                terrain::PrizeContent::Points10000 => {
+                                    PrizeWorkerSpriteKind::Points10000Secondary
+                                }
+                                _ => unreachable!("only immediate prizes own workers"),
+                            },
+                        })
+                })
                 .collect(),
             floating_items_transferred_loc_901: Vec::new(),
             prize_diamond_hud_flights_loc_fe3e,
@@ -16117,6 +16131,10 @@ impl NativeRuntime {
                     && projectile.animation_elapsed_frames == 1
             })
             .count() as u16;
+        // ASM Prize10Diamonds_Init loc_108EE and Prize10000Points_Init
+        // loc_10B00 run as Object_RAM coroutines. Their spawned diamonds and
+        // stars use direct GfxObject slots, counted separately below.
+        let prize_effect_parent_workers = self.prize_worker_effects.len() as u16;
         let dormant_mini_hopping_skull_workers =
             self.dormant_mini_hopping_skull_worker_count_loc_3e9d0(camera_x_pos, camera_y_pos);
         // ASM Dragon_Flying.asm loc_34BAC follows the same Object_RAM child
@@ -16135,6 +16153,7 @@ impl NativeRuntime {
             // ASM Tar_Monster.asm loc_324F8 allocates five Object slots;
             // their loc_325E6 callbacks load GfxObjects one scheduler pass later.
             .saturating_add(tar_monster_burst_object_init_workers)
+            .saturating_add(prize_effect_parent_workers)
     }
 
     /// ASM Mini_Hopping_Skull.asm Enemy1C_MiniHoppingSkull_Init: the enemy
@@ -16436,6 +16455,13 @@ impl NativeRuntime {
         let hidden_drips_gfx_workers = self
             .hidden_drips_parent_worker_count_enemy16_drip_init(camera_x_pos, camera_y_pos)
             .saturating_mul(3);
+        // ASM loc_108EE/loc_10B3A allocate each visible prize child through
+        // j_Allocate_GfxObjectSlot_a1 without allocating another Object slot.
+        let prize_effect_gfx_workers = self
+            .prize_worker_effects
+            .iter()
+            .map(|effect| effect.workers.len() as u16)
+            .fold(0u16, u16::saturating_add);
         // ASM Dragon_Flying.asm loc_348A0 allocates the child Object slot;
         // loc_34BAC then calls Load_GfxObjectSlot before loc_32146 links its
         // collision source. Native counts the Object side in
@@ -16449,6 +16475,7 @@ impl NativeRuntime {
         family_linked_gfx_workers
             .saturating_add(dragon_flying_descent_fire_gfx_workers)
             .saturating_add(hidden_drips_gfx_workers)
+            .saturating_add(prize_effect_gfx_workers)
     }
 
     fn visible_prize_block_worker_tails(&self) -> Vec<&PrizeBlockWorkerTail> {

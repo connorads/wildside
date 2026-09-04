@@ -3614,16 +3614,23 @@ impl NativeRuntime {
                             // creates a falling object or waits for collision.
                             let x_pos = entry.col.saturating_mul(16).saturating_add(8);
                             let y_pos = entry.row.saturating_mul(16);
-                            self.apply_prize_content_at_world_pos(
-                                content,
-                                u32::from(x_pos) << 16,
-                                u32::from(y_pos) << 16,
-                            );
+                            if content == terrain::PrizeContent::Points10000 {
+                                self.apply_prize_content_at_world_pos(
+                                    content,
+                                    u32::from(x_pos) << 16,
+                                    u32::from(y_pos) << 16,
+                                );
+                            } else {
+                                // ASM Prize10Diamonds_Init loc_109E8 awards
+                                // one Diamond only when each worker expires.
+                                self.level_prize_collected = true;
+                            }
                             spawned_worker_effects.push(PrizeWorkerEffect {
                                 x_pos,
                                 y_pos,
                                 elapsed_frames: 0,
                                 content,
+                                workers: Vec::new(),
                             });
                         } else {
                             let mut item = Self::floating_item_from_prize_clear(&entry);
@@ -5644,15 +5651,150 @@ impl NativeRuntime {
         }
     }
 
+    pub(crate) fn step_prize_worker_effects_loc_108ee_10b00(&mut self) {
+        let camera = self.current_camera_state();
+        let camera_x_fp = camera.x_pos as i32;
+        let camera_y_fp = camera.y_pos as i32;
+        let camera_x = (camera.x_pos >> 16) as u16;
+        let camera_y = (camera.y_pos >> 16) as u16;
+        let mut diamond_awards = 0usize;
+        let mut diamond_sounds = 0usize;
+
+        self.prize_worker_effects.retain_mut(|effect| {
+            match effect.content {
+                terrain::PrizeContent::TenDiamonds => {
+                    // ASM loc_108EE: spawn from byte_108AC, then scan every
+                    // live worker before GfxObjects_MoveAndAnimate.
+                    let spawn = Self::prize_10_diamonds_spawn_loc_108EE(
+                        effect.elapsed_frames,
+                        effect.x_pos,
+                        effect.y_pos,
+                    );
+                    if spawn.should_spawn_worker {
+                        effect.workers.push(PrizeEffectWorker {
+                            x_pos_fp: i32::from(spawn.x_pos.expect("spawn x")) << 16,
+                            y_pos_fp: i32::from(spawn.y_pos.expect("spawn y")) << 16,
+                            x_velocity_fp: spawn.x_velocity.expect("spawn x velocity"),
+                            y_velocity_fp: spawn.y_velocity.expect("spawn y velocity"),
+                            camera_relative_pos_fp: None,
+                            timer: spawn.lifetime_frames.expect("spawn timer"),
+                            is_moved: spawn.is_moved.expect("spawn movement"),
+                            variant: spawn.burst_table_index.expect("spawn index"),
+                        });
+                        diamond_sounds += 1;
+                    }
+
+                    for worker in &mut effect.workers {
+                        if worker.timer == 0x0020 {
+                            let init = Self::prize_10_diamonds_worker_init_loc_10988(
+                                worker.x_pos_fp,
+                                worker.y_pos_fp,
+                                camera_x_fp,
+                                camera_y_fp,
+                            );
+                            worker.camera_relative_pos_fp =
+                                Some((init.camera_relative_x_pos, init.camera_relative_y_pos));
+                            worker.x_velocity_fp = init.x_velocity;
+                            worker.y_velocity_fp = init.y_velocity;
+                        }
+                        if worker.timer <= 0x0020 {
+                            let (relative_x, relative_y) = worker
+                                .camera_relative_pos_fp
+                                .expect("loc_10988 initialises the HUD flight");
+                            let step = Self::prize_10_diamonds_worker_step_loc_109C0(
+                                relative_x,
+                                relative_y,
+                                worker.x_velocity_fp,
+                                worker.y_velocity_fp,
+                                camera_x,
+                                camera_y,
+                            );
+                            worker.camera_relative_pos_fp = Some((
+                                step.next_camera_relative_x_pos,
+                                step.next_camera_relative_y_pos,
+                            ));
+                            worker.x_pos_fp = i32::from(step.next_x_pos) << 16;
+                            worker.y_pos_fp = i32::from(step.next_y_pos) << 16;
+                        } else if Self::prize_10_diamonds_worker_countdown_gate_loc_10984(
+                            worker.timer,
+                        )
+                        .should_clear_movement
+                        {
+                            worker.is_moved = false;
+                        }
+                        worker.timer = worker.timer.wrapping_sub(1);
+                        if worker.timer == 0 {
+                            diamond_awards += 1;
+                        } else if worker.is_moved {
+                            worker.x_pos_fp = worker.x_pos_fp.wrapping_add(worker.x_velocity_fp);
+                            worker.y_pos_fp = worker.y_pos_fp.wrapping_add(worker.y_velocity_fp);
+                        }
+                    }
+                    effect.workers.retain(|worker| worker.timer != 0);
+                }
+                terrain::PrizeContent::Points10000 => {
+                    // ASM loc_10B00/loc_10B3A: five stars spawn at d3
+                    // 0,5,10,15,20 and share the loc_10B74 scan.
+                    if let Some(spawn) = prize_10000_points_star_spawn_loc_10B3A(
+                        effect.elapsed_frames,
+                        effect.x_pos,
+                        effect.y_pos,
+                    ) {
+                        effect.workers.push(PrizeEffectWorker {
+                            x_pos_fp: i32::from(spawn.x_pos) << 16,
+                            y_pos_fp: i32::from(spawn.y_pos) << 16,
+                            x_velocity_fp: spawn.x_velocity_fp,
+                            y_velocity_fp: spawn.y_velocity_fp,
+                            camera_relative_pos_fp: None,
+                            timer: spawn.timer,
+                            is_moved: spawn.is_moved,
+                            variant: u8::from(effect.elapsed_frames != 0),
+                        });
+                    }
+
+                    let mut delete_parent = false;
+                    for (index, worker) in effect.workers.iter_mut().enumerate() {
+                        let old_low_x = worker.x_pos_fp & 0xFFFF;
+                        let step = prize_10000_points_star_step_loc_10B74(
+                            u16::try_from(index * 4).expect("five worker slots fit u16"),
+                            worker.timer,
+                            (worker.x_pos_fp >> 16) as i16,
+                            (worker.y_pos_fp >> 16) as i16,
+                            camera_x as i16,
+                            camera_y as i16,
+                            worker.is_moved,
+                        );
+                        worker.timer = step.timer;
+                        worker.is_moved = step.is_moved;
+                        worker.x_pos_fp = (i32::from(step.x_pos) << 16) | old_low_x;
+                        delete_parent |= step.delete_prize_worker;
+                        if worker.is_moved {
+                            worker.x_pos_fp = worker.x_pos_fp.wrapping_add(worker.x_velocity_fp);
+                            worker.y_pos_fp = worker.y_pos_fp.wrapping_add(worker.y_velocity_fp);
+                        }
+                    }
+                    if delete_parent {
+                        return false;
+                    }
+                }
+                _ => unreachable!("only immediate worker prizes create this state"),
+            }
+
+            effect.elapsed_frames = effect.elapsed_frames.wrapping_add(1);
+            effect.elapsed_frames < 0x0118
+        });
+
+        for _ in 0..diamond_sounds {
+            self.queue_start_sequence(QueuedSoundEffect::DiamondPrize);
+        }
+        for _ in 0..diamond_awards {
+            self.award_prize_diamond();
+        }
+    }
+
     #[allow(non_snake_case)]
     fn age_floating_items_loc_10396(&mut self) {
-        // ASM loc_108EE/loc_10B00: both parent coroutines advance `d3` once
-        // per hibernated frame and stop after `$118` wakes.
-        for effect in &mut self.prize_worker_effects {
-            effect.elapsed_frames = effect.elapsed_frames.saturating_add(1);
-        }
-        self.prize_worker_effects
-            .retain(|effect| effect.elapsed_frames < 0x0118);
+        self.step_prize_worker_effects_loc_108ee_10b00();
         // #342: snapshot the live falling-clock count before any
         // `floating_items` removal this tick so loc_107E0's stop can fire
         // when the last clock object leaves.

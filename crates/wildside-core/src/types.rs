@@ -3353,6 +3353,10 @@ pub struct NativeTraceFrame {
     pub kid_projectile_hit_sparks: Vec<(u16, u16, u8)>,
     /// Floating prize items rising from blocks: (x_px, y_px, remaining_frames, content_id).
     pub floating_items: Vec<(u16, u16, u16, u8)>,
+    /// Authoritative sprites owned by `Prize10Diamonds_Init` and
+    /// `Prize10000Points_Init`. These are separate from collectible prizes.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub prize_worker_sprites: Vec<PrizeWorkerSpriteSnapshot>,
     /// Previous-frame prize entries retained solely for Mode_Level's Sprite_Table
     /// transfer: (x_px, y_px, remaining_frames, content_id).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -3661,6 +3665,7 @@ impl Default for NativeTraceFrame {
             prize_block_spawn_flashes: Vec::new(),
             kid_projectile_hit_sparks: Vec::new(),
             floating_items: Vec::new(),
+            prize_worker_sprites: Vec::new(),
             floating_items_transferred_loc_901: Vec::new(),
             prize_diamond_hud_flights_loc_fe3e: Vec::new(),
             prize_diamond_hud_flight_transferred_loc_fe3e: false,
@@ -4117,15 +4122,42 @@ pub(crate) struct FloatingItem {
     pub(crate) collision_latched: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PrizeWorkerSpriteKind {
+    TenDiamonds,
+    Points10000Primary,
+    Points10000Secondary,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PrizeWorkerSpriteSnapshot {
+    /// Signed world-pixel position. `loc_10B74` keeps stars live after X crosses zero.
+    pub world_x: i32,
+    pub world_y: i32,
+    pub kind: PrizeWorkerSpriteKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PrizeEffectWorker {
+    pub(crate) x_pos_fp: i32,
+    pub(crate) y_pos_fp: i32,
+    pub(crate) x_velocity_fp: i32,
+    pub(crate) y_velocity_fp: i32,
+    pub(crate) camera_relative_pos_fp: Option<(i32, i32)>,
+    pub(crate) timer: u16,
+    pub(crate) is_moved: bool,
+    pub(crate) variant: u8,
+}
+
 /// Parent coroutine for prizes whose initialiser owns presentation workers
-/// and applies its reward immediately rather than entering the falling-prize
-/// collision flow.
+/// instead of entering the falling-prize collision flow.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PrizeWorkerEffect {
     pub(crate) x_pos: u16,
     pub(crate) y_pos: u16,
     pub(crate) elapsed_frames: u16,
     pub(crate) content: terrain::PrizeContent,
+    pub(crate) workers: Vec<PrizeEffectWorker>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
