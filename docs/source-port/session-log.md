@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (Shishkaboss head/skewer atlas boundary)
+
+- A focused `select_live_shishkaboss_head_frame_loc_39538` mutation audit
+  found one survivor: changing the five-frame head bound from `< 5` to `<= 5`
+  admitted atlas frame 5, which is the C85F8 skewer-top mapping appended after
+  C8600..C8620.
+- The live-head contract now rejects exported phase 5 with citations to
+  `loc_39538/stru_39FC6`, `loc_39570/stru_39FD8`, and `loc_38494`. The focused
+  census improves from 6 caught / 1 missed / 1 compiler-unviable to 7 caught /
+  0 missed / 1 compiler-unviable.
+
 ## 2026-09-04 handoff (boss-eye attack sprite selection)
 
 - A focused mutation audit found three of four

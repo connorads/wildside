@@ -6228,6 +6228,12 @@ mod tests {
                 "ASM loc_39538/loc_39570 must select the C8600..C8620 mapping stored in `$22(a3)`"
             );
         }
+
+        object.sprite_animation_phase = Some(5);
+        assert!(
+            select_live_shishkaboss_head_frame_loc_39538(&visuals, &object).is_none(),
+            "ASM loc_39538/stru_39FC6 and loc_39570/stru_39FD8 use only C8600..C8620; atlas frame 5 is the loc_38494 C85F8 skewer top"
+        );
     }
 
     #[test]
