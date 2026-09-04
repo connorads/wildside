@@ -5677,6 +5677,7 @@ impl NativeRuntime {
                             x_velocity_fp: spawn.x_velocity.expect("spawn x velocity"),
                             y_velocity_fp: spawn.y_velocity.expect("spawn y velocity"),
                             camera_relative_pos_fp: None,
+                            latched_screen_pos: None,
                             timer: spawn.lifetime_frames.expect("spawn timer"),
                             is_moved: spawn.is_moved.expect("spawn movement"),
                             variant: spawn.burst_table_index.expect("spawn index"),
@@ -5746,6 +5747,7 @@ impl NativeRuntime {
                             x_velocity_fp: spawn.x_velocity_fp,
                             y_velocity_fp: spawn.y_velocity_fp,
                             camera_relative_pos_fp: None,
+                            latched_screen_pos: None,
                             timer: spawn.timer,
                             is_moved: spawn.is_moved,
                             variant: u8::from(effect.elapsed_frames != 0),
@@ -5754,7 +5756,6 @@ impl NativeRuntime {
 
                     let mut delete_parent = false;
                     for (index, worker) in effect.workers.iter_mut().enumerate() {
-                        let old_low_x = worker.x_pos_fp & 0xFFFF;
                         let step = prize_10000_points_star_step_loc_10B74(
                             u16::try_from(index * 4).expect("five worker slots fit u16"),
                             worker.timer,
@@ -5766,7 +5767,13 @@ impl NativeRuntime {
                         );
                         worker.timer = step.timer;
                         worker.is_moved = step.is_moved;
-                        worker.x_pos_fp = (i32::from(step.x_pos) << 16) | old_low_x;
+                        if let Some(screen_pos) = step.latched_screen_pos {
+                            worker.latched_screen_pos = Some(screen_pos);
+                        }
+                        // ASM unk_10BF4 seeds integral X velocities and
+                        // loc_10BB2 changes only the integer word, so the
+                        // fractional X word remains zero for this lifecycle.
+                        worker.x_pos_fp = i32::from(step.x_pos) << 16;
                         delete_parent |= step.delete_prize_worker;
                         if worker.is_moved {
                             worker.x_pos_fp = worker.x_pos_fp.wrapping_add(worker.x_velocity_fp);

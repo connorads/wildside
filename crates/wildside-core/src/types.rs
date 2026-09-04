@@ -4144,6 +4144,8 @@ pub(crate) struct PrizeEffectWorker {
     pub(crate) x_velocity_fp: i32,
     pub(crate) y_velocity_fp: i32,
     pub(crate) camera_relative_pos_fp: Option<(i32, i32)>,
+    /// ASM loc_10B9A `$3E/$42` signed camera-relative integer words.
+    pub(crate) latched_screen_pos: Option<(i16, i16)>,
     pub(crate) timer: u16,
     pub(crate) is_moved: bool,
     pub(crate) variant: u8,

@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (prize-worker mutation closure)
+
+- The first focused census over the new prize-worker runtime found 14 misses
+  among 51 mutations. Existing tests did not observe non-zero camera words,
+  exact FP child positions, per-spawn sound count, the fifth star's slot
+  identity, parent-wide deletion, or the `$118` lifetime boundary.
+- Exact end-to-end lifecycle assertions now cover the first move, `$70`
+  freeze, `$20` camera latch and reprojection, all ten sounds and awards,
+  signed star drift, slot-$10 off-screen deletion, and parent expiry. The
+  10,000-point worker also retains its ASM `$3E/$42` screen-word latch.
+- `/tmp/mutants-prize-worker-runtime-closure-20260904` accounts for all 47
+  generated mutations: 44 caught and three compiler-unviable, with no miss or
+  timeout. `verify-slice-fast` and `verify-tas-full` pass; all 37,759
+  published-route frames retain exact gameplay, enemy, RNG, and command parity,
+  with existing pixel and frozen GEMS witnesses unchanged. Continue with a
+  different live gameplay or sweep-path target.
+
 ## 2026-09-04 handoff (authoritative prize-worker lifecycles)
 
 - Replaced renderer-side parent-age replay with typed runtime child workers for

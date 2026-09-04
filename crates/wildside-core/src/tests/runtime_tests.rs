@@ -12923,6 +12923,11 @@ mod chunk_09 {
         let mut rt = NativeRuntime::new(manifest());
         rt.boot_state = BootState::InGame;
         rt.current_level = LevelId(0x10);
+        rt.opening_slice = Some(OpeningSliceState::new(LevelBounds {
+            width_pixels: 128,
+            height_pixels: 128,
+        }));
+        rt.set_camera_probe_position(16, 8);
         rt.block_grid = Some(grid_with_cells(8, 8, &[]));
         rt.block_state
             .deferred_ceiling_clears
@@ -12954,7 +12959,35 @@ mod chunk_09 {
             "ASM Prize10Diamonds_Init loc_108EE owns one Object slot before allocating its direct GfxObject children"
         );
 
-        for _ in 0..89 {
+        rt.step_prize_worker_effects_loc_108ee_10b00();
+        let first_worker = &rt.prize_worker_effects[0].workers[0];
+        assert_eq!(
+            (
+                first_worker.x_pos_fp,
+                first_worker.y_pos_fp,
+                first_worker.timer
+            ),
+            (0x0035_8000, 0x001B_8000, 0x0077),
+            "ASM loc_108EE and sub_1120 must apply the first burst worker's exact FP velocity on its allocation frame"
+        );
+        assert_eq!(rt.played_sound_commands.len(), 1);
+
+        for _ in 1..9 {
+            rt.step_prize_worker_effects_loc_108ee_10b00();
+        }
+        let first_worker = &rt.prize_worker_effects[0].workers[0];
+        assert_eq!(
+            (
+                first_worker.x_pos_fp,
+                first_worker.y_pos_fp,
+                first_worker.timer,
+                first_worker.is_moved,
+            ),
+            (0x0024_0000, -0x0004_0000, 0x006F, false),
+            "ASM loc_10984 must freeze the first child after exactly eight FP moves"
+        );
+
+        for _ in 9..89 {
             rt.step_prize_worker_effects_loc_108ee_10b00();
         }
         assert_eq!(rt.progression.diamond_count, 0);
@@ -12972,6 +13005,29 @@ mod chunk_09 {
                 .camera_relative_pos_fp
                 .is_some(),
             "ASM loc_10988 must latch the first worker's camera-relative position when its timer reaches $20"
+        );
+        let first_worker = &rt.prize_worker_effects[0].workers[0];
+        assert_eq!(
+            (
+                first_worker.camera_relative_pos_fp,
+                first_worker.x_velocity_fp,
+                first_worker.y_velocity_fp,
+                first_worker.x_pos_fp,
+                first_worker.y_pos_fp,
+            ),
+            (
+                Some((0x001C_9000, -0x000A_2000)),
+                0x0008_9000,
+                0x0001_E000,
+                0x002C_0000,
+                -0x0003_0000,
+            ),
+            "ASM loc_10988/loc_109C0 must use the non-zero camera, preserve cached fractions, and reproject exact world words"
+        );
+        assert_eq!(
+            rt.played_sound_commands.len(),
+            10,
+            "ASM loc_108EE queues one Diamond-prize sound per allocated child"
         );
 
         for _ in 0..31 {
@@ -13008,6 +13064,16 @@ mod chunk_09 {
         assert_eq!(rt.prize_worker_effects.len(), 1);
         assert_eq!(rt.floating_items.len(), 1);
         assert_eq!(rt.floating_items[0].content, terrain::PrizeContent::Diamond);
+
+        for _ in 0..130 {
+            rt.step_prize_worker_effects_loc_108ee_10b00();
+        }
+        assert_eq!(rt.prize_worker_effects[0].elapsed_frames, 0x0117);
+        rt.step_prize_worker_effects_loc_108ee_10b00();
+        assert!(
+            rt.prize_worker_effects.is_empty(),
+            "ASM loc_10A46 deletes the parent exactly when d3 reaches $118"
+        );
     }
 
     #[test]
@@ -13018,6 +13084,11 @@ mod chunk_09 {
         let mut rt = NativeRuntime::new(manifest());
         rt.boot_state = BootState::InGame;
         rt.current_level = LevelId(0x2C);
+        rt.opening_slice = Some(OpeningSliceState::new(LevelBounds {
+            width_pixels: 128,
+            height_pixels: 128,
+        }));
+        rt.set_camera_probe_position(16, 8);
         rt.block_grid = Some(grid_with_cells(8, 8, &[]));
         rt.block_state
             .deferred_ceiling_clears
@@ -13074,15 +13145,30 @@ mod chunk_09 {
             "ASM loc_10B00 spawns the secondary worker when d3 reaches five"
         );
 
-        for _ in 0..94 {
+        for _ in 0..83 {
             rt.step_prize_worker_effects_loc_108ee_10b00();
         }
+        assert_eq!(
+            rt.prize_worker_effects[0].workers[0].latched_screen_pos,
+            Some((24, 4)),
+            "ASM loc_10B9A must latch both camera-relative words when the first star reaches timer $20"
+        );
+        assert_eq!(
+            rt.trace_frame().prize_worker_sprites[0].world_x,
+            34,
+            "ASM loc_10BB2 must apply the first 6px drift on the latch frame"
+        );
+
+        for _ in 0..33 {
+            rt.step_prize_worker_effects_loc_108ee_10b00();
+        }
+        assert_eq!(rt.prize_worker_effects.len(), 1);
+        assert_eq!(rt.prize_worker_effects[0].elapsed_frames, 122);
+        assert_eq!(rt.prize_worker_effects[0].workers[4].x_pos_fp, -0x000C_0000);
+        rt.step_prize_worker_effects_loc_108ee_10b00();
         assert!(
-            rt.trace_frame()
-                .prize_worker_sprites
-                .iter()
-                .any(|worker| worker.world_x < 0),
-            "ASM loc_10B74 preserves signed off-screen star positions before the last worker deletes the parent"
+            rt.prize_worker_effects.is_empty(),
+            "ASM loc_10BB2/loc_10BE0 must delete the parent when slot $10 crosses screen X -32 on wake 123"
         );
     }
 
