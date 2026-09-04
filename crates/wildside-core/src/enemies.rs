@@ -5236,8 +5236,8 @@ pub(crate) fn step_active_enemies_with_rng(
         {
             // ASM Robot.asm stru_3A6E2/stru_3A6FC and stru_3A716/stru_3A730:
             // parent body and linked head advance independent Gfx animations.
-            enemy.dragon_descent_frames = enemy.dragon_descent_frames.wrapping_add(1)
-                % robot_live_body_animation_cycle_ticks(enemy.robot_state);
+            enemy.dragon_descent_frames =
+                robot_next_body_animation_tick(enemy.robot_state, enemy.dragon_descent_frames);
             enemy.dragon_descent_index =
                 robot_next_head_animation_tick(enemy.robot_state, enemy.dragon_descent_index);
         }

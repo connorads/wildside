@@ -32,7 +32,7 @@ pub(crate) fn robot_live_body_sprite_phase(
     } else {
         9
     };
-    (animation_tick / frame_ticks) % 6
+    (animation_tick.saturating_sub(1) / frame_ticks) % 6
 }
 
 /// Atlas phase for the linked Robot head GfxObject allocated at loc_3A7EE.
@@ -48,15 +48,11 @@ pub(crate) fn robot_live_head_sprite_phase(
         return 19;
     }
     match state {
-        RobotState::Walking => 10 + (animation_tick / 9) % 6,
+        RobotState::Walking => 10 + (animation_tick.saturating_sub(1) / 9) % 6,
         RobotState::Charging => {
-            // ASM stru_3A730 advances C8290/C8298/C82A0 for four ticks each,
-            // then holds C8308 for nine ticks after its loop terminator.
-            if animation_tick < 12 {
-                16 + animation_tick / 4
-            } else {
-                19
-            }
+            // ASM stru_3A730 advances C8290/C8298/C82A0 for four ticks each;
+            // selector 2 then rewinds `$0D` bytes to repeat all three.
+            16 + (animation_tick.saturating_sub(1) % 12) / 4
         }
         RobotState::Aiming => {
             // ASM sub_3C4F8 loc_3C58E/loc_3C5C4 presents C8338 for the
@@ -79,12 +75,26 @@ pub(crate) fn robot_live_body_animation_cycle_ticks(state: RobotState) -> u8 {
     }
 }
 
+fn robot_next_loop_animation_tick(animation_tick: u8, cycle: u8) -> u8 {
+    if animation_tick == 0 || animation_tick >= cycle {
+        1
+    } else {
+        animation_tick + 1
+    }
+}
+
+pub(crate) fn robot_next_body_animation_tick(state: RobotState, animation_tick: u8) -> u8 {
+    // ASM stru_3A6E2/stru_3A6FC: selector 2 rewinds after the sixth mapping's
+    // terminal countdown tick, not when that tick first becomes selected.
+    robot_next_loop_animation_tick(animation_tick, robot_live_body_animation_cycle_ticks(state))
+}
+
 pub(crate) fn robot_next_head_animation_tick(state: RobotState, animation_tick: u8) -> u8 {
     match state {
-        RobotState::Walking => animation_tick.wrapping_add(1) % 54,
-        // ASM stru_3A730 terminates after its three four-tick entries and
-        // leaves C8308 selected; clamp rather than restarting the script.
-        RobotState::Charging => animation_tick.saturating_add(1).min(12),
+        // ASM stru_3A716 and stru_3A730 both end in selector 2 loops. Their
+        // terminal mappings remain selected through ticks 54 and 12.
+        RobotState::Walking => robot_next_loop_animation_tick(animation_tick, 54),
+        RobotState::Charging => robot_next_loop_animation_tick(animation_tick, 12),
         RobotState::Aiming => animation_tick,
     }
 }
@@ -834,31 +844,36 @@ mod tests {
     fn robot_live_body_and_head_phases_follow_separate_gfx_scripts() {
         // ASM stru_3A6E2/stru_3A716: body and head each loop six mappings
         // for nine ticks while walking.
-        assert_eq!(robot_live_body_sprite_phase(RobotState::Walking, 8, 0), 0);
-        assert_eq!(robot_live_body_sprite_phase(RobotState::Walking, 9, 0), 1);
+        assert_eq!(robot_live_body_sprite_phase(RobotState::Walking, 9, 0), 0);
+        assert_eq!(robot_live_body_sprite_phase(RobotState::Walking, 10, 0), 1);
         assert_eq!(
             robot_live_head_sprite_phase(RobotState::Walking, 0, 0, 0),
             10
         );
         assert_eq!(
-            robot_live_head_sprite_phase(RobotState::Walking, 9, 0, 0),
+            robot_live_head_sprite_phase(RobotState::Walking, 10, 0, 0),
             11
         );
 
         // ASM stru_3A6FC/stru_3A730: charge legs advance every four ticks;
-        // the head runs three four-tick mappings, then holds C8308.
-        assert_eq!(robot_live_body_sprite_phase(RobotState::Charging, 4, 0), 1);
+        // the head loops three four-tick mappings via selector 2's rewind.
+        assert_eq!(robot_live_body_sprite_phase(RobotState::Charging, 4, 0), 0);
+        assert_eq!(robot_live_body_sprite_phase(RobotState::Charging, 5, 0), 1);
         assert_eq!(
             robot_live_head_sprite_phase(RobotState::Charging, 3, 0, 0),
             16
         );
         assert_eq!(
-            robot_live_head_sprite_phase(RobotState::Charging, 4, 0, 0),
+            robot_live_head_sprite_phase(RobotState::Charging, 5, 0, 0),
             17
         );
         assert_eq!(
             robot_live_head_sprite_phase(RobotState::Charging, 12, 0, 0),
-            19
+            18
+        );
+        assert_eq!(
+            robot_live_head_sprite_phase(RobotState::Charging, 13, 0, 0),
+            16
         );
 
         // ASM loc_3A8FC uses distinct C8310 parent and C8308 child hit poses.
@@ -890,7 +905,9 @@ mod tests {
             24
         );
         assert_eq!(robot_next_head_animation_tick(RobotState::Charging, 11), 12);
-        assert_eq!(robot_next_head_animation_tick(RobotState::Charging, 12), 12);
+        assert_eq!(robot_next_head_animation_tick(RobotState::Charging, 12), 1);
+        assert_eq!(robot_next_body_animation_tick(RobotState::Walking, 54), 1);
+        assert_eq!(robot_next_body_animation_tick(RobotState::Charging, 24), 1);
     }
 
     fn robot_test_enemy(
