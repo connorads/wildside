@@ -2892,8 +2892,15 @@ pub fn push_background_tiles(
             };
             let background_scroll_y_px = camera_y_px >> 2;
             let first_row = (background_scroll_y_px.div_euclid(8)).max(0) as usize;
-            let last_row =
-                ((background_scroll_y_px + FRAME_HEIGHT as i32 + 7).div_euclid(8)).max(0) as usize;
+            // ASM loc_30592 fills the final partial scanlines inside the
+            // 224-line Horiz_Scroll_Buffer. Use the last visible pixel row;
+            // a ceil-to-next-tile bound assigns that fill to an off-screen
+            // Plane-B row and leaves the real bottom scanline on full-row
+            // scroll instead.
+            let last_row = (background_scroll_y_px + FRAME_HEIGHT as i32)
+                .saturating_sub(1)
+                .div_euclid(8)
+                .max(0) as usize;
             for row in first_row..=last_row {
                 if !chunked_background_row_window_applies_loc_30744(level_visuals, row) {
                     continue;
@@ -2906,9 +2913,6 @@ pub fn push_background_tiles(
                     .unwrap_or(i32::MAX)
                     .saturating_mul(8)
                     .saturating_sub(background_scroll_y_px);
-                if screen_y <= -8 || screen_y >= FRAME_HEIGHT as i32 {
-                    continue;
-                }
                 let layer_speed = background_layer_speed_loc_3050a(level_visuals, row);
                 let scroll_x_px = background_display_scroll_x_px_for_chunked_row_loc_3050a(
                     trace,
@@ -14570,6 +14574,254 @@ mod tests {
         assert_eq!(rippled.source_row_pixels, [3, 4, 5, 6, 7, 8, 9, 10]);
         assert_eq!(rippled.palette_index, 8);
         assert_eq!(rippled.row_offset, Some(0));
+    }
+
+    #[test]
+    fn background_command_stream_pins_chunked_camera_clipping_and_tile_order_loc_307d8() {
+        let trace = NativeTraceFrame {
+            camera_x_pos: 9 << 16,
+            camera_y_pos: 4 << 16,
+            ..NativeTraceFrame::default()
+        };
+        let mut visuals = sample_level_visuals(1);
+        visuals.background_tiles = sample_tile_sheet(16);
+        visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+            placements: vec![
+                BackgroundPlacement {
+                    chunk_id: 0,
+                    x_tiles: 0,
+                    y_tiles: 0,
+                },
+                BackgroundPlacement {
+                    chunk_id: 1,
+                    x_tiles: 41,
+                    y_tiles: 1,
+                },
+                BackgroundPlacement {
+                    chunk_id: 1,
+                    x_tiles: 42,
+                    y_tiles: 1,
+                },
+                BackgroundPlacement {
+                    chunk_id: 1,
+                    x_tiles: 1,
+                    y_tiles: 28,
+                },
+                BackgroundPlacement {
+                    chunk_id: 1,
+                    x_tiles: 1,
+                    y_tiles: 29,
+                },
+            ],
+            chunks: vec![
+                BackgroundChunk {
+                    width_tiles: 3,
+                    height_tiles: 2,
+                    tiles: [10, 11, 12, 13, 14, 15]
+                        .into_iter()
+                        .map(|tile_index| BackgroundTile {
+                            tile_index,
+                            flip_x: tile_index == 15,
+                        })
+                        .collect(),
+                },
+                BackgroundChunk {
+                    width_tiles: 1,
+                    height_tiles: 1,
+                    tiles: vec![BackgroundTile {
+                        tile_index: 9,
+                        flip_x: false,
+                    }],
+                },
+            ],
+        });
+
+        let mut commands = Vec::new();
+        push_background_tiles(&mut commands, &trace, &visuals);
+
+        assert_eq!(
+            commands
+                .iter()
+                .map(indexed_tile_snapshot)
+                .collect::<Vec<_>>(),
+            [
+                (-1, -1, 11, false),
+                (7, -1, 12, false),
+                (-1, 7, 14, false),
+                (7, 7, 15, false),
+                (319, 7, 9, false),
+                (-1, 223, 9, false),
+            ],
+            "ASM sub_307D8 streams row-major Plane-B cells after quarter-speed Camera_Y and screen clipping"
+        );
+        let DrawCommand::IndexedTile { tile, .. } = &commands[3] else {
+            panic!("sub_307D8 should emit indexed background tiles")
+        };
+        assert!(tile.flip_x, "sub_307D8 preserves the source H-flip bit");
+        assert_eq!(
+            tile.palette_line, 1,
+            "sub_307D8 uses CRAM line 1 outside Forest"
+        );
+    }
+
+    #[test]
+    fn background_command_stream_pins_chunked_plane_b_window_loc_3050a_307d8() {
+        let trace = NativeTraceFrame {
+            time_frames_loc_3038a: 9,
+            camera_x_pos: 16 << 16,
+            camera_y_pos: 4 << 16,
+            ..NativeTraceFrame::default()
+        };
+        let mut visuals = sample_level_visuals(1);
+        visuals.background_tiles = sample_tile_sheet(128);
+        visuals.level.foreground_layout_bytes = vec![0; 20 * 42];
+        visuals.level.foreground_layout =
+            ForegroundLayout::parse(&visuals.level.foreground_layout_bytes, 1, 3)
+                .expect("three-screen-tall background fixture");
+        visuals.level.background_scroll = Some(wildside_data::BgscrollProfile {
+            layer_speeds: vec![0x00; 42],
+            has_terminator: true,
+        });
+        visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+            placements: vec![BackgroundPlacement {
+                chunk_id: 0,
+                x_tiles: 0,
+                y_tiles: 0,
+            }],
+            chunks: vec![BackgroundChunk {
+                width_tiles: 4,
+                height_tiles: 32,
+                tiles: (0..128)
+                    .map(|tile_index| BackgroundTile {
+                        tile_index,
+                        flip_x: false,
+                    })
+                    .collect(),
+            }],
+        });
+
+        let mut commands = Vec::new();
+        push_background_tiles(&mut commands, &trace, &visuals);
+        let tiles = commands
+            .iter()
+            .map(indexed_tile_snapshot)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            tiles.len(),
+            29 * 41,
+            "ASM sub_307D8 emits 29 visible backed rows by 41 clipped Plane-B cells"
+        );
+        assert_eq!(tiles.first(), Some(&(-2, -1, 1, false)));
+        assert_eq!(tiles.last(), Some(&(318, 223, 113, false)));
+    }
+
+    #[test]
+    fn background_command_stream_uses_absolute_chunk_row_for_scroll_ownership_loc_30744() {
+        let mut visuals = sample_level_visuals(1);
+        visuals.background_tiles = sample_tile_sheet(16);
+        visuals.level.background_scroll = Some(wildside_data::BgscrollProfile {
+            layer_speeds: vec![0x00, 0x10, 0x00],
+            has_terminator: true,
+        });
+        visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+            placements: vec![BackgroundPlacement {
+                chunk_id: 0,
+                x_tiles: 1,
+                y_tiles: 1,
+            }],
+            chunks: vec![BackgroundChunk {
+                width_tiles: 1,
+                height_tiles: 1,
+                tiles: vec![BackgroundTile {
+                    tile_index: 13,
+                    flip_x: false,
+                }],
+            }],
+        });
+
+        let mut commands = Vec::new();
+        push_background_tiles(&mut commands, &NativeTraceFrame::default(), &visuals);
+
+        assert!(
+            commands
+                .iter()
+                .map(indexed_tile_snapshot)
+                .any(|tile| tile == (8, 8, 13, false)),
+            "ASM sub_30744 chooses direct versus streamed Plane-B ownership from placement Y plus the chunk-local row"
+        );
+    }
+
+    #[test]
+    fn background_command_stream_pins_layered_wrap_and_parallax_loc_3050a_11b7a() {
+        let trace = NativeTraceFrame {
+            camera_x_pos: 32 << 16,
+            camera_y_pos: 4 << 16,
+            ..NativeTraceFrame::default()
+        };
+        let mut visuals = sample_level_visuals(1);
+        visuals.background_tiles = sample_tile_sheet(4);
+        visuals.level.background_scroll = Some(wildside_data::BgscrollProfile {
+            layer_speeds: vec![0x10, 0x18],
+            has_terminator: true,
+        });
+        visuals.background = BackgroundVisuals::Layered(LayeredBackgroundVisuals {
+            effect_start_row_selector: None,
+            rows: vec![
+                LayeredBackgroundRow {
+                    selector: 0x10,
+                    tiles: vec![sample_tile_ref(0), sample_tile_ref(1)],
+                },
+                LayeredBackgroundRow {
+                    selector: 0x18,
+                    tiles: vec![sample_tile_ref(2), sample_tile_ref(3)],
+                },
+            ],
+        });
+
+        let mut commands = Vec::new();
+        push_background_tiles(&mut commands, &trace, &visuals);
+
+        assert_eq!(
+            commands
+                .iter()
+                .map(indexed_tile_snapshot)
+                .collect::<Vec<_>>(),
+            [
+                (0, -1, 0, true),
+                (8, -1, 1, true),
+                (-2, 7, 2, true),
+                (14, 7, 2, true),
+                (6, 7, 3, true),
+                (22, 7, 3, true),
+            ],
+            "ASM loc_3050A applies per-row H-scroll while loc_11B7A repeats the 16px Plane-B row across the viewport"
+        );
+    }
+
+    #[test]
+    fn background_command_stream_clips_layered_rows_below_viewport_loc_11b7a() {
+        let mut visuals = sample_level_visuals(1);
+        visuals.background_tiles = sample_tile_sheet(30);
+        visuals.background = BackgroundVisuals::Layered(LayeredBackgroundVisuals {
+            effect_start_row_selector: None,
+            rows: (0..30)
+                .map(|tile_index| LayeredBackgroundRow {
+                    selector: 0x10,
+                    tiles: vec![sample_tile_ref(tile_index)],
+                })
+                .collect(),
+        });
+
+        let mut commands = Vec::new();
+        push_background_tiles(&mut commands, &NativeTraceFrame::default(), &visuals);
+
+        let tiles = commands
+            .iter()
+            .map(indexed_tile_snapshot)
+            .collect::<Vec<_>>();
+        assert_eq!(tiles.len(), 28, "loc_11B7A clips rows at y=224 and below");
+        assert_eq!(tiles.last(), Some(&(0, 216, 27, true)));
     }
 
     #[test]

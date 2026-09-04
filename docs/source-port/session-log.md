@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (Plane-B command-stream contract)
+
+- A focused `push_background_tiles` audit found 42 of 49 mutations surviving,
+  including deleting Plane B, corrupting camera origins, row-major tile lookup,
+  clipping, row ownership, streamed coverage, wrapping, and parallax.
+- Five public command-stream contracts now cover chunked direct and streamed
+  paths plus layered wrapping. The audit also corrected the visible-row upper
+  bound so `loc_30592` applies its trailing partial fill to the real bottom
+  scanline, then removed the redundant vertical clip made impossible by those
+  bounds. The remaining 43 viable mutations are all caught.
+
 ## 2026-09-04 handoff (Flying Dragon terrain animation cadence)
 
 - A focused `dragon_flying_sprite_animation_phase` audit found 2 of 17
