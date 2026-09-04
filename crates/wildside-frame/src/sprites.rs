@@ -5999,6 +5999,18 @@ mod tests {
                 "{asm_label} should not read death frame {death_frame} without {required_frames} extracted frames"
             );
         }
+
+        // ASM Big_Hopping_Skull.asm loc_3664E / stru_367FA: at 101 ticks
+        // the selected frame (C7FF0, index 10) exists in an eleven-frame
+        // prefix, but the later C7FF8 mapping does not. Reject the incomplete
+        // death atlas as a unit instead of partially rendering its script.
+        let visuals = labelled_enemy_visuals(11, 3);
+        let object = dead_enemy_object(0x1D, 101);
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &visuals, &object),
+            0x0100,
+            "ASM stru_367FA requires all twelve Big Hopping Skull mappings before selecting frame 10",
+        );
     }
 
     #[test]

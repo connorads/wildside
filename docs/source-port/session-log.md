@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-04 handoff (Big Hopping Skull death-atlas guard)
+
+- An exhaustive 389-mutant `select_enemy_frame` census found one survivor:
+  deleting Big Hopping Skull's twelve-frame atlas guard still passed because
+  the generic short-sheet test sampled the first `stru_367FA` frame, which is
+  also the renderer's generic fallback.
+- A discriminating `loc_3664E/stru_367FA` contract now samples 101 ticks. The
+  selected C7FF0 frame exists in an eleven-frame prefix while the later C7FF8
+  frame does not, proving that the complete death script must be available as
+  a unit. The rerun catches all 368 viable mutants; 21 are compiler-unviable.
+
 ## 2026-09-04 handoff (ROM-sized player mapping tables)
 
 - `sub_8446/off_84A2` always indexes a three-entry crawl row after wrapping
