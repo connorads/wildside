@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Lion selector palette order)
+
+- `Load_EnemyArtPaletteToVRAM loc_36D16` indexes the Lion palette descriptors
+  in their actual `Data_Index` order: `Lion_1`, `Lion_3`, `Lion_2`. Oracle CRAM
+  confirms selector 2 is `Lion_2`.
+- The typed render bundle now preserves that order. Level `0x36` frame sweep
+  `1788590326` stays green and improves the two checkpoints from 1,874/1,871 to
+  1,676/1,673 changed pixels.
+- The remaining residue is #493. Native fires the Lion projectile three frames
+  before oracle; its 6 px/frame velocity accounts exactly for the observed 18 px
+  displacement. Resume by tracing `stru_3DF0E` through `GfxObject_Animate`.
+
 ## 2026-09-05 handoff (Micromax grounded idle mapping)
 
 - Oracle RAM and Sprite Table probes confirm `sub_78E8 loc_7962`: Micromax

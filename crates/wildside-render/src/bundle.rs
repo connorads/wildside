@@ -2155,7 +2155,9 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x12, // Lion
         art_path: "artcomp/Enemy12_Lion.bin",
         palette_path: "palette_enemy/Lion_1.bin",
-        extra_palette_paths: &["palette_enemy/Lion_2.bin", "palette_enemy/Lion_3.bin"],
+        // ASM Data_Index at LnkTo_Pal_A217E stores Lion_1, Lion_3, Lion_2.
+        // loc_36D16 advances through these pointers by the layout selector.
+        extra_palette_paths: &["palette_enemy/Lion_3.bin", "palette_enemy/Lion_2.bin"],
         frame_duration: 7,
         frames: &[
             fd(0x16C, 0x15, 0x00, 0x2C, 0x2D),
@@ -5651,6 +5653,20 @@ mod tests {
                 "ASM EnemyLoad_Index shares the flying Dragon palette descriptor with the walking Dragon child"
             );
         }
+    }
+
+    #[test]
+    fn lion_palette_descriptors_follow_data_index_order_loc_36d16() {
+        let lion = super::ENEMY_FAMILIES
+            .iter()
+            .find(|spec| spec.object_type == 0x12)
+            .expect("Lion family spec");
+
+        assert_eq!(
+            lion.extra_palette_paths,
+            &["palette_enemy/Lion_3.bin", "palette_enemy/Lion_2.bin"],
+            "ASM Data_Index at LnkTo_Pal_A217E orders Lion_1, Lion_3, then Lion_2 for loc_36D16's selector",
+        );
     }
 
     #[test]

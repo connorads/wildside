@@ -11,6 +11,23 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #492
+
+Closed [x] 2026-09-05. Fresh all-level frame sweep `1788585146` selected Level
+`$36`, whose fully comparable checkpoints contained up to 1,874 changed pixels.
+The pale native Lion used selector 2 to load `Lion_3`. Oracle CRAM at frames 60
+and 359 instead contains `Pal_A219C` (`Lion_2`). ASM `Load_EnemyArtPaletteToVRAM
+loc_36D16` derives selector 2 from the raw layout word, while `Data_Index` at
+`LnkTo_Pal_A217E` stores the descriptors in the non-numeric order `Lion_1`,
+`Lion_3`, `Lion_2`.
+
+The typed Lion bundle now preserves that source order. A focused Level `$36`
+frame sweep (`1788590326`) passes and reduces the two measured checkpoints from
+1,874/1,871 to 1,676/1,673 changed pixels. The remaining body-pose and projectile
+residue is not palette debt: WRAM probes show equal Lion positions, but native
+allocates the projectile three frames early and its 6 px/frame velocity explains
+the exact 18 px X displacement. That authoritative timing frontier is #493.
+
 ### #491
 
 Closed [x] 2026-09-05. Fresh all-level frame sweep `1788585146` selected Level
