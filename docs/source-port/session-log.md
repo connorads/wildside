@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Level 0x33 platform presentation dead end)
+
+- Oracle frame-359 SAT entries match native `loc_24F0` geometry, and oracle
+  VRAM `$1280..$13FF` is byte-identical to decoded `Horizontal_platform.bin`
+  (SHA-1 `29c9a72c6c4480399d11a1d0eb57393dcd67954c`).
+- Oracle CRAM line 0 is one `loc_1223C` rotation ahead of native's typed words,
+  while both coroutine counters match. Correcting that collapsed handoff phase
+  and feeding platforms the live foreground palette changed only 27 pixels and
+  regressed idle-tail 631→641 in report `1788620567`; both edits were rejected.
+- The remaining platform component is not SAT geometry, decoded art, DMA bytes,
+  or a broad palette-source choice. Continue at the mapping/presentation
+  boundary; do not retry the palette adapter without a per-pixel witness.
+
 ## 2026-09-05 handoff (Level 0x33 platform scheduler age)
 
 - Oracle Platform RAM at frame 359 holds the two moving scripts at timers
