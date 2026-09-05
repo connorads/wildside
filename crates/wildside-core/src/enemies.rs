@@ -4995,7 +4995,62 @@ pub(crate) fn step_active_enemies(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[cfg(test)]
 pub(crate) fn step_active_enemies_with_rng(
+    active: &mut [ActiveEnemy],
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+    camera_x_px: Option<u32>,
+    camera_y_px: Option<u32>,
+    player_facing: Option<Direction>,
+    player_x_velocity: Option<i32>,
+    player_y_velocity: Option<i32>,
+    player_form: PlayerForm,
+    time_frames: u16,
+    samurai_haze_active: bool,
+    projectiles: Option<&mut Vec<EnemyProjectile>>,
+    rng: &mut RomRandomState,
+    drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
+    played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
+    freshly_loaded_enemies: &mut std::collections::HashMap<ActiveEnemyKey, u8>,
+) {
+    step_active_enemies_with_rng_context(
+        active,
+        block_grid,
+        player_x_pos,
+        player_y_pos,
+        camera_x_px,
+        camera_y_px,
+        player_facing,
+        player_x_velocity,
+        player_y_velocity,
+        player_form,
+        time_frames,
+        samurai_haze_active,
+        projectiles,
+        rng,
+        drilled_blocks,
+        played_sound_effects,
+        freshly_loaded_enemies,
+        BossFireFrameContext::default(),
+    );
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HeadyMetalEyeAnchorLoc375De {
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct BossFireFrameContext {
+    /// ASM loc_375DE: `$FFFFFB7A` supplies normal Heady Metal eye-fire x/y.
+    pub(crate) heady_metal_eye_anchor_loc_375de: Option<HeadyMetalEyeAnchorLoc375De>,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn step_active_enemies_with_rng_context(
     active: &mut [ActiveEnemy],
     block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
@@ -5013,6 +5068,7 @@ pub(crate) fn step_active_enemies_with_rng(
     drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
     mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
     freshly_loaded_enemies: &mut std::collections::HashMap<ActiveEnemyKey, u8>,
+    boss_fire_context: BossFireFrameContext,
 ) {
     seed_pending_archer_initial_hibernates_loc_33fda(active, camera_x_px, rng);
 
@@ -5984,6 +6040,7 @@ pub(crate) fn step_active_enemies_with_rng(
                         player_x_pos,
                         player_y_pos,
                         played_sound_effects.as_deref_mut(),
+                        boss_fire_context,
                     );
                 }
                 if is_multi_head_boss(enemy.family) {
@@ -11381,22 +11438,28 @@ pub(crate) fn boss_head_parent_animation_state_loc_39538_39570(
 /// ASM Enemy20_HeadyMetal_Init (kid.asm:39264): the `$FFFFFB7A` anchor starts
 /// its `$3E(a3)` counter at `$A` before `loc_375DE` starts eye spawns.
 pub(crate) const HEADY_METAL_EYE_SPAWN_COUNTER_INIT_LOC_39264: u16 = 0x000A;
+/// ASM `stru_37B8A`: the three holds total 200 ticks. `loc_37582` observes
+/// animation-finished on the following object pass, so the initial scheduler
+/// countdown spans 201 passes before `loc_375DE` allocates the first eye.
+pub(crate) const HEADY_METAL_INITIAL_EYE_WAIT_TIMER_STRU_37B8A: u16 = 0x0096 + 0x000A + 0x0028 + 1;
 /// ASM `sub_370D2` starts `stru_37BD8` and loc_3712E falls until that script
 /// sets animation flag `$18(a3)`.
 pub(crate) const BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8: u16 =
     0x05 + 0x05 + 0x0A + 0x01;
-/// ASM `stru_37B98`: high-count eye-spawn animation duration before `$18(a3)`.
-pub(crate) const HEADY_METAL_EYE_HIGH_ANIMATION_FRAMES_STRU_37B98: u16 =
-    0x2D + 0x32 + 0x05 + 0x14 + 0x14 + 0x19 + 0x05 + 0x0F;
-/// ASM `stru_37BC0` then `stru_37BC6`: low-count rapid eye-spawn animation
-/// duration before `$18(a3)` is set by the zero terminator.
-pub(crate) const HEADY_METAL_EYE_LOW_ANIMATION_FRAMES_STRU_37BC0: u16 =
-    0x0A + 0x0A + 0x0A + 0x0A + 0x0A;
+/// ASM `stru_37B98`: after its `$2D` hold, opcode `2,$13` jumps back to
+/// `stru_37B8A`. The parent sees `$18` on allocation pass 245; because the
+/// stored timer is decremented only on later passes, seed it with 244.
+pub(crate) const HEADY_METAL_EYE_HIGH_WAIT_TIMER_STRU_37B98: u16 =
+    0x002D + 0x0096 + 0x000A + 0x0028 - 1;
+/// ASM `stru_37BC0` falls through into the four `$A` holds of `stru_37BC6`.
+/// As above, the stored countdown excludes the allocation pass itself.
+pub(crate) const HEADY_METAL_EYE_LOW_WAIT_TIMER_STRU_37BC0: u16 =
+    0x000A + 0x000A + 0x000A + 0x000A + 0x000A - 1;
 
 fn heady_metal_eye_spawn_animation_frames(selected_animation_label: &str) -> u16 {
     match selected_animation_label {
-        "stru_37B98" => HEADY_METAL_EYE_HIGH_ANIMATION_FRAMES_STRU_37B98,
-        "stru_37BC0" => HEADY_METAL_EYE_LOW_ANIMATION_FRAMES_STRU_37BC0,
+        "stru_37B98" => HEADY_METAL_EYE_HIGH_WAIT_TIMER_STRU_37B98,
+        "stru_37BC0" => HEADY_METAL_EYE_LOW_WAIT_TIMER_STRU_37BC0,
         _ => 0,
     }
 }
@@ -11537,7 +11600,27 @@ pub(crate) fn step_boss_fire(
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
 ) {
-    step_boss_fire_with_sounds(enemy, projectiles, player_x_pos, player_y_pos, None);
+    // Test convenience only. Production supplies the persisted `$FFFFFB7A`
+    // worker through `BossFireFrameContext`; Enemy20 init loc_39247 seeds it
+    // at the root y position plus `$1F`.
+    let boss_fire_context = if matches!(enemy.family, EnemyFamily::HeadyMetal) {
+        Some(HeadyMetalEyeAnchorLoc375De {
+            x_pos: (enemy.x_pos >> 16) as u16,
+            y_pos: ((enemy.y_pos >> 16) as u16).wrapping_add(0x001F),
+        })
+    } else {
+        None
+    };
+    step_boss_fire_with_sounds(
+        enemy,
+        projectiles,
+        player_x_pos,
+        player_y_pos,
+        None,
+        BossFireFrameContext {
+            heady_metal_eye_anchor_loc_375de: boss_fire_context,
+        },
+    );
 }
 
 pub(crate) fn step_boss_fire_with_sounds(
@@ -11546,6 +11629,7 @@ pub(crate) fn step_boss_fire_with_sounds(
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
     played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
+    boss_fire_context: BossFireFrameContext,
 ) {
     if matches!(enemy.family, EnemyFamily::HeadyMetal)
         && 37u16.saturating_sub(u16::from(enemy.hit_points)) >= 0x0025
@@ -11763,16 +11847,16 @@ pub(crate) fn step_boss_fire_with_sounds(
             // ASM loc_375DE allocates `sub_370D2` for normal fire; `sub_37332`
             // is the paired eye-launch worker used by the breakup routine
             // `sub_37708 loc_37778`.
-            let init = boss_death_burst_init_sub_370D2(
-                (enemy.x_pos >> 16) as u16,
-                (enemy.y_pos >> 16) as u16,
-            );
+            let Some(anchor) = boss_fire_context.heady_metal_eye_anchor_loc_375de else {
+                return;
+            };
+            let init = boss_death_burst_init_sub_370D2(anchor.x_pos, anchor.y_pos);
             if let Some(sound_effects) = played_sound_effects {
                 sound_effects.push(QueuedSoundEffect::VoiceDie);
             }
             projectiles.push(EnemyProjectile {
-                x_pos: enemy.x_pos,
-                y_pos: enemy.y_pos,
+                x_pos: u32::from(init.x_pos) << 16,
+                y_pos: u32::from(init.y_pos) << 16,
                 x_velocity: 0,
                 y_velocity: 0,
                 lifetime: init.chase_frames,
@@ -14682,7 +14766,7 @@ pub(crate) fn spawn_wait_timer(
         // run movement and the Kid activation window after their first
         // hibernate; they never read the generic `$54(a5)` fire delay.
         EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses | EnemyFamily::BagelBrothers => 0,
-        EnemyFamily::HeadyMetal => BOSS_FIRE_INTERVAL,
+        EnemyFamily::HeadyMetal => HEADY_METAL_INITIAL_EYE_WAIT_TIMER_STRU_37B8A,
         _ => 0,
     }
 }
@@ -15720,7 +15804,17 @@ impl NativeRuntime {
                 // loc_368A8 horizontal-window scheduling pinned by Level 0x07.
                 let enemy_storage_order =
                     reorder_active_enemies_for_execute_objects_loc_de0(&mut self.active_enemies);
-                step_active_enemies_with_rng(
+                let boss_fire_context = BossFireFrameContext {
+                    heady_metal_eye_anchor_loc_375de: self
+                        .heady_metal_breakup_slots_sub_37708
+                        .as_ref()
+                        .and_then(|slots| slots[0])
+                        .map(|anchor| HeadyMetalEyeAnchorLoc375De {
+                            x_pos: anchor.x_pos,
+                            y_pos: anchor.y_pos,
+                        }),
+                };
+                step_active_enemies_with_rng_context(
                     &mut self.active_enemies,
                     self.block_grid.as_ref(),
                     Some(frame.kid_x_pos),
@@ -15738,6 +15832,7 @@ impl NativeRuntime {
                     &mut self.drilled_blocks,
                     None,
                     &mut self.freshly_loaded_enemies_loc_3691e,
+                    boss_fire_context,
                 );
                 restore_active_enemy_storage_order(&mut self.active_enemies, &enemy_storage_order);
                 self.move_heady_metal_body_piece_workers_sub_376ec();
@@ -16140,7 +16235,17 @@ impl NativeRuntime {
                 // loc_3C0FA. Sample the parent's frame-entry position before
                 // the native movement pass for the same object ordering.
                 self.spawn_fire_demon_walking_trails_loc_3a542();
-                step_active_enemies_with_rng(
+                let boss_fire_context = BossFireFrameContext {
+                    heady_metal_eye_anchor_loc_375de: self
+                        .heady_metal_breakup_slots_sub_37708
+                        .as_ref()
+                        .and_then(|slots| slots[0])
+                        .map(|anchor| HeadyMetalEyeAnchorLoc375De {
+                            x_pos: anchor.x_pos,
+                            y_pos: anchor.y_pos,
+                        }),
+                };
+                step_active_enemies_with_rng_context(
                     &mut self.active_enemies,
                     self.block_grid.as_ref(),
                     Some(slice.player.x_pos),
@@ -16160,6 +16265,7 @@ impl NativeRuntime {
                     &mut self.drilled_blocks,
                     Some(&mut played_enemy_sound_effects),
                     &mut self.freshly_loaded_enemies_loc_3691e,
+                    boss_fire_context,
                 );
                 restore_active_enemy_storage_order(&mut self.active_enemies, &enemy_storage_order);
                 self.move_heady_metal_body_piece_workers_sub_376ec();

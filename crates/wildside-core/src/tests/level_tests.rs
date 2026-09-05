@@ -10406,6 +10406,36 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
+    fn plethora_normal_eye_fire_follows_stru_37b8a_37b98_oracle_timing_loc_375de() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x33)
+            .settle_recording_warp()
+            .run(&vec![0; 330], 330);
+        let burst_count = |frame: usize| {
+            trace[frame]
+                .active_projectile_details
+                .iter()
+                .filter(|projectile| projectile.kind == ActiveProjectileKind::BossDeathBurst)
+                .count()
+        };
+
+        assert_eq!(
+            (burst_count(83), burst_count(84)),
+            (0, 1),
+            "ASM Enemy20_HeadyMetal_Init starts stru_37B8A before loc_375DE; oracle Object_RAM first allocates sub_370D2 at recording frame 84"
+        );
+        assert_eq!(
+            burst_count(329),
+            burst_count(328) + 1,
+            "ASM loc_3761E starts stru_37B98 after the first eye; its opcode-2 jump replays stru_37B8A and oracle Object_RAM allocates exactly one new sub_370D2 at frame 329"
+        );
+    }
+
+    #[test]
     fn under_skull_mountain3_live_flying_dragon_loads_from_generated_cache_loc_36900() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;

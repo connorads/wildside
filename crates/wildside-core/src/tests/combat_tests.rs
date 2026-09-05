@@ -2995,6 +2995,12 @@ fn live_heady_metal_normal_fire_spawns_death_burst_sub_370d2() {
         Some(0x0044_0000),
         Some(0x0046_0000),
         Some(&mut sound_effects),
+        BossFireFrameContext {
+            heady_metal_eye_anchor_loc_375de: Some(HeadyMetalEyeAnchorLoc375De {
+                x_pos: 0x0060,
+                y_pos: 0x0065,
+            }),
+        },
     );
 
     assert_eq!(projectiles.len(), 1);
@@ -3013,7 +3019,7 @@ fn live_heady_metal_normal_fire_spawns_death_burst_sub_370d2() {
         "ASM sub_370D2 copies parent `$44(a5)` into child x_pos(a3)"
     );
     assert_eq!(
-        projectile.y_pos, 0x0046_0000,
+        projectile.y_pos, 0x0065_0000,
         "ASM sub_370D2 copies parent `$46(a5)` into child y_pos(a3)"
     );
     assert_eq!(
@@ -3392,7 +3398,7 @@ fn live_heady_metal_fire_uses_loc_375de_scheduler_for_sub_370d2() {
         "ASM loc_375DE should decrement the `$FFFFFB7A` anchor `$3E(a3)` after spawning the eye"
     );
     assert_eq!(
-        boss.wait_timer, HEADY_METAL_EYE_HIGH_ANIMATION_FRAMES_STRU_37B98,
+        boss.wait_timer, HEADY_METAL_EYE_HIGH_WAIT_TIMER_STRU_37B98,
         "ASM loc_3761E should initialise `stru_37B98` while the decremented `$3E(a3)` counter is six or more"
     );
     assert_eq!(
@@ -3647,12 +3653,12 @@ fn live_heady_metal_eye_scheduler_uses_low_animation_after_counter_wrap_loc_3763
         "ASM loc_375DE/loc_3761E should store `$A` back into `$3E(a3)` when the decremented counter reaches zero"
     );
     assert_eq!(
-        boss.wait_timer, HEADY_METAL_EYE_LOW_ANIMATION_FRAMES_STRU_37BC0,
+        boss.wait_timer, HEADY_METAL_EYE_LOW_WAIT_TIMER_STRU_37BC0,
         "ASM loc_37630 should initialise `stru_37BC0` for the zero/wrapped counter branch"
     );
 
     projectiles.clear();
-    for _ in 0..HEADY_METAL_EYE_LOW_ANIMATION_FRAMES_STRU_37BC0 {
+    for _ in 0..HEADY_METAL_EYE_LOW_WAIT_TIMER_STRU_37BC0 {
         step_boss_fire(
             &mut boss,
             &mut projectiles,
@@ -3692,6 +3698,7 @@ fn live_heady_metal_final_breakup_latch_suppresses_normal_eye_fire_loc_375de() {
         Some(0x0090_0000),
         Some(0x0080_0000),
         Some(&mut sound_effects),
+        BossFireFrameContext::default(),
     );
 
     assert!(

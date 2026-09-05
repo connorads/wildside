@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Heady Metal eye-fire scheduler)
+
+- ASM `stru_37B8A` and `stru_37B98` disprove native's generic 180-frame boss
+  fire clock. The oracle allocates `sub_370D2` at recording frames 84 and 329;
+  native now matches that first spawn and 245-frame interval.
+- `loc_375DE` copies x/y from the persisted `$FFFFFB7A` composite worker.
+  A typed frame context now carries that worker to the fire decision instead of
+  spawning from the root `ActiveEnemy`.
+- Focused timing and spawn-origin regressions pass, as do all 59 Heady Metal
+  tests. Fresh Level `0x33` frame sweep `1788578161` remains green at 829/2,566
+  mismatched pixels. The next narrow frontier is new-object scheduler age:
+  native advances the eye on its allocation frame, while the oracle first runs
+  `sub_37132` on the following object pass. Then compare the final `sub_37002`
+  tail lifecycle.
+
 ## 2026-09-05 handoff (scripted platform state retention)
 
 - `refresh_active_roster` cleared `active_platforms` before
