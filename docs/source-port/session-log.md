@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Micromax grounded idle mapping)
+
+- Oracle RAM and Sprite Table probes confirm `sub_78E8 loc_7962`: Micromax
+  cycles `$FFFFF8F0` through eight phases and uses `unk_ABEA6` below five.
+- Native now advances the exact signed word phase and loads the alternate idle
+  mapping as typed optional form data. Pure frame selection consumes the
+  previous latched trace at the existing Sprite Table boundary.
+- Level `0x55` frame sweep `1788586279` stays green and improves idle tail from
+  2,086 to 1,782 changed pixels. The 2,212-pixel settle checkpoint is unchanged
+  in its transform/Driller overlap. Continue proactive triage with the next
+  largest authoritative frame residue.
+
 ## 2026-09-05 handoff (Heady Metal composite subpixel phase)
 
 - `sub_376EC` and `GfxObjects_MoveAndAnimate loc_142E` advance each Heady

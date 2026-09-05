@@ -833,7 +833,18 @@ pub fn select_player_frame<'a>(
             // Mode_Level transfers Sprite_Table before this mapping is built.
             skid
         } else if x_velocity == 0 {
-            &player_visuals.idle
+            // ASM sub_78E8 loc_7962/loc_7974 (kid.asm:8019-8031): Micromax
+            // advances `$FFFFF8F0` modulo eight and uses `unk_ABEA6` for
+            // phases zero through four. Scene rendering supplies the latched
+            // previous trace, matching the Sprite_Table handoff phase.
+            if trace.current_helmet_id == PlayerForm::Micromax.helmet_id()
+                && (trace.walk_visual_accumulator as i16) < 5
+                && let Some(alternate) = player_visuals.idle_alternate.as_ref()
+            {
+                alternate
+            } else {
+                &player_visuals.idle
+            }
         } else {
             // ASM loc_95DA -> loc_9600/off_9618 indexes ordinary walking
             // frames from `$FFFFF8F0 >> 8` for Kid and helmet forms. Native
@@ -3438,6 +3449,7 @@ mod tests {
                 colours: Vec::new(),
             },
             idle: labelled_frame(0x0100),
+            idle_alternate: Some(labelled_frame(0x0101)),
             walk: vec![
                 labelled_frame(0x0200),
                 labelled_frame(0x0201),
@@ -6790,6 +6802,34 @@ mod tests {
             0x0202,
             "ASM sub_942A loc_95DA/loc_9600 selects the ordinary walk mapping from `$FFFFF8F0 >> 8`"
         );
+    }
+
+    #[test]
+    fn select_player_frame_uses_micromax_idle_phase_loc_7962() {
+        let visuals = labelled_player_visuals();
+
+        for (phase, expected) in [
+            (0, 0x0101),
+            (4, 0x0101),
+            (5, 0x0100),
+            (7, 0x0100),
+            (0xffff, 0x0101),
+        ] {
+            assert_eq!(
+                selected_tile_base(
+                    &NativeTraceFrame {
+                        current_helmet_id: PlayerForm::Micromax.helmet_id(),
+                        kid_on_ground: Some(true),
+                        kid_x_velocity: Some(0),
+                        walk_visual_accumulator: phase,
+                        ..NativeTraceFrame::default()
+                    },
+                    &visuals,
+                ),
+                expected,
+                "ASM loc_7962/loc_7974 selects the Micromax idle mapping for phase {phase}",
+            );
+        }
     }
 
     #[test]

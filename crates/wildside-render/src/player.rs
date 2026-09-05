@@ -30,6 +30,8 @@ pub struct PlayerTransformStep {
 pub struct PlayerFormVisuals {
     pub palette: Palette,
     pub idle: SpriteFrame,
+    /// ASM `sub_78E8 loc_7962`: optional second grounded idle mapping.
+    pub idle_alternate: Option<SpriteFrame>,
     pub walk: Vec<SpriteFrame>,
     /// ASM `sub_8446` / `off_84A2`: three-frame grounded crawl mapping.
     /// `None` for forms which cannot enter `MoveID_Crawling`.

@@ -1874,6 +1874,7 @@ mod tests {
         PlayerFormVisuals {
             palette: sample_palette(),
             idle: frame.clone(),
+            idle_alternate: None,
             walk: Vec::new(),
             crawl: None,
             skid: None,

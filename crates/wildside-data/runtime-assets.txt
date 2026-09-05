@@ -550,6 +550,7 @@ ingame/artunc_kid/micromax_mask.bin
 ingame/artunc_kid/micromax_transformation_1.bin
 ingame/artunc_kid/micromax_transformation_2.bin
 ingame/artunc_kid/micromax_transformation_3.bin
+ingame/artunc_kid/micromax_unknown_ABEA6.bin
 ingame/artunc_kid/micromax_walk_1.bin
 ingame/artunc_kid/micromax_walk_2.bin
 ingame/artunc_kid/micromax_walk_3.bin

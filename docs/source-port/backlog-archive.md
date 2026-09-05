@@ -11,6 +11,29 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #491
+
+Closed [x] 2026-09-05. Fresh all-level frame sweep `1788585146` selected Level
+`$55`, the largest fully comparable residue at 2,212 changed pixels. Oracle RAM
+probes showed `$FFFFF8F0` cycling through zero to seven while the Sprite Table
+switched `addroffset_sprite` between `$01AC` and `$01B0`. ASM `sub_78E8
+loc_7962` confirms the counter increment and signed word wrap; `loc_7974`
+selects `unk_ABEA6` below five and `unk_ABDE0` otherwise.
+
+Native now advances the typed shared visual accumulator on grounded Micromax
+refresh and loads `micromax_unknown_ABEA6.bin` as an optional alternate idle
+frame at the asset boundary. Pure frame selection consumes the latched phase,
+matching the ROM's Sprite Table handoff. A Micromax-only renderer asset lookup
+was rejected because it crosses the asset boundary; a generic animation table
+was rejected because this evidence supports only a two-state mapping. If a
+later form requires a longer idle sequence, replace the optional pair with a
+typed phase table.
+
+Focused frame sweep `1788586279` passes Level `$55` and reduces idle-tail
+residue from 2,086 to 1,782 pixels. The 2,212-pixel settle checkpoint is
+unchanged because it remains in the transform/Driller overlap. Core and frame
+regressions cite `loc_7962`; `verify-slice-fast` and `verify-tas-full` pass.
+
 ### #490
 
 Closed [x] 2026-08-29. Level `$10` oracle checkpoints proved that native ran

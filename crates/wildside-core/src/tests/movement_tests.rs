@@ -3027,18 +3027,51 @@ mod chunk_11 {
     /// Then picks LnkTo_unk_ABDE0 (>= 5) or LnkTo_unk_ABEA6 (< 5) for the
     /// sprite. This is Micromax's idle standing animation cycle.
     ///
-    /// Native: Micromax idle animation is visual-only and not modelled.
-    /// sub_78E8's `_ => {}` arm lets Micromax pass through like other
-    /// non-special helmets. The walk accumulator ($FFFFF8F0) is unrelated
-    /// to gameplay state.
     #[test]
-    fn micromax_sub_78e8_preserves_state_loc_7962() {
+    fn micromax_sub_78e8_advances_wrapped_idle_phase_loc_7962() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Micromax;
         rt.helmet.maniaxe_axe_active = true;
         rt.helmet.red_stealth_sword_timer = 0x30;
+        rt.opening_slice = Some(OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        }));
 
+        for expected in 1..8 {
+            rt.refresh_grounded_helmet_state_sub_78E8();
+            assert_eq!(
+                rt.opening_slice
+                    .as_ref()
+                    .expect("opening slice")
+                    .walk_visual_accumulator,
+                expected,
+                "ASM loc_7962: Micromax increments `$FFFFF8F0` once per grounded idle refresh",
+            );
+        }
         rt.refresh_grounded_helmet_state_sub_78E8();
+        assert_eq!(
+            rt.opening_slice
+                .as_ref()
+                .expect("opening slice")
+                .walk_visual_accumulator,
+            0,
+            "ASM loc_7962: Micromax wraps `$FFFFF8F0` from seven to zero",
+        );
+
+        rt.opening_slice
+            .as_mut()
+            .expect("opening slice")
+            .walk_visual_accumulator = 0x0100;
+        rt.refresh_grounded_helmet_state_sub_78E8();
+        assert_eq!(
+            rt.opening_slice
+                .as_ref()
+                .expect("opening slice")
+                .walk_visual_accumulator,
+            0,
+            "ASM loc_7962: signed `cmpi.w #8` clears a positive stale walk phase",
+        );
 
         assert!(
             rt.helmet.maniaxe_axe_active,
@@ -3058,8 +3091,7 @@ mod chunk_11 {
     /// (>= 5 → LnkTo_unk_ABDE0, < 5 → LnkTo_unk_ABEA6), loc_7982 stores
     /// the result and returns.
     ///
-    /// Visual-only — native does not model the walk accumulator or sprite
-    /// selection. Verify that sub_78E8 for Micromax has no gameplay side effects.
+    /// Verify that the visual phase update has no unrelated gameplay side effects.
     #[test]
     fn micromax_sub_78e8_no_gameplay_side_effects_loc_7982() {
         let mut rt = NativeRuntime::new(manifest());

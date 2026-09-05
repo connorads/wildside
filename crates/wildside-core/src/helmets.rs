@@ -6305,8 +6305,8 @@ impl NativeRuntime {
         //     Berzerker_charging survives the visual refresh.
         //   loc_7962 (kid.asm:8019): Micromax (helmet=9) — increment walk
         //     accumulator ($FFFFF8F0) mod 8, pick between two sprite frames
-        //     (>= 5 → LnkTo_unk_ABDE0, < 5 → LnkTo_unk_ABEA6). Visual-only;
-        //     native does not model the Micromax idle animation cycle.
+        //     (>= 5 → LnkTo_unk_ABDE0, < 5 → LnkTo_unk_ABEA6). Native keeps
+        //     the word-sized phase in the shared visual accumulator.
         //   loc_7974 (kid.asm:8026): the shared Micromax branch seeds d1 with
         //     the high-frame sprite and replaces it with the low-frame sprite
         //     only while the wrapped accumulator is below 5.
@@ -6330,7 +6330,19 @@ impl NativeRuntime {
 
         match self.progression.current_form {
             PlayerForm::Juggernaut => self.step_juggernaut_companion_visual_sub_975C(),
-            PlayerForm::Micromax | PlayerForm::Skycutter => {}
+            PlayerForm::Micromax => {
+                if let Some(slice) = self.opening_slice.as_mut() {
+                    // ASM loc_7962: `addq.w #1,($FFFFF8F0)` followed by a
+                    // compare against eight and `clr.w` at the cycle boundary.
+                    let next_phase = slice.walk_visual_accumulator.wrapping_add(1);
+                    slice.walk_visual_accumulator = if (next_phase as i16) >= 8 {
+                        0
+                    } else {
+                        next_phase
+                    };
+                }
+            }
+            PlayerForm::Skycutter => {}
             PlayerForm::Maniaxe => {
                 if previous_maniaxe_axe_active && self.helmet.maniaxe_throw_latch_frames > 0 {
                     self.helmet.maniaxe_throw_latch_frames -= 1;

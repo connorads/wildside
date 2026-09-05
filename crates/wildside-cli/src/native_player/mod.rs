@@ -6199,6 +6199,7 @@ mod tests {
                     colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
                 },
                 idle: sample_player_frame(1),
+                idle_alternate: None,
                 walk: vec![
                     sample_player_frame(2),
                     sample_player_frame(3),
@@ -6258,6 +6259,7 @@ mod tests {
                     colours: vec![colour(0, 0, 0), colour(120, 180, 220)],
                 },
                 idle: sample_player_frame(10),
+                idle_alternate: None,
                 walk: vec![
                     sample_player_frame(11),
                     sample_player_frame(12),
@@ -6314,6 +6316,7 @@ mod tests {
                     colours: vec![colour(0, 0, 0), colour(255, 100, 100)],
                 },
                 idle: sample_player_frame(21),
+                idle_alternate: None,
                 walk: vec![sample_player_frame(22)],
                 flight_spin: Vec::new(),
                 charge: Vec::new(),
@@ -6368,6 +6371,7 @@ mod tests {
                     colours: vec![colour(0, 0, 0), colour(120, 220, 180)],
                 },
                 idle: sample_player_frame(48),
+                idle_alternate: None,
                 walk: vec![sample_player_frame(49)],
                 flight_spin: vec![
                     sample_player_frame(53),
@@ -6417,6 +6421,7 @@ mod tests {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
             idle: sample_player_frame(1),
+            idle_alternate: None,
             walk: vec![
                 sample_player_frame(10),
                 sample_player_frame(11),
@@ -6475,6 +6480,7 @@ mod tests {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
             idle: sample_player_frame(1),
+            idle_alternate: None,
             walk: vec![
                 sample_player_frame(10),
                 sample_player_frame(11),
@@ -6534,6 +6540,7 @@ mod tests {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
             idle: sample_player_frame(1),
+            idle_alternate: None,
             walk: vec![
                 sample_player_frame(10),
                 sample_player_frame(11),
@@ -6593,6 +6600,7 @@ mod tests {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
             idle: sample_player_frame(1),
+            idle_alternate: None,
             walk: vec![
                 sample_player_frame(10),
                 sample_player_frame(11),
@@ -6653,6 +6661,7 @@ mod tests {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
             idle: sample_player_frame(1),
+            idle_alternate: None,
             walk: vec![
                 sample_player_frame(10),
                 sample_player_frame(11),
@@ -6712,6 +6721,7 @@ mod tests {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
             idle: sample_player_frame(1),
+            idle_alternate: None,
             walk: vec![
                 sample_player_frame(10),
                 sample_player_frame(11),
@@ -6774,6 +6784,7 @@ mod tests {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
             idle: sample_player_frame(1),
+            idle_alternate: None,
             walk: vec![sample_player_frame(10), sample_player_frame(11)],
             flight_spin: Vec::new(),
             charge: Vec::new(),
@@ -6833,6 +6844,7 @@ mod tests {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
             idle: sample_player_frame(1),
+            idle_alternate: None,
             walk: vec![
                 sample_player_frame(10),
                 sample_player_frame(11),
@@ -6884,6 +6896,7 @@ mod tests {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
             idle: sample_player_frame(1),
+            idle_alternate: None,
             walk: vec![
                 sample_player_frame(30),
                 sample_player_frame(31),
@@ -6935,6 +6948,7 @@ mod tests {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
             idle: sample_player_frame(1),
+            idle_alternate: None,
             walk: vec![sample_player_frame(10), sample_player_frame(11)],
             flight_spin: Vec::new(),
             charge: Vec::new(),
@@ -6984,6 +6998,7 @@ mod tests {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
             idle: sample_player_frame(1),
+            idle_alternate: None,
             walk: vec![
                 sample_player_frame(10),
                 sample_player_frame(11),

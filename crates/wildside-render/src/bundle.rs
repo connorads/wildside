@@ -3837,6 +3837,14 @@ const MANIAXE_TRANSFORM_STEPS: [PlayerTransformStepDescriptor; 9] = [
 
 const MICROMAX_IDLE_FRAME: PlayerFrameDescriptor =
     pfd("artunc_kid/micromax.bin", 0x07, 0x01, 0x0E, 0x12);
+/// ASM `unk_ABEA6` (kid.asm): Micromax's phases 0-4 grounded idle mapping.
+const MICROMAX_IDLE_ALTERNATE_FRAME: PlayerFrameDescriptor = pfd(
+    "artunc_kid/micromax_unknown_ABEA6.bin",
+    0x07,
+    0x01,
+    0x0F,
+    0x11,
+);
 const MICROMAX_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
     pfd("artunc_kid/micromax_walk_1.bin", 0x0A, 0x01, 0x10, 0x11),
     pfd("artunc_kid/micromax_walk_2.bin", 0x09, 0x01, 0x0F, 0x12),
@@ -4629,6 +4637,7 @@ fn load_juggernaut_form_visuals_if_present(
             source,
             &[JUGGERNAUT_BOTTOM_IDLE_FRAME, JUGGERNAUT_HEAD_IDLE_FRAME],
         )?,
+        idle_alternate: None,
         walk: JUGGERNAUT_HEAD_WALK_FRAMES
             .iter()
             .zip(JUGGERNAUT_BOTTOM_WALK_FRAMES.iter())
@@ -4741,6 +4750,9 @@ fn load_player_form_visuals(
     Ok(PlayerFormVisuals {
         palette,
         idle: load_player_frame(manifest, source, spec.idle)?,
+        idle_alternate: (spec.form_id == PLAYER_FORM_MICROMAX)
+            .then(|| load_player_frame(manifest, source, MICROMAX_IDLE_ALTERNATE_FRAME))
+            .transpose()?,
         walk: spec
             .walk
             .iter()

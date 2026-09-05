@@ -240,6 +240,7 @@
 0ac3d6 000280 ingame/artunc_kid/micromax_transformation_1.bin
 0ac65c 000200 ingame/artunc_kid/micromax_transformation_2.bin
 0ac862 000180 ingame/artunc_kid/micromax_transformation_3.bin
+0abeac 0000c0 ingame/artunc_kid/micromax_unknown_ABEA6.bin
 0ace8c 0000c0 ingame/artunc_kid/micromax_walk_1.bin
 0acf52 0000c0 ingame/artunc_kid/micromax_walk_2.bin
 0ad018 0000c0 ingame/artunc_kid/micromax_walk_3.bin
