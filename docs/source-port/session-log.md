@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (post-change Armadillo mutation census)
+
+- With no selectable backlog risk, refreshed `enemies/armadillo.rs` because its
+  last complete census predated the August/September live charge, hurt and
+  animation changes.
+- The first 82-case run found one equivalent survivor: OR -> XOR cannot differ
+  while ROM `loc_3C766`'s `$8000` fraction and `loc_3E4CE`'s charge high word
+  remain disjoint. Addition now states that word-composition invariant without
+  changing runtime values.
+- The fresh full run reports 69 caught, 13 compile-invalid, zero survivors and
+  zero timeouts. This hardens Armadillo pixels across its seven sweep levels;
+  continue the proactive fallback with another stale live module.
+
 ## 2026-09-05 handoff (Lion mutation hardening)
 
 - With no selectable backlog risk, the proactive fallback mutation-tested all

@@ -13,7 +13,10 @@ pub(crate) const ARMADILLO_HURT_ANIMATION_FRAMES_STRU_3C6D0: u8 = 0x14;
 pub(crate) fn armadillo_charge_step_loc_3e4ce(enemy_level: u8) -> i32 {
     let charge_word = if enemy_level >= 2 { 4 } else { 3 };
     let initial_hit_points = enemy_level.saturating_add(1);
-    (charge_word << 16) | (pacer_walk_speed(EnemyFamily::Armadillo, initial_hit_points) & 0xFFFF)
+    // ASM Armadillo.asm loc_3C766 builds `$50(a5)` with an `$8000` low
+    // fraction. Lion.asm loc_3E4CE/loc_3E50A later replaces only its high
+    // word from `$4C(a5)`, so the two disjoint words compose by addition.
+    (charge_word << 16) + (pacer_walk_speed(EnemyFamily::Armadillo, initial_hit_points) & 0xFFFF)
 }
 
 /// Atlas phase for the live Armadillo GfxObject.
