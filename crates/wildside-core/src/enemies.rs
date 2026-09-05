@@ -15804,8 +15804,8 @@ impl NativeRuntime {
                         .as_ref()
                         .and_then(|slots| slots[0])
                         .map(|anchor| HeadyMetalEyeAnchorLoc375De {
-                            x_pos: anchor.x_pos,
-                            y_pos: anchor.y_pos,
+                            x_pos: (anchor.x_pos_fp >> 16) as u16,
+                            y_pos: (anchor.y_pos_fp >> 16) as u16,
                         }),
                 };
                 step_active_enemies_with_rng_context(
@@ -16235,8 +16235,8 @@ impl NativeRuntime {
                         .as_ref()
                         .and_then(|slots| slots[0])
                         .map(|anchor| HeadyMetalEyeAnchorLoc375De {
-                            x_pos: anchor.x_pos,
-                            y_pos: anchor.y_pos,
+                            x_pos: (anchor.x_pos_fp >> 16) as u16,
+                            y_pos: (anchor.y_pos_fp >> 16) as u16,
                         }),
                 };
                 step_active_enemies_with_rng_context(

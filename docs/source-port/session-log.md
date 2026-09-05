@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Heady Metal composite subpixel phase)
+
+- `sub_376EC` and `GfxObjects_MoveAndAnimate loc_142E` advance each Heady
+  composite worker as an independent FP16.16 GfxObject. Native now preserves
+  those fractional positions instead of applying the root's integer-pixel delta.
+- The recording adapter's independently measured two-pass Gfx lead is removed
+  only from Heady's presentation workers. Object coroutine age is unchanged.
+  Recording `heady-metal-composite-gfx-handoff-fixed` emits normal eyes at the
+  oracle origins on frames 85 and 330.
+- Level `0x33` frame sweep `1788583475` remains green and improves settle from
+  829 to 749 mismatched pixels and idle tail from 2,566 to 2,086. Continue with
+  the later `sub_37002` tail lifecycle; treat the remaining visual residue as a
+  separate frontier.
+
 ## 2026-09-05 handoff (Heady Metal eye Object/Gfx scheduling)
 
 - `loc_375DE` allocates the normal-eye Object at recording frames 84/329, but

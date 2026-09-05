@@ -13419,8 +13419,8 @@ impl NativeRuntime {
             let slots = std::array::from_fn(|index| {
                 let piece = piece_slots[index + 1];
                 piece.map(|piece| BossEyeSpriteRefreshSlotSub37ABC {
-                    x_pos: piece.x_pos,
-                    y_pos: piece.y_pos.wrapping_add_signed(piece.sprite_word_y),
+                    x_pos: (piece.x_pos_fp >> 16) as u16,
+                    y_pos: ((piece.y_pos_fp >> 16) as u16).wrapping_add_signed(piece.sprite_word_y),
                     sprite_mapping: "stale",
                 })
             });

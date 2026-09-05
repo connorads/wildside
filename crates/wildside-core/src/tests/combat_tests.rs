@@ -4135,7 +4135,13 @@ fn live_heady_metal_cached_workers_persist_after_init_loc_39247() {
     let cached_workers = runtime.heady_metal_cached_workers_sub_37708.unwrap();
 
     assert_eq!(
-        cached_workers.map(|worker| (worker.slot_offset, worker.x_pos, worker.y_pos)),
+        cached_workers.map(|worker| {
+            (
+                worker.slot_offset,
+                (worker.x_pos_fp >> 16) as u16,
+                (worker.y_pos_fp >> 16) as u16,
+            )
+        }),
         [
             (0xFB72, 0x0040, 0x00A0),
             (0xFB76, 0x0040, 0x00A0),
@@ -4148,7 +4154,7 @@ fn live_heady_metal_cached_workers_persist_after_init_loc_39247() {
 }
 
 #[test]
-fn live_heady_metal_sub_376ec_moves_body_piece_workers_with_tracker_delta() {
+fn live_heady_metal_sub_376ec_moves_body_piece_workers_in_fp16_16() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
     let mut slice = combat_slice();
@@ -4178,8 +4184,8 @@ fn live_heady_metal_sub_376ec_moves_body_piece_workers_with_tracker_delta() {
             trace.heady_metal_body_pieces_sub_37abc[0].y_pos,
             trace.heady_metal_body_pieces_sub_37abc[0].sprite_mapping_index,
         ),
-        (0x000C, 0x0035, 0x0049, 5),
-        "ASM loc_375DE -> sub_376EC writes the live HeadyMetal tracker d6/d7 velocities into every body-piece worker, so the `$FFFFFB7E` worker must move by the same high-word delta as the tracking anchor before sub_37ABC refreshes it",
+        (0x000C, 0x0034, 0x0049, 5),
+        "ASM loc_375DE -> sub_376EC writes d6/d7 into each body-piece GfxObject; GfxObjects_MoveAndAnimate adds its own FP16.16 velocity, so a half-pixel x step must retain the original integer word",
     );
     let body_piece = runtime.heady_metal_breakup_slots_sub_37708.unwrap()[1].unwrap();
     assert_eq!(
@@ -4195,20 +4201,20 @@ fn live_heady_metal_sub_376ec_moves_body_piece_workers_with_tracker_delta() {
         cached_workers.map(|worker| {
             (
                 worker.slot_offset,
-                worker.x_pos,
-                worker.y_pos,
+                worker.x_pos_fp,
+                worker.y_pos_fp,
                 worker.x_velocity,
                 worker.y_velocity,
             )
         }),
         [
-            (0xFB72, 0x0041, 0x009F, 0x0000_8000, -0x0000_5000),
-            (0xFB76, 0x0041, 0x009F, 0x0000_8000, -0x0000_5000),
-            (0xFB7A, 0x0041, 0x00BE, 0x0000_8000, -0x0000_5000),
-            (0xFBAE, 0x0036, 0x009C, 0x0000_8000, -0x0000_5000),
-            (0xFBB2, 0x004D, 0x009C, 0x0000_8000, -0x0000_5000),
+            (0xFB72, 0x0040_8000, 0x009F_B000, 0x0000_8000, -0x0000_5000),
+            (0xFB76, 0x0040_8000, 0x009F_B000, 0x0000_8000, -0x0000_5000),
+            (0xFB7A, 0x0040_8000, 0x00BE_B000, 0x0000_8000, -0x0000_5000),
+            (0xFBAE, 0x0035_8000, 0x009C_B000, 0x0000_8000, -0x0000_5000),
+            (0xFBB2, 0x004C_8000, 0x009C_B000, 0x0000_8000, -0x0000_5000),
         ],
-        "ASM loc_375DE -> sub_376EC writes the same d6/d7 tracker velocities into `$FFFFFB72/$FB76/$FB7A/$FBAE/$FBB2` and each cached worker advances by the scheduler's high-word delta",
+        "ASM loc_375DE -> sub_376EC writes the same d6/d7 tracker velocities into `$FFFFFB72/$FB76/$FB7A/$FBAE/$FBB2`, then GfxObjects_MoveAndAnimate advances each worker's independent FP16.16 position",
     );
 }
 
@@ -4229,8 +4235,8 @@ fn trace_uses_live_heady_metal_breakup_slots_for_sub_37abc_body_pieces() {
     let mut piece_slots = [None; 13];
     piece_slots[1] = Some(HeadyMetalBreakupPieceSub37708 {
         sprite_word_y: 2,
-        x_pos: 0x0034,
-        y_pos: 0x004A,
+        x_pos_fp: 0x0034_0000,
+        y_pos_fp: 0x004A_0000,
         x_velocity: 0,
         y_velocity: 0,
     });

@@ -1406,8 +1406,8 @@ mod chunk_08 {
             let mut pieces = [None; 13];
             pieces[0] = Some(HeadyMetalBreakupPieceSub37708 {
                 sprite_word_y: 6,
-                x_pos: 0x0044,
-                y_pos: 0x0046,
+                x_pos_fp: 0x0044_0000,
+                y_pos_fp: 0x0046_0000,
                 x_velocity: 0,
                 y_velocity: 0,
             });
@@ -1426,8 +1426,8 @@ mod chunk_08 {
             result.piece_slots[0],
             Some(HeadyMetalBreakupPieceSub37708 {
                 sprite_word_y: 8,
-                x_pos: 0x0044,
-                y_pos: 0x0046,
+                x_pos_fp: 0x0044_0000,
+                y_pos_fp: 0x0046_0000,
                 x_velocity: 0,
                 y_velocity: 0,
             }),
@@ -1446,8 +1446,8 @@ mod chunk_08 {
             let mut pieces = [None; 13];
             pieces[12] = Some(HeadyMetalBreakupPieceSub37708 {
                 sprite_word_y: 14,
-                x_pos: 0x005A,
-                y_pos: 0x006C,
+                x_pos_fp: 0x005A_0000,
+                y_pos_fp: 0x006C_0000,
                 x_velocity: 0,
                 y_velocity: 0,
             });
@@ -1462,8 +1462,8 @@ mod chunk_08 {
             result.piece_slots[12],
             Some(HeadyMetalBreakupPieceSub37708 {
                 sprite_word_y: 12,
-                x_pos: 0x005A,
-                y_pos: 0x006C,
+                x_pos_fp: 0x005A_0000,
+                y_pos_fp: 0x006C_0000,
                 x_velocity: 0,
                 y_velocity: 0,
             }),
@@ -1481,8 +1481,8 @@ mod chunk_08 {
             let mut pieces = [None; 13];
             pieces[2] = Some(HeadyMetalBreakupPieceSub37708 {
                 sprite_word_y: 0,
-                x_pos: 0x0070,
-                y_pos: 0x0088,
+                x_pos_fp: 0x0070_0000,
+                y_pos_fp: 0x0088_0000,
                 x_velocity: 0,
                 y_velocity: 0,
             });
@@ -1530,8 +1530,8 @@ mod chunk_08 {
                 for (index, slot) in pieces.iter_mut().enumerate() {
                     *slot = Some(HeadyMetalBreakupPieceSub37708 {
                         sprite_word_y: 100,
-                        x_pos: index as u16,
-                        y_pos: index as u16,
+                        x_pos_fp: (index as u32) << 16,
+                        y_pos_fp: (index as u32) << 16,
                         x_velocity: 0,
                         y_velocity: 0,
                     });

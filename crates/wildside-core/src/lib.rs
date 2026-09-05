@@ -224,8 +224,8 @@ fn heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
     debug_assert_eq!(anchor_worker.object_meta, 0x0020);
     slots[0] = Some(HeadyMetalBreakupPieceSub37708 {
         sprite_word_y: 0,
-        x_pos: anchor_worker.x_pos,
-        y_pos: anchor_worker.y_pos,
+        x_pos_fp: u32::from(anchor_worker.x_pos) << 16,
+        y_pos_fp: u32::from(anchor_worker.y_pos) << 16,
         x_velocity: 0,
         y_velocity: 0,
     });
@@ -241,8 +241,8 @@ fn heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
         debug_assert_eq!(worker.object_meta, 0x0021);
         slots[index + 1] = Some(HeadyMetalBreakupPieceSub37708 {
             sprite_word_y: 0,
-            x_pos: worker.x_pos,
-            y_pos: worker.y_pos,
+            x_pos_fp: u32::from(worker.x_pos) << 16,
+            y_pos_fp: u32::from(worker.y_pos) << 16,
             x_velocity: 0,
             y_velocity: 0,
         });
@@ -278,36 +278,36 @@ fn heady_metal_cached_workers_sub_37708_from_anchor_loc_39247(
     [
         HeadyMetalCachedWorkerSub37708 {
             slot_offset: 0xFB72,
-            x_pos: head_1.x_pos,
-            y_pos: head_1.y_pos,
+            x_pos_fp: u32::from(head_1.x_pos) << 16,
+            y_pos_fp: u32::from(head_1.y_pos) << 16,
             x_velocity: 0,
             y_velocity: 0,
         },
         HeadyMetalCachedWorkerSub37708 {
             slot_offset: 0xFB76,
-            x_pos: head_2.x_pos,
-            y_pos: head_2.y_pos,
+            x_pos_fp: u32::from(head_2.x_pos) << 16,
+            y_pos_fp: u32::from(head_2.y_pos) << 16,
             x_velocity: 0,
             y_velocity: 0,
         },
         HeadyMetalCachedWorkerSub37708 {
             slot_offset: 0xFB7A,
-            x_pos: head_3.x_pos,
-            y_pos: head_3.y_pos,
+            x_pos_fp: u32::from(head_3.x_pos) << 16,
+            y_pos_fp: u32::from(head_3.y_pos) << 16,
             x_velocity: 0,
             y_velocity: 0,
         },
         HeadyMetalCachedWorkerSub37708 {
             slot_offset: 0xFBAE,
-            x_pos: eye_left.x_pos,
-            y_pos: eye_left.y_pos,
+            x_pos_fp: u32::from(eye_left.x_pos) << 16,
+            y_pos_fp: u32::from(eye_left.y_pos) << 16,
             x_velocity: 0,
             y_velocity: 0,
         },
         HeadyMetalCachedWorkerSub37708 {
             slot_offset: 0xFBB2,
-            x_pos: eye_right.x_pos,
-            y_pos: eye_right.y_pos,
+            x_pos_fp: u32::from(eye_right.x_pos) << 16,
+            y_pos_fp: u32::from(eye_right.y_pos) << 16,
             x_velocity: 0,
             y_velocity: 0,
         },
@@ -1390,17 +1390,8 @@ impl NativeRuntime {
 
         // ASM sub_376EC (kid.asm:39483) copies the current d6/d7 tracker
         // velocities into every live `$FFFFFB72..$FFFFFBB2` worker, then the
-        // scheduler advances each worker. Native stores this table at word
-        // precision, so persist the velocities and advance by the high-word
-        // delta the live tracking anchor just crossed.
-        let old_x = heady_metal
-            .x_pos
-            .wrapping_add_signed(heady_metal.x_velocity.wrapping_neg());
-        let old_y = heady_metal
-            .y_pos
-            .wrapping_add_signed(heady_metal.y_velocity.wrapping_neg());
-        let delta_x = ((heady_metal.x_pos >> 16) as i32) - ((old_x >> 16) as i32);
-        let delta_y = ((heady_metal.y_pos >> 16) as i32) - ((old_y >> 16) as i32);
+        // scheduler advances each GfxObject independently in FP16.16. Its
+        // fractional phase is not necessarily the root enemy's phase.
 
         let mut velocity_slots: [Option<HeadyMetalSpriteVelocitySub376EC>; 17] = [None; 17];
         if let Some(cached_workers) = self.heady_metal_cached_workers_sub_37708.as_ref() {
@@ -1438,11 +1429,8 @@ impl NativeRuntime {
                 slot.x_velocity = velocity.x_velocity;
                 slot.y_velocity = velocity.y_velocity;
             }
-            if delta_x == 0 && delta_y == 0 {
-                continue;
-            }
-            slot.x_pos = slot.x_pos.wrapping_add_signed(delta_x as i16);
-            slot.y_pos = slot.y_pos.wrapping_add_signed(delta_y as i16);
+            slot.x_pos_fp = slot.x_pos_fp.wrapping_add_signed(slot.x_velocity);
+            slot.y_pos_fp = slot.y_pos_fp.wrapping_add_signed(slot.y_velocity);
         }
         if let Some(cached_workers) = self.heady_metal_cached_workers_sub_37708.as_mut() {
             for &(slot_index, worker_index) in &[(0, 0), (1, 1), (2, 2), (15, 3), (16, 4)] {
@@ -1451,11 +1439,47 @@ impl NativeRuntime {
                     worker.x_velocity = velocity.x_velocity;
                     worker.y_velocity = velocity.y_velocity;
                 }
-                if delta_x == 0 && delta_y == 0 {
-                    continue;
-                }
-                worker.x_pos = worker.x_pos.wrapping_add_signed(delta_x as i16);
-                worker.y_pos = worker.y_pos.wrapping_add_signed(delta_y as i16);
+                worker.x_pos_fp = worker.x_pos_fp.wrapping_add_signed(worker.x_velocity);
+                worker.y_pos_fp = worker.y_pos_fp.wrapping_add_signed(worker.y_velocity);
+            }
+        }
+    }
+
+    pub(crate) fn rewind_heady_metal_recording_handoff_gfx_passes_loc_142e(&mut self, passes: u16) {
+        // ASM GfxObjects_MoveAndAnimate loc_142E adds each linked GfxObject's
+        // FP16.16 velocity once per pass. The recording oracle adapter may
+        // collapse a different number of presentation passes than Object
+        // coroutine passes, so reverse only the measured excess here.
+        if let Some(piece_slots) = self.heady_metal_breakup_slots_sub_37708.as_mut() {
+            for piece in piece_slots.iter_mut().flatten() {
+                piece.x_pos_fp = piece.x_pos_fp.wrapping_add_signed(
+                    piece
+                        .x_velocity
+                        .wrapping_mul(i32::from(passes))
+                        .wrapping_neg(),
+                );
+                piece.y_pos_fp = piece.y_pos_fp.wrapping_add_signed(
+                    piece
+                        .y_velocity
+                        .wrapping_mul(i32::from(passes))
+                        .wrapping_neg(),
+                );
+            }
+        }
+        if let Some(cached_workers) = self.heady_metal_cached_workers_sub_37708.as_mut() {
+            for worker in cached_workers {
+                worker.x_pos_fp = worker.x_pos_fp.wrapping_add_signed(
+                    worker
+                        .x_velocity
+                        .wrapping_mul(i32::from(passes))
+                        .wrapping_neg(),
+                );
+                worker.y_pos_fp = worker.y_pos_fp.wrapping_add_signed(
+                    worker
+                        .y_velocity
+                        .wrapping_mul(i32::from(passes))
+                        .wrapping_neg(),
+                );
             }
         }
     }

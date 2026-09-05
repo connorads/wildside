@@ -421,6 +421,14 @@ impl NativeRuntime {
             recording_oracle_warp_target_live_frames(level_id, debug_lifecycle_completed)
         });
         self.settle_target_level_live_window(level_id, target_live_frames);
+        if level_id == LevelId(0x33) {
+            // ASM Mode_Level -> GfxObjects_MoveAndAnimate loc_142E: the
+            // recording helper's collapsed Level 0x33 shell over-ages the
+            // Heady composite by two Gfx passes while its Object coroutine
+            // already matches the oracle allocation frames. Reconcile only
+            // that foreign-helper presentation boundary.
+            self.rewind_heady_metal_recording_handoff_gfx_passes_loc_142e(2);
+        }
         // ASM loc_1AE2E -> Mode_Level -> Execute_Objects loc_E12: preserve
         // the first visible sample of any boss arrow which crossed the
         // recording helper's hidden-to-visible handoff. Later gameplay

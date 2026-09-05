@@ -2589,8 +2589,8 @@ pub(crate) struct HeadyMetalScatterVelocities {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalCachedWorkerSub37708 {
     pub(crate) slot_offset: u16,
-    pub(crate) x_pos: u16,
-    pub(crate) y_pos: u16,
+    pub(crate) x_pos_fp: u32,
+    pub(crate) y_pos_fp: u32,
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
 }
@@ -2598,8 +2598,8 @@ pub(crate) struct HeadyMetalCachedWorkerSub37708 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalBreakupPieceSub37708 {
     pub(crate) sprite_word_y: i16,
-    pub(crate) x_pos: u16,
-    pub(crate) y_pos: u16,
+    pub(crate) x_pos_fp: u32,
+    pub(crate) y_pos_fp: u32,
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
 }
@@ -7661,8 +7661,9 @@ pub(crate) fn heady_metal_breakup_step_sub_37708(
                         // ASM loc_37778 (kid.asm:39548): counters above `$18`
                         // and `<= $24` allocate `sub_3729E` and `sub_37332`
                         // at the selected worker's position, then clear `(a1)`.
-                        result.spawned_pop_effect_at = Some((piece.x_pos, piece.y_pos));
-                        result.spawned_attack_at = Some((piece.x_pos, piece.y_pos));
+                        result.spawned_pop_effect_at =
+                            Some(((piece.x_pos_fp >> 16) as u16, (piece.y_pos_fp >> 16) as u16));
+                        result.spawned_attack_at = result.spawned_pop_effect_at;
                         result.piece_slots[piece_index] = None;
                     }
                     _ => {}

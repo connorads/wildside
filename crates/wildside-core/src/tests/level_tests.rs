@@ -10443,6 +10443,16 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             (1, 0, 0, 1),
             "ASM loc_375DE allocates only the Object on frame 84; sub_370D2 allocates its GfxObject on the following Execute_Objects pass"
         );
+        let first_eye = trace[85]
+            .active_projectile_details
+            .iter()
+            .find(|projectile| projectile.kind == ActiveProjectileKind::BossDeathBurst)
+            .expect("sub_370D2 should expose the first normal eye at frame 85");
+        assert_eq!(
+            (first_eye.x_pos, first_eye.y_pos),
+            (0x0100_0000, 0x0035_0000),
+            "ASM loc_375DE copies `$FFFFFB7A`'s position words; oracle probe `$FFFF262E` is `$0035F800` on allocation frame 83/84 and sub_370D2 materialises that `(256,53)` origin"
+        );
     }
 
     #[test]
