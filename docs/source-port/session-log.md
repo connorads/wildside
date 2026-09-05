@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Level 0x33 scripted-platform phase and palette)
+
+- Pixel crops showed native's scripted platform at Y=145 and oracle at Y=148.
+  The old handoff regression selected stationary layout slot 2, so it never
+  exercised the platform changed by `sub_23EA`.
+- The exact recording bootstrap now retains layout slot 0 two platform passes
+  earlier while leaving object, HUD, palette, and RNG state at their existing
+  boundary. `loc_2548` also reads live map-specific Palette Buffer line 0, as
+  its `$8000+a4` SAT word specifies.
+- Focused Level 0x33 residue falls 631→102 pixels in `1788622528`. Whole-game
+  report `1788622543` changes no other level and reduces comparable residue
+  40,983→39,503. Continue with the remaining Heady/HUD dots.
+
 ## 2026-09-05 handoff (Level 0x33 platform presentation dead end)
 
 - Oracle frame-359 SAT entries match native `loc_24F0` geometry, and oracle

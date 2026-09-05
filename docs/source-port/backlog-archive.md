@@ -23562,6 +23562,23 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #306
 
+- 2026-09-05 correction after the per-pixel witness: the earlier presentation
+  dead end was incomplete, and the committed handoff test was false evidence.
+  Its `layout_index == 2` selected the stationary trap at `(304,384)`, not the
+  moving layout-0 worker rendered at X=112. Exact layer captures show that
+  worker at Y=145 versus oracle SAT Y=148 on idle-tail frame 359. Removing the
+  two extra `sub_23EA` calls reaches Y=147; retaining the platform subsystem's
+  state from two passes before the ordinary collapsed settle reaches the oracle
+  endpoint `(Y=$0094, remaining=$44)` while unrelated runtime state keeps its
+  proven phase. The same pixel crop supplies the palette discriminator the
+  prior experiment lacked: position-correct native art uses generic Cave greys,
+  while oracle CRAM contains map-specific `cave_plethora`; ASM `loc_2548`
+  writes `$8000+a4`, selecting live Palette Buffer line 0. Both corrections
+  together remove the 529-pixel component: Level `$33` falls 631→102 in focused
+  report `1788622528`. Whole-game report `1788622543` changes only `$33` and
+  reduces comparable residue 40,983→39,503. The cache-backed regression now
+  selects layout 0, so it fails without the handoff correction instead of
+  silently returning a stationary platform result.
 - [dead_end] Level `$33` platform presentation probe 2026-09-05: the remaining
   frame-359 component is not explained by SAT geometry, decoded art, DMA bytes,
   or a broad live-palette substitution. Oracle SAT rows are exactly

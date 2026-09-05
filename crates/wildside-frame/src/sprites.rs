@@ -3068,20 +3068,26 @@ pub fn push_platform_tiles(
     else {
         return;
     };
+    let foreground_palette = crate::scene::foreground_palette_for_scene(trace, level_visuals);
     let variant = dispatch.variant;
-    let art = platform_art_for_mapping_word_loc_2548(object, level_visuals).unwrap_or_else(|| {
-        let frame = match variant {
-            PlatformSpriteVariantLoc244C::Loc251C => level_visuals.platforms.vertical.clone(),
-            _ => match kind {
-                0x00 => level_visuals.platforms.horizontal.clone(),
-                _ => level_visuals.platforms.vertical.clone(),
-            },
-        };
-        PlatformArtSourceLoc2548 {
-            frame,
-            palette: level_visuals.platforms.palette.clone(),
-        }
-    });
+    let mut art =
+        platform_art_for_mapping_word_loc_2548(object, level_visuals).unwrap_or_else(|| {
+            let frame = match variant {
+                PlatformSpriteVariantLoc244C::Loc251C => level_visuals.platforms.vertical.clone(),
+                _ => match kind {
+                    0x00 => level_visuals.platforms.horizontal.clone(),
+                    _ => level_visuals.platforms.vertical.clone(),
+                },
+            };
+            PlatformArtSourceLoc2548 {
+                frame,
+                palette: level_visuals.platforms.palette.clone(),
+            }
+        });
+    // ASM loc_2548 writes `$8000+a4` with palette-line bits zero. Platform
+    // pixels therefore read the live map-specific Palette_Buffer line 0, not
+    // the generic theme palette used when the platform asset is decoded.
+    art.palette = foreground_palette;
     let frame = &art.frame;
     let (screen_x, screen_y) = player_screen_position(object, trace);
     let width_cells = dispatch.width_tiles_minus_one.saturating_add(1);
@@ -4312,12 +4318,12 @@ mod tests {
         assert_eq!(
             summary,
             vec![
-                (32, 16, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
-                (48, 16, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
-                (64, 16, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
-                (32, 32, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
-                (48, 32, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
-                (64, 32, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (32, 16, 7, 0x0200, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (48, 16, 7, 0x0200, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (64, 16, 7, 0x0200, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (32, 32, 7, 0x0200, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (48, 32, 7, 0x0200, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (64, 32, 7, 0x0200, vec![0x0100, 0x0101, 0x0102, 0x0103]),
             ],
         );
 

@@ -339,9 +339,15 @@ impl NativeRuntime {
         self.trace_frame()
     }
 
-    fn settle_target_level_live_window(&mut self, level_id: LevelId, target_live_frames: usize) {
+    fn settle_target_level_live_window(
+        &mut self,
+        level_id: LevelId,
+        target_live_frames: usize,
+        platform_rewind_passes: usize,
+    ) {
         let idle = FrameInput::default();
         let mut stable_target_frames = 0usize;
+        let mut platform_history = std::collections::VecDeque::new();
 
         for _ in 0..SETTLED_WARP_MAX_ATTEMPT_FRAMES {
             if stable_target_frames >= target_live_frames {
@@ -355,7 +361,37 @@ impl NativeRuntime {
             } else {
                 stable_target_frames = 0;
             }
+            if platform_rewind_passes > 0 {
+                platform_history.push_back((
+                    self.active_platforms.clone(),
+                    self.active_platform_standing_on,
+                    self.active_lift_platform_standing_on,
+                    self.mode_level_platform_loader_work_loc_2744,
+                ));
+                if platform_history.len() > platform_rewind_passes {
+                    platform_history.pop_front();
+                }
+            }
             self.step_frame(idle);
+        }
+        if platform_history.len() == platform_rewind_passes
+            && let Some((platforms, standing_on, lift_standing_on, loader_work)) =
+                platform_history.pop_front()
+        {
+            // ASM Mode_Level loc_80C runs Execute_ScriptedPlatforms/sub_23EA
+            // once per live pass. Native's collapsed recording helper runs
+            // two extra platform passes before the oracle's first input, so
+            // retain that earlier Platform_RAM boundary without rewinding
+            // unrelated object, HUD, palette, or RNG state.
+            self.active_platforms = platforms;
+            self.active_platform_standing_on = standing_on;
+            self.active_lift_platform_standing_on = lift_standing_on;
+            self.mode_level_platform_loader_work_loc_2744 = loader_work;
+            self.active_platform_roster = self
+                .active_platforms
+                .iter()
+                .map(ActivePlatform::snapshot)
+                .collect();
         }
         if settled_warp_complete(stable_target_frames, target_live_frames) {
             // ASM Manage_EnemyLoading loc_36968 sets `$FFFFFB51` at the end
@@ -373,7 +409,7 @@ impl NativeRuntime {
             self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
         }
         let target_live_frames = oracle_warp_target_live_frames(level_id);
-        self.settle_target_level_live_window(level_id, target_live_frames);
+        self.settle_target_level_live_window(level_id, target_live_frames, 0);
     }
 
     pub fn settle_recording_oracle_warp_live_window(&mut self, level_id: LevelId) {
@@ -420,7 +456,8 @@ impl NativeRuntime {
         let target_live_frames = target_live_frames_override.unwrap_or_else(|| {
             recording_oracle_warp_target_live_frames(level_id, debug_lifecycle_completed)
         });
-        self.settle_target_level_live_window(level_id, target_live_frames);
+        let platform_rewind_passes = usize::from(level_id == LevelId(0x33)) * 2;
+        self.settle_target_level_live_window(level_id, target_live_frames, platform_rewind_passes);
         if level_id == LevelId(0x33) {
             // ASM Mode_Level -> GfxObjects_MoveAndAnimate loc_142E: the
             // recording helper's collapsed Level 0x33 shell over-ages the
@@ -428,10 +465,6 @@ impl NativeRuntime {
             // already matches the oracle allocation frames. Reconcile only
             // that foreign-helper presentation boundary.
             self.rewind_heady_metal_recording_handoff_gfx_passes_loc_142e(2);
-            // ASM Mode_Level -> Execute_ScriptedPlatforms/sub_23EA: the same
-            // foreign recording shell exposes Platform_RAM two object passes
-            // later than native's collapsed settle boundary.
-            self.advance_recording_handoff_scripted_platforms_sub_23ea(2);
         }
         // ASM loc_1AE2E -> Mode_Level -> Execute_Objects loc_E12: preserve
         // the first visible sample of any boss arrow which crossed the
@@ -1637,12 +1670,12 @@ mod tests {
     }
 
     #[test]
-    fn level33_recording_handoff_ages_scripted_platforms_sub_23ea() {
+    fn level33_recording_handoff_retains_oracle_platform_phase_sub_23ea() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
         let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
-        runtime.boot_to_level(LevelId(0x33));
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x33));
         runtime.settle_recording_oracle_warp_live_window(LevelId(0x33));
 
         for _ in 0..360 {
@@ -1652,7 +1685,7 @@ mod tests {
         let platform = runtime
             .active_platforms
             .iter()
-            .find(|platform| platform.layout_index == Some(2))
+            .find(|platform| platform.layout_index == Some(0))
             .expect("ASM sub_23EA should retain the lower Level 0x33 scripted platform");
         assert_eq!(platform.y_pos, 0x0094_0000);
         assert_eq!(
