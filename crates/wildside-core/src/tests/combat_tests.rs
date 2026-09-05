@@ -3707,6 +3707,25 @@ fn live_heady_metal_eye_scheduler_uses_low_animation_after_counter_wrap_loc_3763
 }
 
 #[test]
+fn heady_metal_anchor_phase_tracks_oracle_checked_stru_37b98_mapping() {
+    assert_eq!(
+        heady_metal_anchor_sprite_phase_stru_37b8a_37b98(8, 214),
+        4,
+        "oracle frame 359 samples `$FFFFFB7A+$22 = $0E04`, the unk_C8458 mouth mapping selected by stru_37B98"
+    );
+    assert_eq!(
+        heady_metal_anchor_sprite_phase_stru_37b8a_37b98(8, 199),
+        0,
+        "ASM stru_37B98 jumps to stru_37B8A after the 45-tick unk_C8458 hold"
+    );
+    assert_eq!(
+        heady_metal_anchor_sprite_phase_stru_37b8a_37b98(10, 39),
+        0,
+        "the parent Object timer does not stand in for stru_37BC0's independent GfxObject clock"
+    );
+}
+
+#[test]
 fn live_heady_metal_final_breakup_latch_suppresses_normal_eye_fire_loc_375de() {
     let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 0);
     boss.wait_timer = 0;

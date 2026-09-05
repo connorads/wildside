@@ -2825,10 +2825,24 @@ fn push_heady_metal_composite_enemy20_loc_39247(
         }
     }
 
+    // ASM Enemy20_HeadyMetal_Init animates the third fixed worker
+    // `$FFFFFB7A` through stru_37B8A/stru_37B98/stru_37BC0. The parent
+    // snapshot carries that worker's typed mapping phase.
+    let mouth_frame = match object.sprite_animation_phase.unwrap_or(0) {
+        1 => frame(0x058, 0x1F, 0x04, 0x3E, 0x23), // unk_C8440
+        2 => frame(0x080, 0x20, 0x00, 0x40, 0x1F), // unk_C8448
+        3 => frame(0x0A0, 0x1F, 0x08, 0x3E, 0x27), // unk_C8450
+        4 => frame(0x0C8, 0x1F, 0x08, 0x3E, 0x27), // unk_C8458
+        5 => frame(0x0F0, 0x04, 0x04, 0x07, 0x08), // unk_C8460
+        6 => frame(0x0F1, 0x06, 0x06, 0x0C, 0x0D), // unk_C8468
+        7 => frame(0x0F5, 0x08, 0x08, 0x0F, 0x10), // unk_C8470
+        8 => frame(0x0F9, 0x08, 0x08, 0x0F, 0x10), // unk_C8478
+        _ => frame(0x038, 0x1F, 0x00, 0x3E, 0x1F), // unk_C8438
+    };
     push(
         commands,
         &palette,
-        frame(0x038, 0x1F, 0x00, 0x3E, 0x1F), // unk_C8438
+        mouth_frame,
         anchor_x,
         anchor_y.wrapping_add(0x001F),
         Direction::Right,
@@ -7881,6 +7895,44 @@ mod tests {
             sprite(16),
             (48, 0, 0x000, false),
             "ASM loc_39247 creates the unflipped unk_C8430 half"
+        );
+    }
+
+    #[test]
+    fn heady_metal_renderer_uses_typed_stru_37b98_mouth_mapping() {
+        let mut level_visuals = minimal_level_visuals_for_platforms();
+        level_visuals
+            .enemies
+            .families
+            .insert(0x20, labelled_enemy_visuals(1, 1));
+        level_visuals
+            .enemies
+            .families
+            .insert(0x21, labelled_enemy_visuals(1, 1));
+        let object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x20 },
+            x_pos: 0x0064_0000,
+            y_pos: 0x00A0_0000,
+            sprite_animation_phase: Some(4),
+            ..live_enemy_object(0x20)
+        };
+        let trace = NativeTraceFrame {
+            camera_x_pos: 0x0014_0000,
+            camera_y_pos: 0x0030_0000,
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_enemy_sprite(&mut commands, &object, &trace, &level_visuals, 0x20);
+
+        let DrawCommand::Sprite { x, y, tiles, .. } = &commands[14] else {
+            panic!("expected Heady Metal mouth sprite")
+        };
+        assert_eq!((*x, *y, tiles[0].tile.tile_index), (49, 112, 0x0C8));
+        assert_eq!(
+            tiles.len(),
+            40,
+            "ASM stru_37B98 selects unk_C8458's 8x5-tile open-mouth footprint instead of static unk_C8438"
         );
     }
 

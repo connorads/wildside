@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Heady Metal anchor mouth mapping)
+
+- Oracle RAM at frame 359 pins `$FFFFFB7A+$22` to `$0E04`, the open-mouth
+  `unk_C8458` mapping selected by `stru_37B98`; native had held `unk_C8438`.
+- Native now exposes the proven high-eye phase through the typed enemy snapshot.
+  Level 0x33 idle-tail pixels fall 1,582→937 while settle remains 749.
+- A broader derivation from the parent Object timer regressed settle to 1,390
+  pixels and was rejected. `stru_37BC0` needs its independent GfxObject clock
+  before native can render that schedule. Continue with the two burst sprites
+  and scripted platform region visible in report `1788611774`.
+
 ## 2026-09-05 handoff (platform SAT coordinates)
 
 - Level 0x33 connected-component analysis isolated a scripted platform drawn
