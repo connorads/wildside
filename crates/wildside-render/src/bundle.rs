@@ -2423,8 +2423,8 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         art_path: "artcomp/Enemy1D_Big_hopping_skull.bin",
         palette_path: "palette_enemy/Big_Hopping_Skull_1.bin",
         extra_palette_paths: &[
-            "palette_enemy/Big_Hopping_Skull_2.bin",
             "palette_enemy/Big_Hopping_Skull_3.bin",
+            "palette_enemy/Big_Hopping_Skull_2.bin",
         ],
         frame_duration: 80,
         frames: &[
@@ -5673,6 +5673,23 @@ mod tests {
             lion.extra_palette_paths,
             &["palette_enemy/Lion_3.bin", "palette_enemy/Lion_2.bin"],
             "ASM Data_Index at LnkTo_Pal_A217E orders Lion_1, Lion_3, then Lion_2 for loc_36D16's selector",
+        );
+    }
+
+    #[test]
+    fn big_hopping_skull_palette_descriptors_follow_data_index_order_loc_36d16() {
+        let skull = super::ENEMY_FAMILIES
+            .iter()
+            .find(|spec| spec.object_type == 0x1D)
+            .expect("Big Hopping Skull family spec");
+
+        assert_eq!(
+            skull.extra_palette_paths,
+            &[
+                "palette_enemy/Big_Hopping_Skull_3.bin",
+                "palette_enemy/Big_Hopping_Skull_2.bin",
+            ],
+            "ASM Data_Index at LnkTo_Pal_A222C orders Big_Hopping_Skull_1, Big_Hopping_Skull_3, then Big_Hopping_Skull_2 for loc_36D16's selector",
         );
     }
 

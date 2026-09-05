@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Level 0x46 Big Hopping Skull palette order)
+
+- `Load_EnemyArtPaletteToVRAM loc_36D16..loc_36D52` selects Level 0x46's
+  palette-2 descriptor, while `LnkTo_Pal_A222C` orders the files 1, 3, 2.
+  Native had stored them 1, 2, 3 and rendered the visible Skull gold.
+- The bundle now preserves the ROM pointer order. Focused report `1788635431`
+  reduces settle residue 1,286→1,222 pixels and shows the oracle's blue Skull.
+  Whole-game report `1788636304` passes 69/69 and changes no other level.
+- The remaining Level 0x46 movement mismatch comes from the recording helper's
+  zero `EnemyHeader7D/$FFFFF93C` state. A bounds-only shell trial left each
+  Skull seven pixels early, so it was rejected instead of changing normal
+  gameplay. `verify-slice-fast` and `verify-tas-full` pass.
+
 ## 2026-09-05 handoff (Level 0x55 transform palette precedence)
 
 - Oracle frame 60 CRAM and Sprite Table dumps show the Micromax transform
