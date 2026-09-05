@@ -17501,8 +17501,8 @@ mod tests {
         let scene = build_ingame_scene(&trace, true, None);
         assert_eq!(
             sprite_position(&scene, 41),
-            Some((-4, 14)),
-            "ASM loc_244C/loc_24D4 applies the horizontal platform mapping's two-pixel Y bias"
+            Some((32, 14)),
+            "ASM loc_244C/loc_24D4 uses the Platform RAM X coordinate and applies the horizontal mapping's two-pixel Y bias"
         );
         assert_eq!(sprite_position(&scene, 21), Some((10, 12)));
         assert_eq!(sprite_position(&scene, 1), Some((8, -24)));

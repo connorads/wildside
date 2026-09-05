@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (platform SAT coordinates)
+
+- Level 0x33 connected-component analysis isolated a scripted platform drawn
+  16px above its oracle SAT entries. `loc_244C/loc_2548` uses Platform RAM X/Y
+  directly; extracted `SpriteFrame` origin and height do not affect SAT position.
+- Removing that second offset cuts the full 69-level frame sweep from 42,837 to
+  40,983 pixels, including Level 0x33 2,086→1,582 and Level 0x36 1,874→92.
+- Level 0x07 rises 432 pixels where the corrected platform reveals an existing
+  Lion/ordering mismatch. Keep the proven coordinates and investigate overlap.
+
 ## 2026-09-05 handoff (Heady Metal burst movement order)
 
 - Direct oracle Object RAM proves `sub_370D2` and final `sub_37002` update

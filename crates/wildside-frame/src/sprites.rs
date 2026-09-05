@@ -3075,12 +3075,13 @@ pub fn push_platform_tiles(
     let tile_sheet = Arc::new(frame.tile_sheet.clone());
     let palette = Arc::new(art.palette);
     for cell in platform_sprite_cells_loc_24AC(variant, dispatch, width_cells, height_cells) {
+        // ASM loc_244C has already converted Platform RAM x/y into unbiased
+        // screen coordinates, and loc_24D8/loc_2548 only add the 16px cell
+        // offsets. SpriteFrame origins describe extracted art bounds; they
+        // are not part of the platform SAT coordinate calculation.
         commands.push(DrawCommand::Sprite {
-            x: screen_x - i32::from(frame.origin_x) + i32::from(cell.column) * 16,
-            y: screen_y - i32::from(frame.height_px)
-                + i32::from(frame.origin_y)
-                + cell.y_bias
-                + i32::from(cell.row) * 16,
+            x: screen_x + i32::from(cell.column) * 16,
+            y: screen_y + cell.y_bias + i32::from(cell.row) * 16,
             tile_sheet: Arc::clone(&tile_sheet),
             palette: Arc::clone(&palette),
             tiles: platform_cell_tiles_loc_2548(frame, cell.mapping_tile_offset),
@@ -4263,7 +4264,7 @@ mod tests {
         let mut commands = Vec::new();
 
         // ASM loc_244C -> loc_24D4 -> loc_2548: horizontal `$94` art, six
-        // 16px grid cells, and frame-origin-adjusted screen coordinates.
+        // 16px grid cells, and the platform RAM position as the SAT origin.
         push_platform_tiles(
             &mut commands,
             &platform_object_at(0x0120, 0x0090, 6, 0x0094),
@@ -4297,12 +4298,12 @@ mod tests {
         assert_eq!(
             summary,
             vec![
-                (28, 10, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
-                (44, 10, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
-                (60, 10, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
-                (28, 26, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
-                (44, 26, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
-                (60, 26, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (32, 16, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (48, 16, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (64, 16, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (32, 32, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (48, 32, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (64, 32, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
             ],
         );
 
@@ -4341,7 +4342,7 @@ mod tests {
 
         // Unknown mapping words fall back to render-variant/kind selection.
         // Loc24CC includes ASM's `subq.w #2,d6` y-bias, which must survive the
-        // frame-origin conversion.
+        // direct Platform RAM to SAT coordinate conversion.
         commands.clear();
         push_platform_tiles(
             &mut commands,
@@ -4356,7 +4357,7 @@ mod tests {
         else {
             panic!("loc_24CC fallback platform should emit sprite commands");
         };
-        assert_eq!((*x, *y), (28, 8));
+        assert_eq!((*x, *y), (32, 14));
         assert_eq!(tile_sheet.tiles[0].pixels[0], 7);
 
         commands.clear();
