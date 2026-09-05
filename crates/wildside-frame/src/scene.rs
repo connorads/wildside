@@ -8174,10 +8174,13 @@ fn build_game_scene_filtered(
                     let pushed_sprite = level_visuals
                         .enemies
                         .families
-                        .get(&BOSS_EYE_OBJECT_TYPE)
-                        .and_then(|boss_eye_visuals| {
+                        // ASM sub_370D2 writes object_meta=$20 before
+                        // loc_32146 selects both the Heady Metal VRAM slot
+                        // and palette line. `$21` is reserved for body pieces.
+                        .get(&HEADY_METAL_OBJECT_TYPE)
+                        .and_then(|heady_metal_visuals| {
                             let frame = boss_death_burst_frame_sub_370d2(
-                                boss_eye_visuals,
+                                heady_metal_visuals,
                                 projectile.boss_death_burst_sprite_frame,
                             )?;
                             let (draw_x, draw_y) = sprite_draw_position(&frame, sx, sy, facing);
@@ -8185,7 +8188,7 @@ fn build_game_scene_filtered(
                                 x: draw_x,
                                 y: draw_y,
                                 tile_sheet: Arc::new(frame.tile_sheet.clone()),
-                                palette: Arc::new(boss_eye_visuals.palette.clone()),
+                                palette: Arc::new(heady_metal_visuals.palette.clone()),
                                 tiles: build_sprite_tiles(&frame, facing, 0),
                             });
                             Some(())
@@ -12883,16 +12886,16 @@ mod tests {
     }
 
     #[test]
-    fn boss_death_burst_renders_c8460_to_c8478_from_boss_eye_art() {
+    fn boss_death_burst_renders_c8460_to_c8478_from_heady_metal_art_loc_32146() {
         let mut visuals = sample_level_visuals(1);
-        let mut boss_eye_frame = sample_sprite_frame(0x21);
-        boss_eye_frame.tile_sheet = sample_tile_sheet_with_pixel(0x100, 0xB5);
-        let mut boss_eye = sample_animated_visual(boss_eye_frame);
-        boss_eye.palette = sample_palette_with_first_word(0x0444);
+        let mut heady_metal_frame = sample_sprite_frame(HEADY_METAL_OBJECT_TYPE);
+        heady_metal_frame.tile_sheet = sample_tile_sheet_with_pixel(0x100, 0xB5);
+        let mut heady_metal = sample_animated_visual(heady_metal_frame);
+        heady_metal.palette = sample_palette_with_first_word(0x0444);
         visuals
             .enemies
             .families
-            .insert(BOSS_EYE_OBJECT_TYPE, boss_eye);
+            .insert(HEADY_METAL_OBJECT_TYPE, heady_metal);
         let trace = NativeTraceFrame {
             active_projectile_details: [
                 BossDeathBurstSpriteFrame::C8460,

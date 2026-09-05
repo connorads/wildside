@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Heady Metal burst asset slot)
+
+- Frame-359 native and oracle traces already agree on all three burst
+  positions and mappings, ruling out another movement or animation fix.
+- ASM `sub_370D2` writes `object_meta=$20` before `loc_32146`; native had
+  rendered those offsets against the `$21` Boss Eyes art and palette bundle.
+- Selecting Heady Metal's `$20` bundle removes both burst components. Level
+  0x33 idle-tail pixels fall 937→525 while settle remains 749. Continue from
+  the settle boss-top component, then the idle scripted platform region.
+
 ## 2026-09-05 handoff (Heady Metal anchor mouth mapping)
 
 - Oracle RAM at frame 359 pins `$FFFFFB7A+$22` to `$0E04`, the open-mouth
