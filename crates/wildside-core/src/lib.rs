@@ -1487,6 +1487,28 @@ impl NativeRuntime {
         }
     }
 
+    pub(crate) fn advance_recording_handoff_scripted_platforms_sub_23ea(&mut self, passes: u16) {
+        let Some(script_table) = self.platform_script_table.as_ref() else {
+            return;
+        };
+        // ASM Mode_Level calls Execute_ScriptedPlatforms/sub_23EA once per
+        // live pass before Make_SpritesFromPlatforms. The Level 0x33
+        // recording shell reaches its visible handoff two such passes after
+        // native's collapsed settle window.
+        for _ in 0..passes {
+            platforms::execute_scripted_platforms_sub_23EA(
+                &mut self.active_platforms,
+                script_table,
+                false,
+            );
+        }
+        self.active_platform_roster = self
+            .active_platforms
+            .iter()
+            .map(ActivePlatform::snapshot)
+            .collect();
+    }
+
     pub(crate) fn queue_start_sequence(&mut self, effect: QueuedSoundEffect) {
         self.queue_sound_command(QueuedSoundCommand::StartSequence(effect));
     }

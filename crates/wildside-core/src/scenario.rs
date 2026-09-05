@@ -428,6 +428,10 @@ impl NativeRuntime {
             // already matches the oracle allocation frames. Reconcile only
             // that foreign-helper presentation boundary.
             self.rewind_heady_metal_recording_handoff_gfx_passes_loc_142e(2);
+            // ASM Mode_Level -> Execute_ScriptedPlatforms/sub_23EA: the same
+            // foreign recording shell exposes Platform_RAM two object passes
+            // later than native's collapsed settle boundary.
+            self.advance_recording_handoff_scripted_platforms_sub_23ea(2);
         }
         // ASM loc_1AE2E -> Mode_Level -> Execute_Objects loc_E12: preserve
         // the first visible sample of any boss arrow which crossed the
@@ -1629,6 +1633,34 @@ mod tests {
                 .iter()
                 .all(|projectile| { projectile.kind != EnemyProjectileKind::DragonWalkingBreath }),
             "ASM Dragon.asm loc_3CF6E must not run only because a missing terrain sidecar killed Kid during settle"
+        );
+    }
+
+    #[test]
+    fn level33_recording_handoff_ages_scripted_platforms_sub_23ea() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level(LevelId(0x33));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x33));
+
+        for _ in 0..360 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let platform = runtime
+            .active_platforms
+            .iter()
+            .find(|platform| platform.layout_index == Some(2))
+            .expect("ASM sub_23EA should retain the lower Level 0x33 scripted platform");
+        assert_eq!(platform.y_pos, 0x0094_0000);
+        assert_eq!(
+            platform
+                .script
+                .expect("scripted platform")
+                .remaining_duration,
+            0x0044
         );
     }
 }

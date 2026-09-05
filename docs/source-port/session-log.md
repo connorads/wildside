@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Level 0x33 platform scheduler age)
+
+- Oracle Platform RAM at frame 359 holds the two moving scripts at timers
+  `$44/$45`; native held `$42/$43`, displacing each platform by two pixels in
+  its current velocity direction.
+- The Level 0x33 recording handoff now advances the omitted two `sub_23EA`
+  passes and rebuilds the platform roster. Idle-tail pixels fall 749→631.
+- Feeding platforms the synthetic live foreground palette was tested and
+  rejected because it regressed the checkpoint to 641 pixels. Continue with
+  the remaining platform art/palette crop from report `1788617112`.
+
 ## 2026-09-05 handoff (Heady Metal initial anchor animation)
 
 - Oracle settle frame 60 pins `$FFFFFB7A+$22` to `$0DFC`, the `unk_C8448`
