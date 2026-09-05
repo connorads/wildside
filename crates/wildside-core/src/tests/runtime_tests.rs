@@ -12365,6 +12365,37 @@ mod chunk_09 {
         assert_eq!(frame.murder_wall_x, Some(0x0004_3600));
     }
 
+    /// #495 - oracle WRAM frame 0 on Level 0x55: the lower Driller parent
+    /// GfxObject at `$FFFF2578` has `x_direction=$FF`, x=$000C, and its
+    /// linked children at `$FFFF25C4/$FFFF2610` sit at x=$FFFF/$0024.
+    #[test]
+    fn issue495_level55_recording_settle_preserves_lower_driller_state_enemy1a_init() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let level = LevelId(0x55);
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(level);
+        runtime.settle_recording_oracle_warp_live_window(level);
+        runtime.step_frame(FrameInput::default());
+
+        let lower = runtime
+            .active_enemies
+            .iter()
+            .filter(|enemy| matches!(enemy.family, EnemyFamily::Driller))
+            .min_by_key(|enemy| enemy.x_pos)
+            .expect("Level 0x55 should expose the lower Driller at x=$000C");
+        assert_eq!(lower.x_pos >> 16, 0x000C);
+        assert_eq!(lower.facing, Direction::Right);
+        assert_eq!(lower.hit_points, 2);
+        assert_eq!(lower.damage_flash_frames, 22);
+        let children = lower
+            .driller_children
+            .expect("ASM Enemy1A_Driller_Init links both drill GfxObjects");
+        assert_eq!(children.left.x_pos, -1);
+        assert_eq!(children.right.x_pos, 0x24);
+    }
+
     #[test]
     fn issue289_level06_lower_ghost_group_vanishes_before_kid_jump_collision_loc_f730_902a() {
         let Some(manifest) = cached_generated_manifest() else {

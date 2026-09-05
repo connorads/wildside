@@ -33,6 +33,20 @@ from this evidence. The next probe must dump both Driller parent Object RAM,
 their linked GfxObjects, and Sprite Table entries at recording frames 0 and 40,
 then trace the differing seed through `Enemy1A_Driller_Init` and `loc_3BF4E`.
 
+Follow-up 2026-09-05. Raw WRAM showed the lower parent at x=`$000C`, facing
+right, HP 2, hurt timer `$16`, with linked children at x=`$FFFF/$0024`.
+`loc_3C0FA -> loc_3C152 -> loc_3C026` therefore completes the left-boundary
+turn before the stomp hibernates the parent. The recording handoff now retains
+that typed state. Driller stomp damage also follows `loc_3BF02`: the Gfx pass
+writes `colid_kidabove` after Execute Objects and the parent consumes it on the
+next object pass. The cache-backed regression passes, and the enemy frontier
+matches through frame 34, including the former frame-29 HP divergence.
+
+Focused full report `1788640624` reduces frame-30 residue 2,046→1,866 pixels;
+`level_settle` remains 1,781 and `idle_tail` remains 1,782. The next blocking
+frontier at frame 35 is separate Kid state: native begins a helmet-9 transform
+with HP 3 while oracle retains helmet 0 with HP 1.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level
@@ -24478,7 +24492,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 495 | [-] | P2 | enemy/Driller | Level `$55` residual follows settled-warp Driller parent/child seed divergence, not a render-only defect. | Frame-0/40 enemy frontier; rejected terrain palette and `$C4A0` hypotheses. See archive #495. |
+| 495 | [-] | P2 | enemy/Driller | Level `$55` recording handoff and stomp collision now match Driller state through frame 34. | Frame-35 frontier is separate Kid transform state; focused frame 30 is 1,866 px. See archive #495. |
 | 494 | [x] | P2 | rendering | `Kid_Transform` transform/form palette writes override a damage-white phase suspended before the synchronous coroutine. | Level `$55` settle residue 2,212→1,781; whole-game comparable residue 39,401→38,971. See archive #494. |
 | 493 | [x] | P1 | enemy/render | Lion fire/restore timing, HP-8 animation topology, projectile collision subpixels, and parent-child rendering follow the ROM. | Level `$36` Lion/projectile pixels exact at all six checkpoints; 75/75 enemy-frontier frames match. See archive #493. |
 | 490 | [x] | P2 | enemy/render | Multi-head callback scheduling is keyed per head; Shishkaboss skewer workers use typed presentation state and source mappings. | Level `$10` state checkpoints pass; residue 3,759 -> 3,176 pixels; full gates green. See archive #490. |

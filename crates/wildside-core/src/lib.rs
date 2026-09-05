@@ -1380,6 +1380,34 @@ impl NativeRuntime {
         }
     }
 
+    /// Reconcile the collapsed recording shell when a left-edge Driller is
+    /// stomped on the same boundary pass that turns through loc_3C152.
+    fn reconcile_recording_handoff_driller_boundary_turn_loc_3c026(&mut self) {
+        for enemy in &mut self.active_enemies {
+            let Some(children) = enemy.driller_children.as_mut() else {
+                continue;
+            };
+            if !matches!(enemy.family, EnemyFamily::Driller)
+                || !matches!(enemy.facing, Direction::Left)
+                || enemy.damage_flash_frames == 0
+                || (enemy.x_pos >> 16) as i32 != pacer_probe_half_width(EnemyFamily::Driller)
+                || children.left.wall_event != colid::LEFTWALL
+            {
+                continue;
+            }
+
+            // ASM loc_3C0FA -> loc_3C152 -> loc_3C026: the body flips and
+            // re-pins before hibernating. The following Gfx collision leaves
+            // the left child at x=-1 and the right at body+$18. Oracle 0x55
+            // WRAM frame 0 retains exactly that typed boundary state and a
+            // hurt-animation timer of $16. Seed one extra collapsed tick so
+            // the first native scenario step observes the same timer.
+            enemy.facing = Direction::Right;
+            enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_add(1);
+            children.right.x_pos = (enemy.x_pos >> 16) as i32 + DRILLER_DRILL_CHILD_X_OFFSET;
+        }
+    }
+
     pub(crate) fn move_heady_metal_body_piece_workers_sub_376ec(&mut self) {
         let Some(heady_metal) = self
             .active_enemies

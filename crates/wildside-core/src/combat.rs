@@ -11969,13 +11969,20 @@ impl NativeRuntime {
         // Decrement HP; collect indices of enemies that should be removed
         let mut kill_indices = Vec::new();
         let mut pending_child_attachment_collisions = Vec::new();
-        let mut pending_dragon_collisions = Vec::new();
+        let mut pending_parent_collisions = Vec::new();
         let mut pending_stomp_y_velocity = STOMP_BOUNCE_VELOCITY;
         for &active_idx in &stomped_indices {
             if active_idx < self.active_enemies.len() {
                 let enemy = &mut self.active_enemies[active_idx];
-                if matches!(enemy.family, EnemyFamily::DragonWalking) {
-                    pending_dragon_collisions.push(active_idx);
+                if matches!(
+                    enemy.family,
+                    EnemyFamily::DragonWalking | EnemyFamily::Driller
+                ) {
+                    // ASM Dragon.asm loc_3CE90 and Driller.asm loc_3BF02:
+                    // GfxObjects_CollisionKid writes colid_kidabove after
+                    // Execute_Objects; the parent consumes it on its next
+                    // object pass. Keep HP unchanged on Kid's contact frame.
+                    pending_parent_collisions.push(active_idx);
                 } else if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
                     // ASM Tank.asm loc_3B464 / Tank_Shooting.asm loc_3B6C0:
                     // Kid-above hits are written to the linked mouth/turret
@@ -12106,7 +12113,7 @@ impl NativeRuntime {
                 );
             }
         }
-        for active_idx in pending_dragon_collisions {
+        for active_idx in pending_parent_collisions {
             if active_idx < self.active_enemies.len() {
                 let enemy = self.active_enemies[active_idx];
                 self.queue_pending_enemy_collision(&enemy, DRAGON_COLID_KIDABOVE);

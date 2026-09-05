@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Level 0x55 Driller collision timing)
+
+- Raw WRAM and `loc_3C0FA -> loc_3C152 -> loc_3C026` prove the lower Driller
+  completes its boundary turn before stomp hibernation. The recording handoff
+  now retains the oracle parent/child state.
+- Driller stomp damage now follows `loc_3BF02` and is consumed on the next
+  parent pass. Enemy state matches through frame 34; frame-30 residue falls
+  2,046→1,866 pixels in focused report `1788640624`.
+- NEXT: investigate frame 35's distinct Kid transformation/HP frontier: native
+  HP 3 and helmet 9 versus oracle HP 1 and helmet 0. See archive #495.
+
 ## 2026-09-05 handoff (Level 0x55 Driller residual partition)
 
 - Level 0x55 remains at 1,782 changed pixels with a clean player/camera

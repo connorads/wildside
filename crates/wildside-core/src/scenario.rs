@@ -458,6 +458,7 @@ impl NativeRuntime {
         });
         let platform_rewind_passes = usize::from(level_id == LevelId(0x33)) * 2;
         self.settle_target_level_live_window(level_id, target_live_frames, platform_rewind_passes);
+        self.reconcile_recording_handoff_driller_boundary_turn_loc_3c026();
         if level_id == LevelId(0x33) {
             // ASM Mode_Level -> GfxObjects_MoveAndAnimate loc_142E: the
             // recording helper's collapsed Level 0x33 shell over-ages the
