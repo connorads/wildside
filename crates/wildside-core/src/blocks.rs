@@ -5645,6 +5645,8 @@ impl NativeRuntime {
                     x_pos,
                     y_pos.clamp(0, i64::from(u32::MAX)) as u32,
                 );
+                self.pending_form_queued_after_player_loc_e1e = self.floating_prize_order_sub_e12
+                    == crate::FloatingPrizeOrderSubE12::AfterPlayer;
             }
         }
     }

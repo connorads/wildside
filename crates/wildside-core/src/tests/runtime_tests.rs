@@ -12420,8 +12420,21 @@ mod chunk_09 {
         runtime.step_frame(FrameInput::default());
         assert_eq!(runtime.progression.current_form, PlayerForm::Micromax);
         assert_eq!(runtime.progression.number_hitpoints, 3);
-        assert_eq!(runtime.progression.form_change_flash_frames, 60);
+        assert!(runtime.progression.form_change_flash_frames > 0);
         assert_eq!(runtime.progression.pending_form, None);
+
+        for _ in 0..59 {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert_eq!(runtime.progression.form_change_flash_frames, 1);
+        assert_eq!(
+            runtime.opening_slice.expect("slice").player.y_pos,
+            0x008F_4000
+        );
+        assert_eq!(
+            runtime.opening_slice.expect("slice").player.y_velocity,
+            0x0000_4000
+        );
     }
 
     #[test]

@@ -12809,6 +12809,9 @@ impl NativeRuntime {
         let Some(form) = self.progression.pending_form.take() else {
             return;
         };
+        let queued_after_player =
+            std::mem::take(&mut self.pending_form_queued_after_player_loc_e1e);
+        self.transform_started_after_player_loc_e1e = queued_after_player;
         let old_form = self.progression.current_form;
         let old_hitpoints = self.progression.number_hitpoints;
         self.progression.current_form = form;

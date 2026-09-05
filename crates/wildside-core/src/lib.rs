@@ -589,6 +589,13 @@ pub struct NativeRuntime {
     /// before the `$2000` Kid; recording handoffs can preserve a resumed
     /// worker after Kid instead.
     floating_prize_order_sub_e12: FloatingPrizeOrderSubE12,
+    /// One-shot phase carried with a helmet queued by a prize callback after
+    /// Player. Its next-wake transform does not need native's frame-end
+    /// cleanup compensation.
+    pending_form_queued_after_player_loc_e1e: bool,
+    /// Active transform inherited from the one-shot phase above. Its final
+    /// cleanup count resumes gameplay in the current object pass.
+    transform_started_after_player_loc_e1e: bool,
     /// ASM PrizeClock_Init loc_10796 swaps the active clock prize animation
     /// when its countdown reaches `$012C`.
     clock_prize_animation_swaps_loc_10796: Vec<(u16, u16)>,
@@ -1703,6 +1710,8 @@ impl NativeRuntime {
             prize_worker_effects: Vec::new(),
             latched_prize_wake_armed_loc_104ae: false,
             floating_prize_order_sub_e12: FloatingPrizeOrderSubE12::BeforePlayer,
+            pending_form_queued_after_player_loc_e1e: false,
+            transform_started_after_player_loc_e1e: false,
             clock_prize_animation_swaps_loc_10796: Vec::new(),
             continue_prize_animation_swaps_loc_1080a: Vec::new(),
             prize_helmet_collision_hibernate_delay_frames: 0,
@@ -5397,7 +5406,8 @@ impl NativeRuntime {
     }
 
     pub(crate) fn gameplay_hibernating_for_transform(&self) -> bool {
-        self.progression.form_change_flash_frames > 0
+        self.progression.form_change_flash_frames
+            > u8::from(self.transform_started_after_player_loc_e1e)
     }
 
     const fn hud_animation_runs_in_mode_level_loc_80c(
@@ -5874,9 +5884,9 @@ impl NativeRuntime {
 
         // ASM Kid_Transform runs as a coroutine: during the transform animation,
         // the player object is in the transform state and normal movement/physics
-        // don't run. Suppress physics while form_change_flash_frames > 0.
+        // don't run. An after-Player entry resumes on its final cleanup count.
         let mut platform_support_crawling = false;
-        if self.progression.form_change_flash_frames == 0 {
+        if !self.gameplay_hibernating_for_transform() {
             let deferred_prize_ceiling_cells: Vec<(u16, u16, DeferredPrizeBlockPhase)> = self
                 .block_state
                 .deferred_ceiling_clears

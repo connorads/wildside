@@ -60,6 +60,14 @@ Focused full report `1788644135` keeps frame 30 at 1,866 pixels and moves frame
 120 from 1,814 to 2,077 pixels under the corrected transform phase. The next
 authoritative Level `$55` gameplay frontier is frame 95.
 
+Follow-up 2026-09-05. `Kid_Transform loc_7E90` keeps the final transform marker
+through frame 94 but resumes the suspended object pass on its cleanup count.
+The after-Player entry phase now clears velocity and runs gravity on frame 95;
+it does not shorten the animation table or alter ordinary before-Player
+transforms. Frames 33-100 match oracle and the next gameplay frontier advances
+to frame 179. Focused report `1788648155` passes and restores frame 120 to 1,814
+changed pixels. Both full gates remain green.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level
@@ -24505,7 +24513,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 495 | [-] | P2 | enemy/Driller | Level `$55` recording handoff matches Driller state through frame 34 and prize transform state through frame 40. | Next gameplay frontier is frame 95; focused frame 120 is 2,077 px. See archive #495. |
+| 495 | [-] | P2 | enemy/Driller | Level `$55` recording handoff matches Driller and prize-transform state through frame 100. | Next gameplay frontier is frame 179; focused frame 120 is 1,814 px. See archive #495. |
 | 494 | [x] | P2 | rendering | `Kid_Transform` transform/form palette writes override a damage-white phase suspended before the synchronous coroutine. | Level `$55` settle residue 2,212→1,781; whole-game comparable residue 39,401→38,971. See archive #494. |
 | 493 | [x] | P1 | enemy/render | Lion fire/restore timing, HP-8 animation topology, projectile collision subpixels, and parent-child rendering follow the ROM. | Level `$36` Lion/projectile pixels exact at all six checkpoints; 75/75 enemy-frontier frames match. See archive #493. |
 | 490 | [x] | P2 | enemy/render | Multi-head callback scheduling is keyed per head; Shishkaboss skewer workers use typed presentation state and source mappings. | Level `$10` state checkpoints pass; residue 3,759 -> 3,176 pixels; full gates green. See archive #490. |
