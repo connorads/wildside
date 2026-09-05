@@ -2438,7 +2438,7 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
     EnemyFamilySpec {
         object_type: 0x20, // Heady Metal (boss)
         art_path: "artcomp/Enemy20_Heady_Metal.bin",
-        palette_path: "palette_enemy/Boss.bin",
+        palette_path: "palette_enemy/Plethora.bin",
         extra_palette_paths: &[],
         frame_duration: 10,
         frames: &[fd(0x040, 0x0D, 0x00, 0x19, 0x20)],
@@ -6724,6 +6724,19 @@ mod tests {
             drips.extra_palette_paths,
             &["palette_enemy/Drips_3.bin", "palette_enemy/Drips_2.bin"],
             "ASM kid.asm LnkTo_Pal_A2082 stores Drips variants as _1, _3, _2; loc_36D16 variant 2 must therefore select Drips_2"
+        );
+    }
+
+    #[test]
+    fn heady_metal_palette_matches_enemy_load_index_loc_36d16() {
+        let heady_metal = super::ENEMY_FAMILIES
+            .iter()
+            .find(|family| family.object_type == 0x20)
+            .expect("Heady Metal visual family");
+
+        assert_eq!(
+            heady_metal.palette_path, "palette_enemy/Plethora.bin",
+            "ASM EnemyLoad_Index entry $20 points to LnkTo_Pal_A2382 / Plethora.bin; Boss.bin belongs to object types $22-$24"
         );
     }
 }

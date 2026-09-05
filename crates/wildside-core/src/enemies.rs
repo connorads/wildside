@@ -11233,8 +11233,12 @@ pub(crate) fn step_tracker(
         } else {
             Direction::Left
         };
-        enemy.x_pos = (ex + i64::from(enemy.x_velocity)).clamp(0, i64::from(u32::MAX)) as u32;
-        enemy.y_pos = (ey + i64::from(enemy.y_velocity)).clamp(0, i64::from(u32::MAX)) as u32;
+        // ASM loc_375DE -> sub_376EC copies d6/d7 into the linked GfxObject
+        // velocity longs. GfxObjects_MoveAndAnimate then performs ordinary
+        // 32-bit additions, so the signed-negative level-entry coordinates
+        // must wrap through zero instead of sticking at either u32 boundary.
+        enemy.x_pos = enemy.x_pos.wrapping_add_signed(enemy.x_velocity);
+        enemy.y_pos = enemy.y_pos.wrapping_add_signed(enemy.y_velocity);
         return;
     }
 

@@ -2684,30 +2684,38 @@ fn push_heady_metal_composite_enemy20_loc_39247(
             tile_base_index,
             tile_sheet: tile_sheet.clone(),
         };
-    let mut push =
-        |frame: wildside_render::SpriteFrame, world_x: u16, world_y: u16, facing: Direction| {
-            let (screen_x, screen_y) = screen(world_x, world_y);
-            let (draw_x, draw_y) = sprite_draw_position(&frame, screen_x, screen_y, facing);
-            commands.push(DrawCommand::Sprite {
-                x: draw_x,
-                y: draw_y,
-                tile_sheet: Arc::new(frame.tile_sheet.clone()),
-                palette: palette.clone(),
-                tiles: build_sprite_tiles(&frame, facing, 0),
-            });
-        };
+    let push = |commands: &mut Vec<DrawCommand>,
+                palette: &Arc<wildside_render::Palette>,
+                frame: wildside_render::SpriteFrame,
+                world_x: u16,
+                world_y: u16,
+                facing: Direction| {
+        let (screen_x, screen_y) = screen(world_x, world_y);
+        let (draw_x, draw_y) = sprite_draw_position(&frame, screen_x, screen_y, facing);
+        commands.push(DrawCommand::Sprite {
+            x: draw_x,
+            y: draw_y,
+            tile_sheet: Arc::new(frame.tile_sheet.clone()),
+            palette: palette.clone(),
+            tiles: build_sprite_tiles(&frame, facing, 0),
+        });
+    };
 
     // ASM Enemy20_HeadyMetal_Init stores the workers at `$FFFFFB72..$FBB2`.
     // Mega Drive SAT overlap favours earlier entries; native paints later
     // commands on top, so emit the pointer table in reverse order.
     let eye_frame = frame(0x0FD, 0x06, 0x00, 0x0B, 0x58); // unk_C8480
     push(
+        commands,
+        &palette,
         eye_frame.clone(),
         anchor_x.wrapping_add(0x000C),
         anchor_y.wrapping_sub(0x0003),
         Direction::Right,
     );
     push(
+        commands,
+        &palette,
         eye_frame,
         anchor_x.wrapping_sub(0x000B),
         anchor_y.wrapping_sub(0x0003),
@@ -2738,25 +2746,71 @@ fn push_heady_metal_composite_enemy20_loc_39247(
             .map(|piece| (piece.x_pos, piece.y_pos, piece.sprite_mapping_index))
             .collect::<Vec<_>>()
     };
-    for &(x_pos, y_pos, mapping_index) in body_pieces.iter().rev() {
-        // ASM sub_37ABC/off_37AE0 selects unk_C8488..unk_C84C0.
-        push(
-            frame(u16::from(mapping_index & 0x07) * 4, 0x08, 0x08, 0x10, 0x10),
-            x_pos,
-            y_pos,
-            Direction::Right,
+    if let Some(body_visuals) = level_visuals.enemies.families.get(&0x21)
+        && let Some(body_tile_sheet) = body_visuals
+            .frames
+            .first()
+            .map(|frame| frame.tile_sheet.clone())
+    {
+        // ASM Enemy20_HeadyMetal_Init loc_39266 calls sub_37680 for all
+        // twelve body workers. sub_37680 writes object_meta=$21 before
+        // loc_32146 selects their Boss Eyes VRAM art and palette; only the
+        // five fixed workers surrounding them use object type $20.
+        let body_palette = Arc::new(
+            select_enemy_palette(
+                body_visuals,
+                enemy_palette_variant(level_visuals, 0x21, object.palette_variant),
+            )
+            .clone(),
         );
+        for &(x_pos, y_pos, mapping_index) in body_pieces.iter().rev() {
+            // ASM sub_37ABC/off_37AE0 selects unk_C8488..unk_C84C0.
+            let body_frame = wildside_render::SpriteFrame {
+                origin_x: 0x08,
+                origin_y: 0x08,
+                width_px: 0x10,
+                height_px: 0x10,
+                tile_base_index: u16::from(mapping_index & 0x07) * 4,
+                tile_sheet: body_tile_sheet.clone(),
+            };
+            let (screen_x, screen_y) = screen(x_pos, y_pos);
+            let (draw_x, draw_y) =
+                sprite_draw_position(&body_frame, screen_x, screen_y, Direction::Right);
+            commands.push(DrawCommand::Sprite {
+                x: draw_x,
+                y: draw_y,
+                tile_sheet: Arc::new(body_frame.tile_sheet.clone()),
+                palette: body_palette.clone(),
+                tiles: build_sprite_tiles(&body_frame, Direction::Right, 0),
+            });
+        }
     }
 
     push(
+        commands,
+        &palette,
         frame(0x038, 0x1F, 0x00, 0x3E, 0x1F), // unk_C8438
         anchor_x,
         anchor_y.wrapping_add(0x001F),
         Direction::Right,
     );
     let side_frame = frame(0x000, 0x20, 0x00, 0x20, 0x70); // unk_C8430
-    push(side_frame.clone(), anchor_x, anchor_y, Direction::Left);
-    push(side_frame, anchor_x, anchor_y, Direction::Right);
+    push(
+        commands,
+        &palette,
+        side_frame.clone(),
+        anchor_x,
+        anchor_y,
+        Direction::Left,
+    );
+    push(
+        commands,
+        &palette,
+        side_frame,
+        anchor_x,
+        anchor_y,
+        Direction::Right,
+    );
 }
 
 fn enemy_damage_palette_white_phase(object_type: u8, damage_flash: bool) -> bool {
@@ -7610,6 +7664,9 @@ mod tests {
             .enemies
             .families
             .insert(0x20, labelled_enemy_visuals(1, 1));
+        let mut body_visuals = labelled_enemy_visuals(1, 1);
+        body_visuals.frames[0].tile_sheet = marked_tile_sheet(0x20, 0x21);
+        level_visuals.enemies.families.insert(0x21, body_visuals);
         let object = NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy { object_type: 0x20 },
             x_pos: 0x0200_0000,
@@ -7650,6 +7707,13 @@ mod tests {
         };
         assert_eq!(sprite(2), (-24, 56, 0x00C));
         assert_eq!(sprite(3), (24, 8, 0x01C));
+        match &commands[2] {
+            DrawCommand::Sprite { tile_sheet, .. } => assert_eq!(
+                tile_sheet.tiles[0].pixels[0], 0x21,
+                "ASM sub_37680 tags Heady Metal body workers as object $21, so they must use Boss Eyes art rather than the fixed-head $20 sheet"
+            ),
+            command => panic!("expected sprite command, got {command:?}"),
+        }
     }
 
     #[test]
@@ -7659,6 +7723,9 @@ mod tests {
             .enemies
             .families
             .insert(0x20, labelled_enemy_visuals(1, 1));
+        let mut body_visuals = labelled_enemy_visuals(1, 1);
+        body_visuals.frames[0].tile_sheet = marked_tile_sheet(0x20, 0x21);
+        level_visuals.enemies.families.insert(0x21, body_visuals);
         let object = NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy { object_type: 0x20 },
             x_pos: 0x0064_0000,

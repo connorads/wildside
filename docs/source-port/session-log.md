@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Heady Metal body and palette fidelity)
+
+- A fresh all-level frame sweep found Level `0x33` with exact authoritative
+  state but 8,861 mismatched pixels. Native omitted most of Heady Metal's body.
+- ASM `loc_375DE -> sub_376EC` showed linked GfxObject positions use wrapping
+  signed longword addition. `Enemy20_HeadyMetal_Init loc_39266 -> sub_37680`
+  showed all twelve body workers use object `$21` Boss Eyes art. The
+  `EnemyLoad_Index` entry for object `$20` points to `Pal_A2382` /
+  `Plethora.bin`, while native incorrectly used `Boss.bin`.
+- Runtime movement now wraps at 32 bits, the composite renderer uses `$21` art
+  and palette for body workers, and the asset bundle uses the ROM's `$20`
+  palette. Level `0x33` drops to 2,537 mismatched pixels. The visible remainder
+  is an unrendered moving eye/attack plus a platform-position difference.
+  `verify-slice-fast` and `verify-tas-full` pass; all 37,759 published-route
+  frames retain their exact gameplay, enemy, RNG, pixel and command baselines.
+
 ## 2026-09-05 handoff (Dragon Walking mutation refresh)
 
 - With no selectable ready or open risk, the proactive fallback chose Dragon

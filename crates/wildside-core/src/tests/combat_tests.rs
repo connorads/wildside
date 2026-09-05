@@ -2908,6 +2908,19 @@ fn live_heady_metal_tracker_applies_28px_offset_to_piece_y_loc_375b0() {
 }
 
 #[test]
+fn live_heady_metal_tracker_wraps_gfx_object_positions_sub_376ec() {
+    let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0, 0xFFFF_F000, 30);
+
+    step_tracker(&mut boss, Some(0xFFFF_0000), Some(0x0080_0000));
+
+    assert_eq!(
+        (boss.x_pos, boss.y_pos),
+        (0xFFFF_8000, 0x0000_3800),
+        "ASM loc_375DE -> sub_376EC stores d6/d7 in every GfxObject velocity longword; the later movement pass adds those signed longs with 32-bit wrap"
+    );
+}
+
+#[test]
 fn live_heady_metal_tracker_clears_x_velocity_in_opening_phases_loc_375c2() {
     let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0070_0000, 0x0080_0000, 35);
 
