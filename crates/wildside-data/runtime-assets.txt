@@ -1464,6 +1464,7 @@ level-layout/54.bin
 level-layout/54.blocklist.bin
 level-layout/55.bin
 level-layout/55.blocklist.bin
+level-layout/55.json
 level-layout/56.bin
 level-layout/56.blocklist.bin
 level-layout/57.bin
