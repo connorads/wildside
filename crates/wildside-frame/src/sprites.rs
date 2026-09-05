@@ -1280,7 +1280,7 @@ pub fn push_player_sprite_with_priority_and_resident_art(
             x: draw_x,
             y: draw_y,
             tile_sheet: Arc::new(resident_art.unwrap_or(&frame.tile_sheet).clone()),
-            palette: Arc::new(player_palette_for_damage_phase(
+            palette: Arc::new(player_palette_for_transform_phase(
                 base_palette,
                 damage_flash_white_phase,
             )),
@@ -1309,6 +1309,13 @@ pub fn push_player_sprite_with_priority_and_resident_art(
         )),
         tiles: build_player_sprite_tiles_with_flip(frame, flip_x, priority_override),
     });
+}
+
+fn player_palette_for_transform_phase(palette: &Palette, _white_phase: bool) -> Palette {
+    // ASM Kid_Transform loc_7D44/loc_7D5A -> sub_8106/sub_80D0 writes the
+    // selected transform or form palette inside the synchronous coroutine.
+    // The suspended damage countdown does not re-run sub_80BC afterwards.
+    palette.clone()
 }
 
 fn player_palette_for_damage_phase(palette: &Palette, white_phase: bool) -> Palette {
@@ -7760,6 +7767,50 @@ mod tests {
                 .iter()
                 .all(|tile| tile.tile.flip_x && !tile.tile.priority),
             "death tumble uses facing flip but no flagpole priority override"
+        );
+    }
+
+    /// ASM Kid_Transform loc_7D44 -> sub_8106 (kid.asm): a transform-art
+    /// handler writes the helmet transformation palette during the suspended
+    /// coroutine. A paused damage counter does not whiten that fresh palette.
+    #[test]
+    fn transform_palette_overwrites_paused_damage_flash_loc_7d44() {
+        let mut visuals = minimal_level_visuals_for_platforms();
+        let mut micromax = labelled_player_visuals();
+        micromax.transform_palette = Some(marked_palette(0x0600));
+        micromax.transform_steps = (0u16..12)
+            .map(|descriptor_index| wildside_render::PlayerTransformStep {
+                duration_frames: 1,
+                frame: Some(labelled_frame(0x0C00 + descriptor_index)),
+            })
+            .collect();
+        visuals.player.forms.insert(9, micromax);
+        let object = native_object_at(0x0010_0000, 0x008F_0000);
+        let trace = NativeTraceFrame {
+            form_change_flash_frames: 35,
+            current_helmet_id: 9,
+            transform_source_helmet_id_loc_7ca6: Some(0),
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_player_sprite_with_priority_override(
+            &mut commands,
+            &object,
+            &trace,
+            &visuals,
+            true,
+            None,
+        );
+
+        let (_, _, displayed, _) = only_sprite_command(&commands);
+        assert_eq!(displayed.colours, marked_palette(0x0600).colours);
+        assert!(
+            displayed
+                .colours
+                .iter()
+                .take(12)
+                .all(|colour| colour.raw_word != 0x0FFF)
         );
     }
 

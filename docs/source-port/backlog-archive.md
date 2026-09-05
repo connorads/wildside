@@ -11,6 +11,32 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #494
+
+Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level
+`$55` the largest fully comparable residue at 2,212 changed pixels. Matching
+native/oracle route captures separated the Driller children from the dominant
+player component: native drew the Micromax transformation as a white silhouette
+while oracle presented the coloured transform mapping.
+
+Oracle WRAM at frames 59..61 keeps the damage countdown suspended at four ticks,
+but CRAM switches from the prior colours to Micromax's transformation palette as
+the Sprite Table presents the transform descriptor. ASM `Kid_Transform loc_7D44`
+and `loc_7D5A` call `sub_8106`/`sub_80D0` inside the synchronous coroutine; the
+suspended outer damage path does not run `sub_80BC` afterwards. Native now gives
+those fresh transform/form palette writes precedence instead of reapplying the
+paused damage-white phase. A composed renderer regression pins the behaviour.
+
+A Driller-specific patch was rejected because state, child rosters, and drill
+tips already matched. Selector-$C companion work was also rejected for this
+checkpoint because countdown 35 selects Micromax descriptor 3, not a spark
+descriptor. Focused report `1788630958` reduces settle residue 2,212→1,781
+pixels, matching the independent 1,782-pixel idle-tail residue. Whole-game
+report `1788631177` passes 69/69, changes only Level `$55`, and reduces comparable
+residue 39,401→38,971. The refreshed generated bundle exposed one separate
+tracked web-catalogue omission, `level-layout/55.json`; the 125-level boot test
+passes after adding it. `verify-slice-fast` and `verify-tas-full` are green.
+
 ### #493
 
 Closed [x] 2026-09-05. Oracle Object RAM frames 0..359 and Lion.asm
@@ -24430,6 +24456,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 494 | [x] | P2 | rendering | `Kid_Transform` transform/form palette writes override a damage-white phase suspended before the synchronous coroutine. | Level `$55` settle residue 2,212→1,781; whole-game comparable residue 39,401→38,971. See archive #494. |
 | 493 | [x] | P1 | enemy/render | Lion fire/restore timing, HP-8 animation topology, projectile collision subpixels, and parent-child rendering follow the ROM. | Level `$36` Lion/projectile pixels exact at all six checkpoints; 75/75 enemy-frontier frames match. See archive #493. |
 | 490 | [x] | P2 | enemy/render | Multi-head callback scheduling is keyed per head; Shishkaboss skewer workers use typed presentation state and source mappings. | Level `$10` state checkpoints pass; residue 3,759 -> 3,176 pixels; full gates green. See archive #490. |
 | 488 | [x] | P2 | verify/render | The `loc_B42` SAT terminator regression constructs the raw-zero VDP entry it claims to test; the workspace failure baseline is empty. | Focused test and all 147 wildside-md tests green; workspace ratchet 1 -> 0. See archive #488. |

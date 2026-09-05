@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Level 0x55 transform palette precedence)
+
+- Oracle frame 60 CRAM and Sprite Table dumps show the Micromax transform
+  descriptor already presenting its `sub_8106` palette while the damage
+  countdown is suspended at four ticks. Native incorrectly whitened that
+  freshly written transform palette from the stale damage phase.
+- Transform rendering now treats `Kid_Transform loc_7D44/loc_7D5A` palette
+  writes as authoritative. Focused report `1788630958` reduces Level 0x55
+  settle residue 2,212→1,781 pixels, equal to its independent idle-tail debt.
+- Whole-game frame report `1788631177` passes 69/69 and reduces comparable
+  residue 39,401→38,971 with only Level 0x55 changed. The refreshed bundle's
+  newly observed `level-layout/55.json` request is in the web runtime catalogue.
+  Its 125-level boot contract, `verify-slice-fast`, and `verify-tas-full` pass.
+
 ## 2026-09-05 handoff (Level 0x33 exact HUD and shared boss palette)
 
 - Oracle frame 359 watches pin the HUD Diamond to countdown 4, script page 0,
