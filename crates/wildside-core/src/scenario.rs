@@ -465,6 +465,7 @@ impl NativeRuntime {
             // already matches the oracle allocation frames. Reconcile only
             // that foreign-helper presentation boundary.
             self.rewind_heady_metal_recording_handoff_gfx_passes_loc_142e(2);
+            self.seed_heady_recording_handoff_hud_diamond_loc_45ee();
         }
         // ASM loc_1AE2E -> Mode_Level -> Execute_Objects loc_E12: preserve
         // the first visible sample of any boss arrow which crossed the
@@ -1678,9 +1679,31 @@ mod tests {
         runtime.boot_to_level_for_recording_oracle(LevelId(0x33));
         runtime.settle_recording_oracle_warp_live_window(LevelId(0x33));
 
+        assert_eq!(
+            (
+                runtime.hud_animation_state.diamond_countdown_fb58,
+                runtime.hud_animation_state.diamond_frame_offset_fb5d,
+                runtime
+                    .gameplay_hud_vram_state
+                    .diamond_frame_table_byte_offset_loc_5d4a(),
+            ),
+            (4, 0, 0),
+            "ASM sub_44DC loc_45EE and oracle `$FA58/$FA5D` watches pin the Level 0x33 recording hand-off seed"
+        );
+
         for _ in 0..360 {
             runtime.step_frame(FrameInput::default());
         }
+
+        let frame = runtime.trace_frame();
+        assert_eq!(
+            (
+                frame.hud_diamond_frame_offset,
+                frame.hud_diamond_vram_page_loc_5d4a,
+            ),
+            (Some(0), Some(0)),
+            "oracle frame 359 has `$FA5D=0` and no `$DD40` write, so page 0 is fully resident"
+        );
 
         let platform = runtime
             .active_platforms

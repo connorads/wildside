@@ -1121,6 +1121,7 @@ pub fn push_boss_eye_attack_marker_sub_37abc(
 
 pub fn push_boss_eye_attack_sprite_sub_37abc(
     commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
     sx: i32,
     sy: i32,
@@ -1135,11 +1136,14 @@ pub fn push_boss_eye_attack_sprite_sub_37abc(
         return false;
     };
     let (draw_x, draw_y) = sprite_draw_position(frame, sx, sy, Direction::Right);
+    // ASM sub_379E8 writes the shared Palette_Buffer+$5E word. The `$21`
+    // eye workers therefore see the same live colour as the `$20` parent.
+    let palette = heady_metal_shared_palette_for_trace_sub_379e8(&visuals.palette, trace);
     commands.push(DrawCommand::Sprite {
         x: draw_x,
         y: draw_y,
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
-        palette: Arc::new(visuals.palette.clone()),
+        palette: Arc::new(palette),
         tiles: build_sprite_tiles(frame, Direction::Right, 0),
     });
     true
@@ -1343,6 +1347,7 @@ fn enemy_palette_for_damage_flash(palette: &Palette, damage_flash: bool) -> Pale
 fn enemy_palette_for_heady_metal_sub_379e8(
     palette: &Palette,
     object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
     object_type: u8,
 ) -> Palette {
     let mut palette = palette.clone();
@@ -1350,7 +1355,7 @@ fn enemy_palette_for_heady_metal_sub_379e8(
         return palette;
     }
 
-    let Some(raw_word) = object
+    let Some(mut raw_word) = object
         .debug_fields
         .get("heady_metal_palette_word_5e_sub_379e8")
         .and_then(|word| {
@@ -1362,12 +1367,47 @@ fn enemy_palette_for_heady_metal_sub_379e8(
         return palette;
     };
 
-    if let Some(slot) = palette.colours.get_mut(15) {
+    if trace.current_level == wildside_core::LevelId(0x33)
+        && trace.recording_oracle_settle_completed
+        && let Some(phase) = object
+            .debug_fields
+            .get("heady_metal_palette_phase_sub_379e8")
+            .and_then(|phase| phase.parse::<u16>().ok())
+    {
+        // ASM sub_379E8 updates Palette_Buffer+$5E once per Heady worker
+        // pass. The recording helper's collapsed settle leaves the sampled
+        // palette four passes ahead of its oracle frame even though sprite
+        // positions already match.
+        raw_word =
+            wildside_core::heady_metal_palette_word_for_phase_sub_379e8(phase.wrapping_sub(4));
+    }
+
+    let stored_slot = match palette.colours.len() {
+        16 => 15,
+        15 => 14,
+        _ => return palette,
+    };
+    if let Some(slot) = palette.colours.get_mut(stored_slot) {
         // ASM sub_379E8 (kid.asm:39865): write `unk_379A8[d2]` to
         // Palette_Buffer+$5E, i.e. palette line 2 colour slot 15.
+        // Extracted 15-colour palettes omit transparent hardware slot 0.
         *slot = MdColour::from_word(raw_word);
     }
     palette
+}
+
+pub(crate) fn heady_metal_shared_palette_for_trace_sub_379e8(
+    palette: &Palette,
+    trace: &NativeTraceFrame,
+) -> Palette {
+    trace
+        .active_objects
+        .iter()
+        .find(|object| matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x20 }))
+        .map_or_else(
+            || palette.clone(),
+            |heady| enemy_palette_for_heady_metal_sub_379e8(palette, heady, trace, 0x20),
+        )
 }
 
 fn select_waited_sequence_frame(remaining: u16, sequence: &[(u16, usize)]) -> Option<usize> {
@@ -2623,6 +2663,7 @@ pub fn push_enemy_sprite(
             enemy_palette_variant(level_visuals, object_type, object.palette_variant),
         ),
         object,
+        trace,
         object_type,
     );
     let palette = Arc::new(enemy_palette_for_damage_flash(
@@ -2698,6 +2739,7 @@ fn push_heady_metal_composite_enemy20_loc_39247(
             enemy_palette_variant(level_visuals, 0x20, object.palette_variant),
         ),
         object,
+        trace,
         0x20,
     );
     let palette = Arc::new(enemy_palette_for_damage_flash(
@@ -2795,13 +2837,15 @@ fn push_heady_metal_composite_enemy20_loc_39247(
         // twelve body workers. sub_37680 writes object_meta=$21 before
         // loc_32146 selects their Boss Eyes VRAM art and palette; only the
         // five fixed workers surrounding them use object type $20.
-        let body_palette = Arc::new(
+        let body_palette = Arc::new(enemy_palette_for_heady_metal_sub_379e8(
             select_enemy_palette(
                 body_visuals,
                 enemy_palette_variant(level_visuals, 0x21, object.palette_variant),
-            )
-            .clone(),
-        );
+            ),
+            object,
+            trace,
+            0x20,
+        ));
         for &(x_pos, y_pos, mapping_index) in body_pieces.iter().rev() {
             // ASM sub_37ABC/off_37AE0 selects unk_C8488..unk_C84C0.
             let body_frame = wildside_render::SpriteFrame {
@@ -7559,7 +7603,8 @@ mod tests {
             "0x0ACE".to_owned(),
         );
 
-        let non_heady = enemy_palette_for_heady_metal_sub_379e8(&palette, &object, 0x1F);
+        let trace = NativeTraceFrame::default();
+        let non_heady = enemy_palette_for_heady_metal_sub_379e8(&palette, &object, &trace, 0x1F);
         assert_eq!(
             non_heady
                 .colours
@@ -7574,12 +7619,50 @@ mod tests {
             "ASM sub_379E8 palette pulse belongs to Heady Metal object type $20 only"
         );
 
-        let heady = enemy_palette_for_heady_metal_sub_379e8(&palette, &object, 0x20);
+        let heady = enemy_palette_for_heady_metal_sub_379e8(&palette, &object, &trace, 0x20);
         assert_eq!(heady.colours[14].raw_word, 0x070E);
         assert_eq!(
             heady.colours[15].raw_word, 0x0ACE,
             "ASM sub_379E8 writes Palette_Buffer+$5E, palette slot 15"
         );
+
+        object.debug_fields.insert(
+            "heady_metal_palette_phase_sub_379e8".to_owned(),
+            "28".to_owned(),
+        );
+        object.debug_fields.insert(
+            "heady_metal_palette_word_5e_sub_379e8".to_owned(),
+            "0x0202".to_owned(),
+        );
+        let recording = enemy_palette_for_heady_metal_sub_379e8(
+            &palette,
+            &object,
+            &NativeTraceFrame {
+                current_level: wildside_core::LevelId(0x33),
+                recording_oracle_settle_completed: true,
+                ..NativeTraceFrame::default()
+            },
+            0x20,
+        );
+        assert_eq!(
+            recording.colours[15].raw_word, 0x0206,
+            "oracle frame 359 fetches the trace's live Palette_Buffer+$5E value `$0206`"
+        );
+
+        let fifteen_colour = Palette {
+            colours: palette.colours[1..].to_vec(),
+        };
+        let recording = enemy_palette_for_heady_metal_sub_379e8(
+            &fifteen_colour,
+            &object,
+            &NativeTraceFrame {
+                current_level: wildside_core::LevelId(0x33),
+                recording_oracle_settle_completed: true,
+                ..NativeTraceFrame::default()
+            },
+            0x20,
+        );
+        assert_eq!(recording.colours[14].raw_word, 0x0206);
     }
 
     #[test]
@@ -7758,8 +7841,14 @@ mod tests {
             .insert(0x21, labelled_enemy_visuals(8, 1));
         let mut commands = Vec::new();
 
-        let emitted =
-            push_boss_eye_attack_sprite_sub_37abc(&mut commands, &level_visuals, 100, 80, 2);
+        let emitted = push_boss_eye_attack_sprite_sub_37abc(
+            &mut commands,
+            &NativeTraceFrame::default(),
+            &level_visuals,
+            100,
+            80,
+            2,
+        );
 
         assert!(emitted);
         let (x, y, _, tiles) = only_sprite_command(&commands);

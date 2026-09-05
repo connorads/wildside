@@ -62,7 +62,8 @@ pub use boot::{
     prize_10000_points_star_step_loc_10B74,
 };
 pub use combat::{
-    HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266, heady_metal_piece_sprite_index_sub_37A22,
+    HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266,
+    heady_metal_palette_word_for_phase_sub_379e8, heady_metal_piece_sprite_index_sub_37A22,
     speed_bonus_threshold_loc_d660, time_bonus_loc_d56e,
 };
 pub use enemies::layout_object_family_name;
@@ -1485,6 +1486,18 @@ impl NativeRuntime {
                 );
             }
         }
+    }
+
+    fn seed_heady_recording_handoff_hud_diamond_loc_45ee(&mut self) {
+        // ASM sub_44DC loc_45EE/loc_460A drives `$FFFFFA58/$FFFFFA5D`
+        // through six-tick pages 0,4,8,12. The Level 0x33 recording helper's
+        // first oracle sample is the wrapped page-0 state with four ticks
+        // remaining before frame 0. This foreign helper boundary is one page
+        // and three ticks ahead of the collapsed native settle; normal level
+        // entry and gameplay continue through step_hud_animation_sub_44DC.
+        self.hud_animation_state.diamond_countdown_fb58 = 4;
+        self.hud_animation_state.diamond_frame_offset_fb5d = 0;
+        self.gameplay_hud_vram_state.record_diamond_dma_sub_5d4a(0);
     }
 
     pub(crate) fn queue_start_sequence(&mut self, effect: QueuedSoundEffect) {

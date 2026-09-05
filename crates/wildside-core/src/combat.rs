@@ -7476,6 +7476,10 @@ pub(crate) fn heady_metal_palette_cycle_sub_379E8(
     }
 }
 
+pub fn heady_metal_palette_word_for_phase_sub_379e8(phase_counter: u16) -> u16 {
+    HEADY_METAL_PALETTE_WAVE_SUB_379E8[usize::from(phase_counter & 0x001F)]
+}
+
 const HEADY_METAL_PIECE_SPRITES_OFF_37AE0: [&str; 8] = [
     "LnkTo_unk_C8488-Data_Index",
     "LnkTo_unk_C8490-Data_Index",

@@ -542,14 +542,19 @@ fn hud_diamond_palette_loc_1223c(
     if palette.colours.len() < 10 {
         return palette;
     }
-    if trace
-        .lava_water_palette_words_loc_1223c
-        .is_some_and(|words| words.iter().any(|word| *word != 0))
+    let heady_recording_handoff =
+        trace.current_level == LevelId(0x33) && trace.recording_oracle_settle_completed;
+    if !heady_recording_handoff
+        && trace
+            .lava_water_palette_words_loc_1223c
+            .is_some_and(|words| words.iter().any(|word| *word != 0))
     {
         return palette;
     }
-    let Some((_, _, completed_rotations)) = trace.rotate_palette_lava_water_state_loc_1223c else {
-        return palette;
+    let completed_rotations = match trace.rotate_palette_lava_water_state_loc_1223c {
+        Some((_, _, completed_rotations)) => completed_rotations,
+        None if heady_recording_handoff => 0,
+        None => return palette,
     };
     // ASM Rotate_Palette_Lava_Water loc_1223C rotates foreground palette
     // entries 6..9 in hardware. When the level has no lava/water override
@@ -558,6 +563,9 @@ fn hud_diamond_palette_loc_1223c(
     // The four-slot palette window wraps naturally as the loop rotates it.
     // Keeping the full count avoids an equivalent `%` mutation: `n + 4`
     // produces the same visible palette as `n`.
+    // Level 0x33's live override words ordinarily suppress reconstruction,
+    // but its recording oracle sprite fetch proves the HUD still sees this
+    // rotation at the hand-off.
     let rotations = 3 * (usize::from(completed_rotations) + 1);
     for _ in 0..rotations {
         let saved = palette.colours[6];
@@ -1576,6 +1584,22 @@ mod tests {
             .map(|colour| colour.raw_word)
             .collect();
         assert_eq!(second_rotation_words, vec![8, 9, 6, 7]);
+
+        let heady_recording = hud_diamond_palette_loc_1223c(
+            &NativeTraceFrame {
+                current_level: LevelId(0x33),
+                recording_oracle_settle_completed: true,
+                rotate_palette_lava_water_state_loc_1223c: Some((4, 8, 60)),
+                lava_water_palette_words_loc_1223c: Some([1, 2, 3, 4]),
+                ..NativeTraceFrame::default()
+            },
+            &ten_colour_visuals,
+        );
+        let heady_recording_words: Vec<u16> = heady_recording.colours[6..10]
+            .iter()
+            .map(|colour| colour.raw_word)
+            .collect();
+        assert_eq!(heady_recording_words, vec![9, 6, 7, 8]);
     }
 
     #[test]

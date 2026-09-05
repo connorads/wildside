@@ -7468,6 +7468,7 @@ fn build_game_scene_filtered(
             let mapping_index = boss_eye_object_mapping_index_loc_37abc(object).unwrap_or_default();
             if !sprites::push_boss_eye_attack_sprite_sub_37abc(
                 &mut commands,
+                trace,
                 level_visuals,
                 sx,
                 sy,
@@ -8184,11 +8185,15 @@ fn build_game_scene_filtered(
                                 projectile.boss_death_burst_sprite_frame,
                             )?;
                             let (draw_x, draw_y) = sprite_draw_position(&frame, sx, sy, facing);
+                            let palette = sprites::heady_metal_shared_palette_for_trace_sub_379e8(
+                                &heady_metal_visuals.palette,
+                                trace,
+                            );
                             commands.push(DrawCommand::Sprite {
                                 x: draw_x,
                                 y: draw_y,
                                 tile_sheet: Arc::new(frame.tile_sheet.clone()),
-                                palette: Arc::new(heady_metal_visuals.palette.clone()),
+                                palette: Arc::new(palette),
                                 tiles: build_sprite_tiles(&frame, facing, 0),
                             });
                             Some(())
@@ -8323,6 +8328,7 @@ fn build_game_scene_filtered(
                 ActiveProjectileKind::BossEyeAttack | ActiveProjectileKind::BossEyeSatellite => {
                     if !sprites::push_boss_eye_attack_sprite_sub_37abc(
                         &mut commands,
+                        trace,
                         level_visuals,
                         sx,
                         sy,

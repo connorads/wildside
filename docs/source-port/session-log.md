@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Level 0x33 exact HUD and shared boss palette)
+
+- Oracle frame 359 watches pin the HUD Diamond to countdown 4, script page 0,
+  with no `$DD40` upload; the recording adapter now seeds that foreign-helper
+  boundary and the renderer preserves the `loc_1223C` rotation hidden by
+  Plethora's live palette words.
+- `sub_379E8` writes global `Palette_Buffer+$5E`, not a boss-local colour.
+  Native's collapsed recording trace is four passes ahead, and extracted
+  15-colour enemy palettes store hardware slot 15 at vector index 14. The
+  corrected word now reaches Heady, body eyes, satellites, and death bursts.
+- Focused report `1788627909` is exact at both checkpoints. Whole-game report
+  `1788628196` passes 69/69 and reduces comparable residue 39,503→39,401.
+  `verify-slice-fast` and `verify-tas-full` pass; published TAS remains at its
+  ratcheted 37,518 exact / 241 divergent / 2,391 changed-pixel baseline.
+
 ## 2026-09-05 handoff (Level 0x33 scripted-platform phase and palette)
 
 - Pixel crops showed native's scripted platform at Y=145 and oracle at Y=148.
