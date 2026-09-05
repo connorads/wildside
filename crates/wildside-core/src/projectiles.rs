@@ -4754,12 +4754,13 @@ impl NativeRuntime {
                     if let Some(contact) =
                         lion_projectile_terrain_contact_loc_3e260(g, &collision_projectile)
                     {
-                        p.x_pos = (contact.snapped_x_px as u32) << 16;
-                        p.y_pos = (contact.snapped_y_px as u32) << 16;
                         let h_blocked =
                             matches!(contact.collision_type, 0x0004 | 0x0008 | 0x0014 | 0x0018);
                         let v_blocked =
                             matches!(contact.collision_type, 0x000C | 0x0010 | 0x0014 | 0x0018);
+                        (p.x_pos, p.y_pos) = lion_projectile_apply_axis_snap_loc_3e260(
+                            p.x_pos, p.y_pos, contact, h_blocked, v_blocked,
+                        );
                         let (x_velocity, y_velocity) =
                             lion_projectile_bounce_velocity_dispatch_loc_3e266(
                                 h_blocked,
@@ -5418,6 +5419,30 @@ struct LionProjectileTerrainContactLoc3E260 {
     collision_type: u16,
     snapped_x_px: i32,
     snapped_y_px: i32,
+}
+
+fn lion_projectile_apply_axis_snap_loc_3e260(
+    x_pos: u32,
+    y_pos: u32,
+    contact: LionProjectileTerrainContactLoc3E260,
+    h_blocked: bool,
+    v_blocked: bool,
+) -> (u32, u32) {
+    // ASM GfxObjects_Collision loc_19BA/loc_1A00 snaps X for a wall and
+    // loc_1A44/loc_1AA2 snaps Y for a floor or ceiling. The perpendicular
+    // subpixel accumulator survives; clearing both axes makes a wall bounce
+    // drift vertically from the ROM.
+    let x_pos = if h_blocked {
+        (contact.snapped_x_px as u32) << 16
+    } else {
+        x_pos
+    };
+    let y_pos = if v_blocked {
+        (contact.snapped_y_px as u32) << 16
+    } else {
+        y_pos
+    };
+    (x_pos, y_pos)
 }
 
 fn lion_projectile_terrain_cell_blocks_loc_1792(cell: terrain::Cell) -> bool {
@@ -6673,6 +6698,17 @@ mod loc_3e266_tests {
         assert_eq!(
             contact.snapped_x_px, 357,
             "ASM loc_1A00 snaps x to tile_left - left_offset + 16: 336 - (-5) + 16"
+        );
+        assert_eq!(
+            super::lion_projectile_apply_axis_snap_loc_3e260(
+                projectile.x_pos,
+                0x02AA_C000,
+                contact,
+                true,
+                false,
+            ),
+            (357 << 16, 0x02AA_C000),
+            "ASM loc_1A00 wall correction must preserve the perpendicular Y subpixel accumulator"
         );
     }
 

@@ -1218,15 +1218,14 @@ pub(crate) const LION_CHARGE_PROBE_HEIGHT: i32 = 0x2F;
 /// Lion post-projectile cooldown: $B4 (180 frames) before next charge after
 /// firing a projectile (Lion.asm loc_3E096).
 pub(crate) const LION_COOLDOWN_AFTER_FIRE: u16 = 180;
-/// Lion.asm `stru_3DF0E`: seven 6-tick roar frames before `loc_3E09E`
-/// sees `LnkTo_unk_C7E78` and allocates the projectile.
-pub(crate) const LION_ROAR_FIRE_DELAY: u16 = 7 * 6;
+/// Lion.asm `stru_3DF0E`: seven 6-tick lead frames plus the collapsed
+/// scheduler's three-pass hand-off before `loc_3E09E` allocates the child.
+pub(crate) const LION_ROAR_FIRE_DELAY: u16 = 7 * 6 + 3;
 /// Lion.asm `loc_3E0F4` waits until `$18(a3)` is set after the projectile
 /// frame, then restores `$62(a5)` and resumes `loc_3E11E`. The raw
-/// `stru_3DF0E` tail is 3 + $19 ticks, but the animation engine's callback
-/// timing makes the effective post-fire wait 17 frames in the Level 0x07
-/// oracle trace.
-pub(crate) const LION_POST_FIRE_RESUME_DELAY: u16 = 17;
+/// `stru_3DF0E` tail is 3 + $19 ticks. Native creates the child at the end of
+/// the three-tick fire mapping, so the remaining collapsed wait is 26 frames.
+pub(crate) const LION_POST_FIRE_RESUME_DELAY: u16 = 26;
 
 /// Lion charge overshoot distance for termination: $70 (112px).
 /// ASM does not use a fixed duration — charge ends when Lion overshoots
@@ -1322,25 +1321,35 @@ fn step_lion_walking_tracking_loc_3e03c(enemy: &mut ActiveEnemy, player_x_pos: O
     }
 }
 
-fn lion_live_walk_animation_cycle_loc_3dfd8(hit_points: u8) -> u8 {
-    // ASM Lion.asm loc_3DFD8 selects `stru_3DEDA` for every HP value except
-    // exactly 8; HP 8 selects `stru_3DEF4`. The byte counts below are the
-    // summed `anim_frame` durations from ingame/anim/enemy/Lion.asm.
-    if hit_points == 8 { 27 } else { 38 }
-}
+const LION_FAST_WALK_LEAD_FRAMES_STRU_3DEF4: u8 = 27;
+const LION_REGULAR_WALK_CYCLE_FRAMES_STRU_3DEDA: u8 = 38;
 
 fn reset_lion_live_walk_animation_loc_3dff0(enemy: &mut ActiveEnemy) {
     // ASM Init_Animation (kid.asm sub_1040) installs the first sprite and
     // starts the script timer from the beginning. Native object snapshots are
-    // post-update while Mode_Level loc_901 presents the previous sprite table;
-    // the visible resumed charge body in issue #289 matches phase 29 of the
-    // restored `stru_3DEDA` duration cursor.
-    enemy.dragon_script_cmd = 29 % lion_live_walk_animation_cycle_loc_3dfd8(enemy.hit_points);
+    // post-update while Mode_Level loc_901 presents the previous sprite table.
+    // HP 8 restarts its saved `stru_3DEF4`. The Level 0x07 HP-6 calibration in
+    // issue #289 exposes phase 29 after loc_3E0F4's same-pass loc_3E11E step,
+    // so seed the preceding phase here.
+    enemy.dragon_script_cmd = if enemy.hit_points == 8 { 0 } else { 28 };
 }
 
 fn advance_lion_live_walk_animation_loc_3dfd8(enemy: &mut ActiveEnemy) {
-    let cycle = lion_live_walk_animation_cycle_loc_3dfd8(enemy.hit_points);
-    enemy.dragon_script_cmd = enemy.dragon_script_cmd.wrapping_add(1) % cycle;
+    if enemy.hit_points == 8 {
+        // ASM ingame/anim/enemy/Lion.asm stru_3DEF4 ends with mode 2 and
+        // rewind `$33`. From sub_11AC's current pointer that lands in
+        // stru_3DEDA, not at the start of stru_3DEF4. Preserve the one fast
+        // 27-tick lead, then loop only the regular 38-tick script.
+        let regular_end =
+            LION_FAST_WALK_LEAD_FRAMES_STRU_3DEF4 + LION_REGULAR_WALK_CYCLE_FRAMES_STRU_3DEDA;
+        enemy.dragon_script_cmd = match enemy.dragon_script_cmd.wrapping_add(1) {
+            next if next < regular_end => next,
+            _ => LION_FAST_WALK_LEAD_FRAMES_STRU_3DEF4,
+        };
+    } else {
+        enemy.dragon_script_cmd =
+            enemy.dragon_script_cmd.wrapping_add(1) % LION_REGULAR_WALK_CYCLE_FRAMES_STRU_3DEDA;
+    }
 }
 
 /// Step a Lion enemy: paces normally, then charges toward player and fires a
@@ -1354,8 +1363,10 @@ pub(crate) fn step_lion(
 ) {
     match enemy.lion_state {
         LionState::Walking => {
-            // Pace like normal
-            step_pacer(enemy, block_grid, None);
+            // ASM Lion.asm loc_3E03C updates tracking/facing before falling
+            // through loc_3E078. Only the non-expiring timer path reaches
+            // loc_3E11E's direction-specific terrain scan; the roar path
+            // installs stru_3DF0E without taking another walk step.
             step_lion_walking_tracking_loc_3e03c(enemy, player_x_pos);
 
             // Count down charge timer. ASM Lion.asm loc_3E03C only resolves
@@ -1363,6 +1374,7 @@ pub(crate) fn step_lion(
             // always ticks and the charge fires unconditionally on expiry.
             if enemy.wait_timer > 0 {
                 enemy.wait_timer -= 1;
+                step_pacer(enemy, block_grid, None);
                 advance_lion_live_walk_animation_loc_3dfd8(enemy);
                 return;
             }
@@ -1371,6 +1383,7 @@ pub(crate) fn step_lion(
             // count in $5B(a5) suppresses the next roar/fire cycle.
             if lion_active_projectile_count(enemy) > 0 {
                 enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
+                step_pacer(enemy, block_grid, None);
                 advance_lion_live_walk_animation_loc_3dfd8(enemy);
                 return;
             }
@@ -1432,6 +1445,11 @@ pub(crate) fn step_lion(
                     debug_assert_eq!(animation_script, "saved_lion_charge_animation");
                     reset_lion_live_walk_animation_loc_3dff0(enemy);
                     enemy.lion_state = LionState::ResumingCharge;
+                    // ASM Lion.asm loc_3E0F4 falls through to loc_3E11E in
+                    // this object pass after Init_Animation; do not insert a
+                    // native-only hibernated frame between restore and scan.
+                    step_lion_charge_movement_loc_3e11e(enemy, block_grid, player_x_pos);
+                    advance_lion_live_walk_animation_loc_3dfd8(enemy);
                 }
                 LionPostFireWaitDispatch::Damage
                 | LionPostFireWaitDispatch::ContinueWaiting { .. } => {
@@ -2239,6 +2257,33 @@ mod tests {
     }
 
     #[test]
+    fn lion_roar_phase_export_matches_stru_3df0e_mappings() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Lion;
+        enemy.lion_state = LionState::Roaring;
+        enemy.wait_timer = 3;
+        assert_eq!(
+            enemy.snapshot().sprite_animation_phase,
+            Some(14),
+            "ASM Lion.asm stru_3DF0E should retain C7E70 through the collapsed pre-fire hand-off"
+        );
+
+        enemy.lion_state = LionState::PostFire;
+        enemy.wait_timer = 26;
+        assert_eq!(
+            enemy.snapshot().sprite_animation_phase,
+            Some(15),
+            "ASM Lion.asm loc_3E09E should expose C7E78 while allocating the projectile"
+        );
+        enemy.wait_timer = 23;
+        assert_eq!(
+            enemy.snapshot().sprite_animation_phase,
+            Some(16),
+            "ASM Lion.asm loc_3E0F4 should hold C7E80 until animation completion"
+        );
+    }
+
+    #[test]
     fn lion_charge_direction_dispatch_matches_loc_3e11e() {
         assert_eq!(
             lion_charge_direction_dispatch_loc_3e11e(Direction::Left),
@@ -2286,8 +2331,12 @@ mod tests {
     #[test]
     fn lion_roar_fire_delay_matches_stru_3df0e_fire_sprite_loc_3e09e() {
         assert_eq!(
-            LION_ROAR_FIRE_DELAY, 42,
-            "ASM ingame/anim/enemy/Lion.asm stru_3DF0E has seven 6-tick frames before Lion.asm loc_3E09E sees LnkTo_unk_C7E78"
+            LION_ROAR_FIRE_DELAY, 45,
+            "ASM ingame/anim/enemy/Lion.asm stru_3DF0E reaches LnkTo_unk_C7E78 after the seven 6-tick lead entries and the native collapsed scheduler's three-pass handoff"
+        );
+        assert_eq!(
+            LION_POST_FIRE_RESUME_DELAY, 26,
+            "ASM Lion.asm loc_3E0F4 observes stru_3DF0E's 3 + $19 tick tail before restoring the live script"
         );
     }
 
@@ -2427,7 +2476,7 @@ mod tests {
     }
 
     #[test]
-    fn lion_live_walk_animation_wraps_hp_specific_cycles_loc_3dfd8() {
+    fn lion_hp8_walk_script_rewinds_from_stru_3def4_into_stru_3deda() {
         let mut fast_lion = ActiveEnemy {
             family: EnemyFamily::Lion,
             hit_points: 8,
@@ -2436,8 +2485,15 @@ mod tests {
         };
         advance_lion_live_walk_animation_loc_3dfd8(&mut fast_lion);
         assert_eq!(
-            fast_lion.dragon_script_cmd, 0,
-            "ASM ingame/anim/enemy/Lion.asm stru_3DEF4 sums to 27 ticks for HP 8"
+            fast_lion.dragon_script_cmd, 27,
+            "ASM ingame/anim/enemy/Lion.asm stru_3DEF4 `$33` rewind enters stru_3DEDA after its 27-tick fast lead"
+        );
+
+        fast_lion.dragon_script_cmd = 64;
+        advance_lion_live_walk_animation_loc_3dfd8(&mut fast_lion);
+        assert_eq!(
+            fast_lion.dragon_script_cmd, 27,
+            "ASM GfxObject_Animate sub_11AC should loop the 38-tick stru_3DEDA tail without returning to stru_3DEF4"
         );
 
         let mut regular_lion = ActiveEnemy {
@@ -2450,6 +2506,23 @@ mod tests {
         assert_eq!(
             regular_lion.dragon_script_cmd, 0,
             "ASM ingame/anim/enemy/Lion.asm stru_3DEDA sums to 38 ticks for non-8 HP"
+        );
+    }
+
+    #[test]
+    fn lion_hp8_resume_restarts_stru_3def4_at_first_mapping_loc_3e0f4() {
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            hit_points: 8,
+            dragon_script_cmd: 19,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        reset_lion_live_walk_animation_loc_3dff0(&mut lion);
+
+        assert_eq!(
+            lion.dragon_script_cmd, 0,
+            "ASM Lion.asm loc_3E0F4 calls Init_Animation on saved HP-8 stru_3DEF4, selecting C7E88 first"
         );
     }
 

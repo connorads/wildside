@@ -11,6 +11,35 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #493
+
+Closed [x] 2026-09-05. Oracle Object RAM frames 0..359 and Lion.asm
+`loc_3E078`, `loc_3E09E`, `loc_3E0F4`, `loc_3E11E`, `loc_3E12A`, and
+`loc_3E260` established the complete schedule. `stru_3DF0E` holds its seventh
+lead mapping for the collapsed scheduler's three-pass hand-off, exposes C7E78
+for three frames, then C7E80 for 25 frames. Native now allocates the projectile
+on oracle frame 4 and restores the live script through the same-pass
+`loc_3E11E` fall-through on frame 31. Enemy-frontier `tas-diff` reports 75/75
+matching frames through that boundary.
+
+The investigation also found that HP-8 `stru_3DEF4` is not a permanent fast
+loop: its mode-2 `$33` rewind lands in `stru_3DEDA`, producing one 27-tick fast
+lead followed by the regular 38-tick loop. Native represents that topology as
+a typed phase instead of a generic animation interpreter. A constants-only
+timing patch was rejected because it left the parent mappings and collision
+subpixels wrong; a global GfxObject animation VM was rejected because the
+verified Lion transition needs only this explicit state and would broaden the
+change without evidence.
+
+Projectile rendering now uses the level-selected Lion palette, keeps the clear
+`x_direction` bit across velocity reversals, and emits the child behind its
+parent in native painter order. Horizontal wall snaps preserve the perpendicular
+Y subpixel accumulator, matching `GfxObjects_Collision loc_19BA/loc_1A00`.
+Focused Level `$36` sweep `1788594381` passes: Lion and projectile pixels are
+exact at frames 0, 30, 60, 120, 300, and 359. The remaining 84/92 changed pixels
+are the independent HUD timing witness. Focused core/frame regressions and the
+full gates are green.
+
 ### #492
 
 Closed [x] 2026-09-05. Fresh all-level frame sweep `1788585146` selected Level
@@ -24357,6 +24386,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 493 | [x] | P1 | enemy/render | Lion fire/restore timing, HP-8 animation topology, projectile collision subpixels, and parent-child rendering follow the ROM. | Level `$36` Lion/projectile pixels exact at all six checkpoints; 75/75 enemy-frontier frames match. See archive #493. |
 | 490 | [x] | P2 | enemy/render | Multi-head callback scheduling is keyed per head; Shishkaboss skewer workers use typed presentation state and source mappings. | Level `$10` state checkpoints pass; residue 3,759 -> 3,176 pixels; full gates green. See archive #490. |
 | 488 | [x] | P2 | verify/render | The `loc_B42` SAT terminator regression constructs the raw-zero VDP entry it claims to test; the workspace failure baseline is empty. | Focused test and all 147 wildside-md tests green; workspace ratchet 1 -> 0. See archive #488. |
 | 489 | [x] | P2 | render/enemy | Shishkaboss eyes use source-backed `$21` mappings and multi-head coordinates wrap across zero like the ROM. | Level `$10` frames pass; residue 3,978 -> 3,759 pixels; full gates green. See archive #489. |

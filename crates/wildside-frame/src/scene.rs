@@ -1358,23 +1358,27 @@ fn push_lion_projectile_sprite_loc_3e12a(
     };
     // ASM Lion.asm loc_3E12A sets hardware `palette_line(a3)=2` before
     // initialising `stru_3DF34`: C7E20, C7E28, C7E30 for six frames each.
-    // Native stores Lion's packed enemy palette as local slots, so use line 0
-    // when indexing the extracted palette colours.
-    let frame_index = 9 + usize::from(projectile.animation_elapsed_frames / 6) % 3;
+    // Native stores the selected Lion descriptor as a local 16-slot palette,
+    // so use tile palette line 0 after resolving the level layout's variant.
+    // The core increments the exported clock in the first live worker pass;
+    // GfxObject_Animate still displays C7E20 for six frames starting at age 1.
+    let animation_age = projectile.animation_elapsed_frames.saturating_sub(1);
+    let frame_index = 9 + usize::from(animation_age / 6) % 3;
     let Some(frame) = lion_visuals.frames.get(frame_index) else {
         return false;
     };
-    let facing = if projectile.x_velocity < 0 {
-        Direction::Left
-    } else {
-        Direction::Right
-    };
+    // ASM Lion.asm loc_3E12A leaves the new GfxObject's x_direction clear,
+    // and loc_3E260 only negates velocity on a bounce. The projectile sprite
+    // therefore remains unflipped even while travelling left.
+    let facing = Direction::Right;
     let (draw_x, draw_y) = sprite_draw_position(frame, sx, sy, facing);
+    let palette_variant =
+        sprites::enemy_palette_variant(level_visuals, LION_OBJECT_TYPE, projectile.palette_variant);
     commands.push(DrawCommand::Sprite {
         x: draw_x,
         y: draw_y,
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
-        palette: Arc::new(lion_visuals.palette.clone()),
+        palette: Arc::new(sprites::select_enemy_palette(lion_visuals, palette_variant).clone()),
         tiles: build_sprite_tiles(frame, facing, 0),
     });
     true
@@ -7526,6 +7530,32 @@ fn build_game_scene_filtered(
                 }
             }
         }
+        // ASM Lion.asm loc_3E12A allocates the child GfxObject after its
+        // parent. The parent's earlier SAT entry wins overlapping pixels;
+        // native paints back-to-front, so emit the child before the parent.
+        for projectile in trace
+            .active_projectile_details
+            .iter()
+            .filter(|projectile| projectile.kind == ActiveProjectileKind::LionProjectile)
+        {
+            let sx = (projectile.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+            let sy = (projectile.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
+            if !push_lion_projectile_sprite_loc_3e12a(
+                &mut commands,
+                level_visuals,
+                projectile,
+                sx,
+                sy,
+            ) {
+                commands.push(DrawCommand::Rect {
+                    x: sx - 3,
+                    y: sy - 3,
+                    width: 6,
+                    height: 6,
+                    colour: ENEMY_PROJECTILE_COLOUR,
+                });
+            }
+        }
         for object in trace
             .active_objects
             .iter()
@@ -7906,23 +7936,9 @@ fn build_game_scene_filtered(
                         });
                     }
                 }
-                ActiveProjectileKind::LionProjectile => {
-                    if !push_lion_projectile_sprite_loc_3e12a(
-                        &mut commands,
-                        level_visuals,
-                        &projectile,
-                        sx,
-                        sy,
-                    ) {
-                        commands.push(DrawCommand::Rect {
-                            x: sx - 3,
-                            y: sy - 3,
-                            width: 6,
-                            height: 6,
-                            colour: ENEMY_PROJECTILE_COLOUR,
-                        });
-                    }
-                }
+                // Lion children are emitted before their parent in the enemy
+                // pass above to preserve the ROM's overlapping SAT priority.
+                ActiveProjectileKind::LionProjectile => {}
                 ActiveProjectileKind::ManiaxeAxe => {
                     let pushed_sprite = level_visuals
                         .player
@@ -12004,10 +12020,19 @@ mod tests {
     #[test]
     fn lion_projectile_sprite_loc_3e12a_uses_stru_3df34_frames_and_facing() {
         let mut visuals = sample_level_visuals(1);
+        let mut lion_visuals = sample_lion_projectile_visuals();
+        lion_visuals.extra_palettes = vec![
+            sample_palette_with_first_word(0x0200),
+            sample_palette_with_first_word(0x0300),
+        ];
         visuals
             .enemies
             .families
-            .insert(LION_OBJECT_TYPE, sample_lion_projectile_visuals());
+            .insert(LION_OBJECT_TYPE, lion_visuals);
+        visuals
+            .enemies
+            .layout_palette_variants
+            .insert(LION_OBJECT_TYPE, 2);
 
         for (
             animation_elapsed_frames,
@@ -12020,11 +12045,11 @@ mod tests {
             label,
         ) in [
             (0, 1, 44, 48, 0x90, 0x000, false, "first right"),
-            (6, 1, 44, 48, 0x91, 0x004, false, "second right"),
-            (12, 1, 44, 49, 0x92, 0x008, false, "third right"),
-            (18, 1, 44, 48, 0x90, 0x000, false, "wrapped right"),
-            (6, -1, 40, 48, 0x91, 0x004, true, "second left"),
-            (6, 0, 44, 48, 0x91, 0x004, false, "zero velocity right"),
+            (7, 1, 44, 48, 0x91, 0x004, false, "second right"),
+            (13, 1, 44, 49, 0x92, 0x008, false, "third right"),
+            (19, 1, 44, 48, 0x90, 0x000, false, "wrapped right"),
+            (7, -1, 44, 48, 0x91, 0x004, false, "second moving left"),
+            (7, 0, 44, 48, 0x91, 0x004, false, "zero velocity right"),
         ] {
             let projectile = ActiveProjectileSnapshot {
                 animation_elapsed_frames,
@@ -12054,7 +12079,10 @@ mod tests {
                 "ASM Lion.asm loc_3E12A {label} projectile draw command"
             );
             let DrawCommand::Sprite {
-                tile_sheet, tiles, ..
+                tile_sheet,
+                palette,
+                tiles,
+                ..
             } = commands.single()
             else {
                 panic!("ASM Lion.asm loc_3E12A should emit a projectile sprite");
@@ -12067,6 +12095,10 @@ mod tests {
             assert_eq!(
                 tile_sheet.tiles[0].pixels[0], expected_pixel,
                 "ASM Lion.asm loc_3E12A {label} should select the expected `stru_3DF34` frame"
+            );
+            assert_eq!(
+                palette.colours[0].raw_word, 0x0300,
+                "ASM Load_EnemyArtPaletteToVRAM loc_36D16 should apply the Lion layout palette selector to its projectile child"
             );
         }
     }

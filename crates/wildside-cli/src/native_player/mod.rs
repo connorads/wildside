@@ -3070,7 +3070,7 @@ mod tests {
             y_velocity: 0,
             friendly: false,
             remaining_frames: 0,
-            animation_elapsed_frames: 6,
+            animation_elapsed_frames: 7,
             kind: ActiveProjectileKind::LionProjectile,
             palette_variant: 0,
             ufo_first_hurt_debris_flipped: false,

@@ -2868,7 +2868,24 @@ impl ActiveEnemy {
         } else {
             None
         };
-        let sprite_animation_phase = if matches!(self.family, EnemyFamily::Dragon) {
+        let sprite_animation_phase = if matches!(self.family, EnemyFamily::Lion)
+            && matches!(self.lion_state, LionState::Roaring | LionState::PostFire)
+        {
+            // ASM Lion.asm stru_3DF0E. Native's collapsed wait stores the
+            // post-step timer: seven six-tick lead entries, then the three-
+            // tick fire mapping and the 25-tick tail mapping.
+            let roar_mapping = match self.lion_state {
+                LionState::Roaring => {
+                    const LEAD: [u8; 7] = [0, 1, 2, 1, 0, 1, 2];
+                    let elapsed = 44_u16.saturating_sub(self.wait_timer.min(44));
+                    LEAD[usize::from((elapsed / 6).min(6))]
+                }
+                LionState::PostFire if self.wait_timer >= 24 => 3,
+                LionState::PostFire => 4,
+                _ => unreachable!(),
+            };
+            Some(12 + roar_mapping)
+        } else if matches!(self.family, EnemyFamily::Dragon) {
             dragon_flying_sprite_animation_phase(self)
         } else if matches!(self.family, EnemyFamily::Tank) && !self.death_animation_active {
             // ASM Tank.asm loc_3B372 initialises parent `stru_3B270` beside

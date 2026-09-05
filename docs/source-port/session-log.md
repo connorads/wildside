@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Lion fire and animation schedule)
+
+- Oracle Object RAM plus `stru_3DF0E` confirms the child appears on frame 4,
+  the post-fire tail ends on frame 31, and HP-8 `stru_3DEF4` rewinds into the
+  regular `stru_3DEDA` loop after one fast lead.
+- Native now preserves that typed schedule, axis-specific collision subpixels,
+  the projectile's fixed direction bit and selected palette, and the ROM's
+  parent-over-child SAT order.
+- Level `0x36` sweep `1788594381` leaves only the independent 84/92-pixel HUD
+  timing witness. Lion/projectile pixels are exact at every checkpoint and the
+  enemy frontier matches 75/75 frames. Continue with `mise run project-status`.
+
 ## 2026-09-05 handoff (Lion selector palette order)
 
 - `Load_EnemyArtPaletteToVRAM loc_36D16` indexes the Lion palette descriptors

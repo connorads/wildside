@@ -1750,26 +1750,54 @@ fn select_live_lion_frame<'a>(
         return None;
     }
 
+    if let Some(roar_frame @ 12..=16) = object.sprite_animation_phase {
+        // ASM Lion.asm stru_3DF0E mappings are appended after the stable
+        // walk/death/projectile atlas ranges.
+        return enemy_visuals.frames.get(usize::from(roar_frame));
+    }
+
     // ASM Lion.asm loc_3DFD8/loc_3E0F4 restore the saved walk animation
     // (`stru_3DEDA`, or `stru_3DEF4` for HP 8) before dispatching through
     // loc_3E11E's charge path. The extracted sheet appends death frames after
     // the six live C7E88..C7EB0 mappings, so live Lions must stay in that
     // script instead of free-running across the whole sheet.
-    let durations: &[usize] = if object.hit_points == Some(8) {
-        &[5, 4, 4, 5, 4, 5]
-    } else {
-        &[7, 6, 6, 7, 6, 6]
+    let fast_durations = &[5, 4, 4, 5, 4, 5];
+    let regular_durations = &[7, 6, 6, 7, 6, 6];
+    let exported_phase = object.walk_phase.map(usize::from);
+    // ASM stru_3DEF4's terminating mode-2 `$33` rewind is deliberately long:
+    // GfxObject_Animate sub_11AC lands in stru_3DEDA. HP-8 Lions therefore
+    // play one fast 27-tick lead, then use the regular 38-tick loop forever.
+    let (durations, phase): (&[usize], usize) = match exported_phase {
+        Some(phase) if object.hit_points == Some(8) && phase < fast_durations.iter().sum() => {
+            (fast_durations, phase)
+        }
+        Some(phase) if object.hit_points == Some(8) => (
+            regular_durations,
+            (phase - fast_durations.iter().sum::<usize>())
+                % regular_durations.iter().sum::<usize>(),
+        ),
+        Some(phase) => (
+            regular_durations,
+            phase % regular_durations.iter().sum::<usize>(),
+        ),
+        None => {
+            let durations: &[usize] = if object.hit_points == Some(8) {
+                fast_durations
+            } else {
+                regular_durations
+            };
+            let offset = object.layout_index.unwrap_or(0) * 3;
+            (
+                durations,
+                (trace.frame_index + offset) % durations.iter().sum::<usize>(),
+            )
+        }
     };
     let cycle = durations.iter().sum::<usize>();
     if cycle == 0 {
         return None;
     }
-    let mut phase = if let Some(walk_phase) = object.walk_phase {
-        usize::from(walk_phase) % cycle
-    } else {
-        let offset = object.layout_index.unwrap_or(0) * 3;
-        (trace.frame_index + offset) % cycle
-    };
+    let mut phase = phase;
     for (frame_index, duration) in durations.iter().enumerate() {
         if phase < *duration {
             return enemy_visuals.frames.get(frame_index);
@@ -2983,7 +3011,11 @@ pub fn select_enemy_palette(
 /// descriptor selected by the enemy layout ID's upper bits when a live object
 /// has no explicit override. Object-local variants still describe runtime
 /// effects.
-fn enemy_palette_variant(level_visuals: &NativeLevelVisuals, object_type: u8, explicit: u8) -> u8 {
+pub(crate) fn enemy_palette_variant(
+    level_visuals: &NativeLevelVisuals,
+    object_type: u8,
+    explicit: u8,
+) -> u8 {
     if explicit != 0 {
         explicit
     } else {
@@ -5100,6 +5132,26 @@ mod tests {
         assert_eq!(
             selected_live_tile_base(select_live_lion_frame(&trace, &visuals, &lion)),
             0x0101
+        );
+        lion.walk_phase = Some(27);
+        assert_eq!(
+            selected_live_tile_base(select_live_lion_frame(&trace, &visuals, &lion)),
+            0x0100,
+            "ASM stru_3DEF4 mode-2 `$33` rewind should enter stru_3DEDA after the fast lead"
+        );
+        lion.walk_phase = Some(64);
+        assert_eq!(
+            selected_live_tile_base(select_live_lion_frame(&trace, &visuals, &lion)),
+            0x0105,
+            "ASM GfxObject_Animate sub_11AC should retain stru_3DEDA's last mapping before its regular loop"
+        );
+
+        let roar_visuals = labelled_enemy_visuals(17, 3);
+        lion.sprite_animation_phase = Some(15);
+        assert_eq!(
+            selected_live_tile_base(select_live_lion_frame(&trace, &roar_visuals, &lion)),
+            0x010F,
+            "ASM Lion.asm stru_3DF0E C7E78 fire mapping should cross the typed presentation boundary"
         );
 
         let lion_visuals = labelled_enemy_visuals(6, 3);
