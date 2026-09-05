@@ -10369,6 +10369,43 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
+    fn plethora_scripted_platform_retains_motion_across_object_passes_sub_23ea() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        runtime.enter_level_playtest(LevelId(0x33));
+        runtime.refresh_active_roster();
+        let y_before = runtime
+            .active_platforms
+            .iter()
+            .find(|platform| platform.layout_index == Some(0))
+            .expect("Plethora should load layout platform 0 beside the Kid")
+            .y_pos;
+
+        runtime.step_frame(FrameInput::default());
+        let y_after_one = runtime
+            .active_platforms
+            .iter()
+            .find(|platform| platform.layout_index == Some(0))
+            .expect("Plethora platform should survive its first movement tick")
+            .y_pos;
+        runtime.step_frame(FrameInput::default());
+        let y_after_two = runtime
+            .active_platforms
+            .iter()
+            .find(|platform| platform.layout_index == Some(0))
+            .expect("Plethora platform should survive its second movement tick")
+            .y_pos;
+
+        assert_eq!(
+            (y_after_one, y_after_two),
+            (y_before + 0x0001_0000, y_before + 0x0002_0000),
+            "ASM PlatformScript_3BD8 -> sub_23EA adds +$10000 Y on consecutive object passes; reloading the platform from layout each frame must not reset its script position"
+        );
+    }
+
+    #[test]
     fn under_skull_mountain3_live_flying_dragon_loads_from_generated_cache_loc_36900() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;

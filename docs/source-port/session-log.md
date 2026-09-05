@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (scripted platform state retention)
+
+- `refresh_active_roster` cleared `active_platforms` before
+  `Manage_PlatformLoading loc_2744` could preserve the prior Platform_RAM
+  slots. Every frame therefore reconstructed scripted platforms at their
+  layout coordinates and ran only the first `sub_23EA` movement tick.
+- Native now carries the prior slots and standing-platform identity across the
+  object pass. A cache-backed Level `0x33` regression proves consecutive
+  `PlatformScript_3BD8 -> sub_23EA` `+$10000` Y updates. The settle checkpoint
+  improves from 1,273 to 829 mismatched pixels.
+- Native recording frame 0 remains exactly two platform ticks ahead of oracle,
+  and the gap is unchanged at frame 359. This is evidence of a recording-shell
+  age mismatch, not a script-executor defect, so no phase compensation was
+  added. `verify-slice-fast` and `verify-tas-full` pass; all 37,759
+  published-route frames retain their enforced gameplay, enemy, RNG, pixel
+  and command baselines. Continue with the first `sub_370D2` attack-object
+  spawn divergence.
+
 ## 2026-09-05 handoff (Heady Metal body and palette fidelity)
 
 - A fresh all-level frame sweep found Level `0x33` with exact authoritative

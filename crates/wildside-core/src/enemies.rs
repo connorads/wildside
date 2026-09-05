@@ -15967,9 +15967,9 @@ impl NativeRuntime {
             return;
         }
         self.active_enemy_roster.clear();
-        self.active_platforms.clear();
+        let platforms_before_object_pass = std::mem::take(&mut self.active_platforms);
+        let standing_platform_before_object_pass = self.active_platform_standing_on.take();
         self.active_platform_roster.clear();
-        self.active_platform_standing_on = None;
         self.active_lift_platform_standing_on = None;
         if self.level_skip_resume_hold {
             // ASM Load_InGame j_StopMusic resets the GEMS driver as the
@@ -16240,24 +16240,27 @@ impl NativeRuntime {
                 .platform_loader
                 .active_platforms(platform_layout, platform_window);
             let script_table = self.platform_script_table.as_ref();
-            let previous_platforms = self.active_platforms.clone();
-            let previous_standing_slot_addr = self.active_platform_standing_on;
+            // ASM sub_23EA advances the persistent Platform_RAM list before
+            // Manage_PlatformLoading loc_2744 updates its membership. Feed
+            // those prior slots into the loader so it retains their script
+            // cursor, position, and Addr_PlatformStandingOn identity.
             self.active_platforms = runtime_active_platforms_from_loader_loc_257E(
                 platform_layout,
                 objects.platform_loader,
                 platform_window,
-                &previous_platforms,
+                &platforms_before_object_pass,
                 script_table,
             );
             expand_platform_chain_segments_loc_428C(
                 &mut self.active_platforms,
-                &previous_platforms,
+                &platforms_before_object_pass,
             );
-            self.active_platform_standing_on = previous_standing_slot_addr.filter(|slot_addr| {
-                self.active_platforms
-                    .iter()
-                    .any(|platform| platform.slot_addr == Some(*slot_addr))
-            });
+            self.active_platform_standing_on =
+                standing_platform_before_object_pass.filter(|slot_addr| {
+                    self.active_platforms
+                        .iter()
+                        .any(|platform| platform.slot_addr == Some(*slot_addr))
+                });
             self.opening_slice = Some(OpeningSliceState { objects, ..slice });
         }
 
