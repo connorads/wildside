@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Big Hopping Skull finite airborne animation)
+
+- A fresh `big_hopping_skull.rs` mutation census found four misses in the
+  airborne animation cycle. The native path wrapped `stru_367BE` after 135
+  ticks, but the script terminates and `loc_36540` takes a distinct coroutine
+  tail.
+- Native now retains the final C7FE0 mapping, applies the ROM's second `$FA0`
+  gravity step, executes `loc_3652E`'s movement-only hibernate, and reinstalls
+  the animation at its first mapping. The regression first failed with cursor
+  zero instead of terminal state 135.
+- All 50 Big Hopping Skull tests pass. The repeat census accounts for all 96
+  generated mutations: 78 caught and 18 compiler-unviable.
+  `verify-slice-fast` passes 7,381 tests; `verify-tas-full` keeps all 37,759
+  published-route frames at the existing exact gameplay, enemy, RNG, pixel,
+  and command baselines. No extracted level layout contains object `$1D`, so
+  this is engine-path hardening without a live oracle-route claim. Continue
+  with a different live gameplay or sweep-path target.
+
 ## 2026-09-04 handoff (prize-worker mutation closure)
 
 - The first focused census over the new prize-worker runtime found 14 misses

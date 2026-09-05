@@ -5,6 +5,7 @@ pub(crate) const BIG_SKULL_GRAVITY: i32 = 0x0000_0FA0; // ASM: addi.l #$FA0,y_ve
 /// then loc_366B6 plays `stru_367B4` (`$0C + 1` ticks) before loc_366D0 relaunches.
 pub(crate) const BIG_HOPPING_SKULL_FLOOR_CONTACT_WAIT_FRAMES_LOC_36580: u16 = 0x50 + 0x0C + 1;
 const BIG_HOPPING_SKULL_AIR_ANIMATION_FRAMES_STRU_367BE: u8 = 7 + 8 + 0x78;
+const BIG_HOPPING_SKULL_AIR_RESTART_HIBERNATE_LOC_3652E: u8 = 1;
 
 pub(crate) fn big_hopping_skull_live_sprite_phase_stru_367ae_367be_367cc(
     airborne_elapsed: u8,
@@ -41,7 +42,7 @@ pub(crate) fn big_hopping_skull_live_sprite_phase_stru_367ae_367be_367cc(
         };
     }
 
-    match airborne_elapsed % BIG_HOPPING_SKULL_AIR_ANIMATION_FRAMES_STRU_367BE {
+    match airborne_elapsed {
         0..=6 => 6,  // C7FD0 for 7 ticks
         7..=14 => 7, // C7FD8 for 8 ticks
         _ => 8,      // C7FE0 for $78 ticks
@@ -628,10 +629,25 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
         return;
     }
 
+    if enemy.dragon_script_cmd == BIG_HOPPING_SKULL_AIR_RESTART_HIBERNATE_LOC_3652E {
+        // ASM Big_Hopping_Skull.asm loc_36540 -> loc_3652E: after the finite
+        // airborne animation finishes, the skull hibernates for one frame.
+        // GfxObject movement still runs during that frame, but the object
+        // callback does not apply gravity or collision before reinstalling
+        // `stru_367BE` from its first mapping.
+        enemy.x_pos = enemy.x_pos.wrapping_add_signed(enemy.x_velocity);
+        enemy.y_pos = enemy.y_pos.wrapping_add_signed(enemy.y_velocity);
+        enemy.dragon_descent_frames = 0;
+        enemy.dragon_script_cmd = 0;
+        return;
+    }
+
     // ASM loc_3652E initialises `stru_367BE`; GfxObject_Animate advances it
     // independently while loc_36540 runs the airborne movement loop.
-    enemy.dragon_descent_frames =
-        (enemy.dragon_descent_frames + 1) % BIG_HOPPING_SKULL_AIR_ANIMATION_FRAMES_STRU_367BE;
+    enemy.dragon_descent_frames = enemy
+        .dragon_descent_frames
+        .saturating_add(1)
+        .min(BIG_HOPPING_SKULL_AIR_ANIMATION_FRAMES_STRU_367BE);
 
     // ASM Big_Hopping_Skull.asm loc_36540: `addi.l #$FA0,y_vel(a3)` wraps as
     // a 68000 long-word addition rather than clamping at the signed boundary.
@@ -749,6 +765,17 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
                 big_hopping_skull_ceiling_bounce_velocity_loc_366e6(enemy.y_velocity);
         }
     }
+
+    if enemy.wait_timer == 0
+        && enemy.dragon_descent_frames == BIG_HOPPING_SKULL_AIR_ANIMATION_FRAMES_STRU_367BE
+    {
+        // ASM Big_Hopping_Skull.asm loc_36540: the terminating `stru_367BE`
+        // tail applies gravity a second time before branching to loc_3652E.
+        // The final C7FE0 mapping remains selected through the intervening
+        // hibernate; this is not a looping animation.
+        enemy.y_velocity = enemy.y_velocity.wrapping_add(BIG_SKULL_GRAVITY);
+        enemy.dragon_script_cmd = BIG_HOPPING_SKULL_AIR_RESTART_HIBERNATE_LOC_3652E;
+    }
 }
 
 #[cfg(test)]
@@ -781,7 +808,7 @@ mod tests {
     #[test]
     fn big_hopping_skull_live_sprite_phase_follows_all_three_scripts() {
         // ASM stru_367BE: airborne C7FD0/C7FD8/C7FE0 boundaries.
-        for (elapsed, expected) in [(0, 6), (6, 6), (7, 7), (14, 7), (15, 8), (134, 8)] {
+        for (elapsed, expected) in [(0, 6), (6, 6), (7, 7), (14, 7), (15, 8), (134, 8), (135, 8)] {
             assert_eq!(
                 big_hopping_skull_live_sprite_phase_stru_367ae_367be_367cc(elapsed, 0, 0),
                 expected
@@ -814,6 +841,34 @@ mod tests {
                 "stru_367CC remaining timer {remaining}"
             );
         }
+    }
+
+    #[test]
+    fn big_hopping_skull_air_animation_finishes_then_restarts_loc_36540_3652e() {
+        let mut skull = big_skull_at(32 << 16, 32 << 16);
+        skull.x_velocity = 0x0001_0000;
+        skull.y_velocity = 0;
+        skull.dragon_descent_frames = BIG_HOPPING_SKULL_AIR_ANIMATION_FRAMES_STRU_367BE - 1;
+
+        step_big_hopping_skull(&mut skull, None);
+
+        assert_eq!(skull.dragon_descent_frames, 0x87);
+        assert_eq!(skull.snapshot().sprite_animation_phase, Some(8));
+        assert_eq!(skull.y_pos, (32 << 16) + BIG_SKULL_GRAVITY as u32);
+        assert_eq!(skull.y_velocity, BIG_SKULL_GRAVITY * 2);
+        assert_eq!(
+            skull.dragon_script_cmd, BIG_HOPPING_SKULL_AIR_RESTART_HIBERNATE_LOC_3652E,
+            "ASM loc_36540 takes the animation-finished tail instead of looping stru_367BE",
+        );
+
+        step_big_hopping_skull(&mut skull, None);
+
+        assert_eq!(skull.x_pos, 34 << 16);
+        assert_eq!(skull.y_pos, (32 << 16) + (BIG_SKULL_GRAVITY * 3) as u32);
+        assert_eq!(skull.y_velocity, BIG_SKULL_GRAVITY * 2);
+        assert_eq!(skull.dragon_descent_frames, 0);
+        assert_eq!(skull.snapshot().sprite_animation_phase, Some(6));
+        assert_eq!(skull.dragon_script_cmd, 0);
     }
 
     fn solid_cell() -> terrain::Cell {
