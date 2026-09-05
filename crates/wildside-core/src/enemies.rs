@@ -3062,6 +3062,7 @@ impl ActiveEnemy {
             ))
         } else if matches!(self.family, EnemyFamily::HeadyMetal) && !self.death_animation_active {
             Some(heady_metal_anchor_sprite_phase_stru_37b8a_37b98(
+                false,
                 self.boss_movement_delay_counter,
                 self.wait_timer,
             ))
@@ -11489,15 +11490,19 @@ fn heady_metal_eye_spawn_animation_frames(selected_animation_label: &str) -> u16
 /// the same duration as the parent wait; other schedules stay at the
 /// oracle-checked resting mapping until their GfxObject clock is typed.
 pub(crate) fn heady_metal_anchor_sprite_phase_stru_37b8a_37b98(
+    uses_initial_animation: bool,
     piece_counter: u16,
     wait_timer: u16,
 ) -> u8 {
-    if piece_counter == 0 {
-        // ASM Enemy20_HeadyMetal_Init gives the anchor GfxObject its own
-        // stru_37B8A timer. Native's parent Object wait_timer is not that
-        // clock, so keep the oracle-checked initial mapping until the first
-        // loc_375DE transition selects a schedule native models explicitly.
-        return 0; // unk_C8438
+    if uses_initial_animation {
+        // ASM Enemy20_HeadyMetal_Init starts both the parent countdown and
+        // `$FFFFFB7A`'s independent stru_37B8A schedule on the same pass.
+        let elapsed = HEADY_METAL_INITIAL_EYE_WAIT_TIMER_STRU_37B8A.saturating_sub(wait_timer);
+        return match elapsed {
+            0..=149 => 0,   // unk_C8438
+            150..=159 => 1, // unk_C8440
+            _ => 2,         // unk_C8448
+        };
     }
 
     if (6..=9).contains(&piece_counter) {

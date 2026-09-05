@@ -471,6 +471,9 @@ pub struct NativeRuntime {
     /// ASM `$FFFFFB72/$FB76/$FB7A/$FBAE/$FBB2`: fixed HeadyMetal cached
     /// workers used by the final `sub_3787C/sub_378A2` scatter phase.
     pub(crate) heady_metal_cached_workers_sub_37708: Option<[HeadyMetalCachedWorkerSub37708; 5]>,
+    /// ASM Enemy20_HeadyMetal_Init starts `$FFFFFB7A` on `stru_37B8A`;
+    /// loc_375DE replaces that fixed-worker schedule after the first eye launch.
+    pub(crate) heady_metal_anchor_uses_initial_animation_stru_37b8a: bool,
     /// ASM sub_3787C/sub_378A2 final-scatter velocities for the five cached
     /// HeadyMetal workers at `$FFFFFB72/$FB76/$FB7A/$FBAE/$FBB2`.
     pub(crate) heady_metal_cached_worker_velocities_sub_3787c: HeadyMetalScatterVelocities,
@@ -1594,6 +1597,7 @@ impl NativeRuntime {
             projectiles: Vec::new(),
             heady_metal_breakup_slots_sub_37708: None,
             heady_metal_cached_workers_sub_37708: None,
+            heady_metal_anchor_uses_initial_animation_stru_37b8a: true,
             heady_metal_cached_worker_velocities_sub_3787c: HeadyMetalScatterVelocities::default(),
             multi_head_boss_death_count_fb4e: 0,
             boss_eye_breakup_trigger_words_fb72_fb74_fb76: [0; 3],
@@ -2312,6 +2316,7 @@ impl NativeRuntime {
         self.active_lift_platform_standing_on = None;
         self.projectiles.clear();
         self.heady_metal_breakup_slots_sub_37708 = None;
+        self.heady_metal_anchor_uses_initial_animation_stru_37b8a = true;
         self.floating_items.clear();
         self.prize_worker_effects.clear();
         self.enemy_death_effects.clear();

@@ -11130,6 +11130,17 @@ impl NativeRuntime {
     }
 
     pub(crate) fn rebuild_active_enemy_roster(&mut self) {
+        // ASM loc_375DE decrements `$3E(a3)` before installing the first
+        // post-launch anchor schedule. Once observed, later counter wrap to
+        // `$A` must not restore the init-only `stru_37B8A` lifecycle state.
+        if self.active_enemies.iter().any(|enemy| {
+            matches!(enemy.family, EnemyFamily::HeadyMetal)
+                && enemy.boss_movement_delay_counter != 0x000A
+        }) {
+            self.heady_metal_anchor_uses_initial_animation_stru_37b8a = false;
+        }
+        let heady_uses_initial_animation =
+            self.heady_metal_anchor_uses_initial_animation_stru_37b8a;
         self.active_enemy_roster = self
             .active_enemies
             .iter()
@@ -11152,7 +11163,17 @@ impl NativeRuntime {
                     // ASM Drips.asm Enemy16_Drip_Init/loc_33488 keeps the
                     // parent/controller gfx object hidden; visible Drips
                     // children are exported through projectile snapshots.
-                    snapshots.push(enemy.snapshot());
+                    let mut snapshot = enemy.snapshot();
+                    if matches!(enemy.family, EnemyFamily::HeadyMetal) {
+                        snapshot.sprite_animation_phase = Some(
+                            crate::enemies::heady_metal_anchor_sprite_phase_stru_37b8a_37b98(
+                                heady_uses_initial_animation,
+                                enemy.boss_movement_delay_counter,
+                                enemy.wait_timer,
+                            ),
+                        );
+                    }
+                    snapshots.push(snapshot);
                 }
                 snapshots.extend(enemy.child_attachment_snapshot());
                 snapshots.extend(

@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Heady Metal initial anchor animation)
+
+- Oracle settle frame 60 pins `$FFFFFB7A+$22` to `$0DFC`, the `unk_C8448`
+  mapping reached by the initial `stru_37B8A` schedule.
+- The parent counter/timer pair is ambiguous after its later `$A` wrap, so
+  native now retains an explicit init-only anchor lifecycle latch beside the
+  existing fixed Heady workers and clears it after the first eye launch.
+- The full settle boss component is gone. Continue from the idle-tail scripted
+  platform component, now the Level 0x33 maximum at 749 pixels.
+
 ## 2026-09-05 handoff (Heady Metal burst asset slot)
 
 - Frame-359 native and oracle traces already agree on all three burst
