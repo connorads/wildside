@@ -5573,11 +5573,9 @@ impl NativeRuntime {
 
     /// ASM loc_104AE/loc_105D6: the PrizeHelmet worker sleeps ONE frame
     /// between GfxObjects_CollisionKid latching its `$38` word and the wake
-    /// that consumes it, and the wake runs AFTER the Kid in Execute_Objects.
-    /// Native arms on the latch frame's award pass and awards on the next
-    /// frame's pass — after that frame's Kid movement — so the transform
-    /// freeze holds the ROM pose (oracle 0x55: the exact bounce apex, with
-    /// the same-frame (0,6) headbutt fired) (#420).
+    /// that consumes it. Native arms on the latch frame's award pass and
+    /// awards on the next frame's pass; `FloatingPrizeOrderSubE12` preserves
+    /// whether that object callback precedes or follows Kid (#420/#495).
     #[allow(non_snake_case)]
     pub(crate) fn award_collision_latched_prize_loc_104ae(&mut self) {
         if self.floating_items.iter().any(|f| f.collision_latched)

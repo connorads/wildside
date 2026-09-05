@@ -12396,6 +12396,34 @@ mod chunk_09 {
         assert_eq!(children.right.x_pos, 0x24);
     }
 
+    /// #495 - oracle Level 0x55 recording frame 35 remains unhelmeted with
+    /// one hit point; frame 36 consumes the pending Micromax change.
+    #[test]
+    fn issue495_level55_recording_frame35_does_not_collect_micromax_loc_106b4() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let level = LevelId(0x55);
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(level);
+        runtime.settle_recording_oracle_warp_live_window(level);
+
+        for _ in 0..36 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        assert_eq!(runtime.progression.current_form, PlayerForm::TheKid);
+        assert_eq!(runtime.progression.number_hitpoints, 1);
+        assert_eq!(runtime.progression.form_change_flash_frames, 0);
+        assert_eq!(runtime.progression.pending_form, Some(PlayerForm::Micromax));
+
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(runtime.progression.current_form, PlayerForm::Micromax);
+        assert_eq!(runtime.progression.number_hitpoints, 3);
+        assert_eq!(runtime.progression.form_change_flash_frames, 60);
+        assert_eq!(runtime.progression.pending_form, None);
+    }
+
     #[test]
     fn issue289_level06_lower_ghost_group_vanishes_before_kid_jump_collision_loc_f730_902a() {
         let Some(manifest) = cached_generated_manifest() else {

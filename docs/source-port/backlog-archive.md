@@ -47,6 +47,19 @@ Focused full report `1788640624` reduces frame-30 residue 2,046→1,866 pixels;
 frontier at frame 35 is separate Kid state: native begins a helmet-9 transform
 with HP 3 while oracle retains helmet 0 with HP 1.
 
+Follow-up 2026-09-05. Oracle WRAM gives the Micromax worker collision `$28` on
+frame 34, then deletes it on frame 35 while `sub_7ACC` has already run in the
+Kid callback. Native now carries the typed `Execute_Objects loc_E1E` relation:
+ordinary `$1FFF` prize allocations execute before the `$2000` Kid, while a
+recording handoff resumes its saved prize worker after Kid. This keeps Level
+`$55` The Kid/HP 1 with Micromax pending on frame 35 and starts the transform
+on frame 36. Frames 33-40 match oracle. The published Cyclone witness at frame
+1058 and the full 37,759-frame route remain green.
+
+Focused full report `1788644135` keeps frame 30 at 1,866 pixels and moves frame
+120 from 1,814 to 2,077 pixels under the corrected transform phase. The next
+authoritative Level `$55` gameplay frontier is frame 95.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level
@@ -24492,7 +24505,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 495 | [-] | P2 | enemy/Driller | Level `$55` recording handoff and stomp collision now match Driller state through frame 34. | Frame-35 frontier is separate Kid transform state; focused frame 30 is 1,866 px. See archive #495. |
+| 495 | [-] | P2 | enemy/Driller | Level `$55` recording handoff matches Driller state through frame 34 and prize transform state through frame 40. | Next gameplay frontier is frame 95; focused frame 120 is 2,077 px. See archive #495. |
 | 494 | [x] | P2 | rendering | `Kid_Transform` transform/form palette writes override a damage-white phase suspended before the synchronous coroutine. | Level `$55` settle residue 2,212→1,781; whole-game comparable residue 39,401→38,971. See archive #494. |
 | 493 | [x] | P1 | enemy/render | Lion fire/restore timing, HP-8 animation topology, projectile collision subpixels, and parent-child rendering follow the ROM. | Level `$36` Lion/projectile pixels exact at all six checkpoints; 75/75 enemy-frontier frames match. See archive #493. |
 | 490 | [x] | P2 | enemy/render | Multi-head callback scheduling is keyed per head; Shishkaboss skewer workers use typed presentation state and source mappings. | Level `$10` state checkpoints pass; residue 3,759 -> 3,176 pixels; full gates green. See archive #490. |

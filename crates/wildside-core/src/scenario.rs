@@ -458,6 +458,11 @@ impl NativeRuntime {
         });
         let platform_rewind_passes = usize::from(level_id == LevelId(0x33)) * 2;
         self.settle_target_level_live_window(level_id, target_live_frames, platform_rewind_passes);
+        // ASM Execute_Objects loc_E1E: recording handoffs resume their saved
+        // floating-prize worker after the Kid callback. Preserve that adapter
+        // boundary order; ordinary `$1FFF` allocations retain before-Kid
+        // order from Allocate_ObjectSlot loc_DE0.
+        self.floating_prize_order_sub_e12 = crate::FloatingPrizeOrderSubE12::AfterPlayer;
         self.reconcile_recording_handoff_driller_boundary_turn_loc_3c026();
         if level_id == LevelId(0x33) {
             // ASM Mode_Level -> GfxObjects_MoveAndAnimate loc_142E: the

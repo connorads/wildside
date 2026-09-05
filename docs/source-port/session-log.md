@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Level 0x55 prize callback order)
+
+- WRAM and PC traces prove the resumed Micromax worker runs after Kid: frame
+  34 latches collision `$28`, frame 35 queues Micromax after `sub_7ACC`, and
+  frame 36 starts the transform.
+- Runtime now models floating-prize callback order explicitly. Level 0x55
+  frames 33-40 match, while the published frame-1058 Cyclone witness and full
+  37,759-frame route remain green.
+- Focused report `1788644135` reaches 2,077 changed pixels at frame 120 under
+  the corrected phase. NEXT: investigate the frame-95 gameplay frontier. See
+  archive #495.
+
 ## 2026-09-05 handoff (Level 0x55 Driller collision timing)
 
 - Raw WRAM and `loc_3C0FA -> loc_3C152 -> loc_3C026` prove the lower Driller

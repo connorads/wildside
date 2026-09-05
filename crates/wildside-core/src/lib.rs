@@ -321,6 +321,12 @@ struct ResidentGameplayRenderSnapshot {
     block_grid: Option<terrain::BlockGrid>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FloatingPrizeOrderSubE12 {
+    BeforePlayer,
+    AfterPlayer,
+}
+
 #[derive(Debug, Clone)]
 pub struct NativeRuntime {
     assets: AssetManifest,
@@ -575,13 +581,14 @@ pub struct NativeRuntime {
     prize_worker_effects: Vec<PrizeWorkerEffect>,
     /// ASM loc_104AE/loc_105D6: the PrizeHelmet worker sleeps ONE frame
     /// (`j_Hibernate_Object_1Frame`) between GfxObjects_CollisionKid latching
-    /// its `$38` word and the wake that consumes it — so the award lands on
-    /// the frame AFTER the latch, once the Kid's movement for that frame has
-    /// run (the Kid object heads Execute_Objects). Oracle 0x55 (WRAM
-    /// f34/f35): the Kid rises to his exact bounce apex 143.0 and headbutts
-    /// the (0,6) prize block on the wake frame before the transform freezes
-    /// him (#420).
+    /// its `$38` word and the wake that consumes it. The callback order below
+    /// determines whether that wake queues the form before or after Kid.
     latched_prize_wake_armed_loc_104ae: bool,
+    /// Relative callback order in ASM Execute_Objects loc_E1E for the live
+    /// floating-prize worker and Kid. Normal `$1FFF` prize allocation sorts
+    /// before the `$2000` Kid; recording handoffs can preserve a resumed
+    /// worker after Kid instead.
+    floating_prize_order_sub_e12: FloatingPrizeOrderSubE12,
     /// ASM PrizeClock_Init loc_10796 swaps the active clock prize animation
     /// when its countdown reaches `$012C`.
     clock_prize_animation_swaps_loc_10796: Vec<(u16, u16)>,
@@ -1695,6 +1702,7 @@ impl NativeRuntime {
             floating_items: Vec::new(),
             prize_worker_effects: Vec::new(),
             latched_prize_wake_armed_loc_104ae: false,
+            floating_prize_order_sub_e12: FloatingPrizeOrderSubE12::BeforePlayer,
             clock_prize_animation_swaps_loc_10796: Vec::new(),
             continue_prize_animation_swaps_loc_1080a: Vec::new(),
             prize_helmet_collision_hibernate_delay_frames: 0,
@@ -6874,23 +6882,33 @@ impl NativeRuntime {
 
         self.process_block_effects(&mut slice);
         self.collect_floating_items(&mut slice);
-        // ASM loc_104AE/loc_105D6: the PrizeHelmet worker wakes AFTER the Kid
-        // in the same Execute_Objects pass, one hibernate frame after its
-        // latch, so a latched helmet converts only after the Kid's movement
-        // for the wake frame has run (#420).
-        self.award_collision_latched_prize_loc_104ae();
-        // ASM loc_75D4 (kid.asm:7715): `bsr.w sub_7ACC` — check pending
-        // helmet transform after collision processing.  In native, this runs
-        // for all movement states (the ROM calls it from each state handler).
-        if self.handle_pending_form_change_sub_7acc(&mut slice) {
+        // ASM movement handlers loc_75D4/loc_8218/loc_8BF0 call
+        // Character_CheckCollision before sub_7ACC, so a direct helmet touch
+        // can start Kid_Transform in this Kid object pass.
+        if self.floating_prize_order_sub_e12 == FloatingPrizeOrderSubE12::AfterPlayer
+            && self.handle_pending_form_change_sub_7acc(&mut slice)
+        {
             return;
         }
-        if self.gameplay_hibernating_for_transform() {
-            // ASM Kid_Transform: the worker-wake takeover suspends the rest
-            // of the Mode_Level frame — the weather, lava, and palette
-            // rotation ticks below do not run on the wake frame (published
-            // TAS pixel baseline pins the rotation phase across transforms,
-            // #420).
+        if self.floating_prize_order_sub_e12 == FloatingPrizeOrderSubE12::AfterPlayer
+            && self.gameplay_hibernating_for_transform()
+        {
+            self.last_kid_frame_motion_branch = KidFrameMotionBranch::TransformHibernating;
+            self.opening_slice = Some(slice);
+            return;
+        }
+        // ASM loc_104AE/loc_105D6: the PrizeHelmet worker wakes one hibernate
+        // frame after its latch. Its typed loc_E1E order decides which side
+        // of the Kid callback consumes the queued form.
+        self.award_collision_latched_prize_loc_104ae();
+        if self.floating_prize_order_sub_e12 == FloatingPrizeOrderSubE12::BeforePlayer
+            && self.handle_pending_form_change_sub_7acc(&mut slice)
+        {
+            return;
+        }
+        if self.floating_prize_order_sub_e12 == FloatingPrizeOrderSubE12::BeforePlayer
+            && self.gameplay_hibernating_for_transform()
+        {
             self.last_kid_frame_motion_branch = KidFrameMotionBranch::TransformHibernating;
             self.opening_slice = Some(slice);
             return;

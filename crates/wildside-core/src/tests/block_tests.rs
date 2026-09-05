@@ -187,14 +187,15 @@ mod chunk_04 {
 
     /// ASM: the Kid object executes at the head of Execute_Objects, and the
     /// PrizeHelmet worker (loc_104AE/loc_105D6) sleeps ONE frame between the
-    /// GfxObjects_CollisionKid latch and the wake that consumes it — so the
-    /// Kid takes the wake frame's movement BEFORE Kid_Transform freezes him.
-    /// Oracle 0x55 (WRAM f34/f35): the Kid rises to his exact bounce apex
-    /// (kid_y 0x8F0000) — and headbutts the (0,6) prize block — on the wake
-    /// frame; the freeze holds the apex pose, not the pre-apex one.
+    /// GfxObjects_CollisionKid latch and the wake that queues the form. ASM
+    /// loc_75D4 calls sub_7ACC before Character_CheckCollision loc_B8E6, so
+    /// the following Kid wake consumes that pending form before movement.
+    /// Oracle 0x55 WRAM: frame 34 latches `$28`, frame 35 remains The Kid,
+    /// and frame 36 starts the Micromax transform.
     #[test]
     fn latched_helmet_transform_starts_after_kid_movement_loc_104ae() {
         let mut runtime = NativeRuntime::new(manifest());
+        runtime.floating_prize_order_sub_e12 = crate::FloatingPrizeOrderSubE12::AfterPlayer;
         runtime.set_block_grid(grid_with_floor_at_row(14));
         start_level(&mut runtime);
         advance_past_level_entry_damage_grace(&mut runtime);
@@ -234,14 +235,22 @@ mod chunk_04 {
         runtime.step_frame(FrameInput::default());
         assert_eq!(
             runtime.progression.current_form,
-            PlayerForm::Micromax,
-            "the worker's wake starts Kid_Transform one frame after the latch"
+            PlayerForm::TheKid,
+            "the worker's wake queues the form after sub_7ACC has run"
         );
         let end_y = runtime.opening_slice.expect("slice").player.y_pos;
         assert!(
             end_y < mid_y,
-            "the Kid must take the wake frame's movement BEFORE the transform \
-             freezes him (mid {mid_y:#x}, end {end_y:#x})"
+            "the Kid takes the worker's award-frame movement (mid {mid_y:#x}, end {end_y:#x})"
+        );
+        assert_eq!(runtime.progression.pending_form, Some(PlayerForm::Micromax));
+
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(runtime.progression.current_form, PlayerForm::Micromax);
+        assert_eq!(
+            runtime.opening_slice.expect("slice").player.y_pos,
+            end_y,
+            "the next Kid wake starts Kid_Transform before movement"
         );
     }
 
