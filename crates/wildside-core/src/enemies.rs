@@ -6034,12 +6034,11 @@ fn step_active_enemies_with_rng_context(
                 }
                 // Bosses periodically spawn projectiles while tracking
                 if let Some(ref mut projs) = projectiles {
-                    step_boss_fire_with_sounds(
+                    step_boss_fire_with_context(
                         enemy,
                         projs,
                         player_x_pos,
                         player_y_pos,
-                        played_sound_effects.as_deref_mut(),
                         boss_fire_context,
                     );
                 }
@@ -11442,10 +11441,6 @@ pub(crate) const HEADY_METAL_EYE_SPAWN_COUNTER_INIT_LOC_39264: u16 = 0x000A;
 /// animation-finished on the following object pass, so the initial scheduler
 /// countdown spans 201 passes before `loc_375DE` allocates the first eye.
 pub(crate) const HEADY_METAL_INITIAL_EYE_WAIT_TIMER_STRU_37B8A: u16 = 0x0096 + 0x000A + 0x0028 + 1;
-/// ASM `sub_370D2` starts `stru_37BD8` and loc_3712E falls until that script
-/// sets animation flag `$18(a3)`.
-pub(crate) const BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8: u16 =
-    0x05 + 0x05 + 0x0A + 0x01;
 /// ASM `stru_37B98`: after its `$2D` hold, opcode `2,$13` jumps back to
 /// `stru_37B8A`. The parent sees `$18` on allocation pass 245; because the
 /// stored timer is decremented only on later passes, seed it with 244.
@@ -11611,24 +11606,22 @@ pub(crate) fn step_boss_fire(
     } else {
         None
     };
-    step_boss_fire_with_sounds(
+    step_boss_fire_with_context(
         enemy,
         projectiles,
         player_x_pos,
         player_y_pos,
-        None,
         BossFireFrameContext {
             heady_metal_eye_anchor_loc_375de: boss_fire_context,
         },
     );
 }
 
-pub(crate) fn step_boss_fire_with_sounds(
+pub(crate) fn step_boss_fire_with_context(
     enemy: &mut ActiveEnemy,
     projectiles: &mut Vec<EnemyProjectile>,
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
-    played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
     boss_fire_context: BossFireFrameContext,
 ) {
     if matches!(enemy.family, EnemyFamily::HeadyMetal)
@@ -11851,9 +11844,6 @@ pub(crate) fn step_boss_fire_with_sounds(
                 return;
             };
             let init = boss_death_burst_init_sub_370D2(anchor.x_pos, anchor.y_pos);
-            if let Some(sound_effects) = played_sound_effects {
-                sound_effects.push(QueuedSoundEffect::VoiceDie);
-            }
             projectiles.push(EnemyProjectile {
                 x_pos: u32::from(init.x_pos) << 16,
                 y_pos: u32::from(init.y_pos) << 16,
@@ -11863,8 +11853,12 @@ pub(crate) fn step_boss_fire_with_sounds(
                 gravity: init.landing_gravity,
                 friendly: false,
                 homing_accel: init.homing_accel,
-                animation_elapsed_frames: BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8,
-                boss_death_burst_state: BossDeathBurstState::FallingLoc3712E,
+                // ASM Allocate_ObjectSlot loc_DE0 inserts priority `$6000`
+                // before the currently running `$FFFF` Heady object. The
+                // allocation pass cannot execute sub_370D2; the countdown is
+                // consumed by native's later projectile phase on that pass.
+                animation_elapsed_frames: 1,
+                boss_death_burst_state: BossDeathBurstState::AllocatedLoc375De,
                 speed_cap: 0,
                 wall_bounce: false,
                 kind: EnemyProjectileKind::BossDeathBurst,

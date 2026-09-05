@@ -10414,7 +10414,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         let trace = ScriptRunner::new(manifest)
             .warp_to_level(0x33)
             .settle_recording_warp()
-            .run(&vec![0; 330], 330);
+            .run(&vec![0; 331], 331);
         let burst_count = |frame: usize| {
             trace[frame]
                 .active_projectile_details
@@ -10424,14 +10424,24 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         };
 
         assert_eq!(
-            (burst_count(83), burst_count(84)),
-            (0, 1),
-            "ASM Enemy20_HeadyMetal_Init starts stru_37B8A before loc_375DE; oracle Object_RAM first allocates sub_370D2 at recording frame 84"
+            (burst_count(83), burst_count(84), burst_count(85)),
+            (0, 0, 1),
+            "ASM loc_375DE allocates sub_370D2 at recording frame 84, but Allocate_ObjectSlot loc_DE0 places it before the running Heady object; its GfxObject first exists after sub_370D2 runs at frame 85"
         );
         assert_eq!(
-            burst_count(329),
-            burst_count(328) + 1,
-            "ASM loc_3761E starts stru_37B98 after the first eye; its opcode-2 jump replays stru_37B8A and oracle Object_RAM allocates exactly one new sub_370D2 at frame 329"
+            (burst_count(329), burst_count(330)),
+            (burst_count(328), burst_count(328) + 1),
+            "ASM loc_3761E starts stru_37B98 after the first eye; the second Object allocation at frame 329 materialises its GfxObject on frame 330"
+        );
+        assert_eq!(
+            (
+                trace[84].number_objects - trace[83].number_objects,
+                trace[84].number_gfx_objects - trace[83].number_gfx_objects,
+                trace[85].number_objects - trace[84].number_objects,
+                trace[85].number_gfx_objects - trace[84].number_gfx_objects,
+            ),
+            (1, 0, 0, 1),
+            "ASM loc_375DE allocates only the Object on frame 84; sub_370D2 allocates its GfxObject on the following Execute_Objects pass"
         );
     }
 

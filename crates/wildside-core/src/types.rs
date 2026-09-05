@@ -5284,6 +5284,10 @@ pub enum DragonFlyingDescentFireState {
 pub(crate) enum BossDeathBurstState {
     #[default]
     None,
+    /// ASM loc_375DE has allocated the `$6000` Object slot, but its insertion
+    /// before the running Heady Metal object defers sub_370D2 to the next
+    /// Execute_Objects pass. No GfxObject exists in this state.
+    AllocatedLoc375De,
     FallingLoc3712E,
     ChaseLoc37148,
     TimeoutLoc3720A,
@@ -5523,6 +5527,11 @@ pub(crate) struct EnemyProjectile {
 }
 
 impl EnemyProjectile {
+    pub(crate) fn boss_death_burst_has_gfx_object_sub_370d2(&self) -> bool {
+        self.kind != EnemyProjectileKind::BossDeathBurst
+            || self.boss_death_burst_state != BossDeathBurstState::AllocatedLoc375De
+    }
+
     #[allow(non_snake_case)]
     pub(crate) fn shooter_block_from_centre_loc_EC76(
         source_col: u16,

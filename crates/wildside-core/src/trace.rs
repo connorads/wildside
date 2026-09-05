@@ -12627,6 +12627,7 @@ impl NativeRuntime {
             active_projectiles: self
                 .projectiles
                 .iter()
+                .filter(|p| p.boss_death_burst_has_gfx_object_sub_370d2())
                 .map(|p| (p.x_pos, p.y_pos, p.friendly))
                 .chain(
                     self.diamond_power_rain_slots
@@ -12642,6 +12643,7 @@ impl NativeRuntime {
             active_projectile_details: self
                 .projectiles
                 .iter()
+                .filter(|p| p.boss_death_burst_has_gfx_object_sub_370d2())
                 .map(|p| {
                     let (archer_arrow_sprite_frame, archer_arrow_flipped) =
                         crate::archer_arrow_sprite_frame_from_angle(p.current_angle);
@@ -16123,6 +16125,14 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::DragonFlyingDescentFire)
             .count() as u16;
+        let allocated_heady_metal_eye_workers = self
+            .projectiles
+            .iter()
+            .filter(|projectile| {
+                projectile.kind == EnemyProjectileKind::BossDeathBurst
+                    && !projectile.boss_death_burst_has_gfx_object_sub_370d2()
+            })
+            .count() as u16;
         let tar_monster_burst_object_init_workers = self
             .projectiles
             .iter()
@@ -16150,6 +16160,10 @@ impl NativeRuntime {
             .saturating_add(rubber_skin_workers)
             .saturating_add(lava_special_effect_workers)
             .saturating_add(dragon_flying_descent_fire_workers)
+            // ASM loc_375DE has allocated the normal-eye Object slot, but
+            // loc_DE0 inserts it before the currently executing Heady object.
+            // It remains object-only until sub_370D2 runs next pass.
+            .saturating_add(allocated_heady_metal_eye_workers)
             // ASM Tar_Monster.asm loc_324F8 allocates five Object slots;
             // their loc_325E6 callbacks load GfxObjects one scheduler pass later.
             .saturating_add(tar_monster_burst_object_init_workers)
@@ -16394,12 +16408,13 @@ impl NativeRuntime {
                         | EnemyProjectileKind::BossHeadBoomerang
                         | EnemyProjectileKind::BossSkewer
                         | EnemyProjectileKind::BossEyeAttack
-                        | EnemyProjectileKind::BossDeathBurst
                         | EnemyProjectileKind::BossEyeSatellite
                         | EnemyProjectileKind::BossEyePopEffect
                         | EnemyProjectileKind::TarMonsterStraightGlob
-                ) || (projectile.kind == EnemyProjectileKind::TarMonsterBurstChild
-                    && projectile.animation_elapsed_frames == 0)
+                ) || (projectile.kind == EnemyProjectileKind::BossDeathBurst
+                    && projectile.boss_death_burst_has_gfx_object_sub_370d2())
+                    || (projectile.kind == EnemyProjectileKind::TarMonsterBurstChild
+                        && projectile.animation_elapsed_frames == 0)
             })
             .count();
         (self.block_bounces.len()

@@ -151,7 +151,8 @@ const DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C: i32 = 5;
 const DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C: i32 = 0x0A;
 const DRAGON_FLYING_DESCENT_FIRE_CLEANUP_HIBERNATE_FRAMES_LOC_34C4A: u16 = 3;
 const DRAGON_FLYING_DESCENT_FIRE_COLLISION_HALF_WIDTH_LOC_34C3A: i32 = 0x05;
-const BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8: u16 = 0x05 + 0x05 + 0x0A + 0x01;
+pub(crate) const BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8: u16 =
+    0x05 + 0x05 + 0x0A + 0x01;
 const BOSS_DEATH_BURST_COLLISION_ANIMATION_FRAMES_STRU_37BC6: u16 = 0x0A * 4;
 const BOSS_DEATH_BURST_TIMEOUT_ANIMATION_FRAMES_STRU_37C0E: u16 = 0x64;
 const BOSS_DEATH_BURST_FINISH_ANIMATION_FRAMES_STRU_37BFC: u16 = 0x32 + 0x0A + 0x0A + 0x0A;
@@ -188,7 +189,9 @@ pub(crate) fn boss_death_burst_sprite_frame_sub_370d2(
     use BossDeathBurstSpriteFrame::{C8460, C8468, C8470, C8478};
 
     match projectile.boss_death_burst_state {
-        BossDeathBurstState::None | BossDeathBurstState::SharedHomingSub37002 => C8460,
+        BossDeathBurstState::None
+        | BossDeathBurstState::AllocatedLoc375De
+        | BossDeathBurstState::SharedHomingSub37002 => C8460,
         BossDeathBurstState::FallingLoc3712E => match projectile.animation_elapsed_frames {
             17.. => C8460,
             12..=16 => C8468,
@@ -254,6 +257,23 @@ fn step_boss_death_burst_sub_370d2(
     }
 
     match projectile.boss_death_burst_state {
+        BossDeathBurstState::AllocatedLoc375De => {
+            // ASM Allocate_ObjectSlot loc_DE0 links this priority-$6000
+            // Object before the currently executing priority-$FFFF Heady
+            // object. Execute_Objects loc_E1E therefore reaches sub_370D2 on
+            // the next pass, when it plays `sfx_Voice_die`, allocates its
+            // GfxObject, starts stru_37BD8, and immediately hibernates at
+            // loc_3712E before applying gravity.
+            if projectile.animation_elapsed_frames > 0 {
+                projectile.animation_elapsed_frames -= 1;
+                return true;
+            }
+            pending_sound_effects.push(crate::combat::QueuedSoundEffect::VoiceDie);
+            projectile.animation_elapsed_frames =
+                BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8;
+            projectile.boss_death_burst_state = BossDeathBurstState::FallingLoc3712E;
+            true
+        }
         BossDeathBurstState::FallingLoc3712E => {
             // ASM loc_3712E: hibernate first, then add `$2710` to y_vel until
             // `stru_37BD8` sets animation flag `$18(a3)`. The `$78` chase

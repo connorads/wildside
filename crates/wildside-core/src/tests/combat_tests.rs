@@ -1,5 +1,6 @@
 use super::*;
 use crate::projectiles::{
+    BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8,
     BOSS_EYE_POP_EFFECT_ENTRY_ANIMATION_FRAMES_STRU_37BEA,
     BOSS_EYE_POP_EFFECT_FINISH_ANIMATION_FRAMES_STRU_37BFC,
 };
@@ -2987,14 +2988,12 @@ fn live_heady_metal_tracker_runs_palette_cycle_sub_379e8() {
 fn live_heady_metal_normal_fire_spawns_death_burst_sub_370d2() {
     let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0060_0000, 0x0046_0000, 30);
     let mut projectiles = Vec::new();
-    let mut sound_effects = Vec::new();
 
-    step_boss_fire_with_sounds(
+    step_boss_fire_with_context(
         &mut boss,
         &mut projectiles,
         Some(0x0044_0000),
         Some(0x0046_0000),
-        Some(&mut sound_effects),
         BossFireFrameContext {
             heady_metal_eye_anchor_loc_375de: Some(HeadyMetalEyeAnchorLoc375De {
                 x_pos: 0x0060,
@@ -3043,18 +3042,40 @@ fn live_heady_metal_normal_fire_spawns_death_burst_sub_370d2() {
         "ASM sub_370D2 seeds `d0=$78` for the grounded chase timer"
     );
     assert_eq!(
-        projectile.animation_elapsed_frames, BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8,
-        "ASM sub_370D2 starts `stru_37BD8` before entering loc_3712E"
+        projectile.animation_elapsed_frames, 1,
+        "ASM Allocate_ObjectSlot loc_DE0 inserts the priority-$6000 Object before the running priority-$FFFF Heady object, so native's later projectile phase must not initialise it on the allocation pass"
     );
     assert_eq!(
         projectile.boss_death_burst_state,
+        BossDeathBurstState::AllocatedLoc375De,
+        "ASM loc_375DE allocates an Object whose sub_370D2 entry is unreachable until the next Execute_Objects pass"
+    );
+
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.projectiles = projectiles;
+    runtime.step_projectiles();
+    assert_eq!(
+        runtime.projectiles[0].boss_death_burst_state,
+        BossDeathBurstState::AllocatedLoc375De,
+        "native's same-frame projectile phase consumes only the allocation scheduler delay"
+    );
+    assert!(runtime.played_sound_effects.is_empty());
+
+    runtime.step_projectiles();
+    let projectile = runtime.projectiles[0];
+    assert_eq!(
+        projectile.boss_death_burst_state,
         BossDeathBurstState::FallingLoc3712E,
-        "ASM sub_370D2 enters loc_3712E's falling loop before the grounded chase"
+        "ASM sub_370D2 should initialise the GfxObject on its first reachable pass"
     );
     assert_eq!(
-        sound_effects,
-        vec![QueuedSoundEffect::VoiceDie],
-        "ASM sub_370D2 immediately plays `sfx_Voice_die`"
+        projectile.animation_elapsed_frames,
+        BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8
+    );
+    assert_eq!((projectile.y_pos, projectile.y_velocity), (0x0065_0000, 0));
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::VoiceDie]
     );
 }
 
@@ -3690,24 +3711,18 @@ fn live_heady_metal_final_breakup_latch_suppresses_normal_eye_fire_loc_375de() {
     let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 0);
     boss.wait_timer = 0;
     let mut projectiles = Vec::new();
-    let mut sound_effects = Vec::new();
 
-    step_boss_fire_with_sounds(
+    step_boss_fire_with_context(
         &mut boss,
         &mut projectiles,
         Some(0x0090_0000),
         Some(0x0080_0000),
-        Some(&mut sound_effects),
         BossFireFrameContext::default(),
     );
 
     assert!(
         projectiles.is_empty(),
         "ASM sub_37708 loc_377BC sets `$FFFFFB4E` once `$3E(a3) >= $25`; loc_375DE should then branch to loc_3763A instead of allocating normal `sub_370D2` eye fire"
-    );
-    assert!(
-        sound_effects.is_empty(),
-        "ASM loc_375DE should skip the normal HeadyMetal eye-fire sound while the final breakup latch is set"
     );
 }
 

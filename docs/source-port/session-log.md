@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Heady Metal eye Object/Gfx scheduling)
+
+- `loc_375DE` allocates the normal-eye Object at recording frames 84/329, but
+  priority insertion at `Allocate_ObjectSlot loc_DE0` defers `sub_370D2` until
+  frames 85/330. Native now exposes the same Object-only then GfxObject states.
+- `sub_370D2` now owns `sfx_Voice_die`, `stru_37BD8` initialisation, and its
+  pre-gravity hibernate. Recording `heady-metal-eye-object-scheduler-fixed`
+  matches the oracle's Object/Gfx counts across both allocations.
+- Level `0x33` frame sweep `1788580715` remains green at 829/2,566 mismatched
+  pixels. The next frontier is the `$FFFFFB7A` parent worker's one-pixel Y drift:
+  native copies 54 while oracle stores 53. The later `sub_37002` tail is separate.
+
 ## 2026-09-05 handoff (Heady Metal eye-fire scheduler)
 
 - ASM `stru_37B8A` and `stru_37B98` disprove native's generic 180-frame boss
