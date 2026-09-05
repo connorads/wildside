@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Level 0x55 Driller residual partition)
+
+- Level 0x55 remains at 1,782 changed pixels with a clean player/camera
+  projection. Enemy-frontier frame 0 already differs in the lower Driller
+  parent's facing and damage state plus linked-child metadata; frame 40 adds
+  a one-pixel upper-family X phase.
+- Layer captures and focused reruns reject terrain palette propagation and
+  checkpoint-only `$C4A0` player-art updates. Both leave the report unchanged.
+- NEXT: probe Driller parent Object RAM, GfxObject links, and Sprite Table at
+  recording frames 0 and 40, then derive the two parent coroutine seeds from
+  `Enemy1A_Driller_Init`/`loc_3BF4E`. See archive #495.
+
 ## 2026-09-05 handoff (Level 0x46 Big Hopping Skull palette order)
 
 - `Load_EnemyArtPaletteToVRAM loc_36D16..loc_36D52` selects Level 0x46's
