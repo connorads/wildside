@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Heady Metal burst movement order)
+
+- Direct oracle Object RAM proves `sub_370D2` and final `sub_37002` update
+  velocity before `GfxObjects_MoveAndAnimate loc_142E` moves each worker.
+- Native now matches the first post-hibernate fixed-point positions and the
+  later frame-358/359 worker rows instead of remaining one movement pass late.
+- Current-trace latching and SAT rendering experiments did not change pixels
+  and were discarded. Level 0x33 remains green at 749 settle / 2,086 idle-tail
+  mismatches; continue from sprite mapping/composite presentation evidence.
+
 ## 2026-09-05 handoff (post-change Armadillo mutation census)
 
 - With no selectable backlog risk, refreshed `enemies/armadillo.rs` because its

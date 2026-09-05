@@ -276,9 +276,9 @@ fn step_boss_death_burst_sub_370d2(
         }
         BossDeathBurstState::FallingLoc3712E => {
             // ASM loc_3712E: hibernate first, then add `$2710` to y_vel until
-            // `stru_37BD8` sets animation flag `$18(a3)`. The `$78` chase
-            // counter is untouched during this entry animation.
-            move_projectile_by_current_velocity(projectile);
+            // `stru_37BD8` sets animation flag `$18(a3)`. The later global
+            // GfxObjects_MoveAndAnimate loc_142E pass uses the updated velocity.
+            // The `$78` chase counter is untouched during this entry animation.
             let next_y_velocity =
                 crate::combat::boss_death_burst_fall_step_sub_370D2(projectile.y_velocity);
             if projectile.animation_elapsed_frames > 1 {
@@ -289,13 +289,14 @@ fn step_boss_death_burst_sub_370d2(
                 projectile.y_velocity = 0;
                 projectile.boss_death_burst_state = BossDeathBurstState::ChaseLoc37148;
             }
+            move_projectile_by_current_velocity(projectile);
             true
         }
         BossDeathBurstState::ChaseLoc37148 => {
-            // ASM loc_37148 runs after a hibernated frame: move with the
-            // previous velocity, decrement d0, then apply loc_3716C homing
-            // deltas only when the timer remains non-zero.
-            move_projectile_by_current_velocity(projectile);
+            // ASM loc_37148 runs after a hibernated frame: decrement d0 and
+            // apply loc_3716C homing deltas while the timer remains non-zero.
+            // GfxObjects_MoveAndAnimate loc_142E moves with the result later
+            // in the same frame.
             let gate = crate::combat::boss_death_burst_loop_gate_loc_37148(
                 projectile.collision_type,
                 projectile.lifetime,
@@ -315,6 +316,7 @@ fn step_boss_death_burst_sub_370d2(
                     projectile.y_velocity =
                         projectile.y_velocity.wrapping_add(step.y_velocity_delta);
                     projectile.boss_death_burst_x_direction = step.x_direction;
+                    move_projectile_by_current_velocity(projectile);
                     true
                 }
                 crate::combat::BossDeathBurstLoopNextLoc37148::TimeoutFinish => {
@@ -427,7 +429,6 @@ fn step_boss_death_burst_sub_370d2(
             // ASM sub_37002 loc_37054: the helper owns its own hibernated
             // movement loop and `$3C` counter, so keep it out of the generic
             // projectile movement/lifetime path below.
-            move_projectile_by_current_velocity(projectile);
             let gate = crate::combat::enemy_death_burst_loop_gate_loc_37054(
                 projectile.collision_type,
                 projectile.lifetime,
@@ -447,6 +448,9 @@ fn step_boss_death_burst_sub_370d2(
             projectile.x_velocity = projectile.x_velocity.wrapping_add(step.x_velocity_delta);
             projectile.y_velocity = projectile.y_velocity.wrapping_add(step.y_velocity_delta);
             projectile.boss_death_burst_x_direction = step.x_direction;
+            // ASM loc_37078..loc_370C0 updates velocity before the later
+            // GfxObjects_MoveAndAnimate loc_142E pass moves this GfxObject.
+            move_projectile_by_current_velocity(projectile);
             true
         }
         BossDeathBurstState::None => true,
@@ -1605,6 +1609,80 @@ mod drips_surface_crawler_tests {
             "ASM sub_370D2 never sets has_kid_collision, so its overlapping eye burst must bypass GfxObjects_CollisionKid"
         );
         assert_eq!(runtime.projectiles.len(), 1);
+    }
+
+    #[test]
+    fn heady_metal_homing_bursts_apply_object_velocity_before_gfx_movement() {
+        let mut sounds = Vec::new();
+        let mut spawned = Vec::new();
+        let mut falling_eye = EnemyProjectile {
+            x_pos: 0x0100_0000,
+            y_pos: 0x007A_0000,
+            lifetime: 120,
+            animation_elapsed_frames: 21,
+            kind: EnemyProjectileKind::BossDeathBurst,
+            boss_death_burst_state: BossDeathBurstState::FallingLoc3712E,
+            ..Default::default()
+        };
+
+        assert!(step_boss_death_burst_sub_370d2(
+            &mut falling_eye,
+            Some(0x0020_0000),
+            Some(0x007F_0000),
+            0,
+            &mut sounds,
+            &mut spawned,
+        ));
+        assert_eq!(
+            (falling_eye.y_pos, falling_eye.y_velocity),
+            (0x007A_2710, 0x0000_2710),
+            "ASM sub_370D2 loc_3712E adds `$2710` before GfxObjects_MoveAndAnimate loc_142E moves the eye on its first post-hibernate frame"
+        );
+
+        let mut final_child = EnemyProjectile {
+            x_pos: 0x0021_0000,
+            y_pos: 0x00AF_0000,
+            lifetime: 60,
+            kind: EnemyProjectileKind::BossDeathBurst,
+            boss_death_burst_state: BossDeathBurstState::SharedHomingSub37002,
+            ..Default::default()
+        };
+
+        assert!(step_boss_death_burst_sub_370d2(
+            &mut final_child,
+            Some(0x0020_0000),
+            Some(0x007F_0000),
+            0,
+            &mut sounds,
+            &mut spawned,
+        ));
+        assert_eq!(
+            (final_child.x_pos, final_child.y_pos),
+            (0x0020_F060, 0x00AE_F060),
+            "ASM sub_37002 loc_37078..loc_370C0 updates velocity after the Object hibernate; GfxObjects_MoveAndAnimate loc_142E then moves by that new velocity in the same frame"
+        );
+
+        let mut normal_eye = EnemyProjectile {
+            x_pos: 0x0100_0000,
+            y_pos: 0x007A_0000,
+            lifetime: 120,
+            kind: EnemyProjectileKind::BossDeathBurst,
+            boss_death_burst_state: BossDeathBurstState::ChaseLoc37148,
+            ..Default::default()
+        };
+        assert!(step_boss_death_burst_sub_370d2(
+            &mut normal_eye,
+            Some(0x0020_0000),
+            Some(0x007F_0000),
+            0,
+            &mut sounds,
+            &mut spawned,
+        ));
+        assert_eq!(
+            (normal_eye.x_pos, normal_eye.y_pos),
+            (0x00FF_F830, 0x007A_07D0),
+            "ASM sub_370D2 loc_3716C..loc_371B4 likewise updates velocity before the later loc_142E GfxObject move"
+        );
     }
 
     #[test]
