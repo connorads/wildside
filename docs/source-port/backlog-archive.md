@@ -40,6 +40,13 @@ exact at frames 0, 30, 60, 120, 300, and 359. The remaining 84/92 changed pixels
 are the independent HUD timing witness. Focused core/frame regressions and the
 full gates are green.
 
+Mutation follow-up 2026-09-05: a complete 253-case census of `enemies/lion.rs`
+initially found two survivors, both replacing the HP-8 regular-loop
+`next < regular_end` guard. The boundary assertions at phases 26 and 64 did not
+prove ordinary `stru_3DEDA` ticks advanced. An exact phase 40 -> 41 assertion,
+citing `GfxObject_Animate sub_113E`, kills both. Final result: 206 caught, 47
+compile-invalid, zero missed, zero timeouts.
+
 ### #492
 
 Closed [x] 2026-09-05. Fresh all-level frame sweep `1788585146` selected Level

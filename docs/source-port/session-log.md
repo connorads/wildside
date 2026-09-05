@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Lion mutation hardening)
+
+- With no selectable backlog risk, the proactive fallback mutation-tested all
+  253 transformations in `enemies/lion.rs`.
+- Two survivors exposed one gap: #493's tests proved the fast-to-regular and
+  regular-loop boundaries but not an intermediate `stru_3DEDA` tick. An exact
+  `sub_113E` phase 40 -> 41 regression kills both.
+- Final census is 206 caught, 47 compile-invalid, zero missed and zero timeouts.
+  Continue the proactive fallback with another live gameplay/sweep-path module.
+
 ## 2026-09-05 handoff (Lion fire and animation schedule)
 
 - Oracle Object RAM plus `stru_3DF0E` confirms the child appears on frame 4,

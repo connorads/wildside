@@ -2489,6 +2489,13 @@ mod tests {
             "ASM ingame/anim/enemy/Lion.asm stru_3DEF4 `$33` rewind enters stru_3DEDA after its 27-tick fast lead"
         );
 
+        fast_lion.dragon_script_cmd = 40;
+        advance_lion_live_walk_animation_loc_3dfd8(&mut fast_lion);
+        assert_eq!(
+            fast_lion.dragon_script_cmd, 41,
+            "ASM GfxObject_Animate sub_113E advances intermediate stru_3DEDA duration ticks instead of rewinding each pass"
+        );
+
         fast_lion.dragon_script_cmd = 64;
         advance_lion_live_walk_animation_loc_3dfd8(&mut fast_lion);
         assert_eq!(
