@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-05 handoff (Dragon Walking mutation refresh)
+
+- With no selectable ready or open risk, the proactive fallback chose Dragon
+  Walking because its last complete family mutation refresh was in July.
+- The isolated `dragon_walking.rs` census tested all 158 generated changes:
+  133 were caught and 25 were compiler-unviable, with no miss or timeout.
+- The existing tests therefore exercise the modelled Dragon.asm lifecycle and
+  shared Lion.asm walker decisions strongly enough for this mutation set. No
+  gameplay change was justified. Continue with a different live gameplay or
+  sweep-path target; require new oracle or playtest evidence before repeating
+  this family.
+
 ## 2026-09-05 handoff (Big Hopping Skull finite airborne animation)
 
 - A fresh `big_hopping_skull.rs` mutation census found four misses in the
