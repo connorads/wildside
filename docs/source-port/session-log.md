@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (pixel-exact transform overlap)
+
+- Oracle VRAM proves `$220` is fixed `Blocks.bin` art; `sub_1007A` restores the
+  layout skin without copying its art. Correcting the wobble page cuts frame 56
+  from 219 to 94 pixels.
+- Oracle CRAM composes Kid's 12 colours with the target helmet's three accent
+  colours for both Kid and the linked mask. This cuts the frame to 11 pixels.
+- Oracle SAT slots 16/17 put the `$2EA` flash before the retained `$220` wobble
+  during synchronous `Kid_Transform loc_7D22`. Correct first-opaque order makes
+  frame 56 exact. Both full gates pass. NEXT: refresh Level `$55` and take its
+  largest residue. See archive #495.
+
 ## 2026-09-06 handoff (transform Sprite Table debris omission)
 
 - Normal `Mode_Level` calls `sub_2A4C`, but every synchronous

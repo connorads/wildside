@@ -328,6 +328,31 @@ the 189-pixel effects partition. The remaining provenance is block override
 136, player 76, and terrain 7. `verify-slice-fast` and `verify-tas-full` pass;
 the published route remains 37,518 exact frames and 2,391 changed pixels.
 
+Follow-up 2026-09-06. Direct oracle VRAM corrects the earlier source-skin DMA
+hypothesis: tiles `$220..$229` match `Blocks.bin` local tiles `$000..$009`
+byte-for-byte. `sub_1007A loc_100C4` restores the layout skin but does not copy
+its art. The transform-time `stru_101B6` wobble therefore presents the fixed
+`$220` page; ordinary Mode_Level still exposes the preceding generic resident
+page on the first hibernate frame. This removes the 136-pixel block component.
+
+Oracle CRAM `$62..$7F` contains Kid.bin's 12 words followed by the Micromax
+helmet's three accent words. Native now models `loc_7DF0 -> sub_80D0/sub_813C`
+as one shared 15-word palette for both Kid and the linked mask, rather than
+overwriting the tail of a compact Kid palette. This removes the 76 player and
+7 terrain-overlap pixels. Finally, provenance re-walk predicted oracle colours
+for the last 11 pixels while the real renderer retained the earlier wobble:
+oracle SAT slots 16 and 17 instead order the `$2EA` flash before `$220` wobble
+on the synchronous `Kid_Transform loc_7D22` field. A transform-only submission
+order fixes the first-opaque overlap without changing ordinary Mode_Level.
+
+Focused reports reduce frame 56 from 219 to 94 and then 11 pixels. The final
+re-render has zero divergent pixels; `visual-triage` reaches its stale-report
+assertion because the supplied report still declares the now-absent frame.
+Regressions pin the fixed wobble page, composed palette, and both ordinary and
+transform SAT orders. `verify-slice-fast` and `verify-tas-full` pass; published
+route evidence remains 37,518 exact frames and 2,391 changed pixels. NEXT:
+refresh the full Level `$55` visual census.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level

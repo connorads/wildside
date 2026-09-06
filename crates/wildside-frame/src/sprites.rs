@@ -955,6 +955,46 @@ pub fn select_player_transform_render<'a>(
     ))
 }
 
+pub(crate) fn kid_transform_mask_shared_palette_loc_7df0(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) -> Option<Palette> {
+    let source_helmet_id = trace.transform_source_helmet_id_loc_7ca6?;
+    let phase = wildside_core::presented_transform_phase(
+        source_helmet_id,
+        trace.current_helmet_id,
+        trace.form_change_flash_frames,
+    )?;
+    if !matches!(
+        phase.handler,
+        TransformHandler::KidWithSpark { spark: true }
+    ) {
+        return None;
+    }
+
+    let kid_palette = &level_visuals.player.forms.get(&0)?.palette;
+    let mask_content_id = u8::try_from(trace.current_helmet_id).ok()?.checked_add(1)?;
+    let mask_palette = &level_visuals
+        .floating_prizes
+        .helmets
+        .get(&mask_content_id)?
+        .palette;
+    if kid_palette.colours.len() < 12 || mask_palette.colours.len() < 15 {
+        return None;
+    }
+
+    // ASM loc_7DF0 calls sub_80D0 for The Kid's twelve visible words at
+    // Palette_Buffer+$62, then sub_813C appends the target helmet's three
+    // accent words at +$7A. Native stores Kid.bin as a compact 12-word asset,
+    // so compose the shared hardware line rather than replacing its tail.
+    let mut palette = kid_palette.clone();
+    palette.colours.truncate(12);
+    palette
+        .colours
+        .extend_from_slice(&mask_palette.colours[12..15]);
+    Some(palette)
+}
+
 /// ASM off_7D34 handler → (art, palette) for a ported transform pass.
 fn phase_transform_render_loc_7d0a<'a>(
     phase: &wildside_core::PresentedTransformPhase,
@@ -1280,14 +1320,15 @@ pub fn push_player_sprite_with_priority_and_resident_art(
         select_player_transform_render(trace, &level_visuals.player, form_visuals)
     {
         let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
+        let palette = kid_transform_mask_shared_palette_loc_7df0(trace, level_visuals)
+            .unwrap_or_else(|| {
+                player_palette_for_transform_phase(base_palette, damage_flash_white_phase)
+            });
         commands.push(DrawCommand::SatSprite {
             x: draw_x,
             y: draw_y,
             tile_sheet: Arc::new(resident_art.unwrap_or(&frame.tile_sheet).clone()),
-            palette: Arc::new(player_palette_for_transform_phase(
-                base_palette,
-                damage_flash_white_phase,
-            )),
+            palette: Arc::new(palette),
             tiles: build_player_sprite_tiles_with_flip(
                 frame,
                 matches!(render_facing, Direction::Left),

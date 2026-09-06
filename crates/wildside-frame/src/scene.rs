@@ -6443,16 +6443,16 @@ fn push_prize_block_wobble_sub_1007a(
     x: i32,
     y: i32,
     remaining: u8,
-    transform_resident_source_skin: Option<u8>,
+    transform_active: bool,
 ) {
     let frame = prize_block_wobble_frame_sub_1007a(level_visuals, remaining);
-    let tiles = if remaining == 31 {
+    let tiles = if remaining == 31 && !transform_active {
         // ASM sub_1007A loc_100C4 initialises the `$220` mapping after
         // Make_SpritesFromGfxObjects has built this frame's Sprite_Table. The
-        // oracle therefore still sees the resident generic prize page on the
-        // first visible hibernate frame, before the copied art is displayed.
+        // ordinary Mode_Level therefore still sees the preceding resident
+        // generic prize page on the first visible hibernate frame.
         let Some(resolved) = level_visuals.level.block_mapping.resolve(
-            transform_resident_source_skin.unwrap_or(PRIZE_BLOCK_RESIDENT_PAGE_SKIN_SUB_1007A),
+            PRIZE_BLOCK_RESIDENT_PAGE_SKIN_SUB_1007A,
             Some(wildside_core::terrain::BlockType::Prize as u8),
         ) else {
             return;
@@ -6902,8 +6902,7 @@ pub fn push_prize_block_wobble_overrides_sub_1007a(
                     trace.form_change_flash_frames > 0,
                 )),
             remaining,
-            (trace.form_change_flash_frames > 0)
-                .then(|| level_visuals.level.foreground_layout.skin_at(col, row)),
+            trace.form_change_flash_frames > 0,
         );
     }
     for &(col, row, remaining) in &trace.prize_block_worker_tails_sub_1007a {
@@ -6945,7 +6944,7 @@ pub fn push_prize_block_wobble_overrides_sub_1007a(
             // GfxObject keeps that settled position through the final sprite.
             i32::from(row) * 16 - camera_y_px + 2,
             4,
-            None,
+            false,
         );
     }
 }
@@ -7445,6 +7444,7 @@ fn build_game_scene_filtered(
     };
     let mut commands = Vec::new();
     let mut layer_tags = LayerTags::new();
+    let mut deferred_transform_wobble_commands = Vec::new();
 
     if eol_hologram_visible && filter.background {
         push_eol_hologram_room(&mut commands, trace, level_visuals);
@@ -7703,12 +7703,14 @@ fn build_game_scene_filtered(
         layer_tags.mark(SceneLayer::Player, commands.len());
     }
     if filter.block_overrides {
-        // ASM Allocate_GfxObjectSlot loc_FD4 sorts Kid's `$2000` GfxObject
-        // before every `$2001` sub_1007A worker. Equal-priority insertion is
-        // stable, so active wobble workers then precede newly allocated
-        // loc_102B8 flashes in Make_SpritesFromGfxObjects loc_14A4.
+        let wobble_commands =
+            if trace.form_change_flash_frames > 0 && !trace.prize_block_spawn_flashes.is_empty() {
+                &mut deferred_transform_wobble_commands
+            } else {
+                &mut commands
+            };
         push_prize_block_wobble_overrides_sub_1007a(
-            &mut commands,
+            wobble_commands,
             trace,
             level_visuals,
             block_grid,
@@ -9121,6 +9123,13 @@ fn build_game_scene_filtered(
         }
         layer_tags.mark(SceneLayer::Effects, commands.len());
     }
+    // ASM Kid_Transform loc_7D22 hibernates synchronously inside the object
+    // pass. On its first presented frame the already-built loc_102B8 flash
+    // occupies the earlier SAT slot and sub_1007A's retained wobble GfxObject
+    // follows it. Preserve that first-opaque order instead of the ordinary
+    // Mode_Level allocation order. This also retains the wobble when the
+    // diagnostic layer filter hides effects.
+    commands.append(&mut deferred_transform_wobble_commands);
 
     if !eol_hologram_visible && filter.hud {
         // ASM Mode_Level calls Make_SpriteAttr_HUD before sub_5E02 but the
@@ -9472,13 +9481,10 @@ fn push_transform_mask_loc_7d7c(
     let Some(frame) = mask_visuals.frames.first() else {
         return;
     };
-    let Some(kid_palette) = level_visuals.player.forms.get(&0).map(|kid| &kid.palette) else {
+    let Some(palette) = sprites::kid_transform_mask_shared_palette_loc_7df0(trace, level_visuals)
+    else {
         return;
     };
-    let mut palette = kid_palette.clone();
-    if palette.colours.len() >= 15 && mask_visuals.palette.colours.len() >= 15 {
-        palette.colours[12..15].clone_from_slice(&mask_visuals.palette.colours[12..15]);
-    }
 
     let mut facing = player
         .facing
@@ -15491,11 +15497,11 @@ mod tests {
     }
 
     #[test]
-    fn prize_block_wobble_draw_uses_resident_then_copied_vram_frames_sub_1007a() {
+    fn prize_block_wobble_draw_uses_prior_then_fixed_vram_frames_sub_1007a() {
         let visuals = sample_level_visuals(0x300);
         let mut commands = Vec::new();
 
-        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, 32, 48, 28, None);
+        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, 32, 48, 28, false);
 
         let DrawCommand::SatSprite { x, y, tiles, .. } = commands.single() else {
             panic!("ASM sub_1007A should emit one source-ordered wobble SAT sprite");
@@ -15523,7 +15529,7 @@ mod tests {
         );
 
         let mut commands = Vec::new();
-        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, 32, 48, 31, None);
+        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, 32, 48, 31, false);
 
         let DrawCommand::SatSprite { tiles, .. } = commands.single() else {
             panic!("ASM sub_1007A should emit one source-ordered wobble SAT sprite");
@@ -15537,37 +15543,18 @@ mod tests {
             "ASM sub_1007A loc_100C4 leaves the generic prize page resident for the first visible hibernate frame"
         );
 
-        let source_skin = 2;
-        let expected = visuals
-            .level
-            .block_mapping
-            .resolve(
-                source_skin,
-                Some(wildside_core::terrain::BlockType::Prize as u8),
-            )
-            .expect("sample source skin should resolve");
         let mut commands = Vec::new();
-        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, 32, 48, 31, Some(source_skin));
+        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, 32, 48, 31, true);
         let DrawCommand::SatSprite { tiles, .. } = commands.single() else {
-            panic!("ASM sub_1007A should emit the transform-resident copied block");
+            panic!("ASM sub_1007A should emit the transform-resident `$220` page");
         };
         assert_eq!(
-            tiles.iter().map(|tile| tile.tile).collect::<Vec<_>>(),
-            expected
-                .quad
-                .tiles
+            tiles
                 .iter()
-                .map(|tile| {
-                    let mut tile = *tile;
-                    tile.tile_index = tile
-                        .tile_index
-                        .checked_sub(BLOCK_TILE_VRAM_BASE)
-                        .unwrap_or(tile.tile_index);
-                    tile.priority = false;
-                    tile
-                })
+                .map(|tile| tile.tile.tile_index)
                 .collect::<Vec<_>>(),
-            "ASM sub_1007A loc_100C4 copies the disguised source skin into `$220`; Kid_Transform loc_7D22 retains that page rather than the generic P skin"
+            vec![0x000, 0x001, 0x002, 0x003],
+            "ASM sub_1007A loc_100C4 only restores the layout skin; Kid_Transform loc_7D22 presents stru_101B6's fixed `$220` page, whose oracle VRAM bytes match Blocks.bin tiles `$000..$003`"
         );
         assert_eq!(
             prize_block_wobble_presented_y_offset_sub_1007a(31, 0, true),
@@ -15581,9 +15568,9 @@ mod tests {
     }
 
     #[test]
-    fn prize_block_wobble_sat_follows_kid_and_precedes_spawn_flash_sub_1007a() {
+    fn prize_block_wobble_sat_order_tracks_mode_level_and_transform_sub_1007a() {
         let visuals = sample_level_visuals(0x300);
-        let trace = NativeTraceFrame {
+        let mut trace = NativeTraceFrame {
             game_mode: GameMode::InGame,
             active_objects: vec![NativeObjectSnapshot {
                 x_pos: 100 << 16,
@@ -15635,6 +15622,40 @@ mod tests {
             sat_positions,
             vec![(100, 92), (32, 32), (68, 68)],
             "ASM Allocate_GfxObjectSlot loc_FD4 / Make_SpritesFromGfxObjects loc_14A4 sorts Kid `$2000`, then the older sub_1007A `$2001` wobble, then its newly allocated loc_102B8 `$2001` flash"
+        );
+
+        trace.form_change_flash_frames = 31;
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: true,
+                platforms: false,
+                enemies: false,
+                player: true,
+                effects: true,
+                eol_score: false,
+                hud: false,
+            },
+            None,
+        )
+        .0;
+        let sat_positions = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::SatSprite { x, y, .. } => Some((*x, *y)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            sat_positions,
+            vec![(100, 92), (68, 68), (32, 32)],
+            "ASM Kid_Transform loc_7D22 first presents the loc_102B8 flash before the retained sub_1007A wobble, matching oracle SAT slots 16 and 17"
         );
     }
 
