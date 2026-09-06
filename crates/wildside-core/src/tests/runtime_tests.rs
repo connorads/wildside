@@ -12718,6 +12718,30 @@ mod chunk_09 {
         );
     }
 
+    /// #495 - ASM Make_SpriteAttr_HUD loc_BE82 decrements the timer only while
+    /// the hidden debug-warp lifecycle is live and Kid is not transforming.
+    /// Oracle `$FC1C/$FC1E/$FC20` watches pin the per-level hand-off state.
+    #[test]
+    fn issue495_level55_recording_handoff_retains_lifecycle_timer_loc_be82() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let level = LevelId(0x55);
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(level);
+        runtime.settle_recording_oracle_warp_live_window(level);
+        let frame = runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            (
+                frame.level_timer_seconds,
+                frame.level_timer_sub_frames,
+                frame.hud_timer_sprite_seconds_loc_bee8,
+            ),
+            (178, 60, Some(178)),
+            "ASM loc_BE82/loc_BEE8 and Level 0x55 oracle frame 0 retain the timer aged by the typed hidden lifecycle"
+        );
+    }
+
     /// #495 - ASM GfxObjects_CollisionKid loc_1B94/loc_1C18 scans every
     /// collision-enabled GfxObject, including Driller's linked `stru_3BCBC`
     /// children. Oracle frame 320 latches `$24` on the left child when its

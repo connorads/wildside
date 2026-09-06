@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (recording timer lifecycle)
+
+- `settle_recording_oracle_warp_live_window` no longer overwrites the timer
+  produced by the typed debug-warp lifecycle with Level `$07`'s legacy seed.
+  This preserves real per-level `loc_BE82` passes and transformation pauses.
+- Direct oracle watches distinguish Level `$07` `2:59/$07`, Level `$33`
+  `2:59/$03`, Level `$02` `2:59/$0A`, and Level `$55` `2:58/$3C` at frame 0.
+  A universal seed and a load-duration formula were rejected.
+- Level `$55` frame 60 is pixel exact. Ten samples spanning the former
+  629-pixel timer cluster are full-frame exact. All 360 state checkpoints
+  match. NEXT: regenerate the every-frame visual census. See archive #495.
+
 ## 2026-09-06 handoff (Micromax wrap-field mapping)
 
 - `sub_78E8 loc_7962` clears `$FFFFF8F0` at eight without changing `d0`.

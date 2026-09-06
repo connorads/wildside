@@ -504,11 +504,12 @@ impl NativeRuntime {
             self.time_frames_loc_3038a =
                 recording_oracle_time_frames_loc_3038a(level_id, self.time_frames_loc_3038a);
         }
-        // ASM Init_SpriteAttr_HUD loc_BDC0 seeds Time_SubSeconds to 1. The
-        // level-skip tail is level-dependent: #289 Level 0x07 watches reach
-        // frame 0 at 2:59/$07, while the direct Level 0 release probe reaches
-        // it at 2:59/$3C. Keep both oracle-derived seeds on this recording
-        // settle shim so ordinary gameplay startup stays on LevelTimer::new.
+        // ASM Init_SpriteAttr_HUD loc_BDC0 seeds Time_SubSeconds to 1. A typed
+        // debug lifecycle has already run every live loc_BE82 timer pass,
+        // including transformation pauses, so retain its per-level result.
+        // Legacy callers still need the #289 Level 0x07 oracle seed because
+        // they collapse that lifecycle. The direct Level 0 route has its own
+        // measured title-card boundary.
         if level_id == LevelId(0) {
             // ASM loc_3038A/Make_SpriteAttr_HUD loc_BE82: direct Level 0
             // oracle watches reach recording frame 0 at Time_Frames=$003D,
@@ -518,14 +519,13 @@ impl NativeRuntime {
             self.level_timer.seconds = LEVEL_ZERO_RECORDING_TIMER_SECONDS_BEFORE_FRAME_0_LOC_BE82;
             self.level_timer.sub_frames =
                 LEVEL_ZERO_RECORDING_TIMER_SUBFRAMES_BEFORE_FRAME_0_LOC_BE82;
-        } else {
+        } else if !debug_lifecycle_completed {
             self.level_timer.seconds = RECORDING_SETTLED_WARP_TIMER_SECONDS_LOC_BDC0;
             self.level_timer.sub_frames = RECORDING_SETTLED_WARP_TIMER_SUBFRAMES_LOC_BDC0;
         }
-        // ASM loc_1AE2E's recording hand-off exposes the initial 3:00 table
-        // before the first scenario step. The adapter reseeds timer RAM above
-        // after collapsing the hidden settle window, so reseed the loc_BEE8
-        // sprite-table value at the same boundary.
+        // ASM loc_1AE2E's recording hand-off presents the current timer table
+        // before the first scenario step. Keep loc_BEE8 aligned with either
+        // the retained typed lifecycle or the legacy seed above.
         self.hud_timer_sprite_seconds_loc_bee8 = self.level_timer.seconds;
         self.rebase_mode_level_tail_after_external_override_loc_2ffe8();
         let hidden_object_passes = recording_oracle_warp_hidden_object_passes_loc_e12(level_id);

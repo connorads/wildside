@@ -484,6 +484,22 @@ totalling 3,380 pixels in 18 clusters. All 360 player, camera, and enemy-frontie
 checkpoints match; the four frame-127/128 object-count differences remain
 established oracle limitations. NEXT: triage the remaining 18 clusters.
 
+Follow-up 2026-09-06. The largest remaining visual cluster was the HUD timer
+ones digit: 629 changed pixels over 25 frames around the one-second rollovers.
+Direct oracle `$FFFC1C/$FFFC1E/$FFFC20` watches show that recording frame 0 is
+not universally Level `$07`'s `2:59/$07`: Level `$33` reaches `2:59/$03`,
+Level `$02` reaches `2:59/$0A`, and Level `$55` reaches `2:58/$3C`.
+
+The typed debug-warp lifecycle already executes `Make_SpriteAttr_HUD loc_BE82`
+on each live pass and naturally preserves transformation pauses. Its result is
+now retained; only legacy callers which collapse that lifecycle keep the #289
+seed. A universal per-level lookup and a load-completion formula were rejected
+because both duplicate the gameplay timer and cannot derive pause behaviour.
+The Level `$55` regression pins frame 0 at `2:58/$3C` with the visible
+`loc_BEE8` value 178. Frame 60 is pixel exact, and full-frame comparisons at
+frames 1, 7, 120, 121, 180, 186, 240, 246, 300, and 301 are all exact. The
+360-frame authoritative state frontier remains green.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level
