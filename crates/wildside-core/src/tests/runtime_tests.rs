@@ -12565,6 +12565,40 @@ mod chunk_09 {
         assert_eq!(frame_185.number_gfx_objects, 10);
     }
 
+    /// #495 - ASM GfxObjects_CollisionKid loc_1B94/loc_1C18 scans every
+    /// collision-enabled GfxObject, including Driller's linked `stru_3BCBC`
+    /// children. Oracle frame 320 latches `$24` on the left child when its
+    /// inclusive `unk_31A7A` edge reaches stationary Micromax; frame 321
+    /// consumes the counterpart Kid collision through Check_for_recent_damge.
+    #[test]
+    fn issue495_level55_frame321_stationary_kid_takes_drill_child_damage_loc_1c18() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let level = LevelId(0x55);
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(level);
+        runtime.settle_recording_oracle_warp_live_window(level);
+
+        let mut observed = Vec::new();
+        for frame_index in 0..322 {
+            let frame = runtime.step_frame(FrameInput::default());
+            if frame_index >= 320 {
+                observed.push((
+                    frame_index,
+                    frame.number_hitpoints,
+                    frame.just_received_damage,
+                ));
+            }
+        }
+
+        assert_eq!(
+            observed,
+            vec![(320, 2, false), (321, 1, true)],
+            "ASM off_B640 -> Check_for_recent_damge must consume the stationary drill-child side contact one frame after loc_1C18 latches it"
+        );
+    }
+
     #[test]
     fn issue289_level06_lower_ghost_group_vanishes_before_kid_jump_collision_loc_f730_902a() {
         let Some(manifest) = cached_generated_manifest() else {

@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (Driller-child damage latch)
+
+- An every-frame Level 0x55 census exposed a hidden frame-321 HP divergence.
+  The linked left drill, not its parent body, edge-touches stationary Micromax.
+- `GfxObjects_CollisionKid loc_1C18/loc_1CF2` now feeds that side contact into
+  the ordinary one-frame damage queue. The cache-backed frame-320/321
+  regression passes and all 360 state checkpoints match.
+- Fresh visual triage leaves 89 exact and 271 divergent frames. The dominant
+  enemy, Kid, terrain, and effect clusters share a periodic recolour cadence.
+  NEXT: model shared live CRAM line 3 before tuning any object palette. See
+  archive #495.
+
 ## 2026-09-06 handoff (pixel-exact transform overlap)
 
 - Oracle VRAM proves `$220` is fixed `Blocks.bin` art; `sub_1007A` restores the

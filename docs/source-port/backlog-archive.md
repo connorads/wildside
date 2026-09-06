@@ -353,6 +353,25 @@ transform SAT orders. `verify-slice-fast` and `verify-tas-full` pass; published
 route evidence remains 37,518 exact frames and 2,391 changed pixels. NEXT:
 refresh the full Level `$55` visual census.
 
+Follow-up 2026-09-06. A new every-frame 360-frame census exposed a gameplay
+frontier hidden between the old sparse checkpoints. At frame 320 the left
+linked Driller child at x=`$13` touches stationary Micromax's inclusive right
+edge while the parent body remains separate. Oracle records child relation
+`$24`; frame 321 consumes it through `off_B640 -> Check_for_recent_damge` and
+drops HP 2 to 1. Native now classifies linked-child falling contact as the
+existing pending stomp and routes side/below contact through the ordinary
+one-frame `loc_1CF2` contact queue. The cache-backed frame-320/321 regression
+passes and all 360 state checkpoints match.
+
+Fresh pixel report `level55-all-pixels-after-drill-fix.json` has 89 exact and
+271 divergent frames, totalling 77,270 pixels in 118 spatial clusters. Visual
+triage report `1788707611` groups the leading residue as periodic recolouring:
+34,871 enemy pixels, 24,523 player pixels, 9,006 terrain pixels, and 8,056
+effect pixels. The shared cadence and `sub_80BC/sub_80D0` writes to
+`Palette_Buffer+$62` identify live CRAM line 3 as the next architecture
+boundary. Do not tune independent object palettes from these composites; first
+model the one hardware palette line shared by every line-3 tile and sprite.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level

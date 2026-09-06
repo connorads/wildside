@@ -11747,10 +11747,11 @@ impl NativeRuntime {
     /// through the drilled floor is hurt by li=3's LEFT child (child x=5,
     /// body x=29) with the standard knockback, while the body registers
     /// nothing.
-    fn driller_drill_child_player_damage_contact_unk_31a7a(
+    fn driller_drill_child_player_contact_unk_31a7a(
         &self,
         slice: &OpeningSliceState,
-    ) -> bool {
+        pre_physics_y_velocity: i32,
+    ) -> Option<(EnemyContactResult, u32)> {
         let half_width = self.progression.current_form.half_width();
         let px = (slice.player.x_pos >> 16) as i32;
         let py = (slice.player.y_pos >> 16) as i32;
@@ -11791,11 +11792,21 @@ impl NativeRuntime {
                 let top = child.y_pos + crate::enemies::DRILLER_DRILL_CHILD_BOX_Y_OFFSET_UNK_31A7A;
                 let bottom = top + crate::enemies::DRILLER_DRILL_CHILD_BOX_HEIGHT_UNK_31A7A;
                 if right >= p_left && left <= p_right && bottom >= p_top && top <= p_bottom {
-                    return true;
+                    // ASM GfxObjects_CollisionKid loc_1C42..loc_1CE4 uses
+                    // relative velocity to select `$2C` only when Kid is
+                    // descending onto the drill. A stationary/rising edge
+                    // touch is a side/below contact and reaches
+                    // Check_for_recent_damge through off_B640.
+                    let result = if pre_physics_y_velocity > 0 {
+                        EnemyContactResult::Stomp
+                    } else {
+                        EnemyContactResult::Damage
+                    };
+                    return Some((result, u32::try_from(child.x_pos).unwrap_or(0)));
                 }
             }
         }
-        false
+        None
     }
 
     fn drips_drop_player_damage_contact_loc_3345c(
@@ -12555,6 +12566,15 @@ impl NativeRuntime {
         // Berzerker charging is immune to contact damage (they damage enemies instead)
         if self.helmet.berzerker_charging {
             return None;
+        }
+
+        if let Some((EnemyContactResult::Damage, child_x)) =
+            self.driller_drill_child_player_contact_unk_31a7a(slice, slice.player.y_velocity)
+        {
+            // ASM GfxObjects_CollisionKid loc_1C18/loc_1CF2: a Driller's
+            // linked drill child writes the reciprocal Kid side/below contact,
+            // which Character_CheckCollision consumes on the next frame.
+            return Some((child_x, EnemyFamily::Driller));
         }
 
         self.active_enemies.iter().find_map(|enemy| {
@@ -14614,7 +14634,7 @@ fn driller_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     // GfxObjects_CollisionKid loc_1BCE to `unk_31A86`: `dc.w -$7,$F,-$F,$E` —
     // the BODY box only. The travelling drill children carry their own
     // `unk_31A7A` boxes at their own positions and route through the separate
-    // driller_drill_child_player_damage_contact_unk_31a7a hazard check (#420);
+    // driller_drill_child_player_contact_unk_31a7a hazard check (#420/#495);
     // folding them into a parent union misattributes child touches as body
     // stomps and grinds the body's HP down (oracle 0x55: one stomp at live
     // 51, not one per bounce).
@@ -15636,30 +15656,31 @@ impl NativeRuntime {
             self.projectile_hits_player_during_invulnerability(slice);
         }
 
-        if slice.player.y_velocity > 0
-            && self.driller_drill_child_player_damage_contact_unk_31a7a(slice)
-        {
-            // ASM GfxObjects_CollisionKid latches `colid_kidabove` for the
-            // falling Kid against the drill child; the NEXT frame's
-            // Jump_On_Enemy (kid.asm:14607) restores the `$FFFFFA2C/2E`
-            // anchor word (integer pixel only — the live subpixel survives),
-            // sets y_vel to loc_B6DA's -$40000, rewinds/1.5×s x, and routes
-            // bit-14 contact damage through Check_for_recent_damge. Oracle
-            // 0x55 shell (run 1786662123): live 33 is the fresh hit
-            // (Number_Hitpoints 2 -> 1) with the bounce sampling -$3C000
-            // after gravity and y snapping to anchor-int|live-sub; live 51
-            // bounces again under the flash with no HP change (loc_1D00
-            // gate). The pending-stomp path models all of that one frame
-            // after the contact, like every other Jump_On_Enemy consumer.
-            self.pending_stomp_bounce = Some(PendingStompBounce {
-                anchor_x_pos: frame_start_x_pos,
-                anchor_y_pos: frame_start_y_pos,
-                y_velocity: STOMP_BOUNCE_VELOCITY,
-                causes_contact_damage: true,
-            });
-            self.opening_slice = Some(*slice);
-            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::StompBounce;
-            return true;
+        match self.driller_drill_child_player_contact_unk_31a7a(slice, pre_physics_y_velocity) {
+            Some((EnemyContactResult::Stomp, _)) => {
+                // ASM GfxObjects_CollisionKid latches `colid_kidabove` for the
+                // falling Kid against the drill child; the NEXT frame's
+                // Jump_On_Enemy (kid.asm:14607) restores the `$FFFFFA2C/2E`
+                // anchor word (integer pixel only — the live subpixel survives),
+                // sets y_vel to loc_B6DA's -$40000, rewinds/1.5×s x, and routes
+                // bit-14 contact damage through Check_for_recent_damge. Oracle
+                // 0x55 shell (run 1786662123): live 33 is the fresh hit
+                // (Number_Hitpoints 2 -> 1) with the bounce sampling -$3C000
+                // after gravity and y snapping to anchor-int|live-sub; live 51
+                // bounces again under the flash with no HP change (loc_1D00
+                // gate). The pending-stomp path models all of that one frame
+                // after the contact, like every other Jump_On_Enemy consumer.
+                self.pending_stomp_bounce = Some(PendingStompBounce {
+                    anchor_x_pos: frame_start_x_pos,
+                    anchor_y_pos: frame_start_y_pos,
+                    y_velocity: STOMP_BOUNCE_VELOCITY,
+                    causes_contact_damage: true,
+                });
+                self.opening_slice = Some(*slice);
+                self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::StompBounce;
+                return true;
+            }
+            None | Some((EnemyContactResult::None | EnemyContactResult::Damage, _)) => {}
         }
 
         if !kid_damage_invulnerable

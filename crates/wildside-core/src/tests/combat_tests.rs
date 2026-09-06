@@ -664,7 +664,7 @@ fn driller_parent_and_drill_contact_uses_rom_collision_size_rows_loc_1bce() {
             PlayerForm::TheKid.half_width() as i64,
         ),
         EnemyContactResult::None,
-        "the drill-child zone must not register as Driller BODY contact; child touches route through driller_drill_child_player_damage_contact_unk_31a7a"
+        "the drill-child zone must not register as Driller BODY contact; child touches route through driller_drill_child_player_contact_unk_31a7a"
     );
 }
 
