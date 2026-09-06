@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (exact recording HUD hand-off)
+
+- Framewise oracle values correct the recording adapter hand-off from seven
+  omitted `sub_44DC` passes to eight.
+- Level 0x55 total pixel error falls 130,701→128,272 and frame 359 falls 46→7,
+  removing the HUD diamond residue while all player/camera frames stay exact.
+- Raster mixing and transform-duration changes were rejected by direct frame
+  evidence. NEXT: trace the seven Driller/Kid overlap pixels. See archive #495.
+
 ## 2026-09-06 handoff (recording HUD hand-off phase)
 
 - The recording adapter now advances the diamond-HUD clock across seven

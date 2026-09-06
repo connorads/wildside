@@ -21601,6 +21601,71 @@ mod tests {
     }
 
     #[test]
+    fn level55_recording_frame359_presents_current_diamond_page_loc_4626() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x55);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest.clone(),
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x55 sweep trace");
+        assert_eq!(
+            (
+                run.trace[0].hud_diamond_frame_offset,
+                run.trace[0].hud_diamond_vram_page_loc_5d4a,
+            ),
+            (Some(2), Some(4)),
+            "ASM sub_44DC loc_45EE and oracle frame 0 `$FA5D/$DD40` watches pin the first live phase"
+        );
+        assert_eq!(
+            run.trace[350..360]
+                .iter()
+                .map(|frame| (
+                    frame.hud_diamond_frame_offset,
+                    frame.hud_diamond_vram_page_loc_5d4a,
+                ))
+                .collect::<Vec<_>>(),
+            vec![
+                (Some(2), Some(4)),
+                (Some(2), Some(4)),
+                (Some(2), Some(4)),
+                (Some(4), Some(8)),
+                (Some(4), Some(8)),
+                (Some(4), Some(8)),
+                (Some(4), Some(8)),
+                (Some(4), Some(8)),
+                (Some(4), Some(8)),
+                (Some(6), Some(12)),
+            ],
+            "ASM sub_44DC loc_45EE and oracle frames 350..359 pin the recording trace phase"
+        );
+        let render_trace = trace_frame_with_vdp_latch_at_checkpoint(
+            &run.trace,
+            359,
+            Some(&run.initial_render_latch),
+            "idle_tail",
+        )
+        .expect("Level 0x55 frame-359 render trace");
+        assert!(render_trace.recording_oracle_settle_completed);
+        assert_eq!(render_trace.hud_diamond_vram_page_loc_5d4a, Some(12));
+        let (visuals, block_grid) =
+            load_session_assets(&manifest, 0x55).expect("Level 0x55 visuals");
+        let scene = build_scene(&render_trace, false, Some(&visuals), Some(&block_grid));
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        render_scene(&scene, &mut rgb);
+        let pixel = (34 * FRAME_WIDTH as usize + 293) * 3;
+
+        assert_eq!(
+            &rgb[pixel..pixel + 3],
+            &[0, 109, 0],
+            "ASM sub_44DC loc_4626 has completed the `$DD40` page-12 DMA before oracle frame 359 fetches the HUD diamond at (293,34)"
+        );
+    }
+
+    #[test]
     fn level48_ufo_beams_and_drips_children_match_gfx_object_sources() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

@@ -260,7 +260,7 @@ impl NativeRuntime {
                 self.prior_input = FrameInput::default();
                 self.previous_input = FrameInput::default();
                 self.recording_oracle_debug_lifecycle_completed = true;
-                self.reconcile_recording_handoff_hud_diamond_loc_45ee(7);
+                self.reconcile_recording_handoff_hud_diamond_loc_45ee(8);
             } else {
                 self.pending_level_skip = Some(target);
                 self.step_frame(idle);
@@ -419,7 +419,7 @@ impl NativeRuntime {
 
     fn reconcile_recording_handoff_hud_diamond_loc_45ee(&mut self, passes: usize) {
         // ASM loc_74E0 -> Mode_Level loc_80C -> sub_44DC loc_45EE: the
-        // recording helper exposes seven HUD-animation passes which its
+        // recording helper exposes eight HUD-animation passes which its
         // collapsed native title/settle shell does not execute. Oracle settle
         // tracing ends Level $55's target-live step 59 at
         // `$FA58/$FA5D=$01/$00`, while native reaches `$01/$06`; advance only
@@ -1716,6 +1716,33 @@ mod tests {
             ),
             (1, 0, 0),
             "ASM sub_44DC loc_45EE and oracle `$FA58/$FA5D/$DD40` watches pin the Level 0x55 recording hand-off phase"
+        );
+
+        let mut tail_phases = Vec::new();
+        for frame_index in 0..360 {
+            let frame = runtime.step_frame(FrameInput::default());
+            if frame_index >= 350 {
+                tail_phases.push((
+                    frame.hud_diamond_frame_offset,
+                    frame.hud_diamond_vram_page_loc_5d4a,
+                ));
+            }
+        }
+        assert_eq!(
+            tail_phases,
+            vec![
+                (Some(2), Some(4)),
+                (Some(2), Some(4)),
+                (Some(2), Some(4)),
+                (Some(4), Some(8)),
+                (Some(4), Some(8)),
+                (Some(4), Some(8)),
+                (Some(4), Some(8)),
+                (Some(4), Some(8)),
+                (Some(4), Some(8)),
+                (Some(6), Some(12)),
+            ],
+            "ASM sub_44DC loc_45EE and oracle frames 350..359 `$FA5D/$DD40` watches pin the post-transform diamond phase"
         );
     }
 

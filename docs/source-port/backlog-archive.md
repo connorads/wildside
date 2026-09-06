@@ -222,6 +222,22 @@ pixel total from 150,057 to 130,701 and frame 359 from 91 to 46 pixels.
 `verify-slice-fast` and `verify-tas-full` pass; the published route remains
 37,518 exact frames and 2,391 changed pixels.
 
+Follow-up 2026-09-06. The first live frame exposed one further boundary pass:
+the seven-pass model left native frame 0 at diamond page 0 while oracle
+`$FA5D/$DD40` had advanced to page 4. Eight collapsed `sub_44DC loc_45EE`
+passes reproduce oracle frames 350..359 exactly, including the page-12 upload
+on frame 359. The direct raster-mixing and transform-cleanup alternatives were
+rejected: native frame 359 was exactly oracle frame 358's complete page, not a
+partially scanned DMA, and changing transform duration breaks gameplay at
+frame 94.
+
+Focused all-frame pixels fall from 130,701 to 128,272. Frame 0 falls 733→694
+and frame 359 falls 46→7, removing the entire 39-pixel HUD diamond component.
+All 360 player/camera frames remain exact. `verify-slice-fast` and
+`verify-tas-full` pass; the published route remains 37,518 exact frames and
+2,391 changed pixels. The tail now contains only the Driller/Kid overlap at
+`(10..12,157..161)`.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level
