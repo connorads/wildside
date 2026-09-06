@@ -6713,6 +6713,17 @@ pub fn push_level_layout_terrain(
                     continue;
                 }
                 Some(cell)
+                    if cell.collision == wildside_core::terrain::CollisionKind::Empty
+                        && cell.skin == 0
+                        && block_grid
+                            .is_some_and(|grid| grid.block_erased_at_loc_11542(col, row)) =>
+                {
+                    // ASM EraseBlockFromLevelLayout loc_11542: an erased
+                    // `$0000` word leaves an empty Scroll A cell. It must not
+                    // fall back to the immutable pre-erase foreground skin.
+                    continue;
+                }
+                Some(cell)
                     if cell.collision != wildside_core::terrain::CollisionKind::Empty
                         || cell.skin != 0 =>
                 {

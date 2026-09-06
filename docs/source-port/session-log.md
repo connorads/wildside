@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (Level 0x55 erased-block presentation)
+
+- `BlockGrid` now keeps `loc_11542` erase provenance, so `$0000` erasures no
+  longer fall back to immutable Scroll A art while pristine empty cells still
+  do.
+- Focused report `1788663792` improves frame 300 from 1,646 to 1,381 changed
+  pixels and idle tail from 1,746 to 1,600. Earlier checkpoints are unchanged.
+- The remaining corridor cells correctly retain erased `$00F9/$00FA` words.
+  NEXT: trace their unchecked sub_3034A foreground mapping reads. See archive
+  #495.
+
 ## 2026-09-06 handoff (Level 0x55 Driller route exact)
 
 - The recording-boundary `loc_3C026` left turn now marks the lower Driller's

@@ -130,6 +130,22 @@ keeps x=`$84` stopped and faces left. The cache-backed regression pins both
 poses. All 360 Level `$55` enemy frames now match oracle. The remaining
 focused checkpoint differences are pixel-only presentation residue.
 
+Follow-up 2026-09-06. Layer partition identified erased block projection as
+one presentation source. `BlockGrid` now retains typed `loc_11542` erase
+provenance, so a block erased to `$0000` is distinct from a pristine empty
+cell and the renderer does not resurrect its immutable pre-erase Scroll A
+art. Ordinary empty cells retain the existing static-layout fallback.
+
+The Level `$55` shell regression also pins the six corridor cells as erased
+while preserving the oracle-observed alternating `$00F9/$00FA` words. Focused
+report `1788663792` improves frame 300 from 1,646 to 1,381 changed pixels and
+idle tail from 1,746 to 1,600; earlier checkpoints are unchanged because those
+six non-zero erase words still route through the high-skin terrain mapping.
+`verify-slice-fast` and `verify-tas-full` pass; the published route remains
+37,518 exact frames and 2,391 changed pixels. Next: trace sub_3034A's unchecked
+foreground mapping read for erased skins `$F9/$FA` against the oracle Scroll A
+tile words rather than treating the remaining corridor as generic block art.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level

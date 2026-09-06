@@ -158,6 +158,7 @@ pub struct BlockGrid {
     cells: Vec<Cell>,
     raw_words: Vec<u16>,
     erase_words_loc_11542: Vec<u16>,
+    erased_blocks_loc_11542: Vec<bool>,
 }
 
 /// Result of probing terrain at a point.
@@ -380,12 +381,14 @@ impl BlockGrid {
         cells.resize(cell_count, Cell::from_be_bytes(0, 0));
         raw_words.resize(cell_count, 0);
         let erase_words_loc_11542 = vec![0; cell_count];
+        let erased_blocks_loc_11542 = vec![false; cell_count];
         Self {
             width_cells,
             height_cells,
             cells,
             raw_words,
             erase_words_loc_11542,
+            erased_blocks_loc_11542,
         }
     }
 
@@ -425,12 +428,15 @@ impl BlockGrid {
         raw_words.extend_from_slice(&self.raw_words);
         let mut erase_words_loc_11542 = vec![0; blank_cells];
         erase_words_loc_11542.extend_from_slice(&self.erase_words_loc_11542);
+        let mut erased_blocks_loc_11542 = vec![false; blank_cells];
+        erased_blocks_loc_11542.extend_from_slice(&self.erased_blocks_loc_11542);
         Self {
             width_cells: self.width_cells,
             height_cells: self.height_cells.saturating_add(blank_top_rows),
             cells,
             raw_words,
             erase_words_loc_11542,
+            erased_blocks_loc_11542,
         }
     }
 
@@ -447,6 +453,17 @@ impl BlockGrid {
             return 0;
         }
         self.raw_words[usize::from(row) * usize::from(self.width_cells) + usize::from(col)]
+    }
+
+    /// Whether `EraseBlockFromLevelLayout` has replaced the original block.
+    /// This distinguishes an erased `$0000` word from a pristine empty cell
+    /// when the renderer projects mutable Level_Layout over static Scroll A.
+    pub fn block_erased_at_loc_11542(&self, col: u16, row: u16) -> bool {
+        if col >= self.width_cells || row >= self.height_cells {
+            return false;
+        }
+        self.erased_blocks_loc_11542
+            [usize::from(row) * usize::from(self.width_cells) + usize::from(col)]
     }
 
     #[allow(non_snake_case)]
@@ -467,6 +484,10 @@ impl BlockGrid {
         // the skin byte, which matters for forest leaves/background terrain.
         let cell = self.erase_cell_at_loc_11542(col, row);
         self.set_cell_at(col, row, cell);
+        if col < self.width_cells && row < self.height_cells {
+            let index = usize::from(row) * usize::from(self.width_cells) + usize::from(col);
+            self.erased_blocks_loc_11542[index] = true;
+        }
     }
 
     /// Level width in pixels.
@@ -487,6 +508,7 @@ impl BlockGrid {
         let index = usize::from(row) * usize::from(self.width_cells) + usize::from(col);
         self.cells[index] = cell;
         self.raw_words[index] = cell.to_word();
+        self.erased_blocks_loc_11542[index] = false;
     }
 
     pub fn set_raw_word_at(&mut self, col: u16, row: u16, word: u16) {
@@ -496,6 +518,7 @@ impl BlockGrid {
         let index = usize::from(row) * usize::from(self.width_cells) + usize::from(col);
         self.cells[index] = Cell::from_be_bytes((word >> 8) as u8, word as u8);
         self.raw_words[index] = word;
+        self.erased_blocks_loc_11542[index] = false;
     }
 }
 
@@ -4677,6 +4700,23 @@ mod tests {
         grid.set_raw_word_at(0, 2, 0xC3D4);
         assert_eq!(grid.cells, before.cells);
         assert_eq!(grid.raw_words, before.raw_words);
+    }
+
+    #[test]
+    fn loc_11542_tracks_erased_zero_words_separately_from_pristine_empty_cells() {
+        let mut grid = BlockGrid::from_level_layout_with_erase_words_loc_11542(
+            &[0xE0, 0x01, 0x00, 0x00],
+            vec![0x0000, 0x0000],
+            2,
+            1,
+        );
+
+        grid.erase_block_from_level_layout_loc_11542(0, 0);
+
+        assert!(grid.block_erased_at_loc_11542(0, 0));
+        assert!(!grid.block_erased_at_loc_11542(1, 0));
+        grid.set_raw_word_at(0, 0, 0xE001);
+        assert!(!grid.block_erased_at_loc_11542(0, 0));
     }
 
     // -----------------------------------------------------------------------

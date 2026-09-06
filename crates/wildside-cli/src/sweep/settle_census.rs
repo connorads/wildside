@@ -772,6 +772,18 @@ mod tests {
         runtime.boot_to_level_for_recording_oracle(LevelId(0x55));
         runtime.settle_recording_oracle_warp_live_window(LevelId(0x55));
         let frame = runtime.trace_frame();
+        let grid = runtime.block_grid().expect("level 55 block grid");
+        for col in 0..6 {
+            assert_eq!(
+                grid.raw_word_at(col, 10),
+                if col % 2 == 0 { 0x00F9 } else { 0x00FA },
+                "ASM Driller.asm loc_3BE78 -> EraseBlockFromLevelLayout loc_11542 preserves the decoded under-block terrain word"
+            );
+            assert!(
+                grid.block_erased_at_loc_11542(col, 10),
+                "the recording handoff must retain erased provenance for each drilled corridor cell"
+            );
+        }
         let li3 = frame
             .active_objects
             .iter()
