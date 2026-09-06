@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-07 handoff (full body palette mapping)
+
+- The fresh Level `$55` census is 291/360 exact with 2,232 changed pixels and
+  all 360 authoritative state checkpoints green.
+- `off_80F2 -> sub_80D0` copies twelve body-palette words. Native had mapped
+  those labels to three-word `*_Helmet.bin` accent assets, so its guarded copy
+  did nothing. Every form now maps to the full body palette; a cache-backed
+  frame-96 test pins Micromax's exact words.
+- Rendering is deliberately unchanged because live `Palette_Buffer` state does
+  not cross `NativeTraceFrame`. NEXT: design a typed palette-line-3 boundary
+  and retain it only if the 69-frame residue measurably falls. See archive #495.
+
 ## 2026-09-06 handoff (recording timer lifecycle)
 
 - `settle_recording_oracle_warp_live_window` no longer overwrites the timer

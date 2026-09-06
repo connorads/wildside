@@ -3611,11 +3611,8 @@ mod chunk_02 {
         // palette_fg/7.bin fixture masked the real-asset miss.
         fs::write(theme_root.join("palette_fg/mountain.bin"), &fg_bytes).expect("write fg palette");
         fs::write(theme_root.join("palette_bg/island.bin"), &bg_bytes).expect("write bg palette");
-        fs::write(
-            ingame_root.join("palette_kid/Cyclone_Helmet.bin"),
-            &helmet_bytes,
-        )
-        .expect("write helmet palette");
+        fs::write(ingame_root.join("palette_kid/Cyclone.bin"), &helmet_bytes)
+            .expect("write helmet palette");
 
         let mut assets = manifest();
         assets.output_root = output_root.clone();
@@ -3632,7 +3629,7 @@ mod chunk_02 {
             },
         ];
         assets.ingame_assets = vec![wildside_data::AssetFile {
-            relative_path: String::from("palette_kid/Cyclone_Helmet.bin"),
+            relative_path: String::from("palette_kid/Cyclone.bin"),
             size_bytes: helmet_bytes.len() as u64,
             sha1: String::from("fixture-helmet"),
         }];

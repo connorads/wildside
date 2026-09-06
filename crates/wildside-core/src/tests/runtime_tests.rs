@@ -12742,6 +12742,30 @@ mod chunk_09 {
         );
     }
 
+    /// #495 - ASM Kid_Transform loc_7E48 restores the new form's full
+    /// 12-word `off_80F2` palette through sub_80D0 after the transform.
+    #[test]
+    fn issue495_level55_micromax_transform_restores_body_palette_sub_80d0() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x55));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x55));
+        for _ in 0..97 {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert_eq!(runtime.progression.current_form, PlayerForm::Micromax);
+        assert_eq!(
+            &runtime.palette_buffer[0x31..0x3d],
+            &[
+                0x0000, 0x0666, 0x0888, 0x0ccc, 0x0eee, 0x0864, 0x0642, 0x046c, 0x024a, 0x06e6,
+                0x0482, 0x0002
+            ],
+            "ASM loc_7E48 -> sub_80D0 must copy Micromax's off_80F2 body palette into Palette_Buffer+$62"
+        );
+    }
+
     /// #495 - ASM GfxObjects_CollisionKid loc_1B94/loc_1C18 scans every
     /// collision-enabled GfxObject, including Driller's linked `stru_3BCBC`
     /// children. Oracle frame 320 latches `$24` on the left child when its

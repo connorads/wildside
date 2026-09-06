@@ -13,6 +13,21 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #495
 
+Follow-up 2026-09-07. The post-timer every-frame census is 291/360 exact,
+69 divergent frames, and 2,232 changed pixels with all 360 authoritative state
+checkpoints green. Oracle CRAM shows Micromax's full body palette in line 3 by
+frame 96. Native `Palette_Buffer` still held The Kid's words because
+`helmet_palette_asset_path_loc_7508` mapped `off_80F2` labels to the three-word
+`*_Helmet.bin` accent assets; `copy_helmet_palette_loc_7508` correctly rejected
+those undersized inputs. Every table entry now maps to the matching full body
+palette, and a cache-backed regression pins all twelve Micromax words after
+`loc_7E48 -> sub_80D0`. The visual census is intentionally unchanged: the
+renderer reconstructs form palettes from assets and does not consume the live
+palette buffer. Per-sprite patches and another independent renderer state
+machine were rejected. The next unit should expose the smallest typed shared
+palette-line-3 boundary, with a rollback condition of no measured cluster
+reduction.
+
 Closed [-] 2026-09-05. Proactive Level `$55` pixel partition found no safe
 render-only fix. Focused frame report `1788638690` remains at 1,781 changed
 pixels on `level_settle` and 1,782 on `idle_tail`; the player/camera state

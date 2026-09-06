@@ -1972,15 +1972,15 @@ pub(crate) fn helmet_palette_asset_path_loc_7508(palette_label: &str) -> Option<
     // those symbolic labels under semantic palette_kid filenames.
     const PATHS: [(&str, &str); HELMET_PALETTE_TABLE_ENTRIES_LOC_7508] = [
         ("Pal_A1C72", "palette_kid/Kid.bin"),
-        ("Pal_A1CE4", "palette_kid/Skycutter_Helmet.bin"),
-        ("Pal_A1E1C", "palette_kid/Cyclone_Helmet.bin"),
-        ("Pal_A1DA4", "palette_kid/Red_Stealth_Helmet.bin"),
-        ("Pal_A1DE0", "palette_kid/Eyeclops_Helmet.bin"),
-        ("Pal_A1E58", "palette_kid/Juggernaut_Helmet.bin"),
-        ("Pal_A1E94", "palette_kid/Iron_Knight_Helmet.bin"),
-        ("Pal_A1D68", "palette_kid/Berzerker_Helmet.bin"),
-        ("Pal_A1C8A", "palette_kid/Maniaxe_Helmet.bin"),
-        ("Pal_A1D26", "palette_kid/Micromax_Helmet.bin"),
+        ("Pal_A1CE4", "palette_kid/Skycutter.bin"),
+        ("Pal_A1E1C", "palette_kid/Cyclone.bin"),
+        ("Pal_A1DA4", "palette_kid/Red_Stealth.bin"),
+        ("Pal_A1DE0", "palette_kid/Eyeclops.bin"),
+        ("Pal_A1E58", "palette_kid/Juggernaut.bin"),
+        ("Pal_A1E94", "palette_kid/Iron_Knight.bin"),
+        ("Pal_A1D68", "palette_kid/Berzerker.bin"),
+        ("Pal_A1C8A", "palette_kid/Maniaxe.bin"),
+        ("Pal_A1D26", "palette_kid/Micromax.bin"),
     ];
 
     PATHS
@@ -8861,6 +8861,20 @@ impl NativeRuntime {
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn loc_7508_maps_off_80f2_labels_to_full_body_palettes() {
+        // ASM off_80F2 -> sub_80D0 copies 12 words. The similarly named
+        // `*_Helmet.bin` assets contain only the three loc_7D80 accent words.
+        assert_eq!(
+            helmet_palette_asset_path_loc_7508("Pal_A1D26"),
+            Some("palette_kid/Micromax.bin")
+        );
+        assert_eq!(
+            helmet_palette_asset_path_loc_7508("Pal_A1CE4"),
+            Some("palette_kid/Skycutter.bin")
+        );
+    }
 
     #[test]
     fn loc_5e6_streams_the_19_vdp_game_init_register_commands() {
