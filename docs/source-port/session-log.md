@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (independent Driller parent clocks)
+
+- Direct oracle `$3BCB2` pointers and countdowns show the uninterrupted
+  Driller parent one animation pass behind native at the recording boundary.
+  Its adapter clock now rewinds one tick independently of the linked drills.
+- `loc_3BF4E` restores the first live mapping immediately. Native now records
+  that `Init_Animation` state as tick 1 instead of a pre-animation tick 0.
+- The 360-frame Level `$55` census falls from 8,271 to 5,663 changed pixels,
+  with exact frames rising from 188 to 202. All authoritative state
+  checkpoints and both full gates pass. NEXT: triage the remaining 21 visual
+  clusters. See archive #495.
+
 ## 2026-09-06 handoff (persistent debris scratch records)
 
 - `sub_292E loc_2994` writes only the high words of reused 16.16 debris

@@ -12428,11 +12428,11 @@ mod chunk_09 {
     /// before the first visible SAT build. Oracle mappings `$0BF8,$0BF8,$0BEC`
     /// pin both `stru_3BCBC` drill children to ticks 23, 24, then 1.
     #[test]
-    fn issue495_level55_recording_handoff_driller_child_clock_matches_loc_142e() {
+    fn issue495_level55_recording_handoff_driller_gfx_clocks_match_loc_142e() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
-        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest.clone());
         runtime.boot_to_level_for_recording_oracle(LevelId(0x55));
         runtime.settle_recording_oracle_warp_live_window(LevelId(0x55));
 
@@ -12459,6 +12459,36 @@ mod chunk_09 {
             })
             .collect::<Vec<_>>();
         assert_eq!(phases, vec![8, 8, 5]);
+
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x55));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x55));
+        let mut parent_phases = Vec::new();
+        for frame_index in 0..131 {
+            let frame = runtime.step_frame(FrameInput::default());
+            if matches!(frame_index, 128..=130) {
+                parent_phases.push(
+                    frame
+                        .active_objects
+                        .iter()
+                        .filter(|object| {
+                            matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x1A })
+                                && object.hit_points != Some(0)
+                        })
+                        .map(|object| (object.layout_index, object.sprite_animation_phase))
+                        .collect::<Vec<_>>(),
+                );
+            }
+        }
+        assert_eq!(
+            parent_phases,
+            vec![
+                vec![(Some(2), Some(0)), (Some(3), Some(1))],
+                vec![(Some(2), Some(0)), (Some(3), Some(1))],
+                vec![(Some(2), Some(1)), (Some(3), Some(1))],
+            ],
+            "oracle `$3BCB2` pointers and countdowns pin the independent parent mappings across frames 128..130"
+        );
     }
 
     /// #495 - ASM sub_292E writes only the high word of reused `$FFFFF01E`

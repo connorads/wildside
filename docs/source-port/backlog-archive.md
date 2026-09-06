@@ -423,6 +423,30 @@ positions and velocity longs plus frame-35 positions. `verify-slice-fast` and
 `verify-tas-full` pass; published-route evidence remains 37,518 exact frames
 and 2,391 changed pixels. NEXT: triage the remaining 39 clusters.
 
+Follow-up 2026-09-06. The largest remaining visual-triage component initially
+looks like 2,897 palette pixels, but an exact frame diff localises it to Driller
+body mappings. Oracle GfxObject RAM across frames 118..142 shows the two live
+parents' independent `stru_3BCB2` pointers and countdowns. The uninterrupted
+parent changes `$C08` to `$C0C` at frame 130, one field after native. The hurt
+parent returns through `loc_3BF4E` at tick 1 and reaches the same transition two
+fields earlier.
+
+Native now rewinds only the uninterrupted parent's recording-handoff clock by
+one Gfx pass. The ordinary `loc_3BF4E` restore represents `Init_Animation`'s
+already-selected first mapping as tick 1 instead of tick 0. Applying one global
+phase offset was rejected because it cannot represent the two independently
+initialised GfxObjects. Treating the pixels as a palette fault was rejected by
+the matching art and the exact nine-field mapping boundary.
+
+The cache-backed regression pins both parent phases across frames 128..130 and
+retains the linked-drill `$0BF8,$0BF8,$0BEC` sequence. Fresh report
+`level55-parent-gfx-clocks.json` has 202 exact and 158 divergent frames,
+totalling 5,663 pixels in 21 clusters. All 360 player, camera, and enemy-frontier
+checkpoints match; the four frame-127/128 object-count differences remain
+established oracle limitations. `verify-slice-fast` and `verify-tas-full` pass;
+published-route evidence remains 37,518 exact frames and 2,391 changed pixels.
+NEXT: triage the remaining 21 clusters.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level

@@ -288,6 +288,16 @@ pub(crate) fn driller_parent_next_animation_tick_stru_3bcb2(animation_tick: u8) 
     }
 }
 
+pub(crate) fn driller_parent_previous_animation_tick_stru_3bcb2(animation_tick: u8) -> u8 {
+    // Inverse of the live 1..18 tick ring, used only when the recording
+    // adapter collapses one extra parent GfxObject pass at its boundary.
+    if animation_tick <= 1 {
+        DRILLER_PARENT_ANIMATION_TICKS_STRU_3BCB2
+    } else {
+        animation_tick - 1
+    }
+}
+
 pub(crate) const DRILLER_COLID_LEFTWALL: u16 = colid::LEFTWALL;
 pub(crate) const DRILLER_COLID_RIGHTWALL: u16 = colid::RIGHTWALL;
 
@@ -851,7 +861,7 @@ mod tests {
             None,
             &mut drilled_blocks,
         );
-        assert_eq!(enemies[0].dragon_descent_frames, 0);
+        assert_eq!(enemies[0].dragon_descent_frames, 1);
         assert_eq!(enemies[0].snapshot().sprite_animation_phase, Some(0));
     }
 

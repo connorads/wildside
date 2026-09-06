@@ -5418,8 +5418,9 @@ fn step_active_enemies_with_rng_context(
         }
         if restores_driller_animation {
             // ASM Driller.asm loc_3BF4E re-installs stru_3BCB2 after the
-            // one-frame stru_3BCCE script finishes.
-            enemy.dragon_descent_frames = 0;
+            // one-frame stru_3BCCE script finishes. Init_Animation selects
+            // the first mapping immediately, represented by live tick 1.
+            enemy.dragon_descent_frames = 1;
         }
         if restores_armadillo_animation {
             // ASM Armadillo.asm loc_3C848 restores `$62(a5)` through
