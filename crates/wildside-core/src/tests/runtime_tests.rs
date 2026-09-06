@@ -12424,6 +12424,54 @@ mod chunk_09 {
         assert_eq!(lower.facing, Direction::Right);
     }
 
+    /// #495 - ASM loc_3C0D2/loc_3C0F0: after the first native catch-up turn,
+    /// a right-edge Driller exposes the post-commit right-facing hibernate,
+    /// then the stopped left-facing callback, before walking left.
+    #[test]
+    fn issue495_level55_driller_later_right_turn_hibernates_loc_3c0d2_3c0f0() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x55));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x55));
+
+        for _ in 0..157 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let upper = runtime
+            .active_enemies
+            .iter()
+            .find(|enemy| matches!(enemy.family, EnemyFamily::Driller) && enemy.layout_index == 2)
+            .expect("Level 0x55 should retain upper Driller layout #2");
+        assert_eq!(upper.x_pos, 0x01A4_0000);
+        assert_eq!(upper.x_velocity, 0);
+        assert_eq!(upper.facing, Direction::Right);
+        let children = upper.driller_children.expect("Driller keeps both children");
+        assert_eq!(children.left.x_pos, 0x018D);
+        assert_eq!(children.right.x_pos, 0x01BC);
+
+        runtime.step_frame(FrameInput::default());
+        let upper = runtime
+            .active_enemies
+            .iter()
+            .find(|enemy| enemy.layout_index == 2)
+            .expect("upper Driller survives the stopped turn");
+        assert_eq!(upper.x_pos, 0x01A4_0000);
+        assert_eq!(upper.x_velocity, 0);
+        assert_eq!(upper.facing, Direction::Left);
+
+        runtime.step_frame(FrameInput::default());
+        let upper = runtime
+            .active_enemies
+            .iter()
+            .find(|enemy| enemy.layout_index == 2)
+            .expect("upper Driller resumes leftward walking");
+        assert_eq!(upper.x_pos, 0x01A3_0000);
+        assert_eq!(upper.facing, Direction::Left);
+    }
+
     /// #495 - oracle Level 0x55 recording frame 35 remains unhelmeted with
     /// one hit point; frame 36 consumes the pending Micromax change.
     #[test]

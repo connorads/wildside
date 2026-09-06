@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (Level 0x55 Driller later right turn)
+
+- Native branch instrumentation identifies frame 156 as the post-commit floor
+  turn. The wall and precomputed-boundary placements were rejected.
+- After its first catch-up turn, Driller now preserves `loc_3C0D2 -> loc_3C0F0`:
+  stopped right-facing at x=`$1A4`, stopped left-facing at the same x, then
+  leftward motion from x=`$1A3`. Linked drills match `$18D/$1BC` at entry.
+- Enemy parity advances from frame 156 to 231. Focused report `1788659152` and
+  both full gates pass. Published-route pixels remain 37,518 exact frames and
+  2,391 changed pixels. NEXT: trace the lower Driller family's one-pixel lag at
+  frame 231. See archive #495.
+
 ## 2026-09-06 handoff (Level 0x55 Driller hurt return)
 
 - Oracle frames 108-118 keep the lower Driller in

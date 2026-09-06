@@ -99,6 +99,27 @@ to 1,646, and idle tail from 1,782 to 1,746. Both full gates pass; the
 published route remains 37,518 exact frames and 2,391 changed pixels. The next
 frontier is the upper Driller's boundary-facing transition at frame 156.
 
+Follow-up 2026-09-06. The frame-156 split is the native
+`post_commit_floor_turn`, not the wall or precomputed-boundary arms. ROM Object
+slot `$FFFF0FE4` exposes `loc_3C0D2 -> loc_3C0F0` as two stopped callbacks:
+frame 156 keeps body x=`$1A4`, facing right, with linked drills at
+`$18D/$1BC`; frame 157 keeps x=`$1A4` while facing left; frame 158 resumes at
+x=`$1A3`. Native now records the first right floor-turn as consuming its
+one-off catch-up phase. Later right floor-turns preserve those two hibernates
+before restoring leftward motion.
+
+Instrumentation rejected two narrower placements before identifying the live
+branch: `RightBoundaryAtCurrentPosition` and the post-commit wall arm never
+fired at this frontier. Applying the hibernate sequence to the first right
+floor-turn shifted the family one pixel from frame 150 and was rejected; the
+existing first-turn catch-up remains intact. The cache-backed regression pins
+parent direction, velocity, x, and both child x positions. Frames 145-230 now
+match, advancing the enemy frontier from 156 to 231. Focused full report
+`1788659152` passes with checkpoint pixels unchanged. `verify-slice-fast` and
+`verify-tas-full` pass; the published route remains 37,518 exact frames and
+2,391 changed pixels. Next is the lower Driller family's one-pixel lag at
+frame 231.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level
@@ -24544,7 +24565,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 495 | [-] | P2 | enemy/Driller | Level `$55` gameplay matches; Driller hurt return now follows `loc_1062` through frame 118. | Next enemy frontier is frame 156; frame 120 improves 1,814→1,576 px. See archive #495. |
+| 495 | [-] | P2 | enemy/Driller | Level `$55` gameplay matches; Driller hurt return and later right-turn callbacks follow the ROM. | Next enemy frontier is frame 231; frame 120 remains improved at 1,576 px. See archive #495. |
 | 494 | [x] | P2 | rendering | `Kid_Transform` transform/form palette writes override a damage-white phase suspended before the synchronous coroutine. | Level `$55` settle residue 2,212→1,781; whole-game comparable residue 39,401→38,971. See archive #494. |
 | 493 | [x] | P1 | enemy/render | Lion fire/restore timing, HP-8 animation topology, projectile collision subpixels, and parent-child rendering follow the ROM. | Level `$36` Lion/projectile pixels exact at all six checkpoints; 75/75 enemy-frontier frames match. See archive #493. |
 | 490 | [x] | P2 | enemy/render | Multi-head callback scheduling is keyed per head; Shishkaboss skewer workers use typed presentation state and source mappings. | Level `$10` state checkpoints pass; residue 3,759 -> 3,176 pixels; full gates green. See archive #490. |

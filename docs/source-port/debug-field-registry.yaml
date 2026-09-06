@@ -6,6 +6,11 @@
   },
   "candidate_promotions": [
     {
+      "key": "shared_walker_branch",
+      "reason": "Level 0x55 Driller frontier work used the exact native walker branch to reject two placements and verify the loc_3C0D2/loc_3C0F0 phase correction.",
+      "maturity_status": "ready"
+    },
+    {
       "key": "oracle_gfx_sprite_order_loc_14a4",
       "reason": "Repeated #406 SAT investigations used the oracle GfxObject chain to choose and verify typed Kid, wobble, flash ordering.",
       "maturity_status": "ready"
@@ -712,11 +717,12 @@
     {
       "key": "shared_walker_branch",
       "scope": "object",
-      "status": "exploratory",
+      "status": "candidate",
       "owner": "shared-walker-frontier",
       "first_added_commit": "8d00c573",
-      "intended_meaning": "Last DragonWalking shared-walker branch label emitted for TAS frontier tracing.",
-      "promotion_trigger": "Promote if multiple frontiers or regression assertions depend on the branch identity."
+      "intended_meaning": "Last DragonWalking or Driller shared-walker branch label emitted for TAS frontier tracing.",
+      "promotion_trigger": "Promote if multiple frontiers or regression assertions depend on the branch identity.",
+      "stale_candidate_exemption": "The branch identified the Level 0x55 loc_3C0D2 phase fix, while the regression asserts typed parent and child state rather than this debug label; retain it for the next shared-walker frontier before promoting."
     },
     {
       "key": "shared_walker_dx_to_kid_px",

@@ -3109,7 +3109,10 @@ impl ActiveEnemy {
                 format_shared_walker_grounded_scan_trace(trace),
             );
         }
-        if matches!(self.family, EnemyFamily::DragonWalking) {
+        if matches!(
+            self.family,
+            EnemyFamily::DragonWalking | EnemyFamily::Driller
+        ) {
             debug_fields.insert("grounded_frames".into(), self.grounded_frames.to_string());
             if let Some(branch) = self.shared_walker_debug_branch {
                 debug_fields.insert("shared_walker_branch".into(), branch.into());
@@ -8947,6 +8950,9 @@ pub(crate) enum SharedWalkerGroundedTurn {
     RightBoundaryAtCurrentPosition,
 }
 
+const DRILLER_RIGHT_TURN_HOLD_FACING_RIGHT_LOC_3C0D2: i16 = i16::MIN;
+const DRILLER_RIGHT_TURN_HOLD_FACING_LEFT_LOC_3C0F0: i16 = i16::MIN + 1;
+
 pub(crate) fn shared_walker_grounded_scan_turn_plan(
     enemy: &ActiveEnemy,
     grid: &terrain::BlockGrid,
@@ -9105,6 +9111,7 @@ pub(crate) fn step_pacer(
     };
 
     enemy.shared_walker_grounded_scan_trace = None;
+    enemy.shared_walker_debug_branch = None;
     let walk_speed = shared_walker_walk_speed(enemy);
     let probe_half_width = pacer_probe_half_width(enemy.family);
     let probe_height = pacer_probe_height(enemy.family);
@@ -9112,6 +9119,24 @@ pub(crate) fn step_pacer(
     if !enemy.on_ground {
         step_shared_walker_falling_loc_3c288(enemy, grid);
         return;
+    }
+
+    // ASM loc_3C0D2 -> loc_3C0F0: the right-boundary path exposes two
+    // stopped callback poses before the mirrored leftward loop restores its
+    // walk step. Driller's linked children make both hibernates observable.
+    match enemy.shared_walker_state {
+        DRILLER_RIGHT_TURN_HOLD_FACING_RIGHT_LOC_3C0D2 => {
+            reverse_enemy_direction(enemy);
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            enemy.shared_walker_state = DRILLER_RIGHT_TURN_HOLD_FACING_LEFT_LOC_3C0F0;
+            enemy.shared_walker_debug_branch = Some("right_turn_hold_facing_left");
+            return;
+        }
+        DRILLER_RIGHT_TURN_HOLD_FACING_LEFT_LOC_3C0F0 => {
+            enemy.shared_walker_state = 0;
+        }
+        _ => {}
     }
 
     if matches!(enemy.family, EnemyFamily::Armadillo) && shared_walker_tick_patrol(enemy) {
@@ -9423,6 +9448,7 @@ pub(crate) fn step_pacer(
         // X instead of adding the catch-up half-step used by the first edge.
         reverse_enemy_direction(enemy);
         enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+        enemy.shared_walker_debug_branch = Some("right_boundary_current_turn");
         register_shared_walker_turnaround(enemy);
         return;
     }
@@ -9475,6 +9501,7 @@ pub(crate) fn step_pacer(
         }
         reverse_enemy_direction(enemy);
         enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+        enemy.shared_walker_debug_branch = Some("post_commit_wall_turn");
         register_shared_walker_turnaround(enemy);
         return;
     }
@@ -9491,6 +9518,7 @@ pub(crate) fn step_pacer(
         reverse_enemy_direction(enemy);
         enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
         enemy.shared_walker_right_turn_extra_step_consumed = true;
+        enemy.shared_walker_debug_branch = Some("right_boundary_extra_turn");
         register_shared_walker_turnaround(enemy);
         return;
     }
@@ -9600,9 +9628,25 @@ pub(crate) fn step_pacer(
         // horizontal advance. Native collapses the mirrored left/right loops,
         // so any non-turning frame clears the stuck-turn counter.
         enemy.shared_walker_turnaround_counter = 0;
+        enemy.shared_walker_debug_branch = Some("grounded_walk_commit");
     } else {
-        reverse_enemy_direction(enemy);
-        enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+        if matches!(enemy.family, EnemyFamily::Driller) && moving_right {
+            if enemy.shared_walker_right_turn_extra_step_consumed {
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+                enemy.shared_walker_state = DRILLER_RIGHT_TURN_HOLD_FACING_RIGHT_LOC_3C0D2;
+                enemy.shared_walker_debug_branch = Some("right_turn_hold_facing_right");
+            } else {
+                reverse_enemy_direction(enemy);
+                enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+                enemy.shared_walker_right_turn_extra_step_consumed = true;
+                enemy.shared_walker_debug_branch = Some("first_right_floor_turn");
+            }
+        } else {
+            reverse_enemy_direction(enemy);
+            enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+            enemy.shared_walker_debug_branch = Some("post_commit_floor_turn");
+        }
         register_shared_walker_turnaround(enemy);
     }
     if matches!(enemy.family, EnemyFamily::Scorpion) {
