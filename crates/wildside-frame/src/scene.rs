@@ -842,6 +842,14 @@ fn block_debris_software_submission_order_sub_2a4c(
     pieces.iter()
 }
 
+fn block_debris_sprite_table_visible_sub_2a4c(trace: &NativeTraceFrame) -> bool {
+    // ASM Mode_Level loc_901 calls sub_2A4C before Make_SpritesFromGfxObjects,
+    // but Kid_Transform loc_7CBE/loc_7D22 builds every synchronous frame through
+    // sub_8E0, which omits sub_2A4C. The scratch workers remain alive while their
+    // debris is absent from the transform Sprite_Table.
+    trace.form_change_flash_frames == 0
+}
+
 fn push_block_destroy_debris_sub_292e(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
@@ -8828,10 +8836,12 @@ fn build_game_scene_filtered(
             });
         }
 
-        if let Some(tile) = resolve_ingame_vram_tile(
-            level_visuals,
-            TileRef::from_attr_word(BLOCK_DEBRIS_TILE_ATTR_SUB_2A4C),
-        ) {
+        if block_debris_sprite_table_visible_sub_2a4c(trace)
+            && let Some(tile) = resolve_ingame_vram_tile(
+                level_visuals,
+                TileRef::from_attr_word(BLOCK_DEBRIS_TILE_ATTR_SUB_2A4C),
+            )
+        {
             let camera_x_px = (trace.camera_x_pos >> 16) as i32;
             let camera_y_px = (trace.camera_y_pos >> 16) as i32;
             for &(x_px, y_px) in
@@ -10418,6 +10428,24 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![(0x0147, 0x00E1), (0x014B, 0x00E0), (0x014B, 0x00EB)],
             "ASM sub_2A4C links debris SAT entries in scratch order and SatSprite preserves the VDP's first opaque pixel"
+        );
+    }
+
+    #[test]
+    fn block_debris_sprite_table_is_omitted_during_kid_transform_sub_8e0() {
+        let normal = NativeTraceFrame::default();
+        let transforming = NativeTraceFrame {
+            form_change_flash_frames: 12,
+            ..NativeTraceFrame::default()
+        };
+
+        assert!(
+            block_debris_sprite_table_visible_sub_2a4c(&normal),
+            "ASM Mode_Level loc_901 calls sub_2A4C on ordinary gameplay frames"
+        );
+        assert!(
+            !block_debris_sprite_table_visible_sub_2a4c(&transforming),
+            "ASM Kid_Transform loc_7CBE/loc_7D22 calls sub_8E0, whose Sprite_Table build omits sub_2A4C"
         );
     }
 

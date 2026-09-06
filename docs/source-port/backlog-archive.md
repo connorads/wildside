@@ -310,6 +310,24 @@ pixels; compact native palette indexing is not equivalent to rewriting the
 shared hardware line. The remaining 408 pixels occupy x=`0..48`, y=`40..124`:
 the `$2EA` prize flash, `$220` wobble, transform pair, and their overlaps.
 
+Follow-up 2026-09-06. Oracle SAT slots 10-17 at frames 55-57 contain Kid, the
+transform mask, the three-member Driller family, one off-screen object, the
+`$2EA` prize flash, and the `$220` wobble. They contain no block debris. ROM
+control flow explains why: normal `Mode_Level loc_901` calls `sub_2A4C` before
+the ordinary GfxObject/platform sprite builders, while every synchronous
+`Kid_Transform loc_7CBE/loc_7D22` display calls `sub_8E0`, whose Sprite Table
+build omits `sub_2A4C`. The debris scratch records remain alive but are not
+submitted to hardware during the transform.
+
+Native now preserves the logical debris state and suppresses only its direct
+SAT submission while `form_change_flash_frames` is active. Deleting or freezing
+the debris workers was rejected because that would alter gameplay state rather
+than model the distinct hardware build path. Focused visual-triage report
+`1788701791` reduces frame 56 from 408 to 219 changed pixels, exactly removing
+the 189-pixel effects partition. The remaining provenance is block override
+136, player 76, and terrain 7. `verify-slice-fast` and `verify-tas-full` pass;
+the published route remains 37,518 exact frames and 2,391 changed pixels.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level

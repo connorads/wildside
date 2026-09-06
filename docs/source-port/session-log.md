@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (transform Sprite Table debris omission)
+
+- Normal `Mode_Level` calls `sub_2A4C`, but every synchronous
+  `Kid_Transform loc_7CBE/loc_7D22` frame builds sprites through `sub_8E0`,
+  which omits block debris while leaving its scratch workers alive.
+- Gating only the direct debris SAT submission cuts frame 56 from 408 to 219
+  changed pixels, exactly removing the 189-pixel effects partition.
+- `verify-slice-fast` and `verify-tas-full` pass; published-route evidence
+  remains 37,518 exact frames and 2,391 changed pixels.
+- Remaining provenance is block override 136, player 76, and terrain 7.
+  NEXT: resolve the `$220` wobble and transform overlaps from SAT priority and
+  palette evidence. See archive #495.
+
 ## 2026-09-06 handoff (Driller hurt palette)
 
 - `Driller.asm loc_3BF4E` changes the hurt animation and hibernates without a
