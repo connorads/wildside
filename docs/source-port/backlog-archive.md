@@ -120,6 +120,16 @@ match, advancing the enemy frontier from 156 to 231. Focused full report
 2,391 changed pixels. Next is the lower Driller family's one-pixel lag at
 frame 231.
 
+Follow-up 2026-09-06. The apparent frame-231 residue starts at trace frame
+230. It is the lower Driller's first native right floor-turn but not its first
+ROM turnaround: the recording handoff already completed the left-edge
+`loc_3C152 -> loc_3C026` callback before the stomp. That reconciliation now
+marks the one-off native right-turn phase debt consumed. Frame 230 matches the
+ROM's stopped right-facing parent at x=`$84` and children `$6D/$9C`; frame 231
+keeps x=`$84` stopped and faces left. The cache-backed regression pins both
+poses. All 360 Level `$55` enemy frames now match oracle. The remaining
+focused checkpoint differences are pixel-only presentation residue.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level
@@ -24565,7 +24575,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 495 | [-] | P2 | enemy/Driller | Level `$55` gameplay matches; Driller hurt return and later right-turn callbacks follow the ROM. | Next enemy frontier is frame 231; frame 120 remains improved at 1,576 px. See archive #495. |
+| 495 | [-] | P2 | enemy/Driller | Level `$55` gameplay and all 360 enemy frames match; Driller hurt return and later right-turn callbacks follow the ROM. | Frame 120 remains improved at 1,576 px; remaining checkpoint residue is presentation-only. See archive #495. |
 | 494 | [x] | P2 | rendering | `Kid_Transform` transform/form palette writes override a damage-white phase suspended before the synchronous coroutine. | Level `$55` settle residue 2,212→1,781; whole-game comparable residue 39,401→38,971. See archive #494. |
 | 493 | [x] | P1 | enemy/render | Lion fire/restore timing, HP-8 animation topology, projectile collision subpixels, and parent-child rendering follow the ROM. | Level `$36` Lion/projectile pixels exact at all six checkpoints; 75/75 enemy-frontier frames match. See archive #493. |
 | 490 | [x] | P2 | enemy/render | Multi-head callback scheduling is keyed per head; Shishkaboss skewer workers use typed presentation state and source mappings. | Level `$10` state checkpoints pass; residue 3,759 -> 3,176 pixels; full gates green. See archive #490. |

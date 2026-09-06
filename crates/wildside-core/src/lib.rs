@@ -1416,8 +1416,10 @@ impl NativeRuntime {
             // WRAM frame 0 retains exactly that typed boundary state and a
             // hurt-animation timer of $16. The combat-to-Object handoff owns
             // the native sentinel tick, so this boundary only reconciles the
-            // direction and child re-pin.
+            // direction, child re-pin, and the one-off shared-walker phase
+            // debt that this completed loc_3C026 turn has already consumed.
             enemy.facing = Direction::Right;
+            enemy.shared_walker_right_turn_extra_step_consumed = true;
             children.right.x_pos = (enemy.x_pos >> 16) as i32 + DRILLER_DRILL_CHILD_X_OFFSET;
         }
     }

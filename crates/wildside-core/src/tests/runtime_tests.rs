@@ -12472,6 +12472,45 @@ mod chunk_09 {
         assert_eq!(upper.facing, Direction::Left);
     }
 
+    /// #495 - the recording-boundary `loc_3C026` turn has already consumed
+    /// the lower Driller's one-off native catch-up. Its later right turn must
+    /// therefore expose the same `loc_3C0D2/loc_3C0F0` stopped callbacks.
+    #[test]
+    fn issue495_level55_boundary_turned_driller_hibernates_again_loc_3c0d2() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x55));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x55));
+
+        for _ in 0..231 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let lower = runtime
+            .active_enemies
+            .iter()
+            .find(|enemy| matches!(enemy.family, EnemyFamily::Driller) && enemy.layout_index == 3)
+            .expect("Level 0x55 should retain lower Driller layout #3");
+        assert_eq!(lower.x_pos, 0x0084_0000);
+        assert_eq!(lower.x_velocity, 0);
+        assert_eq!(lower.facing, Direction::Right);
+        let children = lower.driller_children.expect("Driller keeps both children");
+        assert_eq!(children.left.x_pos, 0x006D);
+        assert_eq!(children.right.x_pos, 0x009C);
+
+        runtime.step_frame(FrameInput::default());
+        let lower = runtime
+            .active_enemies
+            .iter()
+            .find(|enemy| enemy.layout_index == 3)
+            .expect("lower Driller survives the stopped turn");
+        assert_eq!(lower.x_pos, 0x0084_0000);
+        assert_eq!(lower.x_velocity, 0);
+        assert_eq!(lower.facing, Direction::Left);
+    }
+
     /// #495 - oracle Level 0x55 recording frame 35 remains unhelmeted with
     /// one hit point; frame 36 consumes the pending Micromax change.
     #[test]

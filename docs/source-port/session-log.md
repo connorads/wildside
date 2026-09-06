@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (Level 0x55 Driller route exact)
+
+- The recording-boundary `loc_3C026` left turn now marks the lower Driller's
+  one-off native phase debt consumed. Its later right turn therefore exposes
+  the same two stopped `loc_3C0D2/loc_3C0F0` callbacks as the upper family.
+- Frame 230 now matches parent x=`$84`, right-facing zero velocity, and linked
+  drills `$6D/$9C`; the next frame remains at `$84` facing left.
+- All 360 Level 0x55 enemy frames match oracle. NEXT: partition the remaining
+  pixel-only Level 0x55 residue. See archive #495.
+
 ## 2026-09-06 handoff (Level 0x55 Driller later right turn)
 
 - Native branch instrumentation identifies frame 156 as the post-commit floor
