@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (Micromax wrap-field mapping)
+
+- `sub_78E8 loc_7962` clears `$FFFFF8F0` at eight without changing `d0`.
+  The wrap field therefore keeps `LnkTo_unk_ABDE0` even though RAM stores
+  phase zero. Native now preserves this original quirk at sprite selection.
+- A duplicate mapping latch and an unwrapped counter were rejected. The live
+  post-update trace makes zero the wrap result, so the renderer can preserve
+  the lost register fact without expanding state.
+- The 360-frame Level `$55` census falls from 3,808 to 3,380 changed pixels,
+  with exact frames rising from 250 to 266. All authoritative state
+  checkpoints match. NEXT: triage the remaining 18 visual clusters. See
+  archive #495.
+
 ## 2026-09-06 handoff (Micromax grounded idle clock)
 
 - `refresh_opening_slice` held the active slice locally while `sub_78E8`

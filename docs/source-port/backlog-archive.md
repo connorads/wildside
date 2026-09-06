@@ -468,6 +468,22 @@ differences remain established oracle limitations. `verify-slice-fast` and
 `verify-tas-full` pass; published-route evidence remains 37,518 exact frames
 and 2,391 changed pixels. NEXT: triage the remaining 21 clusters.
 
+Follow-up 2026-09-06. The remaining Kid cluster repeats on exactly one field
+every eight. At `sub_78E8 loc_7962`, the ROM increments `$FFFFF8F0` to eight,
+copies it into `d0`, then clears RAM without clearing the register. `loc_7974`
+therefore selects `LnkTo_unk_ABDE0` while native re-derived the low mapping
+from stored phase zero. Oracle frames 188..192 confirm the `7,0,1,2,3` RAM
+sequence and the distinct wrap-field pose.
+
+Native now treats stored zero as this original wrap quirk at the post-update
+renderer boundary. Carrying an explicit mapping latch was rejected as
+duplicate state; retaining eight instead of clearing the counter was rejected
+because it would falsify ROM-visible RAM. Fresh report
+`level55-micromax-wrap-quirk.json` has 266 exact and 94 divergent frames,
+totalling 3,380 pixels in 18 clusters. All 360 player, camera, and enemy-frontier
+checkpoints match; the four frame-127/128 object-count differences remain
+established oracle limitations. NEXT: triage the remaining 18 clusters.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level

@@ -835,9 +835,13 @@ pub fn select_player_frame<'a>(
         } else if x_velocity == 0 {
             // ASM sub_78E8 loc_7962/loc_7974 (kid.asm:8019-8031): Micromax
             // advances `$FFFFF8F0` modulo eight and uses `unk_ABEA6` for
-            // phases zero through four. Scene rendering supplies the latched
-            // previous trace, matching the Sprite_Table handoff phase.
+            // phases one through four. On the wrap field, `clr.w` stores zero
+            // but d0 remains eight, so loc_7974 keeps `unk_ABDE0`.
+            // ORIGINAL_QUIRK: stored phase zero therefore selects the high
+            // mapping. Scene rendering supplies the latched previous trace,
+            // matching the Sprite_Table handoff phase.
             if trace.current_helmet_id == PlayerForm::Micromax.helmet_id()
+                && trace.walk_visual_accumulator != 0
                 && (trace.walk_visual_accumulator as i16) < 5
                 && let Some(alternate) = player_visuals.idle_alternate.as_ref()
             {
@@ -6980,7 +6984,7 @@ mod tests {
         let visuals = labelled_player_visuals();
 
         for (phase, expected) in [
-            (0, 0x0101),
+            (0, 0x0100),
             (4, 0x0101),
             (5, 0x0100),
             (7, 0x0100),
