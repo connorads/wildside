@@ -68,6 +68,19 @@ transforms. Frames 33-100 match oracle and the next gameplay frontier advances
 to frame 179. Focused report `1788648155` passes and restores frame 120 to 1,814
 changed pixels. Both full gates remain green.
 
+Follow-up 2026-09-06. The frame-179 break was a six-frame-early diamond award,
+not Kid physics. `sub_21F8` gives Micromax the `$F`-pixel mapping hitbox while
+the native diamond path rebuilt a 31-pixel top edge. `PrizeDiamond_Init
+loc_10396` also consumes an after-Player collision on its next object wake,
+after `GfxObjects_MoveAndAnimate` advances the falling sprite. Native keeps
+that callback phase explicit: Level `$55` frames 140-300 and all 420 gameplay
+frames match oracle. Frame 184 retains object/gfx counts 6/11; frame 185 awards
+the diamond and deletes the workers to counts 5/10. Before-Player published
+diamond timing and helmet collision retain their existing ROM phases. Focused
+report `1788651181` passes with checkpoint residue unchanged; both full gates
+are green. The next authoritative Level `$55` frontier is the Driller enemy
+roster at frame 118.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level
@@ -24513,7 +24526,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 495 | [-] | P2 | enemy/Driller | Level `$55` recording handoff matches Driller and prize-transform state through frame 100. | Next gameplay frontier is frame 179; focused frame 120 is 1,814 px. See archive #495. |
+| 495 | [-] | P2 | enemy/Driller | Level `$55` gameplay matches all 420 frames, including the after-Player diamond award. | Next enemy frontier is frame 118; focused frame 120 remains 1,814 px. See archive #495. |
 | 494 | [x] | P2 | rendering | `Kid_Transform` transform/form palette writes override a damage-white phase suspended before the synchronous coroutine. | Level `$55` settle residue 2,212→1,781; whole-game comparable residue 39,401→38,971. See archive #494. |
 | 493 | [x] | P1 | enemy/render | Lion fire/restore timing, HP-8 animation topology, projectile collision subpixels, and parent-child rendering follow the ROM. | Level `$36` Lion/projectile pixels exact at all six checkpoints; 75/75 enemy-frontier frames match. See archive #493. |
 | 490 | [x] | P2 | enemy/render | Multi-head callback scheduling is keyed per head; Shishkaboss skewer workers use typed presentation state and source mappings. | Level `$10` state checkpoints pass; residue 3,759 -> 3,176 pixels; full gates green. See archive #490. |

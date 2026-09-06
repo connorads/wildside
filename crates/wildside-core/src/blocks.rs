@@ -4730,6 +4730,7 @@ impl NativeRuntime {
         let base_player_left = player_x_px - PLAYER_HALF_WIDTH;
         let base_player_right = player_x_px + PLAYER_HALF_WIDTH;
         let form_player_half_width = self.progression.current_form.half_width();
+        let form_player_height = self.progression.current_form.ceiling_probe_height();
         let form_player_hitbox = if let (Ok(anchor_x), Ok(anchor_y), Ok(left_offset), Ok(width)) = (
             i16::try_from(player_x_px),
             i16::try_from(player_y_px),
@@ -4769,9 +4770,13 @@ impl NativeRuntime {
             if item.collected || item.spawn_delay > 0 {
                 continue;
             }
+            let deferred_after_player_diamond = item.content == terrain::PrizeContent::Diamond
+                && self.floating_prize_order_sub_e12
+                    == crate::FloatingPrizeOrderSubE12::AfterPlayer;
+            let diamond_collision_ready = deferred_after_player_diamond && item.collision_latched;
             let item_x_px = (item.x_pos >> 16) as i32;
             let item_y_px = (item.y_pos >> 16) as i32;
-            let (player_top, item_left, item_right, item_top, item_bottom, inclusive_overlap) =
+            let (mut player_top, item_left, item_right, item_top, item_bottom, inclusive_overlap) =
                 if item.content == terrain::PrizeContent::Diamond {
                     // ASM PrizeDiamond_Init loc_10396 uses GfxObjects_CollisionKid
                     // against CollisionSize_Index entry unk_31D5E for
@@ -4801,13 +4806,15 @@ impl NativeRuntime {
                 // ASM PrizeDiamond_Init loc_10396 tests collision_type(a3)
                 // after Mode_Level's sub_21F8 handoff, so diamond pickup uses
                 // Kid's current form hitbox, not TheKid's fixed 5px width.
-                form_player_hitbox.map_or(
+                let (left, right) = form_player_hitbox.map_or(
                     (
                         player_x_px - form_player_half_width,
                         player_x_px + form_player_half_width,
                     ),
                     |hitbox| (i32::from(hitbox.left_px), i32::from(hitbox.right_px)),
-                )
+                );
+                player_top = player_y_px - form_player_height;
+                (left, right)
             } else {
                 (base_player_left, base_player_right)
             };
@@ -4861,7 +4868,18 @@ impl NativeRuntime {
             // GfxObject collision latch on its next hibernated wake. Unlike
             // resident-art prizes, a helmet must not also take this generic
             // lower-body pickup path on the latch frame.
-            if overlap_x && overlap_y && !Self::is_helmet_prize(item.content) {
+            if ((overlap_x && overlap_y) || diamond_collision_ready)
+                && !Self::is_helmet_prize(item.content)
+            {
+                if deferred_after_player_diamond && !diamond_collision_ready {
+                    // ASM Mode_Level calls Execute_Objects before the later
+                    // GfxObjects_CollisionKid pass. A floating diamond linked
+                    // after Kid sees that collision_type on its next wake;
+                    // the intervening GfxObjects_MoveAndAnimate pass still
+                    // advances the falling sprite once.
+                    item.collision_latched = true;
+                    continue;
+                }
                 // ASM loc_FF92 and loc_1000A / loc_1001E (kid.asm:21260,
                 // 21302-21312) hibernate the collected clock object from its
                 // cached camera-relative `$3E/$42` words before the timer award

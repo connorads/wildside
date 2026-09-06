@@ -12435,6 +12435,19 @@ mod chunk_09 {
             runtime.opening_slice.expect("slice").player.y_velocity,
             0x0000_4000
         );
+
+        let mut frame_184 = runtime.trace_frame();
+        for _ in 0..89 {
+            frame_184 = runtime.step_frame(FrameInput::default());
+        }
+        assert_eq!(frame_184.diamond_count, 0);
+        assert_eq!(frame_184.number_objects, 6);
+        assert_eq!(frame_184.number_gfx_objects, 11);
+
+        let frame_185 = runtime.step_frame(FrameInput::default());
+        assert_eq!(frame_185.diamond_count, 1);
+        assert_eq!(frame_185.number_objects, 5);
+        assert_eq!(frame_185.number_gfx_objects, 10);
     }
 
     #[test]

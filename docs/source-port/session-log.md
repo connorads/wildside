@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (Level 0x55 diamond callback phase)
+
+- `sub_21F8` gives Micromax a 15-pixel mapping hitbox. The diamond path now
+  uses that form height instead of rebuilding The Kid's 31-pixel top edge.
+- After-Player diamond collision remains latched through the intervening
+  `GfxObjects_MoveAndAnimate` pass. Frame 184 retains object/gfx counts 6/11;
+  frame 185 awards the diamond and deletes the workers to counts 5/10.
+- All 420 Level 0x55 gameplay frames match. Focused report `1788651181` and
+  both full gates pass. The published route remains at 37,518 exact frames and
+  2,391 changed pixels. NEXT: investigate the Driller enemy frontier at frame
+  118. See archive #495.
+
 ## 2026-09-05 handoff (Level 0x55 prize callback order)
 
 - WRAM and PC traces prove the resumed Micromax worker runs after Kid: frame
