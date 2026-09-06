@@ -6834,7 +6834,9 @@ impl NativeRuntime {
             self.clear_special_movement_state_sub_DB22();
         }
         if slice.player.on_ground {
-            self.refresh_grounded_helmet_state_sub_78E8();
+            self.refresh_grounded_helmet_state_with_phase_sub_78E8(
+                &mut slice.walk_visual_accumulator,
+            );
         } else {
             // ASM sub_942A loc_9454: airborne frames run the moving/airborne
             // dispatch, which clears Maniaxe_throwing_axe on the throw-anim-done

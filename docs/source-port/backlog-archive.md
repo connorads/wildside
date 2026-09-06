@@ -447,6 +447,27 @@ established oracle limitations. `verify-slice-fast` and `verify-tas-full` pass;
 published-route evidence remains 37,518 exact frames and 2,391 changed pixels.
 NEXT: triage the remaining 21 clusters.
 
+Follow-up 2026-09-06. The largest remaining spatial cluster is Micromax's
+grounded idle sprite. Oracle `$FFFFF8F0` frames 175..192 repeat
+`2,3,4,5,6,7,0,1`, while native remained zero. `refresh_opening_slice` owns the
+active slice locally during the frame, but `refresh_grounded_helmet_state_sub_78E8`
+looked for the animation word through the empty runtime slot.
+
+The live frame path now passes only `$FFFFF8F0` into the grounded refresh. A
+whole-slice install was rejected after it changed EOL object counts and hid
+Juggernaut companion observations behind the temporary ownership boundary.
+Deriving a separate Micromax mapping latch was rejected because the existing
+previous-trace presentation latch already preserves `loc_7962`'s wrap-frame
+`d0=8` mapping once the counter advances correctly.
+
+The cache-backed regression pins the real frame worker's oracle phase sequence.
+Fresh report `level55-micromax-idle-clock.json` has 250 exact and 110 divergent
+frames, totalling 3,808 pixels in 21 clusters. All 360 player, camera, and
+enemy-frontier checkpoints match; the four frame-127/128 object-count
+differences remain established oracle limitations. `verify-slice-fast` and
+`verify-tas-full` pass; published-route evidence remains 37,518 exact frames
+and 2,391 changed pixels. NEXT: triage the remaining 21 clusters.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level

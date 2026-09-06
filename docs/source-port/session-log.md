@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (Micromax grounded idle clock)
+
+- `refresh_opening_slice` held the active slice locally while `sub_78E8`
+  looked for `$FFFFF8F0` on the runtime, freezing Micromax's idle phase at
+  zero. The frame path now passes that shared word explicitly.
+- Oracle frames 175..192 pin the restored `2,3,4,5,6,7,0,1` cycle. Keeping
+  the whole slice installed was rejected because it changed unrelated EOL and
+  Juggernaut callback visibility.
+- The 360-frame Level `$55` census falls from 5,663 to 3,808 changed pixels,
+  with exact frames rising from 202 to 250. All authoritative state
+  checkpoints and both full gates pass. NEXT: triage the remaining 21 visual
+  clusters. See archive #495.
+
 ## 2026-09-06 handoff (independent Driller parent clocks)
 
 - Direct oracle `$3BCB2` pointers and countdowns show the uninterrupted

@@ -6268,6 +6268,27 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
+    pub(crate) fn refresh_grounded_helmet_state_with_phase_sub_78E8(
+        &mut self,
+        walk_visual_accumulator: &mut u16,
+    ) {
+        if self.progression.current_form == PlayerForm::Micromax {
+            *walk_visual_accumulator = Self::micromax_idle_phase_loc_7962(*walk_visual_accumulator);
+        } else {
+            self.refresh_grounded_helmet_state_sub_78E8();
+        }
+    }
+
+    fn micromax_idle_phase_loc_7962(current: u16) -> u16 {
+        let next_phase = current.wrapping_add(1);
+        if (next_phase as i16) >= 8 {
+            0
+        } else {
+            next_phase
+        }
+    }
+
+    #[allow(non_snake_case)]
     pub(crate) fn refresh_grounded_helmet_state_sub_78E8(&mut self) {
         // ASM sub_78E8 (kid.asm:7973): grounded frames reset the default
         // helmet pose unless the form-specific grounded action is still live.
@@ -6331,15 +6352,11 @@ impl NativeRuntime {
         match self.progression.current_form {
             PlayerForm::Juggernaut => self.step_juggernaut_companion_visual_sub_975C(),
             PlayerForm::Micromax => {
+                // ASM loc_7962: `addq.w #1,($FFFFF8F0)` followed by a
+                // compare against eight and `clr.w` at the cycle boundary.
                 if let Some(slice) = self.opening_slice.as_mut() {
-                    // ASM loc_7962: `addq.w #1,($FFFFF8F0)` followed by a
-                    // compare against eight and `clr.w` at the cycle boundary.
-                    let next_phase = slice.walk_visual_accumulator.wrapping_add(1);
-                    slice.walk_visual_accumulator = if (next_phase as i16) >= 8 {
-                        0
-                    } else {
-                        next_phase
-                    };
+                    slice.walk_visual_accumulator =
+                        Self::micromax_idle_phase_loc_7962(slice.walk_visual_accumulator);
                 }
             }
             PlayerForm::Skycutter => {}

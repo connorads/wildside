@@ -12689,6 +12689,35 @@ mod chunk_09 {
         assert_eq!(frame_185.number_gfx_objects, 10);
     }
 
+    /// #495 - ASM sub_78E8 loc_7962 advances `$FFFFF8F0` on every grounded
+    /// Micromax frame. This exercises the real frame worker, where the active
+    /// opening slice is temporarily local rather than stored on the runtime.
+    #[test]
+    fn issue495_level55_grounded_micromax_idle_phase_advances_loc_7962() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let level = LevelId(0x55);
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(level);
+        runtime.settle_recording_oracle_warp_live_window(level);
+
+        let mut phases = Vec::new();
+        for frame_index in 0..193 {
+            let frame = runtime.step_frame(FrameInput::default());
+            if (175..=192).contains(&frame_index) {
+                assert_eq!(frame.current_helmet_id, PlayerForm::Micromax.helmet_id());
+                assert_eq!(frame.kid_on_ground, Some(true));
+                phases.push(frame.walk_visual_accumulator);
+            }
+        }
+        assert_eq!(
+            phases,
+            vec![2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3],
+            "oracle `$FFFFF8F0` pins the grounded loc_7962 cycle across frames 175..192"
+        );
+    }
+
     /// #495 - ASM GfxObjects_CollisionKid loc_1B94/loc_1C18 scans every
     /// collision-enabled GfxObject, including Driller's linked `stru_3BCBC`
     /// children. Oracle frame 320 latches `$24` on the left child when its
