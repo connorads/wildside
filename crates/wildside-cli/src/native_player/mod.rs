@@ -21198,19 +21198,8 @@ mod tests {
 
     #[test]
     fn loc_bc34_damage_flash_keeps_player_visible_and_marks_white_phase() {
-        let observation_phase = trace_with_player(0, 66);
-        let observation_scene = build_ingame_scene(&observation_phase, false, None);
         let white = MdColour::from_word(0x0FFF);
-        let observation_palette =
-            player_sprite_palette(&observation_scene).expect("player sprite palette");
-        assert!(
-            observation_palette
-                .colours
-                .iter()
-                .any(|colour| *colour != white)
-        );
-
-        let white_phase = trace_with_player(2, 64);
+        let white_phase = trace_with_player(0, 66);
         let white_scene = build_ingame_scene(&white_phase, false, None);
         assert!(
             scene_has_player_sprite(&white_scene),
@@ -21238,7 +21227,7 @@ mod tests {
             "damage flash should use the player sprite palette, not an overlay rectangle"
         );
 
-        let normal_phase = trace_with_player(4, 62);
+        let normal_phase = trace_with_player(2, 64);
         let normal_scene = build_ingame_scene(&normal_phase, false, None);
         assert!(scene_has_player_sprite(&normal_scene));
         let normal_palette = player_sprite_palette(&normal_scene).expect("player sprite palette");
@@ -21256,7 +21245,7 @@ mod tests {
     #[test]
     fn loc_bc56_damage_flash_mid_cycle_matches_issue289_oracle_samples() {
         let white = MdColour::from_word(0x0FFF);
-        for remaining in [33, 22] {
+        for remaining in [36, 30] {
             let scene = build_ingame_scene(&trace_with_player(60, remaining), false, None);
             let player_palette = player_sprite_palette(&scene).expect("player sprite palette");
             assert!(
@@ -21695,6 +21684,107 @@ mod tests {
             &rgb[pixel..pixel + 3],
             &[0, 0, 0],
             "ASM Enemy1A_Driller_Init creates the `$0100` parent before its linked drills; Make_SpritesFromGfxObjects loc_14A4 lets the parent's tile `$326` black pixel beat the later left-drill pixel at oracle frame 359 (10,157)"
+        );
+    }
+
+    #[test]
+    fn level55_driller_hurt_art_matches_forest_vram_upload_loc_36e24() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let (visuals, _) = load_session_assets(&manifest, 0x55).expect("Level 0x55 visuals");
+        let driller = visuals
+            .enemies
+            .families
+            .get(&0x1A)
+            .expect("Level 0x55 Driller visuals");
+        let hurt = &driller.frames[2];
+
+        assert_eq!(
+            hurt.tile_sheet.tiles[0x26].pixels[13], 1,
+            "ASM Load_EnemyArtToVRAM loc_36E24 remaps the first Forest enemy upload; oracle frame 0 reads colour index 1 from absolute tile $321 at pixel (5,1)"
+        );
+    }
+
+    #[test]
+    fn level55_frame1_kid_driller_overlap_matches_post_frame0_oracle_sat_loc_14a4() {
+        let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let dump_dir = workspace.join(".cache/oracle-probe/oracle");
+        let Ok(vram) = std::fs::read(dump_dir.join("vram_frame_0.bin")) else {
+            return;
+        };
+        let Ok(cram) = std::fs::read(dump_dir.join("cram_frame_0.bin")) else {
+            return;
+        };
+        let Ok(vsram) = std::fs::read(dump_dir.join("vsram_frame_0.bin")) else {
+            return;
+        };
+        let mut registers = [0; 0x20];
+        registers[5] = 0x08;
+        registers[0x0C] = 0x81;
+        let vdp = wildside_md::VdpSnapshot {
+            registers,
+            vram,
+            cram,
+            vsram,
+            raster_frame: None,
+        };
+        let mut oracle_rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        wildside_md::render_vdp_sprites_into(&vdp, &mut oracle_rgb);
+
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x55);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest.clone(),
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x55 sweep trace");
+        let render_trace = trace_frame_with_vdp_latch_at_checkpoint(
+            &run.trace,
+            1,
+            Some(&run.initial_render_latch),
+            "frame_001",
+        )
+        .expect("Level 0x55 frame-1 render trace");
+        let visuals = load_level_visuals(&manifest, 0x55).expect("Level 0x55 visuals");
+        let scene = build_scene_filtered(
+            &render_trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: true,
+                player: true,
+                effects: true,
+                eol_score: false,
+                hud: false,
+            },
+        );
+        let mut native_rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        render_scene(&scene, &mut native_rgb);
+        let mismatches = (145usize..185)
+            .flat_map(|y| (0usize..40).map(move |x| y * FRAME_WIDTH as usize + x))
+            .filter(|pixel| {
+                native_rgb[*pixel * 3..*pixel * 3 + 3] != oracle_rgb[*pixel * 3..*pixel * 3 + 3]
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            mismatches.is_empty(),
+            "native scene must reproduce the post-frame-0 Kid/Driller SAT overlap; {} pixels differ, first coordinates: {:?}",
+            mismatches.len(),
+            mismatches
+                .iter()
+                .take(12)
+                .map(|pixel| (pixel % FRAME_WIDTH as usize, pixel / FRAME_WIDTH as usize))
+                .collect::<Vec<_>>()
         );
     }
 

@@ -372,6 +372,31 @@ effect pixels. The shared cadence and `sub_80BC/sub_80D0` writes to
 boundary. Do not tune independent object palettes from these composites; first
 model the one hardware palette line shared by every line-3 tile and sprite.
 
+Follow-up 2026-09-06. Direct oracle CRAM and VRAM disprove that shared-line
+hypothesis: line 1 holds the ordinary Driller palette, line 3 holds Kid, and
+Driller tile `$321` matches the decoded Forest upload from `loc_36E24`.
+Whole-current Sprite Tables increase the census to 150,948 pixels; replacing
+whole Driller snapshots increases it to 109,501. Both are rejected because
+position and body state already agree.
+
+Two independent clocks explain the periodic residue. `Kid_Damage loc_BC54 ->
+loc_BC56/loc_BC5C/loc_BC6E` writes white for two fields and normal for four,
+counted from the full 66-field hibernate. Correcting the native phase reduces
+77,270 to 55,604 pixels. Oracle Driller child mappings then run
+`$0BF8,$0BF8,$0BEC` on frames 0..2, while native's linked `stru_3BCBC` clock
+enters the handoff at tick 19 and does not wrap until frame 5. The recording
+adapter now reconciles the three omitted `GfxObjects_MoveAndAnimate loc_142E`
+passes without altering matching Object/body state or ordinary gameplay.
+
+The fresh every-frame report `level55-core-child-phase.json` has 152 exact and
+208 divergent frames, totalling 22,620 pixels in 75 clusters. All 360 player,
+camera, and enemy-frontier checkpoints match; the four object-count differences
+at frames 127..128 remain established oracle limitations. Focused regressions
+pin the 66-field damage cadence, tick-22 Driller handoff, Forest art byte, and
+post-frame-0 Kid/Driller SAT overlap. NEXT: triage the remaining 75 clusters.
+`verify-slice-fast` and `verify-tas-full` pass; published-route evidence remains
+37,518 exact frames and 2,391 changed pixels.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level

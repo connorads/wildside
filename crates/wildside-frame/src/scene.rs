@@ -1122,12 +1122,10 @@ fn player_damage_flash_white_phase_loc_bc56(trace: &NativeTraceFrame) -> bool {
     // ASM loc_BC56 starts each damage-flash cycle by calling sub_80BC, then
     // loc_BC5C holds the white palette for two hibernated frames before
     // loc_BC6E restores the normal palette for four frames. Native traces
-    // include loc_BC40's initial hibernated observation frame at 66 remaining;
-    // sub_80BC first becomes visible after the shell reaches 64.
-    if trace.invulnerable_frames > 64 {
-        return false;
-    }
-    (64usize.saturating_sub(trace.invulnerable_frames) % 6) < 2
+    // include loc_BC40's initial hibernated observation frame at 66 remaining.
+    // loc_BC56 writes white before loc_BC5C's two hibernated fields, then
+    // loc_BC6E keeps the restored palette for four fields.
+    (66usize.saturating_sub(trace.invulnerable_frames) % 6) < 2
 }
 
 pub fn eol_score_sprite_diagnostics(
@@ -10809,6 +10807,21 @@ mod tests {
 
         assert_eq!(render_trace.invulnerable_frames, 57);
         assert!(render_trace.just_received_damage);
+    }
+
+    #[test]
+    fn damage_palette_phase_counts_from_full_loc_bc56_cycle() {
+        let trace = |invulnerable_frames| NativeTraceFrame {
+            invulnerable_frames,
+            just_received_damage: true,
+            ..NativeTraceFrame::default()
+        };
+
+        assert!(!player_damage_flash_white_phase_loc_bc56(&trace(40)));
+        assert!(player_damage_flash_white_phase_loc_bc56(&trace(36)));
+        assert!(player_damage_flash_white_phase_loc_bc56(&trace(35)));
+        assert!(!player_damage_flash_white_phase_loc_bc56(&trace(34)));
+        assert!(player_damage_flash_white_phase_loc_bc56(&trace(30)));
     }
 
     #[test]

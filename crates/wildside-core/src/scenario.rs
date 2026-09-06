@@ -484,6 +484,7 @@ impl NativeRuntime {
         // boundary order; ordinary `$1FFF` allocations retain before-Kid
         // order from Allocate_ObjectSlot loc_DE0.
         self.floating_prize_order_sub_e12 = crate::FloatingPrizeOrderSubE12::AfterPlayer;
+        self.reconcile_recording_handoff_driller_child_gfx_passes_loc_142e(3);
         self.reconcile_recording_handoff_driller_boundary_turn_loc_3c026();
         if level_id == LevelId(0x33) {
             // ASM Mode_Level -> GfxObjects_MoveAndAnimate loc_142E: the

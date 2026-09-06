@@ -1424,6 +1424,32 @@ impl NativeRuntime {
         }
     }
 
+    /// Reconcile linked Driller GfxObject animation at the recording handoff.
+    fn reconcile_recording_handoff_driller_child_gfx_passes_loc_142e(&mut self, passes: u8) {
+        let mut advanced = false;
+        for enemy in &mut self.active_enemies {
+            if !matches!(enemy.family, EnemyFamily::Driller)
+                || enemy.driller_children.is_none()
+                || enemy.death_animation_active
+            {
+                continue;
+            }
+            // ASM Mode_Level loc_80C -> GfxObjects_MoveAndAnimate loc_142E:
+            // the recording helper exposes three linked-GfxObject passes
+            // omitted by native's collapsed shell. Level $55 oracle mappings
+            // `$0BF8,$0BF8,$0BEC` pin the visible handoff to child ticks
+            // 23, 24, then 1 while the Object/body state already agrees.
+            for _ in 0..passes {
+                enemy.dragon_descent_index =
+                    driller_child_next_animation_tick_stru_3bcbc(enemy.dragon_descent_index);
+            }
+            advanced = true;
+        }
+        if advanced {
+            self.rebuild_active_enemy_roster();
+        }
+    }
+
     pub(crate) fn move_heady_metal_body_piece_workers_sub_376ec(&mut self) {
         let Some(heady_metal) = self
             .active_enemies

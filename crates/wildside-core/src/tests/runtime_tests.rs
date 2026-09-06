@@ -12424,6 +12424,43 @@ mod chunk_09 {
         assert_eq!(lower.facing, Direction::Right);
     }
 
+    /// #495 - ASM Mode_Level loc_80C runs GfxObjects_MoveAndAnimate loc_142E
+    /// before the first visible SAT build. Oracle mappings `$0BF8,$0BF8,$0BEC`
+    /// pin both `stru_3BCBC` drill children to ticks 23, 24, then 1.
+    #[test]
+    fn issue495_level55_recording_handoff_driller_child_clock_matches_loc_142e() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x55));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x55));
+
+        let child_ticks = runtime
+            .active_enemies
+            .iter()
+            .filter(|enemy| matches!(enemy.family, EnemyFamily::Driller))
+            .map(|enemy| enemy.dragon_descent_index)
+            .collect::<Vec<_>>();
+        assert_eq!(child_ticks, vec![22, 22]);
+
+        let phases = (0..3)
+            .map(|_| {
+                let frame = runtime.step_frame(FrameInput::default());
+                frame
+                    .active_objects
+                    .iter()
+                    .find(|object| {
+                        matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x1A })
+                            && object.hit_points == Some(0)
+                    })
+                    .and_then(|object| object.sprite_animation_phase)
+                    .expect("Level 0x55 should retain a linked drill child")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(phases, vec![8, 8, 5]);
+    }
+
     /// #495 - ASM loc_3C0D2/loc_3C0F0: after the first native catch-up turn,
     /// a right-edge Driller exposes the post-commit right-facing hibernate,
     /// then the stopped left-facing callback, before walking left.

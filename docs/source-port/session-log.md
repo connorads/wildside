@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (damage and linked-Driller clocks)
+
+- Oracle CRAM and VRAM disprove shared line 3 and Driller art as the main
+  residue. Whole-current Sprite Tables and whole-current Driller snapshots
+  both regress the census.
+- `Kid_Damage loc_BC54/loc_BC56` counts its two-white/four-normal palette
+  cadence from the full 66-field countdown.
+- Linked `stru_3BCBC` drill children reach the recording boundary three
+  `GfxObjects_MoveAndAnimate loc_142E` ticks late. Reconciling only that adapter
+  clock reproduces oracle mappings `$0BF8,$0BF8,$0BEC` without changing the
+  matching Driller body state.
+- The 360-frame census falls from 77,270 to 22,620 changed pixels, with exact
+  frames rising from 89 to 152. All authoritative state checkpoints match.
+  Both full gates pass. NEXT: triage the remaining 75 visual clusters. See
+  archive #495.
+
 ## 2026-09-06 handoff (Driller-child damage latch)
 
 - An every-frame Level 0x55 census exposed a hidden frame-321 HP divergence.
