@@ -1593,6 +1593,12 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         // update countdown 0) still needs the previous frame's source helmet.
         render_trace.transform_source_helmet_id_loc_7ca6 =
             previous_trace.transform_source_helmet_id_loc_7ca6;
+        // ASM Mode_Level loc_901 transfers CRAM before the fixed loc_BC34
+        // damage worker resumes. Its sub_80BC/sub_80D0 palette write therefore
+        // becomes visible with the following field, alongside the latched Kid
+        // Sprite_Table entry rather than the post-update damage countdown.
+        render_trace.invulnerable_frames = previous_trace.invulnerable_frames;
+        render_trace.just_received_damage = previous_trace.just_received_damage;
         // ASM Mode_Level calls Make_SpriteAttr_HUD/sub_BDC0 before the later
         // GfxObjects_CollisionKid path can reach Check_for_recent_damge
         // loc_B700 or PrizeDiamondCollected loc_10C78, so the visible HUD
@@ -10613,6 +10619,26 @@ mod tests {
             wildside_core::ModeLevelAirborneVisualMappingPathSubB270::AscendingState0,
             "ASM Mode_Level loc_901 presents the prior Sprite_Table mapping even after sub_B270 crosses into state 1",
         );
+    }
+
+    #[test]
+    fn mode_level_loc_901_latches_damage_palette_phase_loc_bc56() {
+        let previous_trace = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            current_level: wildside_core::LevelId(0x55),
+            invulnerable_frames: 57,
+            just_received_damage: true,
+            ..NativeTraceFrame::default()
+        };
+        let trace = NativeTraceFrame {
+            invulnerable_frames: 56,
+            ..previous_trace.clone()
+        };
+
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous_trace));
+
+        assert_eq!(render_trace.invulnerable_frames, 57);
+        assert!(render_trace.just_received_damage);
     }
 
     #[test]

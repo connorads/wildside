@@ -21589,14 +21589,14 @@ mod tests {
         )
         .expect("Level 0x60 frame-60 render trace");
 
-        assert_eq!(render_trace.invulnerable_frames, 66);
-        assert!(render_trace.just_received_damage);
+        assert_eq!(render_trace.invulnerable_frames, 0);
+        assert!(!render_trace.just_received_damage);
         let scene = build_ingame_scene(&render_trace, false, None);
         let white = MdColour::from_word(0x0FFF);
         let player_palette = player_sprite_palette(&scene).expect("player sprite palette");
         assert!(
             player_palette.colours.iter().any(|colour| *colour != white),
-            "oracle frame 60 keeps Kid's normal palette: ASM loc_BC40 hibernates once before observing Just_received_damage and entering loc_BC56"
+            "oracle frame 60 keeps Kid's normal palette: Mode_Level loc_901 transferred CRAM before the first-contact loc_BC40 damage worker"
         );
     }
 

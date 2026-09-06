@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (Level 0x55 damage-palette latch)
+
+- `Mode_Level loc_901` transfers CRAM before `loc_BC34` advances damage state,
+  so rendered Kid damage palettes now use the previous field's countdown.
+- Focused report `1788669768` reduces idle tail from 257 to 91 pixels, removing
+  all 166 player-sprite differences.
+- Oracle settle tracing rejects a HUD entry seed because native matches the
+  `$FA58/$FA5D` hand-off. NEXT: trace transform hibernation behind the remaining
+  84 HUD-diamond and 7 Driller/Kid overlap pixels. See archive #495.
+
 ## 2026-09-06 handoff (full-sweep live frame evidence)
 
 - Full sweeps now capture checkpoint pixels while the runtime owns the

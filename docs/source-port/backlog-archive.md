@@ -189,6 +189,23 @@ sprite recolours, both palette line 0. `verify-slice-fast` and
 2,391 changed pixels. Next: compare Level `$55` player/HUD palette words with
 oracle CRAM at the remaining checkpoints.
 
+Follow-up 2026-09-06. The remaining player recolours were a VDP boundary error.
+`Mode_Level loc_901` transfers CRAM before the fixed `loc_BC34` damage worker
+resumes; `sub_80BC`/`sub_80D0` therefore becomes visible with the following
+field. The render snapshot now latches `Just_received_damage` and
+`Invulnerable_frames` with the existing previous-field Kid sprite state.
+Focused report `1788669768` reduces idle tail from 257 to 91 changed pixels,
+removing all 166 player-sprite differences. The 91-pixel residue is separate:
+84 HUD-diamond pixels plus 7 Driller/Kid overlap pixels.
+
+The HUD-lifecycle alternative was rejected with direct evidence. Oracle
+settle tracing ends target-live step 59 at `$FA58/$FA5D = $01/$00`, and its
+first scenario frame advances to `$06/$02` while uploading page 4. Native
+matches both boundaries exactly. The later HUD phase difference is downstream
+of transform hibernation, not a missing level-entry seed, so no Level `$55`
+special case was added. `verify-slice-fast` and `verify-tas-full` pass; the
+published route remains 37,518 exact frames and 2,391 changed pixels.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level
