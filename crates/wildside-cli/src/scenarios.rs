@@ -377,11 +377,13 @@ pub(crate) fn run_native_dynamic_scenario(
         .run(&scenario.script, scenario.frame_count))
 }
 
+#[cfg(test)]
 pub(crate) struct NativeDynamicRun {
     pub(crate) initial_render_latch: NativeTraceFrame,
     pub(crate) trace: Vec<NativeTraceFrame>,
 }
 
+#[cfg(test)]
 pub(crate) fn run_native_dynamic_scenario_with_render_latch(
     manifest: AssetManifest,
     scenario: &DynamicScenario,

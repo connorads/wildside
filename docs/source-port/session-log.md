@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (full-sweep live frame evidence)
+
+- Full sweeps now capture checkpoint pixels while the runtime owns the
+  mutated `Level_Layout`; trace-only reconstruction had silently reloaded the
+  immutable block grid and overstated Level 0x55 residue.
+- Focused report `1788667820` reduces the true maximum from 1,866 to 864
+  pixels and idle tail from 1,600 to 257. Visual inspection confirms the
+  erased corridor now matches oracle.
+- Exact tail provenance assigns 173 pixels to the player sprite and 84 to HUD
+  sprites, both palette line 0. NEXT: trace those palette words. See archive
+  #495.
+
 ## 2026-09-06 handoff (Level 0x55 mapping hypothesis rejected)
 
 - Oracle WRAM keeps row-10 `$00F9/$00FA` replacement words unchanged through

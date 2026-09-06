@@ -28,7 +28,9 @@ use release_gate::{
 use super::*;
 use cache::{OracleCacheKey, load_cached_oracle, store_oracle_cache};
 use diff::{annotate_diff, frame_mae, generate_diff_composite, pixel_mismatch_count};
+#[cfg(test)]
 use native_player::render_gameplay_frame_evidence_for_level_with_initial_latch;
+use native_player::{NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, load_session_assets};
 #[cfg(test)]
 use oracle::EnemyFacing;
 use oracle::{
@@ -38,12 +40,15 @@ use rayon::prelude::*;
 use release_gate::{latest_release_gate_failed_fields, summarise_release_gate_focuses};
 use scenarios::{
     DynamicCheckpoint, DynamicScenario, NativeDynamicRunOptions, idle_level_full_frame_scenario,
-    idle_level_scenario, release_visual_level_00_early_scenario,
-    run_native_dynamic_scenario_with_render_latch,
+    idle_level_scenario, release_visual_level_00_early_scenario, run_native_dynamic_scenario,
+    try_for_each_native_dynamic_frame,
 };
 #[cfg(test)]
-use scenarios::{prize_block_scenario, walk_right_scenario};
+use scenarios::{
+    prize_block_scenario, run_native_dynamic_scenario_with_render_latch, walk_right_scenario,
+};
 use sha1::{Digest, Sha1};
+use tas_pixels::render_source_port_frame_with_scene;
 
 /// Advisory fields — diverge due to architectural differences, not native bugs.
 /// Promoted to authoritative (removed from list): score, number_diamonds (0 diffs at 0px),
@@ -928,17 +933,14 @@ fn sweep_single_scenario(
         requested_tier,
         checksum,
         include_rng,
-        native_run,
+        native_run: native_options,
     } = options;
     let level_dir = run_dir.join(format!("levels/{level_id:02x}"));
     fs::create_dir_all(&level_dir)
         .with_context(|| format!("failed to create {}", level_dir.display()))?;
 
-    // Run native (with warp if specified). Frame evidence also needs the
-    // pre-scenario VDP latch because checkpoint zero is post-update state.
-    let native_run =
-        run_native_dynamic_scenario_with_render_latch(manifest.clone(), &scenario, native_run)?;
-    let native_trace = native_run.trace;
+    // Run native (with warp if specified).
+    let native_trace = run_native_dynamic_scenario(manifest.clone(), &scenario, native_options)?;
 
     // Extract native state at checkpoints
     let native_states = extract_checkpoint_states(&native_trace, &scenario.checkpoints);
@@ -1064,12 +1066,12 @@ fn sweep_single_scenario(
     let mut diff_images = Vec::new();
 
     if effective_tier == SweepTier::Frames || effective_tier == SweepTier::Full {
-        // Capture native frames at checkpoints and compare with oracle PNGs
+        // Capture checkpoint pixels while the runtime still owns the mutable
+        // Level_Layout projection. Re-rendering a trace later from immutable
+        // assets loses block writes such as EraseBlockFromLevelLayout loc_11542.
+        let native_frames = capture_live_checkpoint_frames(manifest, &scenario, native_options)?;
         let (best_mae, best_pixel_mismatches) = compare_checkpoint_frames(
-            manifest,
-            &native_trace,
-            &native_run.initial_render_latch,
-            &scenario,
+            &native_frames,
             &oracle,
             &level_dir,
             level_id,
@@ -1111,6 +1113,66 @@ fn sweep_single_scenario(
         total_checkpoints,
         masked_checkpoints,
     })
+}
+
+type NativeFrameEvidence = (String, usize, usize, usize, Vec<u8>);
+
+fn capture_live_checkpoint_frames(
+    manifest: &AssetManifest,
+    scenario: &DynamicScenario,
+    options: NativeDynamicRunOptions,
+) -> Result<Vec<NativeFrameEvidence>> {
+    let checkpoints = scenario
+        .checkpoints
+        .iter()
+        .map(|checkpoint| (checkpoint.frame_index, checkpoint.label.clone()))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let mut frames = Vec::with_capacity(checkpoints.len());
+    let mut current_level = scenario.warp_to_level.unwrap_or(0);
+    let (mut level_visuals, mut static_block_grid) = load_session_assets(manifest, current_level)?;
+
+    try_for_each_native_dynamic_frame(
+        manifest.clone(),
+        scenario,
+        options,
+        |frame_index, runtime, previous_trace, trace| {
+            let Some(label) = checkpoints.get(&frame_index) else {
+                return Ok(());
+            };
+            let render_level = runtime.source_port_render_level().0;
+            if render_level != current_level {
+                current_level = render_level;
+                (level_visuals, static_block_grid) = load_session_assets(manifest, current_level)?;
+            }
+            let block_grid = runtime
+                .source_port_render_block_grid()
+                .or(Some(&static_block_grid));
+            let (rgb, _) = render_source_port_frame_with_scene(
+                runtime,
+                previous_trace,
+                trace,
+                &level_visuals,
+                block_grid,
+            );
+            frames.push((
+                label.clone(),
+                frame_index,
+                NATIVE_FRAME_WIDTH as usize,
+                NATIVE_FRAME_HEIGHT as usize,
+                rgb,
+            ));
+            Ok(())
+        },
+    )?;
+
+    if frames.len() != checkpoints.len() {
+        bail!(
+            "native replay captured {} of {} checkpoint frames",
+            frames.len(),
+            checkpoints.len()
+        );
+    }
+    Ok(frames)
 }
 
 /// Compare real source-port renderer output with oracle frames at a bounded set
@@ -2371,10 +2433,7 @@ fn summarise_enemy_states(enemies: &[OracleEnemyState]) -> String {
 /// Capture native frames at checkpoint indices and compare against oracle PNGs.
 /// Returns (worst MAE, worst pixel mismatch count) across checkpoints.
 fn compare_checkpoint_frames(
-    manifest: &AssetManifest,
-    native_trace: &[NativeTraceFrame],
-    initial_render_latch: &NativeTraceFrame,
-    scenario: &DynamicScenario,
+    native_frames: &[NativeFrameEvidence],
     oracle: &OracleManifest,
     level_dir: &Path,
     level_id: u8,
@@ -2382,43 +2441,6 @@ fn compare_checkpoint_frames(
 ) -> Result<(Option<f32>, Option<usize>)> {
     let mut worst_mae: Option<f32> = None;
     let mut worst_pixel_mismatches: Option<usize> = None;
-
-    // Convert DynamicCheckpoints to GameplayCheckpoints for the renderer.
-    let gameplay_checkpoints: Vec<scenarios::GameplayCheckpoint> = scenario
-        .checkpoints
-        .iter()
-        .map(|cp| scenarios::GameplayCheckpoint {
-            label: Box::leak(cp.label.clone().into_boxed_str()),
-            frame_index: cp.frame_index,
-        })
-        .collect();
-
-    // Use the existing headless renderer to produce real native frames.
-    // Falls back to black frames if level visuals aren't available.
-    let native_frames = render_gameplay_frame_evidence_for_level_with_initial_latch(
-        manifest,
-        native_trace,
-        &gameplay_checkpoints,
-        level_id,
-        Some(initial_render_latch),
-    )
-    .unwrap_or_else(|e| {
-        eprintln!(
-            "  warning: level {level_id:#04x} frame render failed ({e:#}), using black frames"
-        );
-        gameplay_checkpoints
-            .iter()
-            .map(|cp| {
-                (
-                    cp.label.to_string(),
-                    cp.frame_index,
-                    320,
-                    224,
-                    vec![0u8; 320 * 224 * 3],
-                )
-            })
-            .collect()
-    });
 
     for (native_evidence, oracle_frame) in native_frames.iter().zip(oracle.frames.iter()) {
         if oracle_paused_checkpoints.contains(oracle_frame.label.as_str()) {
@@ -2839,6 +2861,54 @@ pub(crate) fn run_sweep_compare(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn full_sweep_frame_evidence_keeps_live_level_layout_writes_loc_11542() {
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .expect("workspace root");
+        let manifest_path = repo_root
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        if !manifest_path.is_file() {
+            eprintln!("skipping cache-backed sweep frame-evidence test");
+            return;
+        }
+        let manifest = wildside_data::load_manifest(&manifest_path).expect("generated manifest");
+        let mut scenario = idle_level_full_frame_scenario(0x55);
+        scenario
+            .checkpoints
+            .retain(|checkpoint| checkpoint.frame_index == 359);
+        let options = idle_sweep_native_run_options(SweepTier::Full);
+        let live = capture_live_checkpoint_frames(&manifest, &scenario, options)
+            .expect("live checkpoint frame");
+        let static_run =
+            run_native_dynamic_scenario_with_render_latch(manifest.clone(), &scenario, options)
+                .expect("trace-only checkpoint frame");
+        let static_frame = render_gameplay_frame_evidence_for_level_with_initial_latch(
+            &manifest,
+            &static_run.trace,
+            &[scenarios::GameplayCheckpoint {
+                label: "idle_tail",
+                frame_index: 359,
+            }],
+            0x55,
+            Some(&static_run.initial_render_latch),
+        )
+        .expect("static checkpoint frame");
+
+        let pixel_offset = (84 * NATIVE_FRAME_WIDTH as usize + 1) * 3;
+        assert_eq!(
+            &live[0].4[pixel_offset..pixel_offset + 3],
+            [219, 219, 182],
+            "ASM EraseBlockFromLevelLayout loc_11542 writes must reach full-sweep frame evidence"
+        );
+        assert_eq!(
+            &static_frame[0].4[pixel_offset..pixel_offset + 3],
+            [146, 146, 109],
+            "the regression fixture must distinguish immutable layout reconstruction"
+        );
+    }
 
     #[test]
     fn full_idle_sweep_uses_scenario_recording_settle_for_both_sides() {

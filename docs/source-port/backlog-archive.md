@@ -164,6 +164,31 @@ per-mismatch scene-command provenance inside the full-sweep
 `settle_oracle_warp=true` lifecycle, keyed by exact output pixels, before any
 renderer edit.
 
+Follow-up 2026-09-06. Exact provenance exposed a measurement defect rather
+than another terrain defect. `compare_checkpoint_frames` re-rendered saved
+traces with a freshly loaded immutable `BlockGrid`, so it discarded every
+live `Level_Layout` mutation, including `EraseBlockFromLevelLayout loc_11542`.
+The rejected broad suppression trial could not affect those reconstructed
+frames because their erase provenance had already been lost.
+
+Full-frame sweeps now replay and capture checkpoint pixels while the live
+runtime still owns the mutated grid. This keeps the state trace contract
+small and makes sweep evidence use the same rendering boundary as visual
+triage. Copying a full grid into every trace and adding sparse mutation replay
+were rejected as larger, duplicated state models. The cache-backed regression
+pins a Level `$55` tail pixel as `[219,219,182]` through the live path and
+contrasts the stale immutable reconstruction `[146,146,109]`.
+
+Focused report `1788667820` reduces frame 0 from 1,789 to 778 pixels, frame 30
+from 1,866 to 864, settle from 1,781 to 666, frame 120 from 1,576 to 357,
+frame 300 from 1,381 to 258, and idle tail from 1,600 to 257. The corrected
+tail image visibly removes the erased-corridor residue. Exact scene provenance
+partitions the remaining tail into 173 player-sprite recolours and 84 HUD
+sprite recolours, both palette line 0. `verify-slice-fast` and
+`verify-tas-full` pass; the published route remains 37,518 exact frames and
+2,391 changed pixels. Next: compare Level `$55` player/HUD palette words with
+oracle CRAM at the remaining checkpoints.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level
