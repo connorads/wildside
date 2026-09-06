@@ -260,6 +260,13 @@ pub(crate) fn driller_child_move_and_collide_gfx_objects_collision(
 /// frame the surviving stomped Driller hibernates through (loc_3BF4E).
 pub(crate) const DRILLER_RETRACT_FRAMES_STRU_3BCCE: u8 = 0x1E;
 
+/// Native combat-to-Object handoff for ASM `loc_3BF02 -> loc_3BF4E`.
+/// The collapsed combat pass runs before native's Object counter decrement,
+/// while the ROM installs `$1E` inside that Object pass. One sentinel tick
+/// preserves the same trace-visible `$1E..1` animation interval.
+pub(crate) const DRILLER_COLLISION_WAIT_COUNTER_LOC_3BF02: u8 =
+    DRILLER_RETRACT_FRAMES_STRU_3BCCE + 1;
+
 /// Atlas phase for the live Driller parent GfxObject.
 /// ASM `stru_3BCB2` alternates C80E0/C80E8 for nine ticks each; surviving
 /// stomp route `loc_3BF4E` replaces it with C80D8 for `stru_3BCCE`'s wait.

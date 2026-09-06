@@ -19293,8 +19293,8 @@ mod chunk_03 {
             "ASM Driller.asm loc_3BF02 decrements `$44(a3)` before the loc_3BF4E hurt animation"
         );
         assert_eq!(
-            driller.damage_flash_frames, DRILLER_RETRACT_FRAMES_STRU_3BCCE,
-            "ASM Driller.asm loc_3BF4E hibernates through the single $1E-tick stru_3BCCE retract frame"
+            driller.damage_flash_frames, DRILLER_COLLISION_WAIT_COUNTER_LOC_3BF02,
+            "ASM Driller.asm loc_3BF02 installs the $1E-tick stru_3BCCE retract frame before native's collapsed Object-phase decrement"
         );
         assert_eq!(driller.x_velocity, 0);
         assert_eq!(driller.y_velocity, 0);

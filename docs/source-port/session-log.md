@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (Level 0x55 Driller hurt return)
+
+- Oracle frames 108-118 keep the lower Driller in
+  `Hibernate_UntilAnimFinished loc_1062`, counting 11..1 at x=`$14`; frame 119
+  resumes the walker at x=`$15`.
+- Native combat now carries the one sentinel tick required between
+  `loc_3BF02` and the collapsed Object decrement. Recording reconciliation no
+  longer adds that same tick twice, so frame 0 retains timer `$16`.
+- Enemy parity advances from frame 118 to 156. Focused report `1788655753`
+  improves frame 120 from 1,814 to 1,576 px and idle tail from 1,782 to 1,746
+  px. Both full gates pass; the published route remains at 37,518 exact frames
+  and 2,391 changed pixels. NEXT: trace the upper Driller boundary-facing
+  transition at frame 156. See archive #495.
+
 ## 2026-09-06 handoff (Level 0x55 diamond callback phase)
 
 - `sub_21F8` gives Micromax a 15-pixel mapping hitbox. The diamond path now

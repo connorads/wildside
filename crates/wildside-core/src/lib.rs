@@ -1414,10 +1414,10 @@ impl NativeRuntime {
             // re-pins before hibernating. The following Gfx collision leaves
             // the left child at x=-1 and the right at body+$18. Oracle 0x55
             // WRAM frame 0 retains exactly that typed boundary state and a
-            // hurt-animation timer of $16. Seed one extra collapsed tick so
-            // the first native scenario step observes the same timer.
+            // hurt-animation timer of $16. The combat-to-Object handoff owns
+            // the native sentinel tick, so this boundary only reconciles the
+            // direction and child re-pin.
             enemy.facing = Direction::Right;
-            enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_add(1);
             children.right.x_pos = (enemy.x_pos >> 16) as i32 + DRILLER_DRILL_CHILD_X_OFFSET;
         }
     }

@@ -9115,7 +9115,7 @@ impl NativeRuntime {
                         // ASM Driller.asm loc_3BF4E hibernates through
                         // `stru_3BCCE`, then restores the walk animation.
                         enemy.hit_points = dispatch.next_current_hp as u8;
-                        enemy.damage_flash_frames = DRILLER_RETRACT_FRAMES_STRU_3BCCE;
+                        enemy.damage_flash_frames = DRILLER_COLLISION_WAIT_COUNTER_LOC_3BF02;
                         enemy.x_velocity = 0;
                         enemy.y_velocity = 0;
                         changed_enemy_state = true;

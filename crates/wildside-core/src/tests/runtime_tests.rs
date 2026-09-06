@@ -12396,6 +12396,34 @@ mod chunk_09 {
         assert_eq!(children.right.x_pos, 0x24);
     }
 
+    /// #495 - ASM loc_3BF4E restores `stru_3BCB2` after the hurt wait. On
+    /// recording frame 118 the lower Driller retains its final hibernate at
+    /// x=$14, then resumes the rightward shared walker on frame 119.
+    #[test]
+    fn issue495_level55_frame118_driller_hurt_return_hibernates_loc_3bf4e() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let level = LevelId(0x55);
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(level);
+        runtime.settle_recording_oracle_warp_live_window(level);
+
+        for _ in 0..119 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let lower = runtime
+            .active_enemies
+            .iter()
+            .filter(|enemy| matches!(enemy.family, EnemyFamily::Driller))
+            .min_by_key(|enemy| enemy.x_pos)
+            .expect("Level 0x55 should retain the lower Driller");
+        assert_eq!(lower.x_pos, 0x0014_0000);
+        assert_eq!(lower.x_velocity, 0);
+        assert_eq!(lower.facing, Direction::Right);
+    }
+
     /// #495 - oracle Level 0x55 recording frame 35 remains unhelmeted with
     /// one hit point; frame 36 consumes the pending Micromax change.
     #[test]
