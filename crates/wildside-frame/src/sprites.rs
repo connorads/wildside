@@ -2926,7 +2926,9 @@ fn enemy_damage_palette_white_phase(object_type: u8, damage_flash: bool) -> bool
     // hurt animation completes; it does not write the enemy palette. Native's
     // shared damage_flash timer also carries that animation duration, so it
     // must not imply a white palette for walking Dragons.
-    damage_flash && object_type != 0x0D
+    // ASM Driller.asm loc_3BF4E likewise changes only the animation script
+    // before hibernating. It leaves palette line 1 unchanged.
+    damage_flash && !matches!(object_type, 0x0D | 0x1A)
 }
 
 fn is_rock_tank_type(object_type: u8) -> bool {
@@ -7620,6 +7622,12 @@ mod tests {
         assert!(enemy_damage_palette_white_phase(0x0C, true));
         assert!(!enemy_damage_palette_white_phase(0x0D, true));
         assert!(!enemy_damage_palette_white_phase(0x0D, false));
+    }
+
+    #[test]
+    fn driller_hurt_animation_keeps_normal_palette_loc_3bf4e() {
+        assert!(!enemy_damage_palette_white_phase(0x1A, true));
+        assert!(!enemy_damage_palette_white_phase(0x1A, false));
     }
 
     #[test]

@@ -294,6 +294,22 @@ come from `Blocks.bin`, disproving the helmet-DMA alias hypothesis. Frame 56
 falls from 713 to 616 pixels, frames 50-60 retain exact player/camera state,
 and the 360-frame Level `$55` visual total falls from 124,095 to 118,520.
 
+Follow-up 2026-09-06. Oracle Sprite Table slot 12 selects the Driller hurt
+mapping `$31F`, while frame-56 CRAM keeps palette line 1 at its normal Drill
+colours. This follows `Driller.asm loc_3BF4E`: the callback installs
+`stru_3BCCE` and hibernates without writing the palette. Native had treated
+the shared `damage_flash` state as a request to whiten every Driller colour.
+Driller hurt frames now retain their family palette, reducing frame 56 from
+616 to 408 changed pixels with the enemy and player/camera frontiers exact.
+
+Two alternatives were rejected. Replaying resident Kid art on every
+non-checkpoint frame did not change a pixel because the complete `$C4A0` DMA
+already replaces the sampled page. Applying `sub_813C`'s final three colours
+to native Kid as well as the linked transform mask worsened frame 56 to 556
+pixels; compact native palette indexing is not equivalent to rewriting the
+shared hardware line. The remaining 408 pixels occupy x=`0..48`, y=`40..124`:
+the `$2EA` prize flash, `$220` wobble, transform pair, and their overlaps.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level

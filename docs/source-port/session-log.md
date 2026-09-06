@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (Driller hurt palette)
+
+- `Driller.asm loc_3BF4E` changes the hurt animation and hibernates without a
+  CRAM write; oracle frame 56 keeps the normal Drill palette line.
+- Removing native's inferred all-white Driller palette cuts frame 56 from 616
+  to 408 pixels with enemy and player/camera frontiers exact.
+- Continuous Kid-page replay was neutral. Sharing `sub_813C` colours with the
+  parent worsened the frame and was reverted. NEXT: resolve the flash, wobble,
+  transform pair, and overlaps in x=0..48/y=40..124.
+
 ## 2026-09-06 handoff (transform-frozen prize wobble)
 
 - Oracle PC `$100E2` proves `sub_1007A` has copied source skin 2 and moved its
