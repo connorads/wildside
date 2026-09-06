@@ -12461,6 +12461,63 @@ mod chunk_09 {
         assert_eq!(phases, vec![8, 8, 5]);
     }
 
+    /// #495 - ASM sub_292E writes only the high word of reused `$FFFFF01E`
+    /// scratch longs. The retained fractions affect the first visible
+    /// sub_2A4C debris positions; oracle frame 19 pins all five SAT entries.
+    #[test]
+    fn issue495_level55_reused_block_debris_scratch_preserves_low_words_sub_292e() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x55));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x55));
+        assert_eq!(
+            runtime
+                .block_debris_swarms
+                .iter()
+                .filter(|slot| slot.active)
+                .count(),
+            0
+        );
+        assert_eq!(runtime.trace_frame().block_debris_pieces, Vec::new());
+
+        let frames = (0..20)
+            .map(|_| runtime.step_frame(FrameInput::default()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            frames[19].block_debris_pieces,
+            vec![(21, 92), (25, 89), (25, 98), (15, 98), (15, 89)],
+            "ASM sub_292E/loc_2994 preserves the reused scratch slot's low words before sub_2A4C advances the five pieces"
+        );
+        let velocities = runtime
+            .block_debris_swarms
+            .iter()
+            .find(|slot| slot.active)
+            .expect("frame 19 debris scratch slot")
+            .pieces
+            .map(|piece| piece.y_velocity_fp);
+        assert_eq!(
+            velocities,
+            [
+                -0x0004_99C0,
+                -0x0002_D070,
+                -0x0001_D070,
+                -0x0001_D070,
+                -0x0002_D070,
+            ]
+        );
+        let later_frames = (20..36)
+            .map(|_| runtime.step_frame(FrameInput::default()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            later_frames[15].block_debris_pieces,
+            vec![(37, 44), (41, 70), (41, 95), (-1, 95), (-1, 70)],
+            "ASM sub_2A4C and oracle frame-35 SAT pin the later retained-fraction trajectory"
+        );
+    }
+
     /// #495 - ASM loc_3C0D2/loc_3C0F0: after the first native catch-up turn,
     /// a right-edge Driller exposes the post-commit right-facing hibernate,
     /// then the stopped left-facing callback, before walking left.
@@ -17938,6 +17995,7 @@ mod chunk_09 {
         let mut rt = NativeRuntime::new(manifest());
         rt.block_debris_swarms.clear();
         rt.block_debris_swarms.push(BlockDebrisSwarmSub2A4C {
+            active: true,
             pieces: core::array::from_fn(|index| BlockDebrisPieceSub2A4C {
                 x_pos_fp: if index == 4 {
                     0x01EF << 16
@@ -17953,7 +18011,7 @@ mod chunk_09 {
         rt.step_visual_effects();
 
         assert!(
-            rt.block_debris_swarms.is_empty(),
+            !rt.block_debris_swarms[0].active,
             "ASM sub_2A4C clears the whole scratch slot once the tail fragment reaches relative x `$1EF`, even if the lead fragment is still visible"
         );
         assert_eq!(

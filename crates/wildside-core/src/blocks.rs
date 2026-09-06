@@ -1921,25 +1921,50 @@ impl NativeRuntime {
         x_px: u16,
         y_px: u16,
         direction: u16,
+        reused_slot: Option<&BlockDebrisSwarmSub2A4C>,
     ) -> BlockDebrisSwarmSub2A4C {
         let velocities = Self::block_debris_velocity_sub_292e(direction);
+        let overwrite_high_word =
+            |high_word: i16, previous: i32| (i32::from(high_word) << 16) | (previous & 0x0000_FFFF);
         BlockDebrisSwarmSub2A4C {
+            active: true,
             pieces: core::array::from_fn(|index| {
                 // ASM loc_2994 enters with `d7=4`; `dbf d7,loc_2994` walks
                 // every velocity/position table backwards through indices
                 // 4,3,2,1,0. Scratch-record order is observable in the SAT.
                 let source_index = Self::BLOCK_DEBRIS_BASE_X_SUB_292E.len() - 1 - index;
+                let previous = reused_slot.map_or(
+                    BlockDebrisPieceSub2A4C {
+                        x_pos_fp: 0,
+                        y_pos_fp: 0,
+                        x_velocity_fp: 0,
+                        y_velocity_fp: 0,
+                    },
+                    |slot| slot.pieces[index],
+                );
                 BlockDebrisPieceSub2A4C {
                     // ASM sub_292E (kid.asm:4881) seeds word x/y positions and
-                    // x/y velocities; sub_2A4C then treats them as 16.16 longs.
-                    x_pos_fp: i32::from(x_px).saturating_add(i32::from(
-                        Self::BLOCK_DEBRIS_BASE_X_SUB_292E[source_index],
-                    )) << 16,
-                    y_pos_fp: i32::from(y_px).saturating_add(i32::from(
-                        Self::BLOCK_DEBRIS_BASE_Y_SUB_292E[source_index],
-                    )) << 16,
-                    x_velocity_fp: i32::from(velocities[source_index].0) << 16,
-                    y_velocity_fp: i32::from(velocities[source_index].1) << 16,
+                    // x/y velocities into reused 16.16 longs. Those word
+                    // writes preserve every low word left by the previous
+                    // scratch occupant before sub_2A4C advances the slot.
+                    x_pos_fp: overwrite_high_word(
+                        x_px.wrapping_add_signed(Self::BLOCK_DEBRIS_BASE_X_SUB_292E[source_index])
+                            as i16,
+                        previous.x_pos_fp,
+                    ),
+                    y_pos_fp: overwrite_high_word(
+                        y_px.wrapping_add_signed(Self::BLOCK_DEBRIS_BASE_Y_SUB_292E[source_index])
+                            as i16,
+                        previous.y_pos_fp,
+                    ),
+                    x_velocity_fp: overwrite_high_word(
+                        velocities[source_index].0,
+                        previous.x_velocity_fp,
+                    ),
+                    y_velocity_fp: overwrite_high_word(
+                        velocities[source_index].1,
+                        previous.y_velocity_fp,
+                    ),
                 }
             }),
         }
@@ -5511,19 +5536,21 @@ impl NativeRuntime {
             if e.remaining > 0 {
                 return true;
             }
-            new_debris_swarms.push(Self::block_debris_swarm_sub_2a4c(
-                e.x_px,
-                e.y_px,
-                e.direction,
-            ));
+            new_debris_swarms.push((e.x_px, e.y_px, e.direction));
             false
         });
-        for swarm in new_debris_swarms {
+        for (x_px, y_px, direction) in new_debris_swarms {
             // ASM sub_28FC/sub_292E: block debris uses six `$52`-byte scratch
             // slots at `$FFFFF01E`; `loc_29DE` advances `$FFFFFA9C` until
             // `$FFFFFAA0` reaches zero, then rewinds to slot 0.
             let slot_index = self.block_debris_scratch_cursor_sub_292e
                 % Self::BLOCK_DEBRIS_SCRATCH_SLOT_COUNT_SUB_28FC;
+            let swarm = Self::block_debris_swarm_sub_2a4c(
+                x_px,
+                y_px,
+                direction,
+                self.block_debris_swarms.get(slot_index),
+            );
             if slot_index < self.block_debris_swarms.len() {
                 self.block_debris_swarms[slot_index] = swarm;
             } else if self.block_debris_swarms.len()
@@ -5534,17 +5561,6 @@ impl NativeRuntime {
             self.block_debris_scratch_cursor_sub_292e =
                 (slot_index + 1) % Self::BLOCK_DEBRIS_SCRATCH_SLOT_COUNT_SUB_28FC;
         }
-        for swarm in &mut self.block_debris_swarms {
-            for piece in &mut swarm.pieces {
-                // ASM sub_2A4C (kid.asm:5053): per frame, add velocity to
-                // 16.16 position, then add `$36B0` gravity to y velocity.
-                piece.x_pos_fp = piece.x_pos_fp.wrapping_add(piece.x_velocity_fp);
-                piece.y_pos_fp = piece.y_pos_fp.wrapping_add(piece.y_velocity_fp);
-                piece.y_velocity_fp = piece
-                    .y_velocity_fp
-                    .wrapping_add(Self::BLOCK_DEBRIS_GRAVITY_STEP_FP_SUB_2A4C);
-            }
-        }
         let (camera_x_px, camera_y_px) = self.opening_slice.as_ref().map_or((0, 0), |slice| {
             (
                 (slice.camera.x_pos >> 16) as i32,
@@ -5552,39 +5568,45 @@ impl NativeRuntime {
             )
         });
         let mut emitted_block_debris_sprite_pieces = Vec::new();
-        self.block_debris_swarms.retain(|swarm| {
-            let first_piece = swarm.pieces[0];
-            // ASM sub_2A4C (kid.asm:5071-5090): the first shard is culled
-            // after subtracting Camera_Y_pos/Camera_X_pos, not against the
-            // absolute level origin. Highwater debris lives far below y=$400.
-            let screen_y = (first_piece.y_pos_fp >> 16).wrapping_sub(camera_y_px);
-            if !(-0x64..0xE0).contains(&screen_y) {
-                return false;
+        for swarm in &mut self.block_debris_swarms {
+            if !swarm.active {
+                continue;
             }
-            let screen_x = (first_piece.x_pos_fp >> 16).wrapping_sub(camera_x_px);
-            if !(0..0x140).contains(&screen_x) {
-                return false;
-            }
+            let piece_count = swarm.pieces.len();
+            for (index, piece) in swarm.pieces.iter_mut().enumerate() {
+                // ASM sub_2A4C (kid.asm:5053-5090): advance one record, then
+                // run its bounds checks before touching the next. A lead
+                // fragment cull leaves pieces 1..4's fractions unchanged in
+                // the reused scratch slot.
+                piece.x_pos_fp = piece.x_pos_fp.wrapping_add(piece.x_velocity_fp);
+                piece.y_pos_fp = piece.y_pos_fp.wrapping_add(piece.y_velocity_fp);
+                piece.y_velocity_fp = piece
+                    .y_velocity_fp
+                    .wrapping_add(Self::BLOCK_DEBRIS_GRAVITY_STEP_FP_SUB_2A4C);
 
-            for (index, piece) in swarm.pieces.iter().enumerate() {
                 let piece_x = piece.x_pos_fp >> 16;
                 let piece_y = piece.y_pos_fp >> 16;
                 let relative_x = piece_x.wrapping_sub(camera_x_px);
+                let relative_y = piece_y.wrapping_sub(camera_y_px);
+                // ASM sub_2A4C (kid.asm:5071-5090): only the first shard
+                // controls the camera-relative slot bounds.
+                if index == 0
+                    && (!(-0x64..0xE0).contains(&relative_y) || !(0..0x140).contains(&relative_x))
+                {
+                    swarm.active = false;
+                    break;
+                }
                 // ASM sub_2A4C inline tail check (kid.asm:5132-5158): the
                 // final fragment's x check runs before that fragment's sprite
                 // is written, but after earlier fragments were emitted.
-                if index == swarm.pieces.len() - 1 && relative_x >= 0x01EF {
-                    return false;
+                if index == piece_count - 1 && relative_x >= 0x01EF {
+                    swarm.active = false;
+                    break;
                 }
                 emitted_block_debris_sprite_pieces.push((piece_x as i16, piece_y as i16));
             }
-
-            true
-        });
-        self.block_debris_sprite_pieces_sub_2a4c = emitted_block_debris_sprite_pieces;
-        if self.block_debris_swarms.is_empty() {
-            self.block_debris_scratch_cursor_sub_292e = 0;
         }
+        self.block_debris_sprite_pieces_sub_2a4c = emitted_block_debris_sprite_pieces;
 
         self.age_floating_items_loc_10396();
     }

@@ -10554,7 +10554,11 @@ impl NativeRuntime {
                 _ => None,
             })
             .collect::<Vec<_>>();
-        let block_debris_workers_sub_292e = self.block_debris_swarms.len() as u16;
+        let block_debris_workers_sub_292e = self
+            .block_debris_swarms
+            .iter()
+            .filter(|slot| slot.active)
+            .count() as u16;
         // ASM Load_InGame loc_11F96/loc_11FB0 allocates an Object-only
         // palette coroutine for Mountain, Cave, and Island themes.
         let palette_rotation_worker_loc_11f96 =
@@ -12943,6 +12947,7 @@ impl NativeRuntime {
                 {
                     self.block_debris_swarms
                         .iter()
+                        .filter(|swarm| swarm.active)
                         .flat_map(|swarm| {
                             swarm.pieces.iter().map(|piece| {
                                 ((piece.x_pos_fp >> 16) as i16, (piece.y_pos_fp >> 16) as i16)

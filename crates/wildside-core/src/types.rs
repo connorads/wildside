@@ -4081,6 +4081,7 @@ pub(crate) struct BlockDebrisPieceSub2A4C {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct BlockDebrisSwarmSub2A4C {
+    pub(crate) active: bool,
     pub(crate) pieces: [BlockDebrisPieceSub2A4C; 5],
 }
 

@@ -397,6 +397,32 @@ post-frame-0 Kid/Driller SAT overlap. NEXT: triage the remaining 75 clusters.
 `verify-slice-fast` and `verify-tas-full` pass; published-route evidence remains
 37,518 exact frames and 2,391 changed pixels.
 
+Follow-up 2026-09-06. The leading frames 20..36 and 97..143 effect residue is
+block debris. Oracle WRAM shows `sub_292E loc_2994` overwriting only each 16.16
+record's high word in the reused six-slot `$FFFFF01E` scratch region. Deleting
+inactive native swarms had discarded the low-word history. Retaining inactive
+slots and overwriting only their high words reduces the census to 17,840
+pixels, but four shards still rise 13 pixels too far by oracle frame 35.
+
+The remaining velocity gap is exactly one `sub_2A4C` gravity step, `$36B0`.
+The ROM advances and checks each debris record before moving to the next; when
+the lead fragment leaves bounds, piece 0 receives the final step while pieces
+1..4 keep their prior fractions. Native had advanced all five before checking
+the lead. Matching the sequential loop produces the oracle frame-19 velocity
+longs and frame-35 SAT positions exactly.
+
+Two alternatives were rejected. Reading the current trace instead of the
+previous `loc_901` presentation latch worsened the census to 22,837 pixels.
+Seeding Level `$55` handoff fractions would encode a route-specific symptom
+instead of the shared scratch-memory rule. The fresh report
+`level55-sequential-debris-scratch.json` has 188 exact and 172 divergent frames,
+totalling 8,271 pixels in 39 clusters. All 360 player, camera, and enemy-frontier
+checkpoints match; the four frame-127/128 object-count differences remain
+established oracle limitations. The cache-backed regression pins frame-19
+positions and velocity longs plus frame-35 positions. `verify-slice-fast` and
+`verify-tas-full` pass; published-route evidence remains 37,518 exact frames
+and 2,391 changed pixels. NEXT: triage the remaining 39 clusters.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level

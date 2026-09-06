@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (persistent debris scratch records)
+
+- `sub_292E loc_2994` writes only the high words of reused 16.16 debris
+  records. Native now retains the six inactive `$FFFFF01E` slots and their low
+  words instead of deleting and zeroing each completed swarm.
+- `sub_2A4C` advances and checks records in sequence. A lead-fragment cull
+  therefore gives piece 0 one final `$36B0` gravity tick while pieces 1..4
+  retain their prior fractions. This exactly explains the oracle trajectory.
+- The 360-frame Level `$55` census falls from 22,620 to 8,271 changed pixels,
+  with exact frames rising from 152 to 188. All authoritative state
+  checkpoints and both full gates pass. NEXT: triage the remaining 39 visual
+  clusters. See archive #495.
+
 ## 2026-09-06 handoff (damage and linked-Driller clocks)
 
 - Oracle CRAM and VRAM disprove shared line 3 and Driller art as the main
