@@ -260,6 +260,7 @@ impl NativeRuntime {
                 self.prior_input = FrameInput::default();
                 self.previous_input = FrameInput::default();
                 self.recording_oracle_debug_lifecycle_completed = true;
+                self.reconcile_recording_handoff_hud_diamond_loc_45ee(7);
             } else {
                 self.pending_level_skip = Some(target);
                 self.step_frame(idle);
@@ -414,6 +415,26 @@ impl NativeRuntime {
 
     pub fn settle_recording_oracle_warp_live_window(&mut self, level_id: LevelId) {
         self.settle_recording_oracle_warp_live_window_with_target_frames(level_id, None);
+    }
+
+    fn reconcile_recording_handoff_hud_diamond_loc_45ee(&mut self, passes: usize) {
+        // ASM loc_74E0 -> Mode_Level loc_80C -> sub_44DC loc_45EE: the
+        // recording helper exposes seven HUD-animation passes which its
+        // collapsed native title/settle shell does not execute. Oracle settle
+        // tracing ends Level $55's target-live step 59 at
+        // `$FA58/$FA5D=$01/$00`, while native reaches `$01/$06`; advance only
+        // this foreign-helper presentation clock before the shared live settle.
+        for _ in 0..passes {
+            let step = boot::step_hud_animation_sub_44DC(self.hud_animation_state);
+            self.hud_animation_state.diamond_countdown_fb58 =
+                step.next_state.diamond_countdown_fb58;
+            self.hud_animation_state.diamond_frame_offset_fb5d =
+                step.next_state.diamond_frame_offset_fb5d;
+            if let Some(upload) = step.diamond_upload {
+                self.gameplay_hud_vram_state
+                    .record_diamond_dma_sub_5d4a(upload.frame_table_byte_offset);
+            }
+        }
     }
 
     /// #442: the hidden live window every settled-warp caller runs. All five
@@ -1673,6 +1694,28 @@ mod tests {
                 .iter()
                 .all(|projectile| { projectile.kind != EnemyProjectileKind::DragonWalkingBreath }),
             "ASM Dragon.asm loc_3CF6E must not run only because a missing terrain sidecar killed Kid during settle"
+        );
+    }
+
+    #[test]
+    fn level55_recording_handoff_matches_oracle_hud_diamond_phase_loc_45ee() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x55));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x55));
+
+        assert_eq!(
+            (
+                runtime.hud_animation_state.diamond_countdown_fb58,
+                runtime.hud_animation_state.diamond_frame_offset_fb5d,
+                runtime
+                    .gameplay_hud_vram_state
+                    .diamond_frame_table_byte_offset_loc_5d4a(),
+            ),
+            (1, 0, 0),
+            "ASM sub_44DC loc_45EE and oracle `$FA58/$FA5D/$DD40` watches pin the Level 0x55 recording hand-off phase"
         );
     }
 

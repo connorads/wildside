@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (recording HUD hand-off phase)
+
+- The recording adapter now advances the diamond-HUD clock across seven
+  `sub_44DC` passes omitted by its collapsed title/settle shell.
+- Level 0x55 keeps all 360 player/camera frames exact while total pixel error
+  falls 150,057→130,701 and frame 359 falls 91→46 pixels.
+- Removing the transform cleanup sentinel was rejected because it resumes
+  gameplay one frame before oracle. NEXT: partition the remaining tail residue.
+  See archive #495.
+
 ## 2026-09-06 handoff (Level 0x55 damage-palette latch)
 
 - `Mode_Level loc_901` transfers CRAM before `loc_BC34` advances damage state,

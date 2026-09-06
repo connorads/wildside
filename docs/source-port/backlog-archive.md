@@ -206,6 +206,22 @@ of transform hibernation, not a missing level-entry seed, so no Level `$55`
 special case was added. `verify-slice-fast` and `verify-tas-full` pass; the
 published route remains 37,518 exact frames and 2,391 changed pixels.
 
+Follow-up 2026-09-06. Full-frame tracing corrected the earlier boundary
+interpretation: the recording helper's collapsed title/settle shell omits seven
+`Mode_Level loc_80C -> sub_44DC loc_45EE` HUD passes before the shared live
+settle. The adapter now advances only the diamond countdown, table offset, and
+resident DMA page across that foreign boundary. A cache-backed Level `$55`
+regression pins the resulting `$FA58/$FA5D/$DD40 = $01/$00/$0000` hand-off.
+
+The substantially different transform-duration fix was rejected. Removing the
+native cleanup sentinel resumes gameplay one field before oracle: the first
+authoritative player/camera divergence moves to frame 94 and then persists.
+Keeping ROM-equivalent gameplay timing while correcting only the adapter clock
+preserves all 360 player/camera frames. It reduces the Level `$55` all-frame
+pixel total from 150,057 to 130,701 and frame 359 from 91 to 46 pixels.
+`verify-slice-fast` and `verify-tas-full` pass; the published route remains
+37,518 exact frames and 2,391 changed pixels.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level
