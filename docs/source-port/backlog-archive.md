@@ -146,6 +146,24 @@ six non-zero erase words still route through the high-skin terrain mapping.
 foreground mapping read for erased skins `$F9/$FA` against the oracle Scroll A
 tile words rather than treating the remaining corridor as generic block art.
 
+Follow-up 2026-09-06. The `$F9/$FA` mapping hypothesis is rejected. Direct
+oracle WRAM probes at `$FFFFA972..$FFFFA982` show the alternating erased words
+unchanged at frames 0, 300, and 359. `sub_3034A` uses the mapped resource's
+forest `Addr_ThemeMappings`, while `EraseBlockFromLevelLayout loc_11542` gets
+the replacement collision/skin word from the logical foreground buffers.
+However, experimentally suppressing every provenance-marked erased cell made
+the focused frame images byte-identical and left report `1788667124` at the
+same 1,381/1,600 frame-300/tail counts. The remaining row-shaped residue is
+therefore emitted by a different scene command or non-erased cell; the trial
+was reverted.
+
+A fresh ordinary `record-scenario` at the same nominal frame is not a valid
+substitute: its settle path differs and already fails the authoritative RNG
+checkpoint (`FFE0` native vs `FFDE` oracle). The next probe must capture
+per-mismatch scene-command provenance inside the full-sweep
+`settle_oracle_warp=true` lifecycle, keyed by exact output pixels, before any
+renderer edit.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level

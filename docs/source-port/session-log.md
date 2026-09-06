@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (Level 0x55 mapping hypothesis rejected)
+
+- Oracle WRAM keeps row-10 `$00F9/$00FA` replacement words unchanged through
+  frame 359. The mapped forest table is the `sub_3034A` source.
+- Suppressing every provenance-marked erased cell produced byte-identical
+  focused frames and unchanged 1,381/1,600 frame-300/tail counts, so that
+  hypothesis is rejected and the trial is reverted.
+- NEXT: record exact scene-command provenance at mismatch pixels inside the
+  full-sweep `settle_oracle_warp=true` lifecycle. Ordinary recording settle is
+  not equivalent and already differs in RNG. See archive #495.
+
 ## 2026-09-06 handoff (Level 0x55 erased-block presentation)
 
 - `BlockGrid` now keeps `loc_11542` erase provenance, so `$0000` erasures no
