@@ -277,6 +277,23 @@ Focused Level `$55` pixels fall from 127,486 to 124,095. Frame 56 falls from
 enemy, 189 effect, 67 player, and 7 terrain pixels. `verify-tas-full` passes; the
 published route remains 37,518 exact frames and 2,391 changed pixels.
 
+Follow-up 2026-09-06. The leading frame-56 block component was not a static
+terrain or helmet-mask error. Oracle Object slot `$FFFF10CC` remains inside
+`sub_1007A` at PC `$100E2`, with mapping offset `$1058`
+(`LnkTo_unk_E0E4E`, temporary VRAM page `$220`) and Gfx position `(0,94)`.
+The runtime worker is intentionally frozen at `remaining=31, y_offset=0` while
+Kid owns the synchronous `loc_7D22` loop, but the same Object pass has already
+copied source skin 2 and executed `loc_100DA`'s two-pixel rise.
+
+The renderer now separates that resident presentation from logical worker
+state: transforms resolve the immutable source skin into `$220` and present
+the same-pass `-2px` Gfx position. Retaining the collected helmet worker was
+rejected after it raised frame 56 from 713 to 913 pixels; the blue helmet was
+already the correct linked transform mask. A VRAM dump confirmed `$220` rows
+come from `Blocks.bin`, disproving the helmet-DMA alias hypothesis. Frame 56
+falls from 713 to 616 pixels, frames 50-60 retain exact player/camera state,
+and the 360-frame Level `$55` visual total falls from 124,095 to 118,520.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level

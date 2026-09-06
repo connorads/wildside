@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (transform-frozen prize wobble)
+
+- Oracle PC `$100E2` proves `sub_1007A` has copied source skin 2 and moved its
+  GfxObject up two pixels before `Kid_Transform loc_7D22` freezes object work.
+- Separating resident presentation from the logical `remaining=31` state cuts
+  frame 56 from 713 to 616 pixels and Level 0x55 from 124,095 to 118,520.
+- Retaining the helmet worker and a helmet-DMA `$220` alias were disproved.
+  NEXT: identify the independent x=24/y=88 `$1066/$10E0` object and repartition
+  the remaining frame-56 residue.
+
 ## 2026-09-06 handoff (selector-$C transform pair)
 
 - `Kid_Transform loc_7D0A` keeps descriptor-selected Kid art for selector `$C`;

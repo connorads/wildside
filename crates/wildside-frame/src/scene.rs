@@ -6435,6 +6435,7 @@ fn push_prize_block_wobble_sub_1007a(
     x: i32,
     y: i32,
     remaining: u8,
+    transform_resident_source_skin: Option<u8>,
 ) {
     let frame = prize_block_wobble_frame_sub_1007a(level_visuals, remaining);
     let tiles = if remaining == 31 {
@@ -6443,7 +6444,7 @@ fn push_prize_block_wobble_sub_1007a(
         // oracle therefore still sees the resident generic prize page on the
         // first visible hibernate frame, before the copied art is displayed.
         let Some(resolved) = level_visuals.level.block_mapping.resolve(
-            PRIZE_BLOCK_RESIDENT_PAGE_SKIN_SUB_1007A,
+            transform_resident_source_skin.unwrap_or(PRIZE_BLOCK_RESIDENT_PAGE_SKIN_SUB_1007A),
             Some(wildside_core::terrain::BlockType::Prize as u8),
         ) else {
             return;
@@ -6484,6 +6485,22 @@ fn push_prize_block_wobble_sub_1007a(
         palette: Arc::new(level_visuals.palettes.foreground.clone()),
         tiles,
     });
+}
+
+fn prize_block_wobble_presented_y_offset_sub_1007a(
+    remaining: u8,
+    runtime_y_offset: i16,
+    transform_active: bool,
+) -> i16 {
+    if transform_active && remaining == 31 {
+        // ASM sub_1007A loc_100DA -> loc_100E2 runs before Kid's loc_7D22
+        // synchronous hibernate in the same object pass. The runtime worker
+        // is held at its entry count, but its resident GfxObject has already
+        // moved up two pixels.
+        -2
+    } else {
+        runtime_y_offset
+    }
 }
 
 fn push_shifting_block_rise_loc_113f4(
@@ -6870,8 +6887,15 @@ pub fn push_prize_block_wobble_overrides_sub_1007a(
             commands,
             level_visuals,
             i32::from(col) * 16 - camera_x_px,
-            i32::from(row) * 16 - camera_y_px + i32::from(y_offset),
+            i32::from(row) * 16 - camera_y_px
+                + i32::from(prize_block_wobble_presented_y_offset_sub_1007a(
+                    remaining,
+                    y_offset,
+                    trace.form_change_flash_frames > 0,
+                )),
             remaining,
+            (trace.form_change_flash_frames > 0)
+                .then(|| level_visuals.level.foreground_layout.skin_at(col, row)),
         );
     }
     for &(col, row, remaining) in &trace.prize_block_worker_tails_sub_1007a {
@@ -6913,6 +6937,7 @@ pub fn push_prize_block_wobble_overrides_sub_1007a(
             // GfxObject keeps that settled position through the final sprite.
             i32::from(row) * 16 - camera_y_px + 2,
             4,
+            None,
         );
     }
 }
@@ -15442,7 +15467,7 @@ mod tests {
         let visuals = sample_level_visuals(0x300);
         let mut commands = Vec::new();
 
-        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, 32, 48, 28);
+        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, 32, 48, 28, None);
 
         let DrawCommand::SatSprite { x, y, tiles, .. } = commands.single() else {
             panic!("ASM sub_1007A should emit one source-ordered wobble SAT sprite");
@@ -15470,7 +15495,7 @@ mod tests {
         );
 
         let mut commands = Vec::new();
-        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, 32, 48, 31);
+        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, 32, 48, 31, None);
 
         let DrawCommand::SatSprite { tiles, .. } = commands.single() else {
             panic!("ASM sub_1007A should emit one source-ordered wobble SAT sprite");
@@ -15482,6 +15507,48 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![0x008, 0x009, 0x00A, 0x00B],
             "ASM sub_1007A loc_100C4 leaves the generic prize page resident for the first visible hibernate frame"
+        );
+
+        let source_skin = 2;
+        let expected = visuals
+            .level
+            .block_mapping
+            .resolve(
+                source_skin,
+                Some(wildside_core::terrain::BlockType::Prize as u8),
+            )
+            .expect("sample source skin should resolve");
+        let mut commands = Vec::new();
+        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, 32, 48, 31, Some(source_skin));
+        let DrawCommand::SatSprite { tiles, .. } = commands.single() else {
+            panic!("ASM sub_1007A should emit the transform-resident copied block");
+        };
+        assert_eq!(
+            tiles.iter().map(|tile| tile.tile).collect::<Vec<_>>(),
+            expected
+                .quad
+                .tiles
+                .iter()
+                .map(|tile| {
+                    let mut tile = *tile;
+                    tile.tile_index = tile
+                        .tile_index
+                        .checked_sub(BLOCK_TILE_VRAM_BASE)
+                        .unwrap_or(tile.tile_index);
+                    tile.priority = false;
+                    tile
+                })
+                .collect::<Vec<_>>(),
+            "ASM sub_1007A loc_100C4 copies the disguised source skin into `$220`; Kid_Transform loc_7D22 retains that page rather than the generic P skin"
+        );
+        assert_eq!(
+            prize_block_wobble_presented_y_offset_sub_1007a(31, 0, true),
+            -2,
+            "ASM sub_1007A loc_100DA reaches loc_100E2 before Kid_Transform loc_7D22 suspends the object pass"
+        );
+        assert_eq!(
+            prize_block_wobble_presented_y_offset_sub_1007a(31, 0, false),
+            0
         );
     }
 
