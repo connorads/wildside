@@ -256,6 +256,27 @@ test and `verify-tas-full` pass; the published route remains 37,518 exact
 frames and 2,391 changed pixels. The next Level `$55` lead is frame 56: 1,419
 pixels in bbox x=`0..48`, y=`40..175`; partition it before editing.
 
+Follow-up 2026-09-06. Frame 56 visual triage identified the dominant player
+component as a mis-modelled selector-`$C` transform, not positional Micromax
+morph art. `Kid_Transform loc_7D0A` selects descriptor 2 from `stru_808A`, whose
+`LnkTo_unk_A4EB4` keeps Kid walk-4 as the parent. `loc_7D7C/loc_7D80` separately
+creates a linked target-helmet mask 14 pixels above Kid; `sub_813C` replaces the
+last three colours in Kid's palette line with the mask colours.
+
+The renderer now represents that relation directly. Its typed transform phase
+selects the parent art and decides whether to emit the companion sprite. The
+companion reuses the floating helmet's decoded mask because `off_8176` points at
+the same ROM mapping, then rebuilds the live mixed palette. Adding a duplicate
+transform-mask asset family and drawing a coordinate-specific overlay were
+rejected: the former would create two owners for one ROM asset, while the latter
+would lose the linked-object rule. Unit regressions pin both parent selection and
+companion position, art, facing, and palette.
+
+Focused Level `$55` pixels fall from 127,486 to 124,095. Frame 56 falls from
+1,419 to 713. Visual triage partitions the remainder as 242 block-override, 208
+enemy, 189 effect, 67 player, and 7 terrain pixels. `verify-tas-full` passes; the
+published route remains 37,518 exact frames and 2,391 changed pixels.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level

@@ -7665,6 +7665,7 @@ fn build_game_scene_filtered(
                 priority_override,
                 resident_player_art,
             );
+            push_transform_mask_loc_7d7c(&mut commands, object, trace, level_visuals);
         }
         layer_tags.mark(SceneLayer::Player, commands.len());
     }
@@ -9394,6 +9395,80 @@ fn enemy_painter_order_loc_14a4(trace: &NativeTraceFrame) -> Vec<&NativeObjectSn
     }
 
     ordered
+}
+
+fn push_transform_mask_loc_7d7c(
+    commands: &mut Vec<DrawCommand>,
+    player: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) {
+    let Some(source_helmet_id) = trace.transform_source_helmet_id_loc_7ca6 else {
+        return;
+    };
+    let Some(phase) = wildside_core::presented_transform_phase(
+        source_helmet_id,
+        trace.current_helmet_id,
+        trace.form_change_flash_frames,
+    ) else {
+        return;
+    };
+    if !matches!(
+        phase.handler,
+        wildside_core::TransformHandler::KidWithSpark { spark: true }
+    ) {
+        return;
+    }
+
+    // ASM loc_7D7C/loc_7D80 creates a linked GfxObject from
+    // off_8176[Current_Helmet], copies Kid's position and palette line, then
+    // moves it 14 pixels upward. The same ROM mapping is used by the floating
+    // helmet prize, so reuse that decoded art while rebuilding the live line-3
+    // palette written by loc_7DF0/sub_80D0 and sub_813C.
+    let Some(mask_content_id) = u8::try_from(trace.current_helmet_id)
+        .ok()
+        .and_then(|helmet_id| helmet_id.checked_add(1))
+    else {
+        return;
+    };
+    let Some(mask_visuals) = level_visuals.floating_prizes.helmets.get(&mask_content_id) else {
+        return;
+    };
+    let Some(frame) = mask_visuals.frames.first() else {
+        return;
+    };
+    let Some(kid_palette) = level_visuals.player.forms.get(&0).map(|kid| &kid.palette) else {
+        return;
+    };
+    let mut palette = kid_palette.clone();
+    if palette.colours.len() >= 15 && mask_visuals.palette.colours.len() >= 15 {
+        palette.colours[12..15].clone_from_slice(&mask_visuals.palette.colours[12..15]);
+    }
+
+    let mut facing = player
+        .facing
+        .or(trace.kid_facing)
+        .unwrap_or(Direction::Right);
+    if matches!(trace.current_helmet_id, 3 | 6 | 7) {
+        // ASM loc_7DD6 inverts the mask GfxObject for Red Stealth,
+        // Iron Knight, and Berzerker after copying Kid's direction.
+        facing = match facing {
+            Direction::Left => Direction::Right,
+            Direction::Right => Direction::Left,
+        };
+    }
+    let camera_x = (trace.camera_x_pos >> 16) as i32;
+    let camera_y = (trace.camera_y_pos >> 16) as i32;
+    let screen_x = (player.x_pos >> 16) as i32 - camera_x;
+    let screen_y = (player.y_pos >> 16) as i32 - camera_y - 14;
+    let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
+    commands.push(DrawCommand::Sprite {
+        x: draw_x,
+        y: draw_y,
+        tile_sheet: Arc::new(frame.tile_sheet.clone()),
+        palette: Arc::new(palette),
+        tiles: build_sprite_tiles(frame, facing, 0),
+    });
 }
 
 fn boss_eye_object_order_word_loc_393c8(object: &NativeObjectSnapshot) -> u16 {
@@ -16654,6 +16729,61 @@ mod tests {
         assert!(
             scene_rects(&scene.commands).is_empty(),
             "typed Hail must not add the legacy Generic 4x4 marker over the exact SAT sprite"
+        );
+    }
+
+    /// ASM loc_7D7C/loc_7D80 creates the selector-$C mask as a linked
+    /// GfxObject above Kid and sub_813C replaces the final three palette
+    /// colours with the target helmet mask colours.
+    #[test]
+    fn transform_mask_uses_linked_position_art_and_palette_loc_7d7c() {
+        let mut visuals = sample_level_visuals(1);
+        let mut mask_palette = sample_palette();
+        mask_palette.colours[12] = MdColour::from_word(0x0222);
+        mask_palette.colours[13] = MdColour::from_word(0x0444);
+        mask_palette.colours[14] = MdColour::from_word(0x0666);
+        visuals.floating_prizes.helmets.insert(
+            10,
+            AnimatedSpriteVisual {
+                palette: mask_palette,
+                extra_palettes: Vec::new(),
+                frames: vec![sample_sprite_frame(0x5A)],
+                frame_duration: 1,
+            },
+        );
+        let mut player = sample_object_snapshot();
+        player.x_pos = 100 << 16;
+        player.y_pos = 80 << 16;
+        player.facing = Some(Direction::Left);
+        let trace = NativeTraceFrame {
+            current_helmet_id: 9,
+            transform_source_helmet_id_loc_7ca6: Some(0),
+            form_change_flash_frames: 41,
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_transform_mask_loc_7d7c(&mut commands, &player, &trace, &visuals);
+
+        let DrawCommand::Sprite {
+            x,
+            y,
+            tile_sheet,
+            palette,
+            tiles,
+        } = commands.single()
+        else {
+            panic!("ASM loc_7D7C should emit the linked Micromax mask sprite");
+        };
+        assert_eq!((*x, *y), (92, 58));
+        assert_eq!(tile_sheet.tiles[0].pixels[0], 0x5A);
+        assert!(tiles[0].tile.flip_x);
+        assert_eq!(
+            palette.colours[12..15]
+                .iter()
+                .map(|colour| colour.raw_word)
+                .collect::<Vec<_>>(),
+            vec![0x0222, 0x0444, 0x0666]
         );
     }
 

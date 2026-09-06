@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (selector-$C transform pair)
+
+- `Kid_Transform loc_7D0A` keeps descriptor-selected Kid art for selector `$C`;
+  `loc_7D7C/loc_7D80` emits the linked target-helmet mask above it.
+- Reusing that mask's decoded ROM asset and rebuilding its live mixed palette
+  reduces Level 0x55 pixels 127,486→124,095 and frame 56 from 1,419→713.
+- The published full route remains green at 37,518 exact frames and 2,391
+  changed pixels. NEXT: partition frame 56's remaining block, enemy, effect,
+  player, and terrain residue with exact Sprite Table and palette evidence.
+
 ## 2026-09-06 handoff (Driller linked-sprite order)
 
 - `Enemy1A_Driller_Init` creates the parent before its linked drills, and

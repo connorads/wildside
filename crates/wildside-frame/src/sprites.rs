@@ -984,17 +984,21 @@ fn phase_transform_render_loc_7d0a<'a>(
             // the sub_80D0 form palette; also the loc_7E90 cleanup frame.
             Some((&form_visuals.idle, &form_visuals.palette))
         }
-        TransformHandler::KidWithSpark { spark: false } => {
-            // ASM stru_7F30 descriptor 0/2 → loc_7D80 (kid.asm): both use
-            // LnkTo_unk_A4A22, Kid walk-1, and loc_7DF0's Kid palette.
-            // The Cyclone table has no selector-$C spark descriptor.
+        TransformHandler::KidWithSpark { .. } => {
+            // ASM loc_7D7C/loc_7D80 (kid.asm): selector $C differs from
+            // selector 0 only by enabling the linked mask GfxObject. The
+            // parent still uses the descriptor's Kid art and loc_7DF0's Kid
+            // palette. Resolve the three ROM links rather than falling back
+            // to the target helmet's positional transform frame.
             let kid = player_visuals.forms.get(&0)?;
-            Some((&kid.walk[0], &kid.palette))
+            let walk_index = match phase.art_link {
+                0xA4A22 => 0,
+                0xA4BA8 => 1,
+                0xA4EB4 => 3,
+                _ => return None,
+            };
+            Some((kid.walk.get(walk_index)?, &kid.palette))
         }
-        // Selector $C enters loc_7D7C and creates a separate sparkle GFX
-        // object before the Kid-art path. Keep its legacy fallback until that
-        // second sprite is represented by the trace renderer.
-        TransformHandler::KidWithSpark { spark: true } => None,
     }
 }
 
@@ -7363,6 +7367,48 @@ mod tests {
             palette.colours, cyclone_visuals.palette.colours,
             "selector 8 runs loc_7D5A's form palette path"
         );
+    }
+
+    /// ASM stru_808A descriptor 2 enters loc_7D7C/loc_7D80 with
+    /// `LnkTo_unk_A4EB4`, so the parent remains Kid walk-4 while the linked
+    /// Micromax mask is emitted by the companion GfxObject.
+    #[test]
+    fn select_player_transform_render_uses_kid_walk_four_for_micromax_spark_loc_7d7c() {
+        let kid_colour = wildside_render::MdColour {
+            red: 0x00,
+            green: 0xEE,
+            blue: 0x00,
+            raw_word: 0x00E0,
+        };
+        let mut kid = labelled_player_visuals();
+        kid.palette = wildside_render::Palette {
+            colours: vec![kid_colour],
+        };
+        kid.walk.push(labelled_frame(0x0203));
+        let mut micromax = labelled_player_visuals();
+        micromax.transform_steps = (0u16..12)
+            .map(|descriptor_index| wildside_render::PlayerTransformStep {
+                duration_frames: 1,
+                frame: Some(labelled_frame(0x0C00 + descriptor_index)),
+            })
+            .collect();
+        let mut forms = std::collections::HashMap::new();
+        forms.insert(0u16, kid);
+        forms.insert(9u16, micromax);
+        let player_visuals = wildside_render::PlayerVisuals { forms };
+        let trace = NativeTraceFrame {
+            form_change_flash_frames: 41,
+            current_helmet_id: 9,
+            transform_source_helmet_id_loc_7ca6: Some(0),
+            ..NativeTraceFrame::default()
+        };
+
+        let (frame, palette) =
+            select_player_transform_render(&trace, &player_visuals, &player_visuals.forms[&9])
+                .expect("Micromax selector-$C parent render");
+
+        assert_eq!(frame.tile_base_index, 0x0203);
+        assert_eq!(palette.colours, vec![kid_colour]);
     }
 
     /// ASM Kid_Transform loc_7CA6/loc_7CD0/loc_7D0A (kid.asm): reverse
