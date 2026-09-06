@@ -238,6 +238,24 @@ All 360 player/camera frames remain exact. `verify-slice-fast` and
 2,391 changed pixels. The tail now contains only the Driller/Kid overlap at
 `(10..12,157..161)`.
 
+Follow-up 2026-09-06. Oracle Sprite Table entries at frame 359 place Kid, the
+Driller parent, then its left drill at the seven differing pixels. ASM
+`Enemy1A_Driller_Init` creates the `$0100` parent before the linked drill
+GfxObjects, and `Make_SpritesFromGfxObjects loc_14A4` retains that source order,
+where the first opaque SAT pixel wins. The scene painter is back-to-front, so
+it now reverses only each linked Driller family while retaining Kid as the
+later painter entry. A cache-backed regression pins oracle pixel `(10,157)`.
+
+This makes frame 359 exact and reduces Level `$55` all-frame pixels from
+128,272 to 127,486. Three substantially different renderer changes were
+rejected by measurement: converting all enemies to first-opaque SAT rendering
+raised the full route to 4,291 changed pixels; moving Kid before a Driller-only
+SAT path raised it to 4,471; and Driller-only SAT rendering without moving Kid
+left 170 tail pixels because the parent blocked later Kid pixels. The focused
+test and `verify-tas-full` pass; the published route remains 37,518 exact
+frames and 2,391 changed pixels. The next Level `$55` lead is frame 56: 1,419
+pixels in bbox x=`0..48`, y=`40..175`; partition it before editing.
+
 ### #494
 
 Closed [x] 2026-09-05. Fresh whole-level frame sweep `1788628196` made Level

@@ -7574,11 +7574,7 @@ fn build_game_scene_filtered(
                 });
             }
         }
-        for object in trace
-            .active_objects
-            .iter()
-            .filter(|object| matches!(object.kind, wildside_core::NativeObjectKind::Enemy { .. }))
-        {
+        for object in enemy_painter_order_loc_14a4(trace) {
             if let NativeObjectKind::Enemy { object_type } = object.kind {
                 if object.debug_fields.contains_key("glyph") {
                     // #349: ASM Load_TitleCard Title_Letter workers ride
@@ -9358,6 +9354,46 @@ fn boss_eye_object_mapping_index_loc_37abc(object: &NativeObjectSnapshot) -> Opt
         .debug_fields
         .get("boss_eye_sprite_mapping_index_loc_37abc")
         .and_then(|value| value.parse::<u8>().ok())
+}
+
+fn enemy_painter_order_loc_14a4(trace: &NativeTraceFrame) -> Vec<&NativeObjectSnapshot> {
+    let enemies = trace
+        .active_objects
+        .iter()
+        .filter(|object| matches!(object.kind, NativeObjectKind::Enemy { .. }))
+        .collect::<Vec<_>>();
+    let mut ordered = Vec::with_capacity(enemies.len());
+    let mut emitted_driller_layouts = Vec::new();
+
+    for object in enemies.iter().copied() {
+        if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x1A }) {
+            ordered.push(object);
+            continue;
+        }
+        if emitted_driller_layouts.contains(&object.layout_index) {
+            continue;
+        }
+        emitted_driller_layouts.push(object.layout_index);
+        // ASM Enemy1A_Driller_Init allocates the `$0100` parent before its
+        // left and right drill GfxObjects. Make_SpritesFromGfxObjects loc_14A4
+        // preserves that SAT order, where the first opaque pixel wins. The
+        // scene painter is back-to-front, so reverse this linked family while
+        // retaining Kid's later painter entry as the earlier `$0200` SAT owner.
+        ordered.extend(
+            enemies
+                .iter()
+                .copied()
+                .filter(|candidate| {
+                    matches!(
+                        candidate.kind,
+                        NativeObjectKind::Enemy { object_type: 0x1A }
+                    ) && candidate.layout_index == object.layout_index
+                })
+                .rev(),
+        );
+    }
+
+    ordered
 }
 
 fn boss_eye_object_order_word_loc_393c8(object: &NativeObjectSnapshot) -> u16 {

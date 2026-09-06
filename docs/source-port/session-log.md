@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-06 handoff (Driller linked-sprite order)
+
+- `Enemy1A_Driller_Init` creates the parent before its linked drills, and
+  `Make_SpritesFromGfxObjects loc_14A4` preserves that first-opaque SAT order.
+- Reversing only each Driller family in the back-to-front scene painter makes
+  frame 359 exact and reduces Level 0x55 pixels 128,272→127,486.
+- Broad and Driller-only SAT-renderer migrations regressed the full route and
+  were rejected. NEXT: partition frame 56 with visual triage and oracle VDP
+  samples before editing. See archive #495.
+
 ## 2026-09-06 handoff (exact recording HUD hand-off)
 
 - Framewise oracle values correct the recording adapter hand-off from seven

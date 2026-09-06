@@ -21666,6 +21666,39 @@ mod tests {
     }
 
     #[test]
+    fn level55_frame359_driller_parent_keeps_first_opaque_sat_pixel_loc_14a4() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x55);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest.clone(),
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Level 0x55 sweep trace");
+        let render_trace = trace_frame_with_vdp_latch_at_checkpoint(
+            &run.trace,
+            359,
+            Some(&run.initial_render_latch),
+            "idle_tail",
+        )
+        .expect("Level 0x55 frame-359 render trace");
+        let (visuals, block_grid) =
+            load_session_assets(&manifest, 0x55).expect("Level 0x55 visuals");
+        let scene = build_scene(&render_trace, false, Some(&visuals), Some(&block_grid));
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        render_scene(&scene, &mut rgb);
+        let pixel = (157 * FRAME_WIDTH as usize + 10) * 3;
+
+        assert_eq!(
+            &rgb[pixel..pixel + 3],
+            &[0, 0, 0],
+            "ASM Enemy1A_Driller_Init creates the `$0100` parent before its linked drills; Make_SpritesFromGfxObjects loc_14A4 lets the parent's tile `$326` black pixel beat the later left-drill pixel at oracle frame 359 (10,157)"
+        );
+    }
+
+    #[test]
     fn level48_ufo_beams_and_drips_children_match_gfx_object_sources() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
