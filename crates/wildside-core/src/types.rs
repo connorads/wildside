@@ -1132,10 +1132,6 @@ pub(crate) struct HelmetState {
     /// native keeps a dedicated field so the ground swing timer's
     /// 12→0 semantics never overlap with this counter's 0→$7F semantics.
     pub(crate) red_stealth_airborne_slash_counter: u8,
-    /// ASM loc_A466 stores the current jump launch y velocity in `$FFFFFAAA`.
-    /// The shared sub_B270 loc_B334/loc_B350 airborne mapping dispatch reads
-    /// that value; Red Stealth also uses its last state for the downward slash.
-    pub(crate) airborne_mapping_jump_threshold_y_velocity: Option<i32>,
     /// Native lifecycle mirror for the explicit jump-launch path that writes
     /// `$FFFFFAAA` and enters ASM `sub_B270`. Walking off a ledge keeps the
     /// current mapping instead of reusing the previous launch threshold.
@@ -6166,7 +6162,6 @@ mod tests {
             skycutter_flipboard: 17,
             cyclone_flying: true,
             red_stealth_airborne_slash_counter: 0x7F,
-            airborne_mapping_jump_threshold_y_velocity: Some(-0x70000),
             airborne_mapping_jump_sequence_active: true,
             eyeclops_beam_active: true,
             maniaxe_axe_active: true,
@@ -6183,7 +6178,6 @@ mod tests {
         assert_eq!(state.skycutter_flipboard, 0);
         assert!(!state.cyclone_flying);
         assert_eq!(state.red_stealth_airborne_slash_counter, 0);
-        assert_eq!(state.airborne_mapping_jump_threshold_y_velocity, None);
         assert!(!state.airborne_mapping_jump_sequence_active);
         assert!(!state.eyeclops_beam_active);
         assert!(!state.maniaxe_axe_active);

@@ -12516,6 +12516,36 @@ mod chunk_09 {
         );
     }
 
+    /// #495 - oracle `$FFFFFAAA` remains zero across recording frames
+    /// 121..126. ASM `sub_B270 loc_B350` therefore selects off_B3B8 state 2
+    /// when Micromax reaches y velocity zero at the frame-124 presentation
+    /// boundary; `Kid_Transform` does not clear this global launch latch.
+    #[test]
+    fn issue495_level55_micromax_apex_retains_faaa_mapping_loc_b350() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x55));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x55));
+
+        let mut apex = None;
+        for frame_index in 0..124 {
+            let frame = runtime.step_frame(FrameInput::default());
+            if frame_index == 123 {
+                apex = Some(frame);
+            }
+        }
+        let apex = apex.expect("frame 123 should feed displayed frame 124");
+        assert_eq!(apex.current_helmet_id, PlayerForm::Micromax.helmet_id());
+        assert_eq!(apex.kid_y_velocity, Some(0));
+        assert_eq!(
+            apex.airborne_visual_mapping_sub_b270,
+            ModeLevelAirborneVisualMappingPathSubB270::DescendingState2,
+            "ASM sub_B270 loc_B350 compares zero y_vel<<2 equal to retained `$FFFFFAAA=0`"
+        );
+    }
+
     /// #495 - ASM sub_292E writes only the high word of reused `$FFFFF01E`
     /// scratch longs. The retained fractions affect the first visible
     /// sub_2A4C debris positions; oracle frame 19 pins all five SAT entries.

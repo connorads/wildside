@@ -449,7 +449,12 @@ fn mode_level_gfx_sprite_work_sub_1492(
                 _ => None,
             },
         )
-        .zip(runtime.helmet.airborne_mapping_jump_threshold_y_velocity)
+        .map(|y_velocity| {
+            (
+                y_velocity,
+                runtime.airborne_mapping_jump_threshold_y_velocity_faaa,
+            )
+        })
         .filter(|_| {
             runtime
                 .current_player_state()
@@ -11337,27 +11342,10 @@ impl NativeRuntime {
             // ASM loc_AA22 resumes after Hibernate_Object_1Frame, skipping
             // sub_B084. It runs held-jump gravity, clear Gfx/floor probes,
             // then kid_flip's no-button branch back through loc_AD2C.
-            let airborne_visual_mapping_sub_b270 = self
-                .helmet
-                .airborne_mapping_jump_threshold_y_velocity
-                .map_or(
-                    ModeLevelAirborneVisualMappingPathSubB270::Unclassified,
-                    |jump_threshold| {
-                        let scaled_y_velocity =
-                            stages.after_jump_gravity.y_velocity.wrapping_shl(2);
-                        if scaled_y_velocity < 0 {
-                            if scaled_y_velocity > jump_threshold {
-                                ModeLevelAirborneVisualMappingPathSubB270::AscendingState1
-                            } else {
-                                ModeLevelAirborneVisualMappingPathSubB270::AscendingState0
-                            }
-                        } else if scaled_y_velocity > jump_threshold {
-                            ModeLevelAirborneVisualMappingPathSubB270::DescendingState3
-                        } else {
-                            ModeLevelAirborneVisualMappingPathSubB270::DescendingState2
-                        }
-                    },
-                );
+            let airborne_visual_mapping_sub_b270 = airborne_visual_mapping_path_sub_b270(
+                stages.after_jump_gravity.y_velocity,
+                self.airborne_mapping_jump_threshold_y_velocity_faaa,
+            );
             return ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 {
                 form: self.progression.current_form,
                 side: crate::Direction::Right,
@@ -12392,7 +12380,12 @@ impl NativeRuntime {
                     // leaves this launch threshold stale, so a later ledge
                     // fall still uses it to select the four-state off_B3B8
                     // row rather than reverting to a sign-only pose.
-                    kid_y_velocity.zip(self.helmet.airborne_mapping_jump_threshold_y_velocity)
+                    kid_y_velocity.map(|y_velocity| {
+                        (
+                            y_velocity,
+                            self.airborne_mapping_jump_threshold_y_velocity_faaa,
+                        )
+                    })
                 })
                 .map_or(
                     ModeLevelAirborneVisualMappingPathSubB270::Unclassified,

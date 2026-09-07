@@ -368,6 +368,10 @@ pub struct NativeRuntime {
     level_start_frame: Option<usize>,
     progression: PlayerProgression,
     helmet: HelmetState,
+    /// ASM `$FFFFFAAA`: jump-launch velocity retained globally for
+    /// `sub_B270 loc_B334/loc_B350` airborne mapping selection. Kid_Transform
+    /// resets form-local ability state but does not clear this RAM longword.
+    airborne_mapping_jump_threshold_y_velocity_faaa: i32,
     paused: bool,
     pause_menu_option: u8,
     pause_menu_arrow_cursor_cmds_loc_6a84: Option<boot::PauseMenuArrowCursorCmdsLoc6A84>,
@@ -1636,6 +1640,7 @@ impl NativeRuntime {
             level_start_frame: None,
             progression: PlayerProgression::default(),
             helmet: HelmetState::default(),
+            airborne_mapping_jump_threshold_y_velocity_faaa: 0,
             paused: false,
             pause_menu_option: 0,
             pause_menu_arrow_cursor_cmds_loc_6a84: None,
@@ -5398,7 +5403,7 @@ impl NativeRuntime {
             // ASM sub_A432 loc_A466 stores the launch y velocity in
             // `$FFFFFAAA`; sub_B270 compares against that dynamic threshold
             // when selecting later airborne sprite-table states.
-            self.helmet.airborne_mapping_jump_threshold_y_velocity = Some(probe.y_velocity_after);
+            self.airborne_mapping_jump_threshold_y_velocity_faaa = probe.y_velocity_after;
             self.helmet.airborne_mapping_jump_sequence_active = true;
             // ASM sub_A432 loc_A480 plays `sfx_Jump` after the launch velocity
             // is stored and x_vel is scaled by 3/4.

@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-07 handoff (global airborne mapping threshold)
+
+- Direct oracle watches keep `$FFFFFAAA=0` through Micromax's frame-124 apex.
+  ASM `sub_B270 loc_B350` therefore selects state 2 when y velocity is zero.
+- The ROM longword now lives in runtime-global state and survives
+  `Kid_Transform`; form-local launch sequencing still resets. Frame 124 loses
+  its 196-player-pixel error and retains only seven HUD pixels. Level `$55`
+  improves to 300/360 exact and 1,240 changed pixels with all 360 enemy/state
+  checkpoints green. NEXT: partition frame 36's 202-pixel cluster. See archive
+  #495.
+
 ## 2026-09-07 handoff (Driller frame-zero roster export)
 
 - The Level `$55` recording hand-off completed the lower Driller's

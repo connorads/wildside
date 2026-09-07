@@ -13,6 +13,24 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #495
 
+Follow-up 2026-09-07. Frame 124's 203-pixel cluster splits into 196 player
+pixels and seven independent HUD life-icon pixels. Direct oracle watches at
+frames 121..126 hold `$FFFFFAAA=0` while Kid's y velocity crosses
+`-$8000,-$4000,0,$4000,$8000,$C000`. ASM `sub_B270 loc_B334/loc_B350`
+therefore selects state 2 at the zero-velocity apex; native instead reported
+`Unclassified` because it stored the longword as optional form-local state and
+`Kid_Transform` cleared it.
+
+`$FFFFFAAA` is now an explicit runtime-global `i32`, initialised to zero and
+retained across form resets. A renderer-only zero-velocity exception was
+rejected because it duplicates `sub_B270`; treating a missing optional value
+as zero was rejected because it loses nonzero jump launches across transforms.
+A cache-backed regression pins Micromax's frame-124 presentation boundary to
+state 2. The full Level `$55` census improves 299→300 exact frames and
+1,436→1,240 changed pixels with all 360 enemy/state checkpoints green. Frame
+124 retains only the seven HUD pixels. NEXT: partition frame 36's independent
+202-pixel cluster.
+
 Follow-up 2026-09-07. Frame 0's 237-pixel cluster was the lower Driller's
 stale exported sprite roster, not its live state, animation clock, palette, or
 tile page. The recording hand-off completed `loc_3C152 -> loc_3C026`, changed
