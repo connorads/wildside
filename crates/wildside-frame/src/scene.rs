@@ -6879,6 +6879,7 @@ pub fn push_prize_block_wobble_overrides_sub_1007a(
 ) {
     let camera_x_px = (trace.camera_x_pos >> 16) as i32;
     let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+    let transform_vblank_owns_wobble = trace.transform_hscroll_owner_loc_8fe;
     for &(col, row, remaining, y_offset) in &trace.block_bounces {
         if remaining == 0 {
             continue;
@@ -6894,10 +6895,10 @@ pub fn push_prize_block_wobble_overrides_sub_1007a(
                 + i32::from(prize_block_wobble_presented_y_offset_sub_1007a(
                     remaining,
                     y_offset,
-                    trace.form_change_flash_frames > 0,
+                    transform_vblank_owns_wobble,
                 )),
             remaining,
-            trace.form_change_flash_frames > 0,
+            transform_vblank_owns_wobble,
         );
     }
     for &(col, row, remaining) in &trace.prize_block_worker_tails_sub_1007a {
@@ -7698,12 +7699,13 @@ fn build_game_scene_filtered(
         layer_tags.mark(SceneLayer::Player, commands.len());
     }
     if filter.block_overrides {
-        let wobble_commands =
-            if trace.form_change_flash_frames > 0 && !trace.prize_block_spawn_flashes.is_empty() {
-                &mut deferred_transform_wobble_commands
-            } else {
-                &mut commands
-            };
+        let wobble_commands = if trace.transform_hscroll_owner_loc_8fe
+            && !trace.prize_block_spawn_flashes.is_empty()
+        {
+            &mut deferred_transform_wobble_commands
+        } else {
+            &mut commands
+        };
         push_prize_block_wobble_overrides_sub_1007a(
             wobble_commands,
             trace,
@@ -15690,12 +15692,12 @@ mod tests {
                 y_pos: 100 << 16,
                 ..sample_object_snapshot()
             }],
-            block_bounces: vec![(2, 2, 28, 0)],
+            block_bounces: vec![(2, 2, 31, 0)],
             block_bounce_details: vec![BlockBounceTrace {
                 cell_x: 2,
                 cell_y: 2,
                 x_offset_px: 0,
-                remaining: 28,
+                remaining: 31,
                 y_offset_px: 0,
                 kind: BlockBounceTraceKind::Prize,
             }],
@@ -15737,7 +15739,7 @@ mod tests {
             "ASM Allocate_GfxObjectSlot loc_FD4 / Make_SpritesFromGfxObjects loc_14A4 sorts Kid `$2000`, then the older sub_1007A `$2001` wobble, then its newly allocated loc_102B8 `$2001` flash"
         );
 
-        trace.form_change_flash_frames = 31;
+        trace.transform_hscroll_owner_loc_8fe = true;
         let scene = build_game_scene_filtered(
             &trace,
             false,
@@ -15767,8 +15769,8 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             sat_positions,
-            vec![(100, 92), (68, 68), (32, 32)],
-            "ASM Kid_Transform loc_7D22 first presents the loc_102B8 flash before the retained sub_1007A wobble, matching oracle SAT slots 16 and 17"
+            vec![(100, 92), (68, 68), (32, 30)],
+            "ASM Kid_Transform loc_7D22 first presents the loc_102B8 flash before sub_1007A loc_100E2's two-pixel-raised wobble, matching oracle SAT slots 16 and 17"
         );
     }
 

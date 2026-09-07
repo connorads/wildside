@@ -13,6 +13,25 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #495
 
+Follow-up 2026-09-07. Layer isolation corrects the preceding mixed-mapping
+hypothesis: frame 36's 202-pixel residue is entirely the prize-block wobble,
+not Kid or the Micromax helmet. `form_change_flash_frames` is deliberately
+latched from the previous presentation and cannot identify the current
+object-table owner. The existing `transform_hscroll_owner_loc_8fe` does:
+`Kid_Transform loc_7D22 -> sub_8E0` owns the synchronous VBlank after
+`sub_1007A loc_100E2` has moved the wobble up two pixels, and live
+`loc_102B8` flash entries precede that wobble in the rebuilt SAT.
+
+The renderer now uses that VBlank-owner value for both the initial wobble
+offset and flash-before-wobble ordering. Current whole-player state worsened
+202 pixels to 593, clearing the flash worsened it to 392, suppressing wobble
+left 186, and resident-page art plus the offset left 172; all were rejected.
+Copied-page art plus the ASM offset and SAT order makes frame 36 exact. A
+full Level `$55` census reports 301/360 exact frames and 842 changed pixels,
+with all 360 enemy/state checkpoints green. This also corrects the earlier
+1,240-pixel handoff, which predated both independent frame-124 and frame-36
+fixes. NEXT: partition frame 96's remaining 185-pixel cluster.
+
 Follow-up 2026-09-07. Frame 36 is an object-order-dependent mixed Sprite_Table,
 not a whole-player transform latch. Oracle frame-36 SAT contains Kid at tile
 `$6625` followed by the linked Micromax mask at `$662E`; `Currently_transforming`

@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-07 handoff (transform-owned prize wobble)
+
+- Layer isolation shows frame 36's 202-pixel residue is entirely the
+  prize-block wobble. `form_change_flash_frames` is a previous-presentation
+  latch; `transform_hscroll_owner_loc_8fe` identifies the synchronous
+  `Kid_Transform loc_7D22 -> sub_8E0` VBlank that applies the
+  `sub_1007A loc_100E2` two-pixel offset and orders `loc_102B8` flash first.
+- Frame 36 is exact. The full Level `$55` census is 301/360 exact and 842
+  changed pixels with all 360 enemy/state checkpoints green. NEXT: partition
+  frame 96's remaining 185-pixel cluster. See archive #495.
+
 ## 2026-09-07 handoff (transform-entry mixed Sprite_Table)
 
 - Oracle SAT and ASM show frame 36 retains Kid's earlier entry but rewrites
