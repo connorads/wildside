@@ -8925,6 +8925,23 @@ fn build_game_scene_filtered(
                 // alongside its immediately presentable replacement.
                 continue;
             }
+            if is_collected_diamond_flight
+                && remaining == PRIZE_DIAMOND_INITIAL_LIFETIME
+                && trace.floating_items_transferred_loc_901.iter().any(
+                    |&(previous_x, previous_y, _, previous_content_id)| {
+                        previous_content_id == wildside_core::terrain::PrizeContent::Diamond.to_id()
+                            && previous_x == x_px
+                            && previous_y.abs_diff(y_px) == 2
+                    },
+                )
+            {
+                // ASM Mode_Level loc_901 has already transferred the table
+                // built before PrizeDiamondCollected_Init loc_FE3E allocates
+                // its GfxObject. Oracle Level `$55` checkpoint frame 153 uses
+                // the post-frame-152 VRAM SAT: only the old `$06F2` source is
+                // linked; the new `$86F2` entry appears on the next transfer.
+                continue;
+            }
             if content == wildside_core::terrain::PrizeContent::Diamond
                 && remaining == PRIZE_DIAMOND_INITIAL_LIFETIME
                 && !is_collected_diamond_flight
@@ -11126,6 +11143,45 @@ mod tests {
         assert!(
             diamond_tiles.iter().all(|tile| tile.tile.priority),
             "ASM PrizeDiamondCollected_Init loc_FE3E sets the replacement mapping's VDP priority bit"
+        );
+    }
+
+    #[test]
+    fn collected_diamond_creation_waits_for_next_sat_transfer_loc_fe3e_10404() {
+        let visuals = sample_level_visuals(0x300);
+        let previous_trace = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            prize_worker_sprites: Vec::new(),
+            floating_items: vec![(8, 120, 475, 0)],
+            ..NativeTraceFrame::default()
+        };
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            prize_diamond_hud_flights_loc_fe3e: vec![(8, 122, 500)],
+            ..NativeTraceFrame::default()
+        };
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous_trace));
+
+        let scene = build_game_scene_filtered(
+            &render_trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("effects"),
+            None,
+        )
+        .0;
+
+        let [DrawCommand::SatSprite { y, tiles, .. }] = scene.commands.as_slice() else {
+            panic!("ASM loc_901 should present only loc_10404's transferred diamond source");
+        };
+        assert_eq!(
+            *y, 112,
+            "oracle Level $55 checkpoint frame 153 displays post-frame-152 VRAM SAT slot 16 at source y=120"
+        );
+        assert!(
+            tiles.iter().all(|tile| !tile.tile.priority),
+            "loc_10404's retained `$06F2` source stays low priority until the new `$86F2` GfxObject reaches the following SAT transfer"
         );
     }
 

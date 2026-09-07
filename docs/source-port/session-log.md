@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-07 handoff (collected-diamond creation SAT latch)
+
+- Oracle checkpoint frame 153 displays the frame-152 resident VRAM SAT. It
+  links the old low-priority `$06F2` diamond but not the new high-priority
+  `PrizeDiamondCollected_Init loc_FE3E` entry created after `loc_901`.
+- Native now withholds that two-pixel-offset creation source until the next
+  SAT transfer. The published route's existing one-pixel coalesced replacement
+  remains unchanged. Frame 153 is exact.
+- Level `$55` improves to 298/360 exact and 1,838 changed pixels. All 360 state
+  checkpoints remain green. NEXT: decode frame 35 against its frame-34
+  resident VRAM SAT. See archive #495.
+
 ## 2026-09-07 handoff (transform-entry SAT identity rejected)
 
 - Frame 35 overlaps the retained Micromax helmet with the `loc_102B8` spawn

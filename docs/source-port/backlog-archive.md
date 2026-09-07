@@ -13,6 +13,25 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #495
 
+Follow-up 2026-09-07. Direct oracle VRAM/SAT evidence resolves frame 153.
+The checkpoint PNG displays the table already resident at VRAM `$1000`; the
+same-number probe dump is post-checkpoint state for the following display.
+Frame 153 therefore uses the frame-152 linked SAT: the falling diamond's
+low-priority `$06F2` entry is present, while the newly allocated high-priority
+`PrizeDiamondCollected_Init loc_FE3E` entry is not linked until the next
+transfer. Native rendered both and leaked 16 pixels around their overlap.
+
+The renderer now withholds only an initial collected flight whose two-pixel
+creation position identifies the transferred `loc_10404` source still owning
+that displayed SAT. The existing one-pixel coalesced replacement path from the
+published route remains unchanged. A renderer regression pins the old
+low-priority entry as the sole creation-frame command. Level `$55` improves
+297→298 exact frames, 63→62 divergent frames, and 1,854→1,838 changed pixels;
+all 360 state checkpoints remain green and frame 153 is exact. The `$DD40`
+diamond page is byte-identical to `diamond_1.bin`, ruling out art residency.
+NEXT: apply the same displayed-VRAM phase discipline to frame 35's helmet and
+`loc_102B8` overlap.
+
 Follow-up 2026-09-07. Frame 35's floating Micromax helmet and `loc_102B8`
 spawn flash overlap. The transform-entry reconstruction advances the retained
 helmet through `loc_104AE`, while its `loc_901` transferred-SAT marker keeps
