@@ -1399,6 +1399,7 @@ level-layout/35.bin
 level-layout/35.blocklist.bin
 level-layout/36.bin
 level-layout/36.blocklist.bin
+level-layout/36.json
 level-layout/37.bin
 level-layout/37.blocklist.bin
 level-layout/38.bin
