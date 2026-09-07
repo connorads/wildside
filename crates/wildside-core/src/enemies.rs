@@ -2875,12 +2875,13 @@ impl ActiveEnemy {
             // post-step timer: seven six-tick lead entries, then the three-
             // tick fire mapping and the 25-tick tail mapping.
             let roar_mapping = match self.lion_state {
+                LionState::Roaring if self.wait_timer == 0 => 3,
                 LionState::Roaring => {
                     const LEAD: [u8; 7] = [0, 1, 2, 1, 0, 1, 2];
                     let elapsed = 44_u16.saturating_sub(self.wait_timer.min(44));
                     LEAD[usize::from((elapsed / 6).min(6))]
                 }
-                LionState::PostFire if self.wait_timer >= 24 => 3,
+                LionState::PostFire if self.wait_timer >= 25 => 3,
                 LionState::PostFire => 4,
                 _ => unreachable!(),
             };

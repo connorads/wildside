@@ -786,6 +786,27 @@ passes after adding it. `verify-slice-fast` and `verify-tas-full` are green.
 
 ### #493
 
+Follow-up 2026-09-08: an every-frame census of the same 420-frame settled-warp
+Level `$36` replay exposed the sparse-checkpoint blind spot. Baseline was
+289/420 exact frames and 69,800 changed pixels; visual triage attributed 68,789
+pixels across 65 frames to Lion recolouring. Oracle SAT probes switch the body
+mapping at frames 36 and 40. `stru_3DEF4` supplies the 5/4/4/5/4/5 HP-8 lead,
+then its mode-2 `$33` rewind enters `stru_3DEDA`; `GfxObject_Animate sub_113E`
+advances the collapsed native phase after the mapping used to build the next
+Sprite_Table.
+
+Three presentation models were measured. Merging current Lion animation
+sources into the previous object geometry worsened the census to 236 exact
+frames. Adding one to the selector phase worsened the focused frames 31..80 to
+31 exact. The selected model instead treats the exported HP-8 phase as a
+post-step counter when interpreting mappings, without changing HP-6, and
+exposes the `loc_3E078` roar/fire/tail boundary one collapsed tick earlier.
+Focused frames 31..80 become pixel-exact. The full census improves to 340/420
+exact and 586 changed pixels, all in the frozen `hud_life_icon` region. This
+removes 69,214 pixels while all 420 player/camera and enemy checkpoints remain
+green. `verify-tas-full` preserves the published-route ratchet at 37,518/37,759
+exact frames and 2,391 changed pixels.
+
 Closed [x] 2026-09-05. Oracle Object RAM frames 0..359 and Lion.asm
 `loc_3E078`, `loc_3E09E`, `loc_3E0F4`, `loc_3E11E`, `loc_3E12A`, and
 `loc_3E260` established the complete schedule. `stru_3DF0E` holds its seventh

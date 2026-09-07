@@ -2267,6 +2267,12 @@ mod tests {
             Some(14),
             "ASM Lion.asm stru_3DF0E should retain C7E70 through the collapsed pre-fire hand-off"
         );
+        enemy.wait_timer = 0;
+        assert_eq!(
+            enemy.snapshot().sprite_animation_phase,
+            Some(15),
+            "ASM Lion.asm loc_3E09E observes C7E78 before the native state changes to PostFire"
+        );
 
         enemy.lion_state = LionState::PostFire;
         enemy.wait_timer = 26;
@@ -2280,6 +2286,12 @@ mod tests {
             enemy.snapshot().sprite_animation_phase,
             Some(16),
             "ASM Lion.asm loc_3E0F4 should hold C7E80 until animation completion"
+        );
+        enemy.wait_timer = 24;
+        assert_eq!(
+            enemy.snapshot().sprite_animation_phase,
+            Some(16),
+            "ASM stru_3DF0E should leave the three-tick C7E78 mapping before the collapsed loc_3E0F4 tail reaches wait 24"
         );
     }
 

@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-08 handoff (Lion post-step animation phase)
+
+- An every-frame Level `$36` census exposed Lion pose boundaries missed by
+  #493's sparse checkpoints: 289/420 exact and 69,800 changed pixels.
+- Treating HP-8 `walk_phase` as the post-step counter exported after
+  `GfxObject_Animate sub_113E`, and exposing the collapsed roar/fire hand-off
+  one tick earlier, removes every Lion mismatch. The replay is now 340/420
+  exact with 586 changed pixels, all in the frozen HUD life-icon lane; all 420
+  enemy/state checkpoints remain green.
+- Published-route pixels remain 37,518/37,759 exact and 2,391 changed. NEXT:
+  census another replay outside the frozen HUD lanes. See archive #493.
+
 ## 2026-09-07 handoff (pre-collision HUD hit-point snapshot)
 
 - `Make_SpriteAttr_HUD loc_BDC0` reads hit points before `Execute_Objects`

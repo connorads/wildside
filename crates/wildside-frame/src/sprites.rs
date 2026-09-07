@@ -1886,12 +1886,16 @@ fn select_live_lion_frame<'a>(
     // GfxObject_Animate sub_11AC lands in stru_3DEDA. HP-8 Lions therefore
     // play one fast 27-tick lead, then use the regular 38-tick loop forever.
     let (durations, phase): (&[usize], usize) = match exported_phase {
-        Some(phase) if object.hit_points == Some(8) && phase < fast_durations.iter().sum() => {
-            (fast_durations, phase)
+        Some(phase) if object.hit_points == Some(8) && phase <= fast_durations.iter().sum() => {
+            // Native advances this collapsed tick after the ROM-selected
+            // mapping has built the next Sprite_Table. Phase 1 therefore
+            // still presents the first `stru_3DEF4` mapping, and phase 27
+            // presents its final mapping before the `$33` rewind.
+            (fast_durations, phase.saturating_sub(1))
         }
         Some(phase) if object.hit_points == Some(8) => (
             regular_durations,
-            (phase - fast_durations.iter().sum::<usize>())
+            (phase - fast_durations.iter().sum::<usize>() - 1)
                 % regular_durations.iter().sum::<usize>(),
         ),
         Some(phase) => (
@@ -5276,13 +5280,20 @@ mod tests {
         lion.walk_phase = Some(5);
         assert_eq!(
             selected_live_tile_base(select_live_lion_frame(&trace, &visuals, &lion)),
-            0x0101
+            0x0100,
+            "ASM stru_3DEF4 still presents C7E88 when native's collapsed post-step phase reaches five"
         );
         lion.walk_phase = Some(27);
         assert_eq!(
             selected_live_tile_base(select_live_lion_frame(&trace, &visuals, &lion)),
+            0x0105,
+            "ASM stru_3DEF4 mode-2 `$33` rewind runs after the final fast-lead mapping is presented"
+        );
+        lion.walk_phase = Some(28);
+        assert_eq!(
+            selected_live_tile_base(select_live_lion_frame(&trace, &visuals, &lion)),
             0x0100,
-            "ASM stru_3DEF4 mode-2 `$33` rewind should enter stru_3DEDA after the fast lead"
+            "ASM stru_3DEF4 mode-2 `$33` rewind enters stru_3DEDA on the tick after the fast lead"
         );
         lion.walk_phase = Some(64);
         assert_eq!(
