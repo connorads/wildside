@@ -13,6 +13,25 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #495
 
+Follow-up 2026-09-07. Frames 109 and 322 each retained a full 32-pixel HP pip
+for one field after collision damage. Oracle SAT/debug state at frame 322 had
+already advanced to `$822E`, while the framebuffer still displayed `$822D`;
+frame 323 displayed `$822E`. ASM resolves the apparent disagreement:
+`Mode_Level loc_7F4` calls `Make_SpriteAttr_HUD loc_BDC0` before the later
+`GfxObjects_CollisionKid` path reaches `Check_for_recent_damge loc_B700`.
+
+Three models were considered. A damage-specific renderer delay duplicates the
+state machine. A global SAT fetch delay contradicts adjacent exact sprites and
+lacks hardware evidence. The selected model records the hit-point count used
+to build the HUD table, parallel to the existing typed diamond snapshot, and
+the renderer consumes that value on the ordinary and level-complete VBlank
+latches. Both clusters disappear. Level `$55` improves 303→305/360 exact and
+461→397 changed pixels; the remaining 397 pixels are all the frozen HUD
+life-icon timing lane. `verify-slice-fast` and `verify-tas-full` pass. The
+published route remains 37,518/37,759 exact with 2,391 changed pixels. NEXT:
+continue the proactive pixel census on a different replay outside the frozen
+HUD lanes.
+
 Follow-up 2026-09-07. Frame 126's 32 block pixels were a one-frame Scroll-A
 residency error. Oracle VDP samples show no sprite owner or scanline split:
 the complete visible field still uses terrain entries `$215/$1F1`, then frame

@@ -1524,7 +1524,9 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.damage_flash_palette_phase_loc_bc56 =
             previous_trace.damage_flash_palette_phase_loc_bc56;
         render_trace.death_windup_elapsed = previous_trace.death_windup_elapsed;
-        render_trace.number_hitpoints = previous_trace.number_hitpoints;
+        render_trace.number_hitpoints = previous_trace
+            .hud_hitpoint_count_loc_bdc0
+            .unwrap_or(previous_trace.number_hitpoints);
         render_trace.extra_hitpoint_slots = previous_trace.extra_hitpoint_slots;
         render_trace.number_lives = previous_trace.number_lives;
         render_trace.diamond_count = previous_trace
@@ -1606,7 +1608,9 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         // GfxObjects_CollisionKid path can reach Check_for_recent_damge
         // loc_B700 or PrizeDiamondCollected loc_10C78, so the visible HUD
         // counters are also pre-update latches.
-        render_trace.number_hitpoints = previous_trace.number_hitpoints;
+        render_trace.number_hitpoints = previous_trace
+            .hud_hitpoint_count_loc_bdc0
+            .unwrap_or(previous_trace.number_hitpoints);
         render_trace.extra_hitpoint_slots = previous_trace.extra_hitpoint_slots;
         render_trace.diamond_count = previous_trace
             .hud_diamond_count_loc_bdc0
@@ -10360,6 +10364,26 @@ mod tests {
         assert_eq!(
             render_trace.diamond_count, 0,
             "ASM Mode_Level loc_7F4 calls Make_SpriteAttr_HUD before Execute_Objects completes Increase_Diamonds"
+        );
+    }
+
+    #[test]
+    fn mode_level_loc_7f4_keeps_pre_collision_hitpoints_in_sprite_table() {
+        let previous_trace = NativeTraceFrame {
+            game_mode: GameMode::DemoPlay,
+            game_mode_value: GameMode::DemoPlay.as_disassembly_value(),
+            current_level: wildside_core::LevelId(0x55),
+            number_hitpoints: 1,
+            hud_hitpoint_count_loc_bdc0: Some(2),
+            ..NativeTraceFrame::default()
+        };
+        let trace = previous_trace.clone();
+
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous_trace));
+
+        assert_eq!(
+            render_trace.number_hitpoints, 2,
+            "ASM Mode_Level loc_7F4 calls Make_SpriteAttr_HUD loc_BDC0 before GfxObjects_CollisionKid can reach Check_for_recent_damge loc_B700"
         );
     }
 

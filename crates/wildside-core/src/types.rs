@@ -3065,6 +3065,10 @@ pub struct NativeTraceFrame {
     /// recently built HUD timer sprite entries. `None` denotes legacy traces.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hud_timer_sprite_seconds_loc_bee8: Option<u16>,
+    /// ASM Make_SpriteAttr_HUD loc_BDC0: Number_Hitpoints used to build the
+    /// current HUD Sprite_Table before Execute_Objects applies collision damage.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hud_hitpoint_count_loc_bdc0: Option<u16>,
     /// ASM Make_SpriteAttr_HUD loc_BDC0: Number_Diamonds used to build the
     /// current HUD Sprite_Table before Execute_Objects advances prize workers.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3602,6 +3606,7 @@ impl Default for NativeTraceFrame {
             hud_diamond_vram_page_loc_5d4a: None,
             transform_resident_hud_diamond_vram_page_loc_5d4a: None,
             hud_timer_sprite_seconds_loc_bee8: None,
+            hud_hitpoint_count_loc_bdc0: None,
             hud_diamond_count_loc_bdc0: None,
             hud_life_frame_offset: None,
             hud_life_icon_vram_page_loc_4586: None,

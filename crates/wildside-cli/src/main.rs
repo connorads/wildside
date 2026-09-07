@@ -6275,6 +6275,7 @@ AddrTbl_LevelNames:
             hud_diamond_vram_page_loc_5d4a: None,
             transform_resident_hud_diamond_vram_page_loc_5d4a: None,
             hud_timer_sprite_seconds_loc_bee8: None,
+            hud_hitpoint_count_loc_bdc0: None,
             hud_diamond_count_loc_bdc0: None,
             hud_life_frame_offset: None,
             hud_life_icon_vram_page_loc_4586: None,

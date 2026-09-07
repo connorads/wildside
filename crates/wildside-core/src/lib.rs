@@ -749,6 +749,9 @@ pub struct NativeRuntime {
     /// Whole seconds encoded into the timer digit entries most recently built
     /// in `Sprite_Table` by ASM Make_SpriteAttr_HUD loc_BEE8.
     hud_timer_sprite_seconds_loc_bee8: u16,
+    /// ASM Make_SpriteAttr_HUD loc_BDC0 snapshots Number_Hitpoints before
+    /// Execute_Objects can apply collision damage.
+    hud_hitpoint_count_loc_bdc0: u16,
     /// ASM Make_SpriteAttr_HUD loc_BDC0 snapshots Number_Diamonds before
     /// Execute_Objects can complete a collected-diamond worker.
     hud_diamond_count_loc_bdc0: u16,
@@ -1805,6 +1808,7 @@ impl NativeRuntime {
             options_menu_panel_delta: 0x0118,
             level_timer: LevelTimer::new(),
             hud_timer_sprite_seconds_loc_bee8: LEVEL_TIMER_START_SECONDS,
+            hud_hitpoint_count_loc_bdc0: 0,
             hud_diamond_count_loc_bdc0: 0,
             demo_hud_timer_presentation_loc_be82: None,
             pending_demo_timer_tick_result_loc_be82: None,
@@ -4440,8 +4444,9 @@ impl NativeRuntime {
                 }
             }
             // ASM Mode_Level loc_7F4 builds the HUD before Execute_Objects.
-            // Preserve the count encoded into this frame's Sprite_Table;
-            // Increase_Diamonds may increment it later in the object pass.
+            // Preserve the counts encoded into this frame's Sprite_Table;
+            // collision damage and Increase_Diamonds can change them later.
+            self.hud_hitpoint_count_loc_bdc0 = self.progression.number_hitpoints;
             self.hud_diamond_count_loc_bdc0 = self.progression.diamond_count;
             if debug_level_entry_live_object_pass {
                 // ASM Mode_Level Execute_Objects: the Kid collision consumer

@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-07 handoff (pre-collision HUD hit-point snapshot)
+
+- `Make_SpriteAttr_HUD loc_BDC0` reads hit points before `Execute_Objects`
+  applies collision damage at `loc_B700`. Native now exports that typed build
+  input and uses it for the VBlank-latched HUD, removing the 32-pixel HP-pip
+  clusters at frames 109 and 322.
+- Level `$55` improves 303→305/360 exact and 461→397 changed pixels. The
+  remaining pixels are entirely the frozen life-icon timing lane; all 360
+  enemy/state checkpoints remain green. Published-route pixels stay at
+  37,518/37,759 exact and 2,391 changed. NEXT: census a different replay
+  outside the frozen HUD lanes. See archive #495.
+
 ## 2026-09-07 handoff (resident smashed-prize terrain mapping)
 
 - Oracle frame 126 scans the old Scroll-A terrain entries `$215/$1F1`; frame
