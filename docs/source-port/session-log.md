@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-07 handoff (transform-cleanup player split)
+
+- Oracle SAT, `$C4A0` FIFO timing, and layer provenance show frame 96 is the
+  `Kid_Transform loc_7E90` cleanup split: released VBlank ownership presents
+  the ordinary player mapping, while resumed Mode_Level `sub_1492 -> loc_141A`
+  queues ordinary `sub_B270` art.
+- Frame 96 is exact. The full Level `$55` census is 302/360 exact and 657
+  changed pixels with all 360 enemy/state checkpoints green. NEXT: partition
+  frame 35's 164-pixel player/flash overlap. See archive #495.
+
 ## 2026-09-07 handoff (transform-owned prize wobble)
 
 - Layer isolation shows frame 36's 202-pixel residue is entirely the

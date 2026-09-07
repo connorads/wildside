@@ -916,7 +916,13 @@ pub fn select_player_dynamic_art_frame_loc_141a<'a>(
     }
 
     let form_visuals = select_player_form_visuals(trace, player_visuals);
-    if let Some((frame, _)) = select_player_transform_render(trace, player_visuals, form_visuals) {
+    // ASM Kid_Transform loc_7E90 returns into the suspended Mode_Level pass
+    // before sub_1492 -> loc_141A builds its DMA queue. The final countdown
+    // value therefore queues the ordinary player mapping, not cleanup art.
+    if trace.form_change_flash_frames > 1
+        && let Some((frame, _)) =
+            select_player_transform_render(trace, player_visuals, form_visuals)
+    {
         return frame;
     }
     select_player_frame(trace, form_visuals)
@@ -1321,7 +1327,7 @@ pub fn push_player_sprite_with_priority_and_resident_art(
     let render_facing = trace.kid_facing.unwrap_or(Direction::Right);
     let (screen_x, screen_y) = player_screen_position(object, trace);
     if let Some((frame, base_palette)) =
-        select_player_transform_render(trace, &level_visuals.player, form_visuals)
+        select_player_presented_transform_render_loc_8fe(trace, &level_visuals.player, form_visuals)
     {
         let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
         let palette = kid_transform_mask_shared_palette_loc_7df0(trace, level_visuals)
@@ -1358,6 +1364,19 @@ pub fn push_player_sprite_with_priority_and_resident_art(
         )),
         tiles: build_player_sprite_tiles_with_flip(frame, flip_x, priority_override),
     });
+}
+
+fn select_player_presented_transform_render_loc_8fe<'a>(
+    trace: &NativeTraceFrame,
+    player_visuals: &'a wildside_render::PlayerVisuals,
+    form_visuals: &'a wildside_render::PlayerFormVisuals,
+) -> Option<(&'a wildside_render::SpriteFrame, &'a Palette)> {
+    // ASM Kid_Transform loc_7D22 presents through sub_8E0; loc_7E90 clears
+    // Currently_transforming before the resumed Mode_Level table is visible.
+    if !trace.transform_hscroll_owner_loc_8fe {
+        return None;
+    }
+    select_player_transform_render(trace, player_visuals, form_visuals)
 }
 
 fn player_palette_for_transform_phase(palette: &Palette, _white_phase: bool) -> Palette {
@@ -7704,6 +7723,57 @@ mod tests {
     }
 
     #[test]
+    fn transform_cleanup_queues_and_presents_ordinary_player_mapping_loc_7e90() {
+        let mut level_visuals = minimal_level_visuals_for_platforms();
+        let mut micromax = labelled_player_visuals();
+        micromax.transform_steps = vec![wildside_render::PlayerTransformStep {
+            duration_frames: 1,
+            frame: Some(labelled_frame(0x0C00)),
+        }];
+        level_visuals.player.forms.insert(9, micromax);
+        let cleanup = NativeTraceFrame {
+            current_helmet_id: 9,
+            kid_on_ground: Some(false),
+            kid_y_velocity: Some(0),
+            form_change_flash_frames: 1,
+            transform_hscroll_owner_loc_8fe: false,
+            ..NativeTraceFrame::default()
+        };
+        let form_visuals = &level_visuals.player.forms[&9];
+
+        assert_eq!(
+            select_player_dynamic_art_frame_loc_141a(&cleanup, &level_visuals.player)
+                .tile_base_index,
+            0x0803,
+            "ASM Kid_Transform loc_7E90 returns before Mode_Level sub_1492 -> loc_141A queues the ordinary sub_B270 descending mapping",
+        );
+        assert!(
+            select_player_presented_transform_render_loc_8fe(
+                &cleanup,
+                &level_visuals.player,
+                form_visuals,
+            )
+            .is_none(),
+            "ASM loc_7E90 clears Currently_transforming before the resumed Mode_Level table is presented",
+        );
+
+        let owned_transform = NativeTraceFrame {
+            transform_hscroll_owner_loc_8fe: true,
+            ..cleanup
+        };
+        assert_eq!(
+            select_player_presented_transform_render_loc_8fe(
+                &owned_transform,
+                &level_visuals.player,
+                form_visuals,
+            )
+            .map(|(frame, _)| frame.tile_base_index),
+            Some(0x0C00),
+            "ASM Kid_Transform loc_7D22 presents transform art while sub_8E0 owns the VBlank",
+        );
+    }
+
+    #[test]
     fn heady_metal_palette_word_only_replaces_slot_15_sub_379e8() {
         let palette = marked_palette(0x0700);
         let mut object = live_enemy_object(0x20);
@@ -7890,6 +7960,7 @@ mod tests {
         let object = native_object_at(0x0010_0000, 0x008F_0000);
         let trace = NativeTraceFrame {
             form_change_flash_frames: 35,
+            transform_hscroll_owner_loc_8fe: true,
             current_helmet_id: 9,
             transform_source_helmet_id_loc_7ca6: Some(0),
             ..NativeTraceFrame::default()

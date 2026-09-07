@@ -13,6 +13,25 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #495
 
+Follow-up 2026-09-07. Frame 96's remaining 185 pixels were a transform-cleanup
+presentation split, not block debris, palette selection, or a different
+Micromax asset. Layer provenance assigns every changed pixel to the player.
+Oracle SAT uses the ordinary 16x24 Micromax entry at `(7,125)`, and `$C4A0`
+FIFO writes occur after visible scanline 229. ASM explains the two outputs at
+`Kid_Transform loc_7E90`: clearing `Currently_transforming` releases the
+resumed Mode_Level table, while the same resumed pass later runs `sub_1492 ->
+loc_141A` and queues the ordinary `sub_B270` airborne art.
+
+The renderer now gates the presented transform pose on the existing
+`transform_hscroll_owner_loc_8fe` value and treats countdown one as an
+ordinary dynamic-art queue. Retaining cleanup art, substituting each of the
+three Micromax jump pages, changing the mapping alone, and changing the whole
+transform countdown each left 178-328 pixels or regressed adjacent exact
+frames; all were rejected. The paired owner/queue model makes frame 96 exact.
+The full Level `$55` census improves 301→302 exact frames and 842→657 changed
+pixels with all 360 enemy/state checkpoints green. NEXT: partition frame 35's
+164-pixel player/flash overlap.
+
 Follow-up 2026-09-07. Layer isolation corrects the preceding mixed-mapping
 hypothesis: frame 36's 202-pixel residue is entirely the prize-block wobble,
 not Kid or the Micromax helmet. `form_change_flash_frames` is deliberately

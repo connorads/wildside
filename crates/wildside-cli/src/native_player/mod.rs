@@ -18573,6 +18573,7 @@ mod tests {
         let mut trace = trace_with_player(720, 0);
         trace.current_helmet_id = PlayerForm::IronKnight.helmet_id();
         trace.form_change_flash_frames = 12;
+        trace.transform_hscroll_owner_loc_8fe = true;
 
         let scene = build_ingame_scene(&trace, false, None);
 
@@ -18599,6 +18600,7 @@ mod tests {
         let mut trace = trace_with_player(720, 0);
         trace.current_helmet_id = PlayerForm::Cyclone.helmet_id();
         trace.form_change_flash_frames = 20;
+        trace.transform_hscroll_owner_loc_8fe = true;
 
         let scene = build_ingame_scene(&trace, false, None);
 
