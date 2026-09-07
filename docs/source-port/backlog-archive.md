@@ -13,6 +13,23 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #495
 
+Follow-up 2026-09-07. Frame 126's 32 block pixels were a one-frame Scroll-A
+residency error. Oracle VDP samples show no sprite owner or scanline split:
+the complete visible field still uses terrain entries `$215/$1F1`, then frame
+127 atomically changes to `$220/$222`. ASM `sub_1007A` writes `$E001` after
+the sprite-list build; `loc_102B8` is live before the replacement reaches the
+displayed plane.
+
+Three models were measured. Presenting `$E001` immediately improved only one
+pixel. Treating the retained cell as generic prize-block art left all 32
+pixels. Resolving the immutable foreground skin through the terrain mapping
+matches the resident name-table words and removes the cluster. Level `$55`
+remains 303/360 exact because the frame retains seven independent HUD pixels,
+but changed pixels improve 493→461 with all 360 authoritative state
+checkpoints green. `verify-slice-fast` and `verify-tas-full` pass; the
+published route remains 37,518/37,759 exact with 2,391 changed pixels. NEXT:
+classify frame 322's 32-pixel grid cluster.
+
 Follow-up 2026-09-07. Frame 35's final nine pixels were an ownership error,
 not palette, art, or coordinates. The provenance re-walk first had to learn
 VDP first-opaque SAT arbitration; it then identified the remaining-31 `P`

@@ -7037,12 +7037,6 @@ pub fn push_block_grid_overrides(
                             && x_px == col.saturating_mul(16).saturating_add(8)
                             && y_px == row.saturating_mul(16).saturating_sub(8)
                     });
-            if smash_write_is_not_presentable_yet {
-                // ASM sub_1007A writes `$E001` after the sprite-list build;
-                // loc_102B8 is live, but the new grid tile reaches VDP on
-                // the following frame.
-                continue;
-            }
             if is_shifting_bounce {
                 if let Some((_, y_offset)) = bounce_y_offset {
                     push_shifting_block_rise_loc_113f4(
@@ -7055,7 +7049,12 @@ pub fn push_block_grid_overrides(
                 continue;
             }
 
-            let skin = if cell.has_block {
+            let skin = if smash_write_is_not_presentable_yet {
+                // ASM sub_1007A writes `$E001` after the sprite-list build.
+                // The current frame still scans the resident Scroll-A prize
+                // mapping; the replacement cell reaches VDP next frame.
+                level_visuals.level.foreground_layout.skin_at(col, row)
+            } else if cell.has_block {
                 cell.skin
             } else {
                 // ASM sub_1007A draws the prize wobble object using the
@@ -7067,22 +7066,26 @@ pub fn push_block_grid_overrides(
             };
             let Some(resolved) = level_visuals.level.block_mapping.resolve(
                 skin,
-                Some(if cell.has_block {
-                    cell.block_type as u8
-                } else if is_hidden_reveal_bounce {
-                    // ASM sub_DFB0 loc_E096 (kid.asm:17413) writes only the
-                    // `$60` solid-placeholder byte while loc_E2E2/loc_E2F0
-                    // bob the reveal object; block type is not represented
-                    // in the temporary cell and native block quads are keyed
-                    // by the preserved skin byte.
-                    wildside_core::terrain::BlockType::Smash as u8
+                if smash_write_is_not_presentable_yet {
+                    None
                 } else {
-                    // ASM sub_1007A writes `$6Fxx` while the prize-block
-                    // wobble object remains live. The block flag is clear,
-                    // but the worker still draws the block sprite frames
-                    // (`unk_E0E4E`/`unk_E0E5E`) at the bounced position.
-                    wildside_core::terrain::BlockType::Prize as u8
-                }),
+                    Some(if cell.has_block {
+                        cell.block_type as u8
+                    } else if is_hidden_reveal_bounce {
+                        // ASM sub_DFB0 loc_E096 (kid.asm:17413) writes only the
+                        // `$60` solid-placeholder byte while loc_E2E2/loc_E2F0
+                        // bob the reveal object; block type is not represented
+                        // in the temporary cell and native block quads are keyed
+                        // by the preserved skin byte.
+                        wildside_core::terrain::BlockType::Smash as u8
+                    } else {
+                        // ASM sub_1007A writes `$6Fxx` while the prize-block
+                        // wobble object remains live. The block flag is clear,
+                        // but the worker still draws the block sprite frames
+                        // (`unk_E0E4E`/`unk_E0E5E`) at the bounced position.
+                        wildside_core::terrain::BlockType::Prize as u8
+                    })
+                },
             ) else {
                 continue;
             };
@@ -15691,7 +15694,7 @@ mod tests {
         push_block_grid_overrides(&mut commands, &trace, &visuals, Some(&grid));
 
         let indexed_tiles = commands.indexed_tiles();
-        assert_eq!(indexed_tiles.len(), 16);
+        assert_eq!(indexed_tiles.len(), 20);
         assert_eq!(indexed_tile_snapshot(indexed_tiles[0]), (15, 14, 8, true));
         assert_eq!(
             indexed_tile_snapshot(indexed_tiles[4]),
@@ -15700,7 +15703,7 @@ mod tests {
         );
         assert_eq!(indexed_tile_snapshot(indexed_tiles[8]), (53, 21, 20, true));
         assert_eq!(
-            indexed_tile_snapshot(indexed_tiles[12]),
+            indexed_tile_snapshot(indexed_tiles[16]),
             (95, 11, 28, true),
             "ordinary live blocks keep their grid art and apply the engine-provided bounce offset"
         );
@@ -15719,8 +15722,21 @@ mod tests {
         assert!(
             indexed_tiles
                 .iter()
-                .all(|command| !matches!(command, DrawCommand::IndexedTile { x: 31 | 79, .. })),
-            "ASM sub_1007A owns prize-wobble cells and delays the new grid tile until after the first loc_102B8 presentation"
+                .all(|command| !matches!(command, DrawCommand::IndexedTile { x: 31, .. })),
+            "ASM sub_1007A owns the active prize-wobble cell"
+        );
+        assert_eq!(
+            indexed_tiles[12..16]
+                .iter()
+                .map(|command| indexed_tile_snapshot(command))
+                .collect::<Vec<_>>(),
+            vec![
+                (79, 14, 0, true),
+                (87, 14, 1, true),
+                (79, 22, 2, true),
+                (87, 22, 3, true)
+            ],
+            "ASM sub_1007A retains the old Scroll-A prize mapping for loc_102B8's first frame instead of presenting the `$E001` replacement"
         );
     }
 
@@ -18029,12 +18045,12 @@ mod tests {
         let foreground_layout_bytes = vec![0; 20 * 14];
         let foreground_layout =
             ForegroundLayout::parse(&foreground_layout_bytes, 1, 1).expect("foreground layout");
-        let empty_quad = sample_quad(0);
+        let terrain_quad = sample_quad(FOREGROUND_TILE_VRAM_BASE);
         let empty_frame = sample_sprite_frame(0);
         let empty_prize = sample_animated_visual(empty_frame.clone());
 
         NativeLevelVisuals {
-            foreground_tiles: sample_tile_sheet(1),
+            foreground_tiles: sample_tile_sheet(4),
             background_tiles: sample_tile_sheet(1),
             island_shore_tiles_loc_1202a: None,
             block_tiles: sample_tile_sheet(block_tile_count),
@@ -18058,7 +18074,7 @@ mod tests {
                 background_layout_bytes: Vec::new(),
                 background_layout_alias: None,
                 block_mapping: BlockVisualMapping::new(
-                    vec![empty_quad],
+                    vec![terrain_quad],
                     (0..81)
                         .map(|skin| sample_quad(BLOCK_TILE_VRAM_BASE + skin * 4))
                         .collect(),

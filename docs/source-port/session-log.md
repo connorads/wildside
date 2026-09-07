@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-07 handoff (resident smashed-prize terrain mapping)
+
+- Oracle frame 126 scans the old Scroll-A terrain entries `$215/$1F1`; frame
+  127 atomically presents the replacement after `sub_1007A` writes `$E001`.
+- Preserving the immutable terrain mapping for `loc_102B8`'s first frame
+  removes the 32-pixel block cluster. Level `$55` stays 303/360 exact due to
+  separate HUD residue and improves from 493 to 461 changed pixels. NEXT:
+  classify frame 322's 32-pixel grid cluster. See archive #495.
+
 ## 2026-09-07 handoff (resident prize-block plane ownership)
 
 - Frame 35 is exact. `Mode_Level loc_901` transfers the Sprite_Table before
