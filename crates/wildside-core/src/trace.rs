@@ -12601,6 +12601,12 @@ impl NativeRuntime {
             options_controls_scheme: self.options_controls_scheme,
             options_speed_button_fast: self.options_speed_button_fast,
             invulnerable_frames: self.progression.invulnerable_frames,
+            damage_flash_palette_phase_loc_bc56: crate::damage_flash_palette_phase_loc_bc56(
+                self.just_received_damage
+                    || (self.death_shell_snapshot.is_some()
+                        && matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. })),
+                self.progression.invulnerable_frames,
+            ),
             kid_is_invulnerable: self.kid_is_invulnerable,
             just_received_damage: if self.death_shell_snapshot.is_some()
                 && matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. })

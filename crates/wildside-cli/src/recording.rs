@@ -2941,6 +2941,7 @@ mod tests {
             game_mode: GameMode::InGame,
             game_mode_value: GameMode::InGame.as_disassembly_value(),
             time_frames_loc_3038a: 0,
+            damage_flash_palette_phase_loc_bc56: wildside_core::DamageFlashPalettePhase::Normal,
             background_scroll_hidden_wrap_display_phase_loc_3050a: false,
             transform_hscroll_owner_loc_8fe: false,
             transform_auto_scroll_uses_previous_word_loc_7e90: false,

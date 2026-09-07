@@ -2932,6 +2932,44 @@ pub struct HudRasterUploadTimingSub44DC {
     pub first_commit_pixel: u16,
 }
 
+/// Live `Palette_Buffer+$62` choice made by the damage-flash coroutine.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DamageFlashPalettePhase {
+    #[default]
+    Normal,
+    White,
+}
+
+impl DamageFlashPalettePhase {
+    pub const fn is_normal(&self) -> bool {
+        matches!(self, Self::Normal)
+    }
+
+    pub const fn is_white(self) -> bool {
+        matches!(self, Self::White)
+    }
+}
+
+/// Resolve the palette write visible for one damage-worker observation.
+///
+/// ASM loc_BC56/loc_BC5C holds `sub_80BC` white for two hibernates, then
+/// loc_BC6E holds the `sub_80D0` helmet palette for four. The native countdown
+/// starts at 66 and pauses with the object pass during Kid_Transform.
+pub const fn damage_flash_palette_phase_loc_bc56(
+    just_received_damage: bool,
+    invulnerable_frames: usize,
+) -> DamageFlashPalettePhase {
+    if just_received_damage
+        && invulnerable_frames != 0
+        && (66usize.saturating_sub(invulnerable_frames) % 6) < 2
+    {
+        DamageFlashPalettePhase::White
+    } else {
+        DamageFlashPalettePhase::Normal
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct NativeTraceFrame {
@@ -3197,6 +3235,11 @@ pub struct NativeTraceFrame {
     pub options_controls_scheme: u8,
     pub options_speed_button_fast: bool,
     pub invulnerable_frames: usize,
+    /// Palette write selected by the independently scheduled damage worker.
+    /// ASM loc_BC56/sub_80BC writes white for two frames, then loc_BC6E/
+    /// sub_80D0 restores the current helmet palette for four frames.
+    #[serde(default, skip_serializing_if = "DamageFlashPalettePhase::is_normal")]
+    pub damage_flash_palette_phase_loc_bc56: DamageFlashPalettePhase,
     /// ROM `KidIsInvulnerable` byte (`$FFFFFA2B`), separate from the damage
     /// flash countdown above.
     #[serde(default)]
@@ -3618,6 +3661,7 @@ impl Default for NativeTraceFrame {
             options_controls_scheme: 0,
             options_speed_button_fast: false,
             invulnerable_frames: 0,
+            damage_flash_palette_phase_loc_bc56: DamageFlashPalettePhase::Normal,
             kid_is_invulnerable: false,
             just_received_damage: false,
             diamond_power_active: false,
@@ -5672,6 +5716,33 @@ pub(crate) struct OpeningSliceState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn loc_bc56_damage_palette_uses_two_white_then_four_normal_frames() {
+        let phases = (34..=40)
+            .rev()
+            .map(|remaining| damage_flash_palette_phase_loc_bc56(true, remaining))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            phases,
+            vec![
+                DamageFlashPalettePhase::Normal,
+                DamageFlashPalettePhase::Normal,
+                DamageFlashPalettePhase::Normal,
+                DamageFlashPalettePhase::Normal,
+                DamageFlashPalettePhase::White,
+                DamageFlashPalettePhase::White,
+                DamageFlashPalettePhase::Normal,
+            ],
+            "ASM loc_BC56/loc_BC5C/loc_BC6E repeats two sub_80BC white hibernates followed by four sub_80D0 normal hibernates"
+        );
+        assert_eq!(
+            damage_flash_palette_phase_loc_bc56(false, 36),
+            DamageFlashPalettePhase::Normal,
+            "loc_BC40 must not flash while Just_received_damage is clear"
+        );
+    }
 
     #[test]
     fn boss_head_boomerang_animation_loops_stru_3a308_every_four_ticks() {

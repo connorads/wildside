@@ -2715,6 +2715,7 @@ mod tests {
             game_mode: mode,
             game_mode_value: mode.as_disassembly_value(),
             time_frames_loc_3038a: 0,
+            damage_flash_palette_phase_loc_bc56: wildside_core::DamageFlashPalettePhase::Normal,
             background_scroll_hidden_wrap_display_phase_loc_3050a: false,
             transform_hscroll_owner_loc_8fe: false,
             transform_auto_scroll_uses_previous_word_loc_7e90: false,
@@ -18447,6 +18448,11 @@ mod tests {
         trace.frame_index = frame_index;
         trace.invulnerable_frames = invulnerable_frames;
         trace.just_received_damage = invulnerable_frames > 0;
+        trace.damage_flash_palette_phase_loc_bc56 =
+            wildside_core::damage_flash_palette_phase_loc_bc56(
+                trace.just_received_damage,
+                invulnerable_frames,
+            );
         trace.kid_x_velocity = Some(0);
         trace.kid_y_velocity = Some(0);
         trace.kid_facing = Some(Direction::Right);

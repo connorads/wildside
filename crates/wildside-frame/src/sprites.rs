@@ -1304,7 +1304,7 @@ pub fn push_player_sprite_with_priority_and_resident_art(
             x: draw_x,
             y: draw_y,
             tile_sheet: Arc::new(resident_art.unwrap_or(&frame.tile_sheet).clone()),
-            palette: Arc::new(player_palette_for_damage_phase(
+            palette: Arc::new(palette_line_3_for_damage_phase_loc_bc56(
                 &kid_visuals.palette,
                 damage_flash_white_phase,
             )),
@@ -1352,7 +1352,7 @@ pub fn push_player_sprite_with_priority_and_resident_art(
         x: draw_x,
         y: draw_y,
         tile_sheet: Arc::new(resident_art.unwrap_or(&frame.tile_sheet).clone()),
-        palette: Arc::new(player_palette_for_damage_phase(
+        palette: Arc::new(palette_line_3_for_damage_phase_loc_bc56(
             &form_visuals.palette,
             damage_flash_white_phase,
         )),
@@ -1367,7 +1367,10 @@ fn player_palette_for_transform_phase(palette: &Palette, _white_phase: bool) -> 
     palette.clone()
 }
 
-fn player_palette_for_damage_phase(palette: &Palette, white_phase: bool) -> Palette {
+pub(crate) fn palette_line_3_for_damage_phase_loc_bc56(
+    palette: &Palette,
+    white_phase: bool,
+) -> Palette {
     if !white_phase {
         return palette.clone();
     }
@@ -7616,7 +7619,7 @@ mod tests {
         let palette = marked_palette(0x0600);
 
         assert_eq!(
-            player_palette_for_damage_phase(&palette, false)
+            palette_line_3_for_damage_phase_loc_bc56(&palette, false)
                 .colours
                 .iter()
                 .map(|colour| colour.raw_word)
@@ -7628,7 +7631,7 @@ mod tests {
                 .collect::<Vec<_>>(),
             "ASM sub_80BC only whitens the player palette during the flash phase"
         );
-        let player_flash = player_palette_for_damage_phase(&palette, true);
+        let player_flash = palette_line_3_for_damage_phase_loc_bc56(&palette, true);
         assert!(
             player_flash.colours[..12]
                 .iter()

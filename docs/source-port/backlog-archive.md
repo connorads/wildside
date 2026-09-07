@@ -13,6 +13,23 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #495
 
+Follow-up 2026-09-07. The renderer now consumes a typed
+`DamageFlashPalettePhase` derived from the live `Just_received_damage` and
+invulnerability countdown. ASM `loc_BC56/loc_BC5C` selects white for two
+hibernates, then `loc_BC6E -> sub_80D0` restores the current form palette for
+four. The phase travels with the previous-frame VDP latch; omitting that latch
+regressed the census to 258/360 exact, proving the renderer must observe the
+same frame boundary as CRAM and the Sprite Table.
+
+Kid and helmet prizes from `sub_10CB0` share palette line 3 and consume the
+phase. Diamond, Ankh, Clock, and Continue use palette line 0 and remain
+unchanged. A full 64-word CRAM payload and duplicated per-sprite booleans were
+rejected as wider than the proven boundary. The Level `$55` census improves
+291→297 exact frames, 69→63 divergent frames, and 2,232→1,854 changed pixels;
+all 360 state checkpoints remain green. Visual triage confirms the removed
+cluster is not relocated. The remaining frame-35/153 effects are palette-line-0
+residue and must be traced independently.
+
 Follow-up 2026-09-07. The post-timer every-frame census is 291/360 exact,
 69 divergent frames, and 2,232 changed pixels with all 360 authoritative state
 checkpoints green. Oracle CRAM shows Micromax's full body palette in line 3 by

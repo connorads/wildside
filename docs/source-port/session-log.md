@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-07 handoff (typed damage-palette phase)
+
+- `DamageFlashPalettePhase` carries `loc_BC56`'s two-white/four-normal CRAM
+  decision through the previous-frame VDP latch.
+- Kid and palette-line-3 helmet prizes consume the shared phase. Palette-line-0
+  prizes remain outside the write, with a renderer regression covering both.
+- Level `$55` improves from 291 to 297 exact frames and from 2,232 to 1,854
+  changed pixels. All 360 state checkpoints remain green. NEXT: trace the
+  separate palette-line-0 effect residue at frames 35 and 153. See archive #495.
+
 ## 2026-09-07 handoff (full body palette mapping)
 
 - The fresh Level `$55` census is 291/360 exact with 2,232 changed pixels and

@@ -1116,16 +1116,7 @@ impl LayerTags {
 }
 
 fn player_damage_flash_white_phase_loc_bc56(trace: &NativeTraceFrame) -> bool {
-    if !trace.just_received_damage || trace.invulnerable_frames == 0 {
-        return false;
-    }
-    // ASM loc_BC56 starts each damage-flash cycle by calling sub_80BC, then
-    // loc_BC5C holds the white palette for two hibernated frames before
-    // loc_BC6E restores the normal palette for four frames. Native traces
-    // include loc_BC40's initial hibernated observation frame at 66 remaining.
-    // loc_BC56 writes white before loc_BC5C's two hibernated fields, then
-    // loc_BC6E keeps the restored palette for four fields.
-    (66usize.saturating_sub(trace.invulnerable_frames) % 6) < 2
+    trace.damage_flash_palette_phase_loc_bc56.is_white()
 }
 
 pub fn eol_score_sprite_diagnostics(
@@ -1528,6 +1519,8 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.transform_source_helmet_id_loc_7ca6 =
             previous_trace.transform_source_helmet_id_loc_7ca6;
         render_trace.invulnerable_frames = previous_trace.invulnerable_frames;
+        render_trace.damage_flash_palette_phase_loc_bc56 =
+            previous_trace.damage_flash_palette_phase_loc_bc56;
         render_trace.death_windup_elapsed = previous_trace.death_windup_elapsed;
         render_trace.number_hitpoints = previous_trace.number_hitpoints;
         render_trace.extra_hitpoint_slots = previous_trace.extra_hitpoint_slots;
@@ -1605,6 +1598,8 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         // Sprite_Table entry rather than the post-update damage countdown.
         render_trace.invulnerable_frames = previous_trace.invulnerable_frames;
         render_trace.just_received_damage = previous_trace.just_received_damage;
+        render_trace.damage_flash_palette_phase_loc_bc56 =
+            previous_trace.damage_flash_palette_phase_loc_bc56;
         // ASM Mode_Level calls Make_SpriteAttr_HUD/sub_BDC0 before the later
         // GfxObjects_CollisionKid path can reach Check_for_recent_damge
         // loc_B700 or PrizeDiamondCollected loc_10C78, so the visible HUD
@@ -9000,6 +8995,20 @@ fn build_game_scene_filtered(
                     }
                     let retained_demo_sprite_table =
                         trace.resident_gameplay_vdp_camera_loc_300ba.is_some();
+                    let palette = Arc::new(
+                        if graphics_spec.is_some_and(|spec| spec.palette_line == 3) {
+                            // ASM sub_10CB0 gives helmet prizes palette line 3.
+                            // The independent loc_BC56 worker writes the same
+                            // twelve CRAM words used by Kid, so a live white
+                            // phase recolours both GfxObjects together.
+                            sprites::palette_line_3_for_damage_phase_loc_bc56(
+                                &prize_visuals.palette,
+                                trace.damage_flash_palette_phase_loc_bc56.is_white(),
+                            )
+                        } else {
+                            prize_visuals.palette.clone()
+                        },
+                    );
                     // ASM Make_SpritesFromGfxObjects (kid.asm:2558-2576)
                     // appends resident prize-diamond entries to Sprite_Table.
                     // During loc_119D8's resident gameplay fade, the retained
@@ -9013,7 +9022,7 @@ fn build_game_scene_filtered(
                             x: draw_x,
                             y: draw_y,
                             tile_sheet: Arc::new(frame.tile_sheet.clone()),
-                            palette: Arc::new(prize_visuals.palette.clone()),
+                            palette: palette.clone(),
                             tiles,
                         }
                     } else {
@@ -9021,7 +9030,7 @@ fn build_game_scene_filtered(
                             x: draw_x,
                             y: draw_y,
                             tile_sheet: Arc::new(frame.tile_sheet.clone()),
-                            palette: Arc::new(prize_visuals.palette.clone()),
+                            palette,
                             tiles,
                         }
                     };
@@ -10795,11 +10804,17 @@ mod tests {
             game_mode: GameMode::InGame,
             current_level: wildside_core::LevelId(0x55),
             invulnerable_frames: 57,
+            damage_flash_palette_phase_loc_bc56: wildside_core::damage_flash_palette_phase_loc_bc56(
+                true, 57,
+            ),
             just_received_damage: true,
             ..NativeTraceFrame::default()
         };
         let trace = NativeTraceFrame {
             invulnerable_frames: 56,
+            damage_flash_palette_phase_loc_bc56: wildside_core::damage_flash_palette_phase_loc_bc56(
+                true, 56,
+            ),
             ..previous_trace.clone()
         };
 
@@ -10807,15 +10822,23 @@ mod tests {
 
         assert_eq!(render_trace.invulnerable_frames, 57);
         assert!(render_trace.just_received_damage);
+        assert_eq!(
+            render_trace.damage_flash_palette_phase_loc_bc56,
+            previous_trace.damage_flash_palette_phase_loc_bc56,
+            "ASM loc_901 must latch the palette write with the previous damage-worker observation"
+        );
     }
 
     #[test]
     fn damage_palette_phase_counts_from_full_loc_bc56_cycle() {
-        let trace = |invulnerable_frames| NativeTraceFrame {
-            invulnerable_frames,
-            just_received_damage: true,
-            ..NativeTraceFrame::default()
-        };
+        let trace =
+            |invulnerable_frames| NativeTraceFrame {
+                invulnerable_frames,
+                damage_flash_palette_phase_loc_bc56:
+                    wildside_core::damage_flash_palette_phase_loc_bc56(true, invulnerable_frames),
+                just_received_damage: true,
+                ..NativeTraceFrame::default()
+            };
 
         assert!(!player_damage_flash_white_phase_loc_bc56(&trace(40)));
         assert!(player_damage_flash_white_phase_loc_bc56(&trace(36)));
@@ -15855,6 +15878,73 @@ mod tests {
                 "ASM sub_10CB0 DMA suppression must distinguish {label}; loc_102B8 remaining=24 still retains the prior P sprite"
             );
         }
+    }
+
+    #[test]
+    fn damage_palette_recolours_line_3_helmet_prizes_only_loc_bc56_sub_10cb0() {
+        use wildside_core::DamageFlashPalettePhase;
+        use wildside_core::terrain::PrizeContent;
+
+        let mut visuals = sample_level_visuals(0x300);
+        for content in [PrizeContent::RedStealth, PrizeContent::Clock] {
+            let visual = sample_animated_visual(sample_sprite_frame(0));
+            if content == PrizeContent::RedStealth {
+                visuals
+                    .floating_prizes
+                    .helmets
+                    .insert(content.to_id(), visual);
+            } else {
+                visuals
+                    .floating_prizes
+                    .icons
+                    .insert(content.to_id(), visual);
+            }
+        }
+
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            floating_items: vec![
+                (72, 600, 0, PrizeContent::RedStealth.to_id()),
+                (96, 600, 0, PrizeContent::Clock.to_id()),
+            ],
+            damage_flash_palette_phase_loc_bc56: DamageFlashPalettePhase::White,
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("effects"),
+            None,
+        )
+        .0;
+        let palettes = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite { palette, .. } | DrawCommand::SatSprite { palette, .. } => {
+                    Some(palette)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(palettes.len(), 2);
+        assert!(
+            palettes[0]
+                .colours
+                .iter()
+                .take(12)
+                .all(|colour| colour.raw_word == 0x0FFF),
+            "ASM loc_BC56's line-3 CRAM write recolours the helmet prize from sub_10CB0"
+        );
+        assert_eq!(
+            palette_raw_words(palettes[1]),
+            palette_raw_words(&sample_palette()),
+            "ASM PrizeClock_Init uses palette line 0, outside loc_BC56's write"
+        );
     }
 
     #[test]
