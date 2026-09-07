@@ -237,17 +237,26 @@ pub fn sample_scene_pixel_provenance(
             writes: Vec::new(),
         })
         .collect::<Vec<_>>();
+    let mut sat_opaque_pixels = vec![false; diagnostics.len()];
 
     for (command_index, command) in scene.commands.iter().enumerate() {
-        for diagnostic in &mut diagnostics {
+        for (diagnostic_index, diagnostic) in diagnostics.iter_mut().enumerate() {
             let x = i32::try_from(diagnostic.x).expect("screen x fits i32");
             let y = i32::try_from(diagnostic.y).expect("screen y fits i32");
             let Some(mut write) = command_pixel_write(command_index, command, x, y) else {
                 continue;
             };
             write.prior_high_priority = diagnostic.final_high_priority;
-            write.accepted =
-                !matches!(write.priority, Some(false) if diagnostic.final_high_priority);
+            let sat_pixel_already_claimed = matches!(command, DrawCommand::SatSprite { .. })
+                && sat_opaque_pixels[diagnostic_index];
+            write.accepted = !sat_pixel_already_claimed
+                && !matches!(write.priority, Some(false) if diagnostic.final_high_priority);
+            if matches!(command, DrawCommand::SatSprite { .. }) {
+                // ASM Make_SpritesFromGfxObjects loc_14A4 emits SAT order;
+                // the VDP keeps the first opaque sprite pixel even when a
+                // later entry has higher priority.
+                sat_opaque_pixels[diagnostic_index] = true;
+            }
             if write.accepted {
                 if let Some(rgb) = write.rgb {
                     diagnostic.final_rgb = rgb;
@@ -1513,6 +1522,52 @@ mod tests {
         );
 
         assert_eq!(pixel_rgb(&rgb, 10, 10), [1, 2, 3]);
+    }
+
+    #[test]
+    fn scene_pixel_provenance_keeps_the_first_opaque_sat_pixel_loc_14a4() {
+        let tile_sheet = test_tile_sheet();
+        let first_palette = test_palette(16);
+        let mut later_palette = (*test_palette(16)).clone();
+        later_palette.colours[1] = MdColour {
+            red: 90,
+            green: 91,
+            blue: 92,
+            raw_word: 0,
+        };
+        let scene = Scene {
+            background: [0, 0, 0],
+            commands: vec![
+                DrawCommand::SatSprite {
+                    x: 10,
+                    y: 10,
+                    tile_sheet: Arc::clone(&tile_sheet),
+                    palette: first_palette,
+                    tiles: vec![SpriteTile {
+                        offset_x: 0,
+                        offset_y: 0,
+                        tile: test_tile_ref(false),
+                    }],
+                },
+                DrawCommand::SatSprite {
+                    x: 10,
+                    y: 10,
+                    tile_sheet,
+                    palette: Arc::new(later_palette),
+                    tiles: vec![SpriteTile {
+                        offset_x: 0,
+                        offset_y: 0,
+                        tile: test_tile_ref(false),
+                    }],
+                },
+            ],
+            pause_palette_darken: false,
+        };
+        let diagnostics = sample_scene_pixel_provenance(&scene, &BTreeSet::from([(10, 10)]));
+
+        assert_eq!(diagnostics[0].final_rgb, [1, 2, 3]);
+        assert!(diagnostics[0].writes[0].accepted);
+        assert!(!diagnostics[0].writes[1].accepted);
     }
 
     #[test]

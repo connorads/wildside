@@ -6477,17 +6477,32 @@ fn push_prize_block_wobble_sub_1007a(
         }
         build_sprite_tiles(&frame, Direction::Right, 0)
     };
-    // ASM Allocate_GfxObjectSlot loc_FD4 / Make_SpritesFromGfxObjects loc_14A4
-    // keeps the `$2001` sub_1007A worker in the source-ordered SAT chain.
-    // Its low-priority `unk_E0E4E`/`unk_E0E5E` mapping still stays behind
-    // high-priority Scroll A while reserving opaque pixels from later sprites.
-    commands.push(DrawCommand::SatSprite {
-        x,
-        y,
-        tile_sheet: Arc::new(frame.tile_sheet),
-        palette: Arc::new(level_visuals.palettes.foreground.clone()),
-        tiles,
-    });
+    let command = if remaining == 31 && !transform_active {
+        // ASM Mode_Level loc_901 transfers the table before sub_1007A's
+        // current object pass allocates its copied GfxObject. The first
+        // visible `P` page is therefore the resident Scroll-A cell: it does
+        // not reserve opaque SAT pixels against the already-transferred
+        // loc_102B8 flash and helmet prize entries.
+        DrawCommand::Sprite {
+            x,
+            y,
+            tile_sheet: Arc::new(frame.tile_sheet),
+            palette: Arc::new(level_visuals.palettes.foreground.clone()),
+            tiles,
+        }
+    } else {
+        // ASM Allocate_GfxObjectSlot loc_FD4 / Make_SpritesFromGfxObjects
+        // loc_14A4 keeps the `$2001` sub_1007A worker in SAT order after its
+        // first copied mapping becomes presentable.
+        DrawCommand::SatSprite {
+            x,
+            y,
+            tile_sheet: Arc::new(frame.tile_sheet),
+            palette: Arc::new(level_visuals.palettes.foreground.clone()),
+            tiles,
+        }
+    };
+    commands.push(command);
 }
 
 fn prize_block_wobble_presented_y_offset_sub_1007a(
@@ -6887,6 +6902,9 @@ pub fn push_prize_block_wobble_overrides_sub_1007a(
         if block_bounce_kind_for_trace(trace, col, row) != Some(BlockBounceTraceKind::Prize) {
             continue;
         }
+        if remaining == 31 && !transform_vblank_owns_wobble {
+            continue;
+        }
         push_prize_block_wobble_sub_1007a(
             commands,
             level_visuals,
@@ -6940,6 +6958,33 @@ pub fn push_prize_block_wobble_overrides_sub_1007a(
             // GfxObject keeps that settled position through the final sprite.
             i32::from(row) * 16 - camera_y_px + 2,
             4,
+            false,
+        );
+    }
+}
+
+fn push_prize_block_resident_plane_loc_901(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) {
+    if trace.transform_hscroll_owner_loc_8fe {
+        return;
+    }
+    let camera_x_px = (trace.camera_x_pos >> 16) as i32;
+    let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+    for &(col, row, remaining, y_offset) in &trace.block_bounces {
+        if remaining != 31
+            || block_bounce_kind_for_trace(trace, col, row) != Some(BlockBounceTraceKind::Prize)
+        {
+            continue;
+        }
+        push_prize_block_wobble_sub_1007a(
+            commands,
+            level_visuals,
+            i32::from(col) * 16 - camera_x_px,
+            i32::from(row) * 16 - camera_y_px + i32::from(y_offset),
+            remaining,
             false,
         );
     }
@@ -7463,6 +7508,7 @@ fn build_game_scene_filtered(
     if filter.block_overrides {
         push_block_grid_overrides(&mut commands, trace, level_visuals, block_grid);
         push_solid_ghost_transition_sprites_sub_f730(&mut commands, trace, level_visuals);
+        push_prize_block_resident_plane_loc_901(&mut commands, trace, level_visuals);
         layer_tags.mark(SceneLayer::BlockOverrides, commands.len());
     }
     if filter.terrain {
@@ -15711,10 +15757,24 @@ mod tests {
         );
 
         let mut commands = Vec::new();
-        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, 32, 48, 31, false);
+        let resident_trace = NativeTraceFrame {
+            block_bounces: vec![(2, 3, 31, 0)],
+            block_bounce_details: vec![BlockBounceTrace {
+                cell_x: 2,
+                cell_y: 3,
+                x_offset_px: 0,
+                remaining: 31,
+                y_offset_px: 0,
+                kind: BlockBounceTraceKind::Prize,
+            }],
+            ..NativeTraceFrame::default()
+        };
+        push_prize_block_resident_plane_loc_901(&mut commands, &resident_trace, &visuals);
 
-        let DrawCommand::SatSprite { tiles, .. } = commands.single() else {
-            panic!("ASM sub_1007A should emit one source-ordered wobble SAT sprite");
+        let DrawCommand::Sprite { tiles, .. } = commands.single() else {
+            panic!(
+                "ASM loc_901 should retain the resident Scroll-A prize page before sub_1007A's GfxObject allocation"
+            );
         };
         assert_eq!(
             tiles
@@ -15802,8 +15862,8 @@ mod tests {
 
         assert_eq!(
             sat_positions,
-            vec![(100, 92), (32, 32), (68, 68)],
-            "ASM Allocate_GfxObjectSlot loc_FD4 / Make_SpritesFromGfxObjects loc_14A4 sorts Kid `$2000`, then the older sub_1007A `$2001` wobble, then its newly allocated loc_102B8 `$2001` flash"
+            vec![(100, 92), (68, 68)],
+            "ASM Mode_Level loc_901 presents Kid and loc_102B8 from the transferred SAT; sub_1007A's new `$2001` GfxObject is not present until the next table"
         );
 
         trace.transform_hscroll_owner_loc_8fe = true;

@@ -13,6 +13,25 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #495
 
+Follow-up 2026-09-07. Frame 35's final nine pixels were an ownership error,
+not palette, art, or coordinates. The provenance re-walk first had to learn
+VDP first-opaque SAT arbitration; it then identified the remaining-31 `P`
+page as the blocker. ASM `Mode_Level loc_901` transfers the Sprite_Table
+before the current `sub_1007A` pass allocates its copied GfxObject, so this
+first visible page is still the resident Scroll-A cell. Modelling it as a
+SAT entry reproduced 247 of 256 pixels but incorrectly reserved nine opaque
+pixels against the already-transferred `loc_102B8` flash and Micromax prize.
+
+Two lifecycle models were measured. Latching the whole wobble source to the
+previous trace removed the entry and worsened frame 35 from nine to 198
+pixels. Selective SAT suppression would preserve the same false ownership.
+Separating the resident plane presentation from later SAT-owned wobble frames
+makes frame 35 pixel-exact. The full Level `$55` census improves 302→303 exact
+frames and 502→493 changed pixels; all 360 player/camera and enemy checkpoints
+remain green. `verify-slice-fast` and `verify-tas-full` pass; the published
+route remains 37,518/37,759 exact with 2,391 changed pixels. NEXT: classify
+frame 126's 39-pixel cluster.
+
 Follow-up 2026-09-07. Frame 35's 164-pixel cluster was mostly a duplicated
 presentation step on a deleted Micromax prize. `Mode_Level loc_901` transfers
 the preceding Sprite_Table before `PrizeHelmetMicromax_Init loc_106B4` deletes

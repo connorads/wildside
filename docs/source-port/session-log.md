@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-07 handoff (resident prize-block plane ownership)
+
+- Frame 35 is exact. `Mode_Level loc_901` transfers the Sprite_Table before
+  `sub_1007A` allocates its copied GfxObject, so the first remaining-31 `P`
+  page stays a Scroll-A presentation and does not reserve opaque SAT pixels.
+- Level `$55` improves to 303/360 exact and 493 changed pixels with all 360
+  enemy/state checkpoints green. The published route is unchanged at
+  37,518/37,759 exact and 2,391 changed pixels. NEXT: classify frame 126's
+  39-pixel cluster. See archive #495.
+
 ## 2026-09-07 handoff (retained helmet SAT source)
 
 - `Mode_Level loc_901` transfers the already-positioned Micromax helmet entry
