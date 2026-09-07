@@ -13,6 +13,23 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #495
 
+Follow-up 2026-09-07. Frame 96's 350-pixel cluster is block debris, not
+terrain or palette drift. The displayed frame-95 VRAM SAT links five `$8228`
+entries at `(38,42)`, `(42,71)`, `(42,97)`, `(-2,97)`, and `(-2,71)`, exactly
+matching native's typed `sub_2A4C` scratch positions. The renderer hid them
+because its latched transform countdown remained one after `loc_7E90` had
+returned to the suspended `Mode_Level` pass.
+
+Debris visibility now models both edges: countdown zero retains the
+pre-transform `loc_901` table; a live `sub_8E0` owner omits debris during the
+synchronous middle; and owner release presents the resumed `Mode_Level` table
+even while countdown one remains latched. Frame 36 stays at 202 pixels and
+frame 96 falls 350→185. Level `$55` improves 1,838→1,673 changed pixels with
+all 360 player/camera checkpoints green. Forcing cleanup art to Micromax
+`walk[0]` worsened frame 96 to 196 pixels and was reverted. The remaining
+frame-96 residue needs direct `$C4A0` player-art residency evidence. NEXT:
+partition frame 0's independent 237-pixel cluster.
+
 Follow-up 2026-09-07. Frame 35's displayed frame-34 VRAM SAT links the
 terminal `loc_102B8` flash first at `(12,76)` with tile word `$02EA`, then the
 Micromax helmet at `(15,95)` with `$6631`. Native draws the helmet at y=93.

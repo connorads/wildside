@@ -845,9 +845,11 @@ fn block_debris_software_submission_order_sub_2a4c(
 fn block_debris_sprite_table_visible_sub_2a4c(trace: &NativeTraceFrame) -> bool {
     // ASM Mode_Level loc_901 calls sub_2A4C before Make_SpritesFromGfxObjects,
     // but Kid_Transform loc_7CBE/loc_7D22 builds every synchronous frame through
-    // sub_8E0, which omits sub_2A4C. The scratch workers remain alive while their
-    // debris is absent from the transform Sprite_Table.
-    trace.form_change_flash_frames == 0
+    // sub_8E0, which omits sub_2A4C. The latched zero countdown retains the
+    // entry table; after loc_7E90 returns, the live owner changes first and the
+    // resumed Mode_Level table includes debris while the displayed countdown
+    // is still one. The scratch workers remain alive throughout.
+    trace.form_change_flash_frames == 0 || !trace.transform_hscroll_owner_loc_8fe
 }
 
 fn push_block_destroy_debris_sub_292e(
@@ -10462,10 +10464,21 @@ mod tests {
     }
 
     #[test]
-    fn block_debris_sprite_table_is_omitted_during_kid_transform_sub_8e0() {
+    fn block_debris_sprite_table_follows_live_transform_owner_sub_8e0_7e90() {
         let normal = NativeTraceFrame::default();
         let transforming = NativeTraceFrame {
             form_change_flash_frames: 12,
+            transform_hscroll_owner_loc_8fe: true,
+            ..NativeTraceFrame::default()
+        };
+        let entry_latch = NativeTraceFrame {
+            form_change_flash_frames: 0,
+            transform_hscroll_owner_loc_8fe: true,
+            ..NativeTraceFrame::default()
+        };
+        let resumed_cleanup = NativeTraceFrame {
+            form_change_flash_frames: 1,
+            transform_hscroll_owner_loc_8fe: false,
             ..NativeTraceFrame::default()
         };
 
@@ -10476,6 +10489,14 @@ mod tests {
         assert!(
             !block_debris_sprite_table_visible_sub_2a4c(&transforming),
             "ASM Kid_Transform loc_7CBE/loc_7D22 calls sub_8E0, whose Sprite_Table build omits sub_2A4C"
+        );
+        assert!(
+            block_debris_sprite_table_visible_sub_2a4c(&entry_latch),
+            "ASM Kid_Transform loc_7CBE starts after the preceding Mode_Level table is already resident"
+        );
+        assert!(
+            block_debris_sprite_table_visible_sub_2a4c(&resumed_cleanup),
+            "ASM Kid_Transform loc_7E90 returns to Mode_Level, whose resumed table includes sub_2A4C debris while the displayed transform countdown remains latched"
         );
     }
 

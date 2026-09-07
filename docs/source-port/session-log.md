@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-07 handoff (transform-boundary block debris)
+
+- Oracle frame 96's resident SAT links five `$8228` debris entries at native's
+  exact typed `sub_2A4C` positions. The renderer hid them because countdown one
+  remained latched after `loc_7E90` had returned to `Mode_Level`.
+- Debris now survives the pre-transform and resumed cleanup tables but remains
+  absent during synchronous `sub_8E0`. Frame 36 is unchanged; frame 96 falls
+  350→185 pixels. Level `$55` improves 1,838→1,673 changed pixels with all 360
+  player/camera checkpoints green. NEXT: partition frame 0's 237-pixel cluster.
+  See archive #495.
+
 ## 2026-09-07 handoff (transform-entry retained y rejected)
 
 - Frame 35's displayed frame-34 SAT links the `$02EA` terminal flash at
