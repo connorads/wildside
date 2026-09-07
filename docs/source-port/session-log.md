@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-07 handoff (transform-entry SAT identity rejected)
+
+- Frame 35 overlaps the retained Micromax helmet with the `loc_102B8` spawn
+  flash. Advancing the helmet's `loc_901` transferred-SAT marker alongside its
+  reconstructed `loc_104AE` Y position made the intended hardware-order path
+  explicit but did not alter any compared pixel.
+- The trial was reverted. Level `$55` remains 297/360 exact with 1,854 changed
+  pixels and all 360 state checkpoints green. NEXT: compare oracle Sprite
+  Table entries, tile words, and mappings at frames 35 and 153. See archive
+  #495.
+
 ## 2026-09-07 handoff (typed damage-palette phase)
 
 - `DamageFlashPalettePhase` carries `loc_BC56`'s two-white/four-normal CRAM

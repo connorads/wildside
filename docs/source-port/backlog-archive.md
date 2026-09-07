@@ -13,6 +13,17 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #495
 
+Follow-up 2026-09-07. Frame 35's floating Micromax helmet and `loc_102B8`
+spawn flash overlap. The transform-entry reconstruction advances the retained
+helmet through `loc_104AE`, while its `loc_901` transferred-SAT marker keeps
+the pre-advance tuple. A trial advanced the marker with the helmet so the
+renderer emitted a `SatSprite` in the retained hardware order. The focused
+regression passed, but the full Level `$55` census was byte-for-byte unchanged:
+297/360 exact frames, 63 divergent frames, 1,854 changed pixels, and all 360
+state checkpoints green. The trial was reverted. Do not revisit SAT identity
+without direct oracle Sprite Table evidence; trace the prize/flash tile pixels
+and mappings at frames 35 and 153 instead.
+
 Follow-up 2026-09-07. The renderer now consumes a typed
 `DamageFlashPalettePhase` derived from the live `Just_received_damage` and
 invulnerability countdown. ASM `loc_BC56/loc_BC5C` selects white for two
