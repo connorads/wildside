@@ -12377,6 +12377,31 @@ mod chunk_09 {
         let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
         runtime.boot_to_level_for_recording_oracle(level);
         runtime.settle_recording_oracle_warp_live_window(level);
+        let handoff = runtime.trace_frame();
+        let lower_parent = handoff
+            .active_objects
+            .iter()
+            .filter(|object| {
+                matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x1A })
+                    && object.hit_points != Some(0)
+            })
+            .min_by_key(|object| object.x_pos)
+            .expect("Level 0x55 handoff should export the lower Driller parent");
+        assert_eq!(lower_parent.x_pos, 0x000C_0000);
+        assert_eq!(lower_parent.facing, Some(Direction::Right));
+        let mut lower_child_x = handoff
+            .active_objects
+            .iter()
+            .filter(|object| {
+                matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x1A })
+                    && object.layout_index == lower_parent.layout_index
+                    && object.hit_points == Some(0)
+            })
+            .map(|object| object.x_pos)
+            .collect::<Vec<_>>();
+        lower_child_x.sort_unstable();
+        assert_eq!(lower_child_x, vec![0xFFFF_0000, 0x0024_0000]);
+
         runtime.step_frame(FrameInput::default());
 
         let lower = runtime

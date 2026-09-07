@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-07 handoff (Driller frame-zero roster export)
+
+- The Level `$55` recording hand-off completed the lower Driller's
+  `loc_3C152 -> loc_3C026` turn in live state but left `active_objects` stale
+  until the first ordinary step. Frame 0 alone therefore rendered the
+  pre-turn facing and child position.
+- The boundary now rebuilds the enemy roster after the turn. A cache-backed
+  regression pins the pre-step parent facing and child x positions. Frame 0's
+  237-pixel cluster becomes exact; the full census improves to 299/360 exact
+  and 1,436 changed pixels with all 360 enemy/state checkpoints green. NEXT:
+  partition frame 124's 203-pixel cluster. See archive #495.
+
 ## 2026-09-07 handoff (transform-boundary block debris)
 
 - Oracle frame 96's resident SAT links five `$8228` debris entries at native's

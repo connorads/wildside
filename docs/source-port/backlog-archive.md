@@ -13,6 +13,22 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #495
 
+Follow-up 2026-09-07. Frame 0's 237-pixel cluster was the lower Driller's
+stale exported sprite roster, not its live state, animation clock, palette, or
+tile page. The recording hand-off completed `loc_3C152 -> loc_3C026`, changed
+the parent to face right, and re-pinned its right child at x=`$24`, but did not
+rebuild `active_objects` after that final correction. The first visible
+`Mode_Level loc_901` transfer therefore consumed the pre-turn parent facing;
+the first ordinary step rebuilt the roster, explaining why frames 1 onward
+were already exact.
+
+The boundary now rebuilds the exported roster immediately after the turn. A
+cache-backed regression pins the pre-step parent facing and child x positions
+`$FFFF/$0024`. The frame-0 48x32 crop becomes pixel-exact, and the full Level
+`$55` census improves 298→299 exact frames and 1,673→1,436 changed pixels with
+all 360 enemy/state checkpoints green. NEXT: partition frame 124's independent
+203-pixel cluster.
+
 Follow-up 2026-09-07. Frame 96's 350-pixel cluster is block debris, not
 terrain or palette drift. The displayed frame-95 VRAM SAT links five `$8228`
 entries at `(38,42)`, `(42,71)`, `(42,97)`, `(-2,97)`, and `(-2,71)`, exactly

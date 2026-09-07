@@ -1397,6 +1397,7 @@ impl NativeRuntime {
     /// Reconcile the collapsed recording shell when a left-edge Driller is
     /// stomped on the same boundary pass that turns through loc_3C152.
     fn reconcile_recording_handoff_driller_boundary_turn_loc_3c026(&mut self) {
+        let mut changed = false;
         for enemy in &mut self.active_enemies {
             let Some(children) = enemy.driller_children.as_mut() else {
                 continue;
@@ -1421,6 +1422,14 @@ impl NativeRuntime {
             enemy.facing = Direction::Right;
             enemy.shared_walker_right_turn_extra_step_consumed = true;
             children.right.x_pos = (enemy.x_pos >> 16) as i32 + DRILLER_DRILL_CHILD_X_OFFSET;
+            changed = true;
+        }
+        if changed {
+            // ASM Mode_Level loc_80C builds the Sprite_Table after the
+            // loc_3C152 -> loc_3C026 turn and child re-pin. The recording
+            // boundary must export that completed GfxObject state before its
+            // first visible loc_901 transfer, not wait for the next step.
+            self.rebuild_active_enemy_roster();
         }
     }
 
