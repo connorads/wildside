@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-07 handoff (retained helmet SAT source)
+
+- `Mode_Level loc_901` transfers the already-positioned Micromax helmet entry
+  before `PrizeHelmetMicromax_Init loc_106B4` deletes its worker. Reapplying
+  `sub_10C38/loc_104AE` presentation motion displaced that retained sprite.
+- The corrected anchor and terminal `loc_102B8` flash ordering reduce frame 35
+  from 164 to nine pixels. Level `$55` remains 302/360 exact and improves from
+  657 to 502 changed pixels. NEXT: resolve the nine displayed-VRAM/SAT overlap
+  pixels, then take frame 126's 39-pixel cluster. See archive #495.
+
 ## 2026-09-07 handoff (transform-cleanup player split)
 
 - Oracle SAT, `$C4A0` FIFO timing, and layer provenance show frame 96 is the

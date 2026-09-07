@@ -8883,6 +8883,7 @@ fn build_game_scene_filtered(
             );
         }
 
+        let mut deferred_transferred_prize_commands = Vec::new();
         let mut deferred_collected_diamond_commands = Vec::new();
         // Floating prize items: small coloured shape rising upward
         for (x_px, y_px, remaining, content_id, is_collected_diamond_flight) in trace
@@ -8968,8 +8969,12 @@ fn build_game_scene_filtered(
                 continue;
             }
             let fx = i32::from(x_px) - (trace.camera_x_pos >> 16) as i32;
-            let fy = i32::from(floating_prize_display_y_loc_104ae(content, y_px, remaining))
-                - (trace.camera_y_pos >> 16) as i32;
+            let presented_y_px = if transferred_from_previous_sprite_table {
+                y_px
+            } else {
+                floating_prize_display_y_loc_104ae(content, y_px, remaining)
+            };
+            let fy = i32::from(presented_y_px) - (trace.camera_y_pos >> 16) as i32;
             let graphics_spec = floating_item_graphics_spec(content_id);
             if let Some(prize_visuals) = floating_prize_visuals(level_visuals, content_id) {
                 if !floating_prize_sprite_visible_loc_103b2(content, remaining) {
@@ -9059,6 +9064,8 @@ fn build_game_scene_filtered(
                         && !trace.prize_diamond_hud_flight_transferred_loc_fe3e
                     {
                         deferred_collected_diamond_commands.push(command);
+                    } else if transferred_from_previous_sprite_table {
+                        deferred_transferred_prize_commands.push(command);
                     } else {
                         commands.push(command);
                     }
@@ -9113,8 +9120,10 @@ fn build_game_scene_filtered(
         }
 
         // ASM sub_1007A spawns the loc_102B8 flash at object priority #$2001
-        // and Prize_Init at #$1FFF, so the flash sprite wins overlapped pixels;
-        // draw it after the floating prizes to keep that ordering.
+        // and Prize_Init at #$1FFF. Make_SpritesFromGfxObjects loc_14A4 links
+        // the flash first, so its opaque pixels win over a retained prize SAT
+        // entry. Ordinary live prizes remain in painter order above; only
+        // entries already marked as loc_901 transfers join this SAT chain.
         for &(x_px, y_px, remaining) in &trace.prize_block_spawn_flashes {
             let camera_x_px = (trace.camera_x_pos >> 16) as i32;
             let camera_y_px = (trace.camera_y_pos >> 16) as i32;
@@ -9128,6 +9137,7 @@ fn build_game_scene_filtered(
                 remaining,
             );
         }
+        commands.extend(deferred_transferred_prize_commands);
         commands.extend(deferred_collected_diamond_commands);
 
         if trace.heady_metal_death_splits.is_empty() {
@@ -11167,6 +11177,63 @@ mod tests {
             diamond_tiles.iter().all(|tile| tile.tile.priority),
             "ASM PrizeDiamondCollected_Init loc_FE3E sets the replacement mapping's VDP priority bit"
         );
+    }
+
+    #[test]
+    fn terminating_helmet_uses_transferred_anchor_after_flash_loc_901_102b8() {
+        use wildside_core::terrain::PrizeContent;
+
+        let mut visuals = sample_level_visuals(0x300);
+        visuals.floating_prizes.helmets.insert(
+            PrizeContent::Micromax.to_id(),
+            sample_animated_visual(sample_sprite_frame(0)),
+        );
+        let previous_trace = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            prize_worker_sprites: Vec::new(),
+            floating_items: vec![(24, 115, 778, PrizeContent::Micromax.to_id())],
+            prize_block_spawn_flashes: vec![(24, 88, 2)],
+            ..NativeTraceFrame::default()
+        };
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            prize_block_spawn_flashes: vec![(24, 88, 1)],
+            ..NativeTraceFrame::default()
+        };
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous_trace));
+
+        let scene = build_game_scene_filtered(
+            &render_trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("effects"),
+            None,
+        )
+        .0;
+
+        let [
+            DrawCommand::SatSprite {
+                y: flash_y,
+                tiles: flash_tiles,
+                ..
+            },
+            DrawCommand::SatSprite {
+                y: helmet_y,
+                tiles: helmet_tiles,
+                ..
+            },
+        ] = scene.commands.as_slice()
+        else {
+            panic!("ASM loc_102B8 must precede loc_901's retained sub_10CB0 helmet SAT entry");
+        };
+        assert_eq!(*flash_y, 76);
+        assert_eq!(flash_tiles.len(), 9);
+        assert_eq!(
+            *helmet_y, 107,
+            "ASM Mode_Level loc_901 transfers the already-positioned helmet GfxObject; the renderer must not apply sub_10C38 motion twice"
+        );
+        assert_eq!(helmet_tiles.len(), 1);
     }
 
     #[test]

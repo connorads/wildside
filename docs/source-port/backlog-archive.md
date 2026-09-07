@@ -13,6 +13,25 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #495
 
+Follow-up 2026-09-07. Frame 35's 164-pixel cluster was mostly a duplicated
+presentation step on a deleted Micromax prize. `Mode_Level loc_901` transfers
+the preceding Sprite_Table before `PrizeHelmetMicromax_Init loc_106B4` deletes
+the worker. That entry already contains the position produced by `sub_10C38`;
+running the live-prize `loc_104AE` reconstruction on the retained tuple moved
+the displayed mapping two pixels again. The displayed SAT also keeps the
+terminal `loc_102B8` flash before the retained helmet.
+
+Two distinct order models were measured. Keeping the corrected anchor but
+ordinary painter order left 21 pixels. Moving every flash before Kid reduced
+the result to six pixels but contradicted the oracle GfxObject chain and was
+reverted. Applying SAT order only to the marked retained entry reduces frame
+35 from 164 to nine pixels without changing any exact frame. The full Level
+`$55` census remains 302/360 exact and improves 657→502 changed pixels; all
+360 player/camera and enemy checkpoints remain green. The nine residual pixels
+are a separate displayed-VRAM/SAT overlap discriminator, not grounds for a
+coordinate or global painter special case. NEXT: resolve those nine pixels,
+then take frame 126's 39-pixel cluster.
+
 Follow-up 2026-09-07. Frame 96's remaining 185 pixels were a transform-cleanup
 presentation split, not block debris, palette selection, or a different
 Micromax asset. Layer provenance assigns every changed pixel to the player.
