@@ -13,6 +13,19 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #495
 
+Follow-up 2026-09-07. Frame 35's displayed frame-34 VRAM SAT links the
+terminal `loc_102B8` flash first at `(12,76)` with tile word `$02EA`, then the
+Micromax helmet at `(15,95)` with `$6631`. Native draws the helmet at y=93.
+This rules out both missing art and reversed SAT order.
+
+A second trial made the retained `loc_901` transfer y own transform-entry
+presentation instead of applying `loc_104AE`'s normal reconstructed lag. Its
+focused renderer test passed, but the every-frame Level `$55` census remained
+byte-for-byte unchanged at 298/360 exact, 62 divergent, and 1,838 changed
+pixels; all 360 player/camera checkpoints still match. The trial was reverted.
+Do not revisit transfer-marker identity or retained-y selection without a new
+discriminator. NEXT: take frame 96's independent 350-pixel cluster.
+
 Follow-up 2026-09-07. Direct oracle VRAM/SAT evidence resolves frame 153.
 The checkpoint PNG displays the table already resident at VRAM `$1000`; the
 same-number probe dump is post-checkpoint state for the following display.

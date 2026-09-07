@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-07 handoff (transform-entry retained y rejected)
+
+- Frame 35's displayed frame-34 SAT links the `$02EA` terminal flash at
+  `(12,76)` before the `$6631` Micromax helmet at `(15,95)`. Native draws the
+  helmet at y=93, so missing art and reversed SAT order are ruled out.
+- A retained `loc_901` y-source trial passed its focused renderer test but left
+  the full census unchanged. It was reverted. Level `$55` remains 298/360
+  exact and 1,838 changed pixels. NEXT: partition frame 96's 350-pixel cluster.
+  See archive #495.
+
 ## 2026-09-07 handoff (collected-diamond creation SAT latch)
 
 - Oracle checkpoint frame 153 displays the frame-152 resident VRAM SAT. It
