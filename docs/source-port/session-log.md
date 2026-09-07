@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-07 handoff (transform-entry mixed Sprite_Table)
+
+- Oracle SAT and ASM show frame 36 retains Kid's earlier entry but rewrites
+  the after-Kid Micromax prize GfxObject as the linked `off_8176` mask during
+  synchronous `Kid_Transform -> sub_8E0`.
+- Whole-player and reconstructed-mask trials worsened the 202-pixel residue to
+  663/420 and were reverted. NEXT: decode `LnkTo_unk_ABA68` exactly from the
+  oracle SAT/VRAM words and replace the retained prize GfxObject in place. See
+  archive #495.
+
 ## 2026-09-07 handoff (global airborne mapping threshold)
 
 - Direct oracle watches keep `$FFFFFAAA=0` through Micromax's frame-124 apex.

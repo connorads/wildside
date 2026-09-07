@@ -13,6 +13,26 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #495
 
+Follow-up 2026-09-07. Frame 36 is an object-order-dependent mixed Sprite_Table,
+not a whole-player transform latch. Oracle frame-36 SAT contains Kid at tile
+`$6625` followed by the linked Micromax mask at `$662E`; `Currently_transforming`
+and `Current_Helmet` change on that field. ASM explains the split:
+`PrizeHelmetMicromax_Init loc_106B4` resumes after Kid's `Execute_Objects
+loc_E1E` slot, then `Kid_Transform loc_7D7C/loc_7D80 -> sub_8E0` rebuilds the
+table synchronously. The parent Kid entry remains from the earlier pass while
+the prize GfxObject is rewritten as the linked mask.
+
+Three designs were tested or rejected. Removing the transform-entry latch
+globally contradicts the already verified before-Kid `Mode_Level loc_901`
+path. A form/countdown heuristic cannot distinguish object order. Exporting
+the existing after-player runtime flag correctly selects this route, but
+feeding the current transform tuple to the existing reconstructed mask path
+worsened frame 36 from 202 to 663 changed pixels; retaining Kid while adding
+that mask still worsened it to 420. Both trials were reverted. The next step is
+to decode and render the exact `off_8176[Micromax] = LnkTo_unk_ABA68` linked
+mapping from the oracle SAT/VRAM words, then replace the retained floating
+prize GfxObject in place. Do not retry another player-latch heuristic.
+
 Follow-up 2026-09-07. Frame 124's 203-pixel cluster splits into 196 player
 pixels and seven independent HUD life-icon pixels. Direct oracle watches at
 frames 121..126 hold `$FFFFFAAA=0` while Kid's y velocity crosses
