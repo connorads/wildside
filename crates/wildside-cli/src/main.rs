@@ -27,6 +27,8 @@ mod ram_diff;
 mod raster_span;
 mod recording;
 mod release_gate;
+#[cfg(test)]
+mod replay_exploration;
 mod rust_source_context;
 mod scenarios;
 mod sweep;

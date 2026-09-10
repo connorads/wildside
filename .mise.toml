@@ -101,6 +101,7 @@ run = """
 sh -ec '
 python3 scripts/core_test_exclusions.py \
   && cargo test -q -p wildside-cli gameplay_regression_ \
+  && cargo test -q -p wildside-cli replay_exploration:: \
   && python3 scripts/test_tas_pixel_gate.py \
   && cargo test -q -p wildside-rom
 '
