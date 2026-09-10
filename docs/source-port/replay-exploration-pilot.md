@@ -83,3 +83,29 @@ The neutral control's RNG parity is an independent prerequisite. Gameplay and
 enemy agreement do not establish equality of the RNG offset and ring. A
 control-only RNG divergence produces an inconclusive pilot and a repeat of the
 same control; it does not justify changing the seed or weakening admission.
+
+## Recorded pilot outcome
+
+The 2026-09-10 pilot is **Inconclusive**. The neutral control fails RNG parity
+before search, so all three seeds have zero completed pairs. This provides no
+evidence for or against archive-guided exploration.
+
+The [compact evidence record](replay-exploration-pilot-evidence.json) identifies
+the committed harness, ROM and oracle helper. Both control executions contain
+420 complete checkpoints and RNG frames. Player/camera CRCs and the compared
+non-RNG gameplay/enemy fields match. RNG offsets differ at all 420 checkpoints;
+the ring differs at 419. Counts deduplicate fields emitted by both frontiers.
+At frame 0, the native offset is `0xffe6` and the oracle offset is `0xffe7`;
+ring byte 30 is respectively `0xb4` and `0xda`.
+
+The identical control replay reproduces the complete native state array,
+oracle state array, oracle CRC/RNG streams and assessment. The two executions
+take about 13 seconds together. The root cause is untraced. The checked-in
+neutral scenario reproduces the finding without a gameplay change.
+
+Manual inspection of preflight native/oracle images at frames 0, 59 and 419
+shows the expected live level and corresponding scene content. This is not an
+every-frame pixel comparison. The implementation passes `verify-slice-fast`,
+including 12 deterministic harness tests. The two live entrypoints are ignored
+in ordinary test runs; the pilot entrypoint successfully records this negative
+outcome, while the strict control entrypoint reports the RNG failure.

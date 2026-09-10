@@ -1,0 +1,117 @@
+{
+  "run": "1789005613338-49031",
+  "provenance": {
+    "budget": "equal complete 420-frame replays, each with the identical settled-warp bootstrap",
+    "candidates_per_method_per_seed": 40,
+    "elapsed_includes": "control, native execution, oracle bootstrap/replay, evidence IO and reproduction; excludes build/setup",
+    "execution_cap_seconds": 7200,
+    "oracle_binary_sha1": "42b5add938e65477dfbc5dcfa937d398c1cb08da",
+    "oracle_template_version": "95d0542da9a3980f5c61a7809db4ef3f427e3360",
+    "random_algorithm": "SplitMix64 with rejection sampling",
+    "reproduction_reserve_seconds": 900,
+    "revision": "a179eb3be0377115815dd9a1e4eddcd1c4a634f4",
+    "rom_sha1": "28b904000b2863b6760531807760b571f1a5fc1d",
+    "scenario_frames_per_candidate": 420,
+    "seeds": [
+      0,
+      1,
+      2
+    ]
+  },
+  "working_tree_clean": true,
+  "summary": {
+    "completed_pairs": [
+      0,
+      0,
+      0
+    ],
+    "control": "divergent: level=54:movement=0:Rng/rng_offset,Rng/rng_ring,rng_stream",
+    "reason": "neutral control is not fully comparable",
+    "verdict": "Inconclusive"
+  },
+  "reproductions": [
+    {
+      "reproduced": true,
+      "result": "divergent: level=54:movement=0:Rng/rng_offset,Rng/rng_ring,rng_stream",
+      "signature": "level=54:movement=0:Rng/rng_offset,Rng/rng_ring,rng_stream",
+      "source": "control"
+    }
+  ],
+  "observations": {
+    "native_frames": 420,
+    "oracle_frames": 420,
+    "oracle_rng_frames": 420,
+    "first_rng_mismatch_frame": 0,
+    "player_camera_crc_mismatch": null,
+    "non_rng_comparison_differences": 0,
+    "unique_mismatching_frames_by_field": {
+      "rng_ring": 419,
+      "rng_offset": 420
+    },
+    "counting_rule": "Deduplicate checkpoint/field pairs emitted by both comparison frontiers.",
+    "examples": [
+      {
+        "frame": 0,
+        "native_offset": "0xffe6",
+        "oracle_offset": "0xffe7",
+        "ring_differences": [
+          {
+            "index": 30,
+            "native": 180,
+            "oracle": 218
+          }
+        ]
+      },
+      {
+        "frame": 59,
+        "native_offset": "0xfff6",
+        "oracle_offset": "0xfff7",
+        "ring_differences": [
+          {
+            "index": 46,
+            "native": 112,
+            "oracle": 90
+          }
+        ]
+      },
+      {
+        "frame": 419,
+        "native_offset": "0xffc9",
+        "oracle_offset": "0xffca",
+        "ring_differences": [
+          {
+            "index": 1,
+            "native": 239,
+            "oracle": 79
+          }
+        ]
+      }
+    ]
+  },
+  "reproduction": {
+    "native_states_identical": true,
+    "oracle_states_identical": true,
+    "oracle_frame_crcs_identical": true,
+    "oracle_frame_rng_states_identical": true,
+    "assessment_identical": true,
+    "canonical_json_sha256": {
+      "native_states": "44499171289703acc2061ccc29b909172ded451b37388de7ce80d858fb1174b0",
+      "oracle_states": "573b0dc6a9ab9e064d1b7405797ac7da166a26ab2596e9a917072bb20473ed26",
+      "oracle_frame_crcs": "d9840db72c0fc703daeef8885b49edeec567f7e120d3ee16a2c7c18b83ca7988",
+      "oracle_frame_rng_states": "b5963d289e20e8e76ba92808d74e6c880d4310be60720ef8f6376f3498f86bce"
+    }
+  },
+  "timings": {
+    "control": {
+      "elapsed_seconds": 6.619875208,
+      "pilot_elapsed_seconds": 6.6308235,
+      "scenario_frames": 420
+    },
+    "control-reproduction": {
+      "elapsed_seconds": 6.437040208,
+      "pilot_elapsed_seconds": 13.080028209,
+      "scenario_frames": 420
+    }
+  },
+  "interpretation": "Inconclusive before search. RNG control parity fails reproducibly; root cause is untraced. No archive-versus-restart comparison is available."
+}
