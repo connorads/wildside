@@ -1,5 +1,7 @@
 //! Private #372 experiment. The saved controller stream is replay authority.
 
+mod service;
+
 use super::*;
 use anyhow::ensure;
 use serde_json::{Value, json};
@@ -74,16 +76,29 @@ impl Episode {
             if self.script.len() >= MAX_FRAMES {
                 break;
             }
-            let mut trace = self.runtime.step_frame(FrameInput::from_mask(mask));
+            // ASM Mode_Level: match recording_script_buttons_at_frame's delayed feed.
+            let applied = self.script.last().copied().unwrap_or_default();
+            let mut trace = self.runtime.step_frame(FrameInput::from_mask(applied));
             trace.level_skip_cheat_enabled = 1;
             self.encounter
                 .observe(self.script.len(), &trace, self.target);
             self.script.push(mask);
             self.trace.push(trace);
+            if self.ended() {
+                break;
+            }
             if self.encounter.complete(self.script.len() - 1) {
                 break;
             }
         }
+    }
+
+    fn ended(&self) -> bool {
+        self.trace.last().is_some_and(|trace| {
+            trace.number_hitpoints == 0
+                || trace.current_level != LevelId(0)
+                || trace.game_mode != GameMode::InGame
+        })
     }
 
     fn observation(&self) -> Value {
@@ -101,7 +116,11 @@ impl Episode {
                     if cell.block_type == BlockType::Prize {
                         prizes.push(json!({"cell": [col, row], "x": px, "y": py}));
                     }
-                    if (px - x).abs() <= 112 && (py - y).abs() <= 96 {
+                    if (px - x).abs() <= 112
+                        && (py - y).abs() <= 96
+                        && (cell.has_block
+                            || cell.collision != wildside_core::terrain::CollisionKind::Empty)
+                    {
                         terrain.push(json!({"cell": [col, row], "x": px, "y": py,
                             "collision": format!("{:?}", cell.collision),
                             "block": format!("{:?}", cell.block_type)}));
@@ -111,7 +130,7 @@ impl Episode {
         }
         json!({
             "goal": "Hit the target prize block from below with your head, then release controls to watch its animation.",
-            "coordinates": "Pixels; x grows right, y grows down. Terrain cells are 16x16. Kid position is his centre.",
+            "coordinates": "Pixels; x grows right, y grows down. Terrain cells are 16x16. Kid position is his centre. Unlisted nearby cells are empty.",
             "frame": self.script.len(), "target_cell": self.target,
             "target_centre_x": i32::from(self.target.0) * 16 + 8,
             "target_bottom_y": i32::from(self.target.1) * 16 + 16,
@@ -121,13 +140,24 @@ impl Episode {
                 "grounded": trace.kid_on_ground, "hp": trace.number_hitpoints,
                 "form": trace.current_helmet_id},
             "terrain": terrain, "prizes": prizes,
-            "enemies": trace.active_enemy_details,
+            "enemies": trace.active_enemy_details.iter().filter_map(|enemy| {
+                let ex = enemy.x_pos as i32 >> 16;
+                let ey = enemy.y_pos as i32 >> 16;
+                ((ex - x).abs() <= 192).then(|| json!({"kind": enemy.kind,
+                    "x": ex, "y": ey, "dx": ex-x, "dy": ey-y, "hp": enemy.hit_points}))
+            }).collect::<Vec<_>>(),
             "recent_masks": self.script.iter().rev().take(24).copied().collect::<Vec<_>>(),
             "target_hit": self.encounter.first.is_some()
+            ,"buttons_held": {"left": self.script.last().is_some_and(|mask| mask & 4 != 0),
+                "right": self.script.last().is_some_and(|mask| mask & 8 != 0),
+                "jump": self.script.last().is_some_and(|mask| mask & 16 != 0)},
+            "jump_requires_release": trace.kid_on_ground == Some(true)
+                && self.script.last().is_some_and(|mask| mask & 16 != 0)
         })
     }
 
     fn save(mut self, manifest: &AssetManifest, directory: &Path, reason: &str) -> Result<()> {
+        ensure!(!directory.exists(), "episode output must be fresh");
         ensure!(!self.script.is_empty(), "no frames applied");
         rebase_trace_frame_indices(&mut self.trace);
         let slug = directory
@@ -173,7 +203,8 @@ fn prepare() -> Result<(PathBuf, AssetManifest)> {
         .duration_since(std::time::UNIX_EPOCH)?
         .as_millis();
     let output = root.join(".cache/jev-playtest").join(format!("{stamp}"));
-    fs::create_dir_all(&output)?;
+    fs::create_dir_all(output.parent().context("output parent")?)?;
+    fs::create_dir(&output)?;
     println!("Jev evidence: {}", output.display());
     Ok((output, manifest))
 }
@@ -207,8 +238,7 @@ fn gameplay_regression_jev_requires_target_prize_worker_sub_1007a() {
 }
 
 #[test]
-#[ignore = "requires ROM and generated assets; records the private no-network control"]
-fn control() -> Result<()> {
+fn gameplay_regression_jev_recording_feed() -> Result<()> {
     let (output, manifest) = prepare()?;
     let mut episode = Episode::new(&manifest, (8, 12))?;
     fs::write(
@@ -226,5 +256,42 @@ fn control() -> Result<()> {
         episode.script == vec![0; BATCH],
         "incorrect applied frame count"
     );
+    for mask in [8, 24, 24, 0, 4, 0] {
+        episode.advance(mask);
+    }
     episode.save(&manifest, &output.join("control"), "control_complete")
+}
+
+#[test]
+#[ignore = "requires explicit TYPESAFE_API_KEY; spends at most $1 on the bounded private pilot"]
+fn pilot() -> Result<()> {
+    service::run()
+}
+
+#[test]
+#[ignore = "requires ROM and generated assets; tests target reachability without a model"]
+fn scripted_case() -> Result<()> {
+    let (output, manifest) = prepare()?;
+    let mut episode = Episode::new(&manifest, (8, 12))?;
+    // ASM sub_1007A: a natural head strike must create the selected prize worker.
+    for mask in std::iter::repeat_n(8, 8)
+        .chain(std::iter::repeat_n(16, 4))
+        .chain(std::iter::repeat_n(0, 5))
+        .chain(std::iter::repeat_n(16, 8))
+        .chain(std::iter::repeat_n(0, 60))
+    {
+        episode.advance(mask);
+        if episode.encounter.complete(episode.script.len() - 1) || episode.ended() {
+            break;
+        }
+    }
+    println!("Scripted control encounter: {:?}", episode.encounter);
+    let reached = episode.encounter.first.is_some();
+    episode.save(
+        &manifest,
+        &output.join("scripted-control"),
+        "scripted_control",
+    )?;
+    ensure!(reached, "scripted control did not hit the target");
+    Ok(())
 }
