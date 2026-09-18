@@ -1,0 +1,153 @@
+{
+  "date": "2026-09-18",
+  "issue": 372,
+  "verdict": "inconclusive",
+  "model": "jev-1.13.0",
+  "rom_sha1": "28b904000b2863b6760531807760b571f1a5fc1d",
+  "recorded_engine_revision": "d293a372847d01cb12de8a0a1fc9235f32386249",
+  "recorded_tree_dirty": true,
+  "source_note": "Private harness and adapter changes were uncommitted during collection; engine sources were unchanged.",
+  "target": {
+    "level": 0,
+    "cell": [
+      8,
+      12
+    ]
+  },
+  "model_attempts": [
+    {
+      "run": "1789697295663",
+      "attempt": 1,
+      "frames": 432,
+      "requests": 73,
+      "outcome": "harness_replay_failure",
+      "first_replay_drift": 1,
+      "script_sha1": "ac3a60256b7abc675149d4614dfa2bf1690b9650"
+    },
+    {
+      "run": "1789697507842",
+      "attempt": 1,
+      "frames": 129,
+      "requests": 22,
+      "outcome": "not_exercised",
+      "exact_native_replay": true,
+      "script_sha1": "6b71216862c56e02cf44c28e85f7a7a108e664d5"
+    },
+    {
+      "run": "1789697507842",
+      "attempt": 2,
+      "frames": 129,
+      "requests": 22,
+      "outcome": "not_exercised",
+      "exact_native_replay": true,
+      "script_sha1": "6b71216862c56e02cf44c28e85f7a7a108e664d5"
+    }
+  ],
+  "api": {
+    "requests": 117,
+    "successful_requests": 116,
+    "reported_input_tokens": 472174,
+    "known_cost_usd": 0.019831308,
+    "cost_upper_bound_usd": 0.022519308,
+    "median_successful_request_ms": 695
+  },
+  "scripted_control": {
+    "run": "1789697657267",
+    "scenario": "tests/data/dynamic-scenarios/issue-372-forest-prize-natural-control.json",
+    "frames": 173,
+    "script_sha1": "e4006bfb2cf5d211946f21832461141b25b598cb",
+    "exact_native_replay": true,
+    "hit_frame": 112,
+    "last_worker_frame": 142,
+    "captured_range_inclusive": [
+      82,
+      172
+    ],
+    "oracle_state_match": false,
+    "rng_offset_mismatched_frames": 173,
+    "initial_rng_offset": {
+      "native": 65522,
+      "oracle": 65523
+    },
+    "whole_frame_pixels": {
+      "frames_compared": 91,
+      "frames_with_pixel_differences": 47,
+      "total_changed_pixels": 3738
+    },
+    "target_crop": {
+      "world_crop": [
+        128,
+        176,
+        16,
+        36
+      ],
+      "frames_compared": 91,
+      "different_frames": [
+        [
+          148,
+          2
+        ],
+        [
+          149,
+          2
+        ],
+        [
+          160,
+          8
+        ],
+        [
+          161,
+          13
+        ],
+        [
+          166,
+          38
+        ],
+        [
+          167,
+          39
+        ],
+        [
+          172,
+          32
+        ]
+      ]
+    },
+    "active_wobble_crop": {
+      "range_inclusive": [
+        112,
+        142
+      ],
+      "frames_compared": 31,
+      "changed_pixels": 0
+    },
+    "visual_review": "Copied P block remains visible while rising and falling over forest art in native and oracle. Later target-crop and HUD differences remain recorded.",
+    "images": {
+      "110": {
+        "native_png_sha256": "83926ebfeffa3177290fe8efde9d8c8a395130590bde802061e06c72539a5798"
+      },
+      "112": {
+        "native_png_sha256": "b2b6bfafaf9c448a3ec52bdcb05c46478c603090124c722668b709bb305a8d9f"
+      },
+      "118": {
+        "native_png_sha256": "39324d4addd5fa7c853eb5eb90d6a0ab3bf6a88333d77b2feb6b55093d153312"
+      },
+      "124": {
+        "native_png_sha256": "1c9760645771f0cdab1cd2a022bea86693e15802e11f7d62601f752da9d9e244"
+      },
+      "130": {
+        "native_png_sha256": "47cc91f76b6db03db8a3c4419ae3088d1353988fedc603d5aefbd8a17823c648"
+      },
+      "136": {
+        "native_png_sha256": "e31d446fcd892e4f425df0f87b7e27d8281b9e0a56cee1ff5368c7de82c0d11e"
+      },
+      "142": {
+        "native_png_sha256": "cdfabd24bb1fe0fa3b7301d8b634da245ff113dbe62530f0cce0edcee08e442a"
+      },
+      "154": {
+        "native_png_sha256": "9d21af7d7d7557731ac05f9f656aaf8d7a7a3309f76179e70e2ea8b31c10a70f"
+      }
+    }
+  },
+  "implementation_revision": "a487f050f"
+}

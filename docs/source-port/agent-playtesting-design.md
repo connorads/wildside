@@ -1,7 +1,9 @@
 # Agent playtesting and measured self-improvement
 
-Status: proposed design. No player, learning runner or policy change is
-implemented by this document.
+Status: proposed visual-player and learning design. The separate
+[Jev pilot](jev-playtesting.md) implements a private structured-state controller;
+its [measured result](jev-playtest-pilot-result.md) does not establish successful
+autonomous bug reproduction or tester improvement.
 
 ## Recommendation
 

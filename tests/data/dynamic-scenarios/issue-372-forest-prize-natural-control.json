@@ -1,0 +1,547 @@
+{
+  "slug": "issue-372-forest-prize-natural-control",
+  "script": [
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "frame_count": 173,
+  "checkpoints": [
+    {
+      "label": "jev-82",
+      "frame_index": 82
+    },
+    {
+      "label": "jev-83",
+      "frame_index": 83
+    },
+    {
+      "label": "jev-84",
+      "frame_index": 84
+    },
+    {
+      "label": "jev-85",
+      "frame_index": 85
+    },
+    {
+      "label": "jev-86",
+      "frame_index": 86
+    },
+    {
+      "label": "jev-87",
+      "frame_index": 87
+    },
+    {
+      "label": "jev-88",
+      "frame_index": 88
+    },
+    {
+      "label": "jev-89",
+      "frame_index": 89
+    },
+    {
+      "label": "jev-90",
+      "frame_index": 90
+    },
+    {
+      "label": "jev-91",
+      "frame_index": 91
+    },
+    {
+      "label": "jev-92",
+      "frame_index": 92
+    },
+    {
+      "label": "jev-93",
+      "frame_index": 93
+    },
+    {
+      "label": "jev-94",
+      "frame_index": 94
+    },
+    {
+      "label": "jev-95",
+      "frame_index": 95
+    },
+    {
+      "label": "jev-96",
+      "frame_index": 96
+    },
+    {
+      "label": "jev-97",
+      "frame_index": 97
+    },
+    {
+      "label": "jev-98",
+      "frame_index": 98
+    },
+    {
+      "label": "jev-99",
+      "frame_index": 99
+    },
+    {
+      "label": "jev-100",
+      "frame_index": 100
+    },
+    {
+      "label": "jev-101",
+      "frame_index": 101
+    },
+    {
+      "label": "jev-102",
+      "frame_index": 102
+    },
+    {
+      "label": "jev-103",
+      "frame_index": 103
+    },
+    {
+      "label": "jev-104",
+      "frame_index": 104
+    },
+    {
+      "label": "jev-105",
+      "frame_index": 105
+    },
+    {
+      "label": "jev-106",
+      "frame_index": 106
+    },
+    {
+      "label": "jev-107",
+      "frame_index": 107
+    },
+    {
+      "label": "jev-108",
+      "frame_index": 108
+    },
+    {
+      "label": "jev-109",
+      "frame_index": 109
+    },
+    {
+      "label": "jev-110",
+      "frame_index": 110
+    },
+    {
+      "label": "jev-111",
+      "frame_index": 111
+    },
+    {
+      "label": "jev-112",
+      "frame_index": 112
+    },
+    {
+      "label": "jev-113",
+      "frame_index": 113
+    },
+    {
+      "label": "jev-114",
+      "frame_index": 114
+    },
+    {
+      "label": "jev-115",
+      "frame_index": 115
+    },
+    {
+      "label": "jev-116",
+      "frame_index": 116
+    },
+    {
+      "label": "jev-117",
+      "frame_index": 117
+    },
+    {
+      "label": "jev-118",
+      "frame_index": 118
+    },
+    {
+      "label": "jev-119",
+      "frame_index": 119
+    },
+    {
+      "label": "jev-120",
+      "frame_index": 120
+    },
+    {
+      "label": "jev-121",
+      "frame_index": 121
+    },
+    {
+      "label": "jev-122",
+      "frame_index": 122
+    },
+    {
+      "label": "jev-123",
+      "frame_index": 123
+    },
+    {
+      "label": "jev-124",
+      "frame_index": 124
+    },
+    {
+      "label": "jev-125",
+      "frame_index": 125
+    },
+    {
+      "label": "jev-126",
+      "frame_index": 126
+    },
+    {
+      "label": "jev-127",
+      "frame_index": 127
+    },
+    {
+      "label": "jev-128",
+      "frame_index": 128
+    },
+    {
+      "label": "jev-129",
+      "frame_index": 129
+    },
+    {
+      "label": "jev-130",
+      "frame_index": 130
+    },
+    {
+      "label": "jev-131",
+      "frame_index": 131
+    },
+    {
+      "label": "jev-132",
+      "frame_index": 132
+    },
+    {
+      "label": "jev-133",
+      "frame_index": 133
+    },
+    {
+      "label": "jev-134",
+      "frame_index": 134
+    },
+    {
+      "label": "jev-135",
+      "frame_index": 135
+    },
+    {
+      "label": "jev-136",
+      "frame_index": 136
+    },
+    {
+      "label": "jev-137",
+      "frame_index": 137
+    },
+    {
+      "label": "jev-138",
+      "frame_index": 138
+    },
+    {
+      "label": "jev-139",
+      "frame_index": 139
+    },
+    {
+      "label": "jev-140",
+      "frame_index": 140
+    },
+    {
+      "label": "jev-141",
+      "frame_index": 141
+    },
+    {
+      "label": "jev-142",
+      "frame_index": 142
+    },
+    {
+      "label": "jev-143",
+      "frame_index": 143
+    },
+    {
+      "label": "jev-144",
+      "frame_index": 144
+    },
+    {
+      "label": "jev-145",
+      "frame_index": 145
+    },
+    {
+      "label": "jev-146",
+      "frame_index": 146
+    },
+    {
+      "label": "jev-147",
+      "frame_index": 147
+    },
+    {
+      "label": "jev-148",
+      "frame_index": 148
+    },
+    {
+      "label": "jev-149",
+      "frame_index": 149
+    },
+    {
+      "label": "jev-150",
+      "frame_index": 150
+    },
+    {
+      "label": "jev-151",
+      "frame_index": 151
+    },
+    {
+      "label": "jev-152",
+      "frame_index": 152
+    },
+    {
+      "label": "jev-153",
+      "frame_index": 153
+    },
+    {
+      "label": "jev-154",
+      "frame_index": 154
+    },
+    {
+      "label": "jev-155",
+      "frame_index": 155
+    },
+    {
+      "label": "jev-156",
+      "frame_index": 156
+    },
+    {
+      "label": "jev-157",
+      "frame_index": 157
+    },
+    {
+      "label": "jev-158",
+      "frame_index": 158
+    },
+    {
+      "label": "jev-159",
+      "frame_index": 159
+    },
+    {
+      "label": "jev-160",
+      "frame_index": 160
+    },
+    {
+      "label": "jev-161",
+      "frame_index": 161
+    },
+    {
+      "label": "jev-162",
+      "frame_index": 162
+    },
+    {
+      "label": "jev-163",
+      "frame_index": 163
+    },
+    {
+      "label": "jev-164",
+      "frame_index": 164
+    },
+    {
+      "label": "jev-165",
+      "frame_index": 165
+    },
+    {
+      "label": "jev-166",
+      "frame_index": 166
+    },
+    {
+      "label": "jev-167",
+      "frame_index": 167
+    },
+    {
+      "label": "jev-168",
+      "frame_index": 168
+    },
+    {
+      "label": "jev-169",
+      "frame_index": 169
+    },
+    {
+      "label": "jev-170",
+      "frame_index": 170
+    },
+    {
+      "label": "jev-171",
+      "frame_index": 171
+    },
+    {
+      "label": "jev-172",
+      "frame_index": 172
+    }
+  ],
+  "warp_to_level": 0,
+  "settle_oracle_warp": true
+}

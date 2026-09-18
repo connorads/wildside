@@ -14008,6 +14008,12 @@ was a live playtest report rather than an exact captured bundle. Human should
 hit the reported forest prize blocks again and confirm the P/prize block visibly
 wobbles instead of disappearing over the tree/background art.
 
+2026-09-18 bounded [Jev pilot](jev-playtest-pilot-result.md): both valid model
+attempts missed the target. A separate natural-input control hit cell `(8, 12)`;
+its active wobble crop matched the oracle for frames 112..142, but RNG parity
+failed from the initial state. Keep `[?]`. The saved control is
+`tests/data/dynamic-scenarios/issue-372-forest-prize-natural-control.json`.
+
 ### #373
 
 Retired 2026-07-07 as not a native bug / no ROM behaviour to port. Re-read ASM
