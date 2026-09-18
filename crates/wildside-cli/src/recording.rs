@@ -1,4 +1,6 @@
 use super::*;
+#[cfg(test)]
+mod jev_playtest;
 use crate::capture::{AUDIO_FRAME_SAMPLES, read_wav_f32, write_wav_with_channels};
 use crate::diff::{annotate_diff, generate_diff_composite};
 use crate::native_player::{
