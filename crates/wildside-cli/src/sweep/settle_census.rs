@@ -566,26 +566,22 @@ mod tests {
     }
 
     fn settled_warp_frame0_witness_mismatches(levels: &[u8]) -> Vec<String> {
-        use wildside_core::{FrameInput, LevelId, NativeRuntime};
+        use wildside_core::{LevelId, NativeRuntime};
         let table = include_str!("../../data/oracle-settle-shell.yaml");
         let census: OracleSettleCensus =
             serde_yaml::from_str(table).expect("shell table must parse as the census schema");
         let Some(manifest) = cached_generated_manifest() else {
             return Vec::new();
         };
-        let _ = FrameInput::default();
         let mut mismatches = Vec::new();
         for level in &census.levels {
             if !levels.contains(&level.level_id) {
                 continue;
             }
-            let (Some(_load_complete), Some(frame0)) =
-                (level.load_complete_step, level.frame0.as_ref())
-            else {
+            let Some(frame0) = level.frame0.as_ref() else {
                 continue;
             };
             let mut runtime = NativeRuntime::with_generated_level_layout(manifest.clone());
-            runtime.set_recorded_title_card_handoff_delay(true);
             runtime.boot_to_level_for_recording_oracle(LevelId(level.level_id));
             runtime.settle_recording_oracle_warp_live_window(LevelId(level.level_id));
             let frame = runtime.trace_frame();
@@ -611,6 +607,15 @@ mod tests {
                     frame.number_objects, frame0.number_objects
                 ));
             }
+            if level.level_id == 0
+                && (frame.kid_x_pos != Some(frame0.kid_x_pos)
+                    || frame.kid_y_pos != Some(frame0.kid_y_pos)
+                    || frame.camera_x_pos != frame0.camera_x_pos
+                    || frame.camera_y_pos != frame0.camera_y_pos
+                    || frame.number_hitpoints != 2)
+            {
+                level_diffs.push("direct title handoff player/camera/HP differs".to_owned());
+            }
             if !level_diffs.is_empty() {
                 mismatches.push(format!(
                     "level {:#04x}: {}",
@@ -622,16 +627,13 @@ mod tests {
         mismatches
     }
 
-    /// #442 S3c gate on the probe levels: the settled-warp shell reproduces
-    /// the oracle's measured frame-0 RNG (offset + full 55-byte ring) from
-    /// `oracle-settle-shell.yaml` (census v2, run 1786640409) on all five
-    /// probe levels, object counts included — the former #422 beam-child
-    /// allowance is retired (the ChkShoot->ChkLoadBeam same-pass tick puts
-    /// the beam mid-fall at frame 0 exactly like the oracle).
+    /// ASM loc_1AE2E / loc_74E0: direct-title and warped recording starts
+    /// reproduce the measured RNG offset, full ring and object counts.
     #[test]
     fn gameplay_regression_settled_warp_frame0_witnesses_probe_levels() {
-        let mismatches =
-            settled_warp_frame0_witness_mismatches(&[0x24, 0x30, 0x40, 0x48, 0x50, 0x60, 0x61]);
+        let mismatches = settled_warp_frame0_witness_mismatches(&[
+            0x00, 0x01, 0x24, 0x30, 0x40, 0x48, 0x50, 0x60, 0x61,
+        ]);
         assert!(
             mismatches.is_empty(),
             "settled-warp shell diverges from measured frame-0 witnesses:\n{}",

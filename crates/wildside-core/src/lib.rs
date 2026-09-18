@@ -3960,13 +3960,40 @@ impl NativeRuntime {
         // other non-gameplay frames that skip `refresh_active_roster`.
         self.pending_enemy_gfx_initialisations_loc_3691e = 0;
         let title_card_live_handoff_active_at_frame_start = self.title_card_live_handoff_frames > 0;
+        let title_card_loader_completed_at_frame_start =
+            title_card_live_handoff_active_at_frame_start
+                && self.recorded_title_card_handoff_delay
+                && usize::from(
+                    TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E
+                        .saturating_sub(self.title_card_live_handoff_frames),
+                ) == TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E - 1;
+        if title_card_loader_completed_at_frame_start {
+            // ASM Load_InGame clears the title roster and reloads the level
+            // before the first live Execute_Objects pass resumes.
+            self.refresh_title_card_handoff_runtime_loc_1ae2e();
+            // ASM Init_Animation loc_1040: apply the recorded-title Gfx
+            // handoff at allocation, before the stable live window ages it.
+            self.prime_recording_warp_sprite_animation_clocks(false);
+            // ASM loc_720 clears both offsets and countdowns before
+            // Load_InGame sub_44B0 seeds the five animation countdowns.
+            self.hud_animation_state = boot::HudAnimationStateSub44DC::initialised_from_sub_44_b0();
+        }
         let title_card_load_ingame_hibernated_at_frame_start =
             title_card_live_handoff_active_at_frame_start
-                && self.cold_intro_sequence_1_early_start_poll
-                && self.direct_title_card_handoff_capture
-                && TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E
-                    .saturating_sub(self.title_card_live_handoff_frames)
-                    < TITLE_CARD_LOAD_INGAME_HIBERNATE_FRAMES_LOC_1AE2E;
+                && if self.recorded_title_card_handoff_delay {
+                    // ASM loc_1AE2E -> Load_InGame blocks Execute_Objects
+                    // until the first live Kid pass at handoff frame 69.
+                    usize::from(
+                        TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E
+                            .saturating_sub(self.title_card_live_handoff_frames),
+                    ) < TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E - 1
+                } else {
+                    self.cold_intro_sequence_1_early_start_poll
+                        && self.direct_title_card_handoff_capture
+                        && TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E
+                            .saturating_sub(self.title_card_live_handoff_frames)
+                            < TITLE_CARD_LOAD_INGAME_HIBERNATE_FRAMES_LOC_1AE2E
+                };
         if title_card_live_handoff_active_at_frame_start {
             self.title_card_live_handoff_frames =
                 self.title_card_live_handoff_frames.saturating_sub(1);
@@ -4456,7 +4483,13 @@ impl NativeRuntime {
                 self.step_damage_flash_thread_loc_bc5c();
                 self.consume_hidden_shell_player_contact_damage_loc_b700();
             }
-            self.refresh_active_roster();
+            if !title_card_load_ingame_hibernated_at_frame_start
+                && !title_card_loader_completed_at_frame_start
+            {
+                // ASM Load_InGame -> Mode_Level: the freshly linked enemy
+                // roster first executes after the loader's opening pass.
+                self.refresh_active_roster();
+            }
             if debug_level_entry_live_object_pass {
                 // ASM GfxObjects_CollisionKid runs after Execute_Objects and
                 // leaves contact for the following hidden pass to consume.

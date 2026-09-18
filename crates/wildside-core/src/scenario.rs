@@ -64,9 +64,12 @@ enum SettleWarpMode {
 }
 
 fn is_live_unpaused_target_level(runtime: &NativeRuntime, level_id: LevelId) -> bool {
-    runtime.trace_frame().game_mode == GameMode::InGame
+    let trace = runtime.trace_frame();
+    trace.game_mode == GameMode::InGame
         && runtime.current_level == level_id
         && !runtime.paused
+        && trace.kid_x_pos.is_some_and(|x| x != 0)
+        && trace.number_objects != 0
 }
 
 fn settled_warp_complete(stable_target_frames: usize, target_live_frames: usize) -> bool {
@@ -199,6 +202,7 @@ impl NativeRuntime {
     /// path when comparing native frame-0 state against the measured
     /// oracle-settle-shell witnesses.
     pub fn boot_to_level_for_recording_oracle(&mut self, target: LevelId) {
+        self.set_recorded_title_card_handoff_delay(true);
         self.boot_to_level_with_warp_lifecycle(target, true);
     }
 
@@ -235,6 +239,24 @@ impl NativeRuntime {
             }
         }
         let used_debug_warp = self.current_level != target;
+        if !used_debug_warp && use_recording_oracle_lifecycle {
+            // ASM loc_1AE2E -> loc_6E2: the direct title route waits before
+            // consuming Start, then retains Load_InGame's live-mode shell.
+            // The recorded input latch needs release after the pressed edge.
+            for _ in 0..RECORDING_DEBUG_TITLE_WAIT_FRAMES_LOC_1AE2E {
+                self.step_frame(idle);
+            }
+            self.step_frame(start);
+            for _ in 0..RECORDING_DEBUG_TITLE_WAIT_FRAMES_LOC_1AE2E {
+                if self.trace_frame().game_mode == GameMode::InGame {
+                    break;
+                }
+                self.step_frame(idle);
+            }
+            self.prior_input = idle;
+            self.previous_input = idle;
+            return;
+        }
         if used_debug_warp {
             if use_recording_oracle_lifecycle {
                 // ASM loc_74E0 re-enters loc_6E2/Load_TitleCard after the
@@ -457,6 +479,7 @@ impl NativeRuntime {
         // shortcuts. Oracle settle tracing ends Level 1 at RNG offset $FFCB;
         // the first scenario frame then advances to $FFCF via Drips loc_3340E.
         let debug_lifecycle_completed = self.recording_oracle_debug_lifecycle_completed;
+        let title_lifecycle_active = self.title_card_live_handoff_frames > 0;
         if debug_lifecycle_completed {
             // ASM loc_1AE2E -> loc_6E2 -> Load_InGame rebuilds the enemy
             // status table immediately before the target's first Mode_Level
@@ -467,10 +490,14 @@ impl NativeRuntime {
             self.enemy_status_words.fill(0);
             self.enemy_loading_initial_pass_complete = false;
         }
-        if recording_settle_primes_respawn(level_id, debug_lifecycle_completed) {
+        if !title_lifecycle_active
+            && recording_settle_primes_respawn(level_id, debug_lifecycle_completed)
+        {
             self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
         }
-        self.prime_recording_warp_sprite_animation_clocks(debug_lifecycle_completed);
+        if !title_lifecycle_active {
+            self.prime_recording_warp_sprite_animation_clocks(debug_lifecycle_completed);
+        }
         // #442: the measured window model — the debug lifecycle ages the
         // level from its per-level load completion, so the residual window is
         // the per-route table with no family adjustments.
@@ -1003,13 +1030,18 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn settled_warp_guard_requires_ingame_matching_level_and_unpaused() {
+    fn settled_warp_guard_requires_live_kid_matching_level_and_unpaused() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
 
         runtime.boot_state = BootState::InGame;
         runtime.current_level = LevelId(3);
         runtime.paused = false;
+        runtime.opening_slice = Some(runtime.level_respawn_slice(LevelId(3)));
         assert!(is_live_unpaused_target_level(&runtime, LevelId(3)));
+
+        let slice = runtime.opening_slice.take();
+        assert!(!is_live_unpaused_target_level(&runtime, LevelId(3)));
+        runtime.opening_slice = slice;
 
         runtime.paused = true;
         assert!(!is_live_unpaused_target_level(&runtime, LevelId(3)));
@@ -1019,6 +1051,69 @@ mod tests {
 
         runtime.boot_state = BootState::TitleScreen { cursor: 0 };
         assert!(!is_live_unpaused_target_level(&runtime, LevelId(3)));
+    }
+
+    #[test]
+    fn recording_title_bootstrap_preserves_loader_rng_freeze_loc_1ae2e() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0));
+        // ASM loc_1AE2E -> Load_InGame / Execute_Objects: oracle settle
+        // rows 0..68 retain this complete ring; row 69 draws one longword.
+        // ROM 28b904000b2863b6760531807760b571f1a5fc1d, settled level 0.
+        let ring = [
+            0xbf, 0x7b, 0x08, 0xc0, 0x56, 0x34, 0x36, 0x44, 0x0e, 0x22, 0xfb, 0xc1, 0x5b, 0x91,
+            0x50, 0x33, 0xd2, 0xbe, 0x57, 0xb6, 0x27, 0x9c, 0x99, 0x04, 0x31, 0x36, 0xb8, 0xd7,
+            0xf3, 0x85, 0xb0, 0x30, 0x46, 0xe7, 0xf3, 0xc1, 0x61, 0x0a, 0x81, 0x99, 0x53, 0xbb,
+            0x28, 0xf1, 0x1a, 0x7d, 0x81, 0xca, 0xe8, 0xc1, 0x82, 0xd9, 0x69, 0xa2, 0x0f,
+        ];
+        assert_eq!(runtime.rom_random.offset_word(), 0xffdb);
+        assert_eq!(runtime.rom_random.ring_bytes(), ring);
+        for elapsed in 1..=68 {
+            let frame = runtime.step_frame(FrameInput::default());
+            assert_eq!(runtime.rom_random.offset_word(), 0xffdb, "step {elapsed}");
+            assert_eq!(runtime.rom_random.ring_bytes(), ring, "step {elapsed}");
+            assert_eq!(
+                is_live_unpaused_target_level(&runtime, LevelId(0)),
+                elapsed < 27,
+                "ASM Load_InGame clears Kid before reloading the live roster"
+            );
+            if elapsed == 68 {
+                assert_eq!(frame.kid_x_pos, Some(0));
+                assert_eq!(frame.number_objects, 4);
+            }
+        }
+        let frame = runtime.step_frame(FrameInput::default());
+        let mut expected = RomRandomState::from_raw_parts(ring, 0xffdb);
+        expected.next_long();
+        assert_eq!(runtime.rom_random, expected);
+        assert_eq!(frame.kid_x_pos, Some(32 << 16));
+        assert_eq!(frame.number_objects, 5);
+        assert!(is_live_unpaused_target_level(&runtime, LevelId(0)));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0));
+        let first_recorded = runtime.step_frame(FrameInput::default());
+        assert_eq!(first_recorded.rng_offset, Some(0xfff3));
+        assert_eq!(first_recorded.hud_diamond_frame_offset, Some(6));
+        assert_eq!(first_recorded.hud_life_frame_offset, Some(0));
+        // ASM loc_720/sub_44B0/sub_44DC: oracle frame-zero RAM FA58..FA61.
+        let hud = runtime.hud_animation_state;
+        assert_eq!(
+            [
+                hud.diamond_countdown_fb58,
+                hud.life_countdown_fb59,
+                hud.clock_countdown_fb5a,
+                hud.coin_countdown_fb5b,
+                hud.flag_countdown_fb5c,
+                hud.diamond_frame_offset_fb5d,
+                hud.life_frame_offset_fb5e,
+                hud.clock_frame_offset_fb5f,
+                hud.coin_frame_offset_fb60,
+                hud.flag_frame_offset_fb61
+            ],
+            [0x06, 0x21, 0x22, 0x02, 0x01, 0x06, 0x00, 0x00, 0x00, 0x08]
+        );
     }
 
     #[test]
