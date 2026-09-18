@@ -1,0 +1,811 @@
+{
+  "slug": "issue-372-jev-prize-recovery",
+  "script": [
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "frame_count": 437,
+  "checkpoints": [
+    {
+      "label": "jev-346",
+      "frame_index": 346
+    },
+    {
+      "label": "jev-347",
+      "frame_index": 347
+    },
+    {
+      "label": "jev-348",
+      "frame_index": 348
+    },
+    {
+      "label": "jev-349",
+      "frame_index": 349
+    },
+    {
+      "label": "jev-350",
+      "frame_index": 350
+    },
+    {
+      "label": "jev-351",
+      "frame_index": 351
+    },
+    {
+      "label": "jev-352",
+      "frame_index": 352
+    },
+    {
+      "label": "jev-353",
+      "frame_index": 353
+    },
+    {
+      "label": "jev-354",
+      "frame_index": 354
+    },
+    {
+      "label": "jev-355",
+      "frame_index": 355
+    },
+    {
+      "label": "jev-356",
+      "frame_index": 356
+    },
+    {
+      "label": "jev-357",
+      "frame_index": 357
+    },
+    {
+      "label": "jev-358",
+      "frame_index": 358
+    },
+    {
+      "label": "jev-359",
+      "frame_index": 359
+    },
+    {
+      "label": "jev-360",
+      "frame_index": 360
+    },
+    {
+      "label": "jev-361",
+      "frame_index": 361
+    },
+    {
+      "label": "jev-362",
+      "frame_index": 362
+    },
+    {
+      "label": "jev-363",
+      "frame_index": 363
+    },
+    {
+      "label": "jev-364",
+      "frame_index": 364
+    },
+    {
+      "label": "jev-365",
+      "frame_index": 365
+    },
+    {
+      "label": "jev-366",
+      "frame_index": 366
+    },
+    {
+      "label": "jev-367",
+      "frame_index": 367
+    },
+    {
+      "label": "jev-368",
+      "frame_index": 368
+    },
+    {
+      "label": "jev-369",
+      "frame_index": 369
+    },
+    {
+      "label": "jev-370",
+      "frame_index": 370
+    },
+    {
+      "label": "jev-371",
+      "frame_index": 371
+    },
+    {
+      "label": "jev-372",
+      "frame_index": 372
+    },
+    {
+      "label": "jev-373",
+      "frame_index": 373
+    },
+    {
+      "label": "jev-374",
+      "frame_index": 374
+    },
+    {
+      "label": "jev-375",
+      "frame_index": 375
+    },
+    {
+      "label": "jev-376",
+      "frame_index": 376
+    },
+    {
+      "label": "jev-377",
+      "frame_index": 377
+    },
+    {
+      "label": "jev-378",
+      "frame_index": 378
+    },
+    {
+      "label": "jev-379",
+      "frame_index": 379
+    },
+    {
+      "label": "jev-380",
+      "frame_index": 380
+    },
+    {
+      "label": "jev-381",
+      "frame_index": 381
+    },
+    {
+      "label": "jev-382",
+      "frame_index": 382
+    },
+    {
+      "label": "jev-383",
+      "frame_index": 383
+    },
+    {
+      "label": "jev-384",
+      "frame_index": 384
+    },
+    {
+      "label": "jev-385",
+      "frame_index": 385
+    },
+    {
+      "label": "jev-386",
+      "frame_index": 386
+    },
+    {
+      "label": "jev-387",
+      "frame_index": 387
+    },
+    {
+      "label": "jev-388",
+      "frame_index": 388
+    },
+    {
+      "label": "jev-389",
+      "frame_index": 389
+    },
+    {
+      "label": "jev-390",
+      "frame_index": 390
+    },
+    {
+      "label": "jev-391",
+      "frame_index": 391
+    },
+    {
+      "label": "jev-392",
+      "frame_index": 392
+    },
+    {
+      "label": "jev-393",
+      "frame_index": 393
+    },
+    {
+      "label": "jev-394",
+      "frame_index": 394
+    },
+    {
+      "label": "jev-395",
+      "frame_index": 395
+    },
+    {
+      "label": "jev-396",
+      "frame_index": 396
+    },
+    {
+      "label": "jev-397",
+      "frame_index": 397
+    },
+    {
+      "label": "jev-398",
+      "frame_index": 398
+    },
+    {
+      "label": "jev-399",
+      "frame_index": 399
+    },
+    {
+      "label": "jev-400",
+      "frame_index": 400
+    },
+    {
+      "label": "jev-401",
+      "frame_index": 401
+    },
+    {
+      "label": "jev-402",
+      "frame_index": 402
+    },
+    {
+      "label": "jev-403",
+      "frame_index": 403
+    },
+    {
+      "label": "jev-404",
+      "frame_index": 404
+    },
+    {
+      "label": "jev-405",
+      "frame_index": 405
+    },
+    {
+      "label": "jev-406",
+      "frame_index": 406
+    },
+    {
+      "label": "jev-407",
+      "frame_index": 407
+    },
+    {
+      "label": "jev-408",
+      "frame_index": 408
+    },
+    {
+      "label": "jev-409",
+      "frame_index": 409
+    },
+    {
+      "label": "jev-410",
+      "frame_index": 410
+    },
+    {
+      "label": "jev-411",
+      "frame_index": 411
+    },
+    {
+      "label": "jev-412",
+      "frame_index": 412
+    },
+    {
+      "label": "jev-413",
+      "frame_index": 413
+    },
+    {
+      "label": "jev-414",
+      "frame_index": 414
+    },
+    {
+      "label": "jev-415",
+      "frame_index": 415
+    },
+    {
+      "label": "jev-416",
+      "frame_index": 416
+    },
+    {
+      "label": "jev-417",
+      "frame_index": 417
+    },
+    {
+      "label": "jev-418",
+      "frame_index": 418
+    },
+    {
+      "label": "jev-419",
+      "frame_index": 419
+    },
+    {
+      "label": "jev-420",
+      "frame_index": 420
+    },
+    {
+      "label": "jev-421",
+      "frame_index": 421
+    },
+    {
+      "label": "jev-422",
+      "frame_index": 422
+    },
+    {
+      "label": "jev-423",
+      "frame_index": 423
+    },
+    {
+      "label": "jev-424",
+      "frame_index": 424
+    },
+    {
+      "label": "jev-425",
+      "frame_index": 425
+    },
+    {
+      "label": "jev-426",
+      "frame_index": 426
+    },
+    {
+      "label": "jev-427",
+      "frame_index": 427
+    },
+    {
+      "label": "jev-428",
+      "frame_index": 428
+    },
+    {
+      "label": "jev-429",
+      "frame_index": 429
+    },
+    {
+      "label": "jev-430",
+      "frame_index": 430
+    },
+    {
+      "label": "jev-431",
+      "frame_index": 431
+    },
+    {
+      "label": "jev-432",
+      "frame_index": 432
+    },
+    {
+      "label": "jev-433",
+      "frame_index": 433
+    },
+    {
+      "label": "jev-434",
+      "frame_index": 434
+    },
+    {
+      "label": "jev-435",
+      "frame_index": 435
+    },
+    {
+      "label": "jev-436",
+      "frame_index": 436
+    }
+  ],
+  "warp_to_level": 0,
+  "settle_oracle_warp": true
+}

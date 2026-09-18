@@ -29,8 +29,8 @@ def evaluate(state, key, *, endpoint=ENDPOINT):
             "type": "choice",
             "instructions": (
                 "Choose controls for the next 6 simulation frames to reach the stated goal. "
-                "Use current position, velocity, nearby terrain and recent decisions. "
-                "Walk underneath the target before jumping; do not jump early from the start. "
+                "Use target_relation, motion and held buttons. "
+                "Approach a far target. For a near target, jump towards it before walking past it. If overhead, jump without horizontal input. "
                 "When jump_requires_release is true, choose release, left or right first. "
                 "Holding B extends a jump; release B "
                 "before trying another jump. Horizontal momentum persists after release. "

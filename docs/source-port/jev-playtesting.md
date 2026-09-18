@@ -94,3 +94,11 @@ Exact replay rejected that recording at frame 1. The harness omitted the
 settled recording adapter's one-frame input feed delay; the neutral control
 could not discriminate this error. The control therefore includes directional,
 jump and release inputs. This attempt supplies no evidence about #372.
+
+## Successful model-generated route
+
+[The successful-run report](jev-successful-play.md) records a complete Jev
+attempt, independent emulator comparison and an offline regression fixture.
+The controller receives compact target relations and movement descriptions.
+Its target-distance bands are task-specific hints; they do not predict collision
+or simulate candidate actions. Jev still selects every controller batch.

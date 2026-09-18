@@ -5,7 +5,7 @@ mod service;
 use super::*;
 use anyhow::ensure;
 use serde_json::{Value, json};
-use wildside_core::{BlockBounceTraceKind, terrain::BlockType};
+use wildside_core::BlockBounceTraceKind;
 
 const BATCH: usize = 6;
 const MAX_FRAMES: usize = 3_600;
@@ -105,32 +105,24 @@ impl Episode {
         let trace = self.runtime.trace_frame();
         let x = trace.kid_x_pos.unwrap_or_default() as i32 >> 16;
         let y = trace.kid_y_pos.unwrap_or_default() as i32 >> 16;
-        let mut terrain = vec![];
-        let mut prizes = vec![];
-        if let Some(grid) = self.runtime.block_grid() {
-            for row in 0..grid.height_cells {
-                for col in 0..grid.width_cells {
-                    let cell = grid.cell_at(col, row);
-                    let px = i32::from(col) * 16;
-                    let py = i32::from(row) * 16;
-                    if cell.block_type == BlockType::Prize {
-                        prizes.push(json!({"cell": [col, row], "x": px, "y": py}));
-                    }
-                    if (px - x).abs() <= 112
-                        && (py - y).abs() <= 96
-                        && (cell.has_block
-                            || cell.collision != wildside_core::terrain::CollisionKind::Empty)
-                    {
-                        terrain.push(json!({"cell": [col, row], "x": px, "y": py,
-                            "collision": format!("{:?}", cell.collision),
-                            "block": format!("{:?}", cell.block_type)}));
-                    }
-                }
-            }
-        }
+        let dx = i32::from(self.target.0) * 16 + 8 - x;
+        let horizontal = if dx.abs() <= 8 {
+            "overhead"
+        } else if dx > 0 {
+            "right"
+        } else {
+            "left"
+        };
+        let distance = if dx.abs() <= 8 {
+            "aligned"
+        } else if dx.abs() <= 48 {
+            "near - within a running jump"
+        } else {
+            "far - approach first"
+        };
         json!({
             "goal": "Hit the target prize block from below with your head, then release controls to watch its animation.",
-            "coordinates": "Pixels; x grows right, y grows down. Terrain cells are 16x16. Kid position is his centre. Unlisted nearby cells are empty.",
+            "coordinates": "Pixels; x grows right, y grows down. Kid position is his centre.",
             "frame": self.script.len(), "target_cell": self.target,
             "target_centre_x": i32::from(self.target.0) * 16 + 8,
             "target_bottom_y": i32::from(self.target.1) * 16 + 16,
@@ -139,16 +131,25 @@ impl Episode {
                 "vy": trace.kid_y_velocity.map(|v| f64::from(v) / 65536.0),
                 "grounded": trace.kid_on_ground, "hp": trace.number_hitpoints,
                 "form": trace.current_helmet_id},
-            "terrain": terrain, "prizes": prizes,
+            "target_relation": {"direction": horizontal, "distance": distance},
+            "motion": {
+                "horizontal": match trace.kid_x_velocity.unwrap_or_default().cmp(&0) {
+                    std::cmp::Ordering::Less => "moving left",
+                    std::cmp::Ordering::Equal => "stationary",
+                    std::cmp::Ordering::Greater => "moving right",
+                },
+                "vertical": if trace.kid_on_ground == Some(true) { "on ground" }
+                    else if trace.kid_y_velocity.unwrap_or_default() < 0 { "rising" }
+                    else { "falling" },
+            },
             "enemies": trace.active_enemy_details.iter().filter_map(|enemy| {
                 let ex = enemy.x_pos as i32 >> 16;
                 let ey = enemy.y_pos as i32 >> 16;
                 ((ex - x).abs() <= 192).then(|| json!({"kind": enemy.kind,
                     "x": ex, "y": ey, "dx": ex-x, "dy": ey-y, "hp": enemy.hit_points}))
             }).collect::<Vec<_>>(),
-            "recent_masks": self.script.iter().rev().take(24).copied().collect::<Vec<_>>(),
-            "target_hit": self.encounter.first.is_some()
-            ,"buttons_held": {"left": self.script.last().is_some_and(|mask| mask & 4 != 0),
+            "target_hit": self.encounter.first.is_some(),
+            "buttons_held": {"left": self.script.last().is_some_and(|mask| mask & 4 != 0),
                 "right": self.script.last().is_some_and(|mask| mask & 8 != 0),
                 "jump": self.script.last().is_some_and(|mask| mask & 16 != 0)},
             "jump_requires_release": trace.kid_on_ground == Some(true)
@@ -201,7 +202,7 @@ fn prepare() -> Result<(PathBuf, AssetManifest)> {
     let manifest = wildside_data::load_manifest(&wildside_data::manifest_path(&bundle))?;
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)?
-        .as_millis();
+        .as_nanos();
     let output = root.join(".cache/jev-playtest").join(format!("{stamp}"));
     fs::create_dir_all(output.parent().context("output parent")?)?;
     fs::create_dir(&output)?;
@@ -293,5 +294,34 @@ fn scripted_case() -> Result<()> {
         "scripted_control",
     )?;
     ensure!(reached, "scripted control did not hit the target");
+    Ok(())
+}
+
+#[test]
+fn gameplay_regression_jev_discovered_prize_route_sub_1007a() -> Result<()> {
+    let (_, manifest) = prepare()?;
+    let scenario: DynamicScenario = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/issue-372-jev-prize-recovery.json"
+    ))?;
+    let mut episode = Episode::new(&manifest, (8, 12))?;
+    for batch in scenario.script.chunks(BATCH) {
+        ensure!(batch.iter().all(|mask| *mask == batch[0]), "mixed batch");
+        episode.advance(batch[0]);
+    }
+    ensure!(
+        episode.script == scenario.script,
+        "controller stream changed"
+    );
+    // ASM sub_1007A: Jev's recorded head strike creates the target prize worker.
+    assert_eq!(episode.encounter.first, Some(376));
+    assert_eq!(episode.encounter.last, Some(406));
+    assert!(episode.encounter.complete(episode.script.len() - 1));
+    assert!(!episode.ended());
+    let replay = run_recorded_trace(&manifest, START, &scenario)?;
+    rebase_trace_frame_indices(&mut episode.trace);
+    ensure!(
+        serde_json::to_value(replay)? == serde_json::to_value(episode.trace)?,
+        "Jev route does not reconstruct exactly"
+    );
     Ok(())
 }
