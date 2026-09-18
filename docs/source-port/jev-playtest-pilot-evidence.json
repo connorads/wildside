@@ -149,5 +149,82 @@
       }
     }
   },
-  "implementation_revision": "a487f050f"
+  "implementation_revision": "a487f050f",
+  "bootstrap_follow_up": {
+    "date": "2026-09-18",
+    "run": "1789701204276",
+    "implementation_revision": "f5a9c13a0d6ded758e07c8cb879bcd79d059bae9",
+    "recorded_engine_revision": "f6ce22556d316a4ac333f370bcb38d63de172399",
+    "recorded_tree_dirty": true,
+    "source_note": "Collected from the uncommitted bootstrap correction; implementation_revision identifies the committed engine change.",
+    "scenario": "tests/data/dynamic-scenarios/issue-372-forest-prize-natural-control.json",
+    "script_sha1": "e4006bfb2cf5d211946f21832461141b25b598cb",
+    "trace_sha1": "bd24e497229b730c2fa552961dad9c029e6bfd63",
+    "frames": 173,
+    "exact_native_replay": true,
+    "rng_frames_compared": 173,
+    "rng_mismatched_frames": 0,
+    "oracle_state_match": true,
+    "state_checkpoints": 91,
+    "oracle_frame_match": false,
+    "hit_frame": 112,
+    "last_worker_frame": 142,
+    "captured_range_inclusive": [
+      82,
+      172
+    ],
+    "whole_frame_pixels": {
+      "frames_compared": 91,
+      "frames_with_pixel_differences": 7,
+      "total_changed_pixels": 2072,
+      "differences": [
+        {
+          "frame": 123,
+          "changed_pixels": 564
+        },
+        {
+          "frame": 129,
+          "changed_pixels": 561
+        },
+        {
+          "frame": 132,
+          "changed_pixels": 635
+        },
+        {
+          "frame": 154,
+          "changed_pixels": 78
+        },
+        {
+          "frame": 159,
+          "changed_pixels": 78
+        },
+        {
+          "frame": 163,
+          "changed_pixels": 78
+        },
+        {
+          "frame": 167,
+          "changed_pixels": 78
+        }
+      ]
+    },
+    "target_crop": {
+      "world_crop": [
+        128,
+        176,
+        16,
+        36
+      ],
+      "frames_compared": 91,
+      "changed_pixels": 0,
+      "active_wobble_range_inclusive": [
+        112,
+        142
+      ]
+    },
+    "verify_report_file_sha1": "487ee3e4d3b996404afcfed94c987cabb903aedc",
+    "additional_api_calls": 0,
+    "overall_verdict": "inconclusive",
+    "reason": "Seven full-frame pixel differences remain; the original issue still requires human validation."
+  }
 }

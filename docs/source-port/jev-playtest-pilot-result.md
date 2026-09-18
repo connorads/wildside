@@ -5,6 +5,10 @@ prize block. A separate scripted control reached it and showed matching wobble
 pixels, but the full oracle comparison failed RNG parity. The awaiting-human
 issue remains open. No gameplay code changed.
 
+The [bootstrap follow-up](jev-bootstrap-result.md) fixes the starting-state
+mismatch and repeats the scripted control. Its state comparison passes;
+seven full-frame pixel differences keep the overall verdict inconclusive.
+
 ## Model attempts
 
 | Attempt | Result |
