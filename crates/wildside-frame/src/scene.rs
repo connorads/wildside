@@ -612,7 +612,12 @@ fn dragon_walking_breath_child_frame(
     remaining_frames: u16,
 ) -> Option<wildside_render::SpriteFrame> {
     let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
-    let elapsed_frames = DRAGON_WALKING_BREATH_LIFETIME.saturating_sub(remaining_frames);
+    // ASM Init_Animation -> GfxObject_Animate -> sub_1194: the spawn pass
+    // loads the first descriptor's full timer. Native lifetime has already
+    // decremented on that pass, but no animation duration has elapsed yet.
+    let elapsed_frames = DRAGON_WALKING_BREATH_LIFETIME
+        .saturating_sub(remaining_frames)
+        .saturating_sub(1);
     let (tile_base_index, origin_x, origin_y, width_px, height_px) = if elapsed_frames < 8 {
         // ASM Dragon.asm `stru_3CCC8`: first frame `LnkTo_unk_C7576`.
         (0x028, 0x0B, 0x00, 0x1B, 0x13)
@@ -12840,27 +12845,32 @@ mod tests {
 
         for (remaining, expected, label) in [
             (
-                68,
+                67,
                 (0x028, 0x0B, 0x00, 0x1B, 0x13),
-                "ASM Dragon.asm `stru_3CCC8` elapsed 0",
+                "ASM Init_Animation -> sub_1194 loads stru_3CCC8 with timer 8",
             ),
             (
-                61,
+                60,
                 (0x028, 0x0B, 0x00, 0x1B, 0x13),
                 "ASM Dragon.asm `stru_3CCC8` elapsed 7",
             ),
             (
-                60,
+                59,
                 (0x034, 0x0A, 0x00, 0x20, 0x15),
                 "ASM Dragon.asm `stru_3CCC8` elapsed 8",
             ),
             (
                 50,
+                (0x034, 0x0A, 0x00, 0x20, 0x15),
+                "ASM Dragon.asm `stru_3CCC8` elapsed 17",
+            ),
+            (
+                49,
                 (0x040, 0x0A, 0x00, 0x20, 0x16),
                 "ASM Dragon.asm `stru_3CCC8` elapsed 18",
             ),
             (
-                40,
+                39,
                 (0x034, 0x0A, 0x00, 0x20, 0x15),
                 "ASM Dragon.asm `stru_3CCC8` elapsed 28",
             ),
