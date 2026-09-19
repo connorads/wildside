@@ -14,6 +14,11 @@
       "key": "oracle_gfx_sprite_order_loc_14a4",
       "reason": "Repeated #406 SAT investigations used the oracle GfxObject chain to choose and verify typed Kid, wobble, flash ordering.",
       "maturity_status": "ready"
+    },
+    {
+      "key": "kid_gameplay_path_probe",
+      "reason": "Jev #370 natural-death classification distinguishes fatal projectile damage from prior Dragon body contact.",
+      "maturity_status": "ready"
     }
   ],
   "fields": [
@@ -510,11 +515,12 @@
     {
       "key": "kid_gameplay_path_probe",
       "scope": "frame",
-      "status": "exploratory",
+      "status": "candidate",
       "owner": "knights-isle-ground-support-frontier",
       "first_added_commit": "9e5ea0ef",
       "intended_meaning": "Native gameplay-path branch plus the first post-motion mutator that touched Kid, used to prove whether frame-7968..7969 is still running normal movement or an external handoff.",
-      "promotion_trigger": "Promote if repeated parity work depends on a typed gameplay-path or post-motion handoff diagnostic."
+      "promotion_trigger": "Promote if repeated parity work depends on a typed gameplay-path or post-motion handoff diagnostic.",
+      "stale_candidate_exemption": "Private Jev #370 encounter attribution uses post=projectile_damage. The case remains inconclusive on reload parity; promote a typed damage source before this becomes a permanent fidelity regression."
     },
     {
       "key": "kid_pre_physics_probe",

@@ -34,3 +34,31 @@ An attempt counts only when the encounter occurs, the current output agrees
 with the relevant oracle evidence, and a verified negative control fails the
 same check. Synthetic controls are labelled; they do not reproduce a historical
 build. Inconclusive comparisons and blocked routes never count as proven cases.
+
+Run `mise run jev-case -- --issue 210` or `--issue 370` for offline controls.
+`--script path.json` accepts a private array of ordinary controller bytes.
+It cannot set position, form, health or lives. Standard recording bundles and
+an HTML frame viewer are written beneath `.cache/jev-cases/<run>/`.
+The recorder continues through death and title cards. Oracle errors and all
+pixel differences remain visible. Non-proven outcomes exit one.
+
+`mise run jev-case -- --issue 327 --live` explicitly permits paid discovery.
+It first compares the settled start with the oracle. A red comparison prevents
+paid requests. `TYPESAFE_API_KEY` stays in the environment; offline subprocesses
+do not inherit it. Successful routes retain controller bytes and exact native
+replay evidence. Interrupted calls keep their spend reservation.
+
+The locked `.cache/jev-cases/budget.json` ledger starts at the prior cumulative
+upper bound of $0.024954048. Preserve this file across runs. It enforces the
+original $1 total, three attempts per case, 600 decisions per attempt and a
+20-minute collection deadline shared by a case's attempts. Each decision
+applies six frames, with at most 3,600 frames per route. Pricing and request
+limits follow the pinned [Jev model](https://docs.typesafe.ai/models) and
+[HTTP API](https://docs.typesafe.ai/api). No bulk runner is provided.
+
+Negative controls run in detached temporary worktrees with separate Cargo
+output. #370 deliberately removes the projectile clear at the ordinary
+respawn boundary. This is synthetic, not a historical defect reconstruction.
+The control must preserve the route prefix and fail the same encounter check.
+The main checkout remains unchanged. A sensitive control does not override
+a red oracle comparison.
