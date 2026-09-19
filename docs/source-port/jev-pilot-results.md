@@ -2,7 +2,7 @@
 
 The pilot has no fully proven case. Human backlog statuses remain authoritative.
 The run reports preserve full state and pixel differences, including differences
-outside each narrow symptom. No paid requests are needed for these observations.
+outside each narrow symptom. Paid route collection is accounted separately below.
 
 | Case | Encounter and control | Remaining blocker |
 | --- | --- | --- |
@@ -73,3 +73,43 @@ The full requested level range 0-104 passes the state sweep for all 69 runnable
 levels, with zero failures and zero errors. Three remain unverified because
 their oracle checkpoints are not comparable. These verdicts match the prior
 sweep. Result: `.cache/sweep-runs/1789835842/report.json`.
+
+## Paid route collection
+
+Three BLW2 collection attempts use 1,170 decisions in total. The cumulative
+spend upper bound is $0.176526462, including the prior $0.024954048. The new
+collection adds $0.151572414. No attempt reaches the teleporter, and the
+three-attempt allowance is exhausted.
+
+| Attempt | Frames | Finding |
+| --- | --- | --- |
+| 1 | 1,212 | Pauses at frame 104 and stays paused. The observation lacks the pause flag. |
+| 2 | 2,208 | Pause state is exposed; best x=614. Running actions still press C rather than A. |
+| 3 | 3,600 | Correct A mapping and named held buttons; best x=746. Stalls on the death-reload title card despite recorded state guidance. |
+
+The adapter regression pins A/B/C mappings. Pause state and named held
+buttons are explicit observations. Choice rubrics describe when each control
+is appropriate, following the [TypeSafe choice API](https://docs.typesafe.ai/api).
+Those richer rubrics are added after the collection allowance is exhausted;
+their effect on Jev's gameplay is not yet measured. New journals retain the
+exact question so prompt changes are reviewable.
+
+Original collection bundles are retained under `.cache/jev-cases/`:
+`1789835385159833000`, `1789835681424562000`, and `1789836030152955000`.
+Their full-route rendering was stopped after the missing encounters were
+established. Offline reviews replay the complete controller scripts and
+capture frame zero plus the final second. Inputs are retained in
+`.cache/jev-cases/pilot-inputs/attempt-{1,2,3}.json`; reproduce each with
+`mise run jev-case -- --issue 327 --script <input-file>`.
+
+These are unsuccessful discovery attempts. They establish neither a
+teleporter reproduction nor a fix. The synthetic #370 control is also not
+a reconstruction of a historical build. No human validation status changes.
+
+All three offline reviews reproduce their complete collected native traces
+exactly and return `not exercised`, each with 61 comparison frames:
+`1789836617957192000`, `1789836718430023000`, and `1789836811525261000`.
+The current isolated #370 control also passes after rebuilding relocated
+build-script wrappers, with a 303-frame identical prefix and the expected
+failed cleanup check. Evidence: `.cache/jev-cases/negative-control-rebuild-check-2/`.
+The adapter passes all 23 Jev script tests and `verify-slice-fast`.

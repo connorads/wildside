@@ -157,15 +157,16 @@
   },
   {
     "issue": 210,
-    "readiness": "ready_replay",
+    "readiness": "needs_comparison",
     "active_path": "NativeRuntime title-menu carry, Pal_FadeOut and loc_1AE2E handoff; VDP render active",
-    "route": "Reconstruct 3300-frame cold boot from level_tests.rs:7773: Start at 2400 and even 2700..2730",
+    "route": "mise run jev-case -- --issue 210; ordinary 3300-frame cold boot, shared by #254",
     "evidence": [
       "docs/source-port/backlog-awaiting-human.md#issue-210",
       "docs/source-port/backlog-archive.md#issue-210",
-      "crates/wildside-core/src/tests/level_tests.rs:7773"
+      "crates/wildside-core/src/tests/level_tests.rs:7773",
+      "docs/source-port/jev-pilot-results.md"
     ],
-    "next_action": "Replay this exact cold boot on current native and oracle, compare VDP/mode at 2717/2720/2723/2732/3000/3299, then restore the historical carry-window defect in isolation.",
+    "next_action": "Resolve remaining title-window RNG, intermediate Kid state and lettering differences; the ordinary Start guard regression and restored-defect control already pass.",
     "scope": "Rapidly skip intro, title, and menu with repeated Start presses; no black squares, corrupt Red Stealth/title art, or early gameplay release should appear."
   },
   {
@@ -298,15 +299,16 @@
   },
   {
     "issue": 254,
-    "readiness": "ready_replay",
+    "readiness": "needs_comparison",
     "active_path": "Same active title/menu VDP transition as #210; separate art complaint unproven",
-    "route": "Shared #210 3300-frame cold-boot Start-spam input in level_tests.rs:7773",
+    "route": "mise run jev-case -- --issue 210; ordinary 3300-frame cold boot, shared by #254",
     "evidence": [
       "docs/source-port/backlog-awaiting-human.md#issue-254",
       "docs/source-port/backlog-archive.md#issue-254",
-      "crates/wildside-core/src/tests/level_tests.rs:7773"
+      "crates/wildside-core/src/tests/level_tests.rs:7773",
+      "docs/source-port/jev-pilot-results.md"
     ],
-    "next_action": "Run paired #210 validation and retain any distinct intro-art residual as an uncovered subcase rather than claiming all intro paths.",
+    "next_action": "Resolve remaining title-window RNG, intermediate Kid state and lettering differences; the ordinary Start guard regression and restored-defect control already pass.",
     "scope": "Rapidly skip intro/title/menu and watch the Red Stealth/title-screen art; it should not corrupt with the #210 route."
   },
   {
@@ -709,16 +711,17 @@
     "issue": 327,
     "readiness": "needs_route",
     "active_path": "crates/wildside-core/src/combat.rs check_teleporter_contact -> begin_teleport_level_entry_load_ingame_loc_bcf6",
-    "route": "missing natural BLW2 cell (156,36) encounter; seeded tests exist",
+    "route": "Clean six-frame BLW2 preflight; three paid input routes miss the teleporter, best x=746 versus target x=2503",
     "evidence": [
       "docs/source-port/backlog-awaiting-human.md",
       "docs/source-port/backlog-archive.md#issue-327",
       "crates/wildside-core/src/combat.rs",
       "crates/wildside-core/src/boot.rs",
-      "crates/wildside-core/src/tests/runtime_tests.rs"
+      "crates/wildside-core/src/tests/runtime_tests.rs",
+      "docs/source-port/jev-pilot-results.md"
     ],
-    "next_action": "Reach BLW2 cell (156,36) by input, remain grounded until activation and compare relocation/no-title-card; cross-level and death-card checks remain separate",
-    "scope": "Fixed candidate 2026-06-18: same-level teleporters now follow ROM `loc_BCF6` / Game_Mode `$C` Load_InGame semantics via `begin_teleport_level_entry_load_ingame_loc_bcf6`, bypassing the title-card path while preserving the `#$EE` teleport fade colour and teleport SFX. Cross-level teleporters already bypass title cards through the level-skip hold path."
+    "next_action": "Obtain a natural route through BLW2 teleporter contact and relocation. The three-attempt collection allowance is exhausted; richer action rubrics require a future authorised collection.",
+    "scope": "Natural BLW2 same-level teleporter activation and relocation without a title card; cross-level teleports remain a separate case."
   },
   {
     "issue": 329,
@@ -1032,15 +1035,16 @@
   },
   {
     "issue": 370,
-    "readiness": "needs_route",
+    "readiness": "needs_comparison",
     "active_path": "DragonWalkingBreath projectile collision then Load_InGame respawn cleanup",
-    "route": "missing; current issue_370 tests seed breath onto final-HP Kid",
+    "route": "mise run jev-case -- --issue 370; 620 ordinary frames, natural breath fatal hit at 302, Start at 500, living gameplay at 562",
     "evidence": [
       "docs/source-port/backlog-awaiting-human.md#issue-370",
       "docs/source-port/backlog-archive.md#issue-370",
-      "crates/wildside-core/src/tests/level_tests.rs:14301"
+      "crates/wildside-core/src/tests/level_tests.rs:14301",
+      "docs/source-port/jev-pilot-results.md"
     ],
-    "next_action": "Record naturally spawned breath causing fatal damage and ordinary reload, track pre-death child identity, and compare through restored live control; continue branch remains separate.",
+    "next_action": "Replace the collapsed death-loader phases using ASM/oracle evidence; death-loop RNG and HUD fixes pass, but fade at 377 and loader at 409 still diverge. Continue remains separate.",
     "scope": "Die to walking Dragon breath in Blue Lake Woods 1; after reload/continue, no stale fire should remain or damage Kid."
   },
   {

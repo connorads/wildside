@@ -10,6 +10,26 @@ import jev_case_service as service
 
 
 class VerdictTests(unittest.TestCase):
+    def test_missing_teleporter_keeps_only_a_diagnostic_tail(self):
+        ordinary = dict(current_level=1, kid_x_pos=32 << 16, kid_y_pos=191 << 16)
+        trace = [ordinary] * 3600
+        self.assertEqual(jev_case.encounter(327, trace)["window"], [3540, 3599])
+        trace[100] = dict(current_level=1, kid_x_pos=2503 << 16,
+                          kid_y_pos=575 << 16, kid_on_ground=True)
+        trace[250] = dict(current_level=1, kid_x_pos=448 << 16, teleport_warp_colour=238)
+        for index in range(100, 281):
+            trace[index] = trace[index] | {"game_mode": "InGame"}
+        self.assertEqual(jev_case.encounter(327, trace)["window"], [70, 280])
+        self.assertTrue(jev_case.encounter(327, trace)["complete"])
+
+    def test_running_controls_press_a_without_c(self):
+        self.assertEqual(set(service.QUESTION["criteria"]), set(service.MASKS))
+        # FrameInput uses A=0x40, B=0x10 and C=0x20.
+        for name, direction in (("run_right", 8), ("run_left", 4)):
+            with self.subTest(name=name):
+                self.assertEqual(service.MASKS[name], 0x40 | direction)
+                self.assertEqual(service.MASKS[name + "_jump"], 0x40 | 0x10 | direction)
+
     def test_control_removes_only_the_respawn_projectile_clear(self):
         source = """outside.clear();
     pub(crate) fn reset_current_level_runtime_state_for_respawn(&mut self) {

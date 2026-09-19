@@ -47,11 +47,11 @@ fn collect(config: &CaseInput, manifest: &AssetManifest, start: RecordingStart) 
             }
         }
         let state = json!({"goal": "Reach the BLW2 teleporter at x2503 y575, stand still for90 frames, then observe arrival near x448 y143. Stay alive and find a higher route around walls.",
-            "frame": script.len(), "mode": trace.game_mode, "level": trace.current_level,
+            "frame": script.len(), "mode": trace.game_mode, "paused": trace.paused, "level": trace.current_level,
             "kid": {"x": x, "y": y, "vx": trace.kid_x_velocity.map(|v| f64::from(v)/65536.0),
                 "vy": trace.kid_y_velocity.map(|v| f64::from(v)/65536.0), "grounded": trace.kid_on_ground,
                 "hp": trace.number_hitpoints, "lives": trace.number_lives},
-            "held_mask": script.last(), "terrain_cells_16px": terrain,
+            "held_buttons": FrameInput::from_mask(script.last().copied().unwrap_or_default()), "terrain_cells_16px": terrain,
             "enemies": trace.active_enemy_details, "projectiles": trace.active_projectile_details});
         let mut child = Command::new("python3")
             .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/jev_case_service.py"))

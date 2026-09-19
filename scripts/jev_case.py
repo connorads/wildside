@@ -67,7 +67,8 @@ def encounter(issue, trace):
         return {"complete": complete, "contact_frame": contact, "relocated_frame": relocated,
                 "symptom_pass": complete and all(f["game_mode"] == "InGame"
                     for f in trace[contact:relocated + 31]),
-                "window": [max(0, (contact or 30) - 30), min(len(trace) - 1, (relocated or len(trace) - 31) + 30)],
+                "window": [max(0, contact - 30) if contact is not None else max(0, len(trace) - 60),
+                           min(len(trace) - 1, (relocated if relocated is not None else len(trace) - 31) + 30)],
                 "scope": "natural BLW2 same-level teleporter, excluding cross-level warp"}
     raise ValueError("unsupported case")
 
@@ -159,7 +160,12 @@ def negative_control(output, issue, inputs, trace, assessment, env):
         (checkout / name).symlink_to(ROOT / name, target_is_directory=True)
     build = checkout.parent / "target"
     if sys.platform == "darwin":
-        command(["/bin/cp", "-cR", str(ROOT / "target"), str(build)], ROOT, output / "clone-build.log")
+        source_build = Path(env.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
+        command(["/bin/cp", "-cR", str(source_build), str(build)], ROOT, output / "clone-build.log")
+        # Workspace build-wrap executables retain their original absolute paths.
+        # Cargo rebuilds them inside this isolated checkout with sandboxing intact.
+        command(["cargo", "clean", "-p", "wildside-cli", "-p", "ymfm-sys", "--target-dir", str(build)],
+                checkout, output / "rebuild-sandbox-wrappers.log", env=env)
     config = output / "negative-input.json"
     write_json(config, {"issue": issue, "output": str(output / "negative-bundle"),
                        "script": inputs, "checkpoints": [0, len(inputs) - 1]})

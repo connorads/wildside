@@ -67,3 +67,16 @@ The main checkout remains unchanged. A sensitive control does not override
 a red oracle comparison.
 
 Pilot evidence is recorded in [jev-pilot-results.md](jev-pilot-results.md).
+
+Failed teleporter routes retain the full input journal and native trace.
+Their visual report includes frame zero and the final 60 frames. A reached
+encounter retains its whole event window, including its 30-frame prefix and
+tail. The controller sees pause state and named held buttons. A is `0x40`,
+B is `0x10`, and C is `0x20`; running actions use A. Decision journals include
+the exact question and action rubrics as well as state and response.
+
+Isolated controls copy an idle Cargo target directory. `CARGO_TARGET_DIR` is
+honoured. Workspace build-script wrappers are rebuilt in the copied target
+because build-wrap embeds their original paths. Sandboxing remains enabled.
+Do not clone a target directory while another Cargo process is replacing its
+object files.
