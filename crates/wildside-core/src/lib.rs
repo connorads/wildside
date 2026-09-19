@@ -4265,6 +4265,11 @@ impl NativeRuntime {
             _ => None,
         };
         let debug_level_entry_live_boundary = self.debug_level_entry_live_boundary_loc_74e0();
+        if debug_level_entry_elapsed == Some(debug_level_entry_live_boundary) {
+            // ASM loc_720 clears HUD offsets; Load_InGame -> sub_44B0 seeds
+            // all five clocks before this first live Mode_Level HUD pass.
+            self.hud_animation_state = boot::HudAnimationStateSub44DC::initialised_from_sub_44_b0();
+        }
         let debug_level_entry_object_pass = debug_level_entry_elapsed
             .is_some_and(|elapsed| !(2..debug_level_entry_live_boundary).contains(&elapsed));
         let debug_level_entry_hibernated = debug_level_entry_elapsed

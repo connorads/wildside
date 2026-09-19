@@ -282,7 +282,6 @@ impl NativeRuntime {
                 self.prior_input = FrameInput::default();
                 self.previous_input = FrameInput::default();
                 self.recording_oracle_debug_lifecycle_completed = true;
-                self.reconcile_recording_handoff_hud_diamond_loc_45ee(8);
             } else {
                 self.pending_level_skip = Some(target);
                 self.step_frame(idle);
@@ -437,26 +436,6 @@ impl NativeRuntime {
 
     pub fn settle_recording_oracle_warp_live_window(&mut self, level_id: LevelId) {
         self.settle_recording_oracle_warp_live_window_with_target_frames(level_id, None);
-    }
-
-    fn reconcile_recording_handoff_hud_diamond_loc_45ee(&mut self, passes: usize) {
-        // ASM loc_74E0 -> Mode_Level loc_80C -> sub_44DC loc_45EE: the
-        // recording helper exposes eight HUD-animation passes which its
-        // collapsed native title/settle shell does not execute. Oracle settle
-        // tracing ends Level $55's target-live step 59 at
-        // `$FA58/$FA5D=$01/$00`, while native reaches `$01/$06`; advance only
-        // this foreign-helper presentation clock before the shared live settle.
-        for _ in 0..passes {
-            let step = boot::step_hud_animation_sub_44DC(self.hud_animation_state);
-            self.hud_animation_state.diamond_countdown_fb58 =
-                step.next_state.diamond_countdown_fb58;
-            self.hud_animation_state.diamond_frame_offset_fb5d =
-                step.next_state.diamond_frame_offset_fb5d;
-            if let Some(upload) = step.diamond_upload {
-                self.gameplay_hud_vram_state
-                    .record_diamond_dma_sub_5d4a(upload.frame_table_byte_offset);
-            }
-        }
     }
 
     /// #442: the hidden live window every settled-warp caller runs. All five
@@ -1474,6 +1453,40 @@ mod tests {
     // VDP capture (run_with_vdp) needs ROM-derived title/Sega art, so these are
     // cache-backed: set KID_ENABLE_CACHE_BACKED_TESTS=1 after `mise run
     // extract-assets`. Mirrors the loader in crate::tests::fixtures.
+    #[test]
+    fn recording_debug_loader_resets_all_hud_clocks_before_live_pass() {
+        // ASM loc_720 clears offsets; Load_InGame -> sub_44B0 seeds countdowns.
+        // Oracle BLW2 settled recording RAM $FA58..$FA61 at frames 0 and 5.
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(LevelId(1));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(1));
+        for frame in 0..=5 {
+            runtime.step_frame(FrameInput::default());
+            let hud = runtime.hud_animation_state;
+            let bytes = [
+                hud.diamond_countdown_fb58,
+                hud.life_countdown_fb59,
+                hud.clock_countdown_fb5a,
+                hud.coin_countdown_fb5b,
+                hud.flag_countdown_fb5c,
+                hud.diamond_frame_offset_fb5d,
+                hud.life_frame_offset_fb5e,
+                hud.clock_frame_offset_fb5f,
+                hud.coin_frame_offset_fb60,
+                hud.flag_frame_offset_fb61,
+            ];
+            if frame == 0 {
+                assert_eq!(bytes, [3, 72, 1, 5, 4, 6, 0, 6, 18, 2]);
+            }
+            if frame == 5 {
+                assert_eq!(bytes, [4, 67, 68, 6, 5, 0, 0, 0, 0, 4]);
+            }
+        }
+    }
+
     fn cached_generated_manifest() -> Option<AssetManifest> {
         if !matches!(
             std::env::var("KID_ENABLE_CACHE_BACKED_TESTS")

@@ -8,7 +8,7 @@ outside each narrow symptom. No paid requests are needed for these observations.
 | --- | --- | --- |
 | #210/#254 | Ordinary rapid Start stays on the title card through frame 3299. Restoring the ordinary-runtime guard defect fails the same check after 2718 identical prefix frames. | Full comparison differs in RNG from frame 2700, intermediate Kid state and title lettering. |
 | #370 | Natural breath fatal hit at 302, reset at 409, living gameplay at 562, observed through 592. Removing the projectile clear retains the stale child and fails the same check after 303 identical prefix frames. This control is synthetic. | Death-loop RNG and HUD timing pass targeted oracle checks; fade pixels differ at 377 and loader RNG at 409. |
-| #327 | Six neutral starting frames replay exactly and match oracle state. | Frame 5 differs by seven HUD pixels. Paid discovery is blocked by preflight. No natural teleporter route is proven. |
+| #327 | Six neutral starting frames replay exactly and match oracle state and pixels after the HUD-clock reset. | No natural teleporter route is proven. Paid discovery requires this clean preflight. |
 
 Reproduce #210/#254 with `mise run jev-case -- --issue 210` and #370 with
 `mise run jev-case -- --issue 370`. Both return non-zero for an inconclusive
@@ -57,3 +57,19 @@ checkpoints except 377, where the known fade boundary differs. RNG first
 differs at sampled frame 409, when the collapsed native loader starts.
 All 107 frames from 302 through 408 match the existing full-window oracle
 RNG offset, last byte and ring. The full reload case remains inconclusive.
+
+## Settled-entry HUD evidence
+
+`loc_720` clears the animation offsets and `Load_InGame -> sub_44B0` seeds
+all five countdowns. The debug loader applies this reset at its existing
+live boundary, before the first HUD pass. It needs no diamond-only adjustment.
+The BLW2 regression checks all ten bytes at frames 0 and 5. The level 0x55
+recording-handoff diamond witness and the other settled-warp regressions pass.
+Main-checkout replay in `.cache/jev-cases/hud-loader-fix/` matches oracle state
+and every pixel on all six frames. This proves the starting comparison,
+not the teleporter encounter.
+
+The full requested level range 0-104 passes the state sweep for all 69 runnable
+levels, with zero failures and zero errors. Three remain unverified because
+their oracle checkpoints are not comparable. These verdicts match the prior
+sweep. Result: `.cache/sweep-runs/1789835842/report.json`.
