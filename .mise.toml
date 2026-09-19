@@ -59,6 +59,10 @@ description = "Playtest session without mic capture"
 run = "python3 scripts/jev_proof.py"
 description = "Compare a saved Jev route with the isolated historical prize-rendering defect"
 
+[tasks.jev-audit]
+run = "python3 scripts/jev_audit.py"
+description = "Audit unresolved bug readiness without model calls or backlog status changes"
+
 [tasks.playtest-ingest]
 run = "cargo run --release -p wildside-cli -- playtest-ingest"
 description = "Draft report from a playtest session: mise run playtest-ingest -- --session <slug> --transcript <file>"

@@ -1,0 +1,1072 @@
+[
+  {
+    "issue": 65,
+    "readiness": "needs_comparison",
+    "active_path": "crates/wildside-core/src/blocks.rs step_shooter_blocks visibility registration",
+    "route": "crates/wildside-cli/src/scenarios.rs highwater_shooter_barrier_audit_scenario; requires fresh replay",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-65",
+      "crates/wildside-core/src/blocks.rs",
+      "crates/wildside-cli/src/scenarios.rs"
+    ],
+    "next_action": "Refresh Highwater shooter scenario; prove multiple individual registrations, entry shots and recycle timing without seeded helper-only claims",
+    "scope": "Shooter fire: ASM uses per-block registration on visibility, native uses global timer"
+  },
+  {
+    "issue": 155,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/enemies.rs Drips attach/drop/crawler dispatch",
+    "route": "missing complete natural attach/drop/fire route; shares #213 prefix",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-155",
+      "crates/wildside-core/src/enemies.rs",
+      "crates/wildside-frame/src/sprites.rs"
+    ],
+    "next_action": "Extend an oracle-clean BLW2 route through ceiling attachment, falling child and crawler; compare positions and art separately",
+    "scope": "Slimes (Drips family?) hang at wrong attach point and shoot red projectile downward incorrectly"
+  },
+  {
+    "issue": 157,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-frame/src/scene.rs EOL scene workers; active VDP source attribution unknown",
+    "route": "missing current natural level-completion capture",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-157",
+      "crates/wildside-frame/src/scene.rs",
+      "crates/wildside-cli/src/recording.rs"
+    ],
+    "next_action": "Record flag contact through full EOL fly-in and tally; identify active renderer and compare text worker positions/digits against oracle",
+    "scope": "Level-complete bonus overlay uses typed text instead of EOL sprite workers"
+  },
+  {
+    "issue": 169,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/enemies.rs Drips family and projectile collision",
+    "route": "missing complete natural Drips route; #213 healthy-prefix history only",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-169",
+      "crates/wildside-core/src/enemies.rs",
+      "crates/wildside-core/src/combat.rs"
+    ],
+    "next_action": "Revalidate BLW2 prefix and extend it through floor splash/crawler/attack before judging placement",
+    "scope": "Level 2 Drips/slime placement and drop/attack behaviour still looks wrong"
+  },
+  {
+    "issue": 185,
+    "readiness": "needs_route",
+    "active_path": "Hand state machine in enemies.rs; historical body-frame scene test does not establish active VDP output",
+    "route": "missing; issue361_hand_level03_probe was separated contact and out-of-phase oracle",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-185",
+      "docs/source-port/backlog-archive.md#issue-185",
+      "crates/wildside-cli/src/native_player/mod.rs:8240"
+    ],
+    "next_action": "Reach a Hand naturally in 0x03, record crawl/jump then actual grab contact, and compare current VDP frames plus Hand state.",
+    "scope": "In Highwater Pass 2, approach a Hand; it should crawl/jump with solid Hand frames and still grab Kid on contact."
+  },
+  {
+    "issue": 186,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/enemies.rs Lion state dispatch",
+    "route": "missing natural level 0x07 Lion hurt/ledge/roar sequence",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-186",
+      "crates/wildside-core/src/enemies.rs",
+      "docs/source-port/audits/enemy-fidelity-audit.md"
+    ],
+    "next_action": "Capture separate recoil, ledge leap and roar windup encounters with enemy-frontier comparison",
+    "scope": "Lion: hurt recoil, gravity ledge-leap charge, roar windup + engagement bands missing"
+  },
+  {
+    "issue": 203,
+    "readiness": "needs_comparison",
+    "active_path": "unknown concrete live helper target; historic census is not current runtime evidence",
+    "route": "missing selected helper encounter",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-203",
+      "docs/source-port/dead-helper-census.md",
+      "crates/wildside-core/src/lib.rs"
+    ],
+    "next_action": "Refresh caller analysis for one named helper then choose an oracle-visible encounter; do not use broad dead-code counts as behaviour coverage",
+    "scope": "Dead-helper census: ASM-faithful unit-tested helpers exist crate-wide but the\u2026"
+  },
+  {
+    "issue": 205,
+    "readiness": "needs_comparison",
+    "active_path": "crates/wildside-cli/src/scenarios.rs object-active audit builders; bootstrap and object coverage require current verification",
+    "route": "crates/wildside-cli/src/scenarios.rs lava_weather_audit_scenario and diamond_power_*_audit_scenario",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-205",
+      "crates/wildside-cli/src/scenarios.rs",
+      "crates/wildside-cli/src/recording.rs"
+    ],
+    "next_action": "Re-record committed scenario builders and prove comparable start plus object-active checkpoints; reject stale cache traces",
+    "scope": "Object/enemy-active oracle scenario harness \u2014 prerequisite for verifying dead-helper wiring (#206-#208)"
+  },
+  {
+    "issue": 206,
+    "readiness": "needs_comparison",
+    "active_path": "crates/wildside-core/src/lib.rs step_diamond_power live call and helmets.rs weapon slots",
+    "route": "crates/wildside-cli/src/scenarios.rs diamond_power_*_audit_scenario; seeded form/diamonds, stale historical bundles",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-206",
+      "crates/wildside-core/src/lib.rs",
+      "crates/wildside-core/src/helmets.rs",
+      "crates/wildside-cli/src/scenarios.rs"
+    ],
+    "next_action": "Refresh each seeded audit explicitly as synthetic setup; require current replay and strict pixels, then collect natural acquisition routes separately",
+    "scope": "Diamond Power weapons collapsed to an invulnerability stub; full weapon set modelled but unwired"
+  },
+  {
+    "issue": 207,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/blocks.rs live sub_21F8 floating-item hitbox; combat.rs first_solid_overlap_action_sub_1FA2 remains test-only",
+    "route": "missing natural post-object solid-overlap encounter",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-207",
+      "crates/wildside-core/src/blocks.rs",
+      "crates/wildside-core/src/combat.rs",
+      "crates/wildside-core/src/lib.rs"
+    ],
+    "next_action": "Capture a solid-overlap route that discriminates current movement probes from the global pass; do not repeat stale claim that sub_21F8 has no live callers",
+    "scope": "Generic collision primitives unwired (engine-wide); relates to #139/#140/#143"
+  },
+  {
+    "issue": 208,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/lib.rs apply_platform_collision_with_ceiling_probe_trace_loc_257E",
+    "route": "missing natural platform carry/landing/overlap route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-208",
+      "crates/wildside-core/src/lib.rs",
+      "crates/wildside-core/src/platforms.rs",
+      "docs/source-port/audits/platforms-fidelity-audit.md"
+    ],
+    "next_action": "Record platform landing, carry into wall/ceiling and overlap escape; compare platform slot identity and player state",
+    "scope": "All platform physics unwired (collision / carry / landing / overlap-resolution)"
+  },
+  {
+    "issue": 210,
+    "readiness": "ready_replay",
+    "active_path": "NativeRuntime title-menu carry, Pal_FadeOut and loc_1AE2E handoff; VDP render active",
+    "route": "Reconstruct 3300-frame cold boot from level_tests.rs:7773: Start at 2400 and even 2700..2730",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-210",
+      "docs/source-port/backlog-archive.md#issue-210",
+      "crates/wildside-core/src/tests/level_tests.rs:7773"
+    ],
+    "next_action": "Replay this exact cold boot on current native and oracle, compare VDP/mode at 2717/2720/2723/2732/3000/3299, then restore the historical carry-window defect in isolation.",
+    "scope": "Rapidly skip intro, title, and menu with repeated Start presses; no black squares, corrupt Red Stealth/title art, or early gameplay release should appear."
+  },
+  {
+    "issue": 211,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/movement.rs slope state and crates/wildside-frame/src/sprites.rs form frame selection; VDP image attribution unproven",
+    "route": "crates/wildside-cli/src/scenarios.rs level_00_slope_right_probe_*; direct seeded probes do not cover natural symptom",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-211",
+      "crates/wildside-core/src/movement.rs",
+      "crates/wildside-frame/src/sprites.rs",
+      "crates/wildside-cli/src/scenarios.rs"
+    ],
+    "next_action": "Record natural level-0 slope traversal for affected forms, including zero-speed slope pose and landing snap; compare active VDP output",
+    "scope": "2026-05-30 playtest: live slope traversal still shows wrong-facing/diagonal animation despite green slope helper tests"
+  },
+  {
+    "issue": 213,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/enemies.rs Drips plus combat/block mutation",
+    "route": "historical issue213-drips-delayed-b-drop-audit prefix to 535; no accepted complete route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-213",
+      "crates/wildside-core/src/enemies.rs",
+      "crates/wildside-core/src/combat.rs",
+      "crates/wildside-core/src/blocks.rs"
+    ],
+    "next_action": "Refresh healthy prefix then find a surviving oracle-clean branch into metal corridor; compare parent/child/crawler and metal mutation",
+    "scope": "2026-05-30 playtest: Level 01 Drips/slime and metal-block interaction still wrong"
+  },
+  {
+    "issue": 215,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-cli/src/recording.rs active VDP capture; historical scene priority tests do not reproduce symptom",
+    "route": "crates/wildside-cli/src/scenarios.rs highwater_water_priority_audit_scenario; historical route does not reproduce claimed overlap",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-215",
+      "crates/wildside-cli/src/recording.rs",
+      "crates/wildside-cli/src/scenarios.rs",
+      "crates/wildside-frame/src/scene.rs"
+    ],
+    "next_action": "Place naturally reached Kid/form pixels inside a known high-priority foreground water cell and capture oracle-mismatching frame before patching",
+    "scope": "2026-05-30 playtest: water/foreground priority layering wrong in Level 02"
+  },
+  {
+    "issue": 216,
+    "readiness": "human_device",
+    "active_path": "crates/wildside-cli/src/native_player/mod.rs audio queue and core contact-frame audio events",
+    "route": "historical issue216-eol-stop-verify audio; current real-device reproduction missing",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-216",
+      "crates/wildside-cli/src/native_player/mod.rs",
+      "crates/wildside-cli/src/scenarios.rs"
+    ],
+    "next_action": "Replay current block-break/diamond/EOL routes on real speakers with audio underrun telemetry and command timestamps",
+    "scope": "2026-05-30 playtest: SFX timing/level-complete sound still lag or cut off"
+  },
+  {
+    "issue": 230,
+    "readiness": "needs_route",
+    "active_path": "Ghost-group loading/update and VDP foreground; old expected generated block group absent",
+    "route": ".cache/recordings/issue230-crypt38-walk-right/scenario.json exists but #455 invalidates expected vertical group",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-230",
+      "docs/source-port/backlog-archive.md#issue-230",
+      "docs/source-port/backlog-archive.md:3417"
+    ],
+    "next_action": "Inspect current 0x38/0x47 generated groups and record a route crossing an actual lower ghost column before any new pixel assertion.",
+    "scope": "Load The Crypt and walk right through the lower ghost columns; no corrupt ice/red pieces or weather-like flashes should appear."
+  },
+  {
+    "issue": 242,
+    "readiness": "human_device",
+    "active_path": "crates/wildside-core/src/blocks.rs metal/rubber contact cues and native audio playback",
+    "route": "missing current speaker validation",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-242",
+      "crates/wildside-core/src/blocks.rs",
+      "crates/wildside-cli/src/native_player/mod.rs"
+    ],
+    "next_action": "Bounce on metal/rubber tiles on real speakers; pair perceived cue with queued sound id $12 and contact timestamp",
+    "scope": "2026-06-03 playtest: bouncy/rubber tiles play the brick-break SFX instead of a bounce sound"
+  },
+  {
+    "issue": 243,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-frame/src/sprites.rs select_live_tar_monster_frame legacy scene selector; active VDP symptom path unproven",
+    "route": "missing current Highwater Tar Monster phase capture",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-243",
+      "crates/wildside-frame/src/sprites.rs",
+      "crates/wildside-core/src/enemies.rs",
+      "crates/wildside-cli/src/recording.rs"
+    ],
+    "next_action": "Capture active Tar Monster over emerge, visible and submerge phases; attribute VDP sprite rows before relying on scene-selector tests",
+    "scope": "FIXED candidate 2026-06-19: `select_live_tar_monster_frame` holds the live Tar Monster (0x05) on its body frame off `contact_phase` (TarMonsterHidden\u2192frame 0, else frame 1), never free-running into the stru_32700 submerge death tail. Hand (0x17) shares the symptom but a distinct HandState machine + atlas; OUT of scope, follow-up"
+  },
+  {
+    "issue": 249,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/movement.rs slope/wall collision; precise failing route unknown",
+    "route": "missing natural USM slope-wall route; rejected direct probes and clean held-Right route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-249",
+      "crates/wildside-core/src/movement.rs",
+      "crates/wildside-cli/src/scenarios.rs"
+    ],
+    "next_action": "Record USM 0x04/0x05/0x06 exact slope-wall corner with route-target coordinate; require actual upward float before engine edits",
+    "scope": "REOPENED 2026-06-19, then blocked again: wall-cling/direct-probe paths remain unauthoritative, and the candidate natural 0x04 held-Right/no-jump SlopeUp route is oracle-clean through the suspected loc_9FBC window."
+  },
+  {
+    "issue": 252,
+    "readiness": "needs_route",
+    "active_path": "RockTank VDP sprite assembly active; reported garbled frame and cause unknown",
+    "route": "missing; archived frame-300 capture was coherent",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-252",
+      "docs/source-port/backlog-archive.md#issue-252",
+      "crates/wildside-cli/src/native_player/mod.rs"
+    ],
+    "next_action": "Capture an exact naturally encountered garbled RockTank frame in 0x01, then compare body/turret/bullet tiles under matched oracle state.",
+    "scope": "Capture the exact live frame if the RockTank sprite is still garbled."
+  },
+  {
+    "issue": 254,
+    "readiness": "ready_replay",
+    "active_path": "Same active title/menu VDP transition as #210; separate art complaint unproven",
+    "route": "Shared #210 3300-frame cold-boot Start-spam input in level_tests.rs:7773",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-254",
+      "docs/source-port/backlog-archive.md#issue-254",
+      "crates/wildside-core/src/tests/level_tests.rs:7773"
+    ],
+    "next_action": "Run paired #210 validation and retain any distinct intro-art residual as an uncovered subcase rather than claiming all intro paths.",
+    "scope": "Rapidly skip intro/title/menu and watch the Red Stealth/title-screen art; it should not corrupt with the #210 route."
+  },
+  {
+    "issue": 256,
+    "readiness": "needs_route",
+    "active_path": "Highwater foreground priority in active VDP; actual mask entry unproven",
+    "route": ".cache/recordings/issue-256-highwater-water-priority-current-20260623/scenario.json stops 75px short",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-256",
+      "docs/source-port/backlog-archive.md#issue-256",
+      "crates/wildside-cli/src/native_player/mod.rs"
+    ],
+    "next_action": "Extend natural route beyond x840 to the waterfall mask around x915,y1548 and verify state alignment before judging sprite occlusion.",
+    "scope": "Capture a route where Kid or a form enters the Highwater waterfall mask and renders in front."
+  },
+  {
+    "issue": 259,
+    "readiness": "needs_route",
+    "active_path": "RockTank sprite versus foreground VDP priority; later tank identity unknown",
+    "route": "missing; rock_tank_contact_probe matched oracle only at earlier frames 222..224",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-259",
+      "docs/source-port/backlog-archive.md#issue-259",
+      "crates/wildside-frame/src/scene.rs"
+    ],
+    "next_action": "Reach the later BLW2 or Highwater tank and capture the perceived half-sunk frame before changing Y or priority.",
+    "scope": "Capture the exact later BLW2 or Highwater frame where RockTank appears half-sunk."
+  },
+  {
+    "issue": 265,
+    "readiness": "human_device",
+    "active_path": "Native audio event queue and GEMS playback on real device",
+    "route": "missing exact human EOL recording; scripted and dummy SDL emit start/stop correctly",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-265",
+      "docs/source-port/backlog-archive.md#issue-265",
+      "crates/wildside-cli/src/native_player/mod.rs"
+    ],
+    "next_action": "Capture real-device EOL tally waveform with audio-events and audio-diagnostics; compare tick/rumble onset and stop to command timeline.",
+    "scope": "On a real audio device, capture the EOL score tally route if tick or rumble is missing."
+  },
+  {
+    "issue": 270,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/movement.rs wall/slope contact; precise failing seam unknown",
+    "route": "missing natural slope-wall corner recording; old USM scratch routes rejected",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-270",
+      "crates/wildside-core/src/movement.rs",
+      "crates/wildside-cli/src/recording.rs"
+    ],
+    "next_action": "Capture exact launch/shove/floor-clip frame through natural inputs and run its gameplay frontier; do not reuse WRAM-patched probes",
+    "scope": "Route-needed 2026-07-07: fresh USM1/USM3 probes were either oracle/native clean, stalled before the reported slope-wall corner, or hit an ordinary vertical wall rather than the slope/solid seam."
+  },
+  {
+    "issue": 280,
+    "readiness": "needs_route",
+    "active_path": "VDP background row history and palette; reported seam/cloud frame unknown",
+    "route": "missing comparable failing route; old BLW2/Hills/Bloody probes diverge before symptom",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-280",
+      "docs/source-port/backlog-archive.md#issue-280",
+      "docs/source-port/backlog-archive.md:24031"
+    ],
+    "next_action": "Obtain exact blue/green seam or half-cloud frame under matched camera/state and classify palette versus missing rows before selecting a fix.",
+    "scope": "Capture the exact current frame where the blue or green seam or half-cloud appears."
+  },
+  {
+    "issue": 287,
+    "readiness": "human_device",
+    "active_path": "crates/wildside-core/src/helmets.rs airborne attack gate and native audio playback",
+    "route": "historical issue272-red-stealth-air-attack-direct-after-ground-gate synthetic route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-287",
+      "crates/wildside-core/src/helmets.rs",
+      "crates/wildside-cli/src/native_player/mod.rs"
+    ],
+    "next_action": "Retest naturally acquired Samurai on speakers; verify one attack cue per swing and separate pitch/mix issues #272/#264",
+    "scope": "2026-06-10 playtest: Samurai attack plays several overlapping attack sounds instead of one per swing"
+  },
+  {
+    "issue": 288,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/lib.rs IntroSequence5/6 retained VDP and vdp.rs intro builders",
+    "route": "historical cold-idle routes clean or stale; missing reported skip/menu timing route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-288",
+      "crates/wildside-core/src/lib.rs",
+      "crates/wildside-core/src/vdp.rs",
+      "crates/wildside-cli/src/recording.rs"
+    ],
+    "next_action": "Capture exact live bottom-left leak or differing skip timing; revalidate cold-idle negative evidence without calling it reproduction",
+    "scope": "2026-06-10 playtest: intro shows the jacket sprite in the bottom-left before\u2026"
+  },
+  {
+    "issue": 290,
+    "readiness": "ready_replay",
+    "active_path": "Published-route interval-1 TAS native/oracle state and RNG comparison",
+    "route": "tests/data/tas/any-percent-published/scenario.json",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-290",
+      "docs/source-port/backlog-archive.md#issue-290",
+      "docs/source-port/backlog-awaiting-human.md"
+    ],
+    "next_action": "Re-run existing interval-1 full-route report; report exact covered player/camera/RNG/enemy domains without extending to whole RAM, pixels or audio.",
+    "scope": "Review the interval-1 published-route report and its evidence boundary."
+  },
+  {
+    "issue": 292,
+    "readiness": "needs_route",
+    "active_path": "LevelTimer initialisation, clock-prize bonus and timer-expiry death",
+    "route": "missing combined natural fresh-start/clock/timeout input route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-292",
+      "docs/source-port/backlog-archive.md#issue-292",
+      "crates/wildside-core/src/types.rs:5142"
+    ],
+    "next_action": "Capture fresh first timer tick, a naturally acquired clock bonus and full timer expiry against oracle; do not substitute only LevelTimer helper tests.",
+    "scope": "Check a fresh level, timer death, and clock prize timing for ROM-normalised seconds."
+  },
+  {
+    "issue": 293,
+    "readiness": "needs_comparison",
+    "active_path": "Live pause menu restart shell and last-life death path",
+    "route": "tests/data/dynamic-scenarios/issue-305-pause-restart-round-life-spend-probe.json; tests/data/dynamic-scenarios/issue-305-pause-give-up-last-life-probe.json",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-293",
+      "docs/source-port/backlog-archive.md#issue-293",
+      "crates/wildside-core/src/lib.rs:2447",
+      "docs/source-port/backlog-archive.md:25372"
+    ],
+    "next_action": "Revalidate tracked Restart/Give-Up inputs against current oracle through completed restart/death. The old Restart proof stops at frame 2814 before a known reload-shell divergence at 2841; the Give-Up fixture seeds initial_lives=1 and covers only 40 frames.",
+    "scope": "Pause and restart with more than one life, then on last life confirm the death path."
+  },
+  {
+    "issue": 298,
+    "readiness": "needs_route",
+    "active_path": "Grounded telepad countdown loc_B522 then check_teleporter_contact",
+    "route": "missing natural reach route; cache-backed test positions Kid at (156,36)",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-298",
+      "docs/source-port/backlog-archive.md#issue-298",
+      "crates/wildside-core/src/movement.rs:7942"
+    ],
+    "next_action": "Reach BLW2 pad (156,36) naturally, test brief walk-over and uninterrupted 90-frame grounded dwell; verify relocation and sound.",
+    "scope": "Stand on a telepad; warp should happen only after the ROM countdown, not on quick walk-over."
+  },
+  {
+    "issue": 299,
+    "readiness": "needs_route",
+    "active_path": "is_final_level checks logical 0x33 before ending flow",
+    "route": "missing natural 0x33 boss defeat and flag route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-299",
+      "docs/source-port/backlog-archive.md#issue-299",
+      "crates/wildside-core/src/level.rs:19170"
+    ],
+    "next_action": "Capture logical final-level completion, including boss flag gating, and compare ending entry; retain separate post-final MapOrder-tail check.",
+    "scope": "Complete logical final level 0x33; it should enter the ending."
+  },
+  {
+    "issue": 300,
+    "readiness": "needs_route",
+    "active_path": "teleporter_dest_level_loc_bcd6 reverse MapOrder lookup and pending level skip",
+    "route": "missing natural cross-level teleporter route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-300",
+      "docs/source-port/backlog-archive.md#issue-300",
+      "crates/wildside-core/src/level.rs:19178"
+    ],
+    "next_action": "Select an actual generated teleporter with differing map/logical destination, reach it by input, and compare loaded level and position.",
+    "scope": "Use an inter-level teleporter where map id differs; it should load the ROM destination."
+  },
+  {
+    "issue": 301,
+    "readiness": "needs_comparison",
+    "active_path": "Boss lifecycle umbrella; exact selected active gap unknown until current-code audit",
+    "route": "missing named boss encounter and selected gap",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-301",
+      "docs/source-port/backlog-archive.md#issue-301",
+      "docs/source-port/audits/bosses-fidelity-audit.md"
+    ],
+    "next_action": "Select one still-open boss-eye/composite lifecycle gap from the boss audit, confirm it remains in active code, and specify a reachable encounter plus oracle state fields.",
+    "scope": "Choose one boss audit gap with a named boss route before coding; do not treat the umbrella audit as one repro."
+  },
+  {
+    "issue": 302,
+    "readiness": "needs_route",
+    "active_path": "Disguised prize ceiling dispatch and block mutation loc_101D8",
+    "route": "missing natural disguised prize target",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-302",
+      "docs/source-port/backlog-archive.md#issue-302",
+      "crates/wildside-core/src/tests/level_tests.rs:24364"
+    ],
+    "next_action": "Find a real $E101 cell, record first reveal-only headbutt then second paying hit, and compare mutation/prize lifecycle against oracle.",
+    "scope": "Headbutt a disguised prize block; first hit should reveal, second hit should pay."
+  },
+  {
+    "issue": 306,
+    "readiness": "needs_comparison",
+    "active_path": "Platform audit umbrella spans live slot loading/collision/carry; selected gap unknown",
+    "route": "missing named platform subtype and naturally reached route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-306",
+      "docs/source-port/backlog-archive.md#issue-306",
+      "docs/source-port/audits/platforms-fidelity-audit.md"
+    ],
+    "next_action": "Select one current open platform gap, identify level/slot and observable collision or carry outcome, then record input and compare slot identity/state.",
+    "scope": "Choose one platform audit gap with a live level route; the umbrella platform refactor is not a playtest repro."
+  },
+  {
+    "issue": 307,
+    "readiness": "needs_comparison",
+    "active_path": "Level-loading audit umbrella; live palettes/objects exist, remaining streaming/VRAM gap requires current preflight",
+    "route": "missing concrete still-failing loader/streaming route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-307",
+      "docs/source-port/backlog-archive.md#issue-307",
+      "docs/source-port/audits/level-loading-fidelity-audit.md"
+    ],
+    "next_action": "Audit one remaining gap against current measured shell/VDP code, name a level transition and evidence boundary, then capture comparable native/oracle state.",
+    "scope": "Choose one level-loading audit gap with a live or oracle route; late visuals and streaming VRAM need a concrete repro."
+  },
+  {
+    "issue": 308,
+    "readiness": "needs_comparison",
+    "active_path": "Combat audit umbrella, live family contact bounds versus sprite-link-dependent cases",
+    "route": "missing selected enemy/form contact route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-308",
+      "docs/source-port/backlog-archive.md#issue-308",
+      "docs/source-port/audits/combat-fidelity-audit.md"
+    ],
+    "next_action": "Choose one remaining per-sprite collision-size gap, confirm it in active combat code, and record a discriminating contact with matching oracle enemy state.",
+    "scope": "Choose one combat audit gap with a named enemy or contact route; do not work from the umbrella list alone."
+  },
+  {
+    "issue": 309,
+    "readiness": "inactive_path",
+    "active_path": "Type-8 Shooter audit deviations have no known shipped-level cells; synthetic dispatch only",
+    "route": "missing; zero shipped-level type-8 cells documented",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-309",
+      "docs/source-port/backlog-archive.md#issue-309",
+      "docs/source-port/backlog-archive.md:24445"
+    ],
+    "next_action": "Build an explicitly synthetic oracle type-8 ceiling/scanner probe before changing Shooter handling; do not present this as a Jev-discovered natural gameplay bug.",
+    "scope": "Provide a synthetic or oracle type-8 Shooter route before changing Shooter block handling."
+  },
+  {
+    "issue": 310,
+    "readiness": "needs_comparison",
+    "active_path": "Terrain audit candidate table exhausted; current signed-row/clamp/slope helpers already pinned",
+    "route": "missing route demonstrating any remaining edge note matters",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-310",
+      "docs/source-port/backlog-archive.md#issue-310",
+      "docs/source-port/audits/terrain-fidelity-audit.md"
+    ],
+    "next_action": "Require a concrete oracle-differing signed-row, camera-edge or next-row slope-entry route before reopening the umbrella.",
+    "scope": "Reopen only with a route showing signed-row, camera-clamp, or next-row slope-entry behaviour matters."
+  },
+  {
+    "issue": 312,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/boot.rs and combat.rs level-flow dispatch; individual natural encounter paths unproven",
+    "route": "missing complete routes for umbrella requirements",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-312",
+      "docs/source-port/audits/level-flow-fidelity-audit.md",
+      "crates/wildside-core/src/combat.rs"
+    ],
+    "next_action": "Split final-level, timer, continue, death, warp-cheat and teleport requirements; capture a natural route for each before claiming umbrella coverage",
+    "scope": "Umbrella: audits/level-flow-fidelity-audit.md \u2014 fixed candidate. No open audit rows remain: final-level routing, teleporter MapOrder translation, timer/clock semantics, death extra-HP reset, continue routing, GameOver routing, FC36 flag reset, respawn invuln source, pit/timer ordering, and warp-cheat rows are all fixed candidates or done."
+  },
+  {
+    "issue": 313,
+    "readiness": "needs_comparison",
+    "active_path": "crates/wildside-core/src/lib.rs update_vdp_state and native_player VDP branch; historical stateless-renderer premise needs revalidation",
+    "route": "missing current pause/unpause VDP comparison",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-313",
+      "docs/source-port/audits/shell-fidelity-audit.md",
+      "crates/wildside-core/src/lib.rs",
+      "crates/wildside-cli/src/native_player/mod.rs"
+    ],
+    "next_action": "Capture pause and unpause on the current VDP renderer; compare menu-covered plane-A rows and palette before interpreting historical save/restore debt",
+    "scope": "Umbrella: audits/shell-fidelity-audit.md \u2014 behavioural and live visual slices exhausted. Remaining pause-render debt is VDP-state-specific palette upload and plane-A tile save/restore; native-player already draws the ROM pause art/cursor/darken/sprite-hide path but has no persistent VDP nametable layer to restore."
+  },
+  {
+    "issue": 314,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/lib.rs step_hundred_k_trip_timer_loc_7452 and combat.rs timer arming",
+    "route": "missing natural Hundred-K-Trip pickup-to-teleport route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-314",
+      "docs/source-port/audits/scoring-economy-fidelity-audit.md",
+      "crates/wildside-core/src/lib.rs",
+      "crates/wildside-core/src/combat.rs"
+    ],
+    "next_action": "Record Hundred-K-Trip pickup through countdown, cleanup and fade; cover score/life boundaries separately",
+    "scope": "Umbrella: audits/scoring-economy-fidelity-audit.md \u2014 one-time-prize anti-farming, score/life edge cases, Continue pickup cue, Hundred-K-Trip timer/`loc_D980` cleanup/fade/no-card teleport, and life 9-vs-99 cap are fixed candidates; keep open for visual parity confirmation of the Hundred-K fade/object-slot details"
+  },
+  {
+    "issue": 315,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/enemies.rs live family dispatch; umbrella cannot certify all families",
+    "route": "missing named natural encounter suite",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-315",
+      "docs/source-port/audits/enemy-fidelity-audit.md",
+      "crates/wildside-core/src/enemies.rs"
+    ],
+    "next_action": "Choose concrete enemy family and transition from audit; require natural encounter plus enemy-state and image comparison",
+    "scope": "Umbrella: audits/enemy-fidelity-audit.md \u2014 fixed candidate. All concrete audit rows now have current fixed-candidate evidence/regressions; remaining caveats are representation-only or need fresh human/oracle routes."
+  },
+  {
+    "issue": 317,
+    "readiness": "needs_comparison",
+    "active_path": "crates/wildside-core/src/weather.rs and VDP raster scheduling; legacy shared-cache blocker not accepted as current runtime proof",
+    "route": "crates/wildside-cli/src/scenarios.rs lava_weather_audit_scenario; historical level 0x21 sweep residue",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-317",
+      "docs/source-port/audits/weather-fidelity-audit.md",
+      "crates/wildside-core/src/weather.rs",
+      "crates/wildside-cli/src/scenarios.rs"
+    ],
+    "next_action": "Refresh weather-4 level 0x21 captures and map mismatched pixels to current VDP tile addresses; reject the previously ineffective $380 overlay",
+    "scope": "Umbrella: audits/weather-fidelity-audit.md \u2014 behavioural/render slices exhausted; only the shared typed VRAM backend remains, which is a dedicated renderer-cache architecture session."
+  },
+  {
+    "issue": 321,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/combat.rs death extra_hitpoint_slots reset",
+    "route": "missing natural extra-HP pickup, death and next helmet route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-321",
+      "crates/wildside-core/src/combat.rs",
+      "docs/source-port/audits/level-flow-fidelity-audit.md"
+    ],
+    "next_action": "Capture extra-HP acquisition followed by death, respawn and helmet collection; assert base capacity and HP against oracle",
+    "scope": "Fixed candidate: death respawn now clears `Extra_hitpoint_slots` on the ROM `Death`/`lose_life` path before restoring base The Kid HP"
+  },
+  {
+    "issue": 323,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-frame/src/scene.rs Maniaxe projectile art and core typed projectile trace; active VDP art path unproven",
+    "route": "missing current natural Maniaxe acquisition/throw route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-323",
+      "crates/wildside-frame/src/scene.rs",
+      "crates/wildside-core/src/helmets.rs",
+      "crates/wildside-core/src/trace.rs"
+    ],
+    "next_action": "Acquire Maniaxe naturally then record airborne and grounded throws; inspect VDP sprite art against oracle rather than scene-only tests",
+    "scope": "Fixed candidate revalidated 2026-06-23: Maniaxe axe traces as `ActiveProjectileKind::ManiaxeAxe` and native-player renders/spins the ASM `stru_8B86` `maniaxe_axe_1..4` frames instead of the green friendly projectile rect; any damage report needs a separate collision repro."
+  },
+  {
+    "issue": 325,
+    "readiness": "needs_comparison",
+    "active_path": "crates/wildside-cli/src/native_player/mod.rs test calls foreground_palette_for_scene; active Highwater VDP palette path unproven",
+    "route": "missing current level 0x02/0x03 VDP palette-cycle capture",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-325",
+      "crates/wildside-cli/src/native_player/mod.rs",
+      "crates/wildside-frame/src/scene.rs",
+      "crates/wildside-core/src/lib.rs"
+    ],
+    "next_action": "Capture Highwater waterfall over a complete cycle using actual gameplay VDP; compare CRAM and pixels, not scene palette helper alone",
+    "scope": "Fixed candidate 2026-06-18: live theme palette lookup now maps ROM theme ids to extracted name-based assets (`palette_fg/mountain.bin`, `palette_bg/cave.bin`, etc.) before `copy_foreground_palette_loc_11DB0` / `copy_background_palette_loc_11E16`, replacing the numeric `palette_fg/{id}.bin` miss that froze Highwater's `loc_1223C` lava/water band at `[0,0,0,0]`."
+  },
+  {
+    "issue": 326,
+    "readiness": "needs_comparison",
+    "active_path": "crates/wildside-data/src/lib.rs parse_level_name_comment_id feeds extracted title names",
+    "route": "missing current 0x1B and 0x27 title-card image comparison",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-326",
+      "crates/wildside-data/src/lib.rs",
+      "crates/wildside-core/src/vdp.rs"
+    ],
+    "next_action": "Regenerate/verify name assets and capture both real title cards; compare glyphs with oracle using correct logical identifiers",
+    "scope": "Fixed candidate 2026-06-18: `parse_level_name_comment_id` now parses the AddrTbl_LevelNames index comments as hex (`u8::from_str_radix(_, 16)`) without changing generic ASM integer parsing, so rendered title-card glyphs for levels >= 0x10 no longer skew (Skydragon Castle 1 stays 0x1B instead of colliding with Caves of Ice 0x27)."
+  },
+  {
+    "issue": 327,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/combat.rs check_teleporter_contact -> begin_teleport_level_entry_load_ingame_loc_bcf6",
+    "route": "missing natural BLW2 cell (156,36) encounter; seeded tests exist",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-327",
+      "crates/wildside-core/src/combat.rs",
+      "crates/wildside-core/src/boot.rs",
+      "crates/wildside-core/src/tests/runtime_tests.rs"
+    ],
+    "next_action": "Reach BLW2 cell (156,36) by input, remain grounded until activation and compare relocation/no-title-card; cross-level and death-card checks remain separate",
+    "scope": "Fixed candidate 2026-06-18: same-level teleporters now follow ROM `loc_BCF6` / Game_Mode `$C` Load_InGame semantics via `begin_teleport_level_entry_load_ingame_loc_bcf6`, bypassing the title-card path while preserving the `#$EE` teleport fade colour and teleport SFX. Cross-level teleporters already bypass title cards through the level-skip hold path."
+  },
+  {
+    "issue": 329,
+    "readiness": "needs_comparison",
+    "active_path": "crates/wildside-render/src/bundle.rs borrowed-foreground loading and crates/wildside-core/src/level.rs terrain decode",
+    "route": "missing current aliased-level visual/collision comparison",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-329",
+      "crates/wildside-render/src/bundle.rs",
+      "crates/wildside-core/src/level.rs"
+    ],
+    "next_action": "Load 0x47 and 0x38 through actual debug warp; inspect foreground/collision alignment and document oracle unreachability rather than treating zero padding as ROM proof",
+    "scope": "Fixed candidate: leftover/aliased warp targets skipped via two mirrored asymmetries. (A render, 0x47/0x38) `load_level_visuals` parsed borrowed-logical foreground bytes against the mapped resource header (ASM loc_11A50) without truncating \u2192 now truncates to the resource grid. (B1 collision, 0x2B/0x2D/0x32/0x39) `decode_level_layout` strict `< expected_cells` reject when the resource foreground is \u22645 bytes short \u2192 now zero-pads to expected (mirrors ForegroundLayout::parse \u00b15). Mode B2 (0x29 blank-top-rows) split to #330"
+  },
+  {
+    "issue": 330,
+    "readiness": "needs_comparison",
+    "active_path": "crates/wildside-core/src/level.rs populated-grid decode and blank-row shift",
+    "route": "missing current 0x29 no-fixture playback comparison",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-330",
+      "crates/wildside-core/src/level.rs",
+      "crates/wildside-render/src/bundle.rs"
+    ],
+    "next_action": "Exercise no-fixture logical 0x29/resource 0x31 load; capture top rows and compare rendered geometry with collision and available oracle evidence",
+    "scope": "Fixed candidate: Mode B2 (split from #329) logical 0x29/resource 0x31 no longer skips on the no-fixture decode path. `decode_level_layout` now decodes only the populated `loc_11C34` foreground cells, then applies `sub_140F6` blank-top-row shifting to the completed grid instead of inflating the read length by `blank_top_rows*width`"
+  },
+  {
+    "issue": 331,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/enemies.rs shared_walker_grounded_scan_turn_plan",
+    "route": "historical .cache/debug/issue331/t2072_495.json camera-position probe, not natural route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-331",
+      "crates/wildside-core/src/enemies.rs",
+      "crates/wildside-core/src/tests/level_tests.rs"
+    ],
+    "next_action": "Reach BLW2 RockTank #03 near x1848 naturally; compare wall-turn survival and position before restoring historical extra-step defect",
+    "scope": "FIXED candidate 2026-06-19: BLW2 (0x01) RockTank #03 self-killed turning at a wall (oracle keeps it alive). Root cause was NOT the bit-2 body kill (faithful: d7 bit2 -> loc_3C464 collision_type=$FFFF -> loc_3B41C bmi death) but the right-edge \"extra half-step\" (RightBoundaryAfterExtraAdvance, a #260 CLIFF behaviour) firing at a WALL: it advanced the 32px Tank body one pixel into the wall column (x=1877->1878), so the post-turn leftward body scan read that wall tile and set bit2. Fix: when the wall bit is set on a boundary-crossing right turn with a narrow body span (`lsl #3,d4; cmp $48,d4; bcs loc_3C0A6`), reverse in place via loc_3C0D2 instead (enemies.rs shared_walker_grounded_scan_turn_plan)."
+  },
+  {
+    "issue": 332,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/blocks.rs collision-latched helmet replenish and combat.rs direct pickup",
+    "route": "missing same-form natural recollection route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-332",
+      "crates/wildside-core/src/blocks.rs",
+      "crates/wildside-core/src/combat.rs"
+    ],
+    "next_action": "Acquire two identical helmets or drop/recollect naturally; assert HP refill with zero transform hibernation and compare cross-form separately",
+    "scope": "FIXED candidate 2026-06-19: re-collecting a helmet for a form Kid ALREADY has froze him ~1-3s (worst after the helmet has dropped to the floor). Object-side collision-latch sets 2*N+2 transform-hibernate frames (blocks.rs:4541) with no same-form guard; ROM `loc_7C76` replenish path (kid.asm:8387) takes `bra.w loc_7E14`, skips both animation tables and the long hibernate, just re-seeds HP"
+  },
+  {
+    "issue": 333,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-frame/src/sprites.rs select_live_sphere_frame/select_live_emo_rock_frame; active VDP animation path unproven",
+    "route": "missing current natural Sphere/EmoRock encounter",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-333",
+      "crates/wildside-frame/src/sprites.rs",
+      "crates/wildside-core/src/enemies.rs",
+      "crates/wildside-cli/src/recording.rs"
+    ],
+    "next_action": "Capture live Sphere spin and EmoRock hover/drop with VDP sprite provenance; retain known missing hover-art caveat",
+    "scope": "FIXED candidate 2026-06-19: `select_live_sphere_frame` spins live Sphere 0x06 through stru_36174 frames 0-2 (fixes \"no spin\"); `select_live_emo_rock_frame` restricts live EmoRock 0x1B to body frames 0-2, never the stru_36468 shatter tail 3-7. EmoRock hover (stru_3647E) frames are not extracted so the hover phase is a marked TODO(fidelity) approximation. EmoRock \"doesn't shoot\" stays NOT-A-BUG"
+  },
+  {
+    "issue": 334,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/level.rs MapOrder mapping; native-player level-skip leak unknown",
+    "route": "missing live level-skip recording reaching wrong Caves-of-Ice content",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-334",
+      "crates/wildside-core/src/level.rs",
+      "crates/wildside-cli/src/native_player/mod.rs"
+    ],
+    "next_action": "Record actual debug skip into 0x27 with preceding state; compare logical/resource id, enemy roster and imagery before choosing loader fix",
+    "scope": "2026-06-19 playtest: level-skip to Caves of Ice (logical 0x27) loads Skydragon/attract-demo content (Sphere/Tornado/Cloud). Headless loader paths already resolve through `MapOrder_Index` (`0x27 -> 0x3E`); `inspect-level` now prints the resolved resource paths instead of the raw logical manifest row. Live leak site still needs a human repro to pin"
+  },
+  {
+    "issue": 337,
+    "readiness": "needs_route",
+    "active_path": "crates/wildside-core/src/lib.rs airborne dispatch -> helmets.rs tick_maniaxe_airborne_throw_latch_loc_9454",
+    "route": "missing natural repeated-airborne-throw route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-337",
+      "crates/wildside-core/src/lib.rs",
+      "crates/wildside-core/src/helmets.rs"
+    ],
+    "next_action": "Acquire Maniaxe and make repeated airborne throws with a projectile still alive; assert latch recovery and second spawn",
+    "scope": "FIXED candidate 2026-06-19: Maniaxe stops firing after a while because airborne frames had no throw-gate clear path (the grounded loc_794C latch is on_ground-gated). Ported the ASM sub_942A loc_9454 airborne dispatch as `tick_maniaxe_airborne_throw_latch_loc_9454`, wired as the `else` of the on_ground dispatch (lib.rs) so exactly one of grounded/airborne ticks the latch per frame \u2014 clears Maniaxe_throwing_axe after the 17-frame throw anim even with a stuck/oscillating boomerang axe still live"
+  },
+  {
+    "issue": 339,
+    "readiness": "human_device",
+    "active_path": "Native audio frame driver silence gate during USM2 title card",
+    "route": ".cache/recordings/issue339-usm05-warp-after-20260707/scenario.json",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-339",
+      "docs/source-port/backlog-archive.md#issue-339",
+      "docs/source-port/backlog-archive.md:25949"
+    ],
+    "next_action": "Repeat USM2 loading on speakers, retain waveform and command transcript, and verify silent title card plus still-live gameplay lava/BGM.",
+    "scope": "Load Under Skull Mountain 2; the level loading screen should be silent, with no weird/stale noise before gameplay."
+  },
+  {
+    "issue": 341,
+    "readiness": "human_device",
+    "active_path": "crates/wildside-cli/src/main.rs and wildside-md GEMS engine; ROM-backed path shares native synthesis",
+    "route": "audio-audit sound ids 0x41 and 0x3C; no real-device judgement",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-341",
+      "crates/wildside-cli/src/main.rs",
+      "crates/wildside-md/src/lib.rs"
+    ],
+    "next_action": "Listen on real speakers and compare independent emulator WAV when synthesis fidelity is questioned; shared-engine asset agreement is not independent pitch proof",
+    "scope": "FIXED candidate 2026-06-19: `wildside audio-audit` enumerates `sfx_*` constants, renders each id through the generated-asset GEMS Z80 path, compares against a full-ROM-backed GEMS path, and reports type (FM/PSG/DAC), channel, native/oracle duration, RMS/peak/frequency, looping, write counts, and duration delta"
+  },
+  {
+    "issue": 342,
+    "readiness": "human_device",
+    "active_path": "Clock-prize reference count starts/stops GEMS loop in blocks.rs",
+    "route": "missing current real-device natural clock collection route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-342",
+      "docs/source-port/backlog-archive.md#issue-342",
+      "crates/wildside-core/src/blocks.rs:733"
+    ],
+    "next_action": "Collect a clock on a real audio device and correlate final active-clock removal with StopSequence and audible loop end.",
+    "scope": "On real speakers, collect a clock prize; the clock tick should stop shortly after."
+  },
+  {
+    "issue": 344,
+    "readiness": "needs_route",
+    "active_path": "Walking Dragon loc_3CEBE hurt state; historical sprite selection test is scene-based, current VDP outcome unproven",
+    "route": "missing natural nonlethal stomp route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-344",
+      "docs/source-port/backlog-archive.md#issue-344",
+      "crates/wildside-cli/src/native_player/mod.rs:20246"
+    ],
+    "next_action": "Reach a full-health walking Dragon, stomp once, and compare the full hurt/flash/recovery image sequence and HP with oracle.",
+    "scope": "Stomp a walking Dragon; a survivor should flash in the hurt pose, not die then revive."
+  },
+  {
+    "issue": 345,
+    "readiness": "needs_route",
+    "active_path": "Lion surviving stomp/resume and large-pacer roster/cull lifecycle",
+    "route": ".cache/recordings/issue345-settled-level07-idle/scenario.json does not reproduce absence",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-345",
+      "docs/source-port/backlog-archive.md#issue-345",
+      "crates/wildside-core/src/level.rs:19029"
+    ],
+    "next_action": "Capture Lion immediately after surviving stomp on 0x07 and follow its roster identity through disappearance; do not infer a respawn-reset bug from idle probes.",
+    "scope": "Record the Lion immediately after the surviving stomp if it still disappears."
+  },
+  {
+    "issue": 347,
+    "readiness": "inactive_path",
+    "active_path": "Historical Shifting sprite rise fix is scene bounce loop; active VDP presentation unproven",
+    "route": "missing natural Shifting-block route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-347",
+      "docs/source-port/backlog-archive.md#issue-347",
+      "crates/wildside-frame/src/scene.rs:7028"
+    ],
+    "next_action": "Locate a real Shifting block and preflight active VDP rise frames before selecting a historical scene mutation.",
+    "scope": "Headbutt a Shifting block; it should visibly rise before settling one row up."
+  },
+  {
+    "issue": 348,
+    "readiness": "needs_comparison",
+    "active_path": "Direct live loc_1AE2E Start edge differs intentionally from recorded handoff-delay mode",
+    "route": "level_tests.rs:4949 direct runtime regression; recorded issue305 routes use delayed mode",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-348",
+      "docs/source-port/backlog-archive.md#issue-348",
+      "crates/wildside-core/src/tests/level_tests.rs:4949"
+    ],
+    "next_action": "Build a direct-live input/VDP check at the first visible card frame and explicitly compare the direct mode; delayed recording replay cannot alone validate this symptom.",
+    "scope": "Tap Start as soon as a title card is visible; it should enter the level immediately."
+  },
+  {
+    "issue": 350,
+    "readiness": "needs_comparison",
+    "active_path": "crates/wildside-frame/src/scene.rs layered foliage palette helper; actual gameplay VDP pixel path unproven",
+    "route": "historical level 0x08 frame39 crop comparison; current route needs refresh",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog-archive.md#issue-350",
+      "crates/wildside-frame/src/scene.rs",
+      "crates/wildside-cli/src/native_player/mod.rs",
+      "crates/wildside-cli/src/recording.rs"
+    ],
+    "next_action": "Capture Hills level0x08 lower foliage on active VDP; compare full frame and below-canopy crop, retaining separate sky-seam differences",
+    "scope": "Fixed candidate 2026-06-21: Hills (theme 3) below-canopy foliage no longer renders blue/purple. Hills uses the LAYERED background path (not the chunked `background_palette_for_scene` the original note blamed); its lower foliage plane (ASM loc_1295E base `$07C0` = CRAM line 0) was indexing the background sky palette. Extended the Mountain two-line branch to theme 3 so the line-0 foliage reads the foreground CRAM line, exactly like Mountain's `$07E5` follow-up."
+  },
+  {
+    "issue": 351,
+    "readiness": "needs_route",
+    "active_path": "Drips child palette propagates in trace; historical scene draw path at scene.rs:8696 does not prove VDP palette",
+    "route": "missing; target children near x2264/2104/2408 in 0x12",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-351",
+      "docs/source-port/backlog-archive.md#issue-351",
+      "crates/wildside-frame/src/scene.rs:8696"
+    ],
+    "next_action": "Reach a 0x12 Drips drop naturally, verify slot 0x0016 parent palette and compare active VDP child colours with oracle.",
+    "scope": "Check Whispering Woods Drips drops; they should use the correct Drips palette."
+  },
+  {
+    "issue": 352,
+    "readiness": "inactive_path",
+    "active_path": "Historical HiddenReveal draw fix is scene bounce loop; gameplay VDP counterpart unproven",
+    "route": "missing natural hidden-block headbutt route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-352",
+      "docs/source-port/backlog-archive.md#issue-352",
+      "crates/wildside-frame/src/scene.rs:7027"
+    ],
+    "next_action": "Preflight the active VDP path for the eight-frame reveal worker, then record a real hidden-block headbutt in 0x04; a scene-only mutation cannot prove gameplay detection.",
+    "scope": "Headbutt hidden jump-up blocks; the reveal should animate instead of popping."
+  },
+  {
+    "issue": 353,
+    "readiness": "needs_route",
+    "active_path": "USM3 terrain hazard collision and VDP hazard art; exact failing cell unknown",
+    "route": "missing; archived representative 0x04/0x05/0x06 captures show visible hazards",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-353",
+      "docs/source-port/backlog-archive.md#issue-353",
+      "crates/wildside-core/src/terrain.rs"
+    ],
+    "next_action": "Record exact 0x06 visually empty hazard coordinate/frame and compare terrain words plus oracle pixels before assuming spike-metal cells exist.",
+    "scope": "Capture the exact USM3 coordinate or frame where Kid takes damage from an invisible metal block."
+  },
+  {
+    "issue": 355,
+    "readiness": "needs_route",
+    "active_path": "step_cyclone_flight advances phase and trace; active VDP flight image needs encounter validation",
+    "route": "missing natural Cyclone helmet pickup/flight route",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-355",
+      "docs/source-port/backlog-archive.md#issue-355",
+      "crates/wildside-core/src/helmets.rs:6637"
+    ],
+    "next_action": "Record natural Cyclone acquisition, grounded walking and airborne flight; compare flying flag, phase and three-frame spin, excluding audio #272.",
+    "scope": "Fly with Cyclone; the form should use the three-frame spin while airborne."
+  },
+  {
+    "issue": 356,
+    "readiness": "needs_route",
+    "active_path": "VDP Plane A/B plus Cloud/Tornado scenery; exact dropout owner unknown",
+    "route": "tests/data/tas/any-percent-published/scenario.json segment 875..1825 does not reproduce dropout",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-356",
+      "docs/source-port/backlog-archive.md#issue-356",
+      "docs/source-port/backlog-archive.md:26239"
+    ],
+    "next_action": "Capture a natural 0x1B dropout before camera/state divergence; reject forced-camera stale-VDP probes as evidence.",
+    "scope": "Capture the exact Skydragon frame where the sky-castle piece or sprite drops out."
+  },
+  {
+    "issue": 357,
+    "readiness": "needs_route",
+    "active_path": "Lion loc_3E318 stomp damage, hurt hibernate and live roster retention",
+    "route": "missing; only partial human one-stomp-survival validation",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-357",
+      "docs/source-port/backlog-archive.md#issue-357",
+      "crates/wildside-core/src/tests/combat_tests.rs:18593"
+    ],
+    "next_action": "Record full-health Lion receiving repeated plain-Kid stomps through flash/resume and death; include immediate post-survival frames for #345.",
+    "scope": "Stomp a full-health Lion as plain Kid; it should flash and survive multiple stomps."
+  },
+  {
+    "issue": 360,
+    "readiness": "needs_route",
+    "active_path": "play-native recording target metadata, verify-recording and TAS frontier runner",
+    "route": "missing; requested issue-360-target-route not a demonstrated capture",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-360",
+      "docs/source-port/backlog-archive.md#issue-360",
+      "crates/wildside-cli/src/recording.rs"
+    ],
+    "next_action": "Record the named USM3 slope target using normal controls, verify saved route_target and generated frontier command, then replay to report comparability.",
+    "scope": "Record a real target route and confirm the saved route can be compared against oracle."
+  },
+  {
+    "issue": 369,
+    "readiness": "needs_comparison",
+    "active_path": "Flagpole loc_C070/loc_C0B6 lifecycle and active VDP; scene regression alone insufficient",
+    "route": ".cache/recordings/issue-369-highwater-flag-floor-contact-20260702/scenario.json",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-369",
+      "docs/source-port/backlog-archive.md#issue-369",
+      "crates/wildside-cli/src/native_player/mod.rs:13231"
+    ],
+    "next_action": "Rebuild comparable starting state for the floor-contact route, then capture base before and through cleanup; old oracle already diverges at frame 0.",
+    "scope": "Capture the exact Highwater frame where the flag base is missing before cleanup."
+  },
+  {
+    "issue": 370,
+    "readiness": "needs_route",
+    "active_path": "DragonWalkingBreath projectile collision then Load_InGame respawn cleanup",
+    "route": "missing; current issue_370 tests seed breath onto final-HP Kid",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-370",
+      "docs/source-port/backlog-archive.md#issue-370",
+      "crates/wildside-core/src/tests/level_tests.rs:14301"
+    ],
+    "next_action": "Record naturally spawned breath causing fatal damage and ordinary reload, track pre-death child identity, and compare through restored live control; continue branch remains separate.",
+    "scope": "Die to walking Dragon breath in Blue Lake Woods 1; after reload/continue, no stale fire should remain or damage Kid."
+  },
+  {
+    "issue": 372,
+    "readiness": "inactive_path",
+    "active_path": "Historical build_game_scene_filtered draw ordering bypassed by gameplay VDP recording path",
+    "route": "tests/data/dynamic-scenarios/issue-372-jev-prize-recovery.json",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-372",
+      "docs/source-port/backlog-archive.md#issue-372",
+      "docs/source-port/jev-proof-result.md"
+    ],
+    "next_action": "Retain failed proof: identical 91 VDP frames cannot validate the scene-only defect. Require a reported current VDP symptom before creating another bug case.",
+    "scope": "Hit forest prize blocks over tree/background art; the P/prize block should visibly wobble up/down instead of disappearing."
+  },
+  {
+    "issue": 374,
+    "readiness": "needs_comparison",
+    "active_path": "Load_InGame shell and per-level VDP; five targets 0x17/0x23/0x3A/0x3E/0x3F",
+    "route": ".cache/recordings/issue374-bloody-swamp-idle/scenario.json; .cache/recordings/issue374-scorpion-isle-idle/scenario.json",
+    "evidence": [
+      "docs/source-port/backlog-awaiting-human.md#issue-374",
+      "docs/source-port/backlog-archive.md#issue-374",
+      "crates/wildside-core/src/level.rs"
+    ],
+    "next_action": "Re-record the two existing inputs on current HEAD, capture all five starts, and distinguish pre-existing strict pixel residuals from corrupt tilemaps or premature death.",
+    "scope": "Load Stairway to Oblivion, Bloody Swamp, Scorpion Isle, Lion's Den, and Hoverboard Beach; each should spawn playable with coherent level art, no instant death."
+  }
+]
