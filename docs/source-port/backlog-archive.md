@@ -14014,6 +14014,15 @@ its active wobble crop matched the oracle for frames 112..142, but RNG parity
 failed from the initial state. Keep `[?]`. The saved control is
 `tests/data/dynamic-scenarios/issue-372-forest-prize-natural-control.json`.
 
+2026-09-19 [isolated historical-defect comparison](jev-proof-result.md): the
+restored prize-before-terrain scene order fails the exact #372 renderer
+regression, but both builds replay Jev's 437-frame route identically and all 91
+VDP gameplay captures match the emulator. Verdict: case did not expose the bug.
+The old scene defect is outside the active VDP rendering path; no further paid
+attempts were made and no human-validation status changed. Evidence:
+`jev-proof-evidence.json`; repeat with `mise run jev-proof` (exit 1 is expected
+for this negative result).
+
 ### #373
 
 Retired 2026-07-07 as not a native bug / no ROM behaviour to port. Re-read ASM

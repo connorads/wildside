@@ -102,3 +102,11 @@ attempt, independent emulator comparison and an offline regression fixture.
 The controller receives compact target relations and movement descriptions.
 Its target-distance bands are task-specific hints; they do not predict collision
 or simulate candidate actions. Jev still selects every controller batch.
+
+## Historical-defect comparison
+
+`mise run jev-proof` compares the saved Jev route with an isolated restoration
+of #372's scene-rendering defect. The [runner guide](jev-proof.md) explains the
+verdicts; the [measured result](jev-proof-result.md) records why this case does
+not expose that defect through the active VDP renderer. The command requires
+no model credentials and does not treat two green builds as a successful proof.

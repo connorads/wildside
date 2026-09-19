@@ -1,0 +1,67 @@
+{
+  "verdict": "case did not expose the bug",
+  "evidence": {
+    "mutation_verified": true,
+    "encounter_complete": true,
+    "trace_equal": true,
+    "state_equal": true,
+    "captures_complete": true,
+    "fixed_changed_pixels": 0,
+    "broken_changed_pixels": 0,
+    "target_changed_pixels": 0
+  },
+  "encounter": {
+    "complete_window": true,
+    "first_hit_frame": 376,
+    "last_animation_frame": 406,
+    "status": "awaiting_visual_review",
+    "stop_reason": "saved_jev_proof_route",
+    "target_cell": [
+      8,
+      12
+    ]
+  },
+  "provenance": {
+    "revision": "828f3421fa095d9783d859c0f8cc303435bb1748",
+    "source_patch_sha256": "fc1735fcce4b40418421ed4d8e7d45b4f51b9b92fd0842209c5c02b321918b0d",
+    "defect_patch_sha256": "7a6c7febcc87303ce1f5c09fb8ba2aac47c4fbc5d116bb0b3d141a72f0eb78b3",
+    "historical_fix": "5d83d0aa370113ce8ea65c44a4e4b07b976d64f5",
+    "scenario_sha256": "c7a9400ed7084b262a3ff244b2868011f22a95c628a7f687728e3e13166e3a7c",
+    "runner_sha256": "f49991bbff056db9090251c92cec430ddc8d2b3348bf83d2f358a8a63c18dfc2",
+    "api_requests": 0,
+    "api_cost": 0,
+    "rom_sha1": "28b904000b2863b6760531807760b571f1a5fc1d",
+    "script_sha1": "91f11172c5679f2e62285c8d5438c39bc5ed8563",
+    "trace_sha1": "1a85818b82929bb1c45528d58d2b07faf91b548e",
+    "isolated_checkout": "/tmp/wildside-jev-proof-zxu5bt6j/checkout"
+  },
+  "note": "The restored historical defect belongs to the scene renderer. Current gameplay recordings use the VDP renderer. No paid attempts are made to overcome an inactive rendering path.",
+  "run": "1789816286588649000",
+  "runner_commit": "30ab105f808d9d620e939371c2d049e52d62602c",
+  "capture_count": 91,
+  "capture_range": [
+    346,
+    436
+  ],
+  "max_broken_vs_fixed_pixels": 0,
+  "oracle_enemy_snapshots_compared": false,
+  "visual_review_frames": [
+    346,
+    382
+  ],
+  "browser_checks": {
+    "image_dimensions": [
+      320,
+      224
+    ],
+    "slider_checkpoints": 91,
+    "slider_navigation": true
+  },
+  "artifact_sha256": {
+    "report.json": "9780bc446532bda43d4ed439525d2689ebe8ccf78c39a731c7c4cfecafa6c3c7",
+    "report.html": "39ddb3ec7a8166077bb3cb84193757109b8a26a85fe91cc87b1a4b4e4f730461",
+    "defect.patch": "7a6c7febcc87303ce1f5c09fb8ba2aac47c4fbc5d116bb0b3d141a72f0eb78b3",
+    "fixed-regression.log": "b966bdfb09488adf101748fa331b1b92528f28b380cead2ab4652b363387aaef",
+    "broken-regression.log": "361f581e0b0387530601e1d2fd3ac9046b9a715bc4b0eebe745762a837fb265e"
+  }
+}
