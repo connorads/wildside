@@ -4,10 +4,16 @@ The pilot has no fully proven case. Human backlog statuses remain authoritative.
 The run reports preserve full state and pixel differences, including differences
 outside each narrow symptom. Paid route collection is accounted separately below.
 
+The #370 comparison covers every input frame, including the whole prefix and
+tail. Native recovery cannot shorten the oracle evidence window. The source
+revision, patch and runner hash are captured before execution. The negative
+control reconstructs that revision and patch in an isolated checkout, so a
+later commit or temporary hook stash cannot replace its source evidence.
+
 | Case | Encounter and control | Remaining blocker |
 | --- | --- | --- |
 | #210/#254 | Ordinary rapid Start stays on the title card through frame 3299. Restoring the ordinary-runtime guard defect fails the same check after 2718 identical prefix frames. | Full comparison differs in RNG from frame 2700, intermediate Kid state and title lettering. |
-| #370 | Natural breath fatal hit at 302. Native resets at 409 and resumes at 562; oracle resumes at 571 and lands at 583. Removing the projectile clear retains the stale child and fails the same check after 303 identical prefix frames. This control is synthetic. | Death-loop RNG, HUD and fade pass targeted oracle checks. Loader RNG differs at 409; the full reload remains inconclusive. |
+| #370 | Natural breath fatal hit at 302. Native resets at 409 and resumes at 562; oracle resumes at 571 and lands at 583. Removing the projectile clear retains the stale child and fails the same check after 303 identical prefix frames. This control is synthetic. | Death-loop RNG, HUD and fade pass targeted oracle checks. Full replay exposes breath-sprite differences from 249, player clearing at 396, camera clearing at 400 and loader RNG at 409. |
 | #327 | Six neutral starting frames replay exactly and match oracle state and pixels after the HUD-clock reset. | No natural teleporter route is proven. Paid discovery requires this clean preflight. |
 
 Reproduce #210/#254 with `mise run jev-case -- --issue 210` and #370 with
@@ -65,6 +71,15 @@ The fade regression retains the outgoing gameplay scene and HUD through
 resident HUD. Palette DMA precedes interpolation, and the captured display
 precedes the next DMA. `.cache/jev-cases/death-fade-final/` replays exactly and
 matches oracle state and every pixel at 0, 302, 376 and every frame 377-395.
+
+The full replay in `.cache/jev-cases/1789860718388668000/` captures all 620
+frames. Native replay is exact; 411 frames match every oracle pixel, including
+377-395. The synthetic cleanup control fails the same symptom check after a
+303-frame identical prefix. The verdict remains `comparison inconclusive`.
+Its source revision is `b76c923a4`, with the uncommitted runner patch and hash
+pinned before execution. The fast gate, all 37,759 TAS frames against existing
+baselines and the 0-104 state sweep pass for the fade fix. The sweep reports
+69 passes, zero failures or errors and three unverified levels.
 
 The complete oracle timeline in `.cache/jev-cases/370-research-timeline/` places
 the Start handoff at 502, title-slot clearing at 529, object-count clearing at

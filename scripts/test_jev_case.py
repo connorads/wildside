@@ -1,15 +1,55 @@
 """Case verdicts require an encounter, oracle evidence and a sensitive control."""
 
+import hashlib
 import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import jev_case
 import jev_case_service as service
 
 
 class VerdictTests(unittest.TestCase):
+    def test_run_pins_revision_and_runner_before_capture_changes_checkout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            runner = output / "runner.py"
+            runner.write_bytes(b"original runner")
+            revision = [b"before\n"]
+
+            def git(args, **_):
+                return revision[0].decode() if args[1] == "rev-parse" else b"original patch"
+
+            def capture(folder, *_):
+                bundle = folder / "bundle"
+                bundle.mkdir()
+                jev_case.write_json(bundle / "trace.json", [{"current_level": 1}])
+                jev_case.write_json(bundle / "manifest.json", {
+                    "scenario": {"script": [0]}, "rom_sha1": "rom",
+                    "script_sha1": "script", "trace_sha1": "trace"})
+                # A hook or another commit can change disk state while an
+                # already loaded runner and native binary finish their work.
+                runner.write_bytes(b"changed runner")
+                revision[0] = b"after\n"
+
+            def verify(*_, **__):
+                folder = output / "bundle/verify"
+                folder.mkdir()
+                jev_case.write_json(folder / "report.json", {})
+
+            with patch.object(jev_case, "__file__", str(runner)), \
+                    patch.object(jev_case.subprocess, "check_output", side_effect=git), \
+                    patch.object(jev_case, "capture", side_effect=capture), \
+                    patch.object(jev_case, "command", side_effect=verify):
+                report = jev_case.run(output, 327, [0])
+
+            self.assertEqual(report["provenance"]["revision"], "before")
+            self.assertEqual(report["provenance"]["runner_sha256"],
+                             hashlib.sha256(b"original runner").hexdigest())
+            self.assertEqual((output / "source.patch").read_bytes(), b"original patch")
+
     def test_missing_teleporter_keeps_only_a_diagnostic_tail(self):
         ordinary = dict(current_level=1, kid_x_pos=32 << 16, kid_y_pos=191 << 16)
         trace = [ordinary] * 3600
@@ -69,6 +109,11 @@ class VerdictTests(unittest.TestCase):
         reload = alive | {"number_lives": 2}
         trace = [alive, fatal, shell] + [reload] * 31
         self.assertTrue(jev_case.encounter(370, trace)["symptom_pass"])
+        # Oracle recovery may lag native recovery. Preserve the complete input
+        # prefix and tail so the native lifecycle cannot shorten its own proof.
+        longer_trace = [alive] * 40 + trace + [reload] * 20
+        self.assertEqual(jev_case.encounter(370, longer_trace)["window"],
+                         [0, len(longer_trace) - 1])
         self.assertFalse(jev_case.encounter(370, trace[:3])["complete"])
         self.assertFalse(jev_case.encounter(370, [alive, fatal] + [shell | {"game_mode": "InGame"}] * 100)["complete"])
         trace[3] = reload | {"active_projectile_details": fatal["active_projectile_details"]}

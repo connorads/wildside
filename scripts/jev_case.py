@@ -52,7 +52,7 @@ def encounter(issue, trace):
         return {"complete": complete, "fatal_frame": fatal, "reload_frame": reload_frame, "live_frame": live_frame,
                 "symptom_pass": complete and all(not breath(f) and f["number_hitpoints"] > 0
                     for f in trace[reload_frame:live_frame + 31]),
-                "window": [max(0, (fatal or 30) - 30), min(len(trace) - 1, (live_frame or len(trace) - 31) + 30)],
+                "window": [0, len(trace) - 1],
                 "scope": "natural breath fatal hit and ordinary life-loss reload, excluding continue"}
     if issue == 327:
         contact = next((i for i, f in enumerate(trace) if f.get("current_level") == 1
@@ -143,18 +143,16 @@ def mutate(issue, source):
     raise ValueError("no verified negative-control boundary for this case")
 
 
-def negative_control(output, issue, inputs, trace, assessment, env):
+def negative_control(output, issue, inputs, trace, assessment, env, revision):
     relative = Path("crates/wildside-core/src") / ("level.rs" if issue == 370 else "boot.rs")
-    source = (ROOT / relative).read_text()
+    checkout = Path(tempfile.mkdtemp(prefix="wildside-jev-case-")) / "checkout"
+    command(["git", "worktree", "add", "--detach", str(checkout), revision], ROOT, output / "checkout.log")
+    if (output / "source.patch").stat().st_size:
+        command(["git", "apply", str(output / "source.patch")], checkout, output / "snapshot.log")
+    source = (checkout / relative).read_text()
     mutant = mutate(issue, source)
     patch = "".join(difflib.unified_diff(source.splitlines(True), mutant.splitlines(True), fromfile=str(relative), tofile=str(relative)))
     (output / "negative-control.patch").write_text(patch)
-    checkout = Path(tempfile.mkdtemp(prefix="wildside-jev-case-")) / "checkout"
-    command(["git", "worktree", "add", "--detach", str(checkout), "HEAD"], ROOT, output / "checkout.log")
-    delta = subprocess.check_output(["git", "diff", "HEAD", "--binary"], cwd=ROOT)
-    (output / "source.patch").write_bytes(delta)
-    if delta:
-        command(["git", "apply", str(output / "source.patch")], checkout, output / "snapshot.log")
     (checkout / relative).write_text(mutant)
     for name in (".cache", "roms"):
         (checkout / name).symlink_to(ROOT / name, target_is_directory=True)
@@ -187,7 +185,13 @@ def negative_control(output, issue, inputs, trace, assessment, env):
 
 def run(output, issue, inputs, live=False):
     env = os.environ.copy()
-    (output / "source.patch").write_bytes(subprocess.check_output(["git", "diff", "HEAD", "--binary"], cwd=ROOT))
+    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    (output / "source.patch").write_bytes(subprocess.check_output(["git", "diff", revision, "--binary"], cwd=ROOT))
+    # The runner and compiled process outlive temporary hook stashes and commits.
+    # The negative control must reconstruct this same source, not a later HEAD.
+    source_provenance = {"revision": revision,
+                         "source_patch_sha256": sha256(output / "source.patch"),
+                         "runner_sha256": sha256(Path(__file__))}
     if live:
         preflight = output / "preflight"
         preflight.mkdir()
@@ -218,13 +222,12 @@ def run(output, issue, inputs, live=False):
     command(["cargo", "run", "-q", "-p", "wildside-cli", "--", "verify-recording",
              "--bundle", str(output / "bundle")], ROOT, output / "verify.log", env=env, allowed=(0, 1))
     comparison = read_json(output / "bundle/verify/report.json")
-    sensitivity = negative_control(output, issue, manifest["scenario"]["script"], trace, assessment, env) if (
+    sensitivity = negative_control(output, issue, manifest["scenario"]["script"], trace, assessment, env, revision) if (
         issue in (210, 254, 370) and assessment["complete"] and assessment["symptom_pass"]) else None
     return {"issue": issue, "verdict": verdict(assessment, comparison, sensitivity), "encounter": assessment,
             "comparison": comparison, "negative_control": sensitivity,
-            "provenance": {"revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
+            "provenance": {**source_provenance,
                 "scenario_sha256": sha256(output / "bundle/scenario.json"),
-                "source_patch_sha256": sha256(output / "source.patch"), "runner_sha256": sha256(Path(__file__)),
                 "rom_sha1": manifest["rom_sha1"], "script_sha1": manifest["script_sha1"],
                 "trace_sha1": manifest["trace_sha1"], "live_discovery": live,
                 "budget": read_json(jev_case_service.LEDGER) if live else None}}
