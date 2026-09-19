@@ -55,6 +55,10 @@ description = "Playtest session with mic narration: F1 issue browser, Y/H/G verd
 run = "cargo run --release -p wildside-cli -- play-native --playtest"
 description = "Playtest session without mic capture"
 
+[tasks.jev-proof]
+run = "python3 scripts/jev_proof.py"
+description = "Compare a saved Jev route with the isolated historical prize-rendering defect"
+
 [tasks.playtest-ingest]
 run = "cargo run --release -p wildside-cli -- playtest-ingest"
 description = "Draft report from a playtest session: mise run playtest-ingest -- --session <slug> --transcript <file>"

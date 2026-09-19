@@ -325,3 +325,20 @@ fn gameplay_regression_jev_discovered_prize_route_sub_1007a() -> Result<()> {
     );
     Ok(())
 }
+
+#[test]
+#[ignore = "private jev-proof runner supplies a fresh output directory; requires ROM and assets"]
+fn proof_bundle() -> Result<()> {
+    let output = PathBuf::from(std::env::var("JEV_PROOF_OUTPUT")?);
+    let (_, manifest) = prepare()?;
+    let scenario: DynamicScenario = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/issue-372-jev-prize-recovery.json"
+    ))?;
+    let mut episode = Episode::new(&manifest, (8, 12))?;
+    for batch in scenario.script.chunks(BATCH) {
+        ensure!(batch.iter().all(|mask| *mask == batch[0]), "mixed batch");
+        episode.advance(batch[0]);
+    }
+    ensure!(episode.script == scenario.script, "saved Jev route changed");
+    episode.save(&manifest, &output, "saved_jev_proof_route")
+}
