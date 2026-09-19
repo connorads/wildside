@@ -1447,11 +1447,15 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
     previous_trace: Option<&NativeTraceFrame>,
     resident_gameplay_trace: Option<&NativeTraceFrame>,
 ) -> NativeTraceFrame {
-    let resident_gameplay_fade = matches!(
-        trace.game_mode,
-        GameMode::SegaScreen | GameMode::TitleScreen
-    ) && trace.teleport_warp_colour == 0x082A
+    let death_palette_fade = trace.game_mode == GameMode::LevelTransition
+        && trace.resident_gameplay_vdp_camera_loc_300ba.is_some()
         && trace.level_entry_fade_progress_sub_73d0.is_some();
+    let resident_gameplay_fade = death_palette_fade
+        || (matches!(
+            trace.game_mode,
+            GameMode::SegaScreen | GameMode::TitleScreen
+        ) && trace.teleport_warp_colour == 0x082A
+            && trace.level_entry_fade_progress_sub_73d0.is_some());
     let mut render_trace = if resident_gameplay_fade {
         resident_gameplay_trace
             .cloned()
@@ -1460,10 +1464,9 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         trace.clone()
     };
     if resident_gameplay_fade {
-        // ASM manual return loc_119D8 and timeout return loc_C0A change mode
-        // before Pal_FadeOut loc_28C6 has finished presenting the resident
-        // gameplay planes. Select the terminal gameplay snapshot while
-        // retaining the current ROM palette-fade render command.
+        // ASM lose_life, manual return loc_119D8 and timeout return loc_C0A
+        // change mode before Pal_FadeOut finishes presenting the resident
+        // gameplay planes. Retain that scene with the current palette command.
         render_trace.teleport_warp_colour = trace.teleport_warp_colour;
         render_trace.level_entry_fade_progress_sub_73d0 = trace.level_entry_fade_progress_sub_73d0;
         render_trace.resident_gameplay_vdp_camera_loc_300ba =
@@ -1474,15 +1477,21 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         // the final object pass. The resident planes and player pose retain
         // their earlier VDP snapshot, while sub_1007A loc_10120 has already
         // advanced the copied prize-block GfxObject for that terminal table.
-        render_trace.block_bounces.clone_from(&trace.block_bounces);
-        render_trace
-            .block_bounce_details
-            .clone_from(&trace.block_bounce_details);
-        render_trace
-            .prize_block_worker_tails_sub_1007a
-            .clone_from(&trace.prize_block_worker_tails_sub_1007a);
-        render_trace.game_mode = GameMode::DemoPlay;
-        render_trace.game_mode_value = GameMode::DemoPlay.as_disassembly_value();
+        if !death_palette_fade {
+            render_trace.block_bounces.clone_from(&trace.block_bounces);
+            render_trace
+                .block_bounce_details
+                .clone_from(&trace.block_bounce_details);
+            render_trace
+                .prize_block_worker_tails_sub_1007a
+                .clone_from(&trace.prize_block_worker_tails_sub_1007a);
+        }
+        render_trace.game_mode = if death_palette_fade {
+            GameMode::InGame
+        } else {
+            GameMode::DemoPlay
+        };
+        render_trace.game_mode_value = render_trace.game_mode.as_disassembly_value();
         if let Some((camera_x_pos, camera_y_pos)) = trace.resident_gameplay_vdp_camera_loc_300ba {
             render_trace.camera_x_pos = camera_x_pos;
             render_trace.camera_y_pos = camera_y_pos;
@@ -10155,6 +10164,33 @@ mod tests {
             render_trace.level_entry_fade_progress_sub_73d0,
             Some(0x00E0)
         );
+    }
+
+    #[test]
+    fn death_loc_6e2_fade_keeps_the_resident_gameplay_scene() {
+        // ASM lose_life -> loc_6E2 -> Pal_FadeOut transfers only palettes.
+        let resident = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            number_lives: 3,
+            hud_timer_sprite_seconds_loc_bee8: Some(173),
+            camera_x_pos: 12 << 16,
+            camera_y_pos: 188 << 16,
+            ..NativeTraceFrame::default()
+        };
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::LevelTransition,
+            number_lives: 2,
+            resident_gameplay_vdp_camera_loc_300ba: Some((12 << 16, 188 << 16)),
+            level_entry_fade_progress_sub_73d0: Some(0xE0),
+            ..NativeTraceFrame::default()
+        };
+        let rendered =
+            render_trace_with_vdp_latched_state_and_resident(&trace, None, Some(&resident));
+        assert_eq!(rendered.game_mode, GameMode::InGame);
+        assert_eq!(rendered.number_lives, 3);
+        assert_eq!(rendered.hud_timer_sprite_seconds_loc_bee8, Some(173));
+        assert_eq!(rendered.level_entry_fade_progress_sub_73d0, Some(0xE0));
+        assert_eq!(trace.number_lives, 2, "rendering must not alter game state");
     }
 
     #[test]

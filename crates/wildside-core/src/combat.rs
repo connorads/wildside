@@ -13685,6 +13685,10 @@ impl NativeRuntime {
     }
 
     pub(crate) fn enter_death_hidden_state(&mut self) {
+        // ASM lose_life -> loc_6E2 -> Pal_FadeOut: no sprite/HUD transfer
+        // follows the life decrement until loading; preserve the resident HUD.
+        self.death_palette_fade_snapshot = (!self.two_player && self.progression.number_lives > 1)
+            .then(|| Box::new(self.trace_frame()));
         if let (Some(snapshot), Some(slice)) =
             (self.death_shell_snapshot.as_mut(), self.opening_slice)
         {

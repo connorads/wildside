@@ -12015,6 +12015,47 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
+    fn death_reload_fade_retains_pre_decrement_hud_until_final_palette_transfer() {
+        // ASM lose_life -> Pal_FadeOut loc_28C6/loc_28EA transfers palettes,
+        // not the HUD rebuilt from the decremented Number_Lives word.
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        start_level(&mut runtime);
+        runtime.progression.number_lives = 3;
+        runtime.progression.number_hitpoints = 0;
+        runtime.begin_death_windup();
+        runtime.enter_death_hidden_state();
+        assert_eq!(runtime.trace_frame().number_lives, 2);
+        assert_eq!(
+            runtime
+                .source_port_render_trace_snapshot()
+                .unwrap()
+                .number_lives,
+            3
+        );
+        // Natural breath route, oracle frames 377..394. The first three
+        // samples retain the source palette before the first visible step.
+        for progress in [
+            0x100, 0x100, 0x100, 0xF0, 0xE0, 0xD0, 0xC0, 0xB0, 0xA0, 0x90, 0x80, 0x70, 0x60, 0x50,
+            0x40, 0x30, 0x20, 0x10,
+        ] {
+            assert_eq!(
+                runtime.trace_frame().level_entry_fade_progress_sub_73d0,
+                Some(progress)
+            );
+            assert!(runtime.source_port_render_trace_snapshot().is_some());
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(runtime.source_port_render_trace_snapshot().is_none());
+        assert!(
+            runtime
+                .trace_frame()
+                .level_entry_fade_progress_sub_73d0
+                .is_none()
+        );
+    }
+
+    #[test]
     fn fatal_projectile_frame_keeps_the_entered_object_pass_rng_draw() {
         // ASM loc_E12 draws before loc_3D02A breath can route Kid into Death.
         let mut runtime = NativeRuntime::new(manifest());

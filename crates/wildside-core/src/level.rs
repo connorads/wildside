@@ -19116,6 +19116,7 @@ impl NativeRuntime {
         self.initialise_level_entry_fade_sub_73d0();
         self.death_camera_lock = None;
         self.death_shell_snapshot = None;
+        self.death_palette_fade_snapshot = None;
         self.death_respawn_trace_profile = None;
         self.level_complete_gfx_snapshot = None;
         // ASM Load_InGame -> Manage_EnemyLoading loc_368A8: respawn reloads the

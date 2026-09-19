@@ -423,6 +423,7 @@ pub struct NativeRuntime {
     death_respawn_trace_profile: Option<DeathRespawnTraceProfile>,
     level_skip_transition: Option<LevelSkipTransitionState>,
     death_shell_snapshot: Option<LevelSkipTransitionState>,
+    death_palette_fade_snapshot: Option<Box<NativeTraceFrame>>,
     level_complete_gfx_snapshot: Option<LevelCompleteGfxSnapshot>,
     level_entry_camera_handoff: Option<(usize, CameraState)>,
     level_entry_player_handoff: Option<(usize, PlayerState)>,
@@ -1674,6 +1675,7 @@ impl NativeRuntime {
             death_respawn_trace_profile: None,
             level_skip_transition: None,
             death_shell_snapshot: None,
+            death_palette_fade_snapshot: None,
             level_complete_gfx_snapshot: None,
             level_entry_camera_handoff: None,
             level_entry_player_handoff: None,
@@ -2595,12 +2597,15 @@ impl NativeRuntime {
         }
     }
 
-    /// Terminal gameplay trace retained through the synchronous demo-return
-    /// fade after Current_LevelID has already been reset.
+    /// ASM Pal_FadeOut retains the terminal gameplay planes and sprites.
     pub fn source_port_render_trace_snapshot(&self) -> Option<&NativeTraceFrame> {
-        self.demo_title_palette_fade_progress_loc_28c6()
-            .and(self.demo_title_render_snapshot.as_deref())
-            .map(|snapshot| &snapshot.trace)
+        self.death_palette_fade_progress()
+            .and(self.death_palette_fade_snapshot.as_deref())
+            .or_else(|| {
+                self.demo_title_palette_fade_progress_loc_28c6()
+                    .and(self.demo_title_render_snapshot.as_deref())
+                    .map(|snapshot| &snapshot.trace)
+            })
     }
 
     /// Outgoing mutated layout retained alongside the demo-return trace.

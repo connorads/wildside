@@ -7,13 +7,14 @@ outside each narrow symptom. Paid route collection is accounted separately below
 | Case | Encounter and control | Remaining blocker |
 | --- | --- | --- |
 | #210/#254 | Ordinary rapid Start stays on the title card through frame 3299. Restoring the ordinary-runtime guard defect fails the same check after 2718 identical prefix frames. | Full comparison differs in RNG from frame 2700, intermediate Kid state and title lettering. |
-| #370 | Natural breath fatal hit at 302, reset at 409, living gameplay at 562, observed through 592. Removing the projectile clear retains the stale child and fails the same check after 303 identical prefix frames. This control is synthetic. | Death-loop RNG and HUD timing pass targeted oracle checks; fade pixels differ at 377 and loader RNG at 409. |
+| #370 | Natural breath fatal hit at 302. Native resets at 409 and resumes at 562; oracle resumes at 571 and lands at 583. Removing the projectile clear retains the stale child and fails the same check after 303 identical prefix frames. This control is synthetic. | Death-loop RNG, HUD and fade pass targeted oracle checks. Loader RNG differs at 409; the full reload remains inconclusive. |
 | #327 | Six neutral starting frames replay exactly and match oracle state and pixels after the HUD-clock reset. | No natural teleporter route is proven. Paid discovery requires this clean preflight. |
 
 Reproduce #210/#254 with `mise run jev-case -- --issue 210` and #370 with
 `mise run jev-case -- --issue 370`. Both return non-zero for an inconclusive
-comparison. #327 uses `mise run jev-case -- --issue 327 --live`; the failed
-preflight prevents an API request.
+comparison. #327 supports `mise run jev-case -- --issue 327 --script <input-file>`
+for offline replay. Its starting-state preflight passes, but the three-attempt
+paid discovery allowance is exhausted.
 
 ## Rapid Start evidence
 
@@ -38,8 +39,9 @@ regressions and this result record provide the durable reproduction procedure.
 `Death loc_B80C -> sub_8E0` runs HUD drawing without `ExecuteObjects`.
 The oracle keeps the Dragon-breath child frozen after the fatal hit. That is
 original behaviour, not evidence that the breath must animate during death.
-The oracle RNG ring stays frozen through frame 412. Native advances at 303.
-The HUD timer visibly decrements at oracle frame 361 while native stays frozen.
+The oracle RNG ring stays frozen through frame 412. The death-loop fix preserves
+that ring through 408; the collapsed native loader advances it at 409.
+The HUD timer decrements at frame 361 in both implementations.
 
 The current 32-frame hidden-death shortcut also combines loader phases that
 the oracle separates. In the natural route, fade runs from 377 through 394,
@@ -53,10 +55,30 @@ then freezes RNG during `DeathWindup` and `Dying`. `DeathWindup` still ticks
 `loc_BE82`; the hidden fade does not. The natural route in
 `.cache/jev-cases/death-loop-fix/` replays exactly. Sampled oracle state agrees
 at 0, 302, 303, 359, 360, 361, 376, 377 and 408. Pixels also agree at those
-checkpoints except 377, where the known fade boundary differs. RNG first
+checkpoints except 377, where that capture predates the fade fix. RNG first
 differs at sampled frame 409, when the collapsed native loader starts.
 All 107 frames from 302 through 408 match the existing full-window oracle
 RNG offset, last byte and ring. The full reload case remains inconclusive.
+
+The fade regression retains the outgoing gameplay scene and HUD through
+`Pal_FadeOut`. The life counter changes in game state without rebuilding the
+resident HUD. Palette DMA precedes interpolation, and the captured display
+precedes the next DMA. `.cache/jev-cases/death-fade-final/` replays exactly and
+matches oracle state and every pixel at 0, 302, 376 and every frame 377-395.
+
+The complete oracle timeline in `.cache/jev-cases/370-research-timeline/` places
+the Start handoff at 502, title-slot clearing at 529, object-count clearing at
+533, the first gameplay object pass at 571 and landing at 583. The old native
+frame 562 is not an oracle recovery witness.
+
+Phased reload implementation requires more than connecting existing helpers.
+VRAM/RAM clear timing visitors exist, but `TitleCardData` retains decoded art
+and maps without their compressed streams. `Load_TitleCard` and `loc_1AB26`
+lack complete caller/layout timing visitors. The final `Pal_FadeOut` wait
+provides a timing origin; its poll and refresh uncertainty must be bounded
+before deriving sampled loader boundaries. Observed frame numbers are regression
+witnesses, not replacement production delays. Reusing the whole boot loader
+would also import cold/debug entry assumptions and reset gameplay too early.
 
 ## Settled-entry HUD evidence
 

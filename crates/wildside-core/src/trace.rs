@@ -9668,6 +9668,19 @@ impl NativeRuntime {
         Some((4, 5))
     }
 
+    /// ASM Pal_FadeOut loc_28C6/loc_28EA (kid.asm): transfer before interpolation.
+    pub(crate) fn death_palette_fade_progress(&self) -> Option<u16> {
+        self.death_palette_fade_snapshot.as_ref()?;
+        let PlayerLifecycle::Dying { remaining_frames } = self.player_lifecycle else {
+            return None;
+        };
+        let elapsed = PLAYER_DEATH_HIDE_FRAMES.saturating_sub(remaining_frames);
+        // loc_28C6 consumes $100..$000 inclusive, then loc_28EA transfers
+        // the final palette. DMA precedes interpolation, and FrameRendered
+        // precedes that VBlank transfer, retaining two source-palette samples.
+        (elapsed <= 17).then(|| 0x100_u16.saturating_sub((elapsed.saturating_sub(2) as u16) * 0x10))
+    }
+
     fn dying_hidden_shell_still_visible(&self) -> bool {
         matches!(
             self.player_lifecycle,
@@ -12477,7 +12490,8 @@ impl NativeRuntime {
             camera_x_pos: camera_state.x_pos,
             camera_y_pos: camera_state.y_pos,
             resident_gameplay_vdp_camera_loc_300ba: self
-                .demo_title_palette_fade_progress_loc_28c6()
+                .death_palette_fade_progress()
+                .or_else(|| self.demo_title_palette_fade_progress_loc_28c6())
                 .and(self.gameplay_vdp_camera_latch_loc_300ba)
                 .map(|camera| (camera.x_pos, camera.y_pos)),
             resident_gameplay_vdp_terminal_scroll_table_loc_28c6: self
@@ -12583,7 +12597,8 @@ impl NativeRuntime {
                 0
             },
             level_entry_fade_progress_sub_73d0: self
-                .title_card_live_handoff_palette_fade_progress_sub_73d0()
+                .death_palette_fade_progress()
+                .or_else(|| self.title_card_live_handoff_palette_fade_progress_sub_73d0())
                 .or_else(|| self.demo_title_palette_fade_progress_loc_28c6())
                 .or_else(|| self.demo_level_entry_palette_fade_progress_sub_73d0())
                 .or_else(|| {
