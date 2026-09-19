@@ -41,6 +41,9 @@ It cannot set position, form, health or lives. Standard recording bundles and
 an HTML frame viewer are written beneath `.cache/jev-cases/<run>/`.
 The recorder continues through death and title cards. Oracle errors and all
 pixel differences remain visible. Non-proven outcomes exit one.
+Ordinary-runtime tests use constructor defaults. Calling
+`set_recorded_title_card_handoff_delay(false)` selects the separate direct
+capture path; it does not restore ordinary runtime behaviour.
 
 `mise run jev-case -- --issue 327 --live` explicitly permits paid discovery.
 It first compares the settled start with the oracle. A red comparison prevents
@@ -62,3 +65,5 @@ respawn boundary. This is synthetic, not a historical defect reconstruction.
 The control must preserve the route prefix and fail the same encounter check.
 The main checkout remains unchanged. A sensitive control does not override
 a red oracle comparison.
+
+Pilot evidence is recorded in [jev-pilot-results.md](jev-pilot-results.md).
