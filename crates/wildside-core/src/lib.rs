@@ -3924,6 +3924,12 @@ impl NativeRuntime {
     ) -> NativeTraceFrame {
         let transform_hibernating_at_frame_start =
             self.object_pass_hibernating_for_transform_loc_7e90();
+        // ASM Death loc_B80C and lose_life suspend Execute_Objects until reload.
+        // A fatal hit still owns the draw from the object pass it entered alive.
+        let death_hibernating_at_frame_start = matches!(
+            self.player_lifecycle,
+            PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+        );
         self.pending_demo_timer_tick_result_loc_be82 = None;
         self.hud_dma_events_sub_44dc.clear();
         self.hud_raster_upload_timings_sub_44dc.clear();
@@ -4459,7 +4465,9 @@ impl NativeRuntime {
                 if let Some(seed) = scheduler(vblank_work) {
                     self.mode_level_raster_seed_sub_e12 = Some(seed);
                 }
-                if self.progression.form_change_flash_frames <= 1 {
+                if self.progression.form_change_flash_frames <= 1
+                    && !death_hibernating_at_frame_start
+                {
                     self.mode_level_work_before_hud_sub_44dc =
                         Some(self.observe_mode_level_work_before_hud_sub_44dc());
                     // ASM Execute_Objects loc_E12 (kid.asm:1636) calls

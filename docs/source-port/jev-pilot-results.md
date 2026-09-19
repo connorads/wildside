@@ -7,7 +7,7 @@ outside each narrow symptom. No paid requests are needed for these observations.
 | Case | Encounter and control | Remaining blocker |
 | --- | --- | --- |
 | #210/#254 | Ordinary rapid Start stays on the title card through frame 3299. Restoring the ordinary-runtime guard defect fails the same check after 2718 identical prefix frames. | Full comparison differs in RNG from frame 2700, intermediate Kid state and title lettering. |
-| #370 | Natural breath fatal hit at 302, reset at 409, living gameplay at 562, observed through 592. Removing the projectile clear retains the stale child and fails the same check after 303 identical prefix frames. This control is synthetic. | RNG first diverges at 303; HUD timer and loader phases differ later. |
+| #370 | Natural breath fatal hit at 302, reset at 409, living gameplay at 562, observed through 592. Removing the projectile clear retains the stale child and fails the same check after 303 identical prefix frames. This control is synthetic. | Death-loop RNG and HUD timing pass targeted oracle checks; fade pixels differ at 377 and loader RNG at 409. |
 | #327 | Six neutral starting frames replay exactly and match oracle state. | Frame 5 differs by seven HUD pixels. Paid discovery is blocked by preflight. No natural teleporter route is proven. |
 
 Reproduce #210/#254 with `mise run jev-case -- --issue 210` and #370 with
@@ -47,3 +47,13 @@ VRAM clearing from 395 through 404, RAM clearing through 408, the first loader
 object pass at 413, letters at 417 and the deferred number at 418.
 Changing a delay alone does not reproduce this ordering. Probe evidence lives
 in `.cache/jev-cases/370-loader-probe/`.
+
+The death-loop regression preserves the fatal frame's entered object-pass draw,
+then freezes RNG during `DeathWindup` and `Dying`. `DeathWindup` still ticks
+`loc_BE82`; the hidden fade does not. The natural route in
+`.cache/jev-cases/death-loop-fix/` replays exactly. Sampled oracle state agrees
+at 0, 302, 303, 359, 360, 361, 376, 377 and 408. Pixels also agree at those
+checkpoints except 377, where the known fade boundary differs. RNG first
+differs at sampled frame 409, when the collapsed native loader starts.
+All 107 frames from 302 through 408 match the existing full-window oracle
+RNG offset, last byte and ring. The full reload case remains inconclusive.

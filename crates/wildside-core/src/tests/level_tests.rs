@@ -11985,6 +11985,57 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
+    fn death_subroutine_freezes_rng_but_ticks_hud_until_fade() {
+        // ASM Death loc_B80C -> sub_8E0 runs loc_BE82, without loc_E12.
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        start_level(&mut runtime);
+        runtime.level_timer = LevelTimer {
+            seconds: 10,
+            sub_frames: 1,
+        };
+        runtime.progression.number_hitpoints = 0;
+        runtime.begin_death_windup();
+        let before = runtime.trace_frame();
+        let after = runtime.step_frame(FrameInput::default());
+        assert_eq!(after.rng_offset, before.rng_offset);
+        assert_eq!(after.rng_ring, before.rng_ring);
+        assert_eq!(after.level_timer_seconds, 9);
+        assert_eq!(runtime.level_timer.sub_frames, 60);
+        assert_eq!(after.hud_timer_sprite_seconds_loc_bee8, Some(9));
+
+        // ASM lose_life -> Pal_FadeOut loc_28C6 has neither HUD nor object passes.
+        runtime.enter_death_hidden_state();
+        let before_fade = runtime.trace_frame();
+        let timer = runtime.level_timer;
+        let after_fade = runtime.step_frame(FrameInput::default());
+        assert_eq!(after_fade.rng_offset, before_fade.rng_offset);
+        assert_eq!(after_fade.rng_ring, before_fade.rng_ring);
+        assert_eq!(runtime.level_timer, timer);
+    }
+
+    #[test]
+    fn fatal_projectile_frame_keeps_the_entered_object_pass_rng_draw() {
+        // ASM loc_E12 draws before loc_3D02A breath can route Kid into Death.
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        start_level(&mut runtime);
+        runtime.progression.number_hitpoints = 1;
+        runtime.progression.invulnerable_frames = 0;
+        seed_dragon_breath_on_player_loc_3d02a(&mut runtime);
+        let mut expected = runtime.rom_random.clone();
+        expected.next_long();
+        let trace = runtime.step_frame(FrameInput::default());
+        assert_eq!(trace.number_hitpoints, 0);
+        assert!(matches!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::DeathWindup { .. }
+        ));
+        assert_eq!(trace.rng_offset, Some(expected.offset_word()));
+        assert_eq!(trace.rng_ring, Some(expected.ring()));
+    }
+
+    #[test]
     fn death_hibernation_freezes_time_frames_before_mode_level_tail_loc_892() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_floor_at_row(17));

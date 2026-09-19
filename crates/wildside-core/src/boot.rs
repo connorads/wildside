@@ -8529,6 +8529,17 @@ impl NativeRuntime {
                 self.resolve_pending_form_change();
             }
             PlayerLifecycle::DeathWindup { remaining_frames } => {
+                // ASM Death loc_B80C -> sub_8E0 still builds the HUD at loc_BE82.
+                // The demo shell may already have ticked this frame's HUD.
+                if self.progression.form_change_flash_frames == 0
+                    && self
+                        .pending_demo_timer_tick_result_loc_be82
+                        .take()
+                        .unwrap_or_else(|| self.tick_level_timer_hud_loc_be82())
+                {
+                    // ASM loc_BE82 queues the expiry voice even inside Death.
+                    self.queue_start_sequence(QueuedSoundEffect::VoiceNoTime);
+                }
                 if remaining_frames <= 1 {
                     self.enter_death_hidden_state();
                     return false;
