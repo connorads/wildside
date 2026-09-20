@@ -31,7 +31,7 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-09-20):** Level inspection uses the runtime's logical capture / mapped ROM loader. Stairway to Oblivion exposes its six teleporters; all 106 non-sentinel entries return block lists with 163 teleporter records. Next build the source-exit inventory and classify route evidence. No natural exit is established by the audited recordings; the published movie's replay environment needs investigation. #433 parent init/position, interruptions, slot reuse, HUD and natural entry remain open, alongside ten state-sweep failures.
+- **Current work (2026-09-20):** #300 captured-record repair is verified: all 167 pads across 106 entries match ROM decoding. Natural warp evidence remains open; shaft probes die to lasers. Continue source-exit coverage and obtain an accessible pad route. Full TAS passes; the 105-level sweep retains its ten failures. Full 07/17/42 results match pre-fix 71ca1fc27, including existing Lion differences. Published movie controller timing and #433 residuals remain separate work.
 - **Selection:** Run `mise run project-status` and `mise run jev-audit`. Objective awaiting-human cases are eligible for investigation and evidence-backed closure. Coverage prerequisites come first, then P0 #210, #370 and #374 according to dependencies and available evidence.
 - **Scope:** Single-player across all playable levels, branches, forms and bosses. Preserve frozen #406/#409/#416 timing debt and its ratchets. Final package retains subjective/device checks; no human validation is claimed.
 - **Jev allowance:** $5 additional across the campaign. Historical charged upper bound is $0.176526462. Preserve the ledger; implement and test the allocation before another paid request. Offline work continues after the cap.
@@ -58,6 +58,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 300 | [ ] | P1 | level/teleporter | Captured hidden and shifted pad records are restored; live destination verification remains open. | Record a successful accessible pad route and compare the destination with the oracle. |
 | 433 | [ ] | P1 | enemies/RNG | Robot shot lifecycle and grounded turns verified; init, hurt and natural-entry fidelity remain open. | Retain first/third Crypt shot regressions; probe parent init residue and interrupted turns. |
 | 406 | [f] | P1 | rendering | FROZEN with #409 per ADR 0002: the lane stops accruing sessions; the march stays metered as ADR 0001 left it (frontier 995, injection ratchet). Residue authority moves to census-scoped reconstruction + raster-span-replay. | Do not extend the march; ratchets stay green; take #442-#450 instead. See ADR 0002. |
 | 409 | [f] | P1 | rendering | FROZEN per ADR 0002: the recurrence is a downward-only witness (scheduled-frames ratchet 736 / boundary 1657; tas-pixel-baseline). ADR 0003 corrected the spans; #459 found the bounded entry phase non-invertible and closed NO-GO. | Do not extend or promote the lane; keep the 2,391-pixel and scheduled-frame ratchets green. Evidence: archive #459. |

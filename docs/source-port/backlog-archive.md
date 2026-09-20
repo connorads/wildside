@@ -24631,6 +24631,90 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-20 source-exit inventory investigation:
+
+After the logical inspector correction, the normal runtime path exposes 163
+teleporters. An isolated bundle with all RAM captures omitted exposes 167
+through the same runtime's ROM decoder. Differences are exactly logical
+07, 17 and 42. This is a parser defect, not missing ROM data or an unreachable
+level assumption. The candidate destination-index fix remains; #300 returns
+from awaiting-human to active investigation because its records are absent.
+
+Logical 07's sidecar at offset A0 contains `(1,20) -> resource67, (3,50)`;
+logical 17 at 220 contains `(62,20) -> resource36, (100,4)`. Both are dormant
+hidden pads. ASM `loc_12670` creates two hidden-half records, then falls
+through `loc_1269C` to append a destination even while the terrain is `$2000`.
+The parser requires visible Teleporter cells and rejects those destinations.
+Hidden metadata follows immediately; admitting every hidden cell without
+checking section boundaries would also risk interpreting that metadata as pads.
+
+Logical 42 sidecar offsets 238/242 contain `(78,39) -> resource33, (1,45)`
+and `(119,39) -> resource33, (3,53)`. Its header inserts two top rows.
+ASM `sub_140F6 / loc_1421E` shifts both terrain and source-record rows/addresses.
+Native validates raw row 39 against an already-shifted grid, thus reading
+original row 37 and rejecting both records before their relocation to row 41.
+Independent BLOCK17 decoding and the captured bytes agree. Probe source is
+`/tmp/wildside-source-exits-zv4xncuy/main.rs`; it only redirects an isolated
+bundle to omit `level-layout`, leaving the real cache untouched.
+
+Next regress both rejection mechanisms through the parser and public runtime
+loader, preserve malformed/footer rejection, then compare local warp behaviour.
+The 167 source records still do not prove natural progression.
+
+Both isolated regressions fail with zero retained pads before the fix. The
+runtime fixture also pins hidden-record relocation and unchanged destination
+coordinates. Hidden-pad recognition requires the exact adjacent type-4 reveal
+halves from `loc_12670`; missing halves, unrelated types and nonadjacent cells
+remain rejected. Captured rows are checked with the grid's top-row offset,
+then the existing relocation updates record rows/addresses exactly once.
+The public parser entry points retain their signatures and unshifted semantics.
+This is a reversible private loader/parser change. Reconstructing every record
+from ROM would discard captured state and change unrelated record families;
+accepting all hidden cells would weaken the section boundary.
+
+The first local-warp probe is rejected as transition evidence. Seeding Kid
+at `(1256,656)`, then `(1255,655)` or airborne `(1255,624)`, moves him upward
+to Y 527 instead of leaving him on the pad. Terrain inspection explains it:
+the first Alien Twilight pad is beneath smash/prize cells on rows 33..40;
+the second is beneath another column on rows 34..40. These position seeds
+start inside the column, not on an accessible pad. Do not alter physics to
+fit this probe. Before captures and recordings are retained under
+`alien-pad-*-before`; the capture files for logical 42 are hash-unchanged.
+A valid local transition probe must first clear the column with source-derived
+gameplay or reach a different accessible pad. Record recovery alone does not
+close the natural-route obligation.
+
+Verification 2026-09-20: all 106 non-sentinel runtime loads match the isolated
+ROM decoder exactly for all 167 pads, including source and destination cells,
+resource IDs and resolved logical destinations. There are 65 same-level pads.
+The 43 block-list and 24 teleporter filtered tests pass; workspace Clippy and
+`verify-slice-fast` pass. Both selected mutations of hidden-half recognition
+are caught, including unconditional acceptance and unconditional rejection.
+
+Red Stealth local probes start above the shafts at `(1256,527)` and
+`(1912,543)`, with explicitly injected form 3. ASM `sub_B270 / loc_B350`
+and `sub_B000 / off_B058` explain the held-C floor slash. The first clears
+one row; the second clears several rows with repeated jump input. Neither
+reaches the pad before enemy damage removes the form and kills Kid. Viewed
+frames 0/100/250 of `alien-pad-red-stealth-second-shaft` show the laser in
+that shaft. These are failed local diagnostics, not natural route evidence.
+No physics or enemy change follows from them. Next approach must account for
+laser timing or use another accessible pad before claiming transition parity.
+
+The full 37,759-frame replay gate passes with unchanged frozen baselines.
+State sweep `1789941814` contains 95 comparable passes, ten failures and
+28 authoritative differences; every failing record equals `1789938867`.
+Full targeted sweep `1789941813` passes logical 17 and 42 at all six
+checkpoints, with eight residual HUD pixels each. Viewed 42's idle-tail
+composite isolates those pixels to the lives display. Logical 07 exposes
+six authoritative differences at frames 0/120, plus two non-comparable later
+checkpoints. Its frame-zero composite shows a Lion/projectile phase difference.
+A detached build of pre-fix `71ca1fc27` reproduces exactly the same state
+differences, pixel counts and MAE for all three levels in run `1789942059`.
+The Lion discrepancy predates this parser change and remains separate work.
+Logical 42 sidecar hashes remain unchanged; no logical 41 sidecars are created.
+#300 stays open for successful live transition and natural-route evidence.
+
 - Filed 2026-06-11 from audits/level-flow-fidelity-audit.md (high). Live teleporter path uses `dest_map_id` (a map number) directly as a logical level index, skipping the `loc_BCD6` MapOrder reverse scan.
 - Proposed fixed 2026-06-11. `teleporter_dest_level_loc_bcd6` now mirrors ASM `loc_BCD6` by scanning `MapOrder_Index` for the teleporter record's destination map byte and returning the zero-based logical level index stored by `loc_BCEA`. The red-first non-identity MapOrder tests observed the old raw `$2D`/45 destination where the ROM route should use logical level 2; fixed coverage includes `teleporter_cross_level_sets_pending_skip_loc_bcd6`, `teleporter_same_level_repositions_loc_bcea`, `process_block_effects_teleporter_warps_player`, and `live_teleporter_pending_skip_uses_map_order_index_loc_bcd6`.
 - Follow-up 2026-06-13: same parser fix as #298 is required for this destination path to be reachable on generated runtime assets. Before the fix, `inspect-level --level 01` reported `0 teleporters` despite visible `$E407/$E408` telepad cells; after the fix it reports the `dest map 0x4B` record that `teleporter_dest_level_loc_bcd6` can reverse-map through `MapOrder_Index`.

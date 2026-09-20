@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-20 handoff (captured hidden and shifted teleporter records)
+
+#300's parser retains dormant pad destinations using the adjacent type-4 reveal
+halves from ASM `loc_12670`, and validates shifted records against the correct
+grid rows before `sub_140F6` relocation. Red-first fixtures cover hidden pads,
+malformed reveal metadata and shifted pad/hidden addresses. All 167 records
+across 106 non-sentinel entries match ROM-only decoding exactly; 65 remain
+same-level. The 43 block-list and 24 teleporter filtered tests, two targeted
+mutation checks, Clippy, fast gate and full 37,759-frame replay gate pass.
+State sweep `1789941814` retains the ten failures and 28 authoritative differences
+from `1789938867`. Full sweep `1789941813` passes 17/42 with eight HUD pixels
+each; 07 has six authoritative differences and two masked late checkpoints.
+Detached pre-fix build `71ca1fc27`, run `1789942059`, reproduces all three
+levels' state results and pixel counts exactly. No new sweep regression.
+
+#300 stays open. Viewed local Red Stealth recordings clear shaft blocks but
+lose the form and die to the laser before reaching Alien Twilight's pads.
+Position/form injections do not establish natural entry. Next obtain a valid
+accessible-pad transition and complete the source-exit ledger. Published movie
+cold-boot timing also needs direct observation: BizHawk installs controls before
+advance, while jgenesis latches at frame end; our cold-boot helper has no priming.
+The unchanged 220-frame probe and unexecuted BizHawk Lua logger are retained in
+`/tmp/wildside-bk2-boot-f067she3/`. No input shift is justified yet. No paid Jev calls.
+
 ## 2026-09-20 handoff (logical identity in level inspection)
 
 The inspector delegates to the runtime's logical capture / mapped ROM path.

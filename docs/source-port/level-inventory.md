@@ -48,9 +48,19 @@ logical `$03`'s records when `$3A` lacks either its layout or its block list,
 and accepts `$3A`'s own capture when present. The live command reports
 38 prizes, six ghost groups, six teleporters and eight hidden records.
 Inspection of all 106 non-sentinel logical entries returns block lists with
-163 teleporter records, including 65 same-level destinations. Every destination
-resource resolves through `MapOrder_Index`. These totals include the three
+167 teleporter records, including 65 same-level destinations. Every record
+matches an isolated ROM-only load in source cell, destination resource, resolved
+logical destination and destination cell. These totals include the three
 leftovers and do not count natural exits or completed levels.
+
+Captured hidden pads on `$07/$17` retain destinations while their terrain is
+`$2000`; ASM `loc_12670` supplies the adjacent type-4 reveal halves. Captured
+records on `$42` use rows before the two blank top rows inserted by
+`sub_140F6`. Validation accounts for that offset before relocating records
+exactly once. Its two pads occupy runtime row 41 and lead to logical `$2D`.
+Parser regressions cover both mechanisms and reject incomplete reveal metadata.
+Local Red Stealth shaft probes die to the laser before reaching either pad;
+those recordings do not establish a successful warp or natural progression.
 
 ## Expanded sweep evidence
 

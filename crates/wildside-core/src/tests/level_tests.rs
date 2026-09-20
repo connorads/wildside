@@ -10575,6 +10575,54 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
+    fn generated_shifted_block_list_preserves_pad_and_hidden_source_coordinates() {
+        // ASM sub_140F6 / loc_1421E / loc_14236 shifts source rows and
+        // addresses once. Captured records still use pre-shift coordinates.
+        let mut assets = manifest();
+        let header = assets.levels[0].header_metadata.as_mut().expect("header");
+        header.width_screens = 1;
+        header.height_screens = 1;
+        header.height_flag_bits = 1;
+        let mut source = wildside_data::InMemoryAssetSource::new();
+        let mut layout = vec![0; 20 * 14 * 2];
+        layout[210..214].copy_from_slice(&[0xE4, 7, 0xE4, 8]);
+        layout[254..256].copy_from_slice(&[0x20, 0]);
+        source.insert("level-layout/00.bin", layout);
+        source.insert(
+            "level-layout/00.json",
+            br#"{"width_blocks":20,"height_blocks":14,"data_bytes":560}"#.to_vec(),
+        );
+        let mut records = Vec::new();
+        for word in [0xA724u16, 5, 5, 0x4B09, 28, 0xA750, 7, 6, 0x0100] {
+            records.extend_from_slice(&word.to_be_bytes());
+        }
+        source.insert("level-layout/00.blocklist.bin", records);
+        let runtime = NativeRuntime::with_generated_level_layout_with_source(
+            assets,
+            std::sync::Arc::new(source),
+        );
+        let grid = runtime
+            .block_grid_for_level(LevelId(0))
+            .expect("shifted grid");
+        assert_eq!(
+            grid.cell_at(5, 7).block_type,
+            terrain::BlockType::Teleporter
+        );
+
+        let list = runtime
+            .block_list_for_level(LevelId(0))
+            .expect("block list");
+
+        assert_eq!(list.teleporters.len(), 1);
+        let pad = &list.teleporters[0];
+        assert_eq!((pad.col, pad.row, pad.layout_addr), (5, 7, 0xA774));
+        assert_eq!((pad.dest_map_id, pad.dest_x, pad.dest_y), (0x4B, 28, 9));
+        assert_eq!(list.hidden_blocks.len(), 1);
+        let hidden = &list.hidden_blocks[0];
+        assert_eq!((hidden.col, hidden.row, hidden.layout_addr), (7, 8, 0xA7A0));
+    }
+
+    #[test]
     fn generated_shifted_height_fixture_still_applies_blank_top_rows_sub_140f6() {
         let output_root = unique_temp_path("generated-blank-top-row-content");
         let mut manifest = manifest();

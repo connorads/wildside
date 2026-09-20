@@ -20470,7 +20470,7 @@ impl NativeRuntime {
         let logical_path = layout_dir.join(format!("{:02X}.blocklist.bin", level_id.0));
         let mut block_list = if self.assets_source.exists(&logical_path) {
             let data = self.assets_source.read(&logical_path).ok()?;
-            terrain::BlockList::from_raw_with_level_layout(&data, layout_width, grid)
+            terrain::BlockList::from_raw_with_grid(&data, layout_width, Some(grid), blank_top_rows)
         } else {
             // ASM loc_11C7E reads the mapped BLOCK ROM resource, while generated
             // RAM sidecars are keyed by logical Current_LevelID. Reconstruct the

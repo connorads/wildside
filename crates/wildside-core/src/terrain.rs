@@ -795,6 +795,28 @@ fn is_level_layout_low_word_addr(addr: u16) -> bool {
         && addr.is_multiple_of(2)
 }
 
+/// ASM loc_12670/sub_127CE (kid.asm): adjacent hidden halves use type 4, settings 0/1.
+fn hidden_teleporter_reveal_halves_present(
+    data: &[u8],
+    layout_addr: u16,
+    col: u16,
+    row: u16,
+) -> bool {
+    let words = [
+        layout_addr,
+        col,
+        row,
+        0x0400,
+        layout_addr.wrapping_add(2),
+        col.wrapping_add(1),
+        row,
+        0x0401,
+    ]
+    .map(u16::to_be_bytes);
+    let pair = words.as_flattened();
+    data.windows(pair.len()).any(|candidate| candidate == pair)
+}
+
 impl BlockList {
     pub(crate) fn level_layout_low_word_addr(col: u16, row: u16, width_cells: u16) -> u16 {
         let offset = ((u32::from(row) * u32::from(width_cells)) + u32::from(col)) * 2;
@@ -806,11 +828,11 @@ impl BlockList {
     /// Prize entries are 8 bytes each at the start of the block list.
     /// A zero Level_Layout RAM address in bytes 0-1 ends the prize section.
     pub fn from_raw(data: &[u8], layout_width: u16) -> Self {
-        Self::from_raw_with_grid(data, layout_width, None)
+        Self::from_raw_with_grid(data, layout_width, None, 0)
     }
 
     pub fn from_raw_with_level_layout(data: &[u8], layout_width: u16, grid: &BlockGrid) -> Self {
-        Self::from_raw_with_grid(data, layout_width, Some(grid))
+        Self::from_raw_with_grid(data, layout_width, Some(grid), 0)
     }
 
     #[allow(non_snake_case)]
@@ -924,7 +946,13 @@ impl BlockList {
         self
     }
 
-    fn from_raw_with_grid(data: &[u8], layout_width: u16, grid: Option<&BlockGrid>) -> Self {
+    /// ASM loc_1421E/loc_14236: captured rows precede the grid's top-row shift.
+    pub(crate) fn from_raw_with_grid(
+        data: &[u8],
+        layout_width: u16,
+        grid: Option<&BlockGrid>,
+        blank_top_rows: u16,
+    ) -> Self {
         let mut prize_blocks = Vec::new();
         let mut offset = 0;
         let enforce_level_layout_addr_bounds = data.get(0..2).is_some_and(|bytes| {
@@ -1019,7 +1047,15 @@ impl BlockList {
                 && (!is_level_layout_low_word_addr(layout_addr)
                     || layout_addr != Self::level_layout_low_word_addr(col, row, layout_width)
                     || grid.is_some_and(|grid| {
-                        grid.cell_at(col, row).block_type != BlockType::Teleporter
+                        let cell = grid.cell_at(col, row.saturating_add(blank_top_rows));
+                        cell.block_type != BlockType::Teleporter
+                            && !(cell.collision == CollisionKind::HiddenBlock
+                                && hidden_teleporter_reveal_halves_present(
+                                    &data[offset + TELEPORTER_RECORD_BYTES..],
+                                    layout_addr,
+                                    col,
+                                    row,
+                                ))
                     })
                     || is_level_layout_low_word_addr(dest_x)
                     || dest_x > 0x03FF)
@@ -1060,7 +1096,9 @@ impl BlockList {
                 && (!is_level_layout_low_word_addr(layout_addr)
                     || layout_addr != Self::level_layout_low_word_addr(col, row, layout_width)
                     || grid.is_some_and(|grid| {
-                        grid.cell_at(col, row).collision != CollisionKind::HiddenBlock
+                        grid.cell_at(col, row.saturating_add(blank_top_rows))
+                            .collision
+                            != CollisionKind::HiddenBlock
                     }))
             {
                 // ASM loc_11CF6 bounds generated hidden/background records by
@@ -5557,6 +5595,77 @@ mod tests {
         assert_eq!(bl.hidden_blocks[0].row, 0);
         assert_eq!(bl.hidden_blocks[0].block_type, 0x0A);
         assert_eq!(bl.hidden_blocks[0].block_setting, 0x02);
+    }
+
+    #[test]
+    fn captured_hidden_teleporter_retains_destination_and_both_reveal_halves() {
+        // ASM loc_12670 appends hidden halves, then loc_1269C appends the
+        // destination while both source cells are still $2000 (logical 07/17).
+        let width = 4;
+        let addr = BlockList::level_layout_low_word_addr(1, 1, width);
+        let mut data = Vec::new();
+        for word in [
+            addr,
+            1,
+            1,
+            0x6732,
+            3,
+            addr,
+            1,
+            1,
+            0x0400,
+            addr + 2,
+            2,
+            1,
+            0x0401,
+        ] {
+            data.extend_from_slice(&word.to_be_bytes());
+        }
+        let mut layout = vec![0; 4 * 3 * 2];
+        layout[10..14].copy_from_slice(&[0x20, 0, 0x20, 0]);
+        let grid = BlockGrid::from_level_layout(&layout, width, 3);
+
+        let list = BlockList::from_raw_with_level_layout(&data, width, &grid);
+
+        assert_eq!(list.teleporters.len(), 1);
+        let pad = &list.teleporters[0];
+        assert_eq!(
+            (pad.col, pad.row, pad.dest_map_id, pad.dest_x, pad.dest_y),
+            (1, 1, 0x67, 3, 50)
+        );
+        assert_eq!(list.hidden_blocks.len(), 2);
+        assert_eq!(list.hidden_blocks[0].block_type, 4);
+        assert_eq!(list.hidden_blocks[0].block_setting, 0);
+        assert_eq!(list.hidden_blocks[1].block_type, 4);
+        assert_eq!(list.hidden_blocks[1].block_setting, 1);
+    }
+
+    #[test]
+    fn captured_hidden_teleporter_requires_matching_reveal_halves() {
+        // ASM loc_12670 emits both halves; a hidden cell alone does not mark
+        // a ten-byte destination record or distinguish it from hidden metadata.
+        let width = 4;
+        let addr = BlockList::level_layout_low_word_addr(1, 1, width);
+        let mut layout = vec![0; 4 * 3 * 2];
+        layout[10..14].copy_from_slice(&[0x20, 0, 0x20, 0]);
+        let grid = BlockGrid::from_level_layout(&layout, width, 3);
+        for halves in [
+            vec![],
+            vec![addr, 1, 1, 0x0400],
+            vec![addr, 1, 1, 0x0100, addr + 2, 2, 1, 0x0101],
+            vec![addr, 1, 1, 0x0400, addr + 4, 3, 1, 0x0401],
+        ] {
+            let mut data = Vec::new();
+            for word in [addr, 1, 1, 0x6732, 3].into_iter().chain(halves) {
+                data.extend_from_slice(&word.to_be_bytes());
+            }
+            assert!(
+                BlockList::from_raw_with_level_layout(&data, width, &grid)
+                    .teleporters
+                    .is_empty(),
+                "incomplete, unrelated or nonadjacent hidden metadata must not authorise a pad"
+            );
+        }
     }
 
     #[test]
