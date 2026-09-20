@@ -157,3 +157,25 @@ The current isolated #370 control also passes after rebuilding relocated
 build-script wrappers, with a 303-frame identical prefix and the expected
 failed cleanup check. Evidence: `.cache/jev-cases/negative-control-rebuild-check-2/`.
 The adapter passes all 23 Jev script tests and `verify-slice-fast`.
+
+## Campaign discovery - 2026-09-20
+
+The authorised campaign has a separate fixed allowance in the same ledger.
+Its first BLW2 attempt, `.cache/jev-cases/1789943268861172000/`, used 100
+requests and $0.010448214. The lifetime charged upper bound is $0.186974676.
+The original case window and attempt count remain intact after its deadline
+was expired under the ledger lock to stop stalled collection.
+
+The six-frame preflight passed the existing state/pixel comparator. Jev then
+moved Kid from X32 to X58 and repeatedly chose release. The 600-frame journal
+replays exactly but returns `not exercised`: no teleporter encounter occurred.
+The global goal mixes approaching the pad, waiting and the destination. A
+single current objective is a candidate controller experiment, not a measured
+improvement. Do not repeat paid collection with the same stalled observation.
+
+That attempt exposed #496. The Tank turns left at native frame 570 and oracle
+frame 571; the latter frame differs by 494 pixels. Exact RAM comparison finds
+a half-pixel body lead already at frame zero, hidden by the normal position
+tolerance. A 600-frame idle control reproduces it without Jev. See the
+[permanent regression and ASM evidence](backlog-archive.md#496). Paid discovery
+finds a concrete defect here even though its requested route remains unproven.

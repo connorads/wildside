@@ -5397,6 +5397,13 @@ fn step_active_enemies_with_rng_context(
             if *remaining == 0 {
                 freshly_loaded_enemies.remove(&ActiveEnemyKey::from_enemy(enemy));
             }
+            if matches!(enemy.family, EnemyFamily::Tank) {
+                // ASM loc_3B372/stru_3B27E: the linked mouth's GfxObject
+                // animates while loc_3C044/loc_3C0F0 holds the parent Object.
+                enemy.tank_mouth_animation_phase =
+                    tank_mouth_animation_step_loc_3b27e(enemy.tank_mouth_animation_phase)
+                        .next_animation_phase;
+            }
             continue;
         }
         let restores_dragon_walking_animation =
@@ -8842,6 +8849,9 @@ fn fresh_enemy_no_step_passes_loc_3691e(family: EnemyFamily, enemy_level: u8) ->
         // allocation pass. Orca.asm Enemy08_Orca_Init reaches the same entry
         // directly after installing loc_3D21E as its callback.
         EnemyFamily::Goat | EnemyFamily::Ninja | EnemyFamily::Armadillo | EnemyFamily::Orca => 1,
+        // ASM Tank.asm loc_3B40A enters loc_3C026/loc_3C0D2 and
+        // hibernates before the first loc_3B41C movement callback.
+        EnemyFamily::Tank => 1,
         // ASM Crab.asm Enemy09_Crab_Init opens with one hibernate, then its
         // loc_3C0D2/loc_3C026 shared-walker entry hibernates once more.
         EnemyFamily::Crab => 2,

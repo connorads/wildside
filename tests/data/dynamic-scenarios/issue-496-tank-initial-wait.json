@@ -1,0 +1,2409 @@
+{
+  "slug": "issue-496-tank-initial-wait",
+  "script": [],
+  "frame_count": 600,
+  "checkpoints": [
+    {
+      "frame_index": 0,
+      "label": "idle-0"
+    },
+    {
+      "frame_index": 1,
+      "label": "idle-1"
+    },
+    {
+      "frame_index": 2,
+      "label": "idle-2"
+    },
+    {
+      "frame_index": 3,
+      "label": "idle-3"
+    },
+    {
+      "frame_index": 4,
+      "label": "idle-4"
+    },
+    {
+      "frame_index": 5,
+      "label": "idle-5"
+    },
+    {
+      "frame_index": 6,
+      "label": "idle-6"
+    },
+    {
+      "frame_index": 7,
+      "label": "idle-7"
+    },
+    {
+      "frame_index": 8,
+      "label": "idle-8"
+    },
+    {
+      "frame_index": 9,
+      "label": "idle-9"
+    },
+    {
+      "frame_index": 10,
+      "label": "idle-10"
+    },
+    {
+      "frame_index": 11,
+      "label": "idle-11"
+    },
+    {
+      "frame_index": 12,
+      "label": "idle-12"
+    },
+    {
+      "frame_index": 13,
+      "label": "idle-13"
+    },
+    {
+      "frame_index": 14,
+      "label": "idle-14"
+    },
+    {
+      "frame_index": 15,
+      "label": "idle-15"
+    },
+    {
+      "frame_index": 16,
+      "label": "idle-16"
+    },
+    {
+      "frame_index": 17,
+      "label": "idle-17"
+    },
+    {
+      "frame_index": 18,
+      "label": "idle-18"
+    },
+    {
+      "frame_index": 19,
+      "label": "idle-19"
+    },
+    {
+      "frame_index": 20,
+      "label": "idle-20"
+    },
+    {
+      "frame_index": 21,
+      "label": "idle-21"
+    },
+    {
+      "frame_index": 22,
+      "label": "idle-22"
+    },
+    {
+      "frame_index": 23,
+      "label": "idle-23"
+    },
+    {
+      "frame_index": 24,
+      "label": "idle-24"
+    },
+    {
+      "frame_index": 25,
+      "label": "idle-25"
+    },
+    {
+      "frame_index": 26,
+      "label": "idle-26"
+    },
+    {
+      "frame_index": 27,
+      "label": "idle-27"
+    },
+    {
+      "frame_index": 28,
+      "label": "idle-28"
+    },
+    {
+      "frame_index": 29,
+      "label": "idle-29"
+    },
+    {
+      "frame_index": 30,
+      "label": "idle-30"
+    },
+    {
+      "frame_index": 31,
+      "label": "idle-31"
+    },
+    {
+      "frame_index": 32,
+      "label": "idle-32"
+    },
+    {
+      "frame_index": 33,
+      "label": "idle-33"
+    },
+    {
+      "frame_index": 34,
+      "label": "idle-34"
+    },
+    {
+      "frame_index": 35,
+      "label": "idle-35"
+    },
+    {
+      "frame_index": 36,
+      "label": "idle-36"
+    },
+    {
+      "frame_index": 37,
+      "label": "idle-37"
+    },
+    {
+      "frame_index": 38,
+      "label": "idle-38"
+    },
+    {
+      "frame_index": 39,
+      "label": "idle-39"
+    },
+    {
+      "frame_index": 40,
+      "label": "idle-40"
+    },
+    {
+      "frame_index": 41,
+      "label": "idle-41"
+    },
+    {
+      "frame_index": 42,
+      "label": "idle-42"
+    },
+    {
+      "frame_index": 43,
+      "label": "idle-43"
+    },
+    {
+      "frame_index": 44,
+      "label": "idle-44"
+    },
+    {
+      "frame_index": 45,
+      "label": "idle-45"
+    },
+    {
+      "frame_index": 46,
+      "label": "idle-46"
+    },
+    {
+      "frame_index": 47,
+      "label": "idle-47"
+    },
+    {
+      "frame_index": 48,
+      "label": "idle-48"
+    },
+    {
+      "frame_index": 49,
+      "label": "idle-49"
+    },
+    {
+      "frame_index": 50,
+      "label": "idle-50"
+    },
+    {
+      "frame_index": 51,
+      "label": "idle-51"
+    },
+    {
+      "frame_index": 52,
+      "label": "idle-52"
+    },
+    {
+      "frame_index": 53,
+      "label": "idle-53"
+    },
+    {
+      "frame_index": 54,
+      "label": "idle-54"
+    },
+    {
+      "frame_index": 55,
+      "label": "idle-55"
+    },
+    {
+      "frame_index": 56,
+      "label": "idle-56"
+    },
+    {
+      "frame_index": 57,
+      "label": "idle-57"
+    },
+    {
+      "frame_index": 58,
+      "label": "idle-58"
+    },
+    {
+      "frame_index": 59,
+      "label": "idle-59"
+    },
+    {
+      "frame_index": 60,
+      "label": "idle-60"
+    },
+    {
+      "frame_index": 61,
+      "label": "idle-61"
+    },
+    {
+      "frame_index": 62,
+      "label": "idle-62"
+    },
+    {
+      "frame_index": 63,
+      "label": "idle-63"
+    },
+    {
+      "frame_index": 64,
+      "label": "idle-64"
+    },
+    {
+      "frame_index": 65,
+      "label": "idle-65"
+    },
+    {
+      "frame_index": 66,
+      "label": "idle-66"
+    },
+    {
+      "frame_index": 67,
+      "label": "idle-67"
+    },
+    {
+      "frame_index": 68,
+      "label": "idle-68"
+    },
+    {
+      "frame_index": 69,
+      "label": "idle-69"
+    },
+    {
+      "frame_index": 70,
+      "label": "idle-70"
+    },
+    {
+      "frame_index": 71,
+      "label": "idle-71"
+    },
+    {
+      "frame_index": 72,
+      "label": "idle-72"
+    },
+    {
+      "frame_index": 73,
+      "label": "idle-73"
+    },
+    {
+      "frame_index": 74,
+      "label": "idle-74"
+    },
+    {
+      "frame_index": 75,
+      "label": "idle-75"
+    },
+    {
+      "frame_index": 76,
+      "label": "idle-76"
+    },
+    {
+      "frame_index": 77,
+      "label": "idle-77"
+    },
+    {
+      "frame_index": 78,
+      "label": "idle-78"
+    },
+    {
+      "frame_index": 79,
+      "label": "idle-79"
+    },
+    {
+      "frame_index": 80,
+      "label": "idle-80"
+    },
+    {
+      "frame_index": 81,
+      "label": "idle-81"
+    },
+    {
+      "frame_index": 82,
+      "label": "idle-82"
+    },
+    {
+      "frame_index": 83,
+      "label": "idle-83"
+    },
+    {
+      "frame_index": 84,
+      "label": "idle-84"
+    },
+    {
+      "frame_index": 85,
+      "label": "idle-85"
+    },
+    {
+      "frame_index": 86,
+      "label": "idle-86"
+    },
+    {
+      "frame_index": 87,
+      "label": "idle-87"
+    },
+    {
+      "frame_index": 88,
+      "label": "idle-88"
+    },
+    {
+      "frame_index": 89,
+      "label": "idle-89"
+    },
+    {
+      "frame_index": 90,
+      "label": "idle-90"
+    },
+    {
+      "frame_index": 91,
+      "label": "idle-91"
+    },
+    {
+      "frame_index": 92,
+      "label": "idle-92"
+    },
+    {
+      "frame_index": 93,
+      "label": "idle-93"
+    },
+    {
+      "frame_index": 94,
+      "label": "idle-94"
+    },
+    {
+      "frame_index": 95,
+      "label": "idle-95"
+    },
+    {
+      "frame_index": 96,
+      "label": "idle-96"
+    },
+    {
+      "frame_index": 97,
+      "label": "idle-97"
+    },
+    {
+      "frame_index": 98,
+      "label": "idle-98"
+    },
+    {
+      "frame_index": 99,
+      "label": "idle-99"
+    },
+    {
+      "frame_index": 100,
+      "label": "idle-100"
+    },
+    {
+      "frame_index": 101,
+      "label": "idle-101"
+    },
+    {
+      "frame_index": 102,
+      "label": "idle-102"
+    },
+    {
+      "frame_index": 103,
+      "label": "idle-103"
+    },
+    {
+      "frame_index": 104,
+      "label": "idle-104"
+    },
+    {
+      "frame_index": 105,
+      "label": "idle-105"
+    },
+    {
+      "frame_index": 106,
+      "label": "idle-106"
+    },
+    {
+      "frame_index": 107,
+      "label": "idle-107"
+    },
+    {
+      "frame_index": 108,
+      "label": "idle-108"
+    },
+    {
+      "frame_index": 109,
+      "label": "idle-109"
+    },
+    {
+      "frame_index": 110,
+      "label": "idle-110"
+    },
+    {
+      "frame_index": 111,
+      "label": "idle-111"
+    },
+    {
+      "frame_index": 112,
+      "label": "idle-112"
+    },
+    {
+      "frame_index": 113,
+      "label": "idle-113"
+    },
+    {
+      "frame_index": 114,
+      "label": "idle-114"
+    },
+    {
+      "frame_index": 115,
+      "label": "idle-115"
+    },
+    {
+      "frame_index": 116,
+      "label": "idle-116"
+    },
+    {
+      "frame_index": 117,
+      "label": "idle-117"
+    },
+    {
+      "frame_index": 118,
+      "label": "idle-118"
+    },
+    {
+      "frame_index": 119,
+      "label": "idle-119"
+    },
+    {
+      "frame_index": 120,
+      "label": "idle-120"
+    },
+    {
+      "frame_index": 121,
+      "label": "idle-121"
+    },
+    {
+      "frame_index": 122,
+      "label": "idle-122"
+    },
+    {
+      "frame_index": 123,
+      "label": "idle-123"
+    },
+    {
+      "frame_index": 124,
+      "label": "idle-124"
+    },
+    {
+      "frame_index": 125,
+      "label": "idle-125"
+    },
+    {
+      "frame_index": 126,
+      "label": "idle-126"
+    },
+    {
+      "frame_index": 127,
+      "label": "idle-127"
+    },
+    {
+      "frame_index": 128,
+      "label": "idle-128"
+    },
+    {
+      "frame_index": 129,
+      "label": "idle-129"
+    },
+    {
+      "frame_index": 130,
+      "label": "idle-130"
+    },
+    {
+      "frame_index": 131,
+      "label": "idle-131"
+    },
+    {
+      "frame_index": 132,
+      "label": "idle-132"
+    },
+    {
+      "frame_index": 133,
+      "label": "idle-133"
+    },
+    {
+      "frame_index": 134,
+      "label": "idle-134"
+    },
+    {
+      "frame_index": 135,
+      "label": "idle-135"
+    },
+    {
+      "frame_index": 136,
+      "label": "idle-136"
+    },
+    {
+      "frame_index": 137,
+      "label": "idle-137"
+    },
+    {
+      "frame_index": 138,
+      "label": "idle-138"
+    },
+    {
+      "frame_index": 139,
+      "label": "idle-139"
+    },
+    {
+      "frame_index": 140,
+      "label": "idle-140"
+    },
+    {
+      "frame_index": 141,
+      "label": "idle-141"
+    },
+    {
+      "frame_index": 142,
+      "label": "idle-142"
+    },
+    {
+      "frame_index": 143,
+      "label": "idle-143"
+    },
+    {
+      "frame_index": 144,
+      "label": "idle-144"
+    },
+    {
+      "frame_index": 145,
+      "label": "idle-145"
+    },
+    {
+      "frame_index": 146,
+      "label": "idle-146"
+    },
+    {
+      "frame_index": 147,
+      "label": "idle-147"
+    },
+    {
+      "frame_index": 148,
+      "label": "idle-148"
+    },
+    {
+      "frame_index": 149,
+      "label": "idle-149"
+    },
+    {
+      "frame_index": 150,
+      "label": "idle-150"
+    },
+    {
+      "frame_index": 151,
+      "label": "idle-151"
+    },
+    {
+      "frame_index": 152,
+      "label": "idle-152"
+    },
+    {
+      "frame_index": 153,
+      "label": "idle-153"
+    },
+    {
+      "frame_index": 154,
+      "label": "idle-154"
+    },
+    {
+      "frame_index": 155,
+      "label": "idle-155"
+    },
+    {
+      "frame_index": 156,
+      "label": "idle-156"
+    },
+    {
+      "frame_index": 157,
+      "label": "idle-157"
+    },
+    {
+      "frame_index": 158,
+      "label": "idle-158"
+    },
+    {
+      "frame_index": 159,
+      "label": "idle-159"
+    },
+    {
+      "frame_index": 160,
+      "label": "idle-160"
+    },
+    {
+      "frame_index": 161,
+      "label": "idle-161"
+    },
+    {
+      "frame_index": 162,
+      "label": "idle-162"
+    },
+    {
+      "frame_index": 163,
+      "label": "idle-163"
+    },
+    {
+      "frame_index": 164,
+      "label": "idle-164"
+    },
+    {
+      "frame_index": 165,
+      "label": "idle-165"
+    },
+    {
+      "frame_index": 166,
+      "label": "idle-166"
+    },
+    {
+      "frame_index": 167,
+      "label": "idle-167"
+    },
+    {
+      "frame_index": 168,
+      "label": "idle-168"
+    },
+    {
+      "frame_index": 169,
+      "label": "idle-169"
+    },
+    {
+      "frame_index": 170,
+      "label": "idle-170"
+    },
+    {
+      "frame_index": 171,
+      "label": "idle-171"
+    },
+    {
+      "frame_index": 172,
+      "label": "idle-172"
+    },
+    {
+      "frame_index": 173,
+      "label": "idle-173"
+    },
+    {
+      "frame_index": 174,
+      "label": "idle-174"
+    },
+    {
+      "frame_index": 175,
+      "label": "idle-175"
+    },
+    {
+      "frame_index": 176,
+      "label": "idle-176"
+    },
+    {
+      "frame_index": 177,
+      "label": "idle-177"
+    },
+    {
+      "frame_index": 178,
+      "label": "idle-178"
+    },
+    {
+      "frame_index": 179,
+      "label": "idle-179"
+    },
+    {
+      "frame_index": 180,
+      "label": "idle-180"
+    },
+    {
+      "frame_index": 181,
+      "label": "idle-181"
+    },
+    {
+      "frame_index": 182,
+      "label": "idle-182"
+    },
+    {
+      "frame_index": 183,
+      "label": "idle-183"
+    },
+    {
+      "frame_index": 184,
+      "label": "idle-184"
+    },
+    {
+      "frame_index": 185,
+      "label": "idle-185"
+    },
+    {
+      "frame_index": 186,
+      "label": "idle-186"
+    },
+    {
+      "frame_index": 187,
+      "label": "idle-187"
+    },
+    {
+      "frame_index": 188,
+      "label": "idle-188"
+    },
+    {
+      "frame_index": 189,
+      "label": "idle-189"
+    },
+    {
+      "frame_index": 190,
+      "label": "idle-190"
+    },
+    {
+      "frame_index": 191,
+      "label": "idle-191"
+    },
+    {
+      "frame_index": 192,
+      "label": "idle-192"
+    },
+    {
+      "frame_index": 193,
+      "label": "idle-193"
+    },
+    {
+      "frame_index": 194,
+      "label": "idle-194"
+    },
+    {
+      "frame_index": 195,
+      "label": "idle-195"
+    },
+    {
+      "frame_index": 196,
+      "label": "idle-196"
+    },
+    {
+      "frame_index": 197,
+      "label": "idle-197"
+    },
+    {
+      "frame_index": 198,
+      "label": "idle-198"
+    },
+    {
+      "frame_index": 199,
+      "label": "idle-199"
+    },
+    {
+      "frame_index": 200,
+      "label": "idle-200"
+    },
+    {
+      "frame_index": 201,
+      "label": "idle-201"
+    },
+    {
+      "frame_index": 202,
+      "label": "idle-202"
+    },
+    {
+      "frame_index": 203,
+      "label": "idle-203"
+    },
+    {
+      "frame_index": 204,
+      "label": "idle-204"
+    },
+    {
+      "frame_index": 205,
+      "label": "idle-205"
+    },
+    {
+      "frame_index": 206,
+      "label": "idle-206"
+    },
+    {
+      "frame_index": 207,
+      "label": "idle-207"
+    },
+    {
+      "frame_index": 208,
+      "label": "idle-208"
+    },
+    {
+      "frame_index": 209,
+      "label": "idle-209"
+    },
+    {
+      "frame_index": 210,
+      "label": "idle-210"
+    },
+    {
+      "frame_index": 211,
+      "label": "idle-211"
+    },
+    {
+      "frame_index": 212,
+      "label": "idle-212"
+    },
+    {
+      "frame_index": 213,
+      "label": "idle-213"
+    },
+    {
+      "frame_index": 214,
+      "label": "idle-214"
+    },
+    {
+      "frame_index": 215,
+      "label": "idle-215"
+    },
+    {
+      "frame_index": 216,
+      "label": "idle-216"
+    },
+    {
+      "frame_index": 217,
+      "label": "idle-217"
+    },
+    {
+      "frame_index": 218,
+      "label": "idle-218"
+    },
+    {
+      "frame_index": 219,
+      "label": "idle-219"
+    },
+    {
+      "frame_index": 220,
+      "label": "idle-220"
+    },
+    {
+      "frame_index": 221,
+      "label": "idle-221"
+    },
+    {
+      "frame_index": 222,
+      "label": "idle-222"
+    },
+    {
+      "frame_index": 223,
+      "label": "idle-223"
+    },
+    {
+      "frame_index": 224,
+      "label": "idle-224"
+    },
+    {
+      "frame_index": 225,
+      "label": "idle-225"
+    },
+    {
+      "frame_index": 226,
+      "label": "idle-226"
+    },
+    {
+      "frame_index": 227,
+      "label": "idle-227"
+    },
+    {
+      "frame_index": 228,
+      "label": "idle-228"
+    },
+    {
+      "frame_index": 229,
+      "label": "idle-229"
+    },
+    {
+      "frame_index": 230,
+      "label": "idle-230"
+    },
+    {
+      "frame_index": 231,
+      "label": "idle-231"
+    },
+    {
+      "frame_index": 232,
+      "label": "idle-232"
+    },
+    {
+      "frame_index": 233,
+      "label": "idle-233"
+    },
+    {
+      "frame_index": 234,
+      "label": "idle-234"
+    },
+    {
+      "frame_index": 235,
+      "label": "idle-235"
+    },
+    {
+      "frame_index": 236,
+      "label": "idle-236"
+    },
+    {
+      "frame_index": 237,
+      "label": "idle-237"
+    },
+    {
+      "frame_index": 238,
+      "label": "idle-238"
+    },
+    {
+      "frame_index": 239,
+      "label": "idle-239"
+    },
+    {
+      "frame_index": 240,
+      "label": "idle-240"
+    },
+    {
+      "frame_index": 241,
+      "label": "idle-241"
+    },
+    {
+      "frame_index": 242,
+      "label": "idle-242"
+    },
+    {
+      "frame_index": 243,
+      "label": "idle-243"
+    },
+    {
+      "frame_index": 244,
+      "label": "idle-244"
+    },
+    {
+      "frame_index": 245,
+      "label": "idle-245"
+    },
+    {
+      "frame_index": 246,
+      "label": "idle-246"
+    },
+    {
+      "frame_index": 247,
+      "label": "idle-247"
+    },
+    {
+      "frame_index": 248,
+      "label": "idle-248"
+    },
+    {
+      "frame_index": 249,
+      "label": "idle-249"
+    },
+    {
+      "frame_index": 250,
+      "label": "idle-250"
+    },
+    {
+      "frame_index": 251,
+      "label": "idle-251"
+    },
+    {
+      "frame_index": 252,
+      "label": "idle-252"
+    },
+    {
+      "frame_index": 253,
+      "label": "idle-253"
+    },
+    {
+      "frame_index": 254,
+      "label": "idle-254"
+    },
+    {
+      "frame_index": 255,
+      "label": "idle-255"
+    },
+    {
+      "frame_index": 256,
+      "label": "idle-256"
+    },
+    {
+      "frame_index": 257,
+      "label": "idle-257"
+    },
+    {
+      "frame_index": 258,
+      "label": "idle-258"
+    },
+    {
+      "frame_index": 259,
+      "label": "idle-259"
+    },
+    {
+      "frame_index": 260,
+      "label": "idle-260"
+    },
+    {
+      "frame_index": 261,
+      "label": "idle-261"
+    },
+    {
+      "frame_index": 262,
+      "label": "idle-262"
+    },
+    {
+      "frame_index": 263,
+      "label": "idle-263"
+    },
+    {
+      "frame_index": 264,
+      "label": "idle-264"
+    },
+    {
+      "frame_index": 265,
+      "label": "idle-265"
+    },
+    {
+      "frame_index": 266,
+      "label": "idle-266"
+    },
+    {
+      "frame_index": 267,
+      "label": "idle-267"
+    },
+    {
+      "frame_index": 268,
+      "label": "idle-268"
+    },
+    {
+      "frame_index": 269,
+      "label": "idle-269"
+    },
+    {
+      "frame_index": 270,
+      "label": "idle-270"
+    },
+    {
+      "frame_index": 271,
+      "label": "idle-271"
+    },
+    {
+      "frame_index": 272,
+      "label": "idle-272"
+    },
+    {
+      "frame_index": 273,
+      "label": "idle-273"
+    },
+    {
+      "frame_index": 274,
+      "label": "idle-274"
+    },
+    {
+      "frame_index": 275,
+      "label": "idle-275"
+    },
+    {
+      "frame_index": 276,
+      "label": "idle-276"
+    },
+    {
+      "frame_index": 277,
+      "label": "idle-277"
+    },
+    {
+      "frame_index": 278,
+      "label": "idle-278"
+    },
+    {
+      "frame_index": 279,
+      "label": "idle-279"
+    },
+    {
+      "frame_index": 280,
+      "label": "idle-280"
+    },
+    {
+      "frame_index": 281,
+      "label": "idle-281"
+    },
+    {
+      "frame_index": 282,
+      "label": "idle-282"
+    },
+    {
+      "frame_index": 283,
+      "label": "idle-283"
+    },
+    {
+      "frame_index": 284,
+      "label": "idle-284"
+    },
+    {
+      "frame_index": 285,
+      "label": "idle-285"
+    },
+    {
+      "frame_index": 286,
+      "label": "idle-286"
+    },
+    {
+      "frame_index": 287,
+      "label": "idle-287"
+    },
+    {
+      "frame_index": 288,
+      "label": "idle-288"
+    },
+    {
+      "frame_index": 289,
+      "label": "idle-289"
+    },
+    {
+      "frame_index": 290,
+      "label": "idle-290"
+    },
+    {
+      "frame_index": 291,
+      "label": "idle-291"
+    },
+    {
+      "frame_index": 292,
+      "label": "idle-292"
+    },
+    {
+      "frame_index": 293,
+      "label": "idle-293"
+    },
+    {
+      "frame_index": 294,
+      "label": "idle-294"
+    },
+    {
+      "frame_index": 295,
+      "label": "idle-295"
+    },
+    {
+      "frame_index": 296,
+      "label": "idle-296"
+    },
+    {
+      "frame_index": 297,
+      "label": "idle-297"
+    },
+    {
+      "frame_index": 298,
+      "label": "idle-298"
+    },
+    {
+      "frame_index": 299,
+      "label": "idle-299"
+    },
+    {
+      "frame_index": 300,
+      "label": "idle-300"
+    },
+    {
+      "frame_index": 301,
+      "label": "idle-301"
+    },
+    {
+      "frame_index": 302,
+      "label": "idle-302"
+    },
+    {
+      "frame_index": 303,
+      "label": "idle-303"
+    },
+    {
+      "frame_index": 304,
+      "label": "idle-304"
+    },
+    {
+      "frame_index": 305,
+      "label": "idle-305"
+    },
+    {
+      "frame_index": 306,
+      "label": "idle-306"
+    },
+    {
+      "frame_index": 307,
+      "label": "idle-307"
+    },
+    {
+      "frame_index": 308,
+      "label": "idle-308"
+    },
+    {
+      "frame_index": 309,
+      "label": "idle-309"
+    },
+    {
+      "frame_index": 310,
+      "label": "idle-310"
+    },
+    {
+      "frame_index": 311,
+      "label": "idle-311"
+    },
+    {
+      "frame_index": 312,
+      "label": "idle-312"
+    },
+    {
+      "frame_index": 313,
+      "label": "idle-313"
+    },
+    {
+      "frame_index": 314,
+      "label": "idle-314"
+    },
+    {
+      "frame_index": 315,
+      "label": "idle-315"
+    },
+    {
+      "frame_index": 316,
+      "label": "idle-316"
+    },
+    {
+      "frame_index": 317,
+      "label": "idle-317"
+    },
+    {
+      "frame_index": 318,
+      "label": "idle-318"
+    },
+    {
+      "frame_index": 319,
+      "label": "idle-319"
+    },
+    {
+      "frame_index": 320,
+      "label": "idle-320"
+    },
+    {
+      "frame_index": 321,
+      "label": "idle-321"
+    },
+    {
+      "frame_index": 322,
+      "label": "idle-322"
+    },
+    {
+      "frame_index": 323,
+      "label": "idle-323"
+    },
+    {
+      "frame_index": 324,
+      "label": "idle-324"
+    },
+    {
+      "frame_index": 325,
+      "label": "idle-325"
+    },
+    {
+      "frame_index": 326,
+      "label": "idle-326"
+    },
+    {
+      "frame_index": 327,
+      "label": "idle-327"
+    },
+    {
+      "frame_index": 328,
+      "label": "idle-328"
+    },
+    {
+      "frame_index": 329,
+      "label": "idle-329"
+    },
+    {
+      "frame_index": 330,
+      "label": "idle-330"
+    },
+    {
+      "frame_index": 331,
+      "label": "idle-331"
+    },
+    {
+      "frame_index": 332,
+      "label": "idle-332"
+    },
+    {
+      "frame_index": 333,
+      "label": "idle-333"
+    },
+    {
+      "frame_index": 334,
+      "label": "idle-334"
+    },
+    {
+      "frame_index": 335,
+      "label": "idle-335"
+    },
+    {
+      "frame_index": 336,
+      "label": "idle-336"
+    },
+    {
+      "frame_index": 337,
+      "label": "idle-337"
+    },
+    {
+      "frame_index": 338,
+      "label": "idle-338"
+    },
+    {
+      "frame_index": 339,
+      "label": "idle-339"
+    },
+    {
+      "frame_index": 340,
+      "label": "idle-340"
+    },
+    {
+      "frame_index": 341,
+      "label": "idle-341"
+    },
+    {
+      "frame_index": 342,
+      "label": "idle-342"
+    },
+    {
+      "frame_index": 343,
+      "label": "idle-343"
+    },
+    {
+      "frame_index": 344,
+      "label": "idle-344"
+    },
+    {
+      "frame_index": 345,
+      "label": "idle-345"
+    },
+    {
+      "frame_index": 346,
+      "label": "idle-346"
+    },
+    {
+      "frame_index": 347,
+      "label": "idle-347"
+    },
+    {
+      "frame_index": 348,
+      "label": "idle-348"
+    },
+    {
+      "frame_index": 349,
+      "label": "idle-349"
+    },
+    {
+      "frame_index": 350,
+      "label": "idle-350"
+    },
+    {
+      "frame_index": 351,
+      "label": "idle-351"
+    },
+    {
+      "frame_index": 352,
+      "label": "idle-352"
+    },
+    {
+      "frame_index": 353,
+      "label": "idle-353"
+    },
+    {
+      "frame_index": 354,
+      "label": "idle-354"
+    },
+    {
+      "frame_index": 355,
+      "label": "idle-355"
+    },
+    {
+      "frame_index": 356,
+      "label": "idle-356"
+    },
+    {
+      "frame_index": 357,
+      "label": "idle-357"
+    },
+    {
+      "frame_index": 358,
+      "label": "idle-358"
+    },
+    {
+      "frame_index": 359,
+      "label": "idle-359"
+    },
+    {
+      "frame_index": 360,
+      "label": "idle-360"
+    },
+    {
+      "frame_index": 361,
+      "label": "idle-361"
+    },
+    {
+      "frame_index": 362,
+      "label": "idle-362"
+    },
+    {
+      "frame_index": 363,
+      "label": "idle-363"
+    },
+    {
+      "frame_index": 364,
+      "label": "idle-364"
+    },
+    {
+      "frame_index": 365,
+      "label": "idle-365"
+    },
+    {
+      "frame_index": 366,
+      "label": "idle-366"
+    },
+    {
+      "frame_index": 367,
+      "label": "idle-367"
+    },
+    {
+      "frame_index": 368,
+      "label": "idle-368"
+    },
+    {
+      "frame_index": 369,
+      "label": "idle-369"
+    },
+    {
+      "frame_index": 370,
+      "label": "idle-370"
+    },
+    {
+      "frame_index": 371,
+      "label": "idle-371"
+    },
+    {
+      "frame_index": 372,
+      "label": "idle-372"
+    },
+    {
+      "frame_index": 373,
+      "label": "idle-373"
+    },
+    {
+      "frame_index": 374,
+      "label": "idle-374"
+    },
+    {
+      "frame_index": 375,
+      "label": "idle-375"
+    },
+    {
+      "frame_index": 376,
+      "label": "idle-376"
+    },
+    {
+      "frame_index": 377,
+      "label": "idle-377"
+    },
+    {
+      "frame_index": 378,
+      "label": "idle-378"
+    },
+    {
+      "frame_index": 379,
+      "label": "idle-379"
+    },
+    {
+      "frame_index": 380,
+      "label": "idle-380"
+    },
+    {
+      "frame_index": 381,
+      "label": "idle-381"
+    },
+    {
+      "frame_index": 382,
+      "label": "idle-382"
+    },
+    {
+      "frame_index": 383,
+      "label": "idle-383"
+    },
+    {
+      "frame_index": 384,
+      "label": "idle-384"
+    },
+    {
+      "frame_index": 385,
+      "label": "idle-385"
+    },
+    {
+      "frame_index": 386,
+      "label": "idle-386"
+    },
+    {
+      "frame_index": 387,
+      "label": "idle-387"
+    },
+    {
+      "frame_index": 388,
+      "label": "idle-388"
+    },
+    {
+      "frame_index": 389,
+      "label": "idle-389"
+    },
+    {
+      "frame_index": 390,
+      "label": "idle-390"
+    },
+    {
+      "frame_index": 391,
+      "label": "idle-391"
+    },
+    {
+      "frame_index": 392,
+      "label": "idle-392"
+    },
+    {
+      "frame_index": 393,
+      "label": "idle-393"
+    },
+    {
+      "frame_index": 394,
+      "label": "idle-394"
+    },
+    {
+      "frame_index": 395,
+      "label": "idle-395"
+    },
+    {
+      "frame_index": 396,
+      "label": "idle-396"
+    },
+    {
+      "frame_index": 397,
+      "label": "idle-397"
+    },
+    {
+      "frame_index": 398,
+      "label": "idle-398"
+    },
+    {
+      "frame_index": 399,
+      "label": "idle-399"
+    },
+    {
+      "frame_index": 400,
+      "label": "idle-400"
+    },
+    {
+      "frame_index": 401,
+      "label": "idle-401"
+    },
+    {
+      "frame_index": 402,
+      "label": "idle-402"
+    },
+    {
+      "frame_index": 403,
+      "label": "idle-403"
+    },
+    {
+      "frame_index": 404,
+      "label": "idle-404"
+    },
+    {
+      "frame_index": 405,
+      "label": "idle-405"
+    },
+    {
+      "frame_index": 406,
+      "label": "idle-406"
+    },
+    {
+      "frame_index": 407,
+      "label": "idle-407"
+    },
+    {
+      "frame_index": 408,
+      "label": "idle-408"
+    },
+    {
+      "frame_index": 409,
+      "label": "idle-409"
+    },
+    {
+      "frame_index": 410,
+      "label": "idle-410"
+    },
+    {
+      "frame_index": 411,
+      "label": "idle-411"
+    },
+    {
+      "frame_index": 412,
+      "label": "idle-412"
+    },
+    {
+      "frame_index": 413,
+      "label": "idle-413"
+    },
+    {
+      "frame_index": 414,
+      "label": "idle-414"
+    },
+    {
+      "frame_index": 415,
+      "label": "idle-415"
+    },
+    {
+      "frame_index": 416,
+      "label": "idle-416"
+    },
+    {
+      "frame_index": 417,
+      "label": "idle-417"
+    },
+    {
+      "frame_index": 418,
+      "label": "idle-418"
+    },
+    {
+      "frame_index": 419,
+      "label": "idle-419"
+    },
+    {
+      "frame_index": 420,
+      "label": "idle-420"
+    },
+    {
+      "frame_index": 421,
+      "label": "idle-421"
+    },
+    {
+      "frame_index": 422,
+      "label": "idle-422"
+    },
+    {
+      "frame_index": 423,
+      "label": "idle-423"
+    },
+    {
+      "frame_index": 424,
+      "label": "idle-424"
+    },
+    {
+      "frame_index": 425,
+      "label": "idle-425"
+    },
+    {
+      "frame_index": 426,
+      "label": "idle-426"
+    },
+    {
+      "frame_index": 427,
+      "label": "idle-427"
+    },
+    {
+      "frame_index": 428,
+      "label": "idle-428"
+    },
+    {
+      "frame_index": 429,
+      "label": "idle-429"
+    },
+    {
+      "frame_index": 430,
+      "label": "idle-430"
+    },
+    {
+      "frame_index": 431,
+      "label": "idle-431"
+    },
+    {
+      "frame_index": 432,
+      "label": "idle-432"
+    },
+    {
+      "frame_index": 433,
+      "label": "idle-433"
+    },
+    {
+      "frame_index": 434,
+      "label": "idle-434"
+    },
+    {
+      "frame_index": 435,
+      "label": "idle-435"
+    },
+    {
+      "frame_index": 436,
+      "label": "idle-436"
+    },
+    {
+      "frame_index": 437,
+      "label": "idle-437"
+    },
+    {
+      "frame_index": 438,
+      "label": "idle-438"
+    },
+    {
+      "frame_index": 439,
+      "label": "idle-439"
+    },
+    {
+      "frame_index": 440,
+      "label": "idle-440"
+    },
+    {
+      "frame_index": 441,
+      "label": "idle-441"
+    },
+    {
+      "frame_index": 442,
+      "label": "idle-442"
+    },
+    {
+      "frame_index": 443,
+      "label": "idle-443"
+    },
+    {
+      "frame_index": 444,
+      "label": "idle-444"
+    },
+    {
+      "frame_index": 445,
+      "label": "idle-445"
+    },
+    {
+      "frame_index": 446,
+      "label": "idle-446"
+    },
+    {
+      "frame_index": 447,
+      "label": "idle-447"
+    },
+    {
+      "frame_index": 448,
+      "label": "idle-448"
+    },
+    {
+      "frame_index": 449,
+      "label": "idle-449"
+    },
+    {
+      "frame_index": 450,
+      "label": "idle-450"
+    },
+    {
+      "frame_index": 451,
+      "label": "idle-451"
+    },
+    {
+      "frame_index": 452,
+      "label": "idle-452"
+    },
+    {
+      "frame_index": 453,
+      "label": "idle-453"
+    },
+    {
+      "frame_index": 454,
+      "label": "idle-454"
+    },
+    {
+      "frame_index": 455,
+      "label": "idle-455"
+    },
+    {
+      "frame_index": 456,
+      "label": "idle-456"
+    },
+    {
+      "frame_index": 457,
+      "label": "idle-457"
+    },
+    {
+      "frame_index": 458,
+      "label": "idle-458"
+    },
+    {
+      "frame_index": 459,
+      "label": "idle-459"
+    },
+    {
+      "frame_index": 460,
+      "label": "idle-460"
+    },
+    {
+      "frame_index": 461,
+      "label": "idle-461"
+    },
+    {
+      "frame_index": 462,
+      "label": "idle-462"
+    },
+    {
+      "frame_index": 463,
+      "label": "idle-463"
+    },
+    {
+      "frame_index": 464,
+      "label": "idle-464"
+    },
+    {
+      "frame_index": 465,
+      "label": "idle-465"
+    },
+    {
+      "frame_index": 466,
+      "label": "idle-466"
+    },
+    {
+      "frame_index": 467,
+      "label": "idle-467"
+    },
+    {
+      "frame_index": 468,
+      "label": "idle-468"
+    },
+    {
+      "frame_index": 469,
+      "label": "idle-469"
+    },
+    {
+      "frame_index": 470,
+      "label": "idle-470"
+    },
+    {
+      "frame_index": 471,
+      "label": "idle-471"
+    },
+    {
+      "frame_index": 472,
+      "label": "idle-472"
+    },
+    {
+      "frame_index": 473,
+      "label": "idle-473"
+    },
+    {
+      "frame_index": 474,
+      "label": "idle-474"
+    },
+    {
+      "frame_index": 475,
+      "label": "idle-475"
+    },
+    {
+      "frame_index": 476,
+      "label": "idle-476"
+    },
+    {
+      "frame_index": 477,
+      "label": "idle-477"
+    },
+    {
+      "frame_index": 478,
+      "label": "idle-478"
+    },
+    {
+      "frame_index": 479,
+      "label": "idle-479"
+    },
+    {
+      "frame_index": 480,
+      "label": "idle-480"
+    },
+    {
+      "frame_index": 481,
+      "label": "idle-481"
+    },
+    {
+      "frame_index": 482,
+      "label": "idle-482"
+    },
+    {
+      "frame_index": 483,
+      "label": "idle-483"
+    },
+    {
+      "frame_index": 484,
+      "label": "idle-484"
+    },
+    {
+      "frame_index": 485,
+      "label": "idle-485"
+    },
+    {
+      "frame_index": 486,
+      "label": "idle-486"
+    },
+    {
+      "frame_index": 487,
+      "label": "idle-487"
+    },
+    {
+      "frame_index": 488,
+      "label": "idle-488"
+    },
+    {
+      "frame_index": 489,
+      "label": "idle-489"
+    },
+    {
+      "frame_index": 490,
+      "label": "idle-490"
+    },
+    {
+      "frame_index": 491,
+      "label": "idle-491"
+    },
+    {
+      "frame_index": 492,
+      "label": "idle-492"
+    },
+    {
+      "frame_index": 493,
+      "label": "idle-493"
+    },
+    {
+      "frame_index": 494,
+      "label": "idle-494"
+    },
+    {
+      "frame_index": 495,
+      "label": "idle-495"
+    },
+    {
+      "frame_index": 496,
+      "label": "idle-496"
+    },
+    {
+      "frame_index": 497,
+      "label": "idle-497"
+    },
+    {
+      "frame_index": 498,
+      "label": "idle-498"
+    },
+    {
+      "frame_index": 499,
+      "label": "idle-499"
+    },
+    {
+      "frame_index": 500,
+      "label": "idle-500"
+    },
+    {
+      "frame_index": 501,
+      "label": "idle-501"
+    },
+    {
+      "frame_index": 502,
+      "label": "idle-502"
+    },
+    {
+      "frame_index": 503,
+      "label": "idle-503"
+    },
+    {
+      "frame_index": 504,
+      "label": "idle-504"
+    },
+    {
+      "frame_index": 505,
+      "label": "idle-505"
+    },
+    {
+      "frame_index": 506,
+      "label": "idle-506"
+    },
+    {
+      "frame_index": 507,
+      "label": "idle-507"
+    },
+    {
+      "frame_index": 508,
+      "label": "idle-508"
+    },
+    {
+      "frame_index": 509,
+      "label": "idle-509"
+    },
+    {
+      "frame_index": 510,
+      "label": "idle-510"
+    },
+    {
+      "frame_index": 511,
+      "label": "idle-511"
+    },
+    {
+      "frame_index": 512,
+      "label": "idle-512"
+    },
+    {
+      "frame_index": 513,
+      "label": "idle-513"
+    },
+    {
+      "frame_index": 514,
+      "label": "idle-514"
+    },
+    {
+      "frame_index": 515,
+      "label": "idle-515"
+    },
+    {
+      "frame_index": 516,
+      "label": "idle-516"
+    },
+    {
+      "frame_index": 517,
+      "label": "idle-517"
+    },
+    {
+      "frame_index": 518,
+      "label": "idle-518"
+    },
+    {
+      "frame_index": 519,
+      "label": "idle-519"
+    },
+    {
+      "frame_index": 520,
+      "label": "idle-520"
+    },
+    {
+      "frame_index": 521,
+      "label": "idle-521"
+    },
+    {
+      "frame_index": 522,
+      "label": "idle-522"
+    },
+    {
+      "frame_index": 523,
+      "label": "idle-523"
+    },
+    {
+      "frame_index": 524,
+      "label": "idle-524"
+    },
+    {
+      "frame_index": 525,
+      "label": "idle-525"
+    },
+    {
+      "frame_index": 526,
+      "label": "idle-526"
+    },
+    {
+      "frame_index": 527,
+      "label": "idle-527"
+    },
+    {
+      "frame_index": 528,
+      "label": "idle-528"
+    },
+    {
+      "frame_index": 529,
+      "label": "idle-529"
+    },
+    {
+      "frame_index": 530,
+      "label": "idle-530"
+    },
+    {
+      "frame_index": 531,
+      "label": "idle-531"
+    },
+    {
+      "frame_index": 532,
+      "label": "idle-532"
+    },
+    {
+      "frame_index": 533,
+      "label": "idle-533"
+    },
+    {
+      "frame_index": 534,
+      "label": "idle-534"
+    },
+    {
+      "frame_index": 535,
+      "label": "idle-535"
+    },
+    {
+      "frame_index": 536,
+      "label": "idle-536"
+    },
+    {
+      "frame_index": 537,
+      "label": "idle-537"
+    },
+    {
+      "frame_index": 538,
+      "label": "idle-538"
+    },
+    {
+      "frame_index": 539,
+      "label": "idle-539"
+    },
+    {
+      "frame_index": 540,
+      "label": "idle-540"
+    },
+    {
+      "frame_index": 541,
+      "label": "idle-541"
+    },
+    {
+      "frame_index": 542,
+      "label": "idle-542"
+    },
+    {
+      "frame_index": 543,
+      "label": "idle-543"
+    },
+    {
+      "frame_index": 544,
+      "label": "idle-544"
+    },
+    {
+      "frame_index": 545,
+      "label": "idle-545"
+    },
+    {
+      "frame_index": 546,
+      "label": "idle-546"
+    },
+    {
+      "frame_index": 547,
+      "label": "idle-547"
+    },
+    {
+      "frame_index": 548,
+      "label": "idle-548"
+    },
+    {
+      "frame_index": 549,
+      "label": "idle-549"
+    },
+    {
+      "frame_index": 550,
+      "label": "idle-550"
+    },
+    {
+      "frame_index": 551,
+      "label": "idle-551"
+    },
+    {
+      "frame_index": 552,
+      "label": "idle-552"
+    },
+    {
+      "frame_index": 553,
+      "label": "idle-553"
+    },
+    {
+      "frame_index": 554,
+      "label": "idle-554"
+    },
+    {
+      "frame_index": 555,
+      "label": "idle-555"
+    },
+    {
+      "frame_index": 556,
+      "label": "idle-556"
+    },
+    {
+      "frame_index": 557,
+      "label": "idle-557"
+    },
+    {
+      "frame_index": 558,
+      "label": "idle-558"
+    },
+    {
+      "frame_index": 559,
+      "label": "idle-559"
+    },
+    {
+      "frame_index": 560,
+      "label": "idle-560"
+    },
+    {
+      "frame_index": 561,
+      "label": "idle-561"
+    },
+    {
+      "frame_index": 562,
+      "label": "idle-562"
+    },
+    {
+      "frame_index": 563,
+      "label": "idle-563"
+    },
+    {
+      "frame_index": 564,
+      "label": "idle-564"
+    },
+    {
+      "frame_index": 565,
+      "label": "idle-565"
+    },
+    {
+      "frame_index": 566,
+      "label": "idle-566"
+    },
+    {
+      "frame_index": 567,
+      "label": "idle-567"
+    },
+    {
+      "frame_index": 568,
+      "label": "idle-568"
+    },
+    {
+      "frame_index": 569,
+      "label": "idle-569"
+    },
+    {
+      "frame_index": 570,
+      "label": "idle-570"
+    },
+    {
+      "frame_index": 571,
+      "label": "idle-571"
+    },
+    {
+      "frame_index": 572,
+      "label": "idle-572"
+    },
+    {
+      "frame_index": 573,
+      "label": "idle-573"
+    },
+    {
+      "frame_index": 574,
+      "label": "idle-574"
+    },
+    {
+      "frame_index": 575,
+      "label": "idle-575"
+    },
+    {
+      "frame_index": 576,
+      "label": "idle-576"
+    },
+    {
+      "frame_index": 577,
+      "label": "idle-577"
+    },
+    {
+      "frame_index": 578,
+      "label": "idle-578"
+    },
+    {
+      "frame_index": 579,
+      "label": "idle-579"
+    },
+    {
+      "frame_index": 580,
+      "label": "idle-580"
+    },
+    {
+      "frame_index": 581,
+      "label": "idle-581"
+    },
+    {
+      "frame_index": 582,
+      "label": "idle-582"
+    },
+    {
+      "frame_index": 583,
+      "label": "idle-583"
+    },
+    {
+      "frame_index": 584,
+      "label": "idle-584"
+    },
+    {
+      "frame_index": 585,
+      "label": "idle-585"
+    },
+    {
+      "frame_index": 586,
+      "label": "idle-586"
+    },
+    {
+      "frame_index": 587,
+      "label": "idle-587"
+    },
+    {
+      "frame_index": 588,
+      "label": "idle-588"
+    },
+    {
+      "frame_index": 589,
+      "label": "idle-589"
+    },
+    {
+      "frame_index": 590,
+      "label": "idle-590"
+    },
+    {
+      "frame_index": 591,
+      "label": "idle-591"
+    },
+    {
+      "frame_index": 592,
+      "label": "idle-592"
+    },
+    {
+      "frame_index": 593,
+      "label": "idle-593"
+    },
+    {
+      "frame_index": 594,
+      "label": "idle-594"
+    },
+    {
+      "frame_index": 595,
+      "label": "idle-595"
+    },
+    {
+      "frame_index": 596,
+      "label": "idle-596"
+    },
+    {
+      "frame_index": 597,
+      "label": "idle-597"
+    },
+    {
+      "frame_index": 598,
+      "label": "idle-598"
+    },
+    {
+      "frame_index": 599,
+      "label": "idle-599"
+    }
+  ],
+  "warp_to_level": 1,
+  "settle_oracle_warp": true
+}

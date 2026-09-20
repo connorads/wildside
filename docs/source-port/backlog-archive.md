@@ -11,6 +11,85 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #496
+
+The 2026-09-20 Jev BLW2 teleporter attempt found an early RockTank turn.
+Its 600-frame input replay is exact but never reaches the teleporter. Native
+turns left at frame 570, oracle at 571; frame 571 differs by 494 pixels.
+The permanent idle control is
+`tests/data/dynamic-scenarios/issue-496-tank-initial-wait.json`.
+This case proves a settled-entry Tank defect, not natural level traversal or
+closure of #327, #331 or the broader Tank sprite reports.
+
+Exact positions show the causal lead before the turn:
+
+| Frame | Before native body/mouth X | Oracle body/mouth X | Oracle facing |
+|---|---|---|---|
+| 0 | 165 / 165 | 164.5 / 164 | Right |
+| 569 | 213.5 / 213 | 213 / 213 | Right |
+| 570 | 213.5 / 213 | 213.5 / 213 | Right |
+| 571 | 213 / 213 | 213.5 / 213 | Left |
+
+ASM `Enemy0A_RockTank_Init -> loc_3B40A -> loc_3C0D2/loc_3C026`
+synchronises the mouth through `sub_3BF72`, then hibernates before
+`loc_3B41C`. Oracle settle rows 70/71/72 allocate the worker, hold it at
+X200/Y223, then first move to X199.5/Y224. Native's debug loader omitted this
+family's first wait. The non-cache runtime regression fails before the fix and
+passes with the existing fresh-object scheduler holding the first Tank pass.
+No level timer or boundary-turn delay is changed. Delaying the turn itself
+was rejected because it concealed the pre-existing fractional lead.
+
+The existing renderer extrapolated another pre-step X after the ordinary
+previous-frame sprite latch. That compensation hides the incorrect init age.
+With correct state it creates 347-350 changed pixels on alternating sampled
+frames. Oracle `oracle_gfx_sprite_order_loc_14a4` records both frame-zero Gfx
+X words at 164, with body RAM X164.5. Removing the extra rewind for object 0A
+matches `Mode_Level loc_901`; the renderer regression fails before removal.
+Tank_Shooting retains its existing reconstruction pending its own init probe.
+This is an explicit remaining fidelity check, not proof for object 0B.
+
+Fixed body/mouth X and facing match exact oracle RAM across all 600 idle
+frames, with no position tolerance. All 600 checkpoints are pixel-exact and
+native replay/state/frame verdicts all pass. Inspected before/after turn PNGs
+confirm the corrected orientation. The cache-backed regression uses re-derived
+frame-zero values 164.5/164 and pins both turn frames; its old 163.5/163 values
+were stale and the default suite skipped that test. The new init regression
+runs without cache assets. All 97 Tank core tests and 8 Tank renderer tests pass.
+
+The complete original Jev replay exposed mouth-animation differences at 586
+and 596 after the position repair. Its child animation lived below the fresh
+Object defer, unlike the body Gfx clock. ASM `loc_3B372/stru_3B27E` advances
+the linked Gfx animation while the parent hibernates. A red-first assertion
+pins that first child tick, and the defer retains it. The idle fixture captures
+every frame to cover the mouth descriptor boundaries as well as the turn.
+
+Generated evidence: Jev `.cache/jev-cases/1789943268861172000/`; idle baseline
+`.cache/recordings/tank-settled-idle-control/`; fixed idle
+`.cache/recordings/issue-496-idle-verified-all/`. Reproduce with
+`record-scenario-file --slug issue-496-idle-verified-all --scenario
+ tests/data/dynamic-scenarios/issue-496-tank-initial-wait.json`, followed by
+`verify-recording --slug issue-496-idle-verified-all`. The complete baseline
+`.cache/recordings/issue-496-idle-baseline-all/` first fails state at 98, and
+frames 99/217/335/453/571 total 2,490 changed pixels. The fix removes all five
+turn-image mismatches. Original Jev replay
+`.cache/recordings/issue-496-jev-verified/` also passes deterministic replay,
+state and all 61 sampled pixel checkpoints after the mouth-clock correction.
+
+The 105-level state sweep 1789945829 retains 95 passes, 10 failures and 28
+authoritative differences. Full six-Tank-level sweep 1789945055 matches the
+pre-fix binary's 1789944485 state records, maximum pixel counts and MAE on
+01/09/0E/11/1F/2B. Existing failures and HUD differences remain visible.
+A separate flag diagnostic generated `level-layout/29.json` in the shared
+local bundle. The web catalogue test reported exactly that extra request.
+Keep diagnostic captures isolated from the canonical bundle; changing the
+shipping catalogue to admit incidental probe files was rejected.
+Full 37,759-frame TAS passes, retaining 241 divergent frames / 2,391 pixels
+and the frozen GEMS signature baseline. GEMS commands have zero mismatches.
+`mise run verify-slice-fast` passes, including 7,425 core tests, Clippy and
+the unchanged workspace failure ratchet. The local flag captures are retained
+under `/tmp/wildside-shifted-flag-yda_1egu/captured-level-layout/`, outside
+the canonical generated bundle.
+
 ### #495
 
 Follow-up 2026-09-07. Frames 109 and 322 each retained a full 32-pixel HP pip
@@ -25644,6 +25723,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 496 | [x] | P1 | enemy/Tank | Settled-entry Tank initial wait and sprite position follow the ROM. | Red-first init/render regressions; exact 600-frame body/mouth state, 600 pixel-exact checkpoints and full sweep comparison. |
 | 495 | [-] | P2 | enemy/Driller | Level `$55` gameplay and all 360 enemy frames match; Driller hurt return and later right-turn callbacks follow the ROM. | Frame 120 remains improved at 1,576 px; remaining checkpoint residue is presentation-only. See archive #495. |
 | 494 | [x] | P2 | rendering | `Kid_Transform` transform/form palette writes override a damage-white phase suspended before the synchronous coroutine. | Level `$55` settle residue 2,212→1,781; whole-game comparable residue 39,401→38,971. See archive #494. |
 | 493 | [x] | P1 | enemy/render | Lion fire/restore timing, HP-8 animation topology, projectile collision subpixels, and parent-child rendering follow the ROM. | Level `$36` Lion/projectile pixels exact at all six checkpoints; 75/75 enemy-frontier frames match. See archive #493. |

@@ -7,6 +7,34 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 handoff (Jev-discovered Tank initial wait)
+
+#496 has a permanent 600-frame idle regression after Jev's first campaign
+attempt exposed an early Tank turn. The ROM init hibernates before movement;
+native holds that first Object pass while preserving the mouth Gfx tick. The
+ordinary sprite latch supplies the measured Tank position without a second
+rewind. All 600 idle frames match exact body/mouth X and facing and every pixel.
+The baseline has five early-turn images totalling 2,490 changed pixels. The
+original 600-frame Jev input also passes state and all 61 sampled images. Red-first
+regressions cover init movement, independent mouth animation and the sprite
+latch; 97 Tank core tests and 8 renderer tests pass. Fast gate and full 37,759-frame TAS pass with frozen baselines unchanged.
+The six-level full sweep 1789945055 retains the pre-fix 1789944485 state and
+pixel results; the 105-level state sweep retains 95 passes / 10 failures.
+
+The paid attempt returns `not exercised` for #327. It stops at X58 after 100
+requests costing $0.010448214; lifetime charged upper bound $0.186974676. Its
+original case window and attempt count remain intact. Improve the single
+current-goal observation before another paid route attempt. #300 pad traversal,
+source-exit coverage and #433 residuals remain open. No frozen lane expands.
+
+Next source-exit probe is confirmed locally on level 0x29: `Flagpole_Boss` adds
+blank rows to the flag Gfx anchor (16,128), while raw header Y remains 96. Oracle
+walk-in from (40,143) contacts at 22 and executes C048 at 23; native keeps walking
+past the raw-Y flag. Evidence is `/tmp/wildside-shifted-flag-yda_1egu/` and
+`.cache/recordings/shifted-flag-local-probe/`. Use one internal world-position
+accessor with 16-bit wrapping in collision, trace and the existing goal probe.
+An injected local exit is not proof of a natural route. Keep raw header metadata.
+
 ## 2026-09-20 handoff (persistent Jev campaign allowance)
 
 The case controller preserves the existing spend and attempts, then atomically

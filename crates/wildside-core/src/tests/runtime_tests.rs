@@ -11657,6 +11657,59 @@ mod chunk_09 {
     }
 
     #[test]
+    fn tank_debug_entry_hibernates_at_spawn_before_walking() {
+        // ASM Tank.asm loc_3B40A -> loc_3C0D2 -> loc_3C0F0: the init
+        // synchronises the mouth and hibernates before loc_3B41C can walk.
+        // BLW2 oracle title-wait rows 70/71/72 allocate, hold x=200,
+        // then move left to 199.5. Check that order without ROM assets.
+        let mut assets = manifest();
+        assets.levels[0].platform_metadata = None;
+        assets.levels[0]
+            .header_metadata
+            .as_mut()
+            .unwrap()
+            .player_start_x = 32;
+        let layout = assets.levels[0].enemy_layout_metadata.as_mut().unwrap();
+        layout.enemy_type_slots = vec![0xFFFF, 0x000A];
+        layout.objects = vec![wildside_data::EnemyLayoutObject {
+            object_type: 0x0A,
+            flags: 0,
+            hit_points_plus_one: 0,
+            x: 200,
+            y: 223,
+        }];
+        layout.object_count = 1;
+        assets.levels[0].level_id = 1;
+        let mut runtime = NativeRuntime::new(assets);
+        runtime.begin_debug_level_entry_loc_74e0(LevelId(1));
+        runtime.debug_level_entry_runs_live_shell_loc_74e0 = true;
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        for _ in 0..120 {
+            runtime.step_frame(FrameInput::default());
+            if !runtime.active_enemies.is_empty() {
+                break;
+            }
+        }
+        assert_eq!(runtime.active_enemies.len(), 1, "Tank must be allocated");
+        assert_eq!(runtime.active_enemies[0].x_pos, 200 << 16);
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            runtime.active_enemies[0].x_pos,
+            200 << 16,
+            "loc_3C0F0 hibernates at spawn during the first object pass"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].tank_mouth_animation_phase, 2,
+            "ASM loc_3B372/stru_3B27E: the mouth Gfx animation advances while its parent Object hibernates"
+        );
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            runtime.active_enemies[0].x_pos, 0x00C7_8000,
+            "loc_3B41C resumes the left walker on the following pass"
+        );
+    }
+
+    #[test]
     fn settled_recording_warp_level_one_matches_first_rock_tank_body_turret_phase() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
@@ -11665,7 +11718,7 @@ mod chunk_09 {
         let trace = ScriptRunner::new(manifest)
             .warp_to_level(1)
             .settle_recording_warp()
-            .run(&[0, 0], 2);
+            .run(&[0; 600], 600);
 
         let tank_pair = |frame: &NativeTraceFrame| {
             let body = frame
@@ -11693,14 +11746,31 @@ mod chunk_09 {
 
         assert_eq!(
             tank_pair(&trace[0]),
-            (0x00A3_8000, 0x00A3_0000),
+            (0x00A4_8000, 0x00A4_0000),
             "ASM Tank.asm loc_3B40A enters shared walker loc_3C026, and loc_3C03A/loc_3C044 syncs the child on the hibernate boundary; oracle frame 0 sees the body one half-pixel ahead of the turret",
         );
         assert_eq!(
             tank_pair(&trace[1]),
-            (0x00A4_0000, 0x00A4_0000),
+            (0x00A5_0000, 0x00A5_0000),
             "ASM shared walker loc_3C03A syncs the turret before the next hibernate, so oracle frame 1 has both Tank objects at the same X",
         );
+        for (frame_index, facing) in [(570, Direction::Right), (571, Direction::Left)] {
+            let body = trace[frame_index]
+                .active_objects
+                .iter()
+                .find(|object| {
+                    object.kind == NativeObjectKind::Enemy { object_type: 0x0A }
+                        && object.layout_index == Some(1)
+                        && object.hit_points == Some(2)
+                })
+                .expect("Tank body survives the idle route");
+            assert_eq!(body.facing, Some(facing), "frame {frame_index}");
+            assert_eq!(
+                tank_pair(&trace[frame_index]),
+                (0x00D5_8000, 0x00D5_0000),
+                "ASM loc_3C04E -> loc_3C0A6 -> loc_3C0D2 turns at the current boundary position on frame 571"
+            );
+        }
     }
 
     #[test]

@@ -1916,13 +1916,14 @@ fn latch_rock_tank_gfx_positions_loc_3c03a(
     current_trace: &NativeTraceFrame,
     previous_trace: &NativeTraceFrame,
 ) {
+    // ASM Tank.asm loc_3B40A's init hibernate is represented by the
+    // scheduler. Its ordinary previous-frame sprite latch already matches
+    // loc_901; another rewind subtracts a second movement step.
+    // TODO(fidelity): verify Tank_Shooting's init boundary before removing
+    // its existing reconstruction.
     for previous_body in previous_trace.active_objects.iter().filter(|object| {
-        matches!(
-            object.kind,
-            NativeObjectKind::Enemy {
-                object_type: 0x0A | 0x0B
-            }
-        ) && object.hit_points.is_some_and(|hit_points| hit_points > 0)
+        matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x0B })
+            && object.hit_points.is_some_and(|hit_points| hit_points > 0)
     }) {
         let Some(current_body) = current_trace.active_objects.iter().find(|object| {
             object.kind == previous_body.kind
@@ -10830,9 +10831,33 @@ mod tests {
     }
 
     #[test]
+    fn rock_tank_keeps_the_previous_sprite_position_after_init_wait() {
+        // ASM loc_3C03A/sub_3BF72 -> Mode_Level loc_901: BLW2 oracle
+        // frame 0 has both Gfx X words at 164 and body RAM X=164.5.
+        let body = |x_pos| NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0A },
+            x_pos,
+            hit_points: Some(2),
+            layout_index: Some(1),
+            ..sample_object_snapshot()
+        };
+        let previous = NativeTraceFrame {
+            active_objects: vec![body(164 << 16)],
+            ..NativeTraceFrame::default()
+        };
+        let current = NativeTraceFrame {
+            active_objects: vec![body(0x00A4_8000)],
+            ..NativeTraceFrame::default()
+        };
+        let mut rendered = previous.clone();
+        latch_rock_tank_gfx_positions_loc_3c03a(&mut rendered, &current, &previous);
+        assert_eq!(rendered.active_objects[0].x_pos, 164 << 16);
+    }
+
+    #[test]
     fn rock_tank_latch_recovers_parent_and_child_pre_step_x_loc_3c03a() {
         let tank = |x_pos, hit_points| NativeObjectSnapshot {
-            kind: NativeObjectKind::Enemy { object_type: 0x0A },
+            kind: NativeObjectKind::Enemy { object_type: 0x0B },
             x_pos,
             y_pos: if hit_points == Some(0) {
                 0x00D8_0000
@@ -10877,14 +10902,14 @@ mod tests {
             ..sample_object_snapshot()
         };
         let previous = NativeTraceFrame {
-            active_objects: vec![tank(0x0A, 1, 0x00C9_8000, Some(2))],
+            active_objects: vec![tank(0x0B, 1, 0x00C9_8000, Some(2))],
             ..NativeTraceFrame::default()
         };
         let current = NativeTraceFrame {
             active_objects: vec![
-                tank(0x0B, 1, 0x00C9_0000, Some(2)),
-                tank(0x0A, 2, 0x00C9_0000, Some(2)),
-                tank(0x0A, 1, 0x00C9_0000, Some(0)),
+                tank(0x0A, 1, 0x00C9_0000, Some(2)),
+                tank(0x0B, 2, 0x00C9_0000, Some(2)),
+                tank(0x0B, 1, 0x00C9_0000, Some(0)),
             ],
             ..NativeTraceFrame::default()
         };
@@ -10909,18 +10934,18 @@ mod tests {
             ..sample_object_snapshot()
         };
         let previous = NativeTraceFrame {
-            active_objects: vec![tank(0x0A, 1, 0x00C9_8000)],
+            active_objects: vec![tank(0x0B, 1, 0x00C9_8000)],
             ..NativeTraceFrame::default()
         };
         let current = NativeTraceFrame {
-            active_objects: vec![tank(0x0A, 1, 0x00C9_0000)],
+            active_objects: vec![tank(0x0B, 1, 0x00C9_0000)],
             ..NativeTraceFrame::default()
         };
         let mut rendered = NativeTraceFrame {
             active_objects: vec![
-                tank(0x0A, 1, 0x00C9_8000),
-                tank(0x0B, 1, 0x00D1_0000),
-                tank(0x0A, 2, 0x00D9_0000),
+                tank(0x0B, 1, 0x00C9_8000),
+                tank(0x0A, 1, 0x00D1_0000),
+                tank(0x0B, 2, 0x00D9_0000),
             ],
             ..NativeTraceFrame::default()
         };
