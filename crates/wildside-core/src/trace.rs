@@ -11950,6 +11950,7 @@ impl NativeRuntime {
         let hidden_boot_progression = cold_boot_frame || hidden_mode_zero_frame;
         let current_level_name = self.level_name(self.current_level).map(str::to_owned);
         let level_header = self.level_header(self.current_level);
+        let flag_position = self.flag_world_position(self.current_level);
         let enemy_layout = self.enemy_layout(self.current_level);
         let player_state = self.current_player_state();
         let camera_state = self.current_camera_state();
@@ -12316,8 +12317,8 @@ impl NativeRuntime {
             current_level_name,
             player_start_x: level_header.map(|header| header.player_start_x),
             player_start_y: level_header.map(|header| header.player_start_y),
-            flag_x: level_header.map(|header| header.flag_x),
-            flag_y: level_header.map(|header| header.flag_y),
+            flag_x: flag_position.map(|(x, _)| x),
+            flag_y: flag_position.map(|(_, y)| y),
             level_enemy_object_count: enemy_layout.map(|layout| layout.object_count),
             active_enemy_object_count,
             active_platform_object_count,
@@ -13696,16 +13697,16 @@ impl NativeRuntime {
             return None;
         }
 
-        let header = self.level_header(self.current_level)?;
-        let flag_x_fp = u32::from(header.flag_x) << 16;
-        let flag_y_fp = u32::from(header.flag_y) << 16;
+        let (flag_x, flag_y) = self.flag_world_position(self.current_level)?;
+        let flag_x_fp = u32::from(flag_x) << 16;
+        let flag_y_fp = u32::from(flag_y) << 16;
         let dx_px = player.x_pos.abs_diff(flag_x_fp) >> 16;
         let dy_px = player.y_pos.abs_diff(flag_y_fp) >> 16;
         let touching_flag = crate::combat::flagpole_bottom_touches_kid_loc_31d7a(
             player,
             self.progression.current_form,
-            header.flag_x,
-            header.flag_y,
+            flag_x,
+            flag_y,
         );
 
         Some(format!(
@@ -13716,8 +13717,8 @@ impl NativeRuntime {
                 PlayerLifecycle::LevelComplete { .. }
             )),
             u8::from(touching_flag),
-            header.flag_x,
-            header.flag_y,
+            flag_x,
+            flag_y,
             dx_px,
             dy_px,
         ))

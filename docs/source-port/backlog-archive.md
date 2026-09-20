@@ -11,6 +11,78 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #497
+
+The 2026-09-21 source-exit audit reproduces a shifted flag coordinate defect.
+Logical 0x29 (The Nightmare Peaks 2) maps to resource 0x31, whose raw flag is
+(16,96) and height flags are 1. ASM `Flagpole_Boss` adds
+`Number_blank_top_rows << 4` to both flag Gfx objects with `add.w`.
+The emulator records both anchors at (16,128), while `Flag_Y_pos` remains 96.
+Native collision, rendered flag and goal diagnostics used the raw header Y.
+
+The shared runtime world-position accessor applies the existing `sub_140F6`
+blank-row calculation once with wrapping word addition. Raw header/loading
+metadata stays raw. Collision and trace/render consumers use the same anchor.
+The ROM inventory has only two shifted logical entries: visible flag 0x29 and
+hidden flag 0x42 (FFB0,FFB0 becomes FFB0,FFD0). No level-specific branch or
+hidden-coordinate exemption is introduced. Boss collision suppression is
+unchanged. Height flags 2/3 and overflow are synthetic regression cases, not
+claims about additional ROM levels.
+
+Both permanent non-cache regressions failed before the fix. One places Kid
+at (25,143) on a row-9 floor and requires flag contact at world Y128; the
+counterexample at Y111 on a row-7 floor must not trigger the old raw location.
+The other pins trace coordinates for height flags 0/1/2/3, hidden coordinates
+and FFB0+96 wrapping to 0010 without mutating the header. All 61 flag-filtered
+core tests pass, including the existing boss and completion paths.
+
+The permanent local encounter is
+`tests/data/dynamic-scenarios/issue-497-shifted-flag-contact.json`.
+It injects only Kid's (40,143) starting position into settled level 0x29,
+waits 120 frames for normal camera tracking, then holds Left for 24 frames.
+It proves local flag contact, not a natural route or level completion.
+At frame 140 Kid reaches X25.75/Y143. Oracle dispatches
+`CharacterCollision_TouchFlagpole` at 141; native stops at the same exact
+position. Before the fix native continues to X24.375/22.9375/21.4375 on
+141/142/143, with matching velocity differences. The fix removes all six
+position/velocity checkpoint differences. The probe's existing frame-zero
+one-pixel Y difference remains visible.
+
+Before/after bundles are `.cache/recordings/issue-497-camera-follow-baseline/`
+and `.cache/recordings/issue-497-camera-follow-fixed/`. Native replay is exact
+for each. Oracle RAM dump 119 confirms raw Y96, blank rows 2 and both Gfx
+Y128. Before/after/oracle images at 119 were inspected; the flag moves down
+32 pixels. Whole-frame comparison remains red for existing object/animation
+and sprite differences. At 119, changed pixels fall from 1,639 to 835; this
+is not a pixel-exact claim. Before contact, all 1,512 native before/after
+changed pixels at 119 lie within the flag rectangle x11..49/y64..127.
+The flag animation phase and enemy movement are outside the coordinate fix. No image mismatch is added to a frozen allowance.
+
+Rejected evidence: the first 26-frame probe directly patched camera (0,0).
+The helper changes Camera_X/Y without the `loc_2FFE8` full-plane preload;
+`sub_30194` streams only an entering row/column before updating its latches.
+Oracle frame 0 retained H-scroll -521; frame 1 corrected scroll but stale cave
+tiles persisted through 22. WRAM terrain agrees with decoded resource31 plus
+two rows at all checked cells. This is the same probe limitation recorded
+under #324, not evidence against #330. Removing the camera patch lets ordinary
+tracking produce comparable terrain. Do not use the discarded whole-frame
+pixel verdict to validate flag rendering.
+
+Full affected-level sweeps 1789946675 (baseline) and 1789946891 (fixed) both
+pass 0x29/0x42 with unchanged maximum pixel counts 92/8. Their idle camera
+never sees the flag, so these are regression checks, not contact evidence.
+The 105-level state sweep 1789946909 exactly retains all state-difference
+records from 1789945829: 95 passes, 10 failures, 28 blocking differences,
+6 advisory differences and 96 oracle limitations. `mise run verify-slice-fast`
+passes in 236.59 seconds, including 7,427 core tests, Clippy and the unchanged
+workspace failure ratchet. Full TAS checks all 37,759 frames and retains
+37,518 exact frames, 241 divergent frames and 2,391 changed pixels. The frozen
+GEMS signature retains 36,836 mismatched frames from 923; GEMS commands have
+zero mismatches. No baseline changes. Diagnostic 29 sidecars are moved out
+of the canonical generated bundle before gates, preserving the asset catalogue.
+#330's broader terrain check, #299's ending route and #300's natural exits
+remain open. This local fix does not prove scoreboard or boss-level handoff.
+
 ### #496
 
 The 2026-09-20 Jev BLW2 teleporter attempt found an early RockTank turn.
@@ -25723,6 +25795,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 497 | [x] | P1 | level/flag | Shifted flag collision and rendering use ROM world coordinates. | Red-first contact/word-wrap regressions; exact local stop position and oracle Gfx anchors; inspected captures. |
 | 496 | [x] | P1 | enemy/Tank | Settled-entry Tank initial wait and sprite position follow the ROM. | Red-first init/render regressions; exact 600-frame body/mouth state, 600 pixel-exact checkpoints and full sweep comparison. |
 | 495 | [-] | P2 | enemy/Driller | Level `$55` gameplay and all 360 enemy frames match; Driller hurt return and later right-turn callbacks follow the ROM. | Frame 120 remains improved at 1,576 px; remaining checkpoint residue is presentation-only. See archive #495. |
 | 494 | [x] | P2 | rendering | `Kid_Transform` transform/form palette writes override a damage-white phase suspended before the synchronous coroutine. | Level `$55` settle residue 2,212→1,781; whole-game comparable residue 39,401→38,971. See archive #494. |

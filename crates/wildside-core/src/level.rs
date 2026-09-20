@@ -21317,6 +21317,14 @@ impl NativeRuntime {
             })
     }
 
+    /// ASM Flagpole_Boss (kid.asm): both flag Gfx anchors include the blank top rows.
+    pub(crate) fn flag_world_position(&self, level_id: LevelId) -> Option<(u16, u16)> {
+        let header = self.level_header(level_id)?;
+        let blank_rows =
+            terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits);
+        Some((header.flag_x, header.flag_y.wrapping_add(blank_rows << 4)))
+    }
+
     pub(crate) fn enemy_layout(&self, level_id: LevelId) -> Option<&wildside_data::EnemyLayout> {
         self.resource_level_record(level_id)
             .and_then(|level| level.enemy_layout_metadata.as_ref())

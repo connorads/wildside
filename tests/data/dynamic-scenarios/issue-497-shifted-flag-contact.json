@@ -1,0 +1,278 @@
+{
+  "slug": "issue-497-shifted-flag-contact",
+  "script": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4
+  ],
+  "frame_count": 144,
+  "checkpoints": [
+    {
+      "frame_index": 0,
+      "label": "follow-0"
+    },
+    {
+      "frame_index": 30,
+      "label": "follow-30"
+    },
+    {
+      "frame_index": 60,
+      "label": "follow-60"
+    },
+    {
+      "frame_index": 90,
+      "label": "follow-90"
+    },
+    {
+      "frame_index": 118,
+      "label": "follow-118"
+    },
+    {
+      "frame_index": 119,
+      "label": "follow-119"
+    },
+    {
+      "frame_index": 120,
+      "label": "follow-120"
+    },
+    {
+      "frame_index": 121,
+      "label": "follow-121"
+    },
+    {
+      "frame_index": 122,
+      "label": "follow-122"
+    },
+    {
+      "frame_index": 123,
+      "label": "follow-123"
+    },
+    {
+      "frame_index": 124,
+      "label": "follow-124"
+    },
+    {
+      "frame_index": 125,
+      "label": "follow-125"
+    },
+    {
+      "frame_index": 126,
+      "label": "follow-126"
+    },
+    {
+      "frame_index": 127,
+      "label": "follow-127"
+    },
+    {
+      "frame_index": 128,
+      "label": "follow-128"
+    },
+    {
+      "frame_index": 129,
+      "label": "follow-129"
+    },
+    {
+      "frame_index": 130,
+      "label": "follow-130"
+    },
+    {
+      "frame_index": 131,
+      "label": "follow-131"
+    },
+    {
+      "frame_index": 132,
+      "label": "follow-132"
+    },
+    {
+      "frame_index": 133,
+      "label": "follow-133"
+    },
+    {
+      "frame_index": 134,
+      "label": "follow-134"
+    },
+    {
+      "frame_index": 135,
+      "label": "follow-135"
+    },
+    {
+      "frame_index": 136,
+      "label": "follow-136"
+    },
+    {
+      "frame_index": 137,
+      "label": "follow-137"
+    },
+    {
+      "frame_index": 138,
+      "label": "follow-138"
+    },
+    {
+      "frame_index": 139,
+      "label": "follow-139"
+    },
+    {
+      "frame_index": 140,
+      "label": "follow-140"
+    },
+    {
+      "frame_index": 141,
+      "label": "follow-141"
+    },
+    {
+      "frame_index": 142,
+      "label": "follow-142"
+    },
+    {
+      "frame_index": 143,
+      "label": "follow-143"
+    }
+  ],
+  "warp_to_level": 41,
+  "settle_oracle_warp": true,
+  "start_position": {
+    "x": 40,
+    "y": 143
+  }
+}

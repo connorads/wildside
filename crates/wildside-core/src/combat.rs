@@ -12668,14 +12668,14 @@ impl NativeRuntime {
             return false;
         }
 
-        let Some(header) = self.level_header(self.current_level) else {
+        let Some((flag_x, flag_y)) = self.flag_world_position(self.current_level) else {
             return false;
         };
         flagpole_bottom_touches_kid_loc_31d7a(
             slice.player,
             self.progression.current_form,
-            header.flag_x,
-            header.flag_y,
+            flag_x,
+            flag_y,
         )
     }
 

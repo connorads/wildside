@@ -14568,6 +14568,59 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
+    fn shifted_flag_contact_uses_world_y_from_flagpole_boss() {
+        // ASM Flagpole_Boss adds Number_blank_top_rows << 4 to both flag
+        // Gfx objects before GfxObjects_CollisionKid tests unk_31D7A.
+        for (floor_row, kid_y, expected_complete) in [(9, 143, true), (7, 111, false)] {
+            let mut assets = manifest_with_playable_spawn_no_enemies();
+            let header = assets.levels[0].header_metadata.as_mut().expect("header");
+            header.flag_x = 16;
+            header.flag_y = 96;
+            header.height_flag_bits = 1;
+            let mut runtime = NativeRuntime::new(assets);
+            runtime.set_block_grid(grid_with_floor_at_row(floor_row));
+            runtime.enter_level_playtest(LevelId(0));
+            runtime.set_player_probe_position(25, kid_y);
+
+            let trace = runtime.step_frame(FrameInput::default());
+
+            assert_eq!(trace.level_complete, expected_complete, "Kid y={kid_y}");
+            assert_eq!((trace.flag_x, trace.flag_y), (Some(16), Some(128)));
+            let goal = &trace.gameplay_debug_fields["kid_goal_probe"];
+            assert!(goal.contains("flag=(16, 128)"), "{goal}");
+        }
+    }
+
+    #[test]
+    fn shifted_flag_trace_preserves_flagpole_boss_word_addition() {
+        // ASM Flagpole_Boss performs unconditional ADD.W, including hidden
+        // coordinates. Load_InGame keeps the header's raw Flag_Y_pos word.
+        for (height_flags, raw_y, world_y) in [
+            (0, 96, 96),
+            (1, 96, 128),
+            (2, 96, 160),
+            (3, 96, 192),
+            (1, 0xFFB0, 0xFFD0),
+            (3, 0xFFB0, 0x0010),
+        ] {
+            let mut assets = manifest_with_playable_spawn_no_enemies();
+            let header = assets.levels[0].header_metadata.as_mut().expect("header");
+            header.flag_x = 0xFFB0;
+            header.flag_y = raw_y;
+            header.height_flag_bits = height_flags;
+            let runtime = NativeRuntime::new(assets);
+
+            let trace = runtime.trace_frame();
+
+            assert_eq!((trace.flag_x, trace.flag_y), (Some(0xFFB0), Some(world_y)));
+            assert_eq!(
+                runtime.level_header(LevelId(0)).expect("header").flag_y,
+                raw_y
+            );
+        }
+    }
+
+    #[test]
     fn flag_touch_triggers_level_complete() {
         let mut runtime = NativeRuntime::new(manifest());
         // Flag at (0x0750, 0x0300) = (1872, 768)px. Floor at row 48 = 768px surface.

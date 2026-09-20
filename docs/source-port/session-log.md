@@ -7,6 +7,38 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 handoff (shifted flag world coordinates)
+
+#497 corrects `Flagpole_Boss` world coordinates through one runtime accessor.
+Logical 0x29 raw flag (16,96) becomes (16,128), matching both oracle Gfx objects.
+Two red-first regressions cover contact, the old-position counterexample,
+height flags and wrapping word addition. All 61 flag-filtered tests pass.
+The permanent local route waits for normal camera tracking before walking
+into the flag. It stops Kid at exact oracle X25.75/Y143 at 140; oracle executes
+the touch handler at 141. Before the fix Kid continues walking through it.
+Both native replays are exact. Existing sprite/animation differences remain;
+frame 119 improves from 1,639 changed pixels to 835, without claiming full
+pixel parity. A direct camera patch was rejected as stale oracle VDP evidence,
+consistent with #324. No broader #330, #299 or natural-route closure follows.
+
+The 105-level state sweep 1789946909 exactly retains all records from
+1789945829, with 95 passes and 10 failures. Affected full sweeps retain 92/8
+maximum changed pixels on 0x29/0x42. Fast gate passes 7,427 core tests, Clippy
+and workspace ratchets; full 37,759-frame TAS retains frozen pixels and GEMS
+signatures with zero command mismatches. Diagnostic 29 sidecars are outside
+the canonical generated bundle before gates. No frozen lane expands.
+
+Next #300 route work has a discriminating offline result. The first paid Jev
+attempt applies its requested controls correctly, but selects release for
+88 decisions after landing at (58,191). Two six-frame running batches move
+Kid to X64.015625 without damage, and native replay is exact. A longer ordinary
+input continuation reaches X362 at 209 with two HP. Raw actor coordinates in
+case observations contradict the pixel-unit prompt. Fix that bounded defect,
+then add a separate progress/stall guard before more paid discovery. The #327
+case window and campaign budget remain intact; do not reopen an expired window
+or invent another case to bypass it. Generated controls live at
+`.cache/recordings/jev-stall-run-control/` and `jev-stall-continuation/`.
+
 ## 2026-09-21 handoff (Jev-discovered Tank initial wait)
 
 #496 has a permanent 600-frame idle regression after Jev's first campaign
