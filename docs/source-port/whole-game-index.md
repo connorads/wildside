@@ -2,14 +2,16 @@
 
 A status map of what exists, what is verified, and what is still open. Not a completion certificate.
 
-See `roadmap.md` for the active programme and `backlog.md` for the canonical queue.
+See `completion-campaign.md` for the active programme, `level-inventory.md` for
+the ROM inventory and `backlog.md` for the canonical queue.
 
 ## Systems present in the native port
 
 - Enemy roster: all 28 families wired into the runtime
 - Player forms: all 10 forms exist with movement/combat support
 - Bosses: all 4 boss encounters present
-- Level flow: 105 levels load; transitions and ending exist
+- Level flow: 106 non-sentinel logical entries, including 103 named playable
+  candidates and three labelled leftovers; transitions and ending exist
 - Menus and shell: boot/title, pause/resume, continue, score, sound test, demos
 - Audio: native GEMS-backed audio path exists
 
@@ -20,14 +22,16 @@ Presence is not full verification.
 - Native 1P playable gate: the project-health headline for real-player coverage, refreshed 2026-07-04 at report `1783122908`
 - TAS parity: both imported recordings are clean to their recorded endpoints
 - Oracle-backed 1P accurate gate: supporting parity evidence, not the primary health headline
-- State sweep: the current `1p-accurate` artefact reports the 69 requested levels passing
+- Expanded state sweep `1789928876` covers all 105 standard entries: 92
+  comparable passes, 10 failures and three unverified entries. The ten failures
+  were omitted by the historical BCD filter; see `level-inventory.md`.
 - Determinism: repeated traces are stable on the covered scenarios
 
 ## Systems still carrying meaningful post-phase risk
 
-After the 2026-05-18 audit these are not active blockers for the current 1P completion phase. They are where to look first when a new report, a broader verification lane, or a post-1P fidelity push opens fresh work:
+These are active coverage obligations under the single-player completion campaign:
 
-- Native 1P playability beyond the current smoke gate plus 69-level gameplay sweep
+- Natural entry, traversal and completion beyond the current smoke gate and idle sweeps
 - Block lifecycle visuals and interaction correctness beyond the current bundles
 - Slopes, bounce surfaces, and other movement edge cases beyond current coverage
 - Visual fidelity not covered by existing frame checks
@@ -36,9 +40,10 @@ After the 2026-05-18 audit these are not active blockers for the current 1P comp
 
 ## Explicitly open areas
 
-As of 2026-05-18 the phase had no open blocker in `audits/completion-audit.md` or the canonical backlog (since reopened; see the backlog NOW block). Post-phase candidates remain:
+The live backlog and ROM inventory identify unresolved work:
 
-- Further 1P playable breadth beyond the current smoke scenarios plus 69-level gameplay sweep
+- All confirmed playable levels and progression branches, with evidence that
+  distinguishes ordinary play from attract demos and diagnostic warps
 - Full-frame visual parity sweep and other broader verification hardening
 
 Password-system investigation is no longer open: backlog #133 records the ASM audit and native options-menu alignment. The stock ROM title/options flow has no password entry path.

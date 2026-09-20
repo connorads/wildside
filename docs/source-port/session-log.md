@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-20 handoff (complete sweep enumeration)
+
+The standard sweep selects all 105 requested logical IDs, including 36 omitted
+by the false BCD premise. Three regressions demonstrate the old failure; the
+single-level Windy City command changes from zero tests to one passing test.
+Expanded state run `1789928876` exposes ten previously omitted failing levels
+and 28 authoritative differences, with 92 comparable passes and three fully
+masked entries. The ROM inventory records all 106 non-sentinel entries and
+separates 103 playable candidates from three labelled leftovers. Disassembly
+fidelity is byte-perfect; all nine parser tests and `verify-slice-fast` pass.
+The expanded state sweep remains red on the ten exposed failures. NEXT:
+resolve shared-header assets and revisit #433;
+the playable Crypt's missing extracted resources are not absent ROM data.
+
+---
+
 ## 2026-09-20 handoff (standing single-player campaign)
 
 User authorises complete single-player coverage and evidence-backed automated

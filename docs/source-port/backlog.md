@@ -31,7 +31,7 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-09-20):** Execute `completion-campaign.md`. First repair sweep level enumeration and verify the ROM inventory, then investigate Crypt shared-header extraction. The BCD filter silently omits 36 named playable candidates from `0-104`; the historical 69-level pass is incomplete coverage.
+- **Current work (2026-09-20):** Reopen #433 to resolve Crypt shared-header extraction and verify the invalid leftover-exclusion premise. The sweep enumeration correction is verified. `level-inventory.md` accounts for all 106 non-sentinel entries. Expanded state run `1789928876` has 92 comparable passes, 10 failures and three unverified entries; all ten failures were previously omitted.
 - **Selection:** Run `mise run project-status` and `mise run jev-audit`. Objective awaiting-human cases are eligible for investigation and evidence-backed closure. Coverage prerequisites come first, then P0 #210, #370 and #374 according to dependencies and available evidence.
 - **Scope:** Single-player across all playable levels, branches, forms and bosses. Preserve frozen #406/#409/#416 timing debt and its ratchets. Final package retains subjective/device checks; no human validation is claimed.
 - **Jev allowance:** $5 additional across the campaign. Historical charged upper bound is $0.176526462. Preserve the ledger; implement and test the allocation before another paid request. Offline work continues after the cap.

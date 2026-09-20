@@ -366,12 +366,10 @@ struct LevelSweepTelemetry {
     passed: bool,
 }
 
-/// Kid Chameleon level IDs are BCD-encoded: 0x00-0x09, 0x10-0x19, …, 0x60-0x68.
-/// Returns true if `id` is a valid BCD level ID.
+/// ASM Load_InGame (kid.asm): Current_LevelID indexes MapOrder_Index directly.
+/// The table has entries $00..$69 followed by $FF sentinels at $6A/$6B.
 fn is_valid_level_id(id: u8) -> bool {
-    let lo = id & 0x0F;
-    let hi = id >> 4;
-    lo <= 9 && hi <= 6 && id <= 0x68
+    id <= 0x69
 }
 
 fn is_oracle_limitation_only(result: &LevelSweepResult) -> bool {
@@ -547,7 +545,7 @@ fn print_level_result(r: &LevelSweepResult) {
 }
 
 /// Parse a level range spec like "0-104", "0,5,10", or "0-10".
-/// Invalid BCD level IDs (0x0A-0x0F, 0x1A-0x1F, etc.) are filtered out.
+/// Numbers are decimal logical indices; entries beyond MapOrder_Index are filtered out.
 pub(crate) fn parse_level_range(spec: &str) -> Result<Vec<u8>> {
     let mut levels = Vec::new();
     for part in spec.split(',') {
@@ -2937,7 +2935,6 @@ mod tests {
 
     #[test]
     fn parse_level_range_mixed() {
-        // 0x10-0x12 are valid BCD; 0x0A-0x0F are filtered out from the range
         assert_eq!(
             parse_level_range("0-2,5,16-18").unwrap(),
             vec![0, 1, 2, 5, 16, 17, 18]
@@ -2945,9 +2942,32 @@ mod tests {
     }
 
     #[test]
-    fn parse_level_range_filters_invalid_bcd() {
-        // Decimal 10-15 = 0x0A-0x0F, all invalid BCD
-        assert_eq!(parse_level_range("8-18").unwrap(), vec![8, 9, 16, 17, 18]);
+    fn parse_level_range_retains_hex_letter_indices() {
+        // ASM Load_InGame indexes MapOrder_Index with Current_LevelID directly:
+        // constants.asm names $0A Windy City, $1E Boomerang Bosses, $2A Bagel Brothers.
+        assert_eq!(
+            parse_level_range("8-18").unwrap(),
+            (8..=18).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            parse_level_range("10,30,42").unwrap(),
+            vec![0x0A, 0x1E, 0x2A]
+        );
+    }
+
+    #[test]
+    fn parse_level_range_covers_the_complete_standard_sweep() {
+        // ASM MapOrder_Index (level/maporder.asm): every index $00..$68 is present.
+        assert_eq!(
+            parse_level_range("0-104").unwrap(),
+            (0..=104).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn parse_level_range_retains_last_map_entry_and_excludes_sentinels() {
+        // ASM MapOrder_Index: $69 selects resource $09; $6A/$6B are $FF sentinels.
+        assert_eq!(parse_level_range("104-255").unwrap(), vec![0x68, 0x69]);
     }
 
     #[test]
