@@ -65,7 +65,8 @@ The inventory distinguishes logical levels, shared resource headers, leftovers
 and sentinels. ASM `Load_InGame` indexes `MapOrder_Index` directly by byte; hex
 digits A-F are ordinary indices. The standard `0-104` range must not be reduced
 to 69 by a BCD filter. Logical `$41` is named playable Crypt in `constants.asm`;
-its shared-header extraction requires investigation before any exclusion.
+its shared-header assets resolve through the complete ROM header. Remaining
+Crypt comparison differences stay visible; the level has no blanket exemption.
 
 Idle warp checkpoints are diagnostic coverage, not proof of natural entry or
 completion. A route can reuse a verified input prefix from boot or a legitimate

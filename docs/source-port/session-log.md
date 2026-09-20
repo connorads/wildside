@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-20 handoff (Crypt shared-header assets)
+
+#433's absent-ROM-data premise is disproven by `MapHeader_09_1A_41_42_48`.
+Normalisation resolves the four shared resources, preserves independent platform
+and scroll paths, and rejects sparse decoded bundles. Crypt 41 renders and the
+browser package includes its data. Regressions reproduce missing alias assets
+and the incorrect oracle-limitation classification before passing with the fix.
+Full run `1789930316` exposes one object mismatch at frame 300 and up to seven
+HUD pixels on 38/41/47, all checkpoints comparable. State run `1789930380`
+has 95 comparable passes, the same ten failures and zero wholly unverified levels.
+The explicitly ignored measured-shell witness test also exposes Crypt RNG drift;
+its 69 rows still omit A-F indices. NEXT: trace those Crypt residuals from source
+and acquire natural entry. All 167 data tests, the browser audit, byte-perfect
+disassembly, fast gate and full 37,759-frame TAS pass; frozen pixel/audio debt
+stays within its existing limits. #433 remains open. No new Jev requests were made.
+
+---
+
 ## 2026-09-20 handoff (complete sweep enumeration)
 
 The standard sweep selects all 105 requested logical IDs, including 36 omitted

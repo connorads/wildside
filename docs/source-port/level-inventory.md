@@ -8,7 +8,7 @@ There are 103 named playable candidates and three labelled leftovers. A candidat
 is a route-discovery obligation, not a claim of reachability or completed play.
 ASM `constants.asm` labels `$38/$47` unplayable; `doc/level_list.txt` also labels
 `$69` leftover. `$41` is explicitly the playable Crypt and must not inherit that
-exclusion. Its shared-header assets require resolution before verification.
+exclusion. Its shared-header assets resolve through the shared ROM header.
 
 Sources are the pinned disassembly's `level/maporder.asm`, `level/level_files.txt`,
 `doc/level_list.txt`, `constants.asm` and `Load_InGame` in `kid.asm`.
@@ -63,12 +63,32 @@ without a nonzero process exit; inspect the report counts, not just exit status.
 | `0x4C` | `idle_tail` | number_objects `5` / `6`; number_gfx_objects `5` / `6` |
 | `0x5C` | `level_settle` | number_objects `5` / `6`; number_gfx_objects `6` / `7` |
 
-The three blanket leftover exclusions need independent review. In particular,
-`$41` is playable and the split catalogue omits its shared header-owned resources.
-ASM `MapHeader_09_1A_41_42_48` points at the complete resource09 layouts; upstream
-`split.py` skips those catalogue entries for duplicate headers. This contradicts
-the absent-ROM-data premise recorded under backlog #433. Resolving shared assets
-and verifying the actual oracle state is a separate change.
+## Shared-header verification
+
+ASM `MapHeader_09_1A_41_42_48` owns complete resource09 foreground, block,
+background and enemy data. The extracted catalogue omits these paths for
+aliases; manifest normalisation inherits them from identical headers before
+metadata parsing and decoding. Platform and scroll paths remain independent.
+The bundle contract requires decoded entries for every record with layouts,
+so a stale sparse bundle rebuilds. The browser package contains the aliases.
+
+Crypt `$41` loads and renders at frames 0, 60 and 120. Full comparison run
+`1789930316` exercises six checkpoints each for `$38/$41/$47`, all comparable.
+Each has an authoritative object-count mismatch at frame 300 (native 4,
+oracle 5) and up to seven mismatched pixels near the HUD lives icon. These
+remain unresolved under #433; repaired extraction is not whole-level fidelity.
+
+State run `1789930380` covers all 105 standard entries with 95 comparable
+passes, the same ten failures and zero fully masked levels. The ten failure
+records match run `1789928876` exactly. This two-checkpoint tier does not sample
+the frame-300 Crypt mismatch, so the fuller comparison remains required.
+The sweep classifies oracle context from pause, title mode and requested-level
+mismatch rather than a blanket Crypt exclusion.
+
+The measured settle-shell table remains a separate coverage gap: its 69 rows
+omit A-F logical indices. Its witnesses validate measured rows only, not the
+entire ROM inventory. Re-measure missing entries from the emulator; do not
+populate them from native output or fit new per-level delays.
 
 ## Entry inventory
 

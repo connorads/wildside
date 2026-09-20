@@ -1098,6 +1098,18 @@ pub fn ensure_runtime_bundle_contract_with_source(
     if manifest.decoded_levels.is_empty() {
         bail!("generated bundle has no decoded level assets");
     }
+    for level in &manifest.levels {
+        if (level.resources.foreground.is_some()
+            || level.resources.block.is_some()
+            || level.resources.background.is_some())
+            && !manifest
+                .decoded_levels
+                .iter()
+                .any(|decoded| decoded.level_id == level.level_id)
+        {
+            bail!("decoded assets missing for level 0x{:02X}", level.level_id);
+        }
+    }
     for decoded in &manifest.decoded_levels {
         if decoded.contract_version != DECODED_LEVEL_ASSET_VERSION {
             bail!(
@@ -1680,10 +1692,27 @@ fn normalise_manifest_with_source(
     manifest: &mut AssetManifest,
     source: &dyn AssetSource,
 ) -> Result<()> {
-    let background_layout_aliases = load_background_layout_aliases(source)?;
+    let mut shared_headers = BTreeMap::<String, LevelResources>::new();
     for level in &mut manifest.levels {
         if level.resources == LevelResources::default() {
             level.resources = level_resources_from_paths(&level.resource_paths);
+        }
+        if let Some(header) = &level.resources.header {
+            inherit_map_header_resources(
+                shared_headers.entry(header.clone()).or_default(),
+                &level.resources,
+            );
+        }
+    }
+    let background_layout_aliases = load_background_layout_aliases(source)?;
+    for level in &mut manifest.levels {
+        if let Some(resources) = level
+            .resources
+            .header
+            .as_ref()
+            .and_then(|header| shared_headers.get(header))
+        {
+            inherit_map_header_resources(&mut level.resources, resources);
         }
         if level.background_layout_alias.is_none()
             && let Some(alias) = background_layout_aliases.get(&level.level_id)
@@ -1742,6 +1771,21 @@ fn normalise_manifest_with_source(
         }
     }
     Ok(())
+}
+
+/// ASM Load_InGame (kid.asm): layouts and enemies belong to the shared map header;
+/// Platform_Index and BackgroundScroll_Index select independent resources.
+fn inherit_map_header_resources(target: &mut LevelResources, shared: &LevelResources) {
+    for (target, shared) in [
+        (&mut target.enemy, &shared.enemy),
+        (&mut target.foreground, &shared.foreground),
+        (&mut target.block, &shared.block),
+        (&mut target.background, &shared.background),
+    ] {
+        if target.is_none() {
+            target.clone_from(shared);
+        }
+    }
 }
 
 fn load_background_layout_aliases(
@@ -9493,6 +9537,84 @@ BackgroundLayout_0E:  dc.w    $8000
             }),
             Some(vec![0x0D])
         );
+    }
+
+    #[test]
+    fn shared_map_header_exports_layouts_and_preserves_independent_resources() {
+        // ASM MapHeader_09_1A_41_42_48 shares the four Load_InGame pointers,
+        // while Platform_Index and BackgroundScroll_Index remain independent.
+        let source = TempDir::new().expect("source");
+        let output = TempDir::new().expect("output");
+        write_default_test_bundle_source(source.path());
+        fs::write(
+            source.path().join("doc/level_list.txt"),
+            "0x00 0x00 Original\n0x01 0x01 Shared header\n",
+        )
+        .unwrap();
+        fs::write(
+            source.path().join("level/level_files.txt"),
+            "00 platform/00.asm bgscroll/00.bin header/00.bin enemy/00.bin foreground/00.bin block/00.bin background/00.bin\n01 platform/01.asm bgscroll/01.bin header/00.bin\n",
+        )
+        .unwrap();
+        fs::write(source.path().join("level/maporder.asm"), "dc.b $00,$01\n").unwrap();
+        fs::write(source.path().join("level/platform/01.asm"), "dc.w $FFFF\n").unwrap();
+        fs::write(
+            source.path().join("level/bgscroll/01.bin"),
+            [0x30, 0x50, 0xFF],
+        )
+        .unwrap();
+
+        let mut manifest =
+            export_split_bundle(source.path(), output.path(), "abc123", "deadbeef").unwrap();
+        let original = load_level_asset_bundle(&manifest, 0).unwrap();
+        let alias = load_level_asset_bundle(&manifest, 1).unwrap();
+        assert_eq!(alias.foreground, original.foreground);
+        assert_eq!(alias.block, original.block);
+        assert_eq!(alias.background, original.background);
+        assert_eq!(alias.enemy, original.enemy);
+        assert_eq!(alias.parsed_enemy_layout, original.parsed_enemy_layout);
+        assert_ne!(alias.platform_script, original.platform_script);
+        assert_ne!(alias.bgscroll, original.bgscroll);
+        assert_eq!(
+            alias.platform_script.as_ref().unwrap().relative_path,
+            "platform/01.asm"
+        );
+        assert_eq!(
+            alias.bgscroll.as_ref().unwrap().relative_path,
+            "bgscroll/01.bin"
+        );
+        let decoded = manifest
+            .decoded_levels
+            .iter()
+            .find(|d| d.level_id == 1)
+            .unwrap();
+        assert_eq!(
+            fs::read(output.path().join(&decoded.foreground.relative_path)).unwrap(),
+            b"ABCD"
+        );
+
+        // Existing sparse manifests also normalise, independent of record order.
+        let alias_record = manifest
+            .levels
+            .iter_mut()
+            .find(|r| r.level_id == 1)
+            .unwrap();
+        alias_record.resources.enemy = None;
+        alias_record.resources.foreground = None;
+        alias_record.resources.block = None;
+        alias_record.resources.background = None;
+        alias_record.enemy_layout_metadata = None;
+        manifest.levels.reverse();
+        let source = FsAssetSource::new(output.path().to_path_buf());
+        let reloaded =
+            parse_manifest_with_source(&serde_json::to_vec(&manifest).unwrap(), &source).unwrap();
+        assert_eq!(load_level_asset_bundle(&reloaded, 1).unwrap(), alias);
+
+        // Load_InGame needs decoded terrain even when the raw alias resolves.
+        ensure_generated_bundle_contract(&reloaded).expect("complete shared-header bundle");
+        let mut stale = reloaded;
+        stale.decoded_levels.retain(|d| d.level_id != 1);
+        assert!(ensure_generated_bundle_contract(&stale).is_err());
     }
 
     #[test]

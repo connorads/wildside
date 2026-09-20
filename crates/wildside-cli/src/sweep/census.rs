@@ -280,7 +280,7 @@ pub(crate) fn run_sweep_census(
     let mut rosters: BTreeMap<u8, Option<Vec<RosterEntry>>> = BTreeMap::new();
     if let Some(manifest) = manifest {
         for level in &report.levels {
-            // A level without an enemy layout resource (e.g. 0x41 The Crypt)
+            // A level without an enemy layout resource
             // has an EMPTY roster — a real "not enemy-related" signal — while
             // a bundle that fails to load has NO roster and is excluded from
             // the family table.

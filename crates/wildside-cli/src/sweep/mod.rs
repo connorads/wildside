@@ -1025,14 +1025,7 @@ fn sweep_single_scenario(
     let oracle_unreliable_checkpoints: std::collections::HashSet<&str> = oracle
         .states
         .iter()
-        .filter(|s| {
-            oracle_warp_uses_non_comparable_leftover_level_data(level_id)
-                || s.game_paused
-                || s.game_mode == 0x0008
-                || scenario
-                    .warp_to_level
-                    .is_some_and(|level_id| s.current_level_id != u16::from(level_id))
-        })
+        .filter(|s| oracle_checkpoint_is_unreliable(s, scenario.warp_to_level))
         .map(|s| s.label.as_str())
         .collect();
     // Track how much of this level was actually verifiable: a checkpoint whose
@@ -1228,14 +1221,10 @@ fn idle_sweep_scenario_for_tier(level_id: u8, requested_tier: SweepTier) -> Dyna
     }
 }
 
-fn oracle_warp_uses_non_comparable_leftover_level_data(level_id: u8) -> bool {
-    // ASM Load_InGame (kid.asm:23633-23642) indexes MapHeader_Index through
-    // MapOrder_Index. These unused logical IDs select incomplete leftover map
-    // resources: 0x38 -> 0x48, 0x41 -> 0x41, and 0x47 -> 0x42. The direct
-    // oracle warp therefore runs whatever adjacent RAM the missing/incoherent
-    // level data leaves behind. A clean native bundle cannot represent that as
-    // a level, so its state is not a gameplay-fidelity comparison.
-    matches!(level_id, 0x38 | 0x41 | 0x47)
+fn oracle_checkpoint_is_unreliable(state: &OracleState, warp_to_level: Option<u8>) -> bool {
+    state.game_paused
+        || state.game_mode == 0x0008
+        || warp_to_level.is_some_and(|level_id| state.current_level_id != u16::from(level_id))
 }
 
 fn reclassify_state_diffs(
@@ -6998,18 +6987,49 @@ mod tests {
     }
 
     #[test]
-    fn leftover_debug_warps_with_no_comparable_level_data_are_oracle_limitations() {
+    fn shared_map_header_gameplay_differences_remain_authoritative() {
+        // ASM MapHeader_09_1A_41_42_48 owns complete layouts and enemies.
+        // A shared header is not evidence of an incomparable oracle state.
         for level_id in [0x38, 0x41, 0x47] {
-            assert!(oracle_warp_uses_non_comparable_leftover_level_data(
-                level_id
-            ));
+            let oracle = OracleState {
+                game_mode: 0x000C,
+                boot_phase: None,
+                boot_phase_elapsed: None,
+                current_level_id: u16::from(level_id),
+                ..demo_velocity_state(0, 0)
+            };
+            let mut native = oracle.clone();
+            native.number_objects -= 1;
+            let mut diffs = compare_sweep_states(&[native], std::slice::from_ref(&oracle));
+            let mut unreliable = std::collections::HashSet::new();
+            if oracle_checkpoint_is_unreliable(&oracle, Some(level_id)) {
+                unreliable.insert(oracle.label.as_str());
+            }
+            reclassify_state_diffs(&mut diffs, &std::collections::HashSet::new(), &unreliable);
+            let objects = diffs
+                .iter()
+                .find(|diff| diff.field == "number_objects")
+                .unwrap();
+            assert_eq!(
+                objects.category,
+                DivergenceCategory::Authoritative,
+                "level {level_id:02X}"
+            );
         }
+    }
 
-        for level_id in [0x37, 0x39, 0x40, 0x42, 0x46, 0x48] {
-            assert!(!oracle_warp_uses_non_comparable_leftover_level_data(
-                level_id
-            ));
-        }
+    #[test]
+    fn oracle_context_must_reach_unpaused_gameplay_on_the_requested_level() {
+        // ASM loc_1AE2E consumes Start before Game_Mode enters live gameplay.
+        let mut oracle = demo_velocity_state(0, 0);
+        oracle.game_mode = 0x000C;
+        assert!(!oracle_checkpoint_is_unreliable(&oracle, Some(0x1B)));
+        assert!(oracle_checkpoint_is_unreliable(&oracle, Some(0x41)));
+        oracle.game_mode = 0x0008;
+        assert!(oracle_checkpoint_is_unreliable(&oracle, None));
+        oracle.game_mode = 0x000C;
+        oracle.game_paused = true;
+        assert!(oracle_checkpoint_is_unreliable(&oracle, Some(0x1B)));
     }
 
     #[test]

@@ -641,19 +641,13 @@ mod tests {
         );
     }
 
-    /// Full-coverage variant of the witness gate: every level with a measured
-    /// load completion except the non-comparable leftover warps 0x38/0x41/0x47
-    /// (#425/#433: the oracle plays garbage RAM there, so their witnesses
-    /// compare nothing real). Slow (65 native boots); run by hand during #442
-    /// model sessions, not in the per-commit gate. Residues as of the boundary
-    /// swap are enemy-content divergences owned by open rows (see archive
-    /// #442, 2026-08-14).
+    /// Every measured load completion in the checked-in shell table, including
+    /// shared map headers (ASM MapHeader_09_1A_41_42_48). The table does not
+    /// cover every logical ID; unmatched witnesses require investigation.
     #[test]
     #[ignore = "slow full-coverage witness sweep; run explicitly during #442 sessions"]
     fn settled_warp_frame0_witnesses_all_levels() {
-        let all: Vec<u8> = (0..=0x68u8)
-            .filter(|level| !matches!(level, 0x38 | 0x41 | 0x47))
-            .collect();
+        let all: Vec<u8> = (0..=0x68u8).collect();
         let mismatches = settled_warp_frame0_witness_mismatches(&all);
         assert!(
             mismatches.is_empty(),

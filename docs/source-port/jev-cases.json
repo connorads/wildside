@@ -1072,5 +1072,19 @@
     ],
     "next_action": "Re-record the two existing inputs on current HEAD, capture all five starts, and distinguish pre-existing strict pixel residuals from corrupt tilemaps or premature death.",
     "scope": "Load Stairway to Oblivion, Bloody Swamp, Scorpion Isle, Lion's Den, and Hoverboard Beach; each should spawn playable with coherent level art, no instant death."
+  },
+  {
+    "issue": 433,
+    "readiness": "needs_comparison",
+    "active_path": "crates/wildside-data/src/lib.rs normalise_manifest_with_source and decoded asset export",
+    "route": "Settled Crypt full sweep at frames 0,30,60,120,300,359; natural entry remains to be acquired",
+    "evidence": [
+      "docs/source-port/backlog-archive.md#issue-433",
+      "docs/source-port/level-inventory.md",
+      "crates/wildside-data/src/lib.rs",
+      "crates/wildside-cli/src/sweep/mod.rs"
+    ],
+    "next_action": "Trace the frame-300 object-count mismatch and the seven HUD pixels with ASM and oracle evidence; acquire a natural Crypt entry route",
+    "scope": "Playable Crypt shared assets and invalid leftover-warp exclusion; does not establish natural route completion"
   }
 ]

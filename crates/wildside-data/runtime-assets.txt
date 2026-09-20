@@ -1,5 +1,5 @@
 # Generated from observable AssetSource requests made while booting the attract
-# flow with audio and all 125 valid logical level slots. Keep sorted.
+# flow with audio and all 126 diagnostic slot requests. Keep sorted.
 asset-manifest.json
 decoded/level/00/background.bin
 decoded/level/00/block.bin
@@ -73,6 +73,9 @@ decoded/level/18/foreground.bin
 decoded/level/19/background.bin
 decoded/level/19/block.bin
 decoded/level/19/foreground.bin
+decoded/level/1a/background.bin
+decoded/level/1a/block.bin
+decoded/level/1a/foreground.bin
 decoded/level/1c/background.bin
 decoded/level/1c/block.bin
 decoded/level/1c/foreground.bin
@@ -160,9 +163,18 @@ decoded/level/3f/foreground.bin
 decoded/level/40/background.bin
 decoded/level/40/block.bin
 decoded/level/40/foreground.bin
+decoded/level/41/background.bin
+decoded/level/41/block.bin
+decoded/level/41/foreground.bin
+decoded/level/42/background.bin
+decoded/level/42/block.bin
+decoded/level/42/foreground.bin
 decoded/level/47/background.bin
 decoded/level/47/block.bin
 decoded/level/47/foreground.bin
+decoded/level/48/background.bin
+decoded/level/48/block.bin
+decoded/level/48/foreground.bin
 decoded/level/49/background.bin
 decoded/level/49/block.bin
 decoded/level/49/foreground.bin
@@ -1267,6 +1279,7 @@ level/platform/1C.asm
 level/platform/1D.asm
 level/platform/38.asm
 level/platform/40.asm
+level/platform/41.asm
 level/platform/49.asm
 level/platform/4C.asm
 level/platform/57.asm
@@ -1421,6 +1434,8 @@ level-layout/3F.bin
 level-layout/3F.blocklist.bin
 level-layout/40.bin
 level-layout/40.blocklist.bin
+level-layout/41.bin
+level-layout/41.blocklist.bin
 level-layout/42.bin
 level-layout/42.blocklist.bin
 level-layout/42.json

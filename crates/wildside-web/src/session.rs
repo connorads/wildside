@@ -337,14 +337,14 @@ mod tests {
             }
         }
         assert_eq!(
-            booted_levels, 125,
-            "all canonical logical slots except the invalid 0x41 entry should boot"
+            booted_levels, 126,
+            "all 126 diagnostic slot requests should boot; this is not a playable-level census"
         );
 
         if std::env::var_os("WILDSIDE_UPDATE_RUNTIME_ASSETS").is_some() {
             let mut contents = String::from(
                 "# Generated from observable AssetSource requests made while booting the attract\n\
-                 # flow with audio and all 125 valid logical level slots. Keep sorted.\n",
+                 # flow with audio and all 126 diagnostic slot requests. Keep sorted.\n",
             );
             for path in &requested {
                 contents.push_str(&path.to_string_lossy());

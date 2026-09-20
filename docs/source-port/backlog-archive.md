@@ -3979,6 +3979,66 @@ surface one row.
 
 ### #433
 
+2026-09-20 asset repair and comparison correction:
+
+- Before: `capture-frames --level 41 --frames 0,60,120` exits before rendering
+  because resource41 has no foreground. The new shared-header export regression
+  fails with a missing alias foreground before the fix.
+- ASM `MapHeader_09_1A_41_42_48` supplies four shared pointers. Normalisation
+  inherits foreground, block, background and enemies from the same header;
+  `Platform_Index` and `BackgroundScroll_Index` remain independent. All five
+  resource records resolve the 13-enemy resource09 layout. A missing decoded
+  alias fails the bundle contract and triggers a rebuild.
+- Crypt captures at 0, 60 and 120 render coherent terrain, Kid and HUD. The
+  browser catalogue and embedded manifest include the decoded aliases. Its
+  existing 126 diagnostic slot requests boot; this count is not a playable
+  level census. ROM extraction and native runtime bundle bytes match.
+- The classification regression fails before the fix: an object-count mismatch
+  in live Crypt gameplay is incorrectly labelled `oracle_limitation`. It passes
+  when checkpoint context determines comparability. Pause, title and wrong-level
+  controls still classify as incomparable. No ID-specific mask remains.
+- Full run `1789930316` compares six checkpoints each on logical 38/41/47,
+  with zero masked checkpoints. Each has native 4/oracle 5 objects at frame 300
+  and a maximum seven-pixel mismatch near the HUD lives icon. Inspected
+  `diff_frame_000.png` and `diff_frame_300.png` for playable41. These are live
+  unresolved differences, not an exception or a claim of pixel parity.
+- Expanded state run `1789930380` has 95 passes with at least one comparable
+  checkpoint, ten failures, zero wholly unverified entries. All ten failing
+  records match pre-fix `1789928876` exactly. Its two checkpoints miss the
+  frame 300 residual above.
+- Verification: all 167 data tests, browser asset audit, classification and
+  export regressions, byte-perfect disassembly, `verify-slice-fast` (7,410 core
+  tests) and `verify-tas-full` pass. The full 37,759-frame replay retains exactly
+  241 divergent frames / 2,391 pixels and zero GEMS command mismatches. The
+  documented GEMS signature baseline remains unchanged. The full sweep's
+  existing failures and the stronger Crypt probe remain open as detailed above.
+- The explicitly ignored full settle-shell witness test exposes 13 failing
+  levels. Crypt 38/41/47 each has native RNG offset `$FFCE` versus measured
+  `$FFF6` and a differing full ring. The other mismatches are 07/18/19/21/29/33/
+  36/46/52/55. The checked-in table has only 69 measured rows; it is not a full
+  inventory. No measured values were replaced with native values.
+- Oracle cache `c4fc3ad0a661aff041a8d549e7bcb8fc94ad226f` retains two
+  enemy entries at all six checkpoints. Total objects rises from four to five
+  only at frame 300, then returns to four by 359. Trace the extra worker's
+  lifetime before attributing the mismatch to an enemy count.
+- Remaining investigation: compare entity lifecycle around frame 300, trace HUD
+  lives-icon pixels and the settle-shell RNG boundary, then acquire natural
+  Crypt entry. The render test that borrows unrelated logical foreground when
+  resource data is missing retains an extraction-defect premise and needs a
+  separately verified cleanup. Cached #230 Crypt route assertions also require
+  source/oracle re-derivation, as already recorded under #455.
+
+Reopened 2026-09-20. ASM `MapHeader_09_1A_41_42_48` points at complete
+resource09 foreground/block/background/enemy data. `split.py` skips those
+catalogue entries when it encounters a duplicate header, leaving resource41
+with only platform, bgscroll and header paths. `constants.asm` explicitly names
+logical41 as the playable Crypt. The absent-ROM-data premise below is false.
+Current `capture-frames --level 41 --frames 0,60,120` fails before rendering with
+"has no foreground layout data". Resolve shared header-owned resources and
+rebuild decoded assets, then compare actual native/oracle state before removing
+the blanket leftover classifier. Root cause identified for missing assets;
+post-load fidelity remains unverified.
+
 Leftover level 0x41 classification (12 blockers). Roster empty; native
 `load_level_visuals` deliberately skips 0x41 for missing foreground data
 (#329: "0x41 still skips (no foreground)"), stalling in LevelTransition
@@ -25280,7 +25340,6 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 422 | [x] | P1 | enemy | Debug-entry camera scheduling now leaves horizontal follow to Mode_Level before Manage_EnemyLoading while preserving the atomic vertical-settle seed; UFO Gfx collision treats HiddenBlock top-row overlap as ceiling and side overlap as wall. | 0x48 passes 420 focused checkpoints and the state sweep; full sweep 1786711753 improves to 61/69 with 36 blockers; required gates green. See archive #422. |
 | 419 | [x] | P1 | enemy | 0x60 idle_tail cascade closed: the frame-60 charge hit was already parity-exact (neither Kid displaced); native goats missed the ROM's grounded wall hold (Lion.asm loc_3E3B2/loc_3E566 crossing -> loc_3E406/loc_3E5BA: `$42`=$FF88 re-armed, step never committed, no turn; sub_36972 loc_369BC makes the level edge a wall), so li=1 pit-died, respawned, and re-charged Kid fatally at frame 263. | 0x60 idle frames 0..359 all match oracle; sweep 1786660540: 56/69 pass, 64 blocking, only change 0x60 FAIL->PASS; verify-tas-full byte-identical. See archive #419. |
 | 457 | [x] | P3 | enemy | The hold is the grounded loc_3E406 wall hold, not a land/fall cycle: the ROM never commits the crossing step, so the sub-pixel fraction survives — li=3 rests at exactly 0x02478000 with `$42`=$FF88 constant. Native now takes the same path. | Shell regression tightened to equality at 0x02478000 and passes; witness gate green. See archive #457. |
-| 433 | [x] | P2 | verification | Classify leftover debug warp 0x41 as non-comparable: Load_InGame selects incomplete resource 0x41 and the oracle consumes adjacent RAM unavailable to the clean native bundle. | Focused sweep 1786567508: 12 oracle limitations, zero blockers, both checkpoints UNVERIFIED. See archive #433. |
 | 425 | [x] | P2 | enemy | Reject the SpinningTwins attribution: 0x47 maps to incomplete leftover resource 0x42, producing the same non-comparable 12-field shell as 0x38/0x41. | Focused sweep 1786567508: 12 oracle limitations, zero blockers, both checkpoints UNVERIFIED. See archive #425. |
 | 454 | [x] | P1 | verification | Added a route-grouped early playtest checklist for boot, 0x00-0x08, named P0 smoke, and audio-device candidates with exact current checks and a report template. | Checklist ids equal the eligible awaiting-human set plus #374; `backlog-lint` and `verify-slice-fast` pass. See archive #454. |
 | 453 | [x] | P1 | infra | `project-status` ranks same-priority actionable rows above in-progress and explicit `Reopen only` risks, while retaining deferred rows when space remains. | Live top playability lane includes #442; 16 project-status tests and `verify-slice-fast` pass. See archive #453. |
