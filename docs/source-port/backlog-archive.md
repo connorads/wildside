@@ -24870,6 +24870,25 @@ Logical 42 sidecar hashes remain unchanged; no logical 41 sidecars are created.
 - Proposed fixed 2026-06-11. `teleporter_dest_level_loc_bcd6` now mirrors ASM `loc_BCD6` by scanning `MapOrder_Index` for the teleporter record's destination map byte and returning the zero-based logical level index stored by `loc_BCEA`. The red-first non-identity MapOrder tests observed the old raw `$2D`/45 destination where the ROM route should use logical level 2; fixed coverage includes `teleporter_cross_level_sets_pending_skip_loc_bcd6`, `teleporter_same_level_repositions_loc_bcea`, `process_block_effects_teleporter_warps_player`, and `live_teleporter_pending_skip_uses_map_order_index_loc_bcd6`.
 - Follow-up 2026-06-13: same parser fix as #298 is required for this destination path to be reachable on generated runtime assets. Before the fix, `inspect-level --level 01` reported `0 teleporters` despite visible `$E407/$E408` telepad cells; after the fix it reports the `dest map 0x4B` record that `teleporter_dest_level_loc_bcd6` can reverse-map through `MapOrder_Index`.
 
+2026-09-21 controller observation follow-up. The private Jev service converts
+raw enemy/projectile 16.16 coordinates and velocities into the pixel units
+advertised by its prompt, while retaining raw native traces. Decision 72's
+Tank X13,139,968 becomes X200.5 beside Kid X58. The journal records the actual
+converted request. A red-first regression covers signed/fractional values,
+nullable velocities, source immutability and request/journal equality; all 21
+case-service tests and `verify-slice-fast` pass without paid calls or accounting changes.
+
+The observed stall is repeated release, not dropped directional inputs.
+An offline control reaches X64.015625 from X58 after 12 running frames with
+two HP. The longer ordinary-input continuation in
+`.cache/recordings/jev-shaft-all-frames/` has exact native replay but diverges
+from oracle at the first slope exit: pixels at 186/187/188, authoritative
+character movement and position at 190. The first 186 images are exact.
+At 190 native is (337.15625,175), oracle (341,177). Do not call that continuation
+route parity. Investigate the first causal branch before extending the route.
+The expired #327 case window and campaign charge remain intact. No pad has
+been reached, so #300 remains open.
+
 ### #301
 
 - Filed 2026-06-11 as the bosses cluster umbrella (audits/bosses-fidelity-audit.md: 28 gaps, 13 high). The boss layer is an invented substitute: dead `sub_3A292` (collision/HP/palette), `sub_39846`+wrappers (waypoint movement), `loc_37F30`/`38012`/`380F4` (attack FSM), whole HeadyMetal `loc_37582`/`loc_3763A` handler; live heads flat-chase the player and fire on a fixed 180-frame clock; Shishkaboss heads 2/3 HP 30 vs ROM $14; HeadyMetal tracking -0xB000 vs -0x5000; boss-level flagpole suppression `loc_C03A` absent. Treat as one rewiring effort, not 28 patches. Minimum gate: 1p-playable on boss levels.

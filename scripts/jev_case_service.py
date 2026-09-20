@@ -27,7 +27,7 @@ MASKS = {"release": 0, "left": 4, "right": 8, "jump": 16, "left_jump": 20,
 
 QUESTION = {
     "type": "choice",
-    "instructions": "Choose ordinary controls for six game frames to achieve the goal. Coordinates are pixels, right/down positive. B jumps; release B before a new jump. A runs. Momentum persists. Wait still on the teleporter for 90 frames. Use terrain to find a higher route if blocked. Use Start to leave LevelTransition title cards or resume a paused game. Never change game state.",
+    "instructions": "Choose ordinary controls for six game frames to achieve the goal. Positions are pixels and velocities are pixels per frame, right/down positive. B jumps; release B before a new jump. A runs. Momentum persists. Wait still on the teleporter for 90 frames. Use terrain to find a higher route if blocked. Use Start to leave LevelTransition title cards or resume a paused game. Never change game state.",
     "criteria": {
         "release": "Release all held buttons. Use to release Start before pressing it again, release B before a new jump, or wait still on the teleporter.",
         "left": "Unpaused InGame: move left slowly to backtrack or adjust position.",
@@ -100,6 +100,26 @@ def begin_attempt(issue, output, path=LEDGER, now=None):
         return token
 
 
+def _controller_state_in_pixels(state):
+    observation = state.copy()
+    for group in ("enemies", "projectiles"):
+        if group not in state:
+            continue
+        actors = []
+        for actor in state[group]:
+            converted = actor.copy()
+            for field in ("x_pos", "y_pos", "x_velocity", "y_velocity"):
+                value = actor.get(field)
+                if value is not None:
+                    # Native actor snapshots use signed 16.16 values, with
+                    # position bits stored as u32. Kid/terrain already use pixels.
+                    signed = value - (1 << 32) if value >= 1 << 31 else value
+                    converted[field] = signed / 65536
+            actors.append(converted)
+        observation[group] = actors
+    return observation
+
+
 def choose(state, key):
     request = {"model": MODEL, "state": state, "questions": {"action": QUESTION}}
     message = urllib.request.Request(ENDPOINT, data=json.dumps(request).encode(), headers={
@@ -125,6 +145,7 @@ def decision(token, state, key, path=LEDGER, evaluate=choose, now=None):
         _, ceiling = _budget_bounds(value)
         if value["nanodollars_upper_bound"] + RESERVATION > ceiling:
             raise ValueError("cumulative API budget exhausted")
+        state = _controller_state_in_pixels(state)
         value["nanodollars_upper_bound"] += RESERVATION
         attempt["requests"] += 1
         # Charge before dispatch. Crashes/timeouts retain the full reservation.

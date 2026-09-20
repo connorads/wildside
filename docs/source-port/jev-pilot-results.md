@@ -179,3 +179,29 @@ a half-pixel body lead already at frame zero, hidden by the normal position
 tolerance. A 600-frame idle control reproduces it without Jev. See the
 [permanent regression and ASM evidence](backlog-archive.md#496). Paid discovery
 finds a concrete defect here even though its requested route remains unproven.
+
+## Controller coordinate units - 2026-09-21
+
+The case adapter supplies Kid and terrain positions in pixels, but serialises
+actor snapshots as raw 16.16 integers. Saved decision 72 places Kid at X58
+and the Tank at raw X13,139,968, meaning X200.5. The private service converts
+enemy/projectile positions and velocities to signed pixels before dispatch.
+The decision journal stores the exact converted state sent to Jev. Native
+trace values, existing journal files and budget accounting remain unchanged.
+
+The regression fails before conversion and passes afterwards. It covers
+fractional positions, wrapped negative positions, negative velocities, absent
+velocity values, unchanged source data and the journal/request match. All 21
+case-service tests and `verify-slice-fast` pass without an API call. The saved observation also
+converts to the measured Tank position without changing its source snapshot.
+No improved model policy is claimed from these offline checks.
+
+The stalled collection contains 96 release decisions and four running jumps.
+After Kid lands at (58,191), 88 consecutive decisions still release all controls.
+An offline control replays the prefix through 71, then runs right for 12 frames:
+Kid reaches X64.015625 with two HP and exact native replay. A longer continuation
+reaches the lower shaft. Its all-frame comparison first differs visually at
+186 and in authoritative state at 190. Investigate that slope/ledge exit under
+#300 before treating the continuation as emulator-matched route evidence.
+The case window, attempt count and $0.186974676 lifetime charge are unchanged.
+A separate progress/stall guard remains required before further paid discovery.

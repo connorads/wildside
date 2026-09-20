@@ -31,7 +31,7 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-09-21):** Continue #300 natural pad routes and source-exit coverage after the #497 shifted-flag fix. Jev observation audit finds raw 16.16 enemy coordinates labelled as pixels; correct that before further discovery. An offline 12-frame running control moves Kid beyond the paid attempt's x58 stall without damage. #497 fast/full-TAS gates pass; natural flag traversal and scoreboard handoff remain unproven.
+- **Current work (2026-09-21):** Continue #300 after correcting Jev actor coordinate units. Offline running escapes its x58 stall, but the longer recorded slope exit first differs visually at 186 and in authoritative state at 190. Investigate that branch before claiming route parity. The #497 flag fix is committed and verified; natural flag traversal and scoreboard handoff remain unproven.
 - **Selection:** Run `mise run project-status` and `mise run jev-audit`. Objective awaiting-human cases are eligible for investigation and evidence-backed closure. Coverage prerequisites come first, then P0 #210, #370 and #374 according to dependencies and available evidence.
 - **Scope:** Single-player across all playable levels, branches, forms and bosses. Preserve frozen #406/#409/#416 timing debt and its ratchets. Final package retains subjective/device checks; no human validation is claimed.
 - **Jev allowance:** $5 additional across the campaign. First attempt used 100 requests and $0.010448214; lifetime charged upper bound is $0.186974676. The six-frame preflight passed, but collection stalled at x58 and did not reach the pad. Its deadline was expired under the ledger lock, preserving spend, attempt count and the original case window. Improve controller observations before any further paid attempt.
@@ -58,7 +58,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 300 | [ ] | P1 | level/teleporter | Captured hidden and shifted pad records are restored; live destination verification remains open. | Record a successful accessible pad route and compare the destination with the oracle. |
+| 300 | [~] | P1 | level/teleporter | Captured hidden and shifted pad records are restored; live destination verification remains open. | Record a successful accessible pad route and compare the destination with the oracle. |
 | 433 | [ ] | P1 | enemies/RNG | Robot shot lifecycle and grounded turns verified; init, hurt and natural-entry fidelity remain open. | Retain first/third Crypt shot regressions; probe parent init residue and interrupted turns. |
 | 406 | [f] | P1 | rendering | FROZEN with #409 per ADR 0002: the lane stops accruing sessions; the march stays metered as ADR 0001 left it (frontier 995, injection ratchet). Residue authority moves to census-scoped reconstruction + raster-span-replay. | Do not extend the march; ratchets stay green; take #442-#450 instead. See ADR 0002. |
 | 409 | [f] | P1 | rendering | FROZEN per ADR 0002: the recurrence is a downward-only witness (scheduled-frames ratchet 736 / boundary 1657; tas-pixel-baseline). ADR 0003 corrected the spans; #459 found the bounded entry phase non-invertible and closed NO-GO. | Do not extend or promote the lane; keep the 2,391-pixel and scheduled-frame ratchets green. Evidence: archive #459. |

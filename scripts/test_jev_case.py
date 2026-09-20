@@ -159,6 +159,39 @@ class BudgetTests(unittest.TestCase):
         service.begin_attempt(327, self.output, self.path, now=102)
         self.assertEqual(self.read()["nanodollars_upper_bound"], service.PRIOR + 4200)
 
+    def test_controller_actor_coordinates_use_pixels_and_journal_the_sent_state(self):
+        # Saved decision72 placed the Tank at x=13139968 beside Kid x=58.
+        # The controller promises pixels, so that Tank must be x=200.5.
+        state = {
+            "frame": 72, "kid": {"x": 58, "y": 191},
+            "enemies": [{"x_pos": 13139968, "y_pos": 224 << 16,
+                         "x_velocity": -32768, "y_velocity": None,
+                         "hit_points": 2}],
+            "projectiles": [{"x_pos": 0xFFFF8000, "y_pos": (191 << 16) + 16384,
+                             "x_velocity": 65536, "y_velocity": -32768,
+                             "friendly": False}],
+        }
+        original = json.loads(json.dumps(state))
+        sent = []
+
+        def evaluate(observation, key):
+            sent.append(observation)
+            return self.response()
+
+        service.decision(self.token, state, "test", self.path, evaluate, now=101)
+
+        self.assertEqual(sent[0]["enemies"], [{
+            "x_pos": 200.5, "y_pos": 224.0, "x_velocity": -0.5,
+            "y_velocity": None, "hit_points": 2}])
+        self.assertEqual(sent[0]["projectiles"], [{
+            "x_pos": -0.5, "y_pos": 191.25, "x_velocity": 1.0,
+            "y_velocity": -0.5, "friendly": False}])
+        self.assertEqual(sent[0]["kid"], state["kid"])
+        self.assertEqual(state, original)
+        journal = json.loads((self.output / "decisions.jsonl").read_text())
+        self.assertEqual(journal["state"], sent[0])
+        self.assertEqual(self.read()["nanodollars_upper_bound"], service.PRIOR + 4200)
+
     def test_failed_calls_remain_reserved(self):
         def fail(*_):
             raise TimeoutError()

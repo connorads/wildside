@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 handoff (Jev actor coordinate units)
+
+The private case service sends enemy/projectile positions and velocities in
+signed pixels, matching Kid, terrain and the prompt. It journals the converted
+request without mutating native traces. The recorded Tank position at decision
+72 changes from raw 13,139,968 to 200.5. The red-first regression covers fractional
+and negative values, absent velocities, source immutability and journal equality.
+All 21 case-service tests pass offline. `verify-slice-fast` passes in
+181.40 seconds with Clippy, script checks and workspace ratchets green.
+No paid requests, budget changes or expired-case restart occurs.
+
+The first paid attempt repeatedly released after landing at (58,191). Twelve
+running frames in an offline control reach X64.015625 with two HP and exact
+native replay. The longer continuation reaches the lower shaft but has first
+pixel differences at 186 and authoritative state divergence at 190. Its bundle
+`.cache/recordings/jev-shaft-all-frames/` retains every frame for investigation.
+Next investigate that slope/ledge exit under #300; the pad remains unexercised.
+#497 is committed as 16cb8a15c with fast/full-TAS/sweep evidence. A progress/stall
+guard for paid collection remains a separate required unit.
+
 ## 2026-09-21 handoff (shifted flag world coordinates)
 
 #497 corrects `Flagpole_Boss` world coordinates through one runtime accessor.
