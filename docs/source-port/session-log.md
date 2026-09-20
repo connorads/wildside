@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-20 handoff (Robot boundary turns and shot lifecycle)
+
+#433's first and third Crypt shots retain their Gfx wake, clamp the ROM's
+flipped terrain box, consume the previous Gfx contact and delete at the end
+of impact. The first shot also requires source-derived grounded boundary
+turns; a cull/terrain-only patch regressed three levels and was rejected.
+Native impact/deletion frames match 43/58 and 309/324. Parent init/position,
+hurt/turn interruptions, raw slot reuse, HUD pixels and natural entry remain.
+
+All 85 focused Robot tests and six selected mutations pass. The fast gate
+passes 7,421 maintained core tests; five failures in the raw core run are
+already documented exclusions, with no baseline change. Full TAS checks
+all 37,759 frames within unchanged frozen visual/audio limits. Full Crypt
+sweep `1789938866` passes six comparable checkpoints per logical copy;
+state sweep `1789938867` retains the same 95 passes, ten failures and 28
+authoritative differences. Off-screen shot state is verified by WRAM and
+replay; inspected viewport captures are unchanged. Probe-created `41.*`
+sidecars are isolated under `.cache/debug/robot-boundary-probe-sidecars`.
+
+Next repair the inspector's logical/resource fixture fallback. Live
+`inspect-level --level 3A` incorrectly reports logical 03's two teleporter
+records when 3A has no capture. Reuse the runtime's logical fixture and ROM
+decoder path, with a cache-independent regression. Then build source-exit
+inventory and recording evidence classification; demo changes and idle
+warps cannot count as natural progression. No paid Jev calls.
+
 ## 2026-09-20 handoff (Robot animation-gated parent attack)
 
 #433's Robot parent checks the real head mapping/timer gate, uses a signed

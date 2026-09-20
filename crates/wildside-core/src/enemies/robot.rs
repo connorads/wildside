@@ -684,42 +684,74 @@ fn begin_robot_shoot(enemy: &mut ActiveEnemy, projectiles: &mut Option<&mut Vec<
     enemy.robot_gfx.head.selected = 20;
 }
 
+/// ASM loc_3A884 (Robot.asm): enter the shared walker in the saved body direction.
 fn step_robot_walk(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
-    // ASM Robot.asm loc_3A7AC/loc_3A7EE stores `$50(a5)` from the
-    // immutable layout level during init; damage never changes it.
-    let walk_speed = robot_walk_speed(enemy.enemy_level);
-    // ASM Robot.asm loc_3A884 enters the shared walker left/right branch
-    // from x_direction; native `facing` is that decoded branch choice.
     if let Some(grid) = block_grid {
-        let probe_half_width = pacer_probe_half_width(enemy.family);
-        let probe_height = pacer_probe_height(enemy.family);
-        enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
-        enemy.y_velocity = 0;
-        enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
-
-        let cx = (enemy.x_pos >> 16) as i32;
-        let cy = (enemy.y_pos >> 16) as i32;
-        let moving_right = enemy.x_velocity >= 0;
-
-        let wall = terrain::probe_wall(grid, cx, cy, probe_half_width, probe_height, moving_right);
-        if wall.hit {
-            let wall_fp = (wall.wall_x_px as u32) << 16;
-            let edge_fp = (probe_half_width as u32) << 16;
-            if moving_right {
-                enemy.x_pos = enemy.x_pos.min(wall_fp.saturating_sub(edge_fp));
+        if enemy.on_ground {
+            // ASM loc_3C04E/loc_3C0FA scans the current pose, then compares
+            // the proposed integer displacement with the next tile boundary.
+            let x = (enemy.x_pos >> 16) as i32;
+            let y = (enemy.y_pos >> 16) as i32;
+            let width = pacer_probe_half_width(enemy.family);
+            let height = pacer_probe_height(enemy.family);
+            let moving_right = enemy.facing == Direction::Right;
+            let step = horizontal_velocity(enemy.facing, robot_walk_speed(enemy.enemy_level));
+            let scan = if moving_right {
+                terrain::grounded_walker_scan_right_sub_36972(grid, x, y, width, height)
             } else {
-                enemy.x_pos = enemy.x_pos.max(wall_fp + edge_fp);
-            }
-            reverse_enemy_direction(enemy);
-        } else {
-            let look_ahead_x = if moving_right {
-                cx + probe_half_width
-            } else {
-                cx - probe_half_width
+                terrain::grounded_walker_scan_left_sub_36A58(grid, x, y, width, height)
             };
-            if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
-                reverse_enemy_direction(enemy);
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            if scan.flags_d7 & 4 != 0 {
+                // ASM loc_3C464 writes parent collision $FFFF and dispatches
+                // Robot.asm loc_3A890 -> loc_3A9D2's destruction animation.
+                register_enemy_terrain_kill(enemy);
+                return;
             }
+            let next_x = enemy.x_pos.wrapping_add_signed(step);
+            let delta = ((next_x >> 16) as i32 - x).abs();
+            let remainder = if moving_right {
+                (-(x + width)) & 15
+            } else {
+                (x - width) & 15
+            };
+            let crosses_boundary = remainder < delta;
+            let snap_into_fall = crosses_boundary
+                && scan.flags_d7 & 2 != 0
+                && scan.floor_row_mask_d5 == 0
+                && i32::from(scan.column_span_d3) * 8 >= width;
+            if scan.floor_class_d6 < 0 || snap_into_fall {
+                if scan.floor_class_d6 >= 0 {
+                    // ASM loc_3C04E/loc_3C0FA discards the fraction only on
+                    // the boundary-snap arm before loc_3C17A/loc_3C266.
+                    let snapped_x = if moving_right {
+                        x + remainder
+                    } else {
+                        x - remainder
+                    };
+                    enemy.x_pos = (snapped_x as u32) << 16;
+                }
+                enemy.on_ground = false;
+                enemy.y_pos = enemy.y_pos.wrapping_add(1 << 16);
+                enemy.x_velocity = step;
+                step_shared_walker_falling_loc_3c288(enemy, grid);
+            } else if crosses_boundary && (scan.flags_d7 & 1 != 0 || scan.flags_d7 & 2 == 0) {
+                // ASM loc_3C0A6/loc_3C152 -> loc_3C0D2/loc_3C026 turns
+                // without committing the proposed step. Subpixels survive.
+                reverse_enemy_direction(enemy);
+                register_shared_walker_turnaround(enemy);
+            } else {
+                // ASM loc_3C0C6/loc_3C172 writes X directly, leaving Gfx
+                // velocity zero. Only the rightward arm clears `$5A(a5)`.
+                enemy.x_pos = next_x;
+                if moving_right {
+                    enemy.shared_walker_turnaround_counter = 0;
+                }
+            }
+        } else {
+            // ASM loc_3C19C/loc_3C288 owns the airborne continuation.
+            step_shared_walker_falling_loc_3c288(enemy, grid);
         }
     }
 
@@ -1164,41 +1196,78 @@ mod tests {
     }
 
     #[test]
-    fn robot_walk_wall_probe_clamps_to_leading_edge_and_reverses() {
-        let cases = [
+    fn robot_walk_turns_at_crossed_tile_boundary_without_committing_step() {
+        // ASM loc_3C04E/loc_3C0FA checks the predicted integer displacement
+        // against the leading-edge remainder before loc_3C0D2/loc_3C026.
+        // Crypt oracle turns at X 149.5 right and X 139 left on a 32px ledge.
+        let grid = grid_with_solid_cells(&[(2, 2), (3, 2)]);
+        for (facing, start, expected_positions) in [
             (
                 Direction::Right,
-                56,
-                &[(4, 1)][..],
-                53 << 16,
-                Direction::Left,
-                "right wall",
+                (52 << 16) | 0x8000,
+                [53 << 16, (53 << 16) | 0x8000, (53 << 16) | 0x8000],
             ),
             (
                 Direction::Left,
-                72,
-                &[(3, 1)][..],
-                75 << 16,
-                Direction::Right,
-                "left wall",
+                44 << 16,
+                [(43 << 16) | 0x8000, 43 << 16, 43 << 16],
             ),
-        ];
-
-        for (facing, x_px, cells, expected_x, expected_facing, label) in cases {
-            let grid = grid_with_solid_cells(cells);
-            let mut robot = robot_test_enemy(RobotState::Walking, facing, x_px, 32, 10);
-
-            step_robot(&mut robot, Some(&grid), None, &mut None);
-
-            assert_eq!(
-                robot.x_pos, expected_x,
-                "ASM Robot.asm loc_3A7AC seeds `$48(a5)=$B`; loc_3A884 should clamp Robot at the {label} leading edge",
-            );
-            assert_eq!(
-                robot.facing, expected_facing,
-                "ASM Robot.asm loc_3A884 shared walker should reverse at the {label}",
-            );
+        ] {
+            let mut robot = robot_test_enemy(RobotState::Walking, facing, 0, 32, 0);
+            robot.x_pos = start;
+            robot.on_ground = true;
+            for (i, expected) in expected_positions.into_iter().enumerate() {
+                step_robot(&mut robot, Some(&grid), None, &mut None);
+                assert_eq!(robot.x_pos, expected, "{facing:?} tick {i}");
+                assert_eq!(robot.x_velocity, 0, "ASM grounded walker writes X directly");
+                let expected_facing = if i < 2 {
+                    facing
+                } else if facing == Direction::Left {
+                    Direction::Right
+                } else {
+                    Direction::Left
+                };
+                assert_eq!(robot.facing, expected_facing, "tick {i}");
+            }
         }
+    }
+
+    #[test]
+    fn robot_walk_wall_turn_preserves_pre_crossing_position() {
+        // ASM loc_3C0A6/loc_3C152 rejects the crossing step when d7 bit 0
+        // reports a leading wall. The body has not entered that wall yet.
+        for (facing, x, wall, expected_facing) in [
+            (
+                Direction::Right,
+                (53 << 16) | 0x8000,
+                (4, 1),
+                Direction::Left,
+            ),
+            (Direction::Left, 75 << 16, (3, 1), Direction::Right),
+        ] {
+            let mut grid = grid_with_solid_cells(&[wall]);
+            for col in 0..8 {
+                grid.set_cell_at(col, 2, terrain::Cell::from_be_bytes(0x60, 0));
+            }
+            let mut robot = robot_test_enemy(RobotState::Walking, facing, 0, 32, 10);
+            robot.x_pos = x;
+            step_robot(&mut robot, Some(&grid), None, &mut None);
+            assert_eq!(robot.x_pos, x);
+            assert_eq!(robot.facing, expected_facing);
+            assert!(!robot.death_animation_active);
+        }
+    }
+
+    #[test]
+    fn robot_walk_body_overlap_routes_to_destruction() {
+        // ASM loc_3C04E tests d7 bit 2 before movement; loc_3C464 sends
+        // collision $FFFF through Robot.asm loc_3A890 -> loc_3A9D2.
+        let grid = grid_with_solid_cells(&[(4, 1)]);
+        let mut robot = robot_test_enemy(RobotState::Walking, Direction::Right, 56, 32, 10);
+        step_robot(&mut robot, Some(&grid), None, &mut None);
+        assert_eq!(robot.x_pos, 56 << 16);
+        assert!(robot.death_animation_active);
+        assert_eq!(robot.wait_timer, 18);
     }
 
     #[test]
@@ -1228,18 +1297,19 @@ mod tests {
     }
 
     #[test]
-    fn robot_walk_wall_probe_uses_loc_3a7ac_probe_height() {
-        let grid = grid_with_solid_cells(&[(4, 1), (4, 3)]);
-        let mut robot = robot_test_enemy(RobotState::Walking, Direction::Right, 56, 48, 10);
-
+    fn robot_walk_wall_scan_uses_loc_3a7ac_probe_height() {
+        // ASM loc_3A7AC seeds `$4A(a5)=$20`; sub_36972 must see the
+        // upper wall row before loc_3C0A6 turns at the tile boundary.
+        let mut grid = grid_with_solid_cells(&[(4, 1)]);
+        for col in 0..8 {
+            grid.set_cell_at(col, 3, terrain::Cell::from_be_bytes(0x60, 0));
+        }
+        let mut robot = robot_test_enemy(RobotState::Walking, Direction::Right, 53, 48, 10);
+        robot.x_pos |= 0x8000;
         step_robot(&mut robot, Some(&grid), None, &mut None);
-
-        assert_eq!(
-            robot.x_pos,
-            53 << 16,
-            "ASM Robot.asm loc_3A7AC seeds `$4A(a5)=$20`; loc_3A884 should let the upper wall probe clamp Robot before floor lookahead",
-        );
+        assert_eq!(robot.x_pos, (53 << 16) | 0x8000);
         assert_eq!(robot.facing, Direction::Left);
+        assert!(!robot.death_animation_active);
     }
 
     #[test]

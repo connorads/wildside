@@ -686,27 +686,28 @@ fn step_tar_monster_burst_child_loop_loc_3263c(
 fn tar_monster_gfx_collision_loc_16f0(
     grid: &terrain::BlockGrid,
     projectile: &mut EnemyProjectile,
-    extent: i32,
+    bounds: [i32; 4],
 ) -> i16 {
+    let [left, right, top, bottom] = bounds;
     let x = i32::from((projectile.x_pos >> 16) as u16 as i16);
     let y = i32::from((projectile.y_pos >> 16) as u16 as i16);
 
     // ASM kid.asm loc_16F0 checks the level boundaries before the tile loop,
     // clamps the GfxObject centre, and leaves collision_type for the Object
     // callback on its next wake.
-    let (collision_type, corrected_x, corrected_y) = if x - extent < 0 {
-        (0x08, extent, y)
-    } else if x + extent >= grid.width_pixels() {
-        (0x04, grid.width_pixels() - extent - 1, y)
-    } else if y - extent < 0 {
-        (0x10, x, extent)
-    } else if y + extent >= grid.height_pixels() {
-        (0x0C, x, grid.height_pixels() - extent - 1)
+    let (collision_type, corrected_x, corrected_y) = if x + left < 0 {
+        (0x08, -left, y)
+    } else if x + right >= grid.width_pixels() {
+        (0x04, grid.width_pixels() - right - 1, y)
+    } else if y + top < 0 {
+        (0x10, x, -top)
+    } else if y + bottom >= grid.height_pixels() {
+        (0x0C, x, grid.height_pixels() - bottom - 1)
     } else {
-        let left_col = terrain::pixel_to_cell(x - extent) as u16;
-        let right_col = terrain::pixel_to_cell(x + extent) as u16;
-        let top_row = terrain::pixel_to_cell(y - extent) as u16;
-        let bottom_row = terrain::pixel_to_cell(y + extent) as u16;
+        let left_col = terrain::pixel_to_cell(x + left) as u16;
+        let right_col = terrain::pixel_to_cell(x + right) as u16;
+        let top_row = terrain::pixel_to_cell(y + top) as u16;
+        let bottom_row = terrain::pixel_to_cell(y + bottom) as u16;
         let contact = (top_row..=bottom_row).find_map(|row| {
             (left_col..=right_col).find_map(|col| {
                 let cell = grid.cell_at(col, row);
@@ -761,14 +762,14 @@ fn tar_monster_gfx_collision_loc_16f0(
             _ => None,
         };
         let crossed_horizontally = if projectile.x_velocity >= 0 {
-            prev_x + extent < cell_left
+            prev_x + right < cell_left
         } else {
-            prev_x - extent > cell_right
+            prev_x + left > cell_right
         };
         let crossed_vertically = if projectile.y_velocity >= 0 {
-            prev_y + extent < cell_top
+            prev_y + bottom < cell_top
         } else {
-            prev_y - extent > cell_bottom
+            prev_y + top > cell_bottom
         };
         let collision_type = continuous_face.unwrap_or_else(|| {
             if projectile.x_velocity >= 0
@@ -779,8 +780,8 @@ fn tar_monster_gfx_collision_loc_16f0(
                 // compare the two corner travel ratios after `lsr.l #8`.
                 let x_speed = i32::from((projectile.x_velocity >> 8) as i16);
                 let y_speed = i32::from((projectile.y_velocity >> 8) as i16);
-                let x_penetration = x + extent - cell_left;
-                let y_penetration = y + extent - cell_top;
+                let x_penetration = x + right - cell_left;
+                let y_penetration = y + bottom - cell_top;
                 if y_penetration * x_speed > x_penetration * y_speed {
                     return 0x04;
                 }
@@ -794,8 +795,8 @@ fn tar_monster_gfx_collision_loc_16f0(
                 // the negative corner travel products after `lsr.l #8`.
                 let x_speed = i32::from((projectile.x_velocity >> 8) as i16);
                 let y_speed = i32::from((projectile.y_velocity >> 8) as i16);
-                let x_penetration = x + extent - cell_left;
-                let y_offset = y - extent - (cell_top + 16);
+                let x_penetration = x + right - cell_left;
+                let y_offset = y + top - (cell_top + 16);
                 if y_offset * x_speed < x_penetration * y_speed {
                     return 0x04;
                 }
@@ -809,8 +810,8 @@ fn tar_monster_gfx_collision_loc_16f0(
                 // the negative corner travel products after `lsr.l #8`.
                 let x_speed = i32::from((projectile.x_velocity >> 8) as i16);
                 let y_speed = i32::from((projectile.y_velocity >> 8) as i16);
-                let x_offset = x - extent - (cell_left + 16);
-                let y_penetration = y + extent - cell_top;
+                let x_offset = x + left - (cell_left + 16);
+                let y_penetration = y + bottom - cell_top;
                 if y_penetration * x_speed < x_offset * y_speed {
                     return 0x08;
                 }
@@ -824,8 +825,8 @@ fn tar_monster_gfx_collision_loc_16f0(
                 // the positive corner travel products after `lsr.l #8`.
                 let x_speed = i32::from((projectile.x_velocity >> 8) as i16);
                 let y_speed = i32::from((projectile.y_velocity >> 8) as i16);
-                let x_offset = x - extent - (cell_left + 16);
-                let y_offset = y - extent - (cell_top + 16);
+                let x_offset = x + left - (cell_left + 16);
+                let y_offset = y + top - (cell_top + 16);
                 if y_offset * x_speed > x_offset * y_speed {
                     return 0x08;
                 }
@@ -840,10 +841,10 @@ fn tar_monster_gfx_collision_loc_16f0(
             )
         }) as i16;
         match collision_type {
-            0x04 => (collision_type, cell_left - extent - 1, y),
-            0x08 => (collision_type, cell_right + extent + 1, y),
-            0x0C => (collision_type, x, cell_top - extent - 1),
-            0x10 => (collision_type, x, cell_bottom + extent + 1),
+            0x04 => (collision_type, cell_left - right - 1, y),
+            0x08 => (collision_type, cell_right - left + 1, y),
+            0x0C => (collision_type, x, cell_top - bottom - 1),
+            0x10 => (collision_type, x, cell_bottom - top + 1),
             _ => (collision_type, x, y),
         }
     };
@@ -1577,6 +1578,155 @@ mod drips_surface_crawler_tests {
         assert_eq!(shots.len(), 1);
         assert_eq!(shots[0].x_pos, 151 << 16);
         assert_eq!(shots[0].y_pos, 66 << 16);
+    }
+
+    #[test]
+    fn robot_owned_shot_survives_wake_above_camera_and_finishes_impact() {
+        // ASM Enemy03_Robot_Shot_Init / loc_3AC48: the Crypt wake at Y 1026
+        // with camera Y 1120 is inside Robot's [-128,448] box, outside Lion's.
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.current_level = LevelId(0x41);
+        runtime.boot_state = BootState::InGame;
+        let mut slice = OpeningSliceState::respawn(runtime.level_bounds(runtime.current_level));
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 1120 << 16;
+        runtime.opening_slice = Some(slice);
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::RobotShot,
+            robot_shot_phase: crate::types::RobotShotPhase::Allocated,
+            x_pos: 157 << 16,
+            y_pos: 1026 << 16,
+            x_velocity: 0x5_0000,
+            lifetime: 60,
+            owner: Some(EnemyProjectileOwner {
+                segment_index: 0,
+                layout_index: 77,
+                token: 0,
+            }),
+            ..Default::default()
+        });
+        for _ in 0..10 {
+            runtime.step_projectiles();
+            assert!(runtime.trace_frame().active_projectiles.is_empty());
+            assert_eq!(runtime.projectiles.len(), 1);
+        }
+        runtime.step_projectiles();
+        assert_eq!(runtime.trace_frame().active_projectiles.len(), 1);
+        assert!(runtime.played_sound_effects.is_empty());
+        runtime.step_projectiles();
+        assert_eq!(runtime.projectiles.len(), 1);
+        assert_eq!(
+            runtime.played_sound_effects,
+            [QueuedSoundEffect::RobotShoots]
+        );
+
+        // ASM loc_3AC7E/loc_3AC92: leaving Robot's box starts the impact wait;
+        // Hibernate_UntilAnimFinished does not apply another camera cull.
+        runtime.opening_slice.as_mut().unwrap().camera.y_pos = 2048 << 16;
+        runtime.step_projectiles();
+        assert_eq!(runtime.projectiles.len(), 1);
+        assert_eq!(
+            runtime.projectiles[0].kind,
+            EnemyProjectileKind::RobotShotImpact
+        );
+        let impact_position = (runtime.projectiles[0].x_pos, runtime.projectiles[0].y_pos);
+        for remaining in (1..15).rev() {
+            runtime.step_projectiles();
+            assert_eq!(runtime.projectiles.len(), 1);
+            assert_eq!(runtime.projectiles[0].lifetime, remaining);
+            assert_eq!(
+                (runtime.projectiles[0].x_pos, runtime.projectiles[0].y_pos),
+                impact_position
+            );
+        }
+        runtime.step_projectiles();
+        assert!(runtime.projectiles.is_empty());
+    }
+
+    #[test]
+    fn robot_shot_wake_clamps_flipped_hitbox_before_sound_and_impact() {
+        // ASM CollisionSize_Index[833..835] -> unk_31BCA is (-2,5,-6,3).
+        // loc_1734 mirrors the horizontal box for right-facing shots.
+        for (x, velocity, clamped, impact, collision) in [
+            (170, 0x5_0000, 157, 165, 0x04),
+            (181, -0x5_0000, 178, 170, 0x08),
+        ] {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            let mut grid = terrain::BlockGrid::from_level_layout(&[0; 32 * 80 * 2], 32, 80);
+            for row in 0..80 {
+                grid.set_cell_at(10, row, terrain::Cell::from_be_bytes(0x60, 0));
+            }
+            runtime.set_block_grid(grid);
+            runtime.projectiles.push(EnemyProjectile {
+                kind: EnemyProjectileKind::RobotShot,
+                robot_shot_phase: crate::types::RobotShotPhase::Waiting(1),
+                x_pos: x << 16,
+                y_pos: (1026 << 16) | 0x8000,
+                x_velocity: velocity,
+                lifetime: 60,
+                ..Default::default()
+            });
+
+            // ASM Enemy03_Robot_Shot_Init allocates Gfx before its sound wake.
+            runtime.step_projectiles();
+            assert_eq!(runtime.projectiles[0].x_pos, clamped << 16);
+            assert_eq!(runtime.projectiles[0].y_pos, (1026 << 16) | 0x8000);
+            assert_eq!(runtime.projectiles[0].collision_type, collision);
+            assert!(runtime.played_sound_effects.is_empty());
+
+            // ASM loc_3AC48 clears the first contact and hibernates once more.
+            runtime.step_projectiles();
+            assert_eq!(runtime.projectiles[0].kind, EnemyProjectileKind::RobotShot);
+            assert_eq!(runtime.projectiles[0].x_pos, clamped << 16);
+            assert_eq!(
+                runtime.played_sound_effects,
+                [QueuedSoundEffect::RobotShoots]
+            );
+
+            // ASM loc_3AC7E consumes the previous Gfx contact before movement.
+            runtime.step_projectiles();
+            assert_eq!(
+                runtime.projectiles[0].kind,
+                EnemyProjectileKind::RobotShotImpact
+            );
+            assert_eq!(runtime.projectiles[0].x_pos, impact << 16);
+            assert_eq!(runtime.projectiles[0].x_velocity, 0);
+            assert_eq!(runtime.projectiles[0].lifetime, 15);
+        }
+    }
+
+    #[test]
+    fn robot_shot_terrain_box_stays_above_sprite_origin() {
+        // ASM unk_31BCA covers Y -6 through -3, inclusively. loc_171C
+        // scans that box even when the sprite origin is outside the tile.
+        for (y, collision) in [(18, 0), (19, 0x0C), (37, 0x04), (38, 0)] {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            let mut grid = terrain::BlockGrid::from_level_layout(&[0; 16 * 4 * 2], 16, 4);
+            grid.set_cell_at(10, 1, terrain::Cell::from_be_bytes(0x60, 0));
+            runtime.set_block_grid(grid);
+            runtime.projectiles.push(EnemyProjectile {
+                kind: EnemyProjectileKind::RobotShot,
+                x_pos: 153 << 16,
+                y_pos: y << 16,
+                x_velocity: 0x5_0000,
+                ..Default::default()
+            });
+            runtime.step_projectiles();
+            assert_eq!(runtime.projectiles[0].kind, EnemyProjectileKind::RobotShot);
+            assert_eq!(runtime.projectiles[0].collision_type, collision, "Y {y}");
+            assert_eq!(
+                runtime.projectiles[0].x_pos,
+                if collision == 0x04 {
+                    157 << 16
+                } else {
+                    158 << 16
+                }
+            );
+            assert_eq!(
+                runtime.projectiles[0].y_pos,
+                if collision == 0x0C { 18 << 16 } else { y << 16 }
+            );
+        }
     }
 
     #[test]
@@ -3938,7 +4088,6 @@ impl NativeRuntime {
                 // burst Objects, then deletes the hidden original at loc_32652.
                 return false;
             }
-            let robot_checks_flight = p.robot_shot_phase == crate::types::RobotShotPhase::Flying;
             if p.kind == EnemyProjectileKind::RobotShot {
                 use crate::types::RobotShotPhase;
                 // ASM Deallocate_ObjectSlot leaves freed slot contents until reuse.
@@ -3973,8 +4122,41 @@ impl NativeRuntime {
                         }
                         p.robot_shot_phase = RobotShotPhase::Flying;
                     }
-                    RobotShotPhase::Flying => {}
+                    RobotShotPhase::Flying => {
+                        // ASM loc_3AC48 resumes before Gfx movement and consumes
+                        // the collision word latched on the preceding frame.
+                        let (screen_x, screen_y) = camera.map_or((0, 0), |camera| {
+                            (
+                                ((p.x_pos >> 16) as u16)
+                                    .wrapping_sub((camera.x_pos >> 16) as u16) as i16,
+                                ((p.y_pos >> 16) as u16)
+                                    .wrapping_sub((camera.y_pos >> 16) as u16) as i16,
+                            )
+                        });
+                        if robot_shot_flight_loop_loc_3ac48(
+                            screen_x,
+                            screen_y,
+                            p.collision_type as u16,
+                        ).route == RobotShotFlightRouteLoc3AC48::StartImpact {
+                            let x_direction = if p.x_velocity < 0 { 0 } else { 0xFF };
+                            let impact = robot_shot_impact_prep_loc_3ac7e(x_direction);
+                            p.x_velocity = impact.projectile_x_velocity;
+                            p.y_velocity = 0;
+                            p.x_pos = (p.x_pos as i64
+                                + (i64::from(impact.impact_x_delta_px) << 16)) as u32;
+                            p.kind = EnemyProjectileKind::RobotShotImpact;
+                            // ASM loc_3AC92 / stru_3A762 waits 3, 4, then 8
+                            // frames. Its mappings have no terrain hitboxes.
+                            p.lifetime = ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762;
+                            return true;
+                        }
+                    }
                 }
+            }
+            // ASM loc_3AC92 / Hibernate_UntilAnimFinished: the frame that
+            // selects stru_3A762 counts towards its 3+4+8 displayed frames.
+            if p.kind == EnemyProjectileKind::RobotShotImpact && p.lifetime == 1 {
+                return false;
             }
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
             let is_robot_shot = p.kind == EnemyProjectileKind::RobotShot;
@@ -4786,6 +4968,17 @@ impl NativeRuntime {
                 );
             }
 
+            if is_robot_shot {
+                // ASM CollisionSize_Index[833..835] -> unk_31BCA (-2,5,-6,3).
+                // loc_1734 mirrors X for the right-facing `$FF` orientation.
+                // loc_3AC48 clears collision before hibernating; Gfx collision
+                // then clamps the shot and latches contact for its next wake.
+                let bounds = if p.x_velocity < 0 { [-2, 3, -6, -3] } else { [-3, 2, -6, -3] };
+                p.collision_type = grid.map_or(0, |grid| {
+                    tar_monster_gfx_collision_loc_16f0(grid, p, bounds)
+                });
+            }
+
             if let crate::types::RobotShotPhase::AwaitingSound { suppressed } = &mut p.robot_shot_phase {
                 // ASM Make_SpriteFromGfxObject / unk_C8278 (kid.asm): the
                 // initial shot mapping has a six-pixel height. Latch `$19`
@@ -4799,42 +4992,11 @@ impl NativeRuntime {
                 });
             }
 
-            if is_robot_shot && robot_checks_flight && let Some(camera) = camera {
-                // ASM Robot.asm loc_3AC48: Robot shots have no DBF lifetime.
-                // Each frame clears collision_type, moves, then exits flight
-                // once the signed camera box is left or level collision becomes
-                // non-zero. loc_3AC7E/loc_3AC92 then clears velocity and runs
-                // the short `stru_3A762` impact animation before deletion.
-                let collision_type = if let Some(g) = grid
-                    && projectile_terrain_contact_loc_3345c(g, p)
-                {
-                    1
-                } else {
-                    0
-                };
-                let screen_x =
-                    ((p.x_pos >> 16) as i32).wrapping_sub((camera.x_pos >> 16) as i32) as i16;
-                let screen_y =
-                    ((p.y_pos >> 16) as i32).wrapping_sub((camera.y_pos >> 16) as i32) as i16;
-                if robot_shot_flight_loop_loc_3ac48(screen_x, screen_y, collision_type).route
-                    == RobotShotFlightRouteLoc3AC48::StartImpact
-                {
-                    let x_direction = if p.x_velocity < 0 { 0 } else { 0xFF };
-                    let impact = robot_shot_impact_prep_loc_3ac7e(x_direction);
-                    p.x_velocity = impact.projectile_x_velocity;
-                    p.y_velocity = 0;
-                    p.x_pos = (p.x_pos as i64 + (i64::from(impact.impact_x_delta_px) << 16)) as u32;
-                    p.kind = EnemyProjectileKind::RobotShotImpact;
-                    // ASM loc_3AC92 hibernates until `stru_3A762` finishes:
-                    // waits 3, 4, and 8 frames before deleting the shot.
-                    p.lifetime = ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762;
-                }
-            }
 
             if p.kind == EnemyProjectileKind::TarMonsterStraightGlob {
                 let collision_latched = p.tar_monster_collision_response_budget == u16::MAX;
                 let collision_now = grid
-                    .is_some_and(|grid| tar_monster_gfx_collision_loc_16f0(grid, p, 4) != 0);
+                    .is_some_and(|grid| tar_monster_gfx_collision_loc_16f0(grid, p, [-4, 4, -4, 4]) != 0);
                 if p.lifetime == 119 {
                     // ASM loc_3231C allocates the Object worker early enough
                     // for loc_32468 to initialise its GfxObject in the same
@@ -4891,7 +5053,7 @@ impl NativeRuntime {
                     2
                 };
                 p.collision_type = grid.map_or(0, |grid| {
-                    tar_monster_gfx_collision_loc_16f0(grid, p, extent)
+                    tar_monster_gfx_collision_loc_16f0(grid, p, [-extent, extent, -extent, extent])
                 });
                 p.tar_monster_byte_19_latched = tar_monster_byte_19_nonzero;
             }
@@ -4940,10 +5102,15 @@ impl NativeRuntime {
             // normal range, so the falling child must not use this narrow
             // generic projectile cull. Dragon.asm loc_3D082 likewise follows
             // its parent `$5B` signal and animation end, not Lion's box.
+            // Robot.asm loc_3AC48 uses [-128,448] on both axes, then loc_3AC92
+            // waits for the impact animation without another camera check.
             if let (Some(owner), Some(camera)) = (p.owner, camera)
                 && !matches!(
                     p.kind,
-                    EnemyProjectileKind::DripsDrop | EnemyProjectileKind::DragonWalkingBreath
+                    EnemyProjectileKind::DripsDrop
+                        | EnemyProjectileKind::DragonWalkingBreath
+                        | EnemyProjectileKind::RobotShot
+                        | EnemyProjectileKind::RobotShotImpact
                 )
             {
                 let screen_x = ((p.x_pos >> 16) as i32) - ((camera.x_pos >> 16) as i32);
@@ -6233,7 +6400,8 @@ mod loc_3e266_tests {
             ..Default::default()
         };
 
-        let collision = super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3);
+        let collision =
+            super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, [-3, 3, -3, 3]);
 
         assert_eq!(collision, 0x04);
         assert_eq!(projectile.x_pos, 28 << 16);
@@ -6254,7 +6422,8 @@ mod loc_3e266_tests {
             ..Default::default()
         };
 
-        let collision = super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3);
+        let collision =
+            super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, [-3, 3, -3, 3]);
 
         assert_eq!(collision, 0x0C);
         assert_eq!(
@@ -6291,7 +6460,7 @@ mod loc_3e266_tests {
             };
 
             assert_eq!(
-                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3),
+                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, [-3, 3, -3, 3]),
                 expected_collision
             );
             assert_eq!(projectile.x_pos >> 16, expected_x);
@@ -6322,7 +6491,7 @@ mod loc_3e266_tests {
             };
 
             assert_eq!(
-                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3),
+                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, [-3, 3, -3, 3]),
                 expected_collision
             );
             assert_eq!(projectile.x_pos >> 16, expected_x);
@@ -6358,7 +6527,7 @@ mod loc_3e266_tests {
             };
 
             assert_eq!(
-                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3),
+                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, [-3, 3, -3, 3]),
                 expected_collision
             );
             assert_eq!(projectile.x_pos >> 16, expected_x);
@@ -6390,7 +6559,7 @@ mod loc_3e266_tests {
             };
 
             assert_eq!(
-                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3),
+                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, [-3, 3, -3, 3]),
                 expected_collision
             );
             assert_eq!(projectile.x_pos >> 16, expected_x);
@@ -6426,7 +6595,7 @@ mod loc_3e266_tests {
             };
 
             assert_eq!(
-                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3),
+                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, [-3, 3, -3, 3]),
                 expected_collision
             );
             assert_eq!(projectile.x_pos >> 16, expected_x);
@@ -6459,7 +6628,7 @@ mod loc_3e266_tests {
             };
 
             assert_eq!(
-                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3),
+                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, [-3, 3, -3, 3]),
                 expected_collision
             );
             assert_eq!(projectile.x_pos >> 16, expected_x);
@@ -6495,7 +6664,7 @@ mod loc_3e266_tests {
             };
 
             assert_eq!(
-                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3),
+                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, [-3, 3, -3, 3]),
                 expected_collision
             );
             assert_eq!(projectile.x_pos >> 16, expected_x);
@@ -6527,7 +6696,7 @@ mod loc_3e266_tests {
             };
 
             assert_eq!(
-                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3),
+                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, [-3, 3, -3, 3]),
                 expected_collision
             );
             assert_eq!(projectile.x_pos >> 16, expected_x);
@@ -6557,7 +6726,7 @@ mod loc_3e266_tests {
             };
 
             assert_eq!(
-                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3),
+                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, [-3, 3, -3, 3]),
                 expected_collision
             );
             assert_eq!(projectile.x_pos >> 16, expected_x);
@@ -6572,7 +6741,7 @@ mod loc_3e266_tests {
             };
 
             assert_eq!(
-                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3),
+                super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, [-3, 3, -3, 3]),
                 0,
                 "an edge exactly on the level boundary remains in bounds"
             );

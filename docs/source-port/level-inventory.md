@@ -73,15 +73,16 @@ The bundle contract requires decoded entries for every record with layouts,
 so a stale sparse bundle rebuilds. The browser package contains the aliases.
 
 Crypt `$41` loads and renders at frames 0, 60 and 120. Full comparison run
-`1789930316` exercises six checkpoints each for `$38/$41/$47`, all comparable.
-Each has an authoritative object-count mismatch at frame 300 (native 4,
-oracle 5) and up to seven mismatched pixels near the HUD lives icon. These
-remain unresolved under #433; repaired extraction is not whole-level fidelity.
+`1789938866` exercises six checkpoints each for `$38/$41/$47`, all comparable
+with no state differences. Seven mismatched pixels near the HUD lives icon
+remain under #433. The Robot's first and third shot lifecycles match separate
+framewise probes; parent position, interruptions and natural entry remain
+unverified. These checkpoints do not establish whole-level fidelity.
 
-State run `1789930380` covers all 105 standard entries with 95 comparable
+State run `1789938867` covers all 105 standard entries with 95 comparable
 passes, the same ten failures and zero fully masked levels. The ten failure
 records match run `1789928876` exactly. This two-checkpoint tier does not sample
-the frame-300 Crypt mismatch, so the fuller comparison remains required.
+frame 300 in Crypt, so the fuller comparison remains required.
 The sweep classifies oracle context from pause, title mode and requested-level
 mismatch rather than a blanket Crypt exclusion.
 

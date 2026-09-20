@@ -3979,6 +3979,108 @@ surface one row.
 
 ### #433
 
+2026-09-20 Robot child wake, terrain and impact investigation:
+
+The frame-307 deletion is the generic owner's Lion camera cull. Excluding
+Robot flight and impact workers retains Robot's own `loc_3AC48` range and
+`loc_3AC92` animation wait. The cull-only live replay exposed a second defect:
+native crossed the Crypt wall at X 175/180/185 on frames 307/308/309;
+the oracle clamps X to 157 twice, then starts impact at X 165 on frame 309.
+A centre-point terrain test cannot reproduce this path.
+
+`CollisionSize_Index[833..835]` selects `unk_31BCA`, the rectangle
+`(-2,5,-6,3)`. `loc_1734` mirrors the right-facing horizontal edges to
+[-3,+2]; left-facing edges are [-2,+3]. Both use Y [-6,-3]. The existing
+Gfx collision helper accepts rectangle edges, retaining each Tar Monster
+caller's symmetric box. `loc_3AC48` consumes the preceding Gfx pass's
+collision before movement. The allocation wake clamps terrain; the sound
+wake discards that contact and latches the next pass's contact; the next
+worker wake stops movement and applies the eight-pixel impact offset.
+Impact mappings `unk_31BC4/6/8` have no terrain boxes.
+
+The oracle Object linked list retains child `$FFFF0EFC` with resume PC
+`$1066` through frame 323 and removes it at 324. The first corrected native
+recording `crypt-robot-wall-review` still retained the child at 324 with
+lifetime zero. This rejects the old test's extra zero-lifetime display frame.
+`stru_3A762` includes its selection frame in the 3+4+8 display duration;
+`Hibernate_UntilAnimFinished` deletes on the following Object wake. A
+red/green regression pins that deletion boundary alongside both facing
+wall snaps, sprite-origin-independent Y edges, delayed sound and owner
+retention. The 83 focused Robot tests and 97 Tar-filtered tests pass.
+Two targeted mutation inversions of the shot/impact decisions are caught.
+The installed cargo-mutants selection uses `--in-diff` as well as `--re`;
+regex-only selection also emitted unrelated struct-field deletions.
+
+The wider sweep rejects this partial implementation as a landing candidate.
+Full Crypt run `1789938121` adds two authoritative `level_settle` count
+differences in each logical copy. State run `1789938123` consequently has
+92 passes, 13 failures and 34 blocking differences. The first native shot
+flies left from X 115 at frame 41, impacts at frame 56 and remains through
+70; the oracle has already removed its child at the frame-60 checkpoint.
+The matching third shot does not establish first-shot parity. This rejected
+result required a first-child probe before further implementation.
+
+The first-shot WRAM probe identifies the prerequisite: at frame 41 the ROM
+head faces right and immediately clamps its shot to X 157; native faces
+left and launches at X 115. Native's post-move wall/floor probes turn the
+parent early. `loc_3C04E/loc_3C0FA` instead scans the current body, computes
+the next integer displacement and turns only when it crosses the leading
+16px boundary. The Crypt oracle holds rightward X 149.5 and leftward X 139
+on the turn frame. Grounded motion writes X directly with Gfx velocity zero.
+The old tests' wall-overlapping starting positions take `loc_3C464` body
+destruction in the ROM; they cannot establish a wall-snap expectation.
+
+This is a reversible private worker change; an oracle mismatch rejects it
+without a public migration. The existing Robot walking function consumes the
+shared terrain scanners and falling continuation. Blanket `step_pacer` reuse
+would also inherit its first-edge catch-up and post-commit floor turns;
+retaining the old Robot probes leaves the measured direction error. The
+chosen change follows the source boundary dispatch without level constants.
+Two boundary regressions cover both cliff and wall directions, including
+fraction retention, zero Gfx velocity and body-overlap destruction. Grounded
+attack fixtures explicitly seed their grounded state.
+The 85 focused Robot tests pass. The unfiltered core suite reports 7,701
+passes, five failures and one ignored test; all five failure names already
+belong to `core-test-exclusions.json` (three snapshots and two demo checks).
+No snapshot or exclusion is accepted to accommodate this change.
+
+Final native recording `crypt-robot-boundary-review` matches the first shot
+at frames 41/42 (X 157), 43 (impact X 165), 57 (last impact) and 58
+(deleted). The third shot matches 307/308, 309, 323 and 324 respectively;
+sound starts at 42 and 308. Parent init/position residue remains: frame 0
+native X 148.5 versus oracle 149.5, and frame 31 native X 144 versus oracle
+143. Do not fit a settle delay from those values. The first-shot raw oracle
+probe covers frames 40..71, including the linked Object removal at 58.
+
+Full Crypt sweep `1789938866` has six comparable checkpoints in each of
+0x38/0x41/0x47 with no state differences. The existing seven HUD pixels
+remain. State sweep `1789938867` is per-level identical to `1789936137`:
+95 passes, ten failures, 28 authoritative differences and no wholly masked
+level. The rejected intermediate sweeps above are not the commit's verdict.
+Captured before/after frames are byte-identical while the child is above
+the viewport; inspected PNGs do not establish off-screen physics parity.
+WRAM and replay state establish that result. Probe-created `41.*` sidecars
+are isolated in `.cache/debug/robot-boundary-probe-sidecars` before gates.
+Six targeted mutations are caught across the shot worker, impact deletion
+and grounded boundary/floor decisions; this is a sample, not file-wide
+mutation coverage.
+
+`verify-slice-fast` passes, including 7,421 maintained core tests, Clippy,
+the source-citation ratchets and the existing frontier checks. The five
+unfiltered failures above remain separately disclosed.
+`verify-tas-full` checks all 37,759 frames: player/camera match, RNG matches
+all 37,743 post-init frames, and enemy comparisons have no authoritative
+divergence. The 24 existing oracle limitations remain. Frozen visual debt
+stays at 241 divergent frames / 2,391 pixels, GEMS signatures retain 36,836
+mismatched frames from 923, and GEMS command mismatches remain zero.
+The offline Jev audit passes without a paid request.
+
+Remaining #433 work includes shared-walker position, hurt/turn interruptions,
+raw Object/Gfx slot reuse, seven HUD pixels and natural Crypt entry. The
+flying renderer divides a one-based animation age by three; check an
+unobstructed oracle flight before changing its first mapping boundary.
+No paid Jev request is made.
+
 2026-09-20 Robot parent cursor investigation:
 
 The settled zero-input Crypt oracle enters `loc_3C554` at frames 31, 110,

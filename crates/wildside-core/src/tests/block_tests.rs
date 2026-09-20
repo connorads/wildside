@@ -13483,6 +13483,7 @@ mod chunk_04 {
         // ASM loc_3C538/loc_3C554: the level-2 head gate skips RNG entirely.
         let grid = grid_with_platform(17, 0, 120);
         let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, (17 * 16) << 16, 4);
+        enemy.on_ground = true;
         enemy.enemy_level = 2;
         enemy.facing = Direction::Right;
         let mut projs = vec![];
@@ -13543,6 +13544,7 @@ mod chunk_04 {
         // ASM loc_3C58E/loc_3C5C4: 8/9/9-frame head turn, independent body.
         let grid = grid_with_platform(17, 0, 120);
         let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, (17 * 16) << 16, 4);
+        enemy.on_ground = true;
         enemy.enemy_level = 2;
         enemy.facing = Direction::Left;
         for _ in 0..28 {
@@ -13621,6 +13623,7 @@ mod chunk_04 {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
         let mut left = test_enemy(EnemyFamily::Robot, 60 << 16, floor_y, 2);
+        left.on_ground = true;
         left.robot_state = RobotState::Walking;
         left.facing = Direction::Left;
         left.wait_timer = 10;
@@ -13629,13 +13632,13 @@ mod chunk_04 {
         step_robot(&mut left, Some(&grid), None, &mut None);
 
         assert_eq!(
-            left.x_velocity,
-            -robot_walk_speed(0),
-            "ASM Robot.asm loc_3A884 x_direction=0 branches to the leftward shared walker"
+            left.x_velocity, 0,
+            "ASM loc_3C172 commits leftward X directly without Gfx velocity"
         );
         assert!(left.x_pos < left_start);
 
         let mut right = test_enemy(EnemyFamily::Robot, 60 << 16, floor_y, 2);
+        right.on_ground = true;
         right.robot_state = RobotState::Walking;
         right.facing = Direction::Right;
         right.wait_timer = 10;
@@ -13644,9 +13647,8 @@ mod chunk_04 {
         step_robot(&mut right, Some(&grid), None, &mut None);
 
         assert_eq!(
-            right.x_velocity,
-            robot_walk_speed(0),
-            "ASM Robot.asm loc_3A884 x_direction=$FF branches to the rightward shared walker"
+            right.x_velocity, 0,
+            "ASM loc_3C0C6 commits rightward X directly without Gfx velocity"
         );
         assert!(right.x_pos > right_start);
     }

@@ -31,7 +31,7 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-09-20):** #433 Robot uses the head-animation gate, signed RNG comparison, independent head turns and 25-frame parent hold. Crypt's frame-300 Object count matches; full frame probes still delete the child at its frame-307 Gfx wake because the generic owner cull applies Lion's narrower camera box. Fix that cull with a wake-frame regression next, then investigate flight collision order and shared-walker position. Hurt/turn interruption, raw slot reuse, HUD pixels, natural entry and ten state-sweep failures remain open.
+- **Current work (2026-09-20):** #433 Robot shots retain their wake, clamp the ROM hitbox, consume prior Gfx collision and finish impact on time. Source-derived grounded turns correct the first shot's direction. Crypt's first/third shot lifecycles match; state sweep retains ten failures. Next repair the inspector's logical/resource sidecar fallback before building route coverage. Robot init/position residue, hurt/turn interruptions, raw slot reuse, HUD pixels and natural entry remain open.
 - **Selection:** Run `mise run project-status` and `mise run jev-audit`. Objective awaiting-human cases are eligible for investigation and evidence-backed closure. Coverage prerequisites come first, then P0 #210, #370 and #374 according to dependencies and available evidence.
 - **Scope:** Single-player across all playable levels, branches, forms and bosses. Preserve frozen #406/#409/#416 timing debt and its ratchets. Final package retains subjective/device checks; no human validation is claimed.
 - **Jev allowance:** $5 additional across the campaign. Historical charged upper bound is $0.176526462. Preserve the ledger; implement and test the allocation before another paid request. Offline work continues after the cap.
@@ -58,7 +58,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 433 | [~] | P1 | enemies/RNG | Root cause identified: Robot shot wake hits Lion owner culling; parent attack timing matches. | Regress frame-307 Gfx and frame-308 sound; retain flight, hurt, HUD and natural-entry checks. |
+| 433 | [ ] | P1 | enemies/RNG | Robot shot lifecycle and grounded turns verified; init, hurt and natural-entry fidelity remain open. | Retain first/third Crypt shot regressions; probe parent init residue and interrupted turns. |
 | 406 | [f] | P1 | rendering | FROZEN with #409 per ADR 0002: the lane stops accruing sessions; the march stays metered as ADR 0001 left it (frontier 995, injection ratchet). Residue authority moves to census-scoped reconstruction + raster-span-replay. | Do not extend the march; ratchets stay green; take #442-#450 instead. See ADR 0002. |
 | 409 | [f] | P1 | rendering | FROZEN per ADR 0002: the recurrence is a downward-only witness (scheduled-frames ratchet 736 / boundary 1657; tas-pixel-baseline). ADR 0003 corrected the spans; #459 found the bounded entry phase non-invertible and closed NO-GO. | Do not extend or promote the lane; keep the 2,391-pixel and scheduled-frame ratchets green. Evidence: archive #459. |
 | 416 | [f] | P2 | audio | Frontier FROZEN at frames 0..922 (decision in archive #416): `gems_frame_signature_v1` is a regression witness only; command parity (#435) supersedes it as audio authority. | Never advance `modelled_frames`; #434-#438 closed, remaining audio debt tracked via #439-#441; keep verify-tas-full green. |

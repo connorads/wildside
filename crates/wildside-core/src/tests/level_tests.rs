@@ -29002,6 +29002,9 @@ mod chunk_10 {
         });
 
         rt.step_projectiles();
+        assert_eq!(rt.projectiles[0].kind, EnemyProjectileKind::RobotShot);
+        assert_eq!(rt.projectiles[0].x_pos, 449 << 16);
+        rt.step_projectiles();
 
         assert_eq!(
             rt.projectiles.len(),
@@ -29035,9 +29038,13 @@ mod chunk_10 {
             kind: EnemyProjectileKind::RobotShot,
             ..Default::default()
         });
-        // Post-step position is (34, 40), inside solid cell (2, 2).
+        // ASM unk_31BCA / loc_197E snaps the flipped +2 edge to X 31.
         rt.set_block_grid(bounce_grid(&[(2, 2)]));
 
+        rt.step_projectiles();
+        assert_eq!(rt.projectiles[0].kind, EnemyProjectileKind::RobotShot);
+        assert_eq!(rt.projectiles[0].x_pos, 29 << 16);
+        assert_eq!(rt.projectiles[0].collision_type, 0x04);
         rt.step_projectiles();
 
         assert_eq!(
@@ -29056,7 +29063,7 @@ mod chunk_10 {
         );
         assert_eq!(
             rt.projectiles[0].x_pos,
-            42 << 16,
+            37 << 16,
             "ASM Robot.asm loc_3AC92 should add +8px for a right-facing shot impact"
         );
     }
@@ -29074,7 +29081,10 @@ mod chunk_10 {
             ..Default::default()
         });
 
-        for _ in 0..ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762 {
+        // ASM loc_3AC92 / Hibernate_UntilAnimFinished: the initial impact
+        // frame is already displayed. Crypt shows impact at 309..323 and
+        // removes its Object before the frame-324 Gfx pass.
+        for _ in 1..ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762 {
             assert_eq!(
                 rt.projectiles.len(),
                 1,
@@ -29082,7 +29092,7 @@ mod chunk_10 {
             );
             rt.step_projectiles();
         }
-        assert_eq!(rt.projectiles[0].lifetime, 0);
+        assert_eq!(rt.projectiles[0].lifetime, 1);
 
         rt.step_projectiles();
 
