@@ -3979,6 +3979,68 @@ surface one row.
 
 ### #433
 
+2026-09-20 Robot parent cursor investigation:
+
+The settled zero-input Crypt oracle enters `loc_3C554` at frames 31, 110,
+164, 218 and 297. `Enemy03_Robot_Shoot` runs at 31, 218 and 297;
+`loc_3AA9E` resumes at 56, 243 and 322. Eligibility follows the head's
+C82F0/timer-9 gate. `BLE` compares the low random word as signed, while
+layout level 2 skips RNG altogether. `$4A(a5)=$20` is probe height, not an
+attack cooldown. The native 32-frame cooldown and per-frame random retries
+are rejected.
+
+Explicit private body/head cursors retain selected mapping, next script entry
+and timer. Elapsed ticks alone cannot represent the ROM recovery. At 322 the
+oracle body selects C82D0 with timer 8 and pointer `stru_3A6E2+$14`; at 330
+it repeats that entry with timer 9; at 339 it selects C82A8. The head retains
+C8328 through 329, selects C82F8 at 330, then C8300 at 339. A completed head
+turn instead calls `Init_Animation` before shooting, so its first recovery
+Gfx pass reloads C82D8. A second independent cooldown would obscure these
+saved cursors; the private representation can be replaced without public
+schema migration. Body and head advance after Object callbacks, with the
+category-2 Samurai Haze gate from `loc_1462/loc_147E`.
+
+The native zero-input recording `crypt-robot-parent-cursor-review` starts the
+third shot at frame 297 and resumes at 322. Recoil starts at 306 and ends
+at 311, matching the oracle's 9/5/11 waits. This is partial parity: native
+body X is 144 versus oracle 141 at 297, and the child disappears at 307
+(native counts return from 5 Objects/6 Gfx to 4/6), where the oracle instead
+allocates Gfx and emits sound at 308. Do not infer complete shot fidelity
+from the now-correct frame-300 Object count. Next probe the wake-frame
+terrain/culling path and the shared walker position difference separately.
+The owner-based generic projectile cull in `step_projectiles` applies Lion's
+Y range `[-64,288]` to the Robot child. At wake the shot is at Y 1026 and
+camera Y 1120, so -94 triggers that cull despite being inside Robot's
+`loc_3AC48` range `[-128,448]`. This is the next isolated regression target;
+Robot impact retention also needs the same ownership exclusion.
+The direct native probe creates `level-layout/41.*` sidecars in the generated
+asset root. That made the web asset-catalogue test request the diagnostic
+`41.json`, which is absent from the shipping catalogue. The four probe files
+are isolated under `.cache/debug/robot-parent-probe-sidecars`; do not change
+the shipping catalogue to absorb this diagnostic cache mutation. Native
+terrain decoding remains the comparison path used by the original sweep.
+The new implementation retains the existing hurt-path approximation;
+`loc_3A8FC` ordinarily leaves head animation running, and interrupted turn
+latches need a collision probe. Raw slot reuse and natural entry also remain
+open. No paid Jev request is made.
+
+Verification: 80 focused Robot tests pass, including red/green regressions
+for off-gate RNG consumption and the missed Samurai Haze attack. The full
+fast gate passes with 7,416 core tests, lint, frontier replays and zero
+workspace failures. Full TAS checks all 37,759 frames: player/camera and
+post-init RNG match; enemy authoritative differences are zero; the same
+24 oracle limitations remain. Frozen pixels stay at 241 frames / 2,391
+changed pixels; GEMS signatures retain their baseline and commands have
+zero mismatches. State sweep `1789936137` is per-level identical to
+`1789933428` apart from output paths: 95 comparable passes, ten failures,
+28 blocking differences and no wholly masked level. Full Crypt sweep
+`1789935346` changes all three logical copies from a frame-300 Object-count
+failure to six comparable checkpoints with no state difference. The existing
+seven-pixel HUD residue remains. The frame-300 native/oracle composite was
+inspected. Backlog lint and offline Jev audit pass. Six animation/shooting
+labels leave the test-only citation baseline; this is reachability accounting,
+not additional fidelity proof.
+
 2026-09-20 delayed Robot shot worker:
 
 The settled Crypt probe allocates child Object `$FFFF0EFC` at frame 297.

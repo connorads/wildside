@@ -426,6 +426,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -525,6 +526,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -685,6 +687,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -794,6 +797,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -979,6 +983,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -5688,6 +5693,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -5774,6 +5780,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -5865,6 +5872,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -5958,6 +5966,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -6172,6 +6181,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -6252,6 +6262,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -6343,6 +6354,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -6556,6 +6568,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -7440,6 +7453,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -7525,6 +7539,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -7616,6 +7631,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -7712,6 +7728,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -7828,6 +7845,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -7938,6 +7956,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -8040,6 +8059,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -8144,6 +8164,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -8251,6 +8272,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -8543,6 +8565,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -8623,6 +8646,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -9229,6 +9253,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -9377,6 +9402,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -9472,6 +9498,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -9561,6 +9588,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -9659,6 +9687,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -9742,6 +9771,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -9828,6 +9858,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -9953,6 +9984,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -10265,6 +10297,7 @@ mod chunk_04 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -13447,152 +13480,121 @@ mod chunk_04 {
 
     #[test]
     fn robot_walks_then_shoots_and_resumes_walking_loc_3aac4() {
+        // ASM loc_3C538/loc_3C554: the level-2 head gate skips RNG entirely.
         let grid = grid_with_platform(17, 0, 120);
-        let floor_y = (17 * 16) << 16;
-        let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, floor_y, 2);
-        enemy.robot_state = RobotState::Walking;
+        let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, (17 * 16) << 16, 4);
+        enemy.enemy_level = 2;
         enemy.facing = Direction::Right;
-        enemy.on_ground = true;
-        enemy.wait_timer = 1;
-        let player_x = Some(80u32 << 16);
         let mut projs = vec![];
         let mut rng = RomRandomState::default();
-        while (rng.clone().next_long() as u16) > 0x000A {
-            rng.next_long();
+        let random_before = rng.clone().next_long();
+        for _ in 0..28 {
+            advance_robot_gfx(&mut enemy);
         }
-        // Timer at 1 → decrements to 0
+        let start_x = enemy.x_pos;
         step_robot_with_rng(
             &mut enemy,
             Some(&grid),
-            player_x,
+            Some(80 << 16),
             &mut Some(&mut projs),
             &mut rng,
         );
+        assert_eq!(rng.next_long(), random_before);
+        assert_eq!(enemy.robot_state, RobotState::Shooting);
+        assert_eq!(enemy.wait_timer, 25);
+        assert_eq!(enemy.x_pos, start_x);
+        assert_eq!(projs.len(), 1);
+        assert_eq!(projs[0].x_pos, start_x + (26 << 16));
+        assert_eq!(projs[0].y_pos, enemy.y_pos - (14 << 16));
+        assert_eq!(projs[0].x_velocity, ROBOT_PROJECTILE_SPEED);
+        assert!(!projs[0].robot_shot_has_gfx_object());
+        for elapsed in 1..=25 {
+            step_robot_with_rng(
+                &mut enemy,
+                Some(&grid),
+                Some(80 << 16),
+                &mut Some(&mut projs),
+                &mut rng,
+            );
+            advance_robot_gfx(&mut enemy);
+            let head = enemy.child_attachment_snapshot().unwrap();
+            if elapsed < 25 {
+                assert_eq!(enemy.x_pos, start_x);
+                assert_eq!(head.y_pos, enemy.y_pos - (13 << 16));
+                assert_eq!(
+                    head.x_pos,
+                    start_x
+                        - if (9..14).contains(&elapsed) {
+                            4 << 16
+                        } else {
+                            0
+                        }
+                );
+            }
+        }
         assert_eq!(enemy.robot_state, RobotState::Walking);
-        assert!(projs.is_empty());
-        // Timer at 0 → shoot, then resume walking through loc_3AAC4.
-        step_robot_with_rng(
-            &mut enemy,
-            Some(&grid),
-            player_x,
-            &mut Some(&mut projs),
-            &mut rng,
-        );
-        assert_eq!(
-            enemy.robot_state,
-            RobotState::Walking,
-            "ASM Robot.asm loc_3AAC4 resumes the walker after shooting; loc_3A96C charge is collision-routed"
-        );
-        assert_eq!(
-            enemy.wait_timer, ROBOT_SHOOT_INTERVAL,
-            "native approximates the next shared sub_3C4F8 shoot check with the existing shoot interval"
-        );
-        assert_eq!(projs.len(), 1, "robot should fire a projectile");
-        assert_eq!(
-            projs[0].x_pos,
-            enemy.x_pos + (26 << 16),
-            "ASM Robot.asm loc_3AC0C should spawn the right-facing shot 26px from the muzzle"
-        );
-        assert_eq!(
-            projs[0].y_pos,
-            enemy.y_pos - (14 << 16),
-            "ASM Robot.asm loc_3AC0C applies child head offset `$10` into a -14px shot Y delta"
-        );
-        assert_eq!(
-            projs[0].x_velocity, ROBOT_PROJECTILE_SPEED,
-            "ASM Robot.asm loc_3AC0C should launch right-facing shots at `$50000`"
-        );
-        assert_eq!(
-            projs[0].kind,
-            EnemyProjectileKind::RobotShot,
-            "live Robot shots need the loc_3AC48 camera/collision lifecycle, not generic timer expiry"
-        );
-        assert_eq!(enemy.facing, Direction::Right, "should face toward player");
+        assert_eq!(enemy.wait_timer, 0);
+        assert_eq!(enemy.x_pos, start_x + (1 << 16));
+        assert_eq!(projs.len(), 1);
     }
 
     #[test]
-    fn robot_sub_3c4f8_aim_gate_turns_before_shooting_when_facing_away() {
+    fn robot_sub_3c4f8_aim_sequence_turns_head_while_body_walks() {
+        // ASM loc_3C58E/loc_3C5C4: 8/9/9-frame head turn, independent body.
         let grid = grid_with_platform(17, 0, 120);
-        let floor_y = (17 * 16) << 16;
-        let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, floor_y, 2);
-        enemy.robot_state = RobotState::Walking;
+        let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, (17 * 16) << 16, 4);
+        enemy.enemy_level = 2;
         enemy.facing = Direction::Left;
-        enemy.on_ground = true;
-        enemy.wait_timer = 0;
-        let player_x = Some(80u32 << 16);
-        let mut projs = vec![];
-        let mut rng = RomRandomState::default();
-        while (rng.clone().next_long() as u16) > 0x000A {
-            rng.next_long();
+        for _ in 0..28 {
+            advance_robot_gfx(&mut enemy);
         }
-
-        step_robot_with_rng(
+        let mut projs = vec![];
+        step_robot(
             &mut enemy,
             Some(&grid),
-            player_x,
+            Some(80 << 16),
             &mut Some(&mut projs),
-            &mut rng,
         );
-
-        assert_eq!(
-            enemy.robot_state,
-            RobotState::Aiming,
-            "ASM sub_3C4F8 loc_3C588 should arm the Robot turn sequence instead of snapping to face Kid and firing"
-        );
-        assert_eq!(
-            enemy.facing,
-            Direction::Left,
-            "ASM sub_3C4F8 loc_3C58E keeps the current x_direction until the phase-2 flip"
-        );
-        assert!(
-            projs.is_empty(),
-            "ASM sub_3C4F8 should delay Enemy03_Robot_Shoot until the turn sequence completes"
-        );
-    }
-
-    #[test]
-    fn robot_sub_3c4f8_aim_sequence_flips_then_shoots() {
-        let grid = grid_with_platform(17, 0, 120);
-        let floor_y = (17 * 16) << 16;
-        let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, floor_y, 2);
-        enemy.robot_state = RobotState::Aiming;
-        enemy.facing = Direction::Left;
-        enemy.on_ground = true;
-        enemy.wait_timer = 26;
-        let mut projs = vec![];
-
-        for _ in 0..17 {
+        assert_eq!(enemy.robot_state, RobotState::Aiming);
+        assert_eq!(enemy.wait_timer, 26);
+        for elapsed in 1..=26 {
             step_robot(
                 &mut enemy,
                 Some(&grid),
-                Some(80u32 << 16),
+                Some(80 << 16),
                 &mut Some(&mut projs),
             );
-        }
-        assert_eq!(
-            enemy.facing,
-            Direction::Right,
-            "ASM sub_3C4F8 loc_3C5A2 flips x_direction during phase 2, before Enemy03_Robot_Shoot"
-        );
-        assert!(projs.is_empty());
-
-        while enemy.robot_state == RobotState::Aiming {
-            step_robot(
-                &mut enemy,
-                Some(&grid),
-                Some(80u32 << 16),
-                &mut Some(&mut projs),
+            advance_robot_gfx(&mut enemy);
+            assert_eq!(enemy.facing, Direction::Left);
+            assert_eq!(
+                robot_head_facing(&enemy),
+                if elapsed < 17 {
+                    Direction::Left
+                } else {
+                    Direction::Right
+                }
             );
+            assert_eq!(enemy.x_pos, (59 - elapsed.min(25)) << 16);
+            if elapsed < 26 {
+                assert!(projs.is_empty());
+            }
         }
-
-        assert_eq!(
-            enemy.robot_state,
-            RobotState::Walking,
-            "ASM Robot.asm loc_3AAC4 resumes walking after the delayed shoot sequence"
-        );
-        assert_eq!(enemy.wait_timer, ROBOT_SHOOT_INTERVAL);
+        assert_eq!(enemy.robot_state, RobotState::Shooting);
+        assert_eq!(enemy.wait_timer, 25);
         assert_eq!(projs.len(), 1);
         assert_eq!(projs[0].x_velocity, ROBOT_PROJECTILE_SPEED);
+        for _ in 0..25 {
+            step_robot(&mut enemy, Some(&grid), Some(80 << 16), &mut None);
+        }
+        advance_robot_gfx(&mut enemy);
+        // ASM loc_3C5D8 reset before shooting makes recovery reload C82D8 immediately.
+        assert_eq!(
+            enemy
+                .child_attachment_snapshot()
+                .unwrap()
+                .sprite_animation_phase,
+            Some(10)
+        );
     }
 
     #[test]

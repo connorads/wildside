@@ -867,6 +867,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,

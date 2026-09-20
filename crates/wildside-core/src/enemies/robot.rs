@@ -7,96 +7,90 @@ pub(crate) fn robot_walk_speed(enemy_level: u8) -> i32 {
     if enemy_level >= 1 { 0x1_0000 } else { 0x8000 }
 }
 
-/// Robot shoot interval: ASM Robot.asm init sets $4A(a5) = $20 = 32 frames.
-pub(crate) const ROBOT_SHOOT_INTERVAL: u16 = 32;
-
 pub(crate) fn robot_charge_flip_reload_with_rng(rng: &mut RomRandomState) -> u16 {
     // ASM loc_3A9F0: `Get_RandomNumber_byte`, `lsr.w #1,d7`, `addi.w #$F,d7`.
     let random_byte = rng.next_byte();
     u16::from(random_byte >> 1) + ROBOT_CHARGE_FLIP_BASE
 }
 
-/// Atlas phase for the Robot parent body's current ROM mapping.
-pub(crate) fn robot_live_body_sprite_phase(
-    state: RobotState,
-    animation_tick: u8,
-    hurt_remaining: u8,
-) -> u8 {
-    if hurt_remaining > 0 {
-        // ASM Robot.asm loc_3A8FC installs one-frame script stru_3A744
-        // (C8310) on the parent body for the surviving-hit hibernate.
-        return 8;
-    }
-    let frame_ticks = if matches!(state, RobotState::Charging) {
-        4
-    } else {
-        9
-    };
-    (animation_tick.saturating_sub(1) / frame_ticks) % 6
+/// ASM Init_Animation / GfxObject_Animate: selected mapping and next script entry
+/// are independent; loc_3AA9E deliberately replays the sixth body entry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct RobotAnimationCursor {
+    pub(crate) selected: u8,
+    pub(crate) next_entry: u8,
+    pub(crate) timer: u8,
 }
 
-/// Atlas phase for the linked Robot head GfxObject allocated at loc_3A7EE.
-pub(crate) fn robot_live_head_sprite_phase(
-    state: RobotState,
-    animation_tick: u8,
-    hurt_remaining: u8,
-    state_timer: u16,
-) -> u8 {
-    if hurt_remaining > 0 {
-        // ASM Robot.asm loc_3A8FC selects C8308 on the linked head before
-        // the parent runs stru_3A744.
-        return 19;
-    }
-    match state {
-        RobotState::Walking => 10 + (animation_tick.saturating_sub(1) / 9) % 6,
-        RobotState::Charging => {
-            // ASM stru_3A730 advances C8290/C8298/C82A0 for four ticks each;
-            // selector 2 then rewinds `$0D` bytes to repeat all three.
-            16 + (animation_tick.saturating_sub(1) % 12) / 4
+impl RobotAnimationCursor {
+    fn init(first: u8) -> Self {
+        Self {
+            selected: first,
+            next_entry: 0,
+            timer: 1,
         }
-        RobotState::Aiming => {
-            // ASM sub_3C4F8 loc_3C58E/loc_3C5C4 presents C8338 for the
-            // initial shortened eight ticks, C8340 for nine, then C8338 for
-            // nine before Enemy03_Robot_Shoot.
-            if (10..=18).contains(&state_timer) {
-                22
-            } else {
-                21
-            }
+    }
+
+    fn advance(&mut self, first: u8, entries: u8, duration: u8) {
+        self.timer -= 1;
+        if self.timer == 0 {
+            self.selected = first + self.next_entry;
+            self.next_entry = (self.next_entry + 1) % entries;
+            self.timer = duration;
         }
     }
 }
 
-pub(crate) fn robot_live_body_animation_cycle_ticks(state: RobotState) -> u8 {
-    if matches!(state, RobotState::Charging) {
-        24
-    } else {
-        54
+/// ASM Enemy03_Robot_Init: body and linked head own separate GfxObject state.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct RobotGfxState {
+    pub(crate) body: RobotAnimationCursor,
+    pub(crate) head: RobotAnimationCursor,
+    pub(crate) head_facing: Option<Direction>,
+}
+
+impl Default for RobotGfxState {
+    fn default() -> Self {
+        Self {
+            body: RobotAnimationCursor::init(0),
+            head: RobotAnimationCursor::init(10),
+            head_facing: None,
+        }
     }
 }
 
-fn robot_next_loop_animation_tick(animation_tick: u8, cycle: u8) -> u8 {
-    if animation_tick == 0 || animation_tick >= cycle {
-        1
-    } else {
-        animation_tick + 1
+pub(crate) fn advance_robot_gfx(enemy: &mut ActiveEnemy) {
+    // ASM loc_142E runs after Object callbacks, including hibernated walkers.
+    // TODO(fidelity): #433 loc_3A8FC hurt replaces only the body script;
+    // the retained native hurt path freezes both cursors and needs collision probes.
+    if enemy.death_animation_active
+        || enemy.damage_flash_frames > 0
+        || matches!(enemy.robot_state, RobotState::Shooting)
+    {
+        return;
+    }
+    let charging = matches!(enemy.robot_state, RobotState::Charging);
+    enemy
+        .robot_gfx
+        .body
+        .advance(0, 6, if charging { 4 } else { 9 });
+    if !matches!(enemy.robot_state, RobotState::Aiming) {
+        enemy.robot_gfx.head.advance(
+            if charging { 16 } else { 10 },
+            if charging { 3 } else { 6 },
+            if charging { 4 } else { 9 },
+        );
     }
 }
 
-pub(crate) fn robot_next_body_animation_tick(state: RobotState, animation_tick: u8) -> u8 {
-    // ASM stru_3A6E2/stru_3A6FC: selector 2 rewinds after the sixth mapping's
-    // terminal countdown tick, not when that tick first becomes selected.
-    robot_next_loop_animation_tick(animation_tick, robot_live_body_animation_cycle_ticks(state))
+pub(crate) fn robot_head_facing(enemy: &ActiveEnemy) -> Direction {
+    enemy.robot_gfx.head_facing.unwrap_or(enemy.facing)
 }
 
-pub(crate) fn robot_next_head_animation_tick(state: RobotState, animation_tick: u8) -> u8 {
-    match state {
-        // ASM stru_3A716 and stru_3A730 both end in selector 2 loops. Their
-        // terminal mappings remain selected through ticks 54 and 12.
-        RobotState::Walking => robot_next_loop_animation_tick(animation_tick, 54),
-        RobotState::Charging => robot_next_loop_animation_tick(animation_tick, 12),
-        RobotState::Aiming => animation_tick,
-    }
+pub(crate) fn reset_robot_walk_animation(enemy: &mut ActiveEnemy) {
+    // ASM loc_3A936/loc_3AB14 reinitialises both scripts, preserving direction.
+    enemy.robot_gfx.body = RobotAnimationCursor::init(0);
+    enemy.robot_gfx.head = RobotAnimationCursor::init(10);
 }
 
 /// Robot projectile speed: ~5 px/frame horizontal (Robot.asm).
@@ -667,8 +661,7 @@ fn push_robot_shot(enemy: &ActiveEnemy, projectiles: &mut Option<&mut Vec<EnemyP
 pub(crate) fn refresh_robot_shot_parent(shot: &mut EnemyProjectile, enemy: &ActiveEnemy) {
     // ASM Enemy03_Robot_Shot_Init / loc_3AC0C: copy parent coordinate words,
     // linked head direction and `$46=$10`, then apply word-width muzzle offsets.
-    let head = enemy.child_attachment_snapshot();
-    let facing = head.and_then(|head| head.facing).unwrap_or(enemy.facing);
+    let facing = robot_head_facing(enemy);
     let spawn = robot_shot_spawn_loc_3ac0c(robot_x_direction_byte(facing), 0x10);
     shot.x_pos =
         u32::from(((enemy.x_pos >> 16) as u16).wrapping_add_signed(spawn.projectile_x_delta_px))
@@ -680,8 +673,63 @@ pub(crate) fn refresh_robot_shot_parent(shot: &mut EnemyProjectile, enemy: &Acti
     shot.palette_variant = enemy.palette_variant;
 }
 
-/// Step a Robot enemy: paces at level-dependent speed, shoots at intervals,
-/// then enters a fast charge phase.
+fn begin_robot_shoot(enemy: &mut ActiveEnemy, projectiles: &mut Option<&mut Vec<EnemyProjectile>>) {
+    // ASM Enemy03_Robot_Shoot allocates the worker, then freezes both GfxObjects.
+    push_robot_shot(enemy, projectiles);
+    enemy.robot_state = RobotState::Shooting;
+    enemy.wait_timer = 25;
+    enemy.x_velocity = 0;
+    enemy.y_velocity = 0;
+    enemy.robot_gfx.body.selected = 9;
+    enemy.robot_gfx.head.selected = 20;
+}
+
+fn step_robot_walk(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    // ASM Robot.asm loc_3A7AC/loc_3A7EE stores `$50(a5)` from the
+    // immutable layout level during init; damage never changes it.
+    let walk_speed = robot_walk_speed(enemy.enemy_level);
+    // ASM Robot.asm loc_3A884 enters the shared walker left/right branch
+    // from x_direction; native `facing` is that decoded branch choice.
+    if let Some(grid) = block_grid {
+        let probe_half_width = pacer_probe_half_width(enemy.family);
+        let probe_height = pacer_probe_height(enemy.family);
+        enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+        enemy.y_velocity = 0;
+        enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+
+        let cx = (enemy.x_pos >> 16) as i32;
+        let cy = (enemy.y_pos >> 16) as i32;
+        let moving_right = enemy.x_velocity >= 0;
+
+        let wall = terrain::probe_wall(grid, cx, cy, probe_half_width, probe_height, moving_right);
+        if wall.hit {
+            let wall_fp = (wall.wall_x_px as u32) << 16;
+            let edge_fp = (probe_half_width as u32) << 16;
+            if moving_right {
+                enemy.x_pos = enemy.x_pos.min(wall_fp.saturating_sub(edge_fp));
+            } else {
+                enemy.x_pos = enemy.x_pos.max(wall_fp + edge_fp);
+            }
+            reverse_enemy_direction(enemy);
+        } else {
+            let look_ahead_x = if moving_right {
+                cx + probe_half_width
+            } else {
+                cx - probe_half_width
+            };
+            if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+                reverse_enemy_direction(enemy);
+            }
+        }
+    }
+
+    // ASM sub_3BF72 preserves an independent head only above enemy level zero.
+    if enemy.enemy_level == 0 {
+        enemy.robot_gfx.head_facing = Some(enemy.facing);
+    }
+}
+
+/// ASM sub_3C4F8 / Robot.asm: patrol, independent head turn and shooting waits.
 #[cfg(test)]
 pub(crate) fn step_robot(
     enemy: &mut ActiveEnemy,
@@ -700,98 +748,77 @@ pub(crate) fn step_robot_with_rng(
     projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
     rng: &mut RomRandomState,
 ) {
+    enemy.robot_gfx.head_facing.get_or_insert(enemy.facing);
     match enemy.robot_state {
         RobotState::Walking => {
-            // ASM Robot.asm loc_3A7AC/loc_3A7EE stores `$50(a5)` from the
-            // immutable layout level during init; damage never changes it.
-            let walk_speed = robot_walk_speed(enemy.enemy_level);
-            // ASM Robot.asm loc_3A884 enters the shared walker left/right branch
-            // from x_direction; native `facing` is that decoded branch choice.
-            if let Some(grid) = block_grid {
-                let probe_half_width = pacer_probe_half_width(enemy.family);
-                let probe_height = pacer_probe_height(enemy.family);
-                enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
-                enemy.y_velocity = 0;
-                enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
-
-                let cx = (enemy.x_pos >> 16) as i32;
-                let cy = (enemy.y_pos >> 16) as i32;
-                let moving_right = enemy.x_velocity >= 0;
-
-                let wall =
-                    terrain::probe_wall(grid, cx, cy, probe_half_width, probe_height, moving_right);
-                if wall.hit {
-                    let wall_fp = (wall.wall_x_px as u32) << 16;
-                    let edge_fp = (probe_half_width as u32) << 16;
-                    if moving_right {
-                        enemy.x_pos = enemy.x_pos.min(wall_fp.saturating_sub(edge_fp));
-                    } else {
-                        enemy.x_pos = enemy.x_pos.max(wall_fp + edge_fp);
-                    }
-                    reverse_enemy_direction(enemy);
-                    return;
-                }
-
-                let look_ahead_x = if moving_right {
-                    cx + probe_half_width
-                } else {
-                    cx - probe_half_width
-                };
-                if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
-                    reverse_enemy_direction(enemy);
-                }
-            }
-
-            // Shoot timer
-            if enemy.wait_timer > 0 {
-                enemy.wait_timer -= 1;
-            } else {
-                let Some(px) = player_x_pos else {
-                    return;
-                };
-                let parent_x_direction = robot_x_direction_byte(enemy.facing);
-                let robot_x_pos_px = (enemy.x_pos >> 16) as u16;
+            // ASM loc_3C538/loc_3C554 consumes a random long only at C82F0/9.
+            if enemy.robot_gfx.head.selected == 13
+                && enemy.robot_gfx.head.timer == 9
+                && let Some(px) = player_x_pos
+            {
+                let head = enemy.child_attachment_snapshot().expect("live Robot head");
                 let result =
                     shared_enemy_robot_helper_sub_3C4F8(SharedEnemyRobotHelperInputSub3C4F8 {
                         helper_kind: SharedEnemyRobotHelperKindSub3C4F8::Robot,
                         parent_mapping: ROBOT_IDLE_MAPPING_SUB_3C4F8,
-                        parent_state_word_32: 9,
-                        child_state_word_40: 1,
+                        parent_state_word_32: u16::from(enemy.robot_gfx.head.timer),
+                        child_state_word_40: u16::from(enemy.enemy_level),
                         child_counter_word_4e: 0,
                         child_timer_word_54: 0,
-                        parent_x_pos: robot_x_pos_px,
-                        walker_x_pos: robot_x_pos_px,
+                        parent_x_pos: (head.x_pos >> 16) as u16,
+                        walker_x_pos: (enemy.x_pos >> 16) as u16,
                         kid_x_pos: (px >> 16) as u16,
-                        parent_x_direction,
+                        parent_x_direction: robot_x_direction_byte(robot_head_facing(enemy)),
                         parent_flag_15: true,
-                        random_word: rng.next_long() as u16,
+                        random_word: if enemy.enemy_level == 2 {
+                            0
+                        } else {
+                            rng.next_long() as u16
+                        },
                     });
-
-                enemy.facing = robot_direction_branch_loc_3aa0c(result.next_parent_x_direction);
                 if result.branch_to_robot_shoot {
-                    push_robot_shot(enemy, projectiles);
-                    finish_robot_shoot_sequence(enemy);
-                } else if result.next_child_counter_word_4e != 0 {
-                    // ASM sub_3C4F8 loc_3C58E -> loc_3C5A2 arms the head turn
-                    // sequence and immediately burns one of the three 9-frame
-                    // phases before tail-jumping to Enemy03_Robot_Shoot.
+                    begin_robot_shoot(enemy, projectiles);
+                    return;
+                }
+                if result.next_child_counter_word_4e != 0 {
+                    // ASM loc_3C58E freezes only the head and burns the first turn tick.
                     enemy.robot_state = RobotState::Aiming;
                     enemy.wait_timer = ROBOT_AIM_TURN_FRAMES;
-                    enemy.x_velocity = 0;
+                    enemy.robot_gfx.head.selected = 21;
                 }
             }
+            step_robot_walk(enemy, block_grid);
         }
         RobotState::Aiming => {
-            enemy.x_velocity = 0;
-            if enemy.wait_timer > 0 {
-                enemy.wait_timer -= 1;
-                if enemy.wait_timer == ROBOT_AIM_DIRECTION_FLIP_REMAINING {
-                    reverse_enemy_direction(enemy);
-                }
+            enemy.wait_timer = enemy.wait_timer.saturating_sub(1);
+            if enemy.wait_timer == ROBOT_AIM_DIRECTION_FLIP_REMAINING {
+                // ASM loc_3C5C4 flips `$16(a4)`, the head, independently of the body.
+                enemy.robot_gfx.head_facing = Some(match robot_head_facing(enemy) {
+                    Direction::Left => Direction::Right,
+                    Direction::Right => Direction::Left,
+                });
             }
+            enemy.robot_gfx.head.selected = if (10..=18).contains(&enemy.wait_timer) {
+                22
+            } else {
+                21
+            };
             if enemy.wait_timer == 0 {
-                push_robot_shot(enemy, projectiles);
+                // ASM loc_3C5D8 resets the head cursor before tail-jumping to Shoot.
+                enemy.robot_gfx.head = RobotAnimationCursor::init(10);
+                begin_robot_shoot(enemy, projectiles);
+            } else {
+                step_robot_walk(enemy, block_grid);
+            }
+        }
+        RobotState::Shooting => {
+            // ASM loc_3AA4C/loc_3AA72/loc_3AA88 wait 9, 5 and 11 frames.
+            enemy.wait_timer = enemy.wait_timer.saturating_sub(1);
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            if enemy.wait_timer == 0 {
                 finish_robot_shoot_sequence(enemy);
+                step_robot_walk(enemy, block_grid);
             }
         }
         RobotState::Charging => {
@@ -836,6 +863,8 @@ pub(crate) fn step_robot_with_rng(
                 reverse_enemy_direction(enemy);
                 enemy.wait_timer = robot_charge_flip_reload_with_rng(rng);
             }
+            // ASM sub_3BF72: the `$800` charge collision word copies body direction.
+            enemy.robot_gfx.head_facing = Some(enemy.facing);
         }
     }
 }
@@ -846,73 +875,127 @@ mod tests {
     use crate::enemies::test_fixtures::*;
 
     #[test]
-    fn robot_live_body_and_head_phases_follow_separate_gfx_scripts() {
-        // ASM stru_3A6E2/stru_3A716: body and head each loop six mappings
-        // for nine ticks while walking.
-        assert_eq!(robot_live_body_sprite_phase(RobotState::Walking, 9, 0), 0);
-        assert_eq!(robot_live_body_sprite_phase(RobotState::Walking, 10, 0), 1);
-        assert_eq!(
-            robot_live_head_sprite_phase(RobotState::Walking, 0, 0, 0),
-            10
-        );
-        assert_eq!(
-            robot_live_head_sprite_phase(RobotState::Walking, 10, 0, 0),
-            11
-        );
+    fn robot_live_animation_gate_runs_after_objects_and_obeys_haze() {
+        // ASM loc_3C538 reads prior Gfx state; loc_147E throttles category 2.
+        let mut enemies = [robot_test_enemy(
+            RobotState::Walking,
+            Direction::Right,
+            100,
+            80,
+            0,
+        )];
+        let mut rng = RomRandomState::default();
+        let mut shots = Vec::new();
+        for time in 1..=116 {
+            step_active_enemies_with_rng(
+                &mut enemies,
+                None,
+                Some(140 << 16),
+                Some(80 << 16),
+                None,
+                None,
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                time,
+                true,
+                Some(&mut shots),
+                &mut rng,
+                &mut Vec::new(),
+                None,
+                &mut std::collections::HashMap::new(),
+            );
+            // 28 eligible Gfx passes select C82F0 at frame 112; the next
+            // eligible Object pass (116) consumes the default seed and shoots.
+            assert_eq!(shots.len(), usize::from(time == 116), "frame {time}");
+        }
+        assert_eq!(enemies[0].snapshot().sprite_animation_phase, Some(9));
+    }
 
-        // ASM stru_3A6FC/stru_3A730: charge legs advance every four ticks;
-        // the head loops three four-tick mappings via selector 2's rewind.
-        assert_eq!(robot_live_body_sprite_phase(RobotState::Charging, 4, 0), 0);
-        assert_eq!(robot_live_body_sprite_phase(RobotState::Charging, 5, 0), 1);
-        assert_eq!(
-            robot_live_head_sprite_phase(RobotState::Charging, 3, 0, 0),
-            16
+    #[test]
+    fn robot_signed_random_gate_draws_exactly_one_long() {
+        // ASM loc_3C554 BLE accepts negative D7.W as well as 0..10.
+        // Get_RandomNumber_long returns C092 in the default seed's low word.
+        let mut robot = robot_test_enemy(RobotState::Walking, Direction::Right, 100, 80, 0);
+        for _ in 0..28 {
+            advance_robot_gfx(&mut robot);
+        }
+        let mut rng = RomRandomState::default();
+        let mut expected = rng.clone();
+        assert_eq!(expected.next_long() as u16, 0xC092);
+        let mut shots = Vec::new();
+        step_robot_with_rng(
+            &mut robot,
+            None,
+            Some(140 << 16),
+            &mut Some(&mut shots),
+            &mut rng,
         );
-        assert_eq!(
-            robot_live_head_sprite_phase(RobotState::Charging, 5, 0, 0),
-            17
-        );
-        assert_eq!(
-            robot_live_head_sprite_phase(RobotState::Charging, 12, 0, 0),
-            18
-        );
-        assert_eq!(
-            robot_live_head_sprite_phase(RobotState::Charging, 13, 0, 0),
-            16
-        );
+        assert_eq!(shots.len(), 1);
+        assert_eq!(rng.next_long(), expected.next_long());
+    }
 
-        // ASM loc_3A8FC uses distinct C8310 parent and C8308 child hit poses.
-        assert_eq!(robot_live_body_sprite_phase(RobotState::Walking, 30, 1), 8);
-        assert_eq!(
-            robot_live_head_sprite_phase(RobotState::Walking, 30, 1, 0),
-            19
-        );
+    #[test]
+    fn robot_walk_does_not_draw_random_between_animation_gates() {
+        // ASM sub_3C4F8 loc_3C538/loc_3C554: C82F0 and timer 9 gate RNG.
+        let mut robot = robot_test_enemy(RobotState::Walking, Direction::Right, 100, 80, 0);
+        let mut rng = RomRandomState::default();
+        let expected = rng.clone().next_long();
+        step_robot_with_rng(&mut robot, None, Some(140 << 16), &mut None, &mut rng);
+        assert_eq!(rng.next_long(), expected);
+    }
 
-        // ASM sub_3C4F8 loc_3C58E/loc_3C5C4: C8338, C8340, C8338.
+    #[test]
+    fn robot_shoot_holds_body_for_twenty_five_frames() {
+        // ASM Robot.asm loc_3AA4C/loc_3AA72/loc_3AA88: DBF waits 9 + 5 + 11.
+        let mut robot = robot_test_enemy(RobotState::Aiming, Direction::Right, 100, 80, 1);
+        let mut shots = Vec::new();
+        step_robot(&mut robot, None, Some(140 << 16), &mut Some(&mut shots));
+        for _ in 0..24 {
+            step_robot(&mut robot, None, Some(140 << 16), &mut Some(&mut shots));
+            assert_eq!(robot.snapshot().sprite_animation_phase, Some(9));
+            assert_eq!(robot.x_pos, 100 << 16);
+        }
+        step_robot(&mut robot, None, Some(140 << 16), &mut Some(&mut shots));
+        assert_eq!(robot.robot_state, RobotState::Walking);
+        assert_eq!(shots.len(), 1);
+    }
+
+    #[test]
+    fn robot_recovery_resumes_saved_head_cursor_and_replays_body_entry() {
+        // ASM loc_3AA9E; Crypt oracle frames 322..339: body C82D0 for 17
+        // recovery frames, head C8328 for eight, then C82F8 for nine.
+        let mut robot = robot_test_enemy(RobotState::Walking, Direction::Right, 100, 80, 0);
+        for _ in 0..28 {
+            advance_robot_gfx(&mut robot);
+        }
         assert_eq!(
-            robot_live_head_sprite_phase(RobotState::Aiming, 0, 0, 26),
-            21
+            (robot.robot_gfx.head.selected, robot.robot_gfx.head.timer),
+            (13, 9)
         );
-        assert_eq!(
-            robot_live_head_sprite_phase(RobotState::Aiming, 0, 0, 18),
-            22
-        );
-        assert_eq!(
-            robot_live_head_sprite_phase(RobotState::Aiming, 0, 0, 9),
-            21
-        );
-        assert_eq!(
-            robot_live_body_animation_cycle_ticks(RobotState::Walking),
-            54
-        );
-        assert_eq!(
-            robot_live_body_animation_cycle_ticks(RobotState::Charging),
-            24
-        );
-        assert_eq!(robot_next_head_animation_tick(RobotState::Charging, 11), 12);
-        assert_eq!(robot_next_head_animation_tick(RobotState::Charging, 12), 1);
-        assert_eq!(robot_next_body_animation_tick(RobotState::Walking, 54), 1);
-        assert_eq!(robot_next_body_animation_tick(RobotState::Charging, 24), 1);
+        begin_robot_shoot(&mut robot, &mut None);
+        finish_robot_shoot_sequence(&mut robot);
+        for frame in 0..18 {
+            advance_robot_gfx(&mut robot);
+            assert_eq!(
+                robot.snapshot().sprite_animation_phase,
+                Some(if frame < 17 { 5 } else { 0 })
+            );
+            assert_eq!(
+                robot
+                    .child_attachment_snapshot()
+                    .unwrap()
+                    .sprite_animation_phase,
+                Some(if frame < 8 {
+                    20
+                } else if frame < 17 {
+                    14
+                } else {
+                    15
+                })
+            );
+        }
     }
 
     fn robot_test_enemy(
@@ -1076,8 +1159,8 @@ mod tests {
             1,
             "ASM Robot.asm loc_3AAC4 should shoot immediately once the aiming wait reaches zero",
         );
-        assert_eq!(robot.robot_state, RobotState::Walking);
-        assert_eq!(robot.wait_timer, ROBOT_SHOOT_INTERVAL);
+        assert_eq!(robot.robot_state, RobotState::Shooting);
+        assert_eq!(robot.wait_timer, 25);
     }
 
     #[test]
@@ -1182,6 +1265,10 @@ mod tests {
     #[test]
     fn robot_walk_shoot_helper_uses_robot_integer_x_for_loc_3c56a() {
         let mut robot = robot_test_enemy(RobotState::Walking, Direction::Left, 0x0200, 80, 0);
+        robot.enemy_level = 1;
+        for _ in 0..28 {
+            advance_robot_gfx(&mut robot);
+        }
         let mut rng = rng_at_robot_random_gate();
         let mut projectiles = Vec::new();
 
@@ -1199,7 +1286,7 @@ mod tests {
             "ASM sub_3C4F8 loc_3C56A should see Robot right of Kid and facing left, then branch to Enemy03_Robot_Shoot",
         );
         assert_eq!(projectiles[0].x_velocity, -ROBOT_PROJECTILE_SPEED);
-        assert_eq!(robot.robot_state, RobotState::Walking);
+        assert_eq!(robot.robot_state, RobotState::Shooting);
     }
 
     #[test]

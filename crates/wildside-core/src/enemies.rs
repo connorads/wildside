@@ -1214,9 +1214,8 @@ pub(crate) enum OrcaState {
     FatalFall,
 }
 
-/// Robot phase state machine (Robot.asm).
-/// Paces at HP-dependent speed and periodically shoots; charge is entered by
-/// collision/hit routing at loc_3A96C, which is still tracked by backlog #190.
+/// ASM Robot.asm / sub_3C4F8: level-dependent patrol with animation-gated
+/// shooting; collision/hit routing at loc_3A96C enters charge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum RobotState {
     /// Walking patrol with periodic shooting.
@@ -1224,6 +1223,8 @@ pub(crate) enum RobotState {
     Walking,
     /// ASM sub_3C4F8 loc_3C58E: head turn sequence before Enemy03_Robot_Shoot.
     Aiming,
+    /// ASM Enemy03_Robot_Shoot: frozen body with 9/5/11-frame head recoil.
+    Shooting,
     /// Charging at high speed after loc_3A96C collision/hit routing.
     Charging,
 }
@@ -1375,7 +1376,6 @@ pub(crate) struct ActiveEnemy {
     /// Dragon Flying: descent sub-script entry index.
     /// Dragon Walking keeps its independent `GfxObject_Animate` elapsed tick
     /// here because the two families never share an active object state.
-    /// Robot reuses it for the linked head's independent animation tick.
     /// Fireball reuses it for the current `off_33026` live sprite-link index.
     pub(crate) dragon_descent_index: u8,
     /// Dragon Flying: frames remaining in current descent entry.
@@ -1387,7 +1387,6 @@ pub(crate) struct ActiveEnemy {
     /// GfxObject animation tick.
     /// Driller reuses it as the elapsed `stru_3BCB2` parent-animation tick.
     /// Armadillo and Goat reuse it as the elapsed live walk/charge animation tick.
-    /// Robot reuses it for the parent body's independent animation tick.
     /// Diamond reuses this for the live `stru_3ACA8` GfxObject animation tick.
     /// UFO reuses it for the intact/damaged parent GfxObject animation tick.
     /// Crab reuses it for the live `stru_3AF62` GfxObject animation tick.
@@ -1397,6 +1396,7 @@ pub(crate) struct ActiveEnemy {
     pub(crate) hand_state: HandState,
     pub(crate) lion_state: LionState,
     pub(crate) robot_state: RobotState,
+    pub(crate) robot_gfx: RobotGfxState,
     pub(crate) orca_state: OrcaState,
     /// Orca: wall-pinned flag ($5C(a5)), suppresses X accel during lunge.
     /// Fire Demon reuses this native-only flag for the two scheduler frames
@@ -2493,7 +2493,7 @@ impl ActiveEnemy {
                 // ASM Robot.asm loc_3A8FC -> loc_3A96C: a final hit does not
                 // delete the Robot; it enters the `$800` collision charge state.
                 enter_robot_charge_loc_3a96c(self);
-            } else if matches!(self.robot_state, RobotState::Aiming) {
+            } else if matches!(self.robot_state, RobotState::Shooting) {
                 // ASM Robot.asm loc_3AAD4 -> loc_3AB04 -> loc_3AAC4:
                 // a nonfatal collision during the shooting coroutine restores
                 // the walking animation path instead of resuming the shoot.
@@ -3037,11 +3037,11 @@ impl ActiveEnemy {
                 self.damage_flash_frames,
             ))
         } else if matches!(self.family, EnemyFamily::Robot) && !self.death_animation_active {
-            Some(robot_live_body_sprite_phase(
-                self.robot_state,
-                self.dragon_descent_frames,
-                self.damage_flash_frames,
-            ))
+            Some(if self.damage_flash_frames > 0 {
+                8
+            } else {
+                self.robot_gfx.body.selected
+            })
         } else if matches!(self.family, EnemyFamily::Fireball) && !self.death_animation_active {
             // ASM Fireball.asm loc_33072 writes the selected `off_33026`
             // link after loc_32F3E chooses the velocity angle and loc_3304A
@@ -3417,29 +3417,44 @@ impl ActiveEnemy {
                     Direction::Left => 0x00,
                     Direction::Right => 0xFF,
                 };
-                let attachment =
+                let mut attachment =
                     shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
                         family: self.family,
                         parent_x_pos: (self.x_pos >> 16) as i16,
                         parent_y_pos: (self.y_pos >> 16) as i16,
                         parent_x_direction,
                         child_y_offset: 0x10,
-                        robot_parent_state: 0,
-                        robot_child_mapping: 0x0800,
-                        child_x_direction: parent_x_direction,
+                        robot_parent_state: u16::from(self.enemy_level),
+                        robot_child_mapping: if matches!(self.robot_state, RobotState::Charging) {
+                            0x0800
+                        } else {
+                            0
+                        },
+                        child_x_direction: match robot_head_facing(self) {
+                            Direction::Left => 0,
+                            Direction::Right => 0xFF,
+                        },
                     })
                     .primary;
+                if matches!(self.robot_state, RobotState::Shooting) {
+                    // ASM Enemy03_Robot_Shoot / loc_3AA6C: head +3px down;
+                    // the middle five-frame wait adds a facing-dependent recoil.
+                    attachment.y_pos = attachment.y_pos.wrapping_add(3);
+                    if (12..=16).contains(&self.wait_timer) {
+                        attachment.x_pos = attachment.x_pos.wrapping_add(
+                            if matches!(robot_head_facing(self), Direction::Left) {
+                                4
+                            } else {
+                                -4
+                            },
+                        );
+                    }
+                }
                 (
                     u32::from(attachment.x_pos as u16) << 16,
                     u32::from(attachment.y_pos as u16) << 16,
                     attachment.x_velocity,
-                    attachment.x_direction.map(|x_direction| {
-                        if x_direction == 0 {
-                            Direction::Left
-                        } else {
-                            Direction::Right
-                        }
-                    }),
+                    attachment.x_direction.map(robot_direction_branch_loc_3aa0c),
                 )
             }
             EnemyFamily::Tank | EnemyFamily::TankShooting => {
@@ -3516,12 +3531,11 @@ impl ActiveEnemy {
             // objects and the global frame counter.
             Some(self.tank_mouth_animation_phase)
         } else if matches!(self.family, EnemyFamily::Robot) {
-            Some(robot_live_head_sprite_phase(
-                self.robot_state,
-                self.dragon_descent_index,
-                self.damage_flash_frames,
-                self.wait_timer,
-            ))
+            Some(if self.damage_flash_frames > 0 {
+                19
+            } else {
+                self.robot_gfx.head.selected
+            })
         } else {
             None
         };
@@ -4795,6 +4809,7 @@ fn activate_enemies_with_rng_inner(
                 hand_state: HandState::Walking,
                 lion_state: spawn_lion_state_loc_3e030(family),
                 robot_state: RobotState::Walking,
+                robot_gfx: RobotGfxState::default(),
                 orca_state: OrcaState::Walking,
                 wall_pinned: matches!(family, EnemyFamily::FireDemon),
                 drips_attached: false,
@@ -5317,17 +5332,6 @@ fn step_active_enemies_with_rng_context(
                 enemy.dragon_descent_frames,
             );
         }
-        if matches!(enemy.family, EnemyFamily::Robot)
-            && enemy.damage_flash_frames == 0
-            && !enemy.death_animation_active
-        {
-            // ASM Robot.asm stru_3A6E2/stru_3A6FC and stru_3A716/stru_3A730:
-            // parent body and linked head advance independent Gfx animations.
-            enemy.dragon_descent_frames =
-                robot_next_body_animation_tick(enemy.robot_state, enemy.dragon_descent_frames);
-            enemy.dragon_descent_index =
-                robot_next_head_animation_tick(enemy.robot_state, enemy.dragon_descent_index);
-        }
         if matches!(enemy.family, EnemyFamily::UFO) && !enemy.death_animation_active {
             // ASM UFO.asm Enemy0F_UFO_Init/loc_35228 installs parent
             // `stru_34C7E` or `stru_34C92`. GfxObject_Animate advances it
@@ -5435,8 +5439,7 @@ fn step_active_enemies_with_rng_context(
         if restores_robot_animation {
             // ASM Robot.asm loc_3A936/loc_3AB14 reinitialises parent
             // stru_3A6E2 and linked-head stru_3A716 after a surviving hit.
-            enemy.dragon_descent_frames = 0;
-            enemy.dragon_descent_index = 0;
+            reset_robot_walk_animation(enemy);
         }
         if restores_diamond_animation {
             // ASM Diamond.asm loc_3AE16/loc_3AF0E re-installs `stru_3ACA8`
@@ -5676,6 +5679,9 @@ fn step_active_enemies_with_rng_context(
                     }
                     step_lion(enemy, block_grid, player_x_pos, &mut projectiles);
                 } else if matches!(enemy.family, EnemyFamily::Robot) {
+                    if enemy.damage_flash_frames > 0 {
+                        continue;
+                    }
                     step_robot_with_rng(enemy, block_grid, player_x_pos, &mut projectiles, rng);
                 } else if matches!(enemy.family, EnemyFamily::Orca) {
                     if enemy.wait_timer == ORCA_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3D2AA {
@@ -6067,6 +6073,15 @@ fn step_active_enemies_with_rng_context(
                     integrate_multi_head_boss_gfx_object(enemy);
                 }
             }
+        }
+    }
+    // ASM loc_1462/loc_147E throttles Robot's category-2 GfxObjects under Haze.
+    if !samurai_haze_active || time_frames.is_multiple_of(4) {
+        for enemy in active
+            .iter_mut()
+            .filter(|enemy| matches!(enemy.family, EnemyFamily::Robot))
+        {
+            advance_robot_gfx(enemy);
         }
     }
     seed_pending_drips_initial_waits_loc_3340e(active, player_x_pos, rng);
@@ -7729,6 +7744,12 @@ pub(crate) fn enemy_should_remain_active(
         // until the death animation finishes, then enter their delete tail.
         // They do not run the live object offscreen/deactivation checks while
         // the corpse animation is hibernating.
+        return true;
+    }
+    if matches!(enemy.family, EnemyFamily::Robot)
+        && (matches!(enemy.robot_state, RobotState::Shooting) || enemy.damage_flash_frames > 0)
+    {
+        // ASM Robot.asm loc_3AA4C/loc_3AB14 hibernates without walker unload checks.
         return true;
     }
     if enemy.segment_index != view.segment_index {
@@ -9969,7 +9990,14 @@ pub(crate) fn finish_robot_shoot_sequence(enemy: &mut ActiveEnemy) {
     // collision word and resumes the shared walker. loc_3A96C charge entry is
     // reached by collision/hit routes, not by ordinary shooting.
     enemy.robot_state = RobotState::Walking;
-    enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
+    enemy.wait_timer = 0;
+    // ORIGINAL_QUIRK: ASM loc_3AA9E points at the sixth entry itself, so
+    // recovery repeats that mapping before reaching the script loop.
+    enemy.robot_gfx.body = RobotAnimationCursor {
+        selected: 5,
+        next_entry: 5,
+        timer: 9,
+    };
 }
 
 pub(crate) fn enter_robot_charge_loc_3a96c(enemy: &mut ActiveEnemy) {
@@ -9981,8 +10009,8 @@ pub(crate) fn enter_robot_charge_loc_3a96c(enemy: &mut ActiveEnemy) {
     debug_assert_eq!(charge.next_parent_collision_type, 0x0800);
     debug_assert_eq!(charge.next_child_collision_type, 0x0800);
     enemy.robot_state = RobotState::Charging;
-    enemy.dragon_descent_frames = 0;
-    enemy.dragon_descent_index = 0;
+    reset_robot_walk_animation(enemy);
+    enemy.robot_gfx.head.selected = 16;
     enemy.facing = charge.resume_walk_direction;
     enemy.wait_timer = charge.flip_timer;
     enemy.x_velocity = horizontal_velocity(charge.resume_walk_direction, charge.charge_speed);
@@ -12169,6 +12197,7 @@ pub(crate) mod test_fixtures {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -14833,7 +14862,7 @@ pub(crate) fn spawn_wait_timer(
         EnemyFamily::Archer => ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE,
         // Lion: charge timer counts down from $3C (60 frames) before first charge.
         EnemyFamily::Lion => LION_CHARGE_TIMER_INIT,
-        // Robot: ASM init $54(a5) low word = 1 (fires on 2nd frame).
+        // ASM Enemy03_Robot_Init seeds $54; loc_3C58E replaces it when turning.
         EnemyFamily::Robot => 1,
         // ASM Tar_Monster.asm loc_32248 starts `unk_32264` immediately.
         EnemyFamily::TarMonster => 0,
@@ -15515,7 +15544,7 @@ pub(crate) fn shared_enemy_robot_helper_sub_3C4F8(
                 // and uses x_pos(a3) for direction check. Otherwise
                 // j_Get_RandomNumber; cmpi.w #$A,d7; ble loc_3C56A — only
                 // proceed when random <= $A.
-                if input.child_state_word_40 != 2 && input.random_word > 0x000A {
+                if input.child_state_word_40 != 2 && (input.random_word as i16) > 0x000A {
                     return result;
                 }
                 if input.child_state_word_40 < 1 {

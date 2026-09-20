@@ -9293,7 +9293,7 @@ impl NativeRuntime {
                     PendingEnemyCollisionTarget::Parent => 0,
                     PendingEnemyCollisionTarget::ChildAttachment => collision.collision_type as i16,
                 };
-                if matches!(enemy.robot_state, RobotState::Aiming) {
+                if matches!(enemy.robot_state, RobotState::Shooting) {
                     let route = robot_shoot_collision_dispatch_loc_3aad4(
                         child_collision as u16,
                         child_collision as u16,

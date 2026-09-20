@@ -11023,7 +11023,7 @@ mod chunk_06 {
         slice.player.x_velocity = 0x0002_0000;
 
         let mut robot = test_enemy(EnemyFamily::Robot, 0x0040_0000, 0x0050_0000, 2);
-        robot.robot_state = RobotState::Aiming;
+        robot.robot_state = RobotState::Shooting;
         robot.wait_timer = 3;
         rt.active_enemies.push(robot);
 

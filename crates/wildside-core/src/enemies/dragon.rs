@@ -999,6 +999,7 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         hand_state: HandState::Walking,
         lion_state: spawn_lion_state_loc_3e030(family),
         robot_state: RobotState::Walking,
+        robot_gfx: crate::enemies::RobotGfxState::default(),
         orca_state: OrcaState::Walking,
         wall_pinned: false,
         drips_attached: false,

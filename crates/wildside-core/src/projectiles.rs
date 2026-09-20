@@ -1191,6 +1191,7 @@ mod drips_surface_crawler_tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: true,
@@ -1506,7 +1507,7 @@ mod drips_surface_crawler_tests {
         // Enemy03_Robot_Shot_Init reads the live parent after the hibernate, not the launch pose.
         runtime.active_enemies[0].x_pos = (120 << 16) | 0xABCD;
         runtime.active_enemies[0].y_pos = (90 << 16) | 0xABCD;
-        runtime.active_enemies[0].facing = Direction::Left;
+        runtime.active_enemies[0].robot_gfx.head_facing = Some(Direction::Left);
         runtime.step_projectiles();
         let trace = runtime.trace_frame();
         assert_eq!(trace.active_projectiles.len(), 1);

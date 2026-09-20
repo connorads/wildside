@@ -13238,6 +13238,7 @@ mod chunk_03 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -14213,6 +14214,7 @@ mod chunk_03 {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            robot_gfx: crate::enemies::RobotGfxState::default(),
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
@@ -18839,7 +18841,7 @@ mod chunk_03 {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
         let mut robot = test_enemy(EnemyFamily::Robot, 100 << 16, 120 << 16, 2);
-        robot.robot_state = RobotState::Aiming;
+        robot.robot_state = RobotState::Shooting;
         robot.wait_timer = 3;
         runtime.active_enemies = vec![robot];
         runtime.projectiles.push(EnemyProjectile {
@@ -18862,8 +18864,8 @@ mod chunk_03 {
             "ASM Robot.asm loc_3AAC4 clears the child collision word and resumes the shared walker after a nonfatal shoot-time hit"
         );
         assert_eq!(
-            runtime.active_enemies[0].wait_timer, ROBOT_SHOOT_INTERVAL,
-            "native shoot-time restore should leave the Robot on the same walking shoot interval used after an uninterrupted shot"
+            runtime.active_enemies[0].wait_timer, 0,
+            "ASM loc_3AAC4 resumes animation-gated patrol without an independent cooldown"
         );
         assert_eq!(
             runtime.active_enemies[0].damage_flash_frames, ROBOT_HURT_ANIMATION_FRAMES_STRU_3A744,
@@ -18876,7 +18878,7 @@ mod chunk_03 {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
         let mut robot = test_enemy(EnemyFamily::Robot, 100 << 16, 120 << 16, 1);
-        robot.robot_state = RobotState::Aiming;
+        robot.robot_state = RobotState::Shooting;
         robot.wait_timer = 3;
         runtime.active_enemies = vec![robot];
         runtime.projectiles.push(EnemyProjectile {
@@ -18976,7 +18978,7 @@ mod chunk_03 {
     fn robot_mid_shoot_child_kidabove_collision_hits_parent_loc_3aad4_3ab04() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut robot = test_enemy(EnemyFamily::Robot, 100 << 16, 120 << 16, 2);
-        robot.robot_state = RobotState::Aiming;
+        robot.robot_state = RobotState::Shooting;
         robot.wait_timer = 3;
         robot.layout_index = 19;
         runtime.active_enemies = vec![robot];
@@ -19001,7 +19003,7 @@ mod chunk_03 {
             RobotState::Walking,
             "ASM Robot.asm loc_3AB04 -> loc_3AAC4 should resume walking after a nonfatal shoot-time child hit"
         );
-        assert_eq!(runtime.active_enemies[0].wait_timer, ROBOT_SHOOT_INTERVAL);
+        assert_eq!(runtime.active_enemies[0].wait_timer, 0);
     }
 
     #[test]
@@ -19010,7 +19012,7 @@ mod chunk_03 {
         runtime.progression.current_form = PlayerForm::Berzerker;
         runtime.helmet.berzerker_charging = false;
         let mut robot = test_enemy(EnemyFamily::Robot, 100 << 16, 120 << 16, 2);
-        robot.robot_state = RobotState::Aiming;
+        robot.robot_state = RobotState::Shooting;
         robot.wait_timer = 3;
         robot.layout_index = 20;
         runtime.active_enemies = vec![robot];
@@ -19031,7 +19033,7 @@ mod chunk_03 {
             "ASM Robot.asm loc_3AAFA branches to loc_3AA9E, not destroy or HP damage, when Berzerker_charging is clear"
         );
         assert_eq!(runtime.active_enemies[0].robot_state, RobotState::Walking);
-        assert_eq!(runtime.active_enemies[0].wait_timer, ROBOT_SHOOT_INTERVAL);
+        assert_eq!(runtime.active_enemies[0].wait_timer, 0);
         assert!(!runtime.active_enemies[0].death_animation_active);
     }
 

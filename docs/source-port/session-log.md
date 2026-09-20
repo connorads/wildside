@@ -7,6 +7,36 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-20 handoff (Robot animation-gated parent attack)
+
+#433's Robot parent checks the real head mapping/timer gate, uses a signed
+random threshold, skips RNG for layout level 2 and turns its head while the
+body keeps walking. Shooting freezes the body for 9+5+11 frames and resumes
+saved animation cursors, including the ROM's repeated final body pose.
+Samurai Haze throttles category-2 animation alongside the Object worker.
+Crypt probes match attack/recovery frames 297/322 and recoil 306..310;
+frame-300 Object counts match in all three logical copies. Full Crypt sweep
+`1789935346` has no state difference at six comparable checkpoints per copy.
+The seven-pixel HUD residue remains. Fast gate passes 7,416 core tests and
+all required checks; full TAS preserves state/RNG and frozen visual/audio
+limits. State sweep `1789936137` exactly retains the preceding per-level
+results, including ten failures and 28 blocking differences.
+
+Next fix the independently reproduced child wake cull: generic owner handling
+applies Lion's camera box at frame 307, deleting Robot's shot at screen Y -94
+before Gfx/sound can survive. Robot's own camera range permits it. Regress
+both flight and impact retention before changing that predicate. Flight
+collision ordering, body-position drift, hurt/turn interruptions and raw slot
+reuse remain separate fidelity work. Probe-generated `41.*` sidecars are
+isolated under `.cache/debug/robot-parent-probe-sidecars`; adding `41.json`
+to the shipping asset catalogue would conceal the diagnostic cache mutation.
+
+The next coverage prerequisite is the inspector's resource-ID sidecar
+fallback: missing logical 0x3A data incorrectly selects logical 0x03 fixtures.
+Use the runtime terrain/block-list accessors before enumerating natural
+progression obligations. Source header research identifies 57 candidate flag
+exits and four boss gates, not completed routes. No paid Jev calls.
+
 ## 2026-09-20 handoff (Robot delayed shot worker)
 
 #433's child worker follows the observed ten-frame Object-only wait before
