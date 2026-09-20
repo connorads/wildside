@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-20 handoff (logical identity in level inspection)
+
+The inspector delegates to the runtime's logical capture / mapped ROM path.
+Its duplicate fallback confused logical `$3A` with unrelated logical `$03`
+when resource `$03` was requested. Before/after live commands change Stairway
+to Oblivion from Highwater's two teleporters to its six source records.
+The isolated regression fails before the fix, rejects unrelated records with
+and without a logical grid, then accepts the logical capture. All 39 inspector
+tests pass. Inspection across 106 non-sentinel entries finds 163 teleporter
+records, 65 same-level destinations and no missing block list or unresolved
+destination resource. Those totals include three leftovers, not completed play.
+The fast gate passes, including Clippy and the workspace failure ratchet.
+Gameplay source is unchanged; the preceding full TAS remains the gameplay
+verification. The private loader change is reversible without a public migration.
+
+Next build the source-exit ledger and distinguish natural progression from
+warps, injected states and attract demos. Audit found no qualifying natural
+exit in the existing durable scripts and available recordings. The published
+37,759-frame movie imports exactly and matches the ROM identity, but its
+BizHawk/GPGX playback environment is not verified against jgenesis. Compare
+early boot before changing input timing or claiming progression. External
+research is retained in the KB's `game-playtesting-agents.md`. No paid Jev calls.
+
 ## 2026-09-20 handoff (Robot boundary turns and shot lifecycle)
 
 #433's first and third Crypt shots retain their Gfx wake, clamp the ROM's

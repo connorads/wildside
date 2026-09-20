@@ -22,6 +22,36 @@ Idle warp checkpoints and attract-demo level changes do not establish completion
 Natural route evidence belongs in a progression ledger with an observed entry,
 traversal and exit, game mode, recording frame interval and emulator comparison.
 
+## Inspection identity
+
+`inspect-level` reads interactive records through the runtime's logical-level
+loader. RAM captures use logical IDs; ROM foreground and BLOCK resources use
+`MapOrder_Index`. A missing logical capture must never fall back to a capture
+whose filename happens to equal the mapped resource ID.
+
+Stairway to Oblivion, logical `$3A`, maps to resource `$03`. It has no logical
+RAM capture. Its six `loc_1269C` teleporter records come from mapped ROM data:
+
+| Source cell | Destination resource | Destination cell |
+|---|---|---|
+| 32,55 | `$03` | 7,8 |
+| 39,64 | `$03` | 27,55 |
+| 65,67 | `$03` | 27,55 |
+| 87,67 | `$1C` | 2,50 |
+| 68,27 | `$75` | 1,21 |
+| 70,4 | `$0D` | 1,20 |
+
+Resolve destination resources through the ROM's first-match `loc_BCD6`
+search before naming logical progression edges. These records are discovery
+targets, not traversal evidence. The isolated inspector regression rejects
+logical `$03`'s records when `$3A` lacks either its layout or its block list,
+and accepts `$3A`'s own capture when present. The live command reports
+38 prizes, six ghost groups, six teleporters and eight hidden records.
+Inspection of all 106 non-sentinel logical entries returns block lists with
+163 teleporter records, including 65 same-level destinations. Every destination
+resource resolves through `MapOrder_Index`. These totals include the three
+leftovers and do not count natural exits or completed levels.
+
 ## Expanded sweep evidence
 
 State run `1789928876` tests all 105 entries requested by `--levels 0-104`.

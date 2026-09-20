@@ -151,15 +151,7 @@ pub(crate) fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Resul
             println!("{line}");
         }
     }
-    let block_grid =
-        load_inspect_block_grid(manifest, level_id, effective_resource_level_id, &bundle);
-    if let Some(block_list) = load_inspect_block_list(
-        manifest,
-        level_id,
-        effective_resource_level_id,
-        &bundle,
-        block_grid.as_ref(),
-    ) {
+    if let Some(block_list) = load_inspect_block_list(manifest, level_id) {
         for line in describe_block_list(&block_list) {
             println!("{line}");
         }
@@ -174,64 +166,9 @@ pub(crate) fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Resul
     Ok(())
 }
 
-fn load_inspect_block_grid(
-    manifest: &AssetManifest,
-    level_id: u8,
-    effective_resource_level_id: u8,
-    bundle: &wildside_data::LevelAssetBundle,
-) -> Option<terrain::BlockGrid> {
-    let layout_dir = manifest.output_root.join("level-layout");
-    let logical_path = layout_dir.join(format!("{level_id:02X}.bin"));
-    let path = if logical_path.is_file() {
-        logical_path
-    } else {
-        let fallback_path = layout_dir.join(format!("{effective_resource_level_id:02X}.bin"));
-        if !fallback_path.is_file() {
-            return None;
-        }
-        fallback_path
-    };
-    let bytes = std::fs::read(path).ok()?;
-    let header = bundle.parsed_header.as_ref()?;
-    // ASM Load_LevelData loc_15A0: Level_width_blocks = width_screens * 20.
-    let width = u16::from(header.width_screens) * 20;
-    let height = (bytes.len() / 2 / usize::from(width)).max(1) as u16;
-    Some(terrain::BlockGrid::from_level_layout(&bytes, width, height))
-}
-
-fn load_inspect_block_list(
-    manifest: &AssetManifest,
-    level_id: u8,
-    effective_resource_level_id: u8,
-    bundle: &wildside_data::LevelAssetBundle,
-    grid: Option<&terrain::BlockGrid>,
-) -> Option<terrain::BlockList> {
-    let layout_dir = manifest.output_root.join("level-layout");
-    let logical_path = layout_dir.join(format!("{level_id:02X}.blocklist.bin"));
-    let path = if logical_path.is_file() {
-        Some(logical_path)
-    } else {
-        let fallback_path =
-            layout_dir.join(format!("{effective_resource_level_id:02X}.blocklist.bin"));
-        fallback_path.is_file().then_some(fallback_path)
-    };
-
-    path.and_then(|path| std::fs::read(path).ok())
-        .map(|bytes| {
-            let layout_width = bundle
-                .parsed_header
-                .as_ref()
-                .map_or(256, |header| u16::from(header.width_screens) * 20);
-            if let Some(grid) = grid {
-                terrain::BlockList::from_raw_with_level_layout(&bytes, layout_width, grid)
-            } else {
-                terrain::BlockList::from_raw(&bytes, layout_width)
-            }
-        })
-        .or_else(|| {
-            wildside_core::NativeRuntime::with_generated_level_layout(manifest.clone())
-                .block_list_for_level(wildside_core::LevelId(level_id))
-        })
+fn load_inspect_block_list(manifest: &AssetManifest, level_id: u8) -> Option<terrain::BlockList> {
+    wildside_core::NativeRuntime::with_generated_level_layout(manifest.clone())
+        .block_list_for_level(wildside_core::LevelId(level_id))
 }
 
 fn describe_block_list(block_list: &terrain::BlockList) -> Vec<String> {
@@ -3060,18 +2997,80 @@ mod tests {
     }
 
     #[test]
+    fn inspect_alias_never_reads_another_logical_levels_ram_sidecar() {
+        // ASM Load_Level_Data / loc_11C7E maps ROM resources through MapOrder.
+        // Captured RAM sidecars instead belong to their logical level ID.
+        let output = tempfile::tempdir().expect("isolated generated bundle");
+        let layout_dir = output.path().join("level-layout");
+        fs::create_dir(&layout_dir).expect("layout directory");
+        let mut manifest = manifest_with_drips_definition();
+        manifest.output_root = output.path().to_path_buf();
+        manifest.map_order = (0..=0x3A).collect();
+        manifest.map_order[0x3A] = 0x03;
+        manifest.levels = [0x03, 0x3A]
+            .into_iter()
+            .map(|level_id| wildside_data::LevelRecord {
+                level_id,
+                title_text_id: None,
+                display_name: None,
+                title_card: None,
+                resource_paths: Vec::new(),
+                resources: wildside_data::LevelResources::default(),
+                header_metadata: Some(wildside_data::LevelHeader {
+                    width_screens: 1,
+                    height_screens: 1,
+                    height_flag_bits: 0,
+                    level_theme: 0,
+                    murder_wall_flags: 0,
+                    background_theme: 0,
+                    weather_flags: 0,
+                    player_start_x: 0,
+                    player_start_y: 0,
+                    flag_x: 0,
+                    flag_y: 0,
+                }),
+                enemy_layout_metadata: None,
+                bgscroll_metadata: None,
+                platform_metadata: None,
+                background_layout_alias: None,
+            })
+            .collect();
+        let mut layout = vec![0; 20 * 14 * 2];
+        // ASM loc_1264C writes the two teleporter cells at the source column.
+        layout[10..14].copy_from_slice(&[0xE4, 7, 0xE4, 8]);
+        let metadata = br#"{"width_blocks":20,"height_blocks":14,"data_bytes":560}"#;
+        fs::write(layout_dir.join("03.bin"), &layout).expect("unrelated layout");
+        fs::write(layout_dir.join("03.json"), metadata).expect("layout metadata");
+        let mut records = vec![0; 16];
+        // ASM loc_1269C's ten-byte teleporter record after empty prize/ghost sections.
+        records.extend_from_slice(&[0xA6, 0x5C, 0, 5, 0, 0, 0x4B, 9, 0, 28]);
+        fs::write(layout_dir.join("03.blocklist.bin"), &records).expect("unrelated exits");
+        for logical_grid_present in [false, true] {
+            if logical_grid_present {
+                fs::write(layout_dir.join("3A.bin"), &layout).expect("logical layout");
+                fs::write(layout_dir.join("3A.json"), metadata).expect("logical metadata");
+            }
+            assert!(
+                load_inspect_block_list(&manifest, 0x3A).is_none(),
+                "missing logical records must not borrow logical 03's exits; logical grid present: {logical_grid_present}"
+            );
+        }
+
+        records[22] = 0x61;
+        fs::write(layout_dir.join("3A.blocklist.bin"), records).expect("logical exits");
+        let block_list =
+            load_inspect_block_list(&manifest, 0x3A).expect("logical capture remains usable");
+        assert_eq!(block_list.teleporters.len(), 1);
+        assert_eq!(block_list.teleporters[0].dest_map_id, 0x61);
+    }
+
+    #[test]
     fn generated_level_01_block_list_reports_teleporter_entry() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
-        let bundle = wildside_data::load_level_asset_bundle(&manifest, 0x01)
-            .expect("load level 0x01 bundle");
-        let resource_level = resource_level_id(&manifest, 0x01);
-        let grid = load_inspect_block_grid(&manifest, 0x01, resource_level, &bundle)
-            .expect("level 0x01 generated layout grid");
         let block_list =
-            load_inspect_block_list(&manifest, 0x01, resource_level, &bundle, Some(&grid))
-                .expect("level 0x01 generated block list");
+            load_inspect_block_list(&manifest, 0x01).expect("level 0x01 generated block list");
 
         assert_eq!(block_list.teleporters.len(), 1);
         let teleporter = &block_list.teleporters[0];
@@ -3100,16 +3099,8 @@ mod tests {
             (0x14, terrain::PrizeContent::Cyclone),
             (0x20, terrain::PrizeContent::Skycutter),
         ] {
-            let bundle = wildside_data::load_level_asset_bundle(&manifest, level_id)
-                .unwrap_or_else(|error| panic!("load level 0x{level_id:02X} bundle: {error}"));
-            let block_list = load_inspect_block_list(
-                &manifest,
-                level_id,
-                resource_level_id(&manifest, level_id),
-                &bundle,
-                None,
-            )
-            .unwrap_or_else(|| panic!("load level 0x{level_id:02X} block list"));
+            let block_list = load_inspect_block_list(&manifest, level_id)
+                .unwrap_or_else(|| panic!("load level 0x{level_id:02X} block list"));
 
             assert!(
                 block_list
