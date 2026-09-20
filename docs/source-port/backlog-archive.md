@@ -3979,6 +3979,43 @@ surface one row.
 
 ### #433
 
+2026-09-20 RNG word-order correction:
+
+`Get_RandomNumber_long` saves the first generated word at `RNG_Buffer+2`,
+then overwrites the high word with the second. Native `next_long` reversed
+these words. The permanent seed regression changes from `$C0920397` to the
+source-derived `$0397C092` while preserving the four consumed bytes, offset
+`$FFCD` and last byte `$97`. The revised expectation fails on the old method.
+Robot is the only production caller that uses the returned value; other
+production callers consume and discard the long. All 74 Robot tests and the
+fast gate pass. State sweep `1789931961` and full Crypt sweep `1789931975`
+have exactly the same level results as `1789930380`/`1789930316`, excluding
+output paths. Crypt's six native PNGs are byte-identical; its frame300 composite
+was inspected again. The existing failures remain visible. Full TAS checks
+all 37,759 frames within unchanged frozen baselines. Mutation testing of the
+changed function catches both selected return-value mutants (zero missed,
+timeouts or unviable mutants); the red regression separately rejects the
+original word reversal. Mutants run outside the checkout under `/tmp`.
+The scope uses `--in-diff` as well as `--re next_long` because the regex-only
+listing also includes unrelated field-deletion mutants in this installed tool.
+
+The settled Crypt idle probe uses ordinary zero inputs, logical41 and frames
+295..300, tracing PCs `$A4A..$A5A` and `$3C554..$3C56A`. At frame297 the
+Robot worker `$FFFF0F70` receives first word `$8111` at `$A4E`, second word
+`$8CA2` at `$A56`, then long `$8CA28111` at `$A5A`. The earlier controller
+call independently gives `$2B92`, `$C8BA`, then `$C8BA2B92`. This confirms
+word order on the live emulator, not just the seed calculation.
+
+The same trace identifies the remaining Robot lifecycle defect. Signed
+`BLE` at `$3C566` accepts `$8111`, reaches `$3C56A` and allocates a shot at
+`Enemy03_Robot_Shoot` on frame297. WRAM at frame300 contains Object
+`$FFFF0EFC`, PC `$3ABBE`, sleep7 and no GfxObject. At frame310 it has
+GfxObject `$FFFF2610`. Native uses an unsigned random threshold, substitutes
+a per-frame synthetic gate for the head animation edge, and creates the
+visible shot immediately. A signed-comparison-only patch would amplify the
+incorrect gate. Keep those behaviours open for a coherent attack lifecycle
+correction; fixing RNG word order alone does not establish Robot parity.
+
 2026-09-20 asset repair and comparison correction:
 
 - Before: `capture-frames --level 41 --frames 0,60,120` exits before rendering

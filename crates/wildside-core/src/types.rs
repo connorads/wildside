@@ -4711,9 +4711,11 @@ impl RomRandomState {
         u16::from_be_bytes([high, low])
     }
 
+    /// ASM Get_RandomNumber_long (kid.asm): the first word is saved at
+    /// RNG_Buffer+2 before the second overwrites the buffer's high word.
     pub(crate) fn next_long(&mut self) -> u32 {
-        let high = self.next_word();
         let low = self.next_word();
+        let high = self.next_word();
         u32::from_be_bytes([(high >> 8) as u8, high as u8, (low >> 8) as u8, low as u8])
     }
 
@@ -6568,11 +6570,13 @@ mod tests {
 
     #[test]
     fn rom_random_state_preserves_ring_offset_and_next_long_order() {
+        // ASM Get_RandomNumber_long (kid.asm): the first generated word is
+        // saved at RNG_Buffer+2; the second overwrites RNG_Buffer's high word.
         let mut rng = RomRandomState::default();
 
         assert_eq!(rng.offset_word(), 0xFFC9);
         assert_eq!(rng.last_byte(), 0x89);
-        assert_eq!(rng.next_long(), 0xC092_0397);
+        assert_eq!(rng.next_long(), 0x0397_C092);
         assert_eq!(rng.offset_word(), 0xFFCD);
         assert_eq!(rng.last_byte(), 0x97);
 

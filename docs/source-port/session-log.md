@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-20 handoff (RNG long-word order)
+
+`Get_RandomNumber_long` returns the first generated word in its low half.
+The live Crypt Robot call generates 8111 then 8CA2 and returns 8CA28111;
+native reversed those words. The corrected seed regression preserves four-byte
+consumption and fails on the old return value. All 74 Robot tests, the fast
+gate and full 37,759-frame TAS pass. State run 1789931961 and full Crypt
+run 1789931975 match the previous level results exactly, excluding paths;
+Crypt's six native captures are byte-identical. Both selected mutation tests
+are caught. NEXT: implement the coherent Robot attack lifecycle. Its signed
+random gate must run on the actual head-animation edge; a sign-only patch
+would amplify native's incorrect per-frame retries. At frame 300 the oracle's
+extra Object is a hibernating shot without graphics, allocated at 297. The ROM
+waits 10 frames before assigning graphics. #433 remains open; HUD pixels and
+natural entry also need evidence. No paid Jev calls were made.
+
+---
+
 ## 2026-09-20 handoff (Crypt shared-header assets)
 
 #433's absent-ROM-data premise is disproven by `MapHeader_09_1A_41_42_48`.
