@@ -98,10 +98,21 @@ Catalogue readiness and generated reports never mutate backlog status themselves
 
 The allowance is **$5 additional** for this entire campaign, not per issue or
 session. Preserve the historical locked ledger and its charged reservations.
-Before any campaign paid request, persist an idempotent campaign allocation and
-attempt epoch; repeated startup must never replenish it. Account for failures
-and interrupted requests conservatively. Until that allocation is implemented
-and tested, retain the existing stricter cap and make no new paid requests.
+The case controller atomically records `single-player-completion-2026-09-20`
+on the first attempt, with the existing charged upper bound and exactly
+5,000,000,000 additional nanodollars. Later starts retain that allocation.
+Attempts belong to that campaign; historical attempts remain in the ledger
+and their tokens cannot dispatch. Missing or invalid accounting stops paid
+requests. Failed and interrupted requests retain their reserved charge.
+Campaign discovery uses this shared case controller and its ledger.
+
+This private extension retains the existing spend and attempt fields; callers
+continue through the same case API. Stopping dispatch reverses the execution
+choice without discarding accounting. Keeping the old cap avoids a migration
+but cannot use the authorised allowance or renew exhausted case attempts.
+A separate campaign ledger adds reconciliation between two spending records;
+a fixed higher ceiling alone does not encode the attempt epoch. One allocation
+under the existing lock keeps those decisions atomic.
 
 Jev discovers routes and attempts reproductions. Deterministic replay, ASM,
 emulator comparisons and visual inspection establish correctness. Reuse verified

@@ -1,6 +1,7 @@
 """Case verdicts require an encounter, oracle evidence and a sensitive control."""
 
 import hashlib
+from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
 import tempfile
@@ -142,6 +143,7 @@ class BudgetTests(unittest.TestCase):
         self.addCleanup(self.directory.cleanup)
         self.output = Path(self.directory.name)
         self.path = self.output / "budget.json"
+        service.persist(self.path, {"nanodollars_upper_bound": service.PRIOR, "attempts": []})
         self.token = service.begin_attempt(327, self.output, self.path, now=100)
 
     def response(self, *_):
@@ -165,7 +167,8 @@ class BudgetTests(unittest.TestCase):
         self.assertEqual(self.read()["nanodollars_upper_bound"], service.PRIOR + service.RESERVATION)
 
     def test_limits_stop_before_dispatch(self):
-        for change, now in (({"nanodollars_upper_bound": service.LIMIT}, 101), ({}, 1300)):
+        ceiling = service.PRIOR + 5_000_000_000
+        for change, now in (({"nanodollars_upper_bound": ceiling}, 101), ({}, 1300)):
             with self.subTest(change=change):
                 value = self.read() | change
                 service.persist(self.path, value)
@@ -180,6 +183,149 @@ class BudgetTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             service.decision(self.token, {}, "test", self.path, lambda *_: {}, now=101)
         self.assertEqual(self.read()["nanodollars_upper_bound"], service.PRIOR + service.RESERVATION)
+
+
+class CampaignBudgetTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.output = Path(self.directory.name)
+        self.path = self.output / "budget.json"
+        self.opening = 176_526_462
+        self.historical = [{"issue": 327, "token": f"historical-{i}",
+                            "started": 100, "deadline": 1300, "requests": 600,
+                            "output": "historical"} for i in range(3)]
+        service.persist(self.path, {"nanodollars_upper_bound": self.opening,
+                                    "attempts": self.historical})
+
+    def read(self):
+        return json.loads(self.path.read_text())
+
+    def response(self, *_):
+        return {"model": service.MODEL, "usage": {"input_tokens": 100},
+                "answers": {"action": {"type": "choice", "choice": "release"}}}
+
+    def test_campaign_retains_history_and_starts_new_attempt_window(self):
+        token = service.begin_attempt(327, self.output, self.path, now=10_000)
+        value = self.read()
+        self.assertEqual(value["attempts"][:3], self.historical)
+        self.assertEqual(value["nanodollars_upper_bound"], self.opening)
+        self.assertEqual(value["campaign"], {
+            "id": "single-player-completion-2026-09-20",
+            "opening_nanodollars_upper_bound": self.opening,
+            "allowance_nanodollars": 5_000_000_000})
+        attempt = value["attempts"][-1]
+        self.assertEqual(attempt["token"], token)
+        self.assertEqual(attempt["deadline"], 11_200)
+        self.assertEqual(attempt["campaign_id"], value["campaign"]["id"])
+
+    def test_restarts_and_new_cases_do_not_replenish_campaign_allowance(self):
+        for issue, now in [(327, 10_000), (370, 10_010), (327, 10_020)]:
+            token = service.begin_attempt(issue, self.output, self.path, now=now)
+            service.decision(token, {}, "test", self.path, self.response, now=now + 1)
+        value = self.read()
+        self.assertEqual(value["campaign"]["opening_nanodollars_upper_bound"], self.opening)
+        self.assertEqual(value["nanodollars_upper_bound"], self.opening + 3 * 4200)
+        self.assertEqual(value["attempts"][-1]["deadline"], 11_200)
+
+    def test_additional_allowance_stops_before_dispatch_and_retains_failed_reservation(self):
+        token = service.begin_attempt(327, self.output, self.path, now=10_000)
+        value = self.read()
+        ceiling = self.opening + 5_000_000_000
+        value["nanodollars_upper_bound"] = ceiling - service.RESERVATION
+        service.persist(self.path, value)
+
+        def interrupted(*_):
+            raise TimeoutError()
+
+        with self.assertRaises(TimeoutError):
+            service.decision(token, {}, "test", self.path, interrupted, now=10_001)
+        self.assertEqual(self.read()["nanodollars_upper_bound"], ceiling)
+        restarted = service.begin_attempt(370, self.output, self.path, now=10_002)
+        with self.assertRaisesRegex(ValueError, "budget exhausted"):
+            service.decision(restarted, {}, "test", self.path,
+                             lambda *_: self.fail("dispatched after exhaustion"), now=10_003)
+        self.assertEqual(self.read()["nanodollars_upper_bound"], ceiling)
+
+    def test_historical_tokens_cannot_charge_campaign(self):
+        service.begin_attempt(327, self.output, self.path, now=10_000)
+        with self.assertRaisesRegex(ValueError, "campaign"):
+            service.decision("historical-0", {}, "test", self.path,
+                             lambda *_: self.fail("historical token dispatched"), now=101)
+        self.assertEqual(self.read()["nanodollars_upper_bound"], self.opening)
+
+    def test_campaign_attempt_limit_survives_restart(self):
+        for now in (10_000, 10_001, 10_002):
+            service.begin_attempt(327, self.output, self.path, now=now)
+        with self.assertRaisesRegex(ValueError, "collection limit"):
+            service.begin_attempt(327, self.output, self.path, now=10_003)
+        with self.assertRaisesRegex(ValueError, "collection limit"):
+            service.begin_attempt(327, self.output, self.path, now=20_000)
+        self.assertEqual(len(self.read()["attempts"]), 6)
+
+    def test_concurrent_starts_share_one_allocation_and_attempt_limit(self):
+        def start(_):
+            try:
+                return service.begin_attempt(327, self.output, self.path, now=10_000)
+            except ValueError:
+                return None
+
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            tokens = list(pool.map(start, range(4)))
+        self.assertEqual(sum(token is not None for token in tokens), 3)
+        value = self.read()
+        self.assertEqual(len(value["attempts"]), 6)
+        self.assertEqual(value["campaign"]["opening_nanodollars_upper_bound"], self.opening)
+        self.assertEqual(value["nanodollars_upper_bound"], self.opening)
+
+    def test_concurrent_failed_requests_cannot_exceed_remaining_credit(self):
+        token = service.begin_attempt(327, self.output, self.path, now=10_000)
+        ceiling = self.opening + 5_000_000_000
+        value = self.read()
+        value["nanodollars_upper_bound"] = ceiling - 2 * service.RESERVATION
+        service.persist(self.path, value)
+
+        def interrupted(*_):
+            raise TimeoutError()
+
+        def request(_):
+            try:
+                service.decision(token, {}, "test", self.path, interrupted, now=10_001)
+            except (ValueError, TimeoutError) as error:
+                return type(error)
+            self.fail("interrupted request unexpectedly completed")
+
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            outcomes = list(pool.map(request, range(4)))
+        self.assertEqual(outcomes.count(TimeoutError), 2)
+        self.assertEqual(outcomes.count(ValueError), 2)
+        self.assertEqual(self.read()["nanodollars_upper_bound"], ceiling)
+        self.assertEqual(self.read()["attempts"][-1]["requests"], 2)
+
+    def test_invalid_allocation_never_dispatches_or_reallocates(self):
+        token = service.begin_attempt(327, self.output, self.path, now=10_000)
+        original = self.read()
+        for campaign in [None, {}, original["campaign"] | {"id": "another-campaign"},
+                         original["campaign"] | {"allowance_nanodollars": 10_000_000_000},
+                         original["campaign"] | {"opening_nanodollars_upper_bound": self.opening + 1}]:
+            with self.subTest(campaign=campaign):
+                invalid = original | {"campaign": campaign}
+                service.persist(self.path, invalid)
+                with self.assertRaises(ValueError):
+                    service.decision(token, {}, "test", self.path,
+                                     lambda *_: self.fail("invalid allocation dispatched"), now=10_001)
+                with self.assertRaises(ValueError):
+                    service.begin_attempt(370, self.output, self.path, now=10_002)
+                self.assertEqual(self.read(), invalid)
+
+    def test_missing_ledger_cannot_restart_campaign_credit(self):
+        missing = self.output / "missing.json"
+        with self.assertRaisesRegex(ValueError, "ledger.*missing"):
+            service.begin_attempt(327, self.output, missing, now=10_000)
+        with self.assertRaisesRegex(ValueError, "ledger.*missing"):
+            service.decision("historical-0", {}, "test", missing,
+                             lambda *_: self.fail("missing ledger dispatched"), now=10_001)
+        self.assertFalse(missing.exists())
 
 
 if __name__ == "__main__":

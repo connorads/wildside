@@ -17,6 +17,8 @@ from jev_request import ENDPOINT, MODEL, deadline
 LEDGER = Path(__file__).resolve().parents[1] / ".cache/jev-cases/budget.json"
 PRIOR = 24_954_048
 LIMIT = 1_000_000_000
+CAMPAIGN_ID = "single-player-completion-2026-09-20"
+CAMPAIGN_ALLOWANCE = 5_000_000_000
 RESERVATION = 64_000 * 42
 MASKS = {"release": 0, "left": 4, "right": 8, "jump": 16, "left_jump": 20,
          "right_jump": 24, "run_right": 72, "run_right_jump": 88,
@@ -50,13 +52,30 @@ def persist(path, value):
     os.replace(temporary.name, path)
 
 
+def _budget_bounds(value):
+    if "campaign" not in value:
+        return PRIOR, LIMIT
+    campaign = value["campaign"]
+    if not isinstance(campaign, dict) or campaign.get("id") != CAMPAIGN_ID:
+        raise ValueError("invalid campaign allocation")
+    opening = campaign.get("opening_nanodollars_upper_bound")
+    if (type(opening) is not int or not PRIOR <= opening <= LIMIT
+            or campaign.get("allowance_nanodollars") != CAMPAIGN_ALLOWANCE):
+        raise ValueError("invalid campaign allocation")
+    return opening, opening + CAMPAIGN_ALLOWANCE
+
+
 @contextmanager
 def ledger(path=LEDGER):
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.with_suffix(".lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        value = json.loads(path.read_text()) if path.exists() else {"nanodollars_upper_bound": PRIOR, "attempts": []}
-        if not PRIOR <= value["nanodollars_upper_bound"] <= LIMIT:
+        if not path.exists():
+            raise ValueError("budget ledger is missing; restore historical accounting")
+        value = json.loads(path.read_text())
+        floor, ceiling = _budget_bounds(value)
+        if (type(value["nanodollars_upper_bound"]) is not int
+                or not floor <= value["nanodollars_upper_bound"] <= ceiling):
             raise ValueError("invalid budget ledger")
         yield value
 
@@ -64,11 +83,17 @@ def ledger(path=LEDGER):
 def begin_attempt(issue, output, path=LEDGER, now=None):
     now = time.time() if now is None else now
     with ledger(path) as value:
-        attempts = [a for a in value["attempts"] if a["issue"] == issue]
+        value.setdefault("campaign", {
+            "id": CAMPAIGN_ID,
+            "opening_nanodollars_upper_bound": value["nanodollars_upper_bound"],
+            "allowance_nanodollars": CAMPAIGN_ALLOWANCE})
+        attempts = [a for a in value["attempts"]
+                    if a["issue"] == issue and a.get("campaign_id") == CAMPAIGN_ID]
         if len(attempts) >= 3 or attempts and now >= attempts[0]["started"] + 1200:
             raise ValueError("case collection limit reached")
         token = uuid.uuid4().hex
         value["attempts"].append({"issue": issue, "token": token, "started": now,
+                                  "campaign_id": CAMPAIGN_ID,
                                   "deadline": (attempts[0]["started"] if attempts else now) + 1200,
                                   "requests": 0, "output": str(output)})
         persist(path, value)
@@ -91,10 +116,14 @@ def decision(token, state, key, path=LEDGER, evaluate=choose, now=None):
         raise ValueError("TYPESAFE_API_KEY is required")
     now = time.time() if now is None else now
     with ledger(path) as value:
-        attempt = next(a for a in value["attempts"] if a["token"] == token)
+        attempt = next((a for a in value["attempts"] if a["token"] == token), None)
+        if ("campaign" not in value or attempt is None
+                or attempt.get("campaign_id") != CAMPAIGN_ID):
+            raise ValueError("attempt is outside the active campaign")
         if now >= attempt["deadline"] or attempt["requests"] >= 600:
             raise ValueError("case collection limit reached")
-        if value["nanodollars_upper_bound"] + RESERVATION > LIMIT:
+        _, ceiling = _budget_bounds(value)
+        if value["nanodollars_upper_bound"] + RESERVATION > ceiling:
             raise ValueError("cumulative API budget exhausted")
         value["nanodollars_upper_bound"] += RESERVATION
         attempt["requests"] += 1

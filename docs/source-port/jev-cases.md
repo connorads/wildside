@@ -53,10 +53,15 @@ paid requests. `TYPESAFE_API_KEY` stays in the environment; offline subprocesses
 do not inherit it. Successful routes retain controller bytes and exact native
 replay evidence. Interrupted calls keep their spend reservation.
 
-The locked `.cache/jev-cases/budget.json` ledger starts at the prior cumulative
-upper bound of $0.024954048. Preserve this file across runs. It enforces the
-original $1 total, three attempts per case, 600 decisions per attempt and a
-20-minute collection deadline shared by a case's attempts. Each decision
+Preserve the locked `.cache/jev-cases/budget.json` ledger across runs. Missing
+accounting blocks paid requests; the controller never recreates the file.
+The first campaign attempt records the existing charged upper bound plus the
+user-authorised $5 allowance. Historical spend and attempts remain intact.
+Restarts and new cases cannot replenish credit. The historical upper bound
+is $0.176526462; an allocation at that value has a $5.176526462 total ceiling.
+Three attempts per case, 600 decisions per attempt and a 20-minute collection
+deadline apply within this campaign. Historical tokens cannot dispatch.
+Each decision
 applies six frames, with at most 3,600 frames per route. Pricing and request
 limits follow the pinned [Jev model](https://docs.typesafe.ai/models) and
 [HTTP API](https://docs.typesafe.ai/api). No bulk runner is provided.

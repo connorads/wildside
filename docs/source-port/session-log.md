@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-20 handoff (persistent Jev campaign allowance)
+
+The case controller preserves the existing spend and attempts, then atomically
+allocates the authorised $5 at first campaign use. Its fixed campaign ID scopes
+three attempts per case and the shared 20-minute collection window. Restarts
+and different cases retain the same allocation; historical tokens cannot
+charge it. Missing or invalid accounting blocks dispatch. Failed requests keep
+reservations, including concurrent requests at the final available credit.
+Twenty focused tests and the fast gate pass. Deliberate credit replenishment
+and cap removal are both caught. A copy of the real ledger migrates twice
+without changing historical entries or its $0.176526462 charged upper bound;
+the resulting total ceiling is $5.176526462. The live ledger remains unchanged
+and no campaign API requests have been sent. Next run the existing oracle
+preflight before bounded BLW2 teleporter discovery. The original prize pilot
+has its separate historical limits; campaign discovery uses the shared case
+controller exclusively.
+
 ## 2026-09-20 handoff (captured hidden and shifted teleporter records)
 
 #300's parser retains dormant pad destinations using the adjacent type-4 reveal
