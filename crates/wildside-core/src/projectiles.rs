@@ -1457,6 +1457,158 @@ mod drips_surface_crawler_tests {
     }
 
     #[test]
+    fn robot_shot_worker_waits_before_gfx_and_sound() {
+        // ASM Enemy03_Robot_Shoot / Enemy03_Robot_Shot_Init / loc_3AC0C:
+        // Crypt allocates at 297, creates Gfx at 307 and plays sound at 308.
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        let mut robot = crate::enemies::test_fixtures::mini_hopping_skull_test_enemy();
+        robot.family = EnemyFamily::Robot;
+        robot.robot_state = RobotState::Aiming;
+        robot.wait_timer = 1;
+        robot.x_pos = 100 << 16;
+        robot.y_pos = 80 << 16;
+        robot.facing = Direction::Right;
+        runtime.current_level = LevelId(0x41);
+        let mut rng = RomRandomState::default();
+        crate::enemies::step_robot_with_rng(
+            &mut robot,
+            None,
+            Some(140 << 16),
+            &mut Some(&mut runtime.projectiles),
+            &mut rng,
+        );
+        runtime.active_enemies.push(robot);
+        runtime.rebuild_active_enemy_roster();
+        let shots = std::mem::take(&mut runtime.projectiles);
+        let baseline = runtime.trace_frame();
+        runtime.projectiles = shots;
+        assert!(
+            runtime.played_sound_effects.is_empty(),
+            "loc_3AC0C sound follows Gfx allocation"
+        );
+        for frame in 0..10 {
+            runtime.step_projectiles();
+            let trace = runtime.trace_frame();
+            assert!(trace.active_projectiles.is_empty(), "hidden frame {frame}");
+            assert!(trace.active_projectile_details.is_empty());
+            assert_eq!(trace.number_objects, baseline.number_objects + 1);
+            assert_eq!(trace.number_gfx_objects, baseline.number_gfx_objects);
+            let mut slice = OpeningSliceState::respawn(runtime.level_bounds(runtime.current_level));
+            slice.player.x_pos = runtime.projectiles[0].x_pos;
+            slice.player.y_pos = runtime.projectiles[0].y_pos;
+            assert!(!runtime.hostile_projectile_overlaps_player_for_fa75_loc_1c18(&slice));
+            assert_eq!(
+                runtime.projectile_player_contact_after_step_loc_b640(&slice),
+                ProjectilePlayerContactLocB640::None
+            );
+        }
+        // Enemy03_Robot_Shot_Init reads the live parent after the hibernate, not the launch pose.
+        runtime.active_enemies[0].x_pos = (120 << 16) | 0xABCD;
+        runtime.active_enemies[0].y_pos = (90 << 16) | 0xABCD;
+        runtime.active_enemies[0].facing = Direction::Left;
+        runtime.step_projectiles();
+        let trace = runtime.trace_frame();
+        assert_eq!(trace.active_projectiles.len(), 1);
+        assert_eq!(trace.number_objects, baseline.number_objects + 1);
+        assert_eq!(trace.number_gfx_objects, baseline.number_gfx_objects + 1);
+        let shot = trace.active_projectile_details[0];
+        assert_eq!(shot.x_pos, 89 << 16);
+        assert_eq!(shot.y_pos, 76 << 16);
+        assert_eq!(shot.x_velocity, -0x5_0000);
+        assert_eq!(shot.animation_elapsed_frames, 1);
+        assert!(
+            !runtime
+                .played_sound_effects
+                .contains(&QueuedSoundEffect::RobotShoots)
+        );
+        runtime.step_projectiles();
+        assert_eq!(runtime.projectiles[0].x_pos, 84 << 16);
+        assert_eq!(
+            runtime
+                .played_sound_effects
+                .iter()
+                .filter(|s| **s == QueuedSoundEffect::RobotShoots)
+                .count(),
+            1
+        );
+        runtime.step_projectiles();
+        assert_eq!(
+            runtime
+                .played_sound_effects
+                .iter()
+                .filter(|s| **s == QueuedSoundEffect::RobotShoots)
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn robot_shot_wait_survives_removed_parent_without_slot_reuse() {
+        // ASM Deallocate_ObjectSlot leaves child Objects and freed slot contents.
+        // Raw slot reuse remains tracked by #433; this pins the no-reuse case.
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let mut robot = crate::enemies::test_fixtures::mini_hopping_skull_test_enemy();
+        robot.family = EnemyFamily::Robot;
+        robot.robot_state = RobotState::Aiming;
+        robot.wait_timer = 1;
+        robot.x_pos = 100 << 16;
+        robot.y_pos = 80 << 16;
+        robot.facing = Direction::Right;
+        crate::enemies::step_robot_with_rng(
+            &mut robot,
+            None,
+            None,
+            &mut Some(&mut runtime.projectiles),
+            &mut RomRandomState::default(),
+        );
+        runtime.active_enemies.push(robot);
+        runtime.step_projectiles();
+        runtime.active_enemies[0].x_pos = 120 << 16;
+        runtime.step_projectiles();
+        runtime.active_enemies.clear();
+        for _ in 0..8 {
+            runtime.step_projectiles();
+        }
+        assert!(runtime.trace_frame().active_projectiles.is_empty());
+        runtime.step_projectiles();
+        let shots = runtime.trace_frame().active_projectile_details;
+        assert_eq!(shots.len(), 1);
+        assert_eq!(shots[0].x_pos, 151 << 16);
+        assert_eq!(shots[0].y_pos, 66 << 16);
+    }
+
+    #[test]
+    fn robot_shot_sound_uses_previous_sprite_visibility_and_keeps_worker() {
+        // ASM loc_3AC3A gates sound with the prior Make_SpriteFromGfxObject `$19`.
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.current_level = LevelId(0x41);
+        runtime.boot_state = BootState::InGame;
+        let mut slice = OpeningSliceState::respawn(runtime.level_bounds(runtime.current_level));
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        runtime.opening_slice = Some(slice);
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::RobotShot,
+            robot_shot_phase: crate::types::RobotShotPhase::Allocated,
+            x_pos: 500 << 16,
+            y_pos: 100 << 16,
+            x_velocity: 0x5_0000,
+            lifetime: 60,
+            ..Default::default()
+        });
+        for _ in 0..11 {
+            runtime.step_projectiles();
+        }
+        assert_eq!(runtime.trace_frame().active_projectiles.len(), 1);
+        runtime.opening_slice.as_mut().unwrap().camera.x_pos = 500 << 16;
+        runtime.step_projectiles();
+        assert!(runtime.played_sound_effects.is_empty());
+        assert_eq!(runtime.projectiles.len(), 1);
+        assert_eq!(runtime.projectiles[0].x_pos, 510 << 16);
+    }
+
+    #[test]
     fn ufo_beam_collision_latch_survives_one_sample_then_deletes_loc_355d4() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.projectiles.push(EnemyProjectile {
@@ -3748,6 +3900,7 @@ impl NativeRuntime {
             &mut spawned_projectiles,
         );
         let grid = self.block_grid.as_ref();
+        let active_enemies = &self.active_enemies;
         let mut pending_drips_splashes = Vec::new();
         let mut pending_tar_monster_bursts = Vec::new();
         let mut pending_shooter_layout_interactions = Vec::new();
@@ -3783,6 +3936,44 @@ impl NativeRuntime {
                 // ASM loc_32534 hibernates once after allocating the five
                 // burst Objects, then deletes the hidden original at loc_32652.
                 return false;
+            }
+            let robot_checks_flight = p.robot_shot_phase == crate::types::RobotShotPhase::Flying;
+            if p.kind == EnemyProjectileKind::RobotShot {
+                use crate::types::RobotShotPhase;
+                // ASM Deallocate_ObjectSlot leaves freed slot contents until reuse.
+                // TODO(fidelity): #433 model raw parent/Gfx slot reuse during this
+                // wait; a removed native parent retains only its last sampled pose.
+                if !p.robot_shot_has_gfx_object()
+                    && let Some(owner) = p.owner
+                    && let Some(parent) = active_enemies.iter().find(|enemy| {
+                        enemy.family == EnemyFamily::Robot
+                            && enemy.segment_index == owner.segment_index
+                            && enemy.layout_index == owner.layout_index
+                    })
+                {
+                    crate::enemies::refresh_robot_shot_parent(p, parent);
+                }
+                match p.robot_shot_phase {
+                    RobotShotPhase::Allocated => {
+                        p.robot_shot_phase = RobotShotPhase::Waiting(10);
+                        return true;
+                    }
+                    RobotShotPhase::Waiting(remaining) if remaining > 1 => {
+                        p.robot_shot_phase = RobotShotPhase::Waiting(remaining - 1);
+                        return true;
+                    }
+                    RobotShotPhase::Waiting(_) => {
+                        p.robot_shot_phase = RobotShotPhase::AwaitingSound { suppressed: false };
+                    }
+                    RobotShotPhase::AwaitingSound { suppressed } => {
+                        // ASM loc_3AC3A reads `$19` from the previous sprite pass.
+                        if !suppressed {
+                            pending_projectile_sound_effects.push(QueuedSoundEffect::RobotShoots);
+                        }
+                        p.robot_shot_phase = RobotShotPhase::Flying;
+                    }
+                    RobotShotPhase::Flying => {}
+                }
             }
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
             let is_robot_shot = p.kind == EnemyProjectileKind::RobotShot;
@@ -4594,7 +4785,20 @@ impl NativeRuntime {
                 );
             }
 
-            if is_robot_shot && let Some(camera) = camera {
+            if let crate::types::RobotShotPhase::AwaitingSound { suppressed } = &mut p.robot_shot_phase {
+                // ASM Make_SpriteFromGfxObject / unk_C8278 (kid.asm): the
+                // initial shot mapping has a six-pixel height. Latch `$19`
+                // after movement so camera changes on the wake cannot alter it.
+                *suppressed = camera.is_some_and(|camera| {
+                    let screen_y = ((p.y_pos >> 16) as u16)
+                        .wrapping_sub((camera.y_pos >> 16) as u16)
+                        .wrapping_sub(6) as i16;
+                    archer_arrow_outside_horizontal_sprite_bounds_loc_11b6(p.x_pos, camera.x_pos)
+                        || !(-0x80..=0x160).contains(&screen_y)
+                });
+            }
+
+            if is_robot_shot && robot_checks_flight && let Some(camera) = camera {
                 // ASM Robot.asm loc_3AC48: Robot shots have no DBF lifetime.
                 // Each frame clears collision_type, moves, then exits flight
                 // once the signed camera box is left or level collision becomes
@@ -5303,7 +5507,7 @@ pub(crate) fn projectile_participates_in_kid_collision(projectile: &EnemyProject
     // ASM sub_370D2 (kid.asm:38972) and sub_37002 allocate visible, moved
     // GfxObjects but never set `has_kid_collision(a3)`. Their collision_type
     // checks consume terrain/other-object contacts, not Kid overlap.
-    projectile.kind != EnemyProjectileKind::BossDeathBurst
+    projectile.kind != EnemyProjectileKind::BossDeathBurst && projectile.robot_shot_has_gfx_object()
 }
 
 fn projectile_overlaps_player_loc_1c18(

@@ -13467,7 +13467,6 @@ mod chunk_04 {
             player_x,
             &mut Some(&mut projs),
             &mut rng,
-            None,
         );
         assert_eq!(enemy.robot_state, RobotState::Walking);
         assert!(projs.is_empty());
@@ -13478,7 +13477,6 @@ mod chunk_04 {
             player_x,
             &mut Some(&mut projs),
             &mut rng,
-            None,
         );
         assert_eq!(
             enemy.robot_state,
@@ -13497,8 +13495,8 @@ mod chunk_04 {
         );
         assert_eq!(
             projs[0].y_pos,
-            enemy.y_pos - (16 << 16),
-            "ASM Robot.asm loc_3AC0C should apply child head offset `$12` into a -16px shot Y delta"
+            enemy.y_pos - (14 << 16),
+            "ASM Robot.asm loc_3AC0C applies child head offset `$10` into a -14px shot Y delta"
         );
         assert_eq!(
             projs[0].x_velocity, ROBOT_PROJECTILE_SPEED,
@@ -13534,7 +13532,6 @@ mod chunk_04 {
             player_x,
             &mut Some(&mut projs),
             &mut rng,
-            None,
         );
 
         assert_eq!(

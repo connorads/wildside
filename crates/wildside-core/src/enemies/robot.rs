@@ -644,34 +644,40 @@ fn robot_x_direction_byte(facing: Direction) -> u8 {
     }
 }
 
-fn push_robot_shot(
-    enemy: &ActiveEnemy,
-    projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
-    sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
-) {
+fn push_robot_shot(enemy: &ActiveEnemy, projectiles: &mut Option<&mut Vec<EnemyProjectile>>) {
     if let Some(projs) = projectiles {
-        let child_x_direction = robot_x_direction_byte(enemy.facing);
-        let spawn = robot_shot_spawn_loc_3ac0c(child_x_direction, 18);
-        // ASM Robot.asm Enemy03_Robot_Shot_Init/loc_3AC0C copies the parent's
-        // coordinate words before applying the signed muzzle offsets at word width.
-        let x_pos_word =
-            ((enemy.x_pos >> 16) as u16).wrapping_add_signed(spawn.projectile_x_delta_px);
-        let y_pos_word =
-            ((enemy.y_pos >> 16) as u16).wrapping_add_signed(spawn.projectile_y_delta_px);
-        projs.push(EnemyProjectile {
-            x_pos: u32::from(x_pos_word) << 16,
-            y_pos: u32::from(y_pos_word) << 16,
-            x_velocity: spawn.projectile_x_velocity,
+        // ASM Enemy03_Robot_Shoot allocates an Object; Enemy03_Robot_Shot_Init
+        // hibernates ten frames before reading the parent and allocating Gfx.
+        let mut shot = EnemyProjectile {
             lifetime: 60,
             kind: EnemyProjectileKind::RobotShot,
+            robot_shot_phase: crate::types::RobotShotPhase::Allocated,
+            owner: Some(EnemyProjectileOwner {
+                segment_index: enemy.segment_index,
+                layout_index: enemy.layout_index,
+                token: 0,
+            }),
             ..Default::default()
-        });
-        if let Some(sound_effects) = sound_effects {
-            // ASM Robot.asm loc_3AC0C: after the allocated shot hibernates
-            // one frame, a clear `$19(a3)` gate plays `sfx_Robot_shoots`.
-            sound_effects.push(QueuedSoundEffect::RobotShoots);
-        }
+        };
+        refresh_robot_shot_parent(&mut shot, enemy);
+        projs.push(shot);
     }
+}
+
+pub(crate) fn refresh_robot_shot_parent(shot: &mut EnemyProjectile, enemy: &ActiveEnemy) {
+    // ASM Enemy03_Robot_Shot_Init / loc_3AC0C: copy parent coordinate words,
+    // linked head direction and `$46=$10`, then apply word-width muzzle offsets.
+    let head = enemy.child_attachment_snapshot();
+    let facing = head.and_then(|head| head.facing).unwrap_or(enemy.facing);
+    let spawn = robot_shot_spawn_loc_3ac0c(robot_x_direction_byte(facing), 0x10);
+    shot.x_pos =
+        u32::from(((enemy.x_pos >> 16) as u16).wrapping_add_signed(spawn.projectile_x_delta_px))
+            << 16;
+    shot.y_pos =
+        u32::from(((enemy.y_pos >> 16) as u16).wrapping_add_signed(spawn.projectile_y_delta_px))
+            << 16;
+    shot.x_velocity = spawn.projectile_x_velocity;
+    shot.palette_variant = enemy.palette_variant;
 }
 
 /// Step a Robot enemy: paces at level-dependent speed, shoots at intervals,
@@ -684,7 +690,7 @@ pub(crate) fn step_robot(
     projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
 ) {
     let mut rng = RomRandomState::default();
-    step_robot_with_rng(enemy, block_grid, player_x_pos, projectiles, &mut rng, None);
+    step_robot_with_rng(enemy, block_grid, player_x_pos, projectiles, &mut rng);
 }
 
 pub(crate) fn step_robot_with_rng(
@@ -693,7 +699,6 @@ pub(crate) fn step_robot_with_rng(
     player_x_pos: Option<u32>,
     projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
     rng: &mut RomRandomState,
-    mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
     match enemy.robot_state {
         RobotState::Walking => {
@@ -764,7 +769,7 @@ pub(crate) fn step_robot_with_rng(
 
                 enemy.facing = robot_direction_branch_loc_3aa0c(result.next_parent_x_direction);
                 if result.branch_to_robot_shoot {
-                    push_robot_shot(enemy, projectiles, played_sound_effects.as_deref_mut());
+                    push_robot_shot(enemy, projectiles);
                     finish_robot_shoot_sequence(enemy);
                 } else if result.next_child_counter_word_4e != 0 {
                     // ASM sub_3C4F8 loc_3C58E -> loc_3C5A2 arms the head turn
@@ -785,7 +790,7 @@ pub(crate) fn step_robot_with_rng(
                 }
             }
             if enemy.wait_timer == 0 {
-                push_robot_shot(enemy, projectiles, played_sound_effects);
+                push_robot_shot(enemy, projectiles);
                 finish_robot_shoot_sequence(enemy);
             }
         }
@@ -968,7 +973,7 @@ mod tests {
     }
 
     #[test]
-    fn robot_live_step_queues_shoot_sound_when_loc_3ac0c_spawns_projectile() {
+    fn robot_live_step_allocates_hidden_shot_without_sound() {
         let robot = ActiveEnemy {
             family: EnemyFamily::Robot,
             robot_state: RobotState::Aiming,
@@ -1012,7 +1017,7 @@ mod tests {
         );
         let projectile = projectiles[0];
         assert_eq!(projectile.x_pos, 126 << 16);
-        assert_eq!(projectile.y_pos, 64 << 16);
+        assert_eq!(projectile.y_pos, 66 << 16);
         assert_eq!(projectile.x_velocity, ROBOT_PROJECTILE_SPEED);
         assert_eq!(projectile.y_velocity, 0);
         assert_eq!(projectile.lifetime, 60);
@@ -1022,12 +1027,11 @@ mod tests {
         assert_eq!(projectile.homing_accel, 0);
         assert_eq!(projectile.speed_cap, 0);
         assert!(!projectile.wall_bounce);
-        assert_eq!(
-            sound_effects,
-            vec![QueuedSoundEffect::RobotShoots],
-            "ASM Robot.asm loc_3AC0C should play `sfx_Robot_shoots` after the spawned shot object's one-frame hibernate",
+        assert!(
+            sound_effects.is_empty(),
+            "ASM Enemy03_Robot_Shot_Init hibernates before Gfx and sound"
         );
-        assert_eq!(sound_effects[0].sound_id(), 0x3A);
+        assert!(!projectile.robot_shot_has_gfx_object());
     }
 
     #[test]
@@ -1041,14 +1045,14 @@ mod tests {
         };
         let mut projectiles = Vec::new();
 
-        push_robot_shot(&robot, &mut Some(&mut projectiles), None);
+        push_robot_shot(&robot, &mut Some(&mut projectiles));
 
         assert_eq!(
             projectiles[0].x_pos, 0x000A_0000,
             "ASM Robot.asm loc_3AC0C copies the X word and wraps ADD.W #$1A"
         );
         assert_eq!(
-            projectiles[0].y_pos, 0xFFF5_0000,
+            projectiles[0].y_pos, 0xFFF7_0000,
             "ASM Robot.asm loc_3AC0C copies the Y word and wraps the muzzle-height SUB.W"
         );
     }
@@ -1065,7 +1069,6 @@ mod tests {
             Some(140 << 16),
             &mut Some(&mut projectiles),
             &mut rng,
-            None,
         );
 
         assert_eq!(
@@ -1188,7 +1191,6 @@ mod tests {
             Some(0x0140 << 16),
             &mut Some(&mut projectiles),
             &mut rng,
-            None,
         );
 
         assert_eq!(

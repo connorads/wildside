@@ -12646,7 +12646,9 @@ impl NativeRuntime {
             active_projectiles: self
                 .projectiles
                 .iter()
-                .filter(|p| p.boss_death_burst_has_gfx_object_sub_370d2())
+                .filter(|p| {
+                    p.boss_death_burst_has_gfx_object_sub_370d2() && p.robot_shot_has_gfx_object()
+                })
                 .map(|p| (p.x_pos, p.y_pos, p.friendly))
                 .chain(
                     self.diamond_power_rain_slots
@@ -12662,7 +12664,9 @@ impl NativeRuntime {
             active_projectile_details: self
                 .projectiles
                 .iter()
-                .filter(|p| p.boss_death_burst_has_gfx_object_sub_370d2())
+                .filter(|p| {
+                    p.boss_death_burst_has_gfx_object_sub_370d2() && p.robot_shot_has_gfx_object()
+                })
                 .map(|p| {
                     let (archer_arrow_sprite_frame, archer_arrow_flipped) =
                         crate::archer_arrow_sprite_frame_from_angle(p.current_angle);
@@ -16145,6 +16149,11 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::DragonFlyingDescentFire)
             .count() as u16;
+        let waiting_robot_shot_workers = self
+            .projectiles
+            .iter()
+            .filter(|projectile| !projectile.robot_shot_has_gfx_object())
+            .count() as u16;
         let allocated_heady_metal_eye_workers = self
             .projectiles
             .iter()
@@ -16184,6 +16193,7 @@ impl NativeRuntime {
             // loc_DE0 inserts it before the currently executing Heady object.
             // It remains object-only until sub_370D2 runs next pass.
             .saturating_add(allocated_heady_metal_eye_workers)
+            .saturating_add(waiting_robot_shot_workers)
             // ASM Tar_Monster.asm loc_324F8 allocates five Object slots;
             // their loc_325E6 callbacks load GfxObjects one scheduler pass later.
             .saturating_add(tar_monster_burst_object_init_workers)
@@ -16327,6 +16337,16 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::CloudLightning)
             .count();
+        let robot_shot_workers = self
+            .projectiles
+            .iter()
+            .filter(|projectile| {
+                matches!(
+                    projectile.kind,
+                    EnemyProjectileKind::RobotShot | EnemyProjectileKind::RobotShotImpact
+                ) && projectile.robot_shot_has_gfx_object()
+            })
+            .count();
         let tank_bullet_workers = self
             .projectiles
             .iter()
@@ -16459,6 +16479,7 @@ impl NativeRuntime {
             // ASM Tank_Shooting.asm loc_3C50E allocates the Object_RAM
             // worker, then loc_3B730 loads its linked GfxObject slot.
             + tank_bullet_workers
+            + robot_shot_workers
             + drips_surface_crawler_workers
             + lion_projectile_workers
             + fire_demon_trail_workers

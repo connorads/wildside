@@ -31,7 +31,7 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-09-20):** #433 shared assets are repaired and RNG long-word order is verified against live emulator returns. Next, correct Robot attack eligibility and its delayed shot worker. Crypt's frame-300 extra object is the shot during its ten-frame pre-graphics wait. Signed comparison alone is insufficient. HUD pixels, natural entry and the ten expanded-sweep failures remain open.
+- **Current work (2026-09-20):** #433 shared assets and RNG word order are repaired. Robot's delayed child worker is implemented; next correct the head-animation attack gate, signed RNG threshold, independent head turn and 25-frame parent shooting hold. Verify Crypt frame 297 allocation, frame 307 Gfx and frame 308 sound together. Raw slot reuse, flight collision order, HUD pixels, natural entry and ten sweep failures remain open.
 - **Selection:** Run `mise run project-status` and `mise run jev-audit`. Objective awaiting-human cases are eligible for investigation and evidence-backed closure. Coverage prerequisites come first, then P0 #210, #370 and #374 according to dependencies and available evidence.
 - **Scope:** Single-player across all playable levels, branches, forms and bosses. Preserve frozen #406/#409/#416 timing debt and its ratchets. Final package retains subjective/device checks; no human validation is claimed.
 - **Jev allowance:** $5 additional across the campaign. Historical charged upper bound is $0.176526462. Preserve the ledger; implement and test the allocation before another paid request. Offline work continues after the cap.
@@ -58,7 +58,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 433 | [~] | P1 | enemies/RNG | Root cause identified: Crypt Robot shot lifecycle and RNG differ from ASM; shared assets load. | Verify attack eligibility and delayed shot workers; retain HUD and natural-entry checks. |
+| 433 | [~] | P1 | enemies/RNG | Root cause identified: Crypt Robot shot lifecycle and RNG differ from ASM; shared assets load. | Verify parent attack/recovery and child timing together; retain HUD and natural-entry checks. |
 | 406 | [f] | P1 | rendering | FROZEN with #409 per ADR 0002: the lane stops accruing sessions; the march stays metered as ADR 0001 left it (frontier 995, injection ratchet). Residue authority moves to census-scoped reconstruction + raster-span-replay. | Do not extend the march; ratchets stay green; take #442-#450 instead. See ADR 0002. |
 | 409 | [f] | P1 | rendering | FROZEN per ADR 0002: the recurrence is a downward-only witness (scheduled-frames ratchet 736 / boundary 1657; tas-pixel-baseline). ADR 0003 corrected the spans; #459 found the bounded entry phase non-invertible and closed NO-GO. | Do not extend or promote the lane; keep the 2,391-pixel and scheduled-frame ratchets green. Evidence: archive #459. |
 | 416 | [f] | P2 | audio | Frontier FROZEN at frames 0..922 (decision in archive #416): `gems_frame_signature_v1` is a regression witness only; command parity (#435) supersedes it as audio authority. | Never advance `modelled_frames`; #434-#438 closed, remaining audio debt tracked via #439-#441; keep verify-tas-full green. |

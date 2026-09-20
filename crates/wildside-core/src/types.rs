@@ -5449,6 +5449,18 @@ impl BossHeadBoomerangAnimationCursor {
     }
 }
 
+/// ASM Enemy03_Robot_Shot_Init / loc_3AC0C / loc_3AC48 (Robot.asm).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum RobotShotPhase {
+    Allocated,
+    Waiting(u8),
+    AwaitingSound {
+        suppressed: bool,
+    },
+    #[default]
+    Flying,
+}
+
 /// Projectile fired by enemies and player helmet attacks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct EnemyProjectile {
@@ -5494,6 +5506,7 @@ pub(crate) struct EnemyProjectile {
     /// the spawner state. ASM Lion.asm sub_3E2CE / loc_3E1B4.
     pub(crate) owner: Option<EnemyProjectileOwner>,
     pub(crate) kind: EnemyProjectileKind,
+    pub(crate) robot_shot_phase: RobotShotPhase,
     /// Enemy palette variant resolved from the level's enemy type slot.
     pub(crate) palette_variant: u8,
     /// ASM loc_EC76 stores `(a3)` as the shooter object's current Level_Layout
@@ -5575,6 +5588,15 @@ pub(crate) struct EnemyProjectile {
 }
 
 impl EnemyProjectile {
+    /// ASM Enemy03_Robot_Shot_Init (Robot.asm): Gfx allocation follows Hibernate(10).
+    pub(crate) fn robot_shot_has_gfx_object(&self) -> bool {
+        self.kind != EnemyProjectileKind::RobotShot
+            || matches!(
+                self.robot_shot_phase,
+                RobotShotPhase::AwaitingSound { .. } | RobotShotPhase::Flying
+            )
+    }
+
     pub(crate) fn boss_death_burst_has_gfx_object_sub_370d2(&self) -> bool {
         self.kind != EnemyProjectileKind::BossDeathBurst
             || self.boss_death_burst_state != BossDeathBurstState::AllocatedLoc375De

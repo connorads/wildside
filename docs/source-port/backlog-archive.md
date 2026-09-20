@@ -3979,6 +3979,66 @@ surface one row.
 
 ### #433
 
+2026-09-20 delayed Robot shot worker:
+
+The settled Crypt probe allocates child Object `$FFFF0EFC` at frame 297.
+WRAM has sleep 2/no Gfx at 305 and sleep 1/no Gfx at 306. At 307 the child
+loads Gfx `$FFFF2610` and hibernates at `$3AC3A`; at 308 it emits sound `$3A`
+and reaches `$3AC50`; at 309 it starts the impact wait at `$1066`.
+`Enemy03_Robot_Shot_Init` and `loc_3AC0C` confirm the ten-frame Object-only
+wait, then one visible frame before sound. Parent head `$46=$10` gives a
+14-pixel muzzle offset, not the native 16-pixel offset. The probe uses
+360 zero-input frames, logical level `0x41`, settled warp, captures 305..311,
+and PC range `$3ABBE..$3AC48`.
+
+The private projectile phase owns allocated, waiting, sound-pending and
+flying states. This placement is reversible without changing public trace
+schemas. A separate pending-worker queue would duplicate reset/pause and
+count lifecycles; leaving immediate allocation in place cannot express the
+observed Object-only interval. The existing projectile carrier already
+represents delayed Heady-Metal Object/Gfx allocation. Robot's phase hides
+both public projectile lists and bypasses movement, animation and Kid
+contact until Gfx exists. Counts include the pending Object and then the
+Object/Gfx pair through impact. The sound gate latches prior sprite-pass
+visibility rather than testing a later camera position.
+
+The regression fails on the old immediate sound. It covers ten hidden
+frames, both Kid-contact routes, delayed parent coordinate/direction reads,
+word-width muzzle offsets, one-time sound, Object/Gfx counts, and camera
+movement between the sprite and sound passes. A removed-parent regression
+keeps the child alive with its last sampled pose when slots are not reused.
+`Deallocate_ObjectSlot` does not cancel children and preserves freed slot
+contents until allocation. Exact raw Object/Gfx slot reuse remains an
+explicit `TODO(fidelity)`; segment/layout identity cannot represent that
+reuse, including a replacement Robot at the same identity.
+
+Verification: `verify-slice-fast` passes, including 7,413 core tests and
+all frontier replays. State sweep `1789933428` has the same complete
+per-level results as `1789931961`: 95 comparable passes, ten failures,
+28 blocking diffs and no wholly masked level. Full Crypt sweep `1789933668`
+is identical to `1789931975` apart from output paths. All twelve native/diff
+PNGs for logical `0x41` are byte-identical; the frame 300 composite was inspected.
+The pending shot still does not appear in Crypt until the parent gate is
+corrected, so its frame 300 object-count mismatch remains open. Backlog lint
+and Jev audit pass. Full TAS verifies all 37,759 frames within unchanged
+frozen limits: 241 pixel-divergent frames / 2,391 changed pixels, the existing
+GEMS signature baseline and zero GEMS command mismatches. No paid Jev calls
+are made for this unit.
+
+Rejected visual hypothesis: `scene.rs` shot `origin_y=0` is correct.
+`macros.asm::sprite_frame_vram` writes Y-centre 0 and height 6 for `unk_C8278`.
+`Make_SpriteFromGfxObject` subtracts that height before adding the centre;
+`sprites.rs::sprite_draw_position` applies the same `screen_y-height+origin_y`.
+The six-pixel value is height, not a missing origin offset.
+
+The parent still uses the synthetic attack interval and immediate recovery.
+The next unit must implement the head-animation gate, signed RNG threshold,
+independent head turn and 9+5+11 shooting hold together. Uninterrupted
+shooting cannot unload the parent in ASM; native retention must follow the
+coroutine. Existing flight consumes current terrain after movement instead
+of consuming the previous collision before movement. These are still open
+alongside Crypt's HUD pixels and natural-entry evidence.
+
 2026-09-20 RNG word-order correction:
 
 `Get_RandomNumber_long` saves the first generated word at `RNG_Buffer+2`,

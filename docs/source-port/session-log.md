@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-20 handoff (Robot delayed shot worker)
+
+#433's child worker follows the observed ten-frame Object-only wait before
+Gfx allocation, then one visible frame before sound. Pending shots cannot
+move, animate, render or hit Kid; delayed spawn reads the parent at wake.
+The private phase shares existing projectile reset/pause handling and counts
+its Object separately before Gfx exists. Three permanent regressions cover
+allocation/counts/contact, prior-pass sound visibility and removed-parent
+survival without slot reuse. The fast gate passes all 7,413 core tests. Full TAS verifies all 37,759
+frames within unchanged frozen pixel/audio limits and zero GEMS command
+mismatches.
+State sweep `1789933428` and full Crypt sweep `1789933668` match the preceding
+reports; logical `0x41` PNGs are byte-identical. The parent still uses the wrong
+attack interval and immediate recovery, so Crypt's frame 300 mismatch remains.
+Next implement animation-edge eligibility, signed RNG comparison, independent
+head turns and the 25-frame shooting hold with coroutine-specific retention.
+Raw owner slot reuse and flight collision ordering remain explicit fidelity
+gaps. The suspected sprite-origin issue was disproved by the sprite macro
+and draw-position calculation. No paid Jev calls.
+
 ## 2026-09-20 handoff (RNG long-word order)
 
 `Get_RandomNumber_long` returns the first generated word in its low half.

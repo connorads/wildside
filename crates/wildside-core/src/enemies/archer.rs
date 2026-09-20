@@ -728,6 +728,7 @@ pub(crate) fn step_archer(
         drips_spawn_crawler_on_splash: false,
         owner: None,
         kind: EnemyProjectileKind::ArcherArrow,
+        robot_shot_phase: crate::types::RobotShotPhase::default(),
         palette_variant: enemy.palette_variant,
         shooter_tracks_layout: false,
         shooter_layout_col: 0,

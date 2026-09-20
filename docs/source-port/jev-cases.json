@@ -1076,7 +1076,7 @@
   {
     "issue": 433,
     "readiness": "needs_comparison",
-    "active_path": "crates/wildside-core/src/types.rs RomRandomState and enemies/robot.rs attack lifecycle",
+    "active_path": "crates/wildside-core/src/enemies/robot.rs parent lifecycle and projectiles.rs delayed worker",
     "route": "Settled Crypt full sweep at frames 0,30,60,120,300,359; natural entry remains to be acquired",
     "evidence": [
       "docs/source-port/backlog-archive.md#issue-433",
@@ -1084,7 +1084,7 @@
       "crates/wildside-data/src/lib.rs",
       "crates/wildside-cli/src/sweep/mod.rs"
     ],
-    "next_action": "Derive Robot head-animation eligibility and delayed shot allocation from the frame297 PC/WRAM probe; retain HUD and natural-entry checks",
+    "next_action": "Implement Robot head-animation eligibility, signed random gate, independent head turn and parent recovery; compare frames 297/307/308, then flight collision order and natural entry",
     "scope": "Crypt shared assets, truthful comparison and exposed Robot/RNG/HUD discrepancies; natural route completion remains a separate evidence requirement"
   }
 ]

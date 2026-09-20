@@ -663,6 +663,7 @@ fn cloud_projectile_spawn_loc_35df0(
         drips_spawn_crawler_on_splash: false,
         owner: None,
         kind: EnemyProjectileKind::CloudLightning,
+        robot_shot_phase: crate::types::RobotShotPhase::default(),
         palette_variant: 0,
         shooter_tracks_layout: false,
         shooter_layout_col: 0,

@@ -5676,14 +5676,7 @@ fn step_active_enemies_with_rng_context(
                     }
                     step_lion(enemy, block_grid, player_x_pos, &mut projectiles);
                 } else if matches!(enemy.family, EnemyFamily::Robot) {
-                    step_robot_with_rng(
-                        enemy,
-                        block_grid,
-                        player_x_pos,
-                        &mut projectiles,
-                        rng,
-                        played_sound_effects.as_deref_mut(),
-                    );
+                    step_robot_with_rng(enemy, block_grid, player_x_pos, &mut projectiles, rng);
                 } else if matches!(enemy.family, EnemyFamily::Orca) {
                     if enemy.wait_timer == ORCA_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3D2AA {
                         step_orca_berzerker_knockback(enemy);
