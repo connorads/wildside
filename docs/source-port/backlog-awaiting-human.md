@@ -1,9 +1,11 @@
 # Playtest backlog — awaiting human validation
 
 `[?]` (agent proposes fix complete) and `[b]` (blocked / needs human repro) rows.
-**The loop agent skips these** — only a human can promote `[?]`→`[x]` or unblock `[b]`
-after a playtest. `project-status` still reads this lane, so these rows count as the
-human-validation blockers in `completion-audit`. Evidence per issue is keyed by `#NNN`
+Objective cases may be investigated and closed with the verified evidence required
+by [the completion campaign](completion-campaign.md). Subjective/device checks
+remain for the final human playtest. `project-status` reads this lane; its
+`--fail-on-human-blockers` check remains a strict count of unresolved rows, not
+the complete campaign audit. Evidence per issue is keyed by `#NNN`
 in [`backlog-archive.md`](./backlog-archive.md); the open queue is in [`backlog.md`](./backlog.md).
 
 `Target` is the coarse validator surface (`0xNN`, `boot`, `demo`, `demo:0xNN`,

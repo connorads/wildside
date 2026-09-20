@@ -8,7 +8,8 @@ If your prompt mentions a loop session (or you're asked to "take the next item")
 follow `docs/source-port/loop.md`; it is the whole loop. The backlog is sharded by
 reader: `docs/source-port/backlog.md` holds the NOW handoff and the open queue
 (`[ ]`/`[~]` rows, plus never-selectable frozen `[f]` lanes);
-`backlog-awaiting-human.md` holds the `[?]`/`[b]` rows you skip;
+`backlog-awaiting-human.md` holds `[?]`/`[b]` cases eligible for objective investigation under
+`docs/source-port/completion-campaign.md`;
 `backlog-archive.md` holds resolved rows and per-issue history (grep by `#NNN`);
 `session-log.md` is the past-handoff log. Select the next item with
 `mise run project-status` (it is priority-ordered across the live lanes; file order
@@ -157,8 +158,9 @@ Canonical bug/feature backlog, sharded by reader (one row per issue):
 - `docs/source-port/backlog.md`: NOW handoff + the **open queue** (`[ ]`/`[~]`; frozen
   `[f]` lanes stay here but are never selectable). Keep
   Verify cells short here; table shape is status, priority, system, summary, verify.
-- `docs/source-port/backlog-awaiting-human.md`: `[?]`/`[b]` rows. The agent skips them;
-  only a human promotes `[?]`→`[x]` or unblocks `[b]`. Its table adds `Target` and
+- `docs/source-port/backlog-awaiting-human.md`: `[?]`/`[b]` rows. Objective cases may
+  be investigated and closed under `docs/source-port/completion-campaign.md`;
+  subjective/device checks remain for the final human playtest. Its table adds `Target` and
   `Check` so tools and playtesters can see the validator surface directly; `Check`
   must name the concrete symptom and validation action, not "retest the reported route".
 - `docs/source-port/backlog-archive.md`: resolved (`[x]`/`[-]`) rows and per-issue
@@ -185,8 +187,9 @@ top of `backlog.md` (rewrite it each session; never let it accrete: old handoffs
 ### Session protocol
 1. Follow `docs/source-port/loop.md`: read the NOW block in `backlog.md`, then run
    `mise run project-status` and take the top item it lists. It is priority-ordered
-   across the live lanes; do not eyeball the table for "the top row". Never pick a human
-   validation/repro blocker (the `[?]`/`[b]` awaiting-human lane).
+   across the live lanes; do not eyeball the table for "the top row". Apply
+   `docs/source-port/completion-campaign.md` to select objective awaiting-human
+   cases and coverage prerequisites; do not automate subjective/device sign-off.
    a. project-status lists "ready to implement now" (open rows whose evidence says "root cause identified") first; take those before generic open playability/visual risks.
    b. If project-status shows no ready item and no open risks, use the proactive-verification fallback in `loop.md` (mutation-test one file, audit one enemy family vs ASM, extend ASM coverage)
 2. Mark `[~]` when starting work
@@ -197,7 +200,7 @@ top of `backlog.md` (rewrite it each session; never let it accrete: old handoffs
    d. Read disassembly: find the relevant ASM routine (use source precedence)
    e. Cross-reference: compare native logic to both ASM and oracle data
    f. Write a probe scenario if one doesn't exist for this behaviour
-4. After 2 consecutive probe/docs-only commits on the same issue, the next session must add instrumentation or narrow the scenario before another gameplay patch. **No code commit ⇒ write the dead end under the issue's `#NNN` in `backlog-archive.md` and stop; never commit churn.**
+4. After 2 consecutive probe/docs-only commits on the same issue, the next session must add instrumentation or narrow the scenario before another gameplay patch. **No code commit ⇒ write the dead end under the issue's `#NNN` in `backlog-archive.md` and park that investigation; continue another useful campaign item. Never commit churn.**
 5. Fix: implement in focused commit(s)
 6. Verify visually: capture frames, Read PNGs, compare before/after
 7. Verify mechanically: `mise run verify-slice-fast` must pass (+ `mise run verify-tas-full` after gameplay-affecting commits; do not run the two concurrently, they share `.cache/tas-verify`). The gate runs `cargo clippy --workspace --all-targets -- -D warnings` (the `lint` dep): **a clippy warning is a red gate, same status as a failing test**, and clippy must be green on `main` (the wired pre-commit hook + the gate enforce it). **Gate must be green on main at all times**; never commit tests with unverified values. If values aren't confirmed, mark `#[ignore]` with a comment explaining what needs re-derivation. A red gate blocks all loop commits.

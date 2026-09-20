@@ -74,25 +74,24 @@ This mirrors byuu's investigation loop (identify, capture, hypothesise, probe, v
 7. **Fix**: implement the smallest correct change
 8. **Verify**: probe scenario passes, full sweep passes, visual before/after comparison
 
-### Iteration workflow: agent-proposed vs human-closed
+### Iteration workflow: evidence-backed closure
 
-The autonomy loop's gameplay-bug investigation lane must never close a backlog item on its own. It owns the `[~]` to `[?]` transition only.
+The [completion campaign](completion-campaign.md) defines objective closure.
+Agents may investigate `[?]`/`[b]` cases and close objective reports when the
+reproduction, ASM, emulator comparison, regression and relevant visual evidence
+establish the complete claim. Subjective and real-device checks remain human.
 
-Status transitions:
+- `[ ]` open; `[~]` investigating. Select by priority and prerequisites.
+- `[?]` proposed fix awaiting sufficient evidence or human validation.
+- `[x]` verified closed, with the validation method recorded in the archive.
+- `[b]` missing a concrete route, external artefact or other dependency.
+- `[f]` frozen by a standing decision. Retain its ratchets; never extend it.
 
-- `[ ]` open. Selector picks from here by priority.
-- `[~]` agent investigating. Set on entry to the lane. Evidence accumulates under the backlog row.
-- `[f]` frozen lane. A standing decision (with its ADR) kept visible for its ratchets and bans; never selectable, never extended by the loop, and only a human unfreezes.
-- `[?]` agent proposes a fix complete. Evidence block lists repro scenario path, cited ASM labels, oracle-parity result, and the commit hash of the proposed fix. Human must validate before promoting to `[x]`.
-- `[x]` closed by a human.
-- `[b]` blocked: needs human repro or external artefact.
-- `stalled:agent-blocked` auto-applied when the per-issue attempt counter exceeds the cap. Selector skips until a human re-inspects.
-
-Agent lane guardrails:
-
-- Never writes `[x]`. A reviewer converts `[?]` to `[x]` once the fix is validated.
-- Every investigation commit must either touch `crates/wildside-core/src/**` (fix + regression test) or the backlog lanes: a status transition / lane move in `docs/source-port/backlog.md` and the evidence block under `#NNN` in `docs/source-port/backlog-archive.md`. Pure cache-local churn does not count as progress.
-- On stall, write the dead end (rejected hypotheses included) under the issue's `#NNN` in `backlog-archive.md` and leave status at `[~]`. No code commit means write the dead end and stop, never commit churn.
+Move a selected objective case to the open lane. On closure, move its row to the
+archive and record the exact evidence and verified revision. A synthetic negative
+control is labelled as such. Readiness and absence of a reproduction are not
+proof. On stall, record the rejected hypothesis and next discriminating experiment,
+park the investigation and continue other useful work without committing churn.
 
 ### Trace comparison techniques
 

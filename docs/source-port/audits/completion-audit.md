@@ -1,37 +1,38 @@
 # Source-Port Completion Audit
 
-> First committed 2026-05-18; last substantive update 2026-06-20.
-
-Last audited: 2026-06-10 (criteria reworked in the autonomy demolition; phase
-remains reopened per the 2026-05-25 conclusion below).
-
 ## Objective
 
-Finish the Kid Chameleon source port for the current phase: single-player
-boot-to-credits native play that is stable, reviewable, and converges on
-oracle-backed accuracy.
+Deliver the single-player release candidate defined by
+[the completion campaign](../completion-campaign.md), across every confirmed
+playable level, branch, form and boss. Frozen timing debt stays disclosed and
+ratcheted. Verified objective bugs may close automatically. Subjective and real
+output-device checks remain for one final human playtest package.
 
-This audit exists because green proxy signals are not sufficient on their own.
-Gates and TAS replay closure are evidence, not the finish line. Only human
-playtests close player-visible issues.
+Gates and TAS replays are evidence, not the finish line. The package does not
+claim human validation or `human-play-stable` status before the user plays it.
 
-## Success Criteria
-
-The source port is complete for this phase only when all of these hold:
+## Success criteria
 
 | Criterion | Evidence required |
 |---|---|
-| No open P0/P1 backlog rows | `docs/source-port/backlog.md` table has no `[ ]` or `[~]` rows at P0/P1 |
-| Gates green | `mise run verify-slice-fast`, `mise run verify-1p-playable`, `mise run release-gate`, and `mise run verify-tas-full` all pass |
-| No rows awaiting human validation | No `[?]` or `[b]` rows remain. Each has been closed (`[x]`) or rejected (`[-]`) by a human playtest. The `[?]`-then-playtest cycle replaces the retired HTML review queue |
+| Complete coverage | ROM-derived inventory and natural entry/traversal/exit evidence for every playable level and progression branch; live form, boss, enemy and mechanic coverage |
+| Objective issues resolved | Every in-scope objective report across all backlog lanes has a verified resolution under the campaign evidence contract; no unresolved objective bug is relabelled as subjective |
+| Gates green | `mise run verify-slice-fast`, `mise run verify-1p-playable`, `mise run release-gate`, `mise run verify-tas-full` and the corrected full sweep pass; failures and unverified coverage remain visible |
+| Frozen debt bounded | #406/#409/#416 remain within their documented ratchets; unrelated defects are not exempt |
+| Review package ready | Reproducible build, tested revision, evidence report and concrete routes for remaining subjective/device checks |
 
-## Latest Audit Commands
+## Audit commands
 
 ```bash
-mise run completion-audit          # project-status --fail-on-human-blockers
-cargo run -q -p wildside-cli -- project-status
-rg -n '^\| [0-9]+ \| \[( |~|\?|b)\]' docs/source-port/backlog.md
+mise run project-status
+mise run jev-audit
+mise run completion-audit
 ```
+
+`completion-audit` runs `project-status --fail-on-human-blockers`. It is a strict
+unresolved-lane check, not the whole campaign verdict. It can remain red when
+only genuine final human checks remain. Inspect each remaining row against the
+criteria above; never treat a broad failure as permission to ignore objective bugs.
 
 ## Conclusion
 

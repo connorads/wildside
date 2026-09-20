@@ -5,8 +5,10 @@ The whole loop. The backlog is sharded by reader:
 - `backlog.md`: the NOW handoff, the **open queue** (`[ ]`/`[~]` rows), and frozen
   `[f]` lanes (standing decisions kept visible; `project-status` lists them under
   "frozen lanes" and never offers them). Your file.
-- `backlog-awaiting-human.md`: `[?]`/`[b]` rows. **Skip these**; only a human closes them.
-  Rows use `Target` and `Check` so `project-status` can print the validation surface.
+- `backlog-awaiting-human.md`: `[?]`/`[b]` rows. Objective cases are eligible for
+  investigation and evidence-backed closure under [the completion campaign](completion-campaign.md).
+  Subjective/device checks stay for the final human playtest. Rows use `Target`
+  and `Check` so `project-status` can print the validation surface.
 - `backlog-archive.md`: resolved rows and per-issue evidence, keyed by `#NNN`.
 - `session-log.md`: append-only history of past session handoffs.
 
@@ -15,11 +17,14 @@ The whole loop. The backlog is sharded by reader:
    every live lane and prints, priority-ordered (P0 before P1 before P2):
    - **ready to implement now**: open rows with a root cause identified; take the top one;
    - **top open playability / visual risks**: otherwise take the top of these;
-   - **human validation/repro blockers**: the awaiting-human lane; never pick these.
-     Each prints `Target` plus the short human `Check`.
+   - **human validation/repro blockers**: select objective cases under the campaign
+     evidence rules; leave subjective/device checks for the final playtest.
+     Each prints `Target` plus the short human `Check`. Move a selected objective
+     row to the open lane before starting work, preserving its history.
 
    Do not eyeball the table for "the top row": order in the file is not priority,
    `project-status` is. If `ready` and the risk lists are empty, use the
+   campaign coverage prerequisites and objective cases before the
    proactive-verification fallback below. The NOW "Current work" bullet is the next
    action, so it must not steer below `project-status`'s top open priority (e.g. name a
    P2 while a P1 is open); `backlog-lint` enforces this. Other NOW bullets are
@@ -48,7 +53,8 @@ The whole loop. The backlog is sharded by reader:
    handoff, not a changelog; never let it accrete.
 
 **No code commit ⇒ write the dead end under the issue's `#NNN` in
-`backlog-archive.md` and stop; never commit churn.**
+`backlog-archive.md`, park that investigation and continue another useful campaign
+item; never commit churn.**
 
 **An index-advancing commit is not progress on its own.** A commit whose whole content
 is "do the same thing at index N+1" — type the next TAS frame, model the next level, port

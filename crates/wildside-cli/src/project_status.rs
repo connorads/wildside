@@ -123,7 +123,7 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
     }
     if !human_validation_blockers.is_empty() {
         warnings.push(format!(
-            "{} human validation/repro blocker(s) remain; only a human playtest can close [?]/[b] rows",
+            "{} human validation/repro blocker(s) remain; objective closure follows completion-campaign.md, subjective/device checks require human playtest",
             human_validation_blockers.len()
         ));
     }
@@ -590,7 +590,7 @@ fn render_project_status(report: &ProjectStatusReport) -> String {
         );
         let _ = writeln!(
             output,
-            "    - review: human playtest required to close [?]/[b] rows"
+            "    - review: objective closure needs campaign evidence; subjective/device checks need human playtest"
         );
     }
     let _ = writeln!(output, "  warnings:");
@@ -1144,7 +1144,7 @@ not a table row
         assert!(text.contains("#409 P1 rendering: frozen lane"));
         assert!(text.contains("#013 [?] P0 audio [audio-device]: Confirm the audio row."));
         assert!(text.contains("how to use: run `mise run play-native`"));
-        assert!(text.contains("review: human playtest required to close [?]/[b] rows"));
+        assert!(text.contains("review: objective closure needs campaign evidence; subjective/device checks need human playtest"));
         assert!(text.contains("warning row"));
         assert_eq!(print_project_status(&report), text);
     }

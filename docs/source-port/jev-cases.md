@@ -2,7 +2,9 @@
 
 `mise run jev-audit` joins `jev-cases.json` to the live backlog. `--json`
 prints the joined records. Frozen lanes are excluded. Backlog status and
-priority remain authoritative; the catalogue never promotes human validation.
+priority remain authoritative; the catalogue never changes status. Objective
+closure follows [the completion campaign](completion-campaign.md); subjective and
+device checks remain for the final human playtest.
 
 Readiness describes the next experiment, not a passing result:
 

@@ -3,7 +3,7 @@
 //! The backlog is sharded by reader into lane files:
 //! - `backlog.md` holds the NOW handoff and the live queue (open `[ ]`/`[~]` rows,
 //!   plus frozen `[f]` lanes that are never selectable).
-//! - `backlog-awaiting-human.md` holds `[?]`/`[b]` rows that only a human can close.
+//! - `backlog-awaiting-human.md` holds `[?]`/`[b]` rows awaiting campaign evidence or human checks.
 //! - resolved rows (`[x]`/`[-]`) live in `backlog-archive.md` as history, keyed by `#NNN`.
 //!
 //! Tools that select or audit work (`project-status`, `asm-coverage`) read the live

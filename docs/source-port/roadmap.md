@@ -9,16 +9,16 @@ The TAS frontier is settled:
 - the TAS frontier closed `status: complete`; TAS-frontier history is tracked in the backlog and the `verify-tas-frontier` gate, and the per-frame ledger was retired
 
 A closed TAS frontier is not a finished game. The current `1p-accurate` release
-gate is narrower than "the game works". Native play has no open agent-actionable
-P0/P1 playability rows in the canonical backlog, and the 2026-05-18 completion
-audit found no remaining human-validation or repro blockers for this phase. New
-native-play reports, visual-fidelity polish, and broader verification remain
-first-class work, not proof that the port is permanently done.
+gate is narrower than "the game works". The standing
+[completion campaign](completion-campaign.md) owns execution, coverage and
+evidence-backed objective closure. Unresolved reports and untested progression
+routes remain work even when narrow gates pass.
 
 ## Finish line for this phase
 
-Primary target: single-player boot-to-credits that works in native play and
-converges on oracle-backed accuracy.
+Primary target: a single-player release candidate across every confirmed playable
+level, branch, form and boss, with verified objective fixes and one final human
+playtest package. Documented frozen timing debt remains disclosed and ratcheted.
 
 Out of scope for this phase's finish line, but still visible backlog epics:
 
@@ -48,10 +48,8 @@ Exit criteria:
 - completion audit maps finish criteria to current command/backlog evidence
 - no active doc claims the project is effectively complete
 
-2026-05-18 status: achieved for the current 1P phase. `audits/completion-audit.md`,
-`backlog.md`, and `project-status` agreed at the time that there are no open
-phase blockers. This is a phase completion statement, not a claim that every
-post-1P fidelity or tooling idea is exhausted.
+Completion requires the coverage and evidence in `completion-campaign.md` and
+`audits/completion-audit.md`; narrow gates and an empty open lane are insufficient.
 
 ### 2. 1P playability closure
 
@@ -78,8 +76,8 @@ Exit criteria:
 - native boot -> Level 1 -> Level 2 is stable
 - death and respawn no longer leave the player or camera in broken states
 - the recurring playtest failures above have permanent regression coverage
-- remaining `[?]` rows have human validation, and `[b]` rows have human repro or a
-  deliberate out-of-scope decision
+- objective `[?]`/`[b]` rows have verified resolutions; subjective/device checks
+  have concrete routes in the final human playtest package
 
 ### 3. Native playtest evidence pipeline
 
