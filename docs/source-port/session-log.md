@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 - #502 moving pressure probes
+
+The follow-up #502 moving probes held Right for 1,000 frames on levels
+0x2C and 0x48. Their oracle Object counts peak at 11 and 16; Kid stops
+near X503 and X959. These routes do not cross the required 20/21 branch.
+The next #502 session needs a worker-creating action route or targeted
+range-call instrumentation, not another passive count probe.
+
 ## 2026-09-21 - #508 Driller Gfx velocity
 
 Closed #508. All 599 tolerated X-velocity differences in the 360-frame
