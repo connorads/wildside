@@ -11,6 +11,88 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+<a id="issue-504"></a>
+### #504
+
+Ordinary controls after a settled BLW2 warp acquire the starting Red Stealth
+helmet. Input: Right+A at 18..38, B at 90..130 and 170..210, otherwise idle
+through 299. Permanent witness:
+`tests/data/dynamic-scenarios/issue-504-standing-helmet-pickup.json`.
+Dense baseline `.cache/recordings/blw2-start-red-stealth-dense/` matches
+Kid/camera/RNG through 168. Both versions delete the helmet Object at 169,
+but oracle starts transformation at 169 and native at 170. Native advances
+RNG once too many and truncates X from 0x00490400 to 0x00490000.
+
+ASM standing `loc_75D4`, walking `loc_8BF0`, crawling `loc_8218` and
+wall-climbing `loc_A28A` check collision before `sub_7ACC`. Airborne
+`loc_A73A/loc_AA22` and slope `loc_9D2E` reverse that order. The baseline
+is standing, Character_Movement=0 throughout 165..170. The existing #420
+regression's timing is airborne; its comment attributing the reverse order
+to `loc_75D4` is incorrect. `CharacterCollision_TouchSpecialPrize` queues
+the form, while `PrizeHelmetRedStealth_Init loc_104F8/loc_10510` only deletes
+the collided prize. Resetting the global recording prize order for every new
+allocation is rejected: #420's Micromax is also a newly popped prize.
+
+`sub_7B30 loc_7B9E` leaves X unchanged when space is clear; its displacement
+branches write the coordinate word, retaining the fraction. Native's
+`aligned_x << 16` discards that fraction even without displacement.
+These are private, reversible scheduling/coordinate corrections with the
+existing standing and airborne callbacks as the distinguishing evidence.
+
+Campaign verification before this unit: the isolated Drips range mutation
+run at `ef24586c6` catches all 22 mutants with the 182 Drips tests, one worker,
+no timeouts or unviable mutants. Output
+`/tmp/mutants-drips-parent-range-ef24586c6/mutants.out/` records the audit.
+The corridor headbutt bundle `.cache/recordings/blw2-wall-headbutt-comparison/`
+matches motion, HP, damage flag, camera and RNG at all 22 checkpoints; frame
+803 is pixel-exact. Its blocked route is not a demonstrated collision defect.
+
+Fixed replay `.cache/recordings/issue-504-standing-helmet-fixed/` is native
+deterministic and passes every oracle state comparison across all 300 frames.
+Kid position/velocity, camera, form, HP, movement state, Object/Gfx counts and
+RNG offset/last-byte/ring are exact. Transformation starts at 169 and preserves
+X=0x00490400. The airborne regression and all 73 transformation tests pass.
+The broader helmet-filter run has 427 passes and four failures already named
+in `core-test-exclusions.json`; no exclusion or baseline is changed.
+
+Before/after/oracle frame 170 inspected. Pixel differences there fall from
+1,875 to zero; frames 180/200/220 fall from 44/1,842/44 to zero. Of the full
+300-frame replay, 299 are pixel-exact. Frame 244 retains 18 HUD timer pixels,
+tracked separately as #505; the full recording verifier remains red for those
+pixels. State sweep 1789959242 equals 1789957084 in every normalised report
+field (95 pass/10 fail, 28 blocking, 6 advisory, 96 limitations). Full level-01
+sweep 1789959282 equals 1789957112, retaining seven pixel differences.
+
+Fast gate passes in 235.62 seconds, including 7,436 core tests and Clippy.
+Full TAS preserves all 37,759 player/camera, typed gameplay, enemy and RNG
+checks, the 37,518 exact / 241 divergent / 2,391-pixel baseline and the frozen
+36,836-frame GEMS signature mismatch from 923. Audio commands remain exact.
+No paid Jev calls or baseline changes. Objective #504 closes on this scoped
+evidence; #505 and wider route coverage remain open.
+
+<a id="issue-505"></a>
+### #505
+
+All-frame #504 verification exposes an 18-pixel HUD timer mismatch at frame
+244 in `.cache/recordings/issue-504-standing-helmet-fixed/`. Native displays
+2:56 while the emulator displays 2:55. Frame 245 is exact. Both native timer
+and HUD trace fields report 175 seconds at 244; subframes are 60. This is a
+rendered-consumption discrepancy, not proof that the exported timer is wrong.
+The pre-fix sparse oracle captures omit 244, so whether this exact pixel
+discrepancy predates #504 is unestablished. Source investigation and a red
+regression remain required. Minimum gate: visual parity for 243..245, fast
+slice and full TAS. No pixel exemption is added.
+
+Read-only follow-up identifies a discriminating candidate. Mode_Level builds
+HUD before Execute_Objects can start Kid_Transform. Native's pre-Object timer
+tick is demo-only; ordinary InGame ticks in resolve_frame_hazards, which the
+early transform return skips. Native timer subframes remain 21 at 168..223,
+resume at 224 and roll over at 244. An entry tick would move the built rollover
+to 243 and its rendered sprite to 244. Oracle state exports omit timer RAM, so
+the 300 matched state checkpoints do not verify this hypothesis. Capture timer
+RAM around 168..170 before changing scheduling; do not alter the renderer from
+the visible digit alone.
+
 ### #503
 
 The 780-frame BLW2 continuation reproduces TankShooting side-contact damage
@@ -26148,6 +26230,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 504 | [x] | P1 | player/forms | Grounded helmet collision starts transformation before motion and preserves fractional X. | ASM loc_75D4/sub_7B30; all 300 replay state checkpoints exact; timer pixels tracked as #505. |
 | 503 | [x] | P1 | combat | Tank side-contact damage consumes the collision on the following Object pass. | ASM loc_1CF2/loc_B700; exact HP and damage flag across 232 route checkpoints; archive #503. |
 | 501 | [x] | P1 | enemy/Drips | Parents retain normal-range coroutine lifetime and release their owned falling child on unload. | ASM loc_333F6/loc_3345C; 645 exact parent observations and 560 exact RNG frames; archive #501. |
 | 500 | [x] | P1 | enemy/Drips | Parent velocity clears on the Object pass after ceiling contact. | ASM loc_1A6C/loc_333F6; 740 exact parent observations through 600-frame replay; archive #500. |

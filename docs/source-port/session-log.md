@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 - #504 grounded helmet pickup
+
+Closed #504. Grounded movement callbacks consume helmet collision before
+sub_7ACC; airborne callbacks retain their measured next-wake transform.
+sub_7B30 preserves fractional X. The red-first regression and all 73 transform
+tests pass. The checked-in 300-frame Red Stealth replay matches every exported
+oracle state checkpoint; 299 frames are pixel-exact. The 18 HUD timer pixels
+at 244 are tracked as #505, not waived or included in the closure.
+
+State sweep 1789959242 and full level-01 sweep 1789959282 match their prior
+reports after normalising metadata. Fast gate passes with 7,436 core tests;
+full TAS retains the 241-frame / 2,391-pixel frozen baseline and exact audio
+commands. No paid Jev calls. The preceding Drips mutation audit killed all
+22 range-helper mutants.
+
+Next: capture timer RAM around transform entry for #505 before extending
+#300 from the verified Red Stealth prefix. The candidate missing entry HUD
+tick follows Mode_Level ordering, but exported oracle states omit timer RAM.
+The blocked plain-Kid corridor has exact motion/headbutts at all 22 sampled
+checkpoints; no collision bug is established there. No teleporter traversal
+or natural entry is claimed. #502 pressure and wider route gaps remain open.
+
 ## 2026-09-21 - #503 Tank contact consume timing
 
 Closed #503 with a checked-in 780-frame BLW2 input witness. Ordinary Tank

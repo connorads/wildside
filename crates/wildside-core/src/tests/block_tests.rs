@@ -185,11 +185,47 @@ mod chunk_04 {
         );
     }
 
-    /// ASM: the Kid object executes at the head of Execute_Objects, and the
-    /// PrizeHelmet worker (loc_104AE/loc_105D6) sleeps ONE frame between the
-    /// GfxObjects_CollisionKid latch and the wake that queues the form. ASM
-    /// loc_75D4 calls sub_7ACC before Character_CheckCollision loc_B8E6, so
-    /// the following Kid wake consumes that pending form before movement.
+    #[test]
+    fn standing_helmet_collision_transforms_before_motion_loc_75d4() {
+        // ASM loc_75D4 checks collision before sub_7ACC; loc_7B9E preserves
+        // the fractional X word when no overlap correction is needed.
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.floating_prize_order_sub_e12 = crate::FloatingPrizeOrderSubE12::AfterPlayer;
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+        advance_past_level_entry_damage_grace(&mut runtime);
+        let start_x = (73 << 16) | 0x0400;
+        let slice = runtime.opening_slice.as_mut().expect("live slice");
+        slice.player.x_pos = start_x;
+        slice.player.y_pos = 223 << 16;
+        slice.player.x_velocity = 0;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = true;
+        runtime.floating_items.push(FloatingItem {
+            x_pos: 72 << 16,
+            y_pos: i64::from(192u32 << 16),
+            y_velocity: 0,
+            remaining: 144,
+            spawn_delay: 0,
+            level_col: 4,
+            level_row: 7,
+            first_row_grace: false,
+            content: terrain::PrizeContent::RedStealth,
+            collected: false,
+            collision_latched: true,
+        });
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(runtime.progression.current_form, PlayerForm::TheKid);
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(runtime.progression.current_form, PlayerForm::RedStealth);
+        assert_eq!(runtime.progression.number_hitpoints, 3);
+        assert_eq!(runtime.opening_slice.expect("slice").player.x_pos, start_x);
+    }
+
+    /// ASM GfxObjects_CollisionKid latches contact after the Object pass.
+    /// Airborne loc_A73A/loc_AA22 call sub_7ACC before Character_CheckCollision,
+    /// whose CharacterCollision_TouchSpecialPrize queues the form. The next
+    /// Kid wake consumes that pending form before movement.
     /// Oracle 0x55 WRAM: frame 34 latches `$28`, frame 35 remains The Kid,
     /// and frame 36 starts the Micromax transform.
     #[test]
@@ -236,7 +272,7 @@ mod chunk_04 {
         assert_eq!(
             runtime.progression.current_form,
             PlayerForm::TheKid,
-            "the worker's wake queues the form after sub_7ACC has run"
+            "the airborne collision callback queues the form after sub_7ACC has run"
         );
         let end_y = runtime.opening_slice.expect("slice").player.y_pos;
         assert!(

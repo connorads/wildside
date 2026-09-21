@@ -5549,7 +5549,8 @@ impl NativeRuntime {
         if let Some(aligned_x) =
             self.resolve_transform_overlap_sub_7b30(slice, self.progression.current_form)
         {
-            slice.player.x_pos = (aligned_x as u32) << 16;
+            // ASM sub_7B30 writes only the integer word when clearing walls.
+            slice.player.x_pos = ((aligned_x as u32) << 16) | (slice.player.x_pos & 0xFFFF);
         }
 
         self.progression.form_width_delta = 0;
@@ -5685,7 +5686,8 @@ impl NativeRuntime {
         {
             // ASM loc_7B12 (kid.asm:8206): `bra.w Kid_Transform` — sub_7B30
             // returned 0 (space clear), proceed with the helmet transform.
-            slice.player.x_pos = (aligned_x as u32) << 16;
+            // ASM loc_7B9E preserves X; correction branches write only x_pos.w.
+            slice.player.x_pos = ((aligned_x as u32) << 16) | (slice.player.x_pos & 0xFFFF);
             self.resolve_pending_form_change();
             self.apply_form_width_overlap_fixup(slice);
             return false;
@@ -5824,17 +5826,25 @@ impl NativeRuntime {
         }
         // Tick visual effects
         self.step_visual_effects();
-        // ASM loc_75D4 calls sub_7ACC from the Kid dispatch, while a
-        // PrizeHelmet* worker at loc_104AE/loc_105D6 can set its pending form
-        // before that dispatch. Run the same space-clear immediately, before
-        // movement, so Kid_Transform owns this wake frame.
+        // ASM loc_75D4/loc_8218/loc_8BF0/loc_A28A consume collision before
+        // sub_7ACC. Airborne loc_A73A/loc_AA22 and slope loc_9D2E reverse
+        // those calls, leaving a touched helmet pending until the next wake.
+        if self.latched_prize_wake_armed_loc_104ae
+            && matches!(self.current_character_movement(slice.player), 0 | 1 | 2 | 4)
+            && self
+                .floating_items
+                .iter()
+                .any(|item| item.collision_latched && Self::is_helmet_prize(item.content))
+        {
+            self.award_collision_latched_prize_loc_104ae();
+            self.pending_form_queued_after_player_loc_e1e = false;
+        }
+        // ASM CharacterCollision_TouchSpecialPrize queues the helmet for
+        // sub_7ACC's space-clear before Kid_Transform owns this wake frame.
         if self.handle_pending_form_change_sub_7acc(&mut slice) {
             return;
         }
-        // ASM PrizeHelmet* loc_104AE/loc_105D6 can start Kid_Transform from
-        // an object wake before this frame's movement state dispatch. Once it
-        // has done so, the transform coroutine owns the frame; letting the
-        // ordinary loop continue moves Kid into the adjacent wall first.
+        // ASM Kid_Transform suspends the movement callback on this wake.
         if self.gameplay_hibernating_for_transform() {
             self.last_kid_frame_motion_branch = KidFrameMotionBranch::TransformHibernating;
             self.opening_slice = Some(slice);

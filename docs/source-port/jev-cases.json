@@ -1097,5 +1097,16 @@
     ],
     "next_action": "Acquire a reachable Drips encounter crossing 20/21 live Objects; compare checks after an earlier allocation and an earlier deletion.",
     "scope": "Drips use the tighter unload bounds only while more than 20 Object workers are linked."
+  },
+  {
+    "issue": 505,
+    "readiness": "needs_comparison",
+    "active_path": "HUD timer sprite consumption after Kid_Transform",
+    "route": "tests/data/dynamic-scenarios/issue-504-standing-helmet-pickup.json",
+    "evidence": [
+      "docs/source-port/backlog-archive.md#issue-505"
+    ],
+    "next_action": "Trace timer sprite consumption at 243..245; frame 244 displays 2:56 while oracle displays 2:55 despite native timer fields reporting 175 seconds.",
+    "scope": "The 18 HUD pixels at frame 244; all 300 matched oracle state checkpoints remain authoritative."
   }
 ]

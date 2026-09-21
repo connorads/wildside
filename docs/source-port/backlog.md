@@ -31,7 +31,7 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-09-21):** #503 corrects Tank contact damage on the healthy 780-frame BLW2 continuation. Continue #300 from this prefix; the route stops at x1930, so inspect earlier access and helmet pickups. #502 retains the live Object-pressure gap. Parent roster/count gaps, slope-entry poses and rubber-block art remain open; no teleporter traversal is verified.
+- **Current work (2026-09-21):** #504 matches the 300-frame starting Red Stealth pickup against every exported oracle state checkpoint. Before extending #300 from this helmet prefix, probe #505 timer RAM at transform entry; the only remaining replay pixel mismatch is the HUD digit at 244. #502 retains the live Object-pressure gap. Parent roster/count gaps, slope-entry poses and rubber-block art remain open; no teleporter traversal is verified.
 - **Selection:** Run `mise run project-status` and `mise run jev-audit`. Objective awaiting-human cases are eligible for investigation and evidence-backed closure. Coverage prerequisites come first, then P0 #210, #370 and #374 according to dependencies and available evidence.
 - **Scope:** Single-player across all playable levels, branches, forms and bosses. Preserve frozen #406/#409/#416 timing debt and its ratchets. Final package retains subjective/device checks; no human validation is claimed.
 - **Jev allowance:** $5 additional across the campaign. First attempt used 100 requests and $0.010448214; lifetime charged upper bound is $0.186974676. The six-frame preflight passed, but collection stalled at x58 and did not reach the pad. Its deadline was expired under the ledger lock, preserving spend, attempt count and the original case window. Actor coordinate units are corrected; add a progress/stall guard before any further paid attempt.
@@ -58,6 +58,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 505 | [ ] | P3 | HUD/rendering | Timer sprite differs by one second for one frame after Red Stealth pickup. | Compare #504 replay frames 243..245; frame 244 has 18 timer pixels. |
 | 502 | [ ] | P1 | enemies/scheduling | Drips range checks omit the live Object-pressure branch above 20 workers. | Acquire an interleaved allocation/deletion witness crossing 20/21 Objects. |
 | 300 | [~] | P1 | level/teleporter | Captured hidden and shifted pad records are restored; live destination verification remains open. | Record a successful accessible pad route and compare the destination with the oracle. |
 | 433 | [ ] | P1 | enemies/RNG | Robot shot lifecycle and grounded turns verified; init, hurt and natural-entry fidelity remain open. | Retain first/third Crypt shot regressions; probe parent init residue and interrupted turns. |

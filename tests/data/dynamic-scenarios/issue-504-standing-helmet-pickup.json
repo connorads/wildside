@@ -1,0 +1,1510 @@
+{
+  "slug": "issue-504-standing-helmet-pickup",
+  "script": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "frame_count": 300,
+  "checkpoints": [
+    {
+      "frame_index": 0,
+      "label": "pickup-0"
+    },
+    {
+      "frame_index": 1,
+      "label": "pickup-1"
+    },
+    {
+      "frame_index": 2,
+      "label": "pickup-2"
+    },
+    {
+      "frame_index": 3,
+      "label": "pickup-3"
+    },
+    {
+      "frame_index": 4,
+      "label": "pickup-4"
+    },
+    {
+      "frame_index": 5,
+      "label": "pickup-5"
+    },
+    {
+      "frame_index": 6,
+      "label": "pickup-6"
+    },
+    {
+      "frame_index": 7,
+      "label": "pickup-7"
+    },
+    {
+      "frame_index": 8,
+      "label": "pickup-8"
+    },
+    {
+      "frame_index": 9,
+      "label": "pickup-9"
+    },
+    {
+      "frame_index": 10,
+      "label": "pickup-10"
+    },
+    {
+      "frame_index": 11,
+      "label": "pickup-11"
+    },
+    {
+      "frame_index": 12,
+      "label": "pickup-12"
+    },
+    {
+      "frame_index": 13,
+      "label": "pickup-13"
+    },
+    {
+      "frame_index": 14,
+      "label": "pickup-14"
+    },
+    {
+      "frame_index": 15,
+      "label": "pickup-15"
+    },
+    {
+      "frame_index": 16,
+      "label": "pickup-16"
+    },
+    {
+      "frame_index": 17,
+      "label": "pickup-17"
+    },
+    {
+      "frame_index": 18,
+      "label": "pickup-18"
+    },
+    {
+      "frame_index": 19,
+      "label": "pickup-19"
+    },
+    {
+      "frame_index": 20,
+      "label": "pickup-20"
+    },
+    {
+      "frame_index": 21,
+      "label": "pickup-21"
+    },
+    {
+      "frame_index": 22,
+      "label": "pickup-22"
+    },
+    {
+      "frame_index": 23,
+      "label": "pickup-23"
+    },
+    {
+      "frame_index": 24,
+      "label": "pickup-24"
+    },
+    {
+      "frame_index": 25,
+      "label": "pickup-25"
+    },
+    {
+      "frame_index": 26,
+      "label": "pickup-26"
+    },
+    {
+      "frame_index": 27,
+      "label": "pickup-27"
+    },
+    {
+      "frame_index": 28,
+      "label": "pickup-28"
+    },
+    {
+      "frame_index": 29,
+      "label": "pickup-29"
+    },
+    {
+      "frame_index": 30,
+      "label": "pickup-30"
+    },
+    {
+      "frame_index": 31,
+      "label": "pickup-31"
+    },
+    {
+      "frame_index": 32,
+      "label": "pickup-32"
+    },
+    {
+      "frame_index": 33,
+      "label": "pickup-33"
+    },
+    {
+      "frame_index": 34,
+      "label": "pickup-34"
+    },
+    {
+      "frame_index": 35,
+      "label": "pickup-35"
+    },
+    {
+      "frame_index": 36,
+      "label": "pickup-36"
+    },
+    {
+      "frame_index": 37,
+      "label": "pickup-37"
+    },
+    {
+      "frame_index": 38,
+      "label": "pickup-38"
+    },
+    {
+      "frame_index": 39,
+      "label": "pickup-39"
+    },
+    {
+      "frame_index": 40,
+      "label": "pickup-40"
+    },
+    {
+      "frame_index": 41,
+      "label": "pickup-41"
+    },
+    {
+      "frame_index": 42,
+      "label": "pickup-42"
+    },
+    {
+      "frame_index": 43,
+      "label": "pickup-43"
+    },
+    {
+      "frame_index": 44,
+      "label": "pickup-44"
+    },
+    {
+      "frame_index": 45,
+      "label": "pickup-45"
+    },
+    {
+      "frame_index": 46,
+      "label": "pickup-46"
+    },
+    {
+      "frame_index": 47,
+      "label": "pickup-47"
+    },
+    {
+      "frame_index": 48,
+      "label": "pickup-48"
+    },
+    {
+      "frame_index": 49,
+      "label": "pickup-49"
+    },
+    {
+      "frame_index": 50,
+      "label": "pickup-50"
+    },
+    {
+      "frame_index": 51,
+      "label": "pickup-51"
+    },
+    {
+      "frame_index": 52,
+      "label": "pickup-52"
+    },
+    {
+      "frame_index": 53,
+      "label": "pickup-53"
+    },
+    {
+      "frame_index": 54,
+      "label": "pickup-54"
+    },
+    {
+      "frame_index": 55,
+      "label": "pickup-55"
+    },
+    {
+      "frame_index": 56,
+      "label": "pickup-56"
+    },
+    {
+      "frame_index": 57,
+      "label": "pickup-57"
+    },
+    {
+      "frame_index": 58,
+      "label": "pickup-58"
+    },
+    {
+      "frame_index": 59,
+      "label": "pickup-59"
+    },
+    {
+      "frame_index": 60,
+      "label": "pickup-60"
+    },
+    {
+      "frame_index": 61,
+      "label": "pickup-61"
+    },
+    {
+      "frame_index": 62,
+      "label": "pickup-62"
+    },
+    {
+      "frame_index": 63,
+      "label": "pickup-63"
+    },
+    {
+      "frame_index": 64,
+      "label": "pickup-64"
+    },
+    {
+      "frame_index": 65,
+      "label": "pickup-65"
+    },
+    {
+      "frame_index": 66,
+      "label": "pickup-66"
+    },
+    {
+      "frame_index": 67,
+      "label": "pickup-67"
+    },
+    {
+      "frame_index": 68,
+      "label": "pickup-68"
+    },
+    {
+      "frame_index": 69,
+      "label": "pickup-69"
+    },
+    {
+      "frame_index": 70,
+      "label": "pickup-70"
+    },
+    {
+      "frame_index": 71,
+      "label": "pickup-71"
+    },
+    {
+      "frame_index": 72,
+      "label": "pickup-72"
+    },
+    {
+      "frame_index": 73,
+      "label": "pickup-73"
+    },
+    {
+      "frame_index": 74,
+      "label": "pickup-74"
+    },
+    {
+      "frame_index": 75,
+      "label": "pickup-75"
+    },
+    {
+      "frame_index": 76,
+      "label": "pickup-76"
+    },
+    {
+      "frame_index": 77,
+      "label": "pickup-77"
+    },
+    {
+      "frame_index": 78,
+      "label": "pickup-78"
+    },
+    {
+      "frame_index": 79,
+      "label": "pickup-79"
+    },
+    {
+      "frame_index": 80,
+      "label": "pickup-80"
+    },
+    {
+      "frame_index": 81,
+      "label": "pickup-81"
+    },
+    {
+      "frame_index": 82,
+      "label": "pickup-82"
+    },
+    {
+      "frame_index": 83,
+      "label": "pickup-83"
+    },
+    {
+      "frame_index": 84,
+      "label": "pickup-84"
+    },
+    {
+      "frame_index": 85,
+      "label": "pickup-85"
+    },
+    {
+      "frame_index": 86,
+      "label": "pickup-86"
+    },
+    {
+      "frame_index": 87,
+      "label": "pickup-87"
+    },
+    {
+      "frame_index": 88,
+      "label": "pickup-88"
+    },
+    {
+      "frame_index": 89,
+      "label": "pickup-89"
+    },
+    {
+      "frame_index": 90,
+      "label": "pickup-90"
+    },
+    {
+      "frame_index": 91,
+      "label": "pickup-91"
+    },
+    {
+      "frame_index": 92,
+      "label": "pickup-92"
+    },
+    {
+      "frame_index": 93,
+      "label": "pickup-93"
+    },
+    {
+      "frame_index": 94,
+      "label": "pickup-94"
+    },
+    {
+      "frame_index": 95,
+      "label": "pickup-95"
+    },
+    {
+      "frame_index": 96,
+      "label": "pickup-96"
+    },
+    {
+      "frame_index": 97,
+      "label": "pickup-97"
+    },
+    {
+      "frame_index": 98,
+      "label": "pickup-98"
+    },
+    {
+      "frame_index": 99,
+      "label": "pickup-99"
+    },
+    {
+      "frame_index": 100,
+      "label": "pickup-100"
+    },
+    {
+      "frame_index": 101,
+      "label": "pickup-101"
+    },
+    {
+      "frame_index": 102,
+      "label": "pickup-102"
+    },
+    {
+      "frame_index": 103,
+      "label": "pickup-103"
+    },
+    {
+      "frame_index": 104,
+      "label": "pickup-104"
+    },
+    {
+      "frame_index": 105,
+      "label": "pickup-105"
+    },
+    {
+      "frame_index": 106,
+      "label": "pickup-106"
+    },
+    {
+      "frame_index": 107,
+      "label": "pickup-107"
+    },
+    {
+      "frame_index": 108,
+      "label": "pickup-108"
+    },
+    {
+      "frame_index": 109,
+      "label": "pickup-109"
+    },
+    {
+      "frame_index": 110,
+      "label": "pickup-110"
+    },
+    {
+      "frame_index": 111,
+      "label": "pickup-111"
+    },
+    {
+      "frame_index": 112,
+      "label": "pickup-112"
+    },
+    {
+      "frame_index": 113,
+      "label": "pickup-113"
+    },
+    {
+      "frame_index": 114,
+      "label": "pickup-114"
+    },
+    {
+      "frame_index": 115,
+      "label": "pickup-115"
+    },
+    {
+      "frame_index": 116,
+      "label": "pickup-116"
+    },
+    {
+      "frame_index": 117,
+      "label": "pickup-117"
+    },
+    {
+      "frame_index": 118,
+      "label": "pickup-118"
+    },
+    {
+      "frame_index": 119,
+      "label": "pickup-119"
+    },
+    {
+      "frame_index": 120,
+      "label": "pickup-120"
+    },
+    {
+      "frame_index": 121,
+      "label": "pickup-121"
+    },
+    {
+      "frame_index": 122,
+      "label": "pickup-122"
+    },
+    {
+      "frame_index": 123,
+      "label": "pickup-123"
+    },
+    {
+      "frame_index": 124,
+      "label": "pickup-124"
+    },
+    {
+      "frame_index": 125,
+      "label": "pickup-125"
+    },
+    {
+      "frame_index": 126,
+      "label": "pickup-126"
+    },
+    {
+      "frame_index": 127,
+      "label": "pickup-127"
+    },
+    {
+      "frame_index": 128,
+      "label": "pickup-128"
+    },
+    {
+      "frame_index": 129,
+      "label": "pickup-129"
+    },
+    {
+      "frame_index": 130,
+      "label": "pickup-130"
+    },
+    {
+      "frame_index": 131,
+      "label": "pickup-131"
+    },
+    {
+      "frame_index": 132,
+      "label": "pickup-132"
+    },
+    {
+      "frame_index": 133,
+      "label": "pickup-133"
+    },
+    {
+      "frame_index": 134,
+      "label": "pickup-134"
+    },
+    {
+      "frame_index": 135,
+      "label": "pickup-135"
+    },
+    {
+      "frame_index": 136,
+      "label": "pickup-136"
+    },
+    {
+      "frame_index": 137,
+      "label": "pickup-137"
+    },
+    {
+      "frame_index": 138,
+      "label": "pickup-138"
+    },
+    {
+      "frame_index": 139,
+      "label": "pickup-139"
+    },
+    {
+      "frame_index": 140,
+      "label": "pickup-140"
+    },
+    {
+      "frame_index": 141,
+      "label": "pickup-141"
+    },
+    {
+      "frame_index": 142,
+      "label": "pickup-142"
+    },
+    {
+      "frame_index": 143,
+      "label": "pickup-143"
+    },
+    {
+      "frame_index": 144,
+      "label": "pickup-144"
+    },
+    {
+      "frame_index": 145,
+      "label": "pickup-145"
+    },
+    {
+      "frame_index": 146,
+      "label": "pickup-146"
+    },
+    {
+      "frame_index": 147,
+      "label": "pickup-147"
+    },
+    {
+      "frame_index": 148,
+      "label": "pickup-148"
+    },
+    {
+      "frame_index": 149,
+      "label": "pickup-149"
+    },
+    {
+      "frame_index": 150,
+      "label": "pickup-150"
+    },
+    {
+      "frame_index": 151,
+      "label": "pickup-151"
+    },
+    {
+      "frame_index": 152,
+      "label": "pickup-152"
+    },
+    {
+      "frame_index": 153,
+      "label": "pickup-153"
+    },
+    {
+      "frame_index": 154,
+      "label": "pickup-154"
+    },
+    {
+      "frame_index": 155,
+      "label": "pickup-155"
+    },
+    {
+      "frame_index": 156,
+      "label": "pickup-156"
+    },
+    {
+      "frame_index": 157,
+      "label": "pickup-157"
+    },
+    {
+      "frame_index": 158,
+      "label": "pickup-158"
+    },
+    {
+      "frame_index": 159,
+      "label": "pickup-159"
+    },
+    {
+      "frame_index": 160,
+      "label": "pickup-160"
+    },
+    {
+      "frame_index": 161,
+      "label": "pickup-161"
+    },
+    {
+      "frame_index": 162,
+      "label": "pickup-162"
+    },
+    {
+      "frame_index": 163,
+      "label": "pickup-163"
+    },
+    {
+      "frame_index": 164,
+      "label": "pickup-164"
+    },
+    {
+      "frame_index": 165,
+      "label": "pickup-165"
+    },
+    {
+      "frame_index": 166,
+      "label": "pickup-166"
+    },
+    {
+      "frame_index": 167,
+      "label": "pickup-167"
+    },
+    {
+      "frame_index": 168,
+      "label": "pickup-168"
+    },
+    {
+      "frame_index": 169,
+      "label": "pickup-169"
+    },
+    {
+      "frame_index": 170,
+      "label": "pickup-170"
+    },
+    {
+      "frame_index": 171,
+      "label": "pickup-171"
+    },
+    {
+      "frame_index": 172,
+      "label": "pickup-172"
+    },
+    {
+      "frame_index": 173,
+      "label": "pickup-173"
+    },
+    {
+      "frame_index": 174,
+      "label": "pickup-174"
+    },
+    {
+      "frame_index": 175,
+      "label": "pickup-175"
+    },
+    {
+      "frame_index": 176,
+      "label": "pickup-176"
+    },
+    {
+      "frame_index": 177,
+      "label": "pickup-177"
+    },
+    {
+      "frame_index": 178,
+      "label": "pickup-178"
+    },
+    {
+      "frame_index": 179,
+      "label": "pickup-179"
+    },
+    {
+      "frame_index": 180,
+      "label": "pickup-180"
+    },
+    {
+      "frame_index": 181,
+      "label": "pickup-181"
+    },
+    {
+      "frame_index": 182,
+      "label": "pickup-182"
+    },
+    {
+      "frame_index": 183,
+      "label": "pickup-183"
+    },
+    {
+      "frame_index": 184,
+      "label": "pickup-184"
+    },
+    {
+      "frame_index": 185,
+      "label": "pickup-185"
+    },
+    {
+      "frame_index": 186,
+      "label": "pickup-186"
+    },
+    {
+      "frame_index": 187,
+      "label": "pickup-187"
+    },
+    {
+      "frame_index": 188,
+      "label": "pickup-188"
+    },
+    {
+      "frame_index": 189,
+      "label": "pickup-189"
+    },
+    {
+      "frame_index": 190,
+      "label": "pickup-190"
+    },
+    {
+      "frame_index": 191,
+      "label": "pickup-191"
+    },
+    {
+      "frame_index": 192,
+      "label": "pickup-192"
+    },
+    {
+      "frame_index": 193,
+      "label": "pickup-193"
+    },
+    {
+      "frame_index": 194,
+      "label": "pickup-194"
+    },
+    {
+      "frame_index": 195,
+      "label": "pickup-195"
+    },
+    {
+      "frame_index": 196,
+      "label": "pickup-196"
+    },
+    {
+      "frame_index": 197,
+      "label": "pickup-197"
+    },
+    {
+      "frame_index": 198,
+      "label": "pickup-198"
+    },
+    {
+      "frame_index": 199,
+      "label": "pickup-199"
+    },
+    {
+      "frame_index": 200,
+      "label": "pickup-200"
+    },
+    {
+      "frame_index": 201,
+      "label": "pickup-201"
+    },
+    {
+      "frame_index": 202,
+      "label": "pickup-202"
+    },
+    {
+      "frame_index": 203,
+      "label": "pickup-203"
+    },
+    {
+      "frame_index": 204,
+      "label": "pickup-204"
+    },
+    {
+      "frame_index": 205,
+      "label": "pickup-205"
+    },
+    {
+      "frame_index": 206,
+      "label": "pickup-206"
+    },
+    {
+      "frame_index": 207,
+      "label": "pickup-207"
+    },
+    {
+      "frame_index": 208,
+      "label": "pickup-208"
+    },
+    {
+      "frame_index": 209,
+      "label": "pickup-209"
+    },
+    {
+      "frame_index": 210,
+      "label": "pickup-210"
+    },
+    {
+      "frame_index": 211,
+      "label": "pickup-211"
+    },
+    {
+      "frame_index": 212,
+      "label": "pickup-212"
+    },
+    {
+      "frame_index": 213,
+      "label": "pickup-213"
+    },
+    {
+      "frame_index": 214,
+      "label": "pickup-214"
+    },
+    {
+      "frame_index": 215,
+      "label": "pickup-215"
+    },
+    {
+      "frame_index": 216,
+      "label": "pickup-216"
+    },
+    {
+      "frame_index": 217,
+      "label": "pickup-217"
+    },
+    {
+      "frame_index": 218,
+      "label": "pickup-218"
+    },
+    {
+      "frame_index": 219,
+      "label": "pickup-219"
+    },
+    {
+      "frame_index": 220,
+      "label": "pickup-220"
+    },
+    {
+      "frame_index": 221,
+      "label": "pickup-221"
+    },
+    {
+      "frame_index": 222,
+      "label": "pickup-222"
+    },
+    {
+      "frame_index": 223,
+      "label": "pickup-223"
+    },
+    {
+      "frame_index": 224,
+      "label": "pickup-224"
+    },
+    {
+      "frame_index": 225,
+      "label": "pickup-225"
+    },
+    {
+      "frame_index": 226,
+      "label": "pickup-226"
+    },
+    {
+      "frame_index": 227,
+      "label": "pickup-227"
+    },
+    {
+      "frame_index": 228,
+      "label": "pickup-228"
+    },
+    {
+      "frame_index": 229,
+      "label": "pickup-229"
+    },
+    {
+      "frame_index": 230,
+      "label": "pickup-230"
+    },
+    {
+      "frame_index": 231,
+      "label": "pickup-231"
+    },
+    {
+      "frame_index": 232,
+      "label": "pickup-232"
+    },
+    {
+      "frame_index": 233,
+      "label": "pickup-233"
+    },
+    {
+      "frame_index": 234,
+      "label": "pickup-234"
+    },
+    {
+      "frame_index": 235,
+      "label": "pickup-235"
+    },
+    {
+      "frame_index": 236,
+      "label": "pickup-236"
+    },
+    {
+      "frame_index": 237,
+      "label": "pickup-237"
+    },
+    {
+      "frame_index": 238,
+      "label": "pickup-238"
+    },
+    {
+      "frame_index": 239,
+      "label": "pickup-239"
+    },
+    {
+      "frame_index": 240,
+      "label": "pickup-240"
+    },
+    {
+      "frame_index": 241,
+      "label": "pickup-241"
+    },
+    {
+      "frame_index": 242,
+      "label": "pickup-242"
+    },
+    {
+      "frame_index": 243,
+      "label": "pickup-243"
+    },
+    {
+      "frame_index": 244,
+      "label": "pickup-244"
+    },
+    {
+      "frame_index": 245,
+      "label": "pickup-245"
+    },
+    {
+      "frame_index": 246,
+      "label": "pickup-246"
+    },
+    {
+      "frame_index": 247,
+      "label": "pickup-247"
+    },
+    {
+      "frame_index": 248,
+      "label": "pickup-248"
+    },
+    {
+      "frame_index": 249,
+      "label": "pickup-249"
+    },
+    {
+      "frame_index": 250,
+      "label": "pickup-250"
+    },
+    {
+      "frame_index": 251,
+      "label": "pickup-251"
+    },
+    {
+      "frame_index": 252,
+      "label": "pickup-252"
+    },
+    {
+      "frame_index": 253,
+      "label": "pickup-253"
+    },
+    {
+      "frame_index": 254,
+      "label": "pickup-254"
+    },
+    {
+      "frame_index": 255,
+      "label": "pickup-255"
+    },
+    {
+      "frame_index": 256,
+      "label": "pickup-256"
+    },
+    {
+      "frame_index": 257,
+      "label": "pickup-257"
+    },
+    {
+      "frame_index": 258,
+      "label": "pickup-258"
+    },
+    {
+      "frame_index": 259,
+      "label": "pickup-259"
+    },
+    {
+      "frame_index": 260,
+      "label": "pickup-260"
+    },
+    {
+      "frame_index": 261,
+      "label": "pickup-261"
+    },
+    {
+      "frame_index": 262,
+      "label": "pickup-262"
+    },
+    {
+      "frame_index": 263,
+      "label": "pickup-263"
+    },
+    {
+      "frame_index": 264,
+      "label": "pickup-264"
+    },
+    {
+      "frame_index": 265,
+      "label": "pickup-265"
+    },
+    {
+      "frame_index": 266,
+      "label": "pickup-266"
+    },
+    {
+      "frame_index": 267,
+      "label": "pickup-267"
+    },
+    {
+      "frame_index": 268,
+      "label": "pickup-268"
+    },
+    {
+      "frame_index": 269,
+      "label": "pickup-269"
+    },
+    {
+      "frame_index": 270,
+      "label": "pickup-270"
+    },
+    {
+      "frame_index": 271,
+      "label": "pickup-271"
+    },
+    {
+      "frame_index": 272,
+      "label": "pickup-272"
+    },
+    {
+      "frame_index": 273,
+      "label": "pickup-273"
+    },
+    {
+      "frame_index": 274,
+      "label": "pickup-274"
+    },
+    {
+      "frame_index": 275,
+      "label": "pickup-275"
+    },
+    {
+      "frame_index": 276,
+      "label": "pickup-276"
+    },
+    {
+      "frame_index": 277,
+      "label": "pickup-277"
+    },
+    {
+      "frame_index": 278,
+      "label": "pickup-278"
+    },
+    {
+      "frame_index": 279,
+      "label": "pickup-279"
+    },
+    {
+      "frame_index": 280,
+      "label": "pickup-280"
+    },
+    {
+      "frame_index": 281,
+      "label": "pickup-281"
+    },
+    {
+      "frame_index": 282,
+      "label": "pickup-282"
+    },
+    {
+      "frame_index": 283,
+      "label": "pickup-283"
+    },
+    {
+      "frame_index": 284,
+      "label": "pickup-284"
+    },
+    {
+      "frame_index": 285,
+      "label": "pickup-285"
+    },
+    {
+      "frame_index": 286,
+      "label": "pickup-286"
+    },
+    {
+      "frame_index": 287,
+      "label": "pickup-287"
+    },
+    {
+      "frame_index": 288,
+      "label": "pickup-288"
+    },
+    {
+      "frame_index": 289,
+      "label": "pickup-289"
+    },
+    {
+      "frame_index": 290,
+      "label": "pickup-290"
+    },
+    {
+      "frame_index": 291,
+      "label": "pickup-291"
+    },
+    {
+      "frame_index": 292,
+      "label": "pickup-292"
+    },
+    {
+      "frame_index": 293,
+      "label": "pickup-293"
+    },
+    {
+      "frame_index": 294,
+      "label": "pickup-294"
+    },
+    {
+      "frame_index": 295,
+      "label": "pickup-295"
+    },
+    {
+      "frame_index": 296,
+      "label": "pickup-296"
+    },
+    {
+      "frame_index": 297,
+      "label": "pickup-297"
+    },
+    {
+      "frame_index": 298,
+      "label": "pickup-298"
+    },
+    {
+      "frame_index": 299,
+      "label": "pickup-299"
+    }
+  ],
+  "warp_to_level": 1,
+  "settle_oracle_warp": true
+}

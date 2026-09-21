@@ -1816,7 +1816,7 @@ impl NativeRuntime {
         }
     }
 
-    fn is_helmet_prize(content: terrain::PrizeContent) -> bool {
+    pub(super) fn is_helmet_prize(content: terrain::PrizeContent) -> bool {
         matches!(
             content,
             terrain::PrizeContent::Skycutter
@@ -5611,11 +5611,11 @@ impl NativeRuntime {
         self.age_floating_items_loc_10396();
     }
 
-    /// ASM loc_104AE/loc_105D6: the PrizeHelmet worker sleeps ONE frame
-    /// between GfxObjects_CollisionKid latching its `$38` word and the wake
-    /// that consumes it. Native arms on the latch frame's award pass and
-    /// awards on the next frame's pass; `FloatingPrizeOrderSubE12` preserves
-    /// whether that object callback precedes or follows Kid (#420/#495).
+    /// ASM loc_104AE/loc_105D6 deletes the prize after its collision latch.
+    /// CharacterCollision_TouchSpecialPrize queues the form on Kid's wake.
+    /// Native combines these consumers after the one-frame latch handoff;
+    /// grounded movement callbacks consume it before motion (#504), while
+    /// airborne callbacks retain the pending form for the next wake (#420).
     #[allow(non_snake_case)]
     pub(crate) fn award_collision_latched_prize_loc_104ae(&mut self) {
         if self.floating_items.iter().any(|f| f.collision_latched)
@@ -5676,10 +5676,8 @@ impl NativeRuntime {
                 self.progression.number_hitpoints =
                     form.max_hitpoints() + self.progression.extra_hitpoint_slots;
             } else {
-                // ASM loc_104AE/loc_105D6: collision is observed after the
-                // object's one-frame hibernate, then Kid_Transform runs on
-                // that wake. Use the normal prize path on this next frame,
-                // rather than adding a second native-only hibernate sequence.
+                // ASM CharacterCollision_TouchSpecialPrize sets the available
+                // helmet and Check_Helmet_Change; sub_7ACC consumes that flag.
                 self.apply_prize_content_at_world_pos(
                     content,
                     x_pos,
