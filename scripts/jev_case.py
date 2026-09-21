@@ -21,7 +21,7 @@ LIVE_GOALS = {
     327: "Reach the BLW2 teleporter at x2503 y575, stand still for 90 frames, then observe arrival near x448 y143. Stay alive and find a higher route around walls.",
     502: "In Hidden Canyon level 0x35, reach the Drips near x1032-1450 y176 and keep workers alive. Reach at least 21 live Objects, then cross their activation range in both directions to capture both sides of the threshold.",
 }
-STALL_LIMITS = {327: 24}
+STALL_LIMITS = {327: 24, 502: 24}
 
 
 def route(issue):
@@ -132,7 +132,8 @@ def capture(output, issue, inputs, checkpoints, env, live=False):
     config = output / "input.json"
     write_json(config, {"issue": issue, "output": str(output / "bundle"), "script": inputs,
                         "checkpoints": checkpoints, "live": live, "start_level": CASE_STARTS[issue],
-                        "goal": LIVE_GOALS.get(issue), "stall_after_batches": STALL_LIMITS.get(issue)})
+                        "goal": LIVE_GOALS.get(issue), "stall_after_batches": STALL_LIMITS.get(issue),
+                        "allow_wait": issue == 327, "stop_on_death": issue == 502})
     command(["cargo", "test", "-q", "-p", "wildside-cli", "recording::jev_cases::case_bundle",
              "--", "--ignored", "--exact", "--nocapture"], ROOT, output / "capture.log",
             env=env | {"JEV_CASE_INPUT": str(config)})

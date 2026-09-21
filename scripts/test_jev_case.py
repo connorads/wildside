@@ -80,6 +80,27 @@ class VerdictTests(unittest.TestCase):
                 self.assertEqual(service.MASKS[name], 0x40 | direction)
                 self.assertEqual(service.MASKS[name + "_jump"], 0x40 | 0x10 | direction)
 
+    def test_wait_is_only_offered_for_an_explicit_wait_or_held_controls(self):
+        idle = {"allow_wait": False, "held_buttons": {"a": False, "b": False}}
+        self.assertNotIn("release", service.question_for_state(idle)["criteria"])
+        self.assertIn("release", service.question_for_state(idle | {"allow_wait": True})["criteria"])
+        self.assertIn("release", service.question_for_state(idle | {"held_buttons": {"b": True}})["criteria"])
+        self.assertEqual(set(service.QUESTION["criteria"]), set(service.MASKS))
+
+    def test_start_is_only_offered_at_a_title_card_or_pause(self):
+        running = {"mode": "InGame", "paused": False}
+        self.assertNotIn("start", service.question_for_state(running)["criteria"])
+        self.assertIn("start", service.question_for_state(running | {"paused": True})["criteria"])
+        self.assertIn("start", service.question_for_state(running | {"mode": "LevelTransition"})["criteria"])
+
+    def test_repeated_stationary_right_cannot_keep_selecting_straight_right(self):
+        moving = {"mode": "InGame", "paused": False, "stalled_forward_decisions": 2}
+        self.assertIn("run_right", service.question_for_state(moving)["criteria"])
+        stalled = service.question_for_state(moving | {"stalled_forward_decisions": 3})["criteria"]
+        self.assertNotIn("run_right", stalled)
+        self.assertNotIn("right", stalled)
+        self.assertIn("run_right_jump", stalled)
+
     def test_control_removes_only_the_respawn_projectile_clear(self):
         source = """outside.clear();
     pub(crate) fn reset_current_level_runtime_state_for_respawn(&mut self) {
@@ -226,6 +247,14 @@ class BudgetTests(unittest.TestCase):
             service.decision(self.token, {}, "test", self.path, lambda *_: {}, now=101)
         self.assertEqual(self.read()["nanodollars_upper_bound"], service.PRIOR + service.RESERVATION)
 
+    def test_unoffered_release_is_rejected_after_charging(self):
+        bad = lambda *_: {"model": service.MODEL, "usage": {"input_tokens": 100},
+                          "answers": {"action": {"type": "choice", "choice": "release"}}}
+        with self.assertRaisesRegex(ValueError, "invalid controller answer"):
+            service.decision(self.token, {"allow_wait": False, "held_buttons": {}}, "test",
+                             self.path, bad, now=101)
+        self.assertFalse((self.output / "decisions.jsonl").exists())
+
 
 class CampaignBudgetTests(unittest.TestCase):
     def setUp(self):
@@ -245,7 +274,7 @@ class CampaignBudgetTests(unittest.TestCase):
 
     def response(self, *_):
         return {"model": service.MODEL, "usage": {"input_tokens": 100},
-                "answers": {"action": {"type": "choice", "choice": "release"}}}
+                "answers": {"action": {"type": "choice", "choice": "right_jump"}}}
 
     def test_campaign_retains_history_and_starts_new_attempt_window(self):
         token = service.begin_attempt(327, self.output, self.path, now=10_000)

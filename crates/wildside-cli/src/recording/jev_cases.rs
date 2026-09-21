@@ -14,14 +14,18 @@ struct CaseInput {
     start_level: Option<u8>,
     goal: Option<String>,
     stall_after_batches: Option<usize>,
+    #[serde(default)]
+    allow_wait: bool,
+    #[serde(default)]
+    stop_on_death: bool,
     script: Vec<u8>,
     checkpoints: Vec<usize>,
     #[serde(default)]
     live: bool,
 }
 
-/// A paid route that does not improve its best forward position for 24
-/// six-frame decisions has stalled before the BLW2 pad at X2503.
+/// Stop a paid route when its best forward position has stalled for its
+/// configured number of six-frame decisions.
 struct ForwardProgressGuard {
     best_x: i32,
     stagnant_batches: usize,
@@ -48,6 +52,10 @@ impl ForwardProgressGuard {
     }
 }
 
+fn discovery_life_lost(initial_lives: u16, lives: u16, hitpoints: u16) -> bool {
+    hitpoints == 0 || lives < initial_lives
+}
+
 fn collect(config: &CaseInput, manifest: &AssetManifest, start: RecordingStart) -> Result<Vec<u8>> {
     let initial = build_recording(manifest, "case-live", start, vec![], vec![])?;
     let mut runtime =
@@ -59,6 +67,7 @@ fn collect(config: &CaseInput, manifest: &AssetManifest, start: RecordingStart) 
     let mut script = Vec::new();
     let mut observed = Vec::new();
     let initial_x = runtime.trace_frame().kid_x_pos.unwrap_or_default() as i32 >> 16;
+    let initial_lives = runtime.trace_frame().number_lives;
     let mut progress = config
         .stall_after_batches
         .map(|limit| ForwardProgressGuard::new(initial_x, limit));
@@ -67,6 +76,15 @@ fn collect(config: &CaseInput, manifest: &AssetManifest, start: RecordingStart) 
     journal.write_all(&script)?;
     while script.len() < 3_600 {
         let trace = runtime.trace_frame();
+        if config.stop_on_death
+            && discovery_life_lost(initial_lives, trace.number_lives, trace.number_hitpoints)
+        {
+            fs::write(
+                parent.join("collection-stop.txt"),
+                "life lost before route goal; saved input journal remains replayable",
+            )?;
+            break;
+        }
         let x = trace.kid_x_pos.unwrap_or_default() as i32 >> 16;
         let y = trace.kid_y_pos.unwrap_or_default() as i32 >> 16;
         let mut terrain = vec![];
@@ -82,6 +100,8 @@ fn collect(config: &CaseInput, manifest: &AssetManifest, start: RecordingStart) 
             }
         }
         let state = json!({"goal": config.goal.as_deref().context("live case needs a goal")?,
+            "allow_wait": config.allow_wait,
+            "stalled_forward_decisions": progress.as_ref().map_or(0, |guard| guard.stagnant_batches),
             "frame": script.len(), "mode": trace.game_mode, "paused": trace.paused, "level": trace.current_level,
             "number_objects": trace.number_objects, "number_gfx_objects": trace.number_gfx_objects,
             "kid": {"x": x, "y": y, "vx": trace.kid_x_velocity.map(|v| f64::from(v)/65536.0),
@@ -260,4 +280,11 @@ fn stalled_jev_route_stops_after_saved_blw2_release_pattern() {
         assert!(!advancing.observe(57));
     }
     assert!(!advancing.observe(61));
+}
+
+#[test]
+fn paid_discovery_stops_at_fatal_hit_or_life_spend() {
+    assert!(!discovery_life_lost(3, 3, 2));
+    assert!(discovery_life_lost(3, 3, 0));
+    assert!(discovery_life_lost(3, 2, 2));
 }

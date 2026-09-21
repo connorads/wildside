@@ -27,9 +27,9 @@ MASKS = {"release": 0, "left": 4, "right": 8, "jump": 16, "left_jump": 20,
 
 QUESTION = {
     "type": "choice",
-    "instructions": "Choose ordinary controls for six game frames to achieve the goal. Positions are pixels and velocities are pixels per frame, right/down positive. B jumps; release B before a new jump. A runs. Momentum persists. Wait still on the teleporter for 90 frames. Use terrain to find a higher route if blocked. Use Start to leave LevelTransition title cards or resume a paused game. Never change game state.",
+    "instructions": "Choose ordinary controls for six game frames to achieve the stated goal. Positions are pixels and velocities are pixels per frame, right/down positive. B jumps; release B before a new jump. A runs. Momentum persists. Use terrain to find a higher route if blocked. Use Start to leave LevelTransition title cards or resume a paused game. Do not repeat an action that leaves Kid stationary when the goal requires movement. Never change game state.",
     "criteria": {
-        "release": "Release all held buttons. Use to release Start before pressing it again, release B before a new jump, or wait still on the teleporter.",
+        "release": "Release held buttons before another Start or jump, or wait still when the stated goal requires it.",
         "left": "Unpaused InGame: move left slowly to backtrack or adjust position.",
         "right": "Unpaused InGame: move right slowly for precise positioning.",
         "jump": "Unpaused InGame: jump vertically. Start a jump only when B is released; holding B sustains an existing jump.",
@@ -42,6 +42,19 @@ QUESTION = {
         "start": "Press Start when mode is LevelTransition and HP is positive to leave the title card, or when paused is true to resume. If Start is already held, release it first."
     }
 }
+
+
+def question_for_state(state):
+    question = QUESTION.copy()
+    question["criteria"] = QUESTION["criteria"].copy()
+    if not state.get("allow_wait") and not any(state.get("held_buttons", {}).values()):
+        question["criteria"].pop("release")
+    if state.get("mode") != "LevelTransition" and not state.get("paused"):
+        question["criteria"].pop("start")
+    if state.get("stalled_forward_decisions", 0) >= 3:
+        question["criteria"].pop("right")
+        question["criteria"].pop("run_right")
+    return question
 
 
 def persist(path, value):
@@ -121,7 +134,7 @@ def _controller_state_in_pixels(state):
 
 
 def choose(state, key):
-    request = {"model": MODEL, "state": state, "questions": {"action": QUESTION}}
+    request = {"model": MODEL, "state": state, "questions": {"action": question_for_state(state)}}
     message = urllib.request.Request(ENDPOINT, data=json.dumps(request).encode(), headers={
         "Authorization": f"Bearer {key}", "Content-Type": "application/json"})
     with urllib.request.urlopen(message, timeout=10) as response:
@@ -157,10 +170,10 @@ def decision(token, state, key, path=LEDGER, evaluate=choose, now=None):
         value["nanodollars_upper_bound"] -= RESERVATION - tokens * 42
         persist(path, value)
         answer = response.get("answers", {}).get("action", {})
-        if response.get("model") != MODEL or answer.get("type") != "choice" or answer.get("choice") not in MASKS:
+        if response.get("model") != MODEL or answer.get("type") != "choice" or answer.get("choice") not in question_for_state(state)["criteria"]:
             raise ValueError("invalid controller answer")
         with (Path(attempt["output"]) / "decisions.jsonl").open("a") as journal:
-            journal.write(json.dumps({"state": state, "question": QUESTION, "response": response}) + "\n")
+            journal.write(json.dumps({"state": state, "question": question_for_state(state), "response": response}) + "\n")
         return MASKS[answer["choice"]]
 
 

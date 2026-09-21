@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 - #502 paid Hidden Canyon pilot
+
+Three bounded Jev attempts charged 269 requests and $0.045005898. The
+goal-neutral question turned a 37-release no-op into a route reaching X607
+and 15 Objects, but Kid stalled and died. State-aware action choices and a
+24-decision stall guard bounded the final route at X570 and nine Objects.
+Its 390-frame input script is checked in; replay is exact, while TAS first
+diverges in camera X at frame 119. No Drips close-range call was reached.
+The #502 paid case is exhausted; continue from the offline route and PC
+checker without relabelling it to evade the limit.
+
 ## 2026-09-21 - #502 exact range-call discriminator
 
 An oracle PC trace now pairs each Drips `Object_CheckInRange` call with its

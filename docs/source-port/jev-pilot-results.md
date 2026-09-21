@@ -218,15 +218,15 @@ has been measured.
 ## Case-specific route collection - 2026-09-21
 
 The private collector takes an explicit settled start, goal and optional
-forward-progress limit. #327 retains its 24-decision X guard. #502 has a
-separate level 0x2C Drips goal and checks the trace's `number_objects` field
+forward-progress limit. #327 retains its 24-decision X guard. The initial
+#502 case used a level 0x2C Drips goal and checked the trace's `number_objects` field
 for a 21-Object candidate. A candidate is discovery evidence only: the
 `Object_CheckInRange` 20/21 call and native/oracle outcome still need proof.
 
 An offline six-frame #502 run replays exactly but cannot pass the paid
 preflight. At level 0x2C, frame 0 RNG differs (native FFCB, oracle FFF2)
 and 39 pixels differ. Level 0x48 also fails at frame 0 (native four enemy
-Objects, oracle ten; 19 pixels differ). No paid #502 request was sent.
+Objects, oracle ten; 19 pixels differ). No paid #502 request was sent at this stage.
 
 A scan of all Drips layout levels found exact six-frame native/oracle starts
 at 0x01 and 0x35. The #502 start uses 0x35, whose layout contains nine Drips
@@ -235,3 +235,28 @@ does not reach the pressure branch. The ROM-PC witness checker classifies
 Drips calls by the branch actually executed; three moving routes on 0x2C/0x48
 made 1,833 normal calls and zero close calls. A 0x35 periodic right-jump route
 made no Drips calls. A real 20/21 call witness remains required before a fix.
+
+## Hidden Canyon paid route pilot - 2026-09-21
+
+The #502 case used three charged attempts under one 20-minute window. The
+first exposed teleporter-specific text in the shared controller question:
+37 completed choices were `release`, leaving Kid at X16 for 222 frames.
+That journal replays exactly with zero changed native/oracle pixels. The
+question is goal-neutral and omits `release` when no controls are held in a
+case that does not require waiting.
+
+The second attempt reached X607 and 15 Objects, then stayed at X570 until
+two fatal hits. The controller omits Start while unpaused in gameplay and
+stops a #502 collection at death. The third attempt tried to jump at X570
+but made no further forward progress; the 24-decision guard stopped it at
+390 frames and nine Objects. It replays exactly, but its later oracle
+comparison is red. The checked-in ordinary-input scenario is
+`tests/data/dynamic-scenarios/issue-502-jev-hidden-canyon-stall.json`.
+TAS bisection finds its first authoritative camera X difference at frame
+119, native 0x004D0000 versus oracle 0x004C0000. Neither route exercised
+the Drips close-range branch, and no fix or visual proof is claimed.
+
+The #502 ledger records 38, 166 and 65 charged requests. Additional spend
+is $0.045005898; the lifetime upper-bound charge is $0.231980574. The
+three-attempt case limit is exhausted. The saved input journals and exact
+replay reports are under `.cache/jev-cases/` for local investigation.
