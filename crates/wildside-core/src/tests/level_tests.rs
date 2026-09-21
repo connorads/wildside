@@ -6005,6 +6005,33 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level1f_recording_settle_keeps_third_rock_tank_at_left_turn_loc_3c152() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let frame = ScriptRunner::new(manifest)
+            .warp_to_level(0x1f)
+            .settle_recording_warp()
+            .run(&[0], 1)
+            .into_iter()
+            .next()
+            .expect("settled level 0x1f frame 0");
+        let tank = frame
+            .active_enemy_details
+            .iter()
+            .find(|enemy| {
+                enemy.kind == NativeObjectKind::Enemy { object_type: 0x0a }
+                    && enemy.layout_index == Some(21)
+                    && enemy.hit_points == Some(3)
+            })
+            .expect("ASM loc_3C0FA -> loc_3C152: RockTank slot 21 turns at x235 instead of entering the hurt cell");
+
+        assert_eq!(tank.y_pos, 0x04c0_0000);
+        assert_eq!((frame.number_objects, frame.number_gfx_objects), (6, 10));
+    }
+
+    #[test]
     fn level30_ufo_contact_death_freezes_live_object_counts_at_death_loc_b7ea() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

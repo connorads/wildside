@@ -9463,6 +9463,26 @@ pub(crate) fn step_pacer(
     }
 
     if !moving_right
+        && turns_at_cliffs
+        && scan.flags_d7 & 0b001 != 0
+        && pixel_delta > 0
+        && tile_remainder < pixel_delta
+        && !matches!(
+            grounded_turn_plan,
+            Some(SharedWalkerGroundedTurn::BoundaryWallSnapContinue(_))
+        )
+    {
+        // ASM loc_3C0FA -> loc_3C152 -> loc_3C026: a leftward tile-boundary
+        // crossing with d7 bit 0 set turns before committing the X step.
+        // The earlier loc_3C0FA wall-snap arm has priority over this branch.
+        reverse_enemy_direction(enemy);
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0;
+        register_shared_walker_turnaround(enemy);
+        return;
+    }
+
+    if !moving_right
         && matches!(enemy.family, EnemyFamily::Crab | EnemyFamily::Driller)
         && pixel_delta > 0
         && tile_remainder < pixel_delta

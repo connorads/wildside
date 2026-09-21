@@ -64,10 +64,9 @@ those recordings do not establish a successful warp or natural progression.
 
 ## Expanded sweep evidence
 
-State run `1789928876` tests all 105 entries requested by `--levels 0-104`.
-It contains 92 comparable passes, 10 failures and three fully masked/unverified
-entries (`$38/$41/$47`). The report's `passed=95` includes those three unverified
-entries. Every failing ID ends in a hex digit A-F. The 28 authoritative
+State run `1790032848` tests all 105 entries requested by `--levels 0-104`.
+It contains 98 passes, seven failures, zero errors and zero fully masked
+entries. All seven failing IDs end in a hex digit A-F. The authoritative
 differences remain release work; the expanded sweep is not a passing release gate.
 
 Commands:
@@ -76,7 +75,7 @@ Commands:
 cargo test -q -p wildside-cli parse_level_range_
 cargo run -q -p wildside-cli -- sweep --levels 10 --tier gameplay
 cargo run -q -p wildside-cli -- sweep --levels 0-104 --tier state
-cargo run -q -p wildside-cli -- sweep-census --run 1789928876
+cargo run -q -p wildside-cli -- sweep-census --run 1790032848
 mise run verify-disasm-fidelity
 ```
 
@@ -88,13 +87,7 @@ without a nonzero process exit; inspect the report counts, not just exit status.
 
 | Logical ID | Checkpoint | Authoritative native / oracle differences |
 |---|---|---|
-| `0x0F` | `level_settle` | number_hitpoints `1` / `2` |
-| `0x0F` | `idle_tail` | number_hitpoints `1` / `2` |
 | `0x1B` | `idle_tail` | game_mode `0x0008` / `0x000c`; number_objects `0` / `4`; number_lives `2` / `3` |
-| `0x1C` | `level_settle` | number_hitpoints `1` / `2` |
-| `0x1C` | `idle_tail` | number_hitpoints `1` / `2` |
-| `0x1F` | `level_settle` | number_objects `5` / `6`; number_gfx_objects `8` / `10` |
-| `0x1F` | `idle_tail` | number_objects `5` / `6`; number_gfx_objects `8` / `10` |
 | `0x2C` | `idle_tail` | number_objects `10` / `7`; number_gfx_objects `16` / `13` |
 | `0x3E` | `level_settle` | camera_x_pos `0x00080000` / `0x00070000`; murder_wall_x `Some(575232)` / `Some(488448)` |
 | `0x3F` | `idle_tail` | game_mode `0x0008` / `0x000c`; number_objects `0` / `11`; number_gfx_objects `14` / `15`; number_hitpoints `2` / `1`; number_lives `2` / `3` |
@@ -102,6 +95,12 @@ without a nonzero process exit; inspect the report counts, not just exit status.
 | `0x4C` | `level_settle` | number_objects `5` / `7`; number_gfx_objects `5` / `7` |
 | `0x4C` | `idle_tail` | number_objects `5` / `6`; number_gfx_objects `5` / `6` |
 | `0x5C` | `level_settle` | number_objects `5` / `6`; number_gfx_objects `6` / `7` |
+
+ASM `loc_3C0FA -> loc_3C152` turns RockTank slot 21 at X235
+before it enters the hurt cell at X234. The cache-backed settled regression
+pins the third live RockTank and the oracle's six Object/ten Gfx counts.
+Enemy positions remain different under #509; the green state row does not
+prove enemy-position or natural-route fidelity.
 
 ## Shared-header verification
 

@@ -1097,5 +1097,17 @@
     ],
     "next_action": "Acquire a reachable Drips encounter crossing 20/21 live Objects; compare checks after an earlier allocation and an earlier deletion.",
     "scope": "Drips use the tighter unload bounds only while more than 20 Object workers are linked."
+  },
+  {
+    "issue": 509,
+    "readiness": "needs_comparison",
+    "active_path": "shared walker loc_3C0FA left turn and Load_InGame title-wait enemy scheduling",
+    "route": "Settled logical 0x1F warp with 30 neutral frames; inspect offscreen RockTank layout slots 15, 16 and 21",
+    "evidence": [
+      "docs/source-port/backlog-archive.md#issue-509",
+      "crates/wildside-core/src/tests/level_tests.rs"
+    ],
+    "next_action": "Compare each Tank's hidden title-wait movement age against ASM and oracle slots, then verify one engine-level phase correction on the settled route and full sweep.",
+    "scope": "Three Woods of Despair 1 RockTanks should retain their ROM positions after the hidden settle without changing the now-matching Object and Gfx counts."
   }
 ]

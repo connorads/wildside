@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - Woods of Despair 1 RockTank left turn
+
+The 0x1F sweep count deficit came from RockTank slot 21 entering a hurt
+cell at X234. Oracle title-wait slots show it turning at X235 through
+`loc_3C0FA -> loc_3C152`; the shared native left walker omitted that
+pre-step turn. A red-first settled regression now retains all three tanks
+and the oracle's six Object/ten Gfx counts. Fast gate, full TAS and corrected
+105-level sweep pass; only 0x1F changes in the sweep, leaving 98 passes and
+seven failures. #509 tracks the remaining 3-4px offscreen tank position lead.
+
 ## 2026-09-21 - #300 teleporter route recheck
 
 The saved BLW2 Jev shaft route now matches all 282 oracle player/camera frames

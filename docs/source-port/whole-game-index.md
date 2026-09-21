@@ -22,9 +22,10 @@ Presence is not full verification.
 - Native 1P playable gate: the project-health headline for real-player coverage, refreshed 2026-07-04 at report `1783122908`
 - TAS parity: both imported recordings are clean to their recorded endpoints
 - Oracle-backed 1P accurate gate: supporting parity evidence, not the primary health headline
-- Expanded state sweep `1789928876` covers all 105 standard entries: 92
-  comparable passes, 10 failures and three unverified entries. The ten failures
-  were omitted by the historical BCD filter; see `level-inventory.md`.
+- Expanded state sweep `1790032848` covers all 105 standard entries: 98
+  passes, seven failures and zero fully masked entries. It checks settled and
+  idle state, not natural traversal or enemy-position parity; see
+  `level-inventory.md`.
 - Determinism: repeated traces are stable on the covered scenarios
 
 ## Systems still carrying meaningful post-phase risk

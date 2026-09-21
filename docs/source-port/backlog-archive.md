@@ -204,6 +204,19 @@ these also distinguish subtraction from addition for nonzero equal velocities.
 A targeted retry of the original survivors and same-line variants catches all
 16 selected mutants. Output: `/tmp/mutants-recording-enemy-boundaries/`.
 
+<a id="issue-509"></a>
+### #509 - Woods of Despair 1 RockTank settle positions
+
+The level 0x1F settled oracle roster has RockTank layout slots 15, 16 and 21
+at X197, X389 and X325. Native retains all three after the loc_3C152
+left-turn correction, but records X200, X392 and X329. The state sweep checks
+Object/Gfx counts and passes; it does not compare these enemy positions.
+`tas-diff --scenario .cache/issue-1f-idle-probe.json --frame-start 0
+--frame-end 1 --frontier-kind enemy --visual` retains the roster difference.
+The three bodies are outside the frame-0 viewport. Compare the title-wait
+walker phase with ASM before adjusting shared scheduling; no level-specific
+position correction is justified.
+
 <a id="issue-508"></a>
 ### #508
 
