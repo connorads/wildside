@@ -1099,14 +1099,14 @@
     "scope": "Drips use the tighter unload bounds only while more than 20 Object workers are linked."
   },
   {
-    "issue": 505,
+    "issue": 506,
     "readiness": "needs_comparison",
-    "active_path": "HUD timer sprite consumption after Kid_Transform",
-    "route": "tests/data/dynamic-scenarios/issue-504-standing-helmet-pickup.json",
+    "active_path": "Settled level 0x55 RNG handoff before the first recorded input",
+    "route": "tests/data/dynamic-scenarios/issue-505-airborne-helmet-timer.json",
     "evidence": [
-      "docs/source-port/backlog-archive.md#issue-505"
+      "docs/source-port/backlog-archive.md#issue-506"
     ],
-    "next_action": "Trace timer sprite consumption at 243..245; frame 244 displays 2:56 while oracle displays 2:55 despite native timer fields reporting 175 seconds.",
-    "scope": "The 18 HUD pixels at frame 244; all 300 matched oracle state checkpoints remain authoritative."
+    "next_action": "Trace the settled level-55 loader RNG consumption; frame 0 starts at FFF5 native versus FFF3 oracle on committed fa4b6d235.",
+    "scope": "Two-byte RNG offset at settled entry; no natural-entry or gameplay RNG fix is inferred."
   }
 ]

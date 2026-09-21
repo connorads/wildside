@@ -93,6 +93,80 @@ the 300 matched state checkpoints do not verify this hypothesis. Capture timer
 RAM around 168..170 before changing scheduling; do not alter the renderer from
 the visible digit alone.
 
+Oracle watch capture `.cache/debug/issue-505-timer-entry-before-fa4b6d235/`
+confirms the hypothesis. Time_SubSeconds ($FFFC1C) is 21 at 168 and 20 at 169,
+while Currently_transforming ($FFFA6D) becomes $FF. Seconds low/high/minutes
+($FFFC1E/$FFFC20/$FFFC22) roll from 176 to 175 at 243; the timer ones-digit
+Sprite_Table word ($FF0034) becomes $86BF on the same pass. Native skips the
+entry tick and builds that word one frame late. The extended standing-pickup
+regression fails with 61 versus 60 seconds at transform entry.
+
+The private scheduling change is reversible. Reuse the existing leading HUD
+tick and its pending expiry result for live, unpaused InGame frames; retain
+the separate death and bootstrap paths. Changing the renderer is rejected
+because timer RAM already differs. No new adapter, debug field or public
+contract is needed. The regression pins both entry rollover and frozen ticks.
+
+The airborne Level 0x55 discriminator exposes a cancelling second error.
+Oracle `.cache/debug/issue-505-airborne-timer-before/` keeps Time_SubSeconds
+at 24 through cleanup frame 95, decrementing to 23 only at 96. The initial
+entry-tick correction still lets resolve_frame_hazards fall back to ticking
+at 95, when after-player cleanup resumes native movement. Missing entry and
+extra cleanup ticks previously cancelled in the displayed clock. Preserve a
+completed, non-expiring HUD result on hibernating passes so the resumed
+Object pass cannot fabricate a new HUD tick. The airborne regression must
+cover cleanup as well as entry.
+
+The cleanup regression fails with 56 versus 57 subframes, then passes when
+the suspended HUD result suppresses the fallback tick. The permanent airborne
+input is `tests/data/dynamic-scenarios/issue-505-airborne-helmet-timer.json`.
+Baseline replay from committed `fa4b6d235` confirms the separate entry RNG
+offset in #506. The initial timer correction changes only timer fields across
+that airborne trace; RNG offset, last byte and ring are unchanged.
+
+Final grounded bundle `.cache/recordings/issue-505-timer-boundaries-fixed/`
+passes deterministic replay, all 300 oracle state checkpoints and all 300
+pixel comparisons. All 246 captured timer RAM samples through frame 245
+match seconds, subframes and the built HUD value. Frame 244's before/after
+and oracle PNGs were inspected; the 18 timer pixels disappear.
+
+Final airborne bundle `.cache/recordings/issue-505-airborne-timer-fixed/`
+matches all 121 captured timer RAM samples through frame 120. Against the
+committed baseline, only the 59 subframe values at 36..94 change. All RNG
+values remain unchanged. Of 360 images, 359 are exact; the remaining pixel
+is the life icon at (291,13) on frame 140. Native traces 139/140 are identical
+to the committed baseline, so that pixel is outside the timer correction.
+The full airborne verifier stays red for #506 and that retained pixel; no
+mask or new frozen exemption is introduced.
+
+Fast gate passes in 249.34 seconds with 7,436 core tests and Clippy. State
+sweep 1789961329 equals 1789959242 in every normalised report field (95
+pass/10 fail, 28 blocking, 6 advisory, 96 limitations). Full level-01 sweep
+1789961343 equals 1789959282, including its seven pixel differences.
+
+Full TAS passes across all 37,759 checked frames. Frozen pixel debt remains
+241 frames / 2,391 pixels; GEMS signatures retain 36,836 mismatches from 923
+and audio commands remain exact. No baseline changes or paid Jev calls.
+Objective #505 closes on timer RAM, inspected pixels and permanent entry/exit
+regressions. #506 and wider route coverage remain open.
+
+<a id="issue-506"></a>
+### #506
+
+The ordinary-input, settled level-0x55 replay for #505 starts at native RNG
+offset $FFF5 versus oracle $FFF3. Native replay of committed `fa4b6d235` in
+`.cache/recordings/issue-505-airborne-baseline-fa4b6d235/` has the same offset.
+The initial #505 timer change leaves every RNG offset/last-byte/ring value
+unchanged. Its full recording verifier fails at frame 0 for this reason;
+timer and pixel evidence must not claim full replay certification.
+
+Input: 360 neutral frames after the standard settled warp, permanently held
+in `tests/data/dynamic-scenarios/issue-505-airborne-helmet-timer.json`. Source
+of the extra native two-byte burn is unestablished. Trace the loader and
+handoff before adjusting seeds; compare a natural entry before claiming a
+gameplay RNG defect. Minimum gate is fast-slice, full TAS and an authoritative
+entry witness. No masking or frozen-debt exemption applies.
+
 ### #503
 
 The 780-frame BLW2 continuation reproduces TankShooting side-contact damage
@@ -26230,6 +26304,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 505 | [x] | P3 | HUD/rendering | The timer ticks before transform entry and stays frozen on cleanup of the suspended Object pass. | ASM Mode_Level/loc_BE82/loc_7E90; exact timer RAM on both callbacks and a fully exact 300-frame replay. |
 | 504 | [x] | P1 | player/forms | Grounded helmet collision starts transformation before motion and preserves fractional X. | ASM loc_75D4/sub_7B30; all 300 replay state checkpoints exact; timer pixels tracked as #505. |
 | 503 | [x] | P1 | combat | Tank side-contact damage consumes the collision on the following Object pass. | ASM loc_1CF2/loc_B700; exact HP and damage flag across 232 route checkpoints; archive #503. |
 | 501 | [x] | P1 | enemy/Drips | Parents retain normal-range coroutine lifetime and release their owned falling child on unload. | ASM loc_333F6/loc_3345C; 645 exact parent observations and 560 exact RNG frames; archive #501. |

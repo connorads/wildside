@@ -8530,7 +8530,7 @@ impl NativeRuntime {
             }
             PlayerLifecycle::DeathWindup { remaining_frames } => {
                 // ASM Death loc_B80C -> sub_8E0 still builds the HUD at loc_BE82.
-                // The demo shell may already have ticked this frame's HUD.
+                // Mode_Level may already have ticked this frame's HUD.
                 if self.progression.form_change_flash_frames == 0
                     && self
                         .pending_demo_timer_tick_result_loc_be82

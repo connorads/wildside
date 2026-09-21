@@ -214,12 +214,25 @@ mod chunk_04 {
             collected: false,
             collision_latched: true,
         });
+        // ASM Mode_Level calls loc_BE82 before Execute_Objects can enter
+        // Kid_Transform. Entry spends one tick; hibernating passes do not.
+        runtime.level_timer = LevelTimer {
+            seconds: 61,
+            sub_frames: 2,
+        };
         runtime.step_frame(FrameInput::default());
         assert_eq!(runtime.progression.current_form, PlayerForm::TheKid);
-        runtime.step_frame(FrameInput::default());
+        let transformed = runtime.step_frame(FrameInput::default());
         assert_eq!(runtime.progression.current_form, PlayerForm::RedStealth);
         assert_eq!(runtime.progression.number_hitpoints, 3);
         assert_eq!(runtime.opening_slice.expect("slice").player.x_pos, start_x);
+        assert_eq!(transformed.level_timer_seconds, 60);
+        assert_eq!(transformed.level_timer_sub_frames, 60);
+        assert_eq!(transformed.hud_timer_sprite_seconds_loc_bee8, Some(60));
+        let hibernating = runtime.step_frame(FrameInput::default());
+        assert_eq!(hibernating.level_timer_seconds, 60);
+        assert_eq!(hibernating.level_timer_sub_frames, 60);
+        assert_eq!(hibernating.hud_timer_sprite_seconds_loc_bee8, Some(60));
     }
 
     /// ASM GfxObjects_CollisionKid latches contact after the Object pass.
@@ -288,6 +301,19 @@ mod chunk_04 {
             end_y,
             "the next Kid wake starts Kid_Transform before movement"
         );
+
+        // ASM loc_7E90 resumes the suspended Object pass before the next
+        // Mode_Level HUD tick. Oracle 0x55 keeps Time_SubSeconds=24 on
+        // cleanup frame 95, then decrements it on frame 96 (#505).
+        let frozen_timer = runtime.level_timer;
+        let cleanup_steps = runtime.progression.form_change_flash_frames - 1;
+        for _ in 0..cleanup_steps {
+            runtime.step_frame(FrameInput::default());
+            assert_eq!(runtime.level_timer, frozen_timer);
+        }
+        assert_eq!(runtime.progression.form_change_flash_frames, 1);
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(runtime.level_timer.sub_frames, frozen_timer.sub_frames - 1);
     }
 
     #[test]

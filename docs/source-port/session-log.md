@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 - #505 transform HUD timer boundaries
+
+Closed #505. Live InGame runs the HUD tick before the Object pass; a frozen
+pass retains its completed result so airborne cleanup cannot tick again.
+Oracle RAM proves the missing entry tick and the cancelling extra cleanup
+tick. Red-first regressions cover entry rollover and frozen cleanup. All
+7,436 core tests pass; the fast gate completes in 249.34 seconds.
+
+The grounded Red Stealth route is deterministic and exact across all 300
+oracle state and pixel checkpoints. All 246 captured timer RAM samples match.
+The airborne Micromax route matches 121 timer RAM samples; only subframes
+36..94 change against committed fa4b6d235. Its 359/360 exact images retain
+one unchanged life-icon pixel at 140. Full airborne certification is blocked
+by the pre-existing RNG offset, recorded as #506, and that pixel. The offset
+was reproduced on the committed baseline, not inferred from source.
+
+State sweep 1789961329 and full level-01 sweep 1789961343 match their prior
+reports. Full TAS preserves the 241-frame / 2,391-pixel frozen baseline and
+exact audio commands. No paid Jev calls or masks. Next: extend #300 with the
+state- and pixel-exact settled Red Stealth prefix; preserve the distinction
+from natural campaign entry. #506, #502 and the other live gaps remain open.
+
 ## 2026-09-21 - #504 grounded helmet pickup
 
 Closed #504. Grounded movement callbacks consume helmet collision before

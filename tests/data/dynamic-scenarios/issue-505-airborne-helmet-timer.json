@@ -1,0 +1,1816 @@
+{
+  "slug": "issue-505-airborne-helmet-timer",
+  "script": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "frame_count": 360,
+  "checkpoints": [
+    {
+      "frame_index": 0,
+      "label": "airborne-0"
+    },
+    {
+      "frame_index": 1,
+      "label": "airborne-1"
+    },
+    {
+      "frame_index": 2,
+      "label": "airborne-2"
+    },
+    {
+      "frame_index": 3,
+      "label": "airborne-3"
+    },
+    {
+      "frame_index": 4,
+      "label": "airborne-4"
+    },
+    {
+      "frame_index": 5,
+      "label": "airborne-5"
+    },
+    {
+      "frame_index": 6,
+      "label": "airborne-6"
+    },
+    {
+      "frame_index": 7,
+      "label": "airborne-7"
+    },
+    {
+      "frame_index": 8,
+      "label": "airborne-8"
+    },
+    {
+      "frame_index": 9,
+      "label": "airborne-9"
+    },
+    {
+      "frame_index": 10,
+      "label": "airborne-10"
+    },
+    {
+      "frame_index": 11,
+      "label": "airborne-11"
+    },
+    {
+      "frame_index": 12,
+      "label": "airborne-12"
+    },
+    {
+      "frame_index": 13,
+      "label": "airborne-13"
+    },
+    {
+      "frame_index": 14,
+      "label": "airborne-14"
+    },
+    {
+      "frame_index": 15,
+      "label": "airborne-15"
+    },
+    {
+      "frame_index": 16,
+      "label": "airborne-16"
+    },
+    {
+      "frame_index": 17,
+      "label": "airborne-17"
+    },
+    {
+      "frame_index": 18,
+      "label": "airborne-18"
+    },
+    {
+      "frame_index": 19,
+      "label": "airborne-19"
+    },
+    {
+      "frame_index": 20,
+      "label": "airborne-20"
+    },
+    {
+      "frame_index": 21,
+      "label": "airborne-21"
+    },
+    {
+      "frame_index": 22,
+      "label": "airborne-22"
+    },
+    {
+      "frame_index": 23,
+      "label": "airborne-23"
+    },
+    {
+      "frame_index": 24,
+      "label": "airborne-24"
+    },
+    {
+      "frame_index": 25,
+      "label": "airborne-25"
+    },
+    {
+      "frame_index": 26,
+      "label": "airborne-26"
+    },
+    {
+      "frame_index": 27,
+      "label": "airborne-27"
+    },
+    {
+      "frame_index": 28,
+      "label": "airborne-28"
+    },
+    {
+      "frame_index": 29,
+      "label": "airborne-29"
+    },
+    {
+      "frame_index": 30,
+      "label": "airborne-30"
+    },
+    {
+      "frame_index": 31,
+      "label": "airborne-31"
+    },
+    {
+      "frame_index": 32,
+      "label": "airborne-32"
+    },
+    {
+      "frame_index": 33,
+      "label": "airborne-33"
+    },
+    {
+      "frame_index": 34,
+      "label": "airborne-34"
+    },
+    {
+      "frame_index": 35,
+      "label": "airborne-35"
+    },
+    {
+      "frame_index": 36,
+      "label": "airborne-36"
+    },
+    {
+      "frame_index": 37,
+      "label": "airborne-37"
+    },
+    {
+      "frame_index": 38,
+      "label": "airborne-38"
+    },
+    {
+      "frame_index": 39,
+      "label": "airborne-39"
+    },
+    {
+      "frame_index": 40,
+      "label": "airborne-40"
+    },
+    {
+      "frame_index": 41,
+      "label": "airborne-41"
+    },
+    {
+      "frame_index": 42,
+      "label": "airborne-42"
+    },
+    {
+      "frame_index": 43,
+      "label": "airborne-43"
+    },
+    {
+      "frame_index": 44,
+      "label": "airborne-44"
+    },
+    {
+      "frame_index": 45,
+      "label": "airborne-45"
+    },
+    {
+      "frame_index": 46,
+      "label": "airborne-46"
+    },
+    {
+      "frame_index": 47,
+      "label": "airborne-47"
+    },
+    {
+      "frame_index": 48,
+      "label": "airborne-48"
+    },
+    {
+      "frame_index": 49,
+      "label": "airborne-49"
+    },
+    {
+      "frame_index": 50,
+      "label": "airborne-50"
+    },
+    {
+      "frame_index": 51,
+      "label": "airborne-51"
+    },
+    {
+      "frame_index": 52,
+      "label": "airborne-52"
+    },
+    {
+      "frame_index": 53,
+      "label": "airborne-53"
+    },
+    {
+      "frame_index": 54,
+      "label": "airborne-54"
+    },
+    {
+      "frame_index": 55,
+      "label": "airborne-55"
+    },
+    {
+      "frame_index": 56,
+      "label": "airborne-56"
+    },
+    {
+      "frame_index": 57,
+      "label": "airborne-57"
+    },
+    {
+      "frame_index": 58,
+      "label": "airborne-58"
+    },
+    {
+      "frame_index": 59,
+      "label": "airborne-59"
+    },
+    {
+      "frame_index": 60,
+      "label": "airborne-60"
+    },
+    {
+      "frame_index": 61,
+      "label": "airborne-61"
+    },
+    {
+      "frame_index": 62,
+      "label": "airborne-62"
+    },
+    {
+      "frame_index": 63,
+      "label": "airborne-63"
+    },
+    {
+      "frame_index": 64,
+      "label": "airborne-64"
+    },
+    {
+      "frame_index": 65,
+      "label": "airborne-65"
+    },
+    {
+      "frame_index": 66,
+      "label": "airborne-66"
+    },
+    {
+      "frame_index": 67,
+      "label": "airborne-67"
+    },
+    {
+      "frame_index": 68,
+      "label": "airborne-68"
+    },
+    {
+      "frame_index": 69,
+      "label": "airborne-69"
+    },
+    {
+      "frame_index": 70,
+      "label": "airborne-70"
+    },
+    {
+      "frame_index": 71,
+      "label": "airborne-71"
+    },
+    {
+      "frame_index": 72,
+      "label": "airborne-72"
+    },
+    {
+      "frame_index": 73,
+      "label": "airborne-73"
+    },
+    {
+      "frame_index": 74,
+      "label": "airborne-74"
+    },
+    {
+      "frame_index": 75,
+      "label": "airborne-75"
+    },
+    {
+      "frame_index": 76,
+      "label": "airborne-76"
+    },
+    {
+      "frame_index": 77,
+      "label": "airborne-77"
+    },
+    {
+      "frame_index": 78,
+      "label": "airborne-78"
+    },
+    {
+      "frame_index": 79,
+      "label": "airborne-79"
+    },
+    {
+      "frame_index": 80,
+      "label": "airborne-80"
+    },
+    {
+      "frame_index": 81,
+      "label": "airborne-81"
+    },
+    {
+      "frame_index": 82,
+      "label": "airborne-82"
+    },
+    {
+      "frame_index": 83,
+      "label": "airborne-83"
+    },
+    {
+      "frame_index": 84,
+      "label": "airborne-84"
+    },
+    {
+      "frame_index": 85,
+      "label": "airborne-85"
+    },
+    {
+      "frame_index": 86,
+      "label": "airborne-86"
+    },
+    {
+      "frame_index": 87,
+      "label": "airborne-87"
+    },
+    {
+      "frame_index": 88,
+      "label": "airborne-88"
+    },
+    {
+      "frame_index": 89,
+      "label": "airborne-89"
+    },
+    {
+      "frame_index": 90,
+      "label": "airborne-90"
+    },
+    {
+      "frame_index": 91,
+      "label": "airborne-91"
+    },
+    {
+      "frame_index": 92,
+      "label": "airborne-92"
+    },
+    {
+      "frame_index": 93,
+      "label": "airborne-93"
+    },
+    {
+      "frame_index": 94,
+      "label": "airborne-94"
+    },
+    {
+      "frame_index": 95,
+      "label": "airborne-95"
+    },
+    {
+      "frame_index": 96,
+      "label": "airborne-96"
+    },
+    {
+      "frame_index": 97,
+      "label": "airborne-97"
+    },
+    {
+      "frame_index": 98,
+      "label": "airborne-98"
+    },
+    {
+      "frame_index": 99,
+      "label": "airborne-99"
+    },
+    {
+      "frame_index": 100,
+      "label": "airborne-100"
+    },
+    {
+      "frame_index": 101,
+      "label": "airborne-101"
+    },
+    {
+      "frame_index": 102,
+      "label": "airborne-102"
+    },
+    {
+      "frame_index": 103,
+      "label": "airborne-103"
+    },
+    {
+      "frame_index": 104,
+      "label": "airborne-104"
+    },
+    {
+      "frame_index": 105,
+      "label": "airborne-105"
+    },
+    {
+      "frame_index": 106,
+      "label": "airborne-106"
+    },
+    {
+      "frame_index": 107,
+      "label": "airborne-107"
+    },
+    {
+      "frame_index": 108,
+      "label": "airborne-108"
+    },
+    {
+      "frame_index": 109,
+      "label": "airborne-109"
+    },
+    {
+      "frame_index": 110,
+      "label": "airborne-110"
+    },
+    {
+      "frame_index": 111,
+      "label": "airborne-111"
+    },
+    {
+      "frame_index": 112,
+      "label": "airborne-112"
+    },
+    {
+      "frame_index": 113,
+      "label": "airborne-113"
+    },
+    {
+      "frame_index": 114,
+      "label": "airborne-114"
+    },
+    {
+      "frame_index": 115,
+      "label": "airborne-115"
+    },
+    {
+      "frame_index": 116,
+      "label": "airborne-116"
+    },
+    {
+      "frame_index": 117,
+      "label": "airborne-117"
+    },
+    {
+      "frame_index": 118,
+      "label": "airborne-118"
+    },
+    {
+      "frame_index": 119,
+      "label": "airborne-119"
+    },
+    {
+      "frame_index": 120,
+      "label": "airborne-120"
+    },
+    {
+      "frame_index": 121,
+      "label": "airborne-121"
+    },
+    {
+      "frame_index": 122,
+      "label": "airborne-122"
+    },
+    {
+      "frame_index": 123,
+      "label": "airborne-123"
+    },
+    {
+      "frame_index": 124,
+      "label": "airborne-124"
+    },
+    {
+      "frame_index": 125,
+      "label": "airborne-125"
+    },
+    {
+      "frame_index": 126,
+      "label": "airborne-126"
+    },
+    {
+      "frame_index": 127,
+      "label": "airborne-127"
+    },
+    {
+      "frame_index": 128,
+      "label": "airborne-128"
+    },
+    {
+      "frame_index": 129,
+      "label": "airborne-129"
+    },
+    {
+      "frame_index": 130,
+      "label": "airborne-130"
+    },
+    {
+      "frame_index": 131,
+      "label": "airborne-131"
+    },
+    {
+      "frame_index": 132,
+      "label": "airborne-132"
+    },
+    {
+      "frame_index": 133,
+      "label": "airborne-133"
+    },
+    {
+      "frame_index": 134,
+      "label": "airborne-134"
+    },
+    {
+      "frame_index": 135,
+      "label": "airborne-135"
+    },
+    {
+      "frame_index": 136,
+      "label": "airborne-136"
+    },
+    {
+      "frame_index": 137,
+      "label": "airborne-137"
+    },
+    {
+      "frame_index": 138,
+      "label": "airborne-138"
+    },
+    {
+      "frame_index": 139,
+      "label": "airborne-139"
+    },
+    {
+      "frame_index": 140,
+      "label": "airborne-140"
+    },
+    {
+      "frame_index": 141,
+      "label": "airborne-141"
+    },
+    {
+      "frame_index": 142,
+      "label": "airborne-142"
+    },
+    {
+      "frame_index": 143,
+      "label": "airborne-143"
+    },
+    {
+      "frame_index": 144,
+      "label": "airborne-144"
+    },
+    {
+      "frame_index": 145,
+      "label": "airborne-145"
+    },
+    {
+      "frame_index": 146,
+      "label": "airborne-146"
+    },
+    {
+      "frame_index": 147,
+      "label": "airborne-147"
+    },
+    {
+      "frame_index": 148,
+      "label": "airborne-148"
+    },
+    {
+      "frame_index": 149,
+      "label": "airborne-149"
+    },
+    {
+      "frame_index": 150,
+      "label": "airborne-150"
+    },
+    {
+      "frame_index": 151,
+      "label": "airborne-151"
+    },
+    {
+      "frame_index": 152,
+      "label": "airborne-152"
+    },
+    {
+      "frame_index": 153,
+      "label": "airborne-153"
+    },
+    {
+      "frame_index": 154,
+      "label": "airborne-154"
+    },
+    {
+      "frame_index": 155,
+      "label": "airborne-155"
+    },
+    {
+      "frame_index": 156,
+      "label": "airborne-156"
+    },
+    {
+      "frame_index": 157,
+      "label": "airborne-157"
+    },
+    {
+      "frame_index": 158,
+      "label": "airborne-158"
+    },
+    {
+      "frame_index": 159,
+      "label": "airborne-159"
+    },
+    {
+      "frame_index": 160,
+      "label": "airborne-160"
+    },
+    {
+      "frame_index": 161,
+      "label": "airborne-161"
+    },
+    {
+      "frame_index": 162,
+      "label": "airborne-162"
+    },
+    {
+      "frame_index": 163,
+      "label": "airborne-163"
+    },
+    {
+      "frame_index": 164,
+      "label": "airborne-164"
+    },
+    {
+      "frame_index": 165,
+      "label": "airborne-165"
+    },
+    {
+      "frame_index": 166,
+      "label": "airborne-166"
+    },
+    {
+      "frame_index": 167,
+      "label": "airborne-167"
+    },
+    {
+      "frame_index": 168,
+      "label": "airborne-168"
+    },
+    {
+      "frame_index": 169,
+      "label": "airborne-169"
+    },
+    {
+      "frame_index": 170,
+      "label": "airborne-170"
+    },
+    {
+      "frame_index": 171,
+      "label": "airborne-171"
+    },
+    {
+      "frame_index": 172,
+      "label": "airborne-172"
+    },
+    {
+      "frame_index": 173,
+      "label": "airborne-173"
+    },
+    {
+      "frame_index": 174,
+      "label": "airborne-174"
+    },
+    {
+      "frame_index": 175,
+      "label": "airborne-175"
+    },
+    {
+      "frame_index": 176,
+      "label": "airborne-176"
+    },
+    {
+      "frame_index": 177,
+      "label": "airborne-177"
+    },
+    {
+      "frame_index": 178,
+      "label": "airborne-178"
+    },
+    {
+      "frame_index": 179,
+      "label": "airborne-179"
+    },
+    {
+      "frame_index": 180,
+      "label": "airborne-180"
+    },
+    {
+      "frame_index": 181,
+      "label": "airborne-181"
+    },
+    {
+      "frame_index": 182,
+      "label": "airborne-182"
+    },
+    {
+      "frame_index": 183,
+      "label": "airborne-183"
+    },
+    {
+      "frame_index": 184,
+      "label": "airborne-184"
+    },
+    {
+      "frame_index": 185,
+      "label": "airborne-185"
+    },
+    {
+      "frame_index": 186,
+      "label": "airborne-186"
+    },
+    {
+      "frame_index": 187,
+      "label": "airborne-187"
+    },
+    {
+      "frame_index": 188,
+      "label": "airborne-188"
+    },
+    {
+      "frame_index": 189,
+      "label": "airborne-189"
+    },
+    {
+      "frame_index": 190,
+      "label": "airborne-190"
+    },
+    {
+      "frame_index": 191,
+      "label": "airborne-191"
+    },
+    {
+      "frame_index": 192,
+      "label": "airborne-192"
+    },
+    {
+      "frame_index": 193,
+      "label": "airborne-193"
+    },
+    {
+      "frame_index": 194,
+      "label": "airborne-194"
+    },
+    {
+      "frame_index": 195,
+      "label": "airborne-195"
+    },
+    {
+      "frame_index": 196,
+      "label": "airborne-196"
+    },
+    {
+      "frame_index": 197,
+      "label": "airborne-197"
+    },
+    {
+      "frame_index": 198,
+      "label": "airborne-198"
+    },
+    {
+      "frame_index": 199,
+      "label": "airborne-199"
+    },
+    {
+      "frame_index": 200,
+      "label": "airborne-200"
+    },
+    {
+      "frame_index": 201,
+      "label": "airborne-201"
+    },
+    {
+      "frame_index": 202,
+      "label": "airborne-202"
+    },
+    {
+      "frame_index": 203,
+      "label": "airborne-203"
+    },
+    {
+      "frame_index": 204,
+      "label": "airborne-204"
+    },
+    {
+      "frame_index": 205,
+      "label": "airborne-205"
+    },
+    {
+      "frame_index": 206,
+      "label": "airborne-206"
+    },
+    {
+      "frame_index": 207,
+      "label": "airborne-207"
+    },
+    {
+      "frame_index": 208,
+      "label": "airborne-208"
+    },
+    {
+      "frame_index": 209,
+      "label": "airborne-209"
+    },
+    {
+      "frame_index": 210,
+      "label": "airborne-210"
+    },
+    {
+      "frame_index": 211,
+      "label": "airborne-211"
+    },
+    {
+      "frame_index": 212,
+      "label": "airborne-212"
+    },
+    {
+      "frame_index": 213,
+      "label": "airborne-213"
+    },
+    {
+      "frame_index": 214,
+      "label": "airborne-214"
+    },
+    {
+      "frame_index": 215,
+      "label": "airborne-215"
+    },
+    {
+      "frame_index": 216,
+      "label": "airborne-216"
+    },
+    {
+      "frame_index": 217,
+      "label": "airborne-217"
+    },
+    {
+      "frame_index": 218,
+      "label": "airborne-218"
+    },
+    {
+      "frame_index": 219,
+      "label": "airborne-219"
+    },
+    {
+      "frame_index": 220,
+      "label": "airborne-220"
+    },
+    {
+      "frame_index": 221,
+      "label": "airborne-221"
+    },
+    {
+      "frame_index": 222,
+      "label": "airborne-222"
+    },
+    {
+      "frame_index": 223,
+      "label": "airborne-223"
+    },
+    {
+      "frame_index": 224,
+      "label": "airborne-224"
+    },
+    {
+      "frame_index": 225,
+      "label": "airborne-225"
+    },
+    {
+      "frame_index": 226,
+      "label": "airborne-226"
+    },
+    {
+      "frame_index": 227,
+      "label": "airborne-227"
+    },
+    {
+      "frame_index": 228,
+      "label": "airborne-228"
+    },
+    {
+      "frame_index": 229,
+      "label": "airborne-229"
+    },
+    {
+      "frame_index": 230,
+      "label": "airborne-230"
+    },
+    {
+      "frame_index": 231,
+      "label": "airborne-231"
+    },
+    {
+      "frame_index": 232,
+      "label": "airborne-232"
+    },
+    {
+      "frame_index": 233,
+      "label": "airborne-233"
+    },
+    {
+      "frame_index": 234,
+      "label": "airborne-234"
+    },
+    {
+      "frame_index": 235,
+      "label": "airborne-235"
+    },
+    {
+      "frame_index": 236,
+      "label": "airborne-236"
+    },
+    {
+      "frame_index": 237,
+      "label": "airborne-237"
+    },
+    {
+      "frame_index": 238,
+      "label": "airborne-238"
+    },
+    {
+      "frame_index": 239,
+      "label": "airborne-239"
+    },
+    {
+      "frame_index": 240,
+      "label": "airborne-240"
+    },
+    {
+      "frame_index": 241,
+      "label": "airborne-241"
+    },
+    {
+      "frame_index": 242,
+      "label": "airborne-242"
+    },
+    {
+      "frame_index": 243,
+      "label": "airborne-243"
+    },
+    {
+      "frame_index": 244,
+      "label": "airborne-244"
+    },
+    {
+      "frame_index": 245,
+      "label": "airborne-245"
+    },
+    {
+      "frame_index": 246,
+      "label": "airborne-246"
+    },
+    {
+      "frame_index": 247,
+      "label": "airborne-247"
+    },
+    {
+      "frame_index": 248,
+      "label": "airborne-248"
+    },
+    {
+      "frame_index": 249,
+      "label": "airborne-249"
+    },
+    {
+      "frame_index": 250,
+      "label": "airborne-250"
+    },
+    {
+      "frame_index": 251,
+      "label": "airborne-251"
+    },
+    {
+      "frame_index": 252,
+      "label": "airborne-252"
+    },
+    {
+      "frame_index": 253,
+      "label": "airborne-253"
+    },
+    {
+      "frame_index": 254,
+      "label": "airborne-254"
+    },
+    {
+      "frame_index": 255,
+      "label": "airborne-255"
+    },
+    {
+      "frame_index": 256,
+      "label": "airborne-256"
+    },
+    {
+      "frame_index": 257,
+      "label": "airborne-257"
+    },
+    {
+      "frame_index": 258,
+      "label": "airborne-258"
+    },
+    {
+      "frame_index": 259,
+      "label": "airborne-259"
+    },
+    {
+      "frame_index": 260,
+      "label": "airborne-260"
+    },
+    {
+      "frame_index": 261,
+      "label": "airborne-261"
+    },
+    {
+      "frame_index": 262,
+      "label": "airborne-262"
+    },
+    {
+      "frame_index": 263,
+      "label": "airborne-263"
+    },
+    {
+      "frame_index": 264,
+      "label": "airborne-264"
+    },
+    {
+      "frame_index": 265,
+      "label": "airborne-265"
+    },
+    {
+      "frame_index": 266,
+      "label": "airborne-266"
+    },
+    {
+      "frame_index": 267,
+      "label": "airborne-267"
+    },
+    {
+      "frame_index": 268,
+      "label": "airborne-268"
+    },
+    {
+      "frame_index": 269,
+      "label": "airborne-269"
+    },
+    {
+      "frame_index": 270,
+      "label": "airborne-270"
+    },
+    {
+      "frame_index": 271,
+      "label": "airborne-271"
+    },
+    {
+      "frame_index": 272,
+      "label": "airborne-272"
+    },
+    {
+      "frame_index": 273,
+      "label": "airborne-273"
+    },
+    {
+      "frame_index": 274,
+      "label": "airborne-274"
+    },
+    {
+      "frame_index": 275,
+      "label": "airborne-275"
+    },
+    {
+      "frame_index": 276,
+      "label": "airborne-276"
+    },
+    {
+      "frame_index": 277,
+      "label": "airborne-277"
+    },
+    {
+      "frame_index": 278,
+      "label": "airborne-278"
+    },
+    {
+      "frame_index": 279,
+      "label": "airborne-279"
+    },
+    {
+      "frame_index": 280,
+      "label": "airborne-280"
+    },
+    {
+      "frame_index": 281,
+      "label": "airborne-281"
+    },
+    {
+      "frame_index": 282,
+      "label": "airborne-282"
+    },
+    {
+      "frame_index": 283,
+      "label": "airborne-283"
+    },
+    {
+      "frame_index": 284,
+      "label": "airborne-284"
+    },
+    {
+      "frame_index": 285,
+      "label": "airborne-285"
+    },
+    {
+      "frame_index": 286,
+      "label": "airborne-286"
+    },
+    {
+      "frame_index": 287,
+      "label": "airborne-287"
+    },
+    {
+      "frame_index": 288,
+      "label": "airborne-288"
+    },
+    {
+      "frame_index": 289,
+      "label": "airborne-289"
+    },
+    {
+      "frame_index": 290,
+      "label": "airborne-290"
+    },
+    {
+      "frame_index": 291,
+      "label": "airborne-291"
+    },
+    {
+      "frame_index": 292,
+      "label": "airborne-292"
+    },
+    {
+      "frame_index": 293,
+      "label": "airborne-293"
+    },
+    {
+      "frame_index": 294,
+      "label": "airborne-294"
+    },
+    {
+      "frame_index": 295,
+      "label": "airborne-295"
+    },
+    {
+      "frame_index": 296,
+      "label": "airborne-296"
+    },
+    {
+      "frame_index": 297,
+      "label": "airborne-297"
+    },
+    {
+      "frame_index": 298,
+      "label": "airborne-298"
+    },
+    {
+      "frame_index": 299,
+      "label": "airborne-299"
+    },
+    {
+      "frame_index": 300,
+      "label": "airborne-300"
+    },
+    {
+      "frame_index": 301,
+      "label": "airborne-301"
+    },
+    {
+      "frame_index": 302,
+      "label": "airborne-302"
+    },
+    {
+      "frame_index": 303,
+      "label": "airborne-303"
+    },
+    {
+      "frame_index": 304,
+      "label": "airborne-304"
+    },
+    {
+      "frame_index": 305,
+      "label": "airborne-305"
+    },
+    {
+      "frame_index": 306,
+      "label": "airborne-306"
+    },
+    {
+      "frame_index": 307,
+      "label": "airborne-307"
+    },
+    {
+      "frame_index": 308,
+      "label": "airborne-308"
+    },
+    {
+      "frame_index": 309,
+      "label": "airborne-309"
+    },
+    {
+      "frame_index": 310,
+      "label": "airborne-310"
+    },
+    {
+      "frame_index": 311,
+      "label": "airborne-311"
+    },
+    {
+      "frame_index": 312,
+      "label": "airborne-312"
+    },
+    {
+      "frame_index": 313,
+      "label": "airborne-313"
+    },
+    {
+      "frame_index": 314,
+      "label": "airborne-314"
+    },
+    {
+      "frame_index": 315,
+      "label": "airborne-315"
+    },
+    {
+      "frame_index": 316,
+      "label": "airborne-316"
+    },
+    {
+      "frame_index": 317,
+      "label": "airborne-317"
+    },
+    {
+      "frame_index": 318,
+      "label": "airborne-318"
+    },
+    {
+      "frame_index": 319,
+      "label": "airborne-319"
+    },
+    {
+      "frame_index": 320,
+      "label": "airborne-320"
+    },
+    {
+      "frame_index": 321,
+      "label": "airborne-321"
+    },
+    {
+      "frame_index": 322,
+      "label": "airborne-322"
+    },
+    {
+      "frame_index": 323,
+      "label": "airborne-323"
+    },
+    {
+      "frame_index": 324,
+      "label": "airborne-324"
+    },
+    {
+      "frame_index": 325,
+      "label": "airborne-325"
+    },
+    {
+      "frame_index": 326,
+      "label": "airborne-326"
+    },
+    {
+      "frame_index": 327,
+      "label": "airborne-327"
+    },
+    {
+      "frame_index": 328,
+      "label": "airborne-328"
+    },
+    {
+      "frame_index": 329,
+      "label": "airborne-329"
+    },
+    {
+      "frame_index": 330,
+      "label": "airborne-330"
+    },
+    {
+      "frame_index": 331,
+      "label": "airborne-331"
+    },
+    {
+      "frame_index": 332,
+      "label": "airborne-332"
+    },
+    {
+      "frame_index": 333,
+      "label": "airborne-333"
+    },
+    {
+      "frame_index": 334,
+      "label": "airborne-334"
+    },
+    {
+      "frame_index": 335,
+      "label": "airborne-335"
+    },
+    {
+      "frame_index": 336,
+      "label": "airborne-336"
+    },
+    {
+      "frame_index": 337,
+      "label": "airborne-337"
+    },
+    {
+      "frame_index": 338,
+      "label": "airborne-338"
+    },
+    {
+      "frame_index": 339,
+      "label": "airborne-339"
+    },
+    {
+      "frame_index": 340,
+      "label": "airborne-340"
+    },
+    {
+      "frame_index": 341,
+      "label": "airborne-341"
+    },
+    {
+      "frame_index": 342,
+      "label": "airborne-342"
+    },
+    {
+      "frame_index": 343,
+      "label": "airborne-343"
+    },
+    {
+      "frame_index": 344,
+      "label": "airborne-344"
+    },
+    {
+      "frame_index": 345,
+      "label": "airborne-345"
+    },
+    {
+      "frame_index": 346,
+      "label": "airborne-346"
+    },
+    {
+      "frame_index": 347,
+      "label": "airborne-347"
+    },
+    {
+      "frame_index": 348,
+      "label": "airborne-348"
+    },
+    {
+      "frame_index": 349,
+      "label": "airborne-349"
+    },
+    {
+      "frame_index": 350,
+      "label": "airborne-350"
+    },
+    {
+      "frame_index": 351,
+      "label": "airborne-351"
+    },
+    {
+      "frame_index": 352,
+      "label": "airborne-352"
+    },
+    {
+      "frame_index": 353,
+      "label": "airborne-353"
+    },
+    {
+      "frame_index": 354,
+      "label": "airborne-354"
+    },
+    {
+      "frame_index": 355,
+      "label": "airborne-355"
+    },
+    {
+      "frame_index": 356,
+      "label": "airborne-356"
+    },
+    {
+      "frame_index": 357,
+      "label": "airborne-357"
+    },
+    {
+      "frame_index": 358,
+      "label": "airborne-358"
+    },
+    {
+      "frame_index": 359,
+      "label": "airborne-359"
+    }
+  ],
+  "start_position": null,
+  "start_velocity": null,
+  "camera_position": null,
+  "playtest_form": null,
+  "initial_diamond_count": null,
+  "initial_lives": null,
+  "warp_to_level": 85,
+  "settle_oracle_warp": true
+}

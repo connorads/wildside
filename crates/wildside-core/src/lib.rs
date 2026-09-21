@@ -761,7 +761,7 @@ pub struct NativeRuntime {
     /// the authoritative level timer without perturbing unrelated presentation
     /// state such as the `$DD40` HUD DMA phase.
     demo_hud_timer_presentation_loc_be82: Option<LevelTimer>,
-    /// Result of the demo's leading Mode_Level HUD tick, consumed by the
+    /// Result of the leading Mode_Level HUD tick, consumed by the
     /// later native hazard pass when the Kid object is live.
     pending_demo_timer_tick_result_loc_be82: Option<bool>,
     hud_animation_state: boot::HudAnimationStateSub44DC,
@@ -4414,16 +4414,20 @@ impl NativeRuntime {
             }
             _ => false,
         };
-        if demo_hud_timer_tail_active
-            && gameplay_slice_active
-            && !transform_hibernating_at_frame_start
-        {
+        let live_hud_timer_active = matches!(self.boot_state, BootState::InGame)
+            && matches!(self.player_lifecycle, PlayerLifecycle::Alive)
+            && !self.paused
+            && self.pending_pause_restart_round.is_none()
+            && !pause_last_life_exit_frame;
+        if (demo_hud_timer_tail_active || live_hud_timer_active) && gameplay_slice_active {
             // ASM Mode_Level calls Make_SpriteAttr_HUD before Execute_Objects.
-            // Demo bootstrap and other Kid hibernations can keep native
-            // movement out of resolve_frame_hazards even though this outer HUD
-            // pass still decrements Time_SubSeconds at loc_BE82.
+            // loc_BE82 spends the entry tick before Kid_Transform loc_7C40
+            // sets Currently_transforming. A later movement early return must
+            // not omit this HUD pass; the hazard consumer reuses its result.
+            // ASM loc_7E90 resumes the suspended Object pass without another
+            // HUD tick. Preserve that result when movement resumes on cleanup.
             self.pending_demo_timer_tick_result_loc_be82 =
-                Some(self.tick_level_timer_hud_loc_be82());
+                Some(!transform_hibernating_at_frame_start && self.tick_level_timer_hud_loc_be82());
         }
         let demo_hud_presentation_active = match self.boot_state {
             BootState::DemoPlay { use_demo_2, .. } => use_demo_2 || demo_hud_timer_tail_active,
