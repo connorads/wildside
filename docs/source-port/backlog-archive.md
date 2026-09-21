@@ -25573,6 +25573,20 @@ from oracle at the first slope exit: pixels at 186/187/188, authoritative
 character movement and position at 190. The first 186 images are exact.
 At 190 native is (337.15625,175), oracle (341,177). Do not call that continuation
 route parity. Investigate the first causal branch before extending the route.
+
+2026-09-21 replay recheck after terrain refresh: the saved 282-frame
+`jev-shaft-all-frames` route now matches oracle player/camera CRC throughout,
+including the former frame-190 slope exit. Full gameplay-frontier comparison
+passes all checkpoints; enemy-frontier diagnostics retain 52 authoritative
+differences. An offline #327 Jev case with the same ordinary inputs replays
+exactly but remains unexercised: Kid ends near X384, short of the BLW2 pad at
+X2503. Its first sampled changed frame is 250 (12 pixels), with an enemy-count
+difference at frame 230. This does not prove destination parity. A source-exit
+census found 167 records. Proximity alone failed on candidate routes: 0x59's
+pad at (0,12) is below a stable start platform; simple rightward routes on
+0x51 and 0x2D stop at X122 before same-height cross-level pads, and periodic
+jumps on 0x51 also stop there. Next select a traversable approach and retain
+the actual transition.
 The expired #327 case window and campaign charge remain intact. No pad has
 been reached, so #300 remains open.
 

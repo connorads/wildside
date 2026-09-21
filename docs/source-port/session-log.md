@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 - #300 teleporter route recheck
+
+The saved BLW2 Jev shaft route now matches all 282 oracle player/camera frames
+after the flat-ground terrain fix, clearing the former frame-190 blocker.
+Its offline case still stops at Kid X384, before the X2503 teleporter, and
+enemy-count and later sampled pixels remain divergent. A 167-pad source census
+and three short oracle routes rejected nearest-pad selection by distance alone.
+Continue with a terrain-aware ordinary-input approach to a cross-level pad.
+
 ## 2026-09-21 - Hidden Canyon rubber entry from saved Jev replay
 
 The saved #502 input route exposed a frame-119 movement divergence. Oracle terrain
