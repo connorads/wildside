@@ -2026,66 +2026,67 @@ fn rock_tank_zero_width_side_contact_waits_for_positive_overlap_loc_1cb8() {
 }
 
 #[test]
-fn flipped_rock_tank_edge_contact_latches_next_frame_damage_loc_1cf2() {
-    let mut slice = combat_slice();
-    slice.player.x_pos = 182 << 16;
-    slice.player.y_pos = 223 << 16;
-    slice.player.x_velocity = -0x0002_0000;
-    slice.player.y_velocity = 0;
-    slice.player.on_ground = true;
-
-    let mut tank = test_enemy(EnemyFamily::Tank, 164 << 16, 224 << 16, 2);
-    tank.facing = Direction::Right;
-    tank.x_velocity = 0x0000_8000;
-
-    let child = tank
-        .child_attachment_snapshot()
-        .expect("RockTank should expose its linked mouth collision object");
-    let bounds = enemy_contact_bounds(&child);
-    assert_eq!(
-        (bounds.left_px, bounds.right_px),
-        (-12, 13),
-        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors `dc.w -$D,$19` to -12..+13 for right-facing Tank mouth sprites",
-    );
-    assert_eq!(
-        classify_enemy_contact_with_half_width(
-            slice.player,
-            &child,
-            slice.player.y_velocity,
-            slice.player.y_pos,
-            PlayerForm::TheKid.half_width() as i64,
-        ),
-        EnemyContactResult::None,
-        "exact-edge Tank side contact is not same-frame damage"
-    );
-
-    let mut runtime = NativeRuntime::new(manifest());
-    start_level(&mut runtime);
-    runtime.progression.current_form = PlayerForm::TheKid;
-    runtime.progression.number_hitpoints = 1;
-    runtime.progression.invulnerable_frames = 0;
-    runtime.active_enemies = vec![tank];
-
-    let frame_start_x = slice.player.x_pos;
-    let frame_start_y = slice.player.y_pos;
-    assert!(
-        !runtime.resolve_frame_hazards(
-            &mut slice,
-            FrameInput::default(),
-            0,
-            frame_start_y,
-            frame_start_x,
-            frame_start_y,
-        ),
-        "ASM loc_1CF2 only latches the edge collision; issue-271 frame 224 keeps the Tank child `$24` writeback visible before Check_for_recent_damge spends HP"
-    );
-    let pending = runtime
-        .delayed_player_contact_damage
-        .expect("exact-edge Tank collision should wait one handoff before pending damage");
-    assert_eq!(pending.enemy_x, 164 << 16);
-    assert_eq!(pending.enemy_family, EnemyFamily::Tank);
-    assert!(runtime.pending_player_contact_damage.is_none());
-    assert_eq!(runtime.progression.number_hitpoints, 1);
+fn rock_tank_edge_contact_spends_hp_on_next_pass_loc_1cf2_loc_b700() {
+    // ASM loc_1CF2 writes the reciprocal side collision after Kid's Object
+    // pass; Character_CheckCollision / loc_B700 consumes it on the next pass.
+    // BLW2 turret witness: child $24 at frame 648, HP 2 -> 1 at frame 649.
+    for family in [EnemyFamily::Tank, EnemyFamily::TankShooting] {
+        for facing in [Direction::Left, Direction::Right] {
+            let mut slice = combat_slice();
+            slice.player.x_pos = match facing {
+                Direction::Left => 146 << 16,
+                Direction::Right => 182 << 16,
+            };
+            slice.player.y_pos = 223 << 16;
+            slice.player.x_velocity = match facing {
+                Direction::Left => 0x0002_0000,
+                Direction::Right => -0x0002_0000,
+            };
+            slice.player.y_velocity = 0;
+            slice.player.on_ground = true;
+            let mut tank = test_enemy(family, 164 << 16, 224 << 16, 2);
+            tank.facing = facing;
+            tank.x_velocity = match facing {
+                Direction::Left => -0x0000_8000,
+                Direction::Right => 0x0000_8000,
+            };
+            let child = tank
+                .child_attachment_snapshot()
+                .expect("linked collision object");
+            assert_eq!(
+                classify_enemy_contact_with_half_width(
+                    slice.player,
+                    &child,
+                    0,
+                    slice.player.y_pos,
+                    PlayerForm::TheKid.half_width() as i64,
+                ),
+                EnemyContactResult::None,
+                "{family:?} {facing:?}: exact edge is a latch, not immediate damage"
+            );
+            let mut runtime = NativeRuntime::new(manifest());
+            start_level(&mut runtime);
+            runtime.progression.current_form = PlayerForm::TheKid;
+            runtime.progression.number_hitpoints = 2;
+            runtime.progression.invulnerable_frames = 0;
+            runtime.active_enemies = vec![tank];
+            let frame_start_x = slice.player.x_pos;
+            let frame_start_y = slice.player.y_pos;
+            for (pass, expected_hp) in [(0, 2), (1, 1)] {
+                let damaged = runtime.resolve_frame_hazards(
+                    &mut slice,
+                    FrameInput::default(),
+                    0,
+                    frame_start_y,
+                    frame_start_x,
+                    frame_start_y,
+                );
+                assert_eq!(damaged, pass == 1, "{family:?} {facing:?} pass {pass}");
+                assert_eq!(runtime.progression.number_hitpoints, expected_hp);
+                runtime.frame_index += 1;
+            }
+        }
+    }
 }
 
 #[test]

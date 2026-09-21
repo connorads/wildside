@@ -11,6 +11,74 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #503
+
+The 780-frame BLW2 continuation reproduces TankShooting side-contact damage
+one frame late. Permanent input witness:
+`tests/data/dynamic-scenarios/issue-503-tank-contact-consume.json`.
+It preserves #501 through frame 557, holds Right+A+B at 558..574 and
+Right+A at 575..779. This is ordinary input after a settled warp, not natural
+campaign entry or a completed teleporter route. Baseline bundle
+`.cache/recordings/blw2-route-tank-hop-558/` has exact Kid motion, camera and
+RNG through 779; HP differs only at 649, native 2 versus oracle 1.
+
+The existing `rock_tank_contact_probe` shows an exact-edge turret latch at
+648 in both versions. Native stores delayed contact at 648, promotes it to
+pending at 649, then spends HP at 650. Oracle child collision is $24 at 648,
+clears at 649 and HP changes at 649. No new diagnostic field is required.
+ASM `GfxObjects_CollisionKid loc_1CD8/loc_1CF2` writes reciprocal Kid and
+child side collisions after the Object pass. The following
+`Character_CheckCollision loc_B678 -> loc_B700` spends Kid HP.
+`Tank_Shooting.asm loc_3B6C0/loc_3B720` clears the child word; its callback
+does not spend Kid HP.
+
+The internal, reversible correction uses the ordinary pending queue for
+ordinary Tank/TankShooting contact. Moving the global queue promotion earlier
+would also alter the separate hurt-side producers and is rejected without
+those witnesses. Adding a family-specific timer would retain unnecessary
+state. The existing hurt-side producers are unchanged. The regression checks
+observable HP on producer and consumer passes for both families and facings;
+it fails before the correction and all 97 Tank tests pass afterwards.
+
+Historical #271 commit `64aeb1eef` added this extra handoff to compensate
+for an earlier contact observation. Its cache-only input recording is absent
+from this checkout, so its historical replay is not claimed as reverified.
+The old regression asserted a private delayed queue after only one pass and
+could not establish its stated next-frame damage behaviour. #271's human
+head-stomp resolution is distinct from this normal side-contact defect.
+
+Fixed bundle `.cache/recordings/issue-503-tank-contact-fixed/` replays
+exactly. All 232 existing oracle checkpoints at 548..779 match Kid X/Y,
+velocity, HP, camera, RNG offset/last byte/ring and Just_received_damage.
+Both the start at 649 and end at 715 of the damage flag now match. The only
+changed native trace fields concern this damage event, its sound, HUD and
+flash phase. Counts retain their existing 167 Object and 189 Gfx mismatches.
+The full verifier still fails on enemy roster count at 647, native 11 versus
+oracle 10; this narrow closure does not certify that roster.
+
+Read native/oracle PNGs around contact. The seven retained visual samples
+have pixel differences 640, 982, 612, 576, 434, 11 and 0. Frames 650/651
+improve from 899/466; other samples are unchanged. Tank sprite differences
+remain. State sweep `1789957084` is identical to `1789955312`, and level-01
+full sweep `1789957112` is identical to `1789955351`, after normalising only
+run timestamp, core hash and artefact paths. State retains 95 pass/10 fail,
+28 blocking, 6 advisory and 96 oracle limitations; level-01 retains 7 pixels.
+
+Native-only continuation search holds a 25-frame jump from each of
+690..770 in five-frame increments. Every candidate stops around x1930/1931;
+none reaches the teleporter. Repeated jumps from 760 at periods 20/30/40/50
+with 11 held frames, and periods 40/50/60 with 31 held frames, also retain
+x1930. These are rejected route timings, not oracle parity evidence.
+Next inspect the corridor blocks and earlier helmet pickups.
+
+Verification: `verify-slice-fast` passes in 200.57 seconds with 7,435
+core tests and Clippy green. The first gate attempt caught the transient
+open-row/catalogue mismatch for #503; the evidence-backed resolved index and
+live catalogue agree. Full TAS checks all 37,759 frames and retains 37,518
+pixel-exact / 241 divergent frames, 2,391 changed pixels, the frozen 36,836
+GEMS signature mismatches from frame 923, and zero command mismatches.
+No baseline, advisory field, frozen exemption or paid Jev spend changes.
+
 ### #500
 
 The #498 route, extended with 318 released-input frames to 600 total,
@@ -26080,6 +26148,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 503 | [x] | P1 | combat | Tank side-contact damage consumes the collision on the following Object pass. | ASM loc_1CF2/loc_B700; exact HP and damage flag across 232 route checkpoints; archive #503. |
 | 501 | [x] | P1 | enemy/Drips | Parents retain normal-range coroutine lifetime and release their owned falling child on unload. | ASM loc_333F6/loc_3345C; 645 exact parent observations and 560 exact RNG frames; archive #501. |
 | 500 | [x] | P1 | enemy/Drips | Parent velocity clears on the Object pass after ceiling contact. | ASM loc_1A6C/loc_333F6; 740 exact parent observations through 600-frame replay; archive #500. |
 | 499 | [x] | P1 | trace/Drips | Drips Gfx slots count only after the initialiser pass. | ASM Enemy16_Drip_Init; exact Object/Gfx counts at all 282 BLW2 checkpoints; archive #499. |

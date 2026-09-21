@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 - #503 Tank contact consume timing
+
+Closed #503 with a checked-in 780-frame BLW2 input witness. Ordinary Tank
+contacts use the existing pending queue; the extra delayed handoff caused
+HP damage at 650 instead of oracle 649. The red-first regression checks
+producer/consumer HP for both Tank families and facings. All 97 Tank tests
+pass. Across 232 oracle checkpoints, Kid motion, HP, damage flag, camera and
+RNG match exactly; the damage flag also clears on oracle frame 715. Sampled
+visual differences improve at 650/651. Counts and Tank rendering remain
+outside the closure. The old cache-only #271 input is absent and is not
+claimed as reverified; head-stomp and hurt regressions remain green.
+
+State sweep 1789957084 and level-01 full sweep 1789957112 preserve their
+normalised reports. Fast gate passes 7,435 core tests in 200.57 seconds;
+full TAS checks all 37,759 frames and retains frozen pixel/audio debt with
+zero command mismatches. No paid Jev calls.
+
+Continue #300 from the 780-frame prefix. Single and repeated jumps at the
+x1930 wall fail native-only route search. The dumped lower corridor has a
+three-row Smash-block overhang; compare a stationary headbutt after backing
+off before treating this as a route limitation. Temporary backoff witness
+`/tmp/wildside-blw2-wall-back8.json` reaches x1923 and issues B at 800,
+850 and 900; frame 802 reports no upward movement. This is not oracle-verified.
+#502 remains open. Four fixes since #498's mutation check; use one worker
+for the next mutation run because disk space remains tight.
+
 ## 2026-09-21 - #501 Drips parent lifetime
 
 Closed #501 with ASM and emulator evidence. Drips parents retain their allocated lifetime across loading-window/view changes and non-checking phases; checking resumes release owned drops and then remove the parent after storage order is restored. The first native falling resume required an explicit range check before gravity. The healthy 560-frame BLW2 fixture restores all RNG samples and matches 645 parent observations, including deletion 545; all native PNGs remain byte-identical. Final state/full sweeps preserve their reports, fast gate passes 7,435 core tests and full TAS retains frozen debt. #502 tracks missing live Object pressure above 20. The full recording verifier remains red for missing parent roster entries and other count gaps; no natural-entry or teleporter completion is claimed. Continue #300 from the healthy prefix, preserving the paid Jev budget and adding the stall guard before another paid run.

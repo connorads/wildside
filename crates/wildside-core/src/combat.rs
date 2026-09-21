@@ -16025,20 +16025,13 @@ impl NativeRuntime {
                 }
                 return false;
             }
-            let pending = PendingPlayerContactDamage {
+            // ASM loc_1CF2 writes Tank mouth/turret side contact after the
+            // Object pass, like other GfxObjects. loc_B700 consumes this
+            // pending collision on the next pass, without a second handoff.
+            self.pending_player_contact_damage = Some(PendingPlayerContactDamage {
                 enemy_x,
                 enemy_family,
-            };
-            if matches!(enemy_family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
-                // ASM Mode_Level loc_3A6 runs Character_CheckCollision before
-                // the late GfxObjects_CollisionKid Tank mouth/turret child
-                // writeback. The issue-271 route frame 224 shows oracle still
-                // carrying only `$24` kid-left in the Tank child slot while HP
-                // is unchanged; damage is consumed on the following frame.
-                self.delayed_player_contact_damage = Some(pending);
-            } else {
-                self.pending_player_contact_damage = Some(pending);
-            }
+            });
         }
         false
     }
