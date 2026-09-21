@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 - #508 Driller Gfx velocity
+
+Closed #508. All 599 tolerated X-velocity differences in the 360-frame
+airborne replay were grounded Driller bodies. ASM loc_3C026/loc_3C0D2
+clears Gfx velocity while loc_3C04E/loc_3C0FA moves Object X directly.
+The native trace now exports that separation; stored patrol speed and
+airborne behaviour stay intact. A red/green exact regression passes, and
+the fresh 360-checkpoint replay is deterministic with all oracle states
+matched and zero Driller velocity differences. One existing HUD pixel at
+frame 140 remains strict-pixel red. Fast gate and full TAS pass with frozen
+pixel/GEMS ratchets unchanged. No paid Jev call. #502 still needs a
+moving Object-pressure route; #300 and #433 remain open.
+
 ## 2026-09-21 - #502 Drips pressure route search
 
 ROM layout scan found 12 levels with Drips. The densest candidate, 0x2C,

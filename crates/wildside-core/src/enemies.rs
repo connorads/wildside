@@ -3284,11 +3284,15 @@ impl ActiveEnemy {
         }
         let x_velocity = if matches!(
             self.family,
-            EnemyFamily::Goat | EnemyFamily::Tank | EnemyFamily::TankShooting
+            EnemyFamily::Goat
+                | EnemyFamily::Tank
+                | EnemyFamily::TankShooting
+                | EnemyFamily::Driller
         ) && self.on_ground
         {
             // ASM Goat.asm loc_3CC52 -> Lion.asm loc_3E566/loc_3E3B2 and
-            // Tank.asm loc_3B40A / Tank_Shooting.asm loc_3B6AE ->
+            // Tank.asm loc_3B40A / Tank_Shooting.asm loc_3B6AE and
+            // Driller.asm loc_3BE60 ->
             // kid.asm loc_3C026/loc_3C0D2 move grounded shared walkers with
             // `$50(a5)` while the object x_vel/y_vel slot stays clear. Native
             // keeps that patrol speed in `x_velocity`; hide the storage detail
@@ -12844,6 +12848,24 @@ mod tests {
             Some(0x0002_8000),
             "ASM shared-walker falling tails use the object x_vel slot, so airborne Goat snapshots keep native x_velocity"
         );
+    }
+
+    /// ASM Driller.asm loc_3BE60 -> kid.asm loc_3C026/loc_3C0D2 clears the
+    /// body Gfx velocity; loc_3C04E/loc_3C0FA moves its Object X directly.
+    #[test]
+    fn driller_trace_export_separates_grounded_object_step_from_gfx_velocity_loc_3c026() {
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::Driller,
+            on_ground: true,
+            x_velocity: -0x0001_0000,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        assert_eq!(enemy.snapshot().x_velocity, Some(0));
+        assert_eq!(enemy.x_velocity, -0x0001_0000);
+
+        enemy.on_ground = false;
+        assert_eq!(enemy.snapshot().x_velocity, Some(-0x0001_0000));
     }
 
     #[test]

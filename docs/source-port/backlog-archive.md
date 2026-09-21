@@ -226,6 +226,23 @@ tolerances to hide the discrepancy. Permanent witness:
 Minimum gate: focused exact-velocity regression, replay comparison and
 fast-slice; full TAS/state sweep if gameplay scheduling or motion changes.
 
+2026-09-21 closure: the saved 360-frame replay contains 599 body X-velocity
+differences, all Driller object type 0x1A. ASM Driller.asm loc_3BE60 enters
+kid.asm loc_3C026/loc_3C0D2, clearing Gfx X/Y velocity; grounded
+loc_3C04E/loc_3C0FA displaces Object X with `$50(a5)` without writing Gfx
+X velocity. Native now exports zero for grounded Driller bodies while keeping
+its internal patrol speed and airborne export. The exact regression failed
+before the projection change and passes after it. New bundle
+`.cache/recordings/issue-508-driller-gfx-velocity/` has 360 non-vacuous
+checkpoints, is deterministic, passes all 360 oracle state comparisons, and
+has zero Driller body X-velocity differences. Its strict pixel check retains
+only the existing HUD life-icon pixel at frame 140, (291,13); this issue
+does not claim visual parity. The old bundle's native trace correctly drifts
+at frame 0 because its stored baseline predates this correction. Fast gate
+passes in 228.79s. Full TAS passes 37,759 player/camera CRC and gameplay
+frames; frozen pixel debt remains 241 frames / 2,391 pixels and GEMS debt
+36,836 signature frames with zero command mismatches. No paid Jev call.
+
 <a id="issue-506"></a>
 ### #506
 
@@ -26484,6 +26501,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 508 | [x] | P1 | enemies/trace | Grounded Driller exports zero Gfx X velocity while Object patrol displacement remains internal. | ASM loc_3BE60/loc_3C026; 360 exact Driller velocity checkpoints; fast gate and full TAS pass. |
 | 507 | [x] | P1 | verification/enemies | Recording comparisons pair saved native and oracle enemies by the same key. | Shuffled-equivalent regression and changed-state controls; 360 tolerance-bounded state checkpoints pass; strict pixels remain red. |
 | 506 | [x] | P1 | oracle/RNG | Title cards cannot allocate gameplay enemies or consume their initialisation RNG. | ASM Mode_Standard/loc_80C; 360 exact RNG checkpoints; state sweep improves to 97/105 passes. |
 | 505 | [x] | P3 | HUD/rendering | The timer ticks before transform entry and stays frozen on cleanup of the suspended Object pass. | ASM Mode_Level/loc_BE82/loc_7E90; exact timer RAM on both callbacks and a fully exact 300-frame replay. |
