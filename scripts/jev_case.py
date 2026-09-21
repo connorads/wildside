@@ -16,10 +16,10 @@ from jev_audit import ROOT, audit
 from jev_proof import command, read_json, sha256, write_json
 import jev_case_service
 
-CASE_STARTS = {210: None, 254: None, 327: 1, 370: 0, 502: 0x2c}
+CASE_STARTS = {210: None, 254: None, 327: 1, 370: 0, 502: 0x35}
 LIVE_GOALS = {
     327: "Reach the BLW2 teleporter at x2503 y575, stand still for 90 frames, then observe arrival near x448 y143. Stay alive and find a higher route around walls.",
-    502: "In level 0x2c, keep Drips workers alive while moving through the level. Reach at least 21 live Objects, then move back and forth across the Drips activation range to capture both sides of the threshold.",
+    502: "In Hidden Canyon level 0x35, reach the Drips near x1032-1450 y176 and keep workers alive. Reach at least 21 live Objects, then cross their activation range in both directions to capture both sides of the threshold.",
 }
 STALL_LIMITS = {327: 24}
 

@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 - #502 exact range-call discriminator
+
+An oracle PC trace now pairs each Drips `Object_CheckInRange` call with its
+actual normal or close branch. Three moving 0x2C/0x48 routes made 1,833
+normal calls and no close calls. The 0x35 settled start passes exact six-frame
+state and pixel preflight, so the distinct #502 Jev case uses it. Its simple
+right-jump route made no Drips calls. The pressure witness is still missing;
+no paid call, gameplay patch or bug closure occurred.
+
 ## 2026-09-21 - Jev case-specific collector and #502 preflight
 
 The collector now takes a case start, goal and optional progress limit. #502

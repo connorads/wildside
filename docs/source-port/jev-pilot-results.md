@@ -227,3 +227,11 @@ An offline six-frame #502 run replays exactly but cannot pass the paid
 preflight. At level 0x2C, frame 0 RNG differs (native FFCB, oracle FFF2)
 and 39 pixels differ. Level 0x48 also fails at frame 0 (native four enemy
 Objects, oracle ten; 19 pixels differ). No paid #502 request was sent.
+
+A scan of all Drips layout levels found exact six-frame native/oracle starts
+at 0x01 and 0x35. The #502 start uses 0x35, whose layout contains nine Drips
+and 21 enemies. Its offline case matches every preflight state and pixel but
+does not reach the pressure branch. The ROM-PC witness checker classifies
+Drips calls by the branch actually executed; three moving routes on 0x2C/0x48
+made 1,833 normal calls and zero close calls. A 0x35 periodic right-jump route
+made no Drips calls. A real 20/21 call witness remains required before a fix.

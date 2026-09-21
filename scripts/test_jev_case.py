@@ -14,7 +14,7 @@ import jev_case_service as service
 
 class VerdictTests(unittest.TestCase):
     def test_distinct_drips_case_configures_level_and_never_proves_threshold_alone(self):
-        self.assertEqual(jev_case.CASE_STARTS[502], 0x2c)
+        self.assertEqual(jev_case.CASE_STARTS[502], 0x35)
         self.assertNotEqual(jev_case.LIVE_GOALS[502], jev_case.LIVE_GOALS[327])
         trace = [{"number_objects": 20}, {"number_objects": 21}]
         assessment = jev_case.encounter(502, trace)
