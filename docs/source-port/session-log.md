@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 - #502 Drips pressure route search
+
+ROM layout scan found 12 levels with Drips. The densest candidate, 0x2C,
+has 14 Drips and 29 layout enemies but only 7-10 live Objects during an
+800-frame settled idle oracle probe. Five more idle probes peak at 14.
+None tests the 20/21 Object_CheckInRange branch. Parked #502 with the
+required moving worker-producing route recorded in its archive; #508 is
+the next selected risk. No gameplay code or paid Jev call.
+
 ## 2026-09-21 - #433 Robot first-init movement
 
 Robot's settled Crypt body was half a pixel ahead at frame 0 although Kid,
