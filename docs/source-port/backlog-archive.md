@@ -11,6 +11,92 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #499
+
+The 2026-09-21 BLW2 route from #498 first fails state comparison at frame
+229: native reports 6 Objects / 12 Gfx, oracle 6 / 6. Existing oracle Object
+slots FFFF0FE4 and FFFF0EFC belong to layouts 8 and 7, with resume PC 03333E
+and no Gfx links. At 230 each runs `Enemy16_Drip_Init`, allocates three Gfx
+slots and rises from Y543 to Y542. Both parent positions match from 230
+through 281; the separate contact-frame velocity finding is recorded below.
+The ordinary-input fixture remains
+`tests/data/dynamic-scenarios/issue-498-slope-air-exit.json`.
+
+ASM `Mode_Level loc_80C` invokes `Manage_EnemyLoading` after the Object pass.
+`loc_3691E` allocates only an Object and stores its initialiser address.
+Drips.asm `Enemy16_Drip_Init` calls `Load_GfxObjectSlot` for its parent, then
+`Allocate_GfxObjectSlot_a1` twice for its children. Those three slots exist
+only after the next initialiser pass. Native's hidden Drips count multiplied
+every active controller by three, including the newly appended allocation tail.
+
+The internal count projection is reversible without changing a trace schema.
+It uses the existing `pending_enemy_gfx_initialisations_loc_3691e` boundary to
+pass only initialised enemies to the hidden-Gfx counter. The Object counter
+still receives every active enemy. Delaying Drips initial movement is rejected
+because its first rise already agrees with the source and emulator.
+A newly pending non-Drips enemy must not subtract an older Drips trio.
+
+The permanent regression observes public `trace_frame` counts. Its allocation
+phase fails before the fix with nine Gfx instead of three, then requires six
+new slots only after initialisation. A mixed-family control compares the
+Drips contribution while a different family occupies the pending tail;
+it does not pin that other family's count projection. All 178 Drips-filtered
+core tests pass. No new debug field or paid Jev request is needed.
+
+The first before/after trace assertion expected only `number_gfx_objects` to
+change. Full recursive comparison identifies its existing dependent work-ledger
+field too: `mode_level_work_after_hud_sub_44dc.linked_gfx_object_count`.
+Both change from 12 to 6 only at frame 229. Every other trace leaf across all
+282 frames is identical. This is the same corrected linked-slot count consumed
+by the existing timing ledger, not a new gameplay or animation change.
+
+The fixed bundle `.cache/recordings/issue-499-drips-allocation-fixed/` has
+exact native replay and exact Object/Gfx counts at every one of its 282
+checkpoints. All native PNGs are byte-identical to the #498 bundle; 247
+remain pixel-exact against the oracle. The route verifier remains red at
+230 because the exported enemy roster omits two displayed Drips parents.
+That omission predates this count fix and is a separate investigation;
+no full-route parity or natural teleporter traversal is claimed.
+
+The 105-level state sweep 1789950739 matches every record and summary of
+1789949017 after normalising artefact paths: 95 pass, 10 fail, 28 blocking
+differences, 6 advisory differences and 96 oracle limitations. Full level-01
+sweep 1789950763 preserves every state/MAE/pixel/checkpoint result of
+1789949051, including seven mismatched pixels. No baseline or comparison
+tolerance changes.
+
+The next roster investigation must distinguish controller and Gfx state.
+ASM `Enemy16_Drip_Init` sets display `$13=FF`, mapping C7B0E and raw
+x direction zero; the oracle exports Left, HP zero and no layout index.
+Native `combat.rs` suppresses the parent snapshot, while `scene.rs` already
+draws it from controller details. Appending those details unchanged would
+misrepresent facing, HP and the overwritten Object `$44/$45` layout pointer.
+An all-frame controller-motion check also rejects the initial assumption
+that its velocity is already exact: at frame 243 both parents have native
+Y velocity zero, while the oracle retains -65536 on the ceiling-contact
+frame. Position still agrees. Investigate that coroutine/contact boundary
+separately from this allocation-count correction.
+A source audit also finds retained out-of-range controllers and generic native
+parent-death entries outside the ROM parent lifecycle. `Object_CheckInRange`
+deletes ROM parents/owned Gfx, while native currently pauses retained parents.
+Its narrower pressure-dependent bounds and phase-specific calls need separate
+replays. Do not export every stored controller and claim lifecycle fidelity.
+The next narrow unit can correct the measured contact-frame velocity first.
+
+`mise run verify-slice-fast` passes in 203.60 seconds with 7,431 core tests,
+Clippy, script checks and workspace gates green. The first gate attempt
+correctly rejected live #499 without a catalogue entry. Moving the completed,
+scoped case into the resolved archive restores catalogue consistency; no audit
+rule changes. The complete gate passes on rerun.
+
+`mise run verify-tas-full` passes across 37,759 frames. Player/camera CRC,
+typed state and RNG remain within their gates; the pixel baseline stays
+37,518 exact / 241 divergent / 2,391 changed pixels. The frozen GEMS signature
+baseline remains 36,836 mismatches beginning at 923, with zero GEMS command
+mismatches. `project-status`, `jev-audit` and `backlog-lint` pass. #499 closes
+only the Object-before-Gfx allocation-count defect, not the parent roster,
+contact velocity, visual residue or teleporter route.
+
 ### #498
 
 The 2026-09-21 offline continuation of Jev's stalled BLW2 attempt reproduces a
@@ -25919,6 +26005,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 499 | [x] | P1 | trace/Drips | Drips Gfx slots count only after the initialiser pass. | ASM Enemy16_Drip_Init; exact Object/Gfx counts at all 282 BLW2 checkpoints; archive #499. |
 | 498 | [x] | P1 | player/slope | Slope-to-air exits snap and enter Jump using the ROM centre-cell branch. | Red-first exit regression, leftward fractional-Y case, exact 282-frame Kid/camera state and unchanged sweeps. |
 | 497 | [x] | P1 | level/flag | Shifted flag collision and rendering use ROM world coordinates. | Red-first contact/word-wrap regressions; exact local stop position and oracle Gfx anchors; inspected captures. |
 | 496 | [x] | P1 | enemy/Tank | Settled-entry Tank initial wait and sprite position follow the ROM. | Red-first init/render regressions; exact 600-frame body/mouth state, 600 pixel-exact checkpoints and full sweep comparison. |

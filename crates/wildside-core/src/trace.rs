@@ -4376,6 +4376,60 @@ mod tests {
         );
     }
 
+    /// ASM Mode_Level loc_80C -> loc_3691E allocates only Object slots;
+    /// Enemy16_Drip_Init (Drips.asm) loads three Gfx slots on the next pass.
+    #[test]
+    fn drips_graphics_wait_for_the_first_initialiser_pass() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0x14);
+        runtime.recording_oracle_debug_lifecycle_completed = true;
+        let baseline = runtime.trace_frame();
+        runtime.active_enemies.push(drips_test_enemy(0x0038, 0));
+        let mut second = drips_test_enemy(0x0038, 0);
+        second.layout_index = 1;
+        runtime.active_enemies.push(second);
+        runtime.pending_enemy_gfx_initialisations_loc_3691e = 2;
+
+        let allocated = runtime.trace_frame();
+        assert_eq!(allocated.number_objects, baseline.number_objects + 2);
+        assert_eq!(allocated.number_gfx_objects, baseline.number_gfx_objects);
+
+        runtime.pending_enemy_gfx_initialisations_loc_3691e = 0;
+        let initialised = runtime.trace_frame();
+        assert_eq!(initialised.number_objects, allocated.number_objects);
+        assert_eq!(
+            initialised.number_gfx_objects,
+            allocated.number_gfx_objects + 6
+        );
+    }
+
+    /// ASM loc_3691E appends newly allocated Objects after the active roster;
+    /// a different family's pending init must not hide an older Drips Gfx trio.
+    #[test]
+    fn pending_other_family_does_not_remove_existing_drips_graphics() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0x14);
+        runtime.recording_oracle_debug_lifecycle_completed = true;
+        let mut other = drips_test_enemy(0x0038, 0);
+        other.family = EnemyFamily::Ninja;
+        other.layout_index = 1;
+        runtime.active_enemies.push(other);
+        runtime.pending_enemy_gfx_initialisations_loc_3691e = 1;
+        let without_drips = runtime.trace_frame();
+
+        runtime
+            .active_enemies
+            .insert(0, drips_test_enemy(0x0038, 0));
+        let with_drips = runtime.trace_frame();
+        assert_eq!(with_drips.number_objects, without_drips.number_objects + 1);
+        assert_eq!(
+            with_drips.number_gfx_objects,
+            without_drips.number_gfx_objects + 3
+        );
+    }
+
     #[test]
     fn drips_surface_crawler_counts_as_object_and_gfx_worker_loc_335d8() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
@@ -16128,8 +16182,11 @@ impl NativeRuntime {
         camera_x_pos: u32,
         camera_y_pos: u32,
     ) -> u16 {
-        let drips_parent_workers =
-            self.hidden_drips_parent_worker_count_enemy16_drip_init(camera_x_pos, camera_y_pos);
+        let drips_parent_workers = self.hidden_drips_parent_worker_count_enemy16_drip_init(
+            &self.active_enemies,
+            camera_x_pos,
+            camera_y_pos,
+        );
         // ASM Drips.asm Enemy16_Drip_Init is an Object_RAM coroutine whose
         // parent gfx object stays hidden through loc_333F6..loc_3350E. Native
         // deliberately suppresses that parent from `active_enemy_roster`.
@@ -16253,10 +16310,11 @@ impl NativeRuntime {
 
     fn hidden_drips_parent_worker_count_enemy16_drip_init(
         &self,
+        enemies: &[ActiveEnemy],
         camera_x_pos: u32,
         camera_y_pos: u32,
     ) -> u16 {
-        self.active_enemies
+        enemies
             .iter()
             .filter(|enemy| {
                 self.recording_oracle_debug_lifecycle_completed
@@ -16510,8 +16568,19 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::DragonFlyingDescentFire)
             .count() as u16;
+        // ASM loc_3691E (kid.asm) appends Objects after Execute_Objects;
+        // Enemy16_Drip_Init (Drips.asm) allocates its three Gfx slots on the
+        // following pass. Keep the allocated parents in the Object count,
+        // but only initialised parents contribute hidden Gfx slots.
+        let initialised_enemy_count = self.active_enemies.len().saturating_sub(usize::from(
+            self.pending_enemy_gfx_initialisations_loc_3691e,
+        ));
         let hidden_drips_gfx_workers = self
-            .hidden_drips_parent_worker_count_enemy16_drip_init(camera_x_pos, camera_y_pos)
+            .hidden_drips_parent_worker_count_enemy16_drip_init(
+                &self.active_enemies[..initialised_enemy_count],
+                camera_x_pos,
+                camera_y_pos,
+            )
             .saturating_mul(3);
         // ASM loc_108EE/loc_10B3A allocate each visible prize child through
         // j_Allocate_GfxObjectSlot_a1 without allocating another Object slot.

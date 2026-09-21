@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 handoff (Drips allocation counts)
+
+#499 counts newly allocated Drips Objects immediately and their three Gfx
+slots only after `Enemy16_Drip_Init`. Two permanent trace regressions cover
+the allocation boundary and a different family in the pending tail. All 178
+Drips-filtered tests pass. The 282-frame BLW2 replay has exact Object/Gfx
+counts at every checkpoint; only frame 229's Gfx count and dependent timing
+ledger change, from 12 to 6. All rendered PNGs are byte-identical. The 105-level
+state sweep and level-01 full sweep retain every previous result.
+
+The fast gate passes with 7,431 core tests and Clippy green. Full TAS retains
+all 37,759 checked frames, the frozen 241-frame / 2,391-pixel residue, frozen
+GEMS signatures and zero command mismatches. Catalogue and backlog checks
+pass after the scoped issue moves to the resolved archive. No paid Jev calls.
+
+The next source-backed mismatch is Drips parent velocity at ceiling contact
+243: native clears it one frame early, although position matches. The wider
+comparison roster omits displayed parents; correcting it also needs allocation,
+count, out-of-range deletion and parent/controller representation evidence.
+See archive #499 before implementing. Slope-entry poses and rubber-block art
+remain separate. The route still has no successful teleporter traversal.
+
 ## 2026-09-21 handoff (slope-air exit)
 
 The ordinary-input BLW2 continuation exposes the missing `loc_A04C` /
