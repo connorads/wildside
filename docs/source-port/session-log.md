@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - Woods of Despair 1 title-window tank scheduling
+
+Oracle settle trace first allocates the 0x1F RockTanks on title-wait row 75;
+the native load boundary had fallen back to row 72. The measured `loc_74E0`
+boundary makes tank slots 15/16 exact at X197/X389. Slot 21 remains X326
+against oracle X325 at its terrain edge, so #509 stays open. Red-first
+regression, fast gate, full TAS and corrected 105-level sweep pass; the sweep
+remains 98 pass/7 fail.
+
 ## 2026-09-22 - Woods of Despair 1 RockTank left turn
 
 The 0x1F sweep count deficit came from RockTank slot 21 entering a hurt

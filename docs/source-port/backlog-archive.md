@@ -217,6 +217,19 @@ The three bodies are outside the frame-0 viewport. Compare the title-wait
 walker phase with ASM before adjusting shared scheduling; no level-specific
 position correction is justified.
 
+Follow-up 2026-09-22: oracle `--capture-settle-trace` for the settled 0x1F
+recording shows the first RockTank objects on title-wait row 75. The RNG
+freeze ends on row 76, after that first object pass. Native's missing 0x1F
+load boundary fell back to step 72, ageing all three tanks early. Pinning
+`loc_74E0` to row 75 makes slots 15/16 exact at X197/X389; slot 21 is X326
+against oracle X325, with matching six Object/ten Gfx counts. A red-first
+cache-backed test pins the two exact positions and the third tank's survival.
+The one-pixel slot-21 difference still needs a walker edge-turn probe; no
+position override was added. `tas-diff` frame 0 enemy frontier passes under
+its existing tolerance. `verify-slice-fast` and `verify-tas-full` pass. Full
+105-level state sweep stays at 98 pass/7 fail with no changed blocking row
+(`.cache/sweep-runs/1790033818/report.json`).
+
 <a id="issue-508"></a>
 ### #508
 

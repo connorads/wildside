@@ -40,7 +40,9 @@ pub(crate) fn debug_level_entry_load_complete_step_loc_74e0(level: LevelId) -> O
         LevelId(0x48 | 0x63) => Some(72),
         LevelId(0x03) => Some(73),
         LevelId(0x11 | 0x15 | 0x18 | 0x24) => Some(74),
-        LevelId(0x09 | 0x23 | 0x28 | 0x30 | 0x38 | 0x41 | 0x45 | 0x47) => Some(75),
+        // #509: 0x1F allocates its RockTanks on oracle title-wait row 75;
+        // RNG resumes on row 76, after the first object scheduler pass.
+        LevelId(0x09 | 0x1f | 0x23 | 0x28 | 0x30 | 0x38 | 0x41 | 0x45 | 0x47) => Some(75),
         LevelId(0x06 | 0x17 | 0x31 | 0x37 | 0x44 | 0x46) => Some(76),
         LevelId(0x19 | 0x40 | 0x42) => Some(77),
         LevelId(0x22 | 0x36) => Some(78),
@@ -1319,7 +1321,8 @@ mod tests {
 
     #[test]
     fn debug_level_entry_load_complete_table_pins_every_measured_level_loc_74e0() {
-        // oracle-settle-census derivation v2, run 1786640409. An exhaustive
+        // oracle-settle-census derivation v2, run 1786640409, plus the #509
+        // level 0x1F title-wait trace. An exhaustive
         // domain assertion prevents an individual match arm silently falling
         // back to `None` while the three historical anchors remain green.
         let expected = [
@@ -1361,6 +1364,7 @@ mod tests {
             (0x18, 74),
             (0x24, 74),
             (0x09, 75),
+            (0x1f, 75),
             (0x23, 75),
             (0x28, 75),
             (0x30, 75),

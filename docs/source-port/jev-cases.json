@@ -1107,7 +1107,7 @@
       "docs/source-port/backlog-archive.md#issue-509",
       "crates/wildside-core/src/tests/level_tests.rs"
     ],
-    "next_action": "Compare each Tank's hidden title-wait movement age against ASM and oracle slots, then verify one engine-level phase correction on the settled route and full sweep.",
-    "scope": "Three Woods of Despair 1 RockTanks should retain their ROM positions after the hidden settle without changing the now-matching Object and Gfx counts."
+    "next_action": "Probe slot 21's loc_3C152 edge-turn tick against oracle title-wait rows; slots 15/16 already match after the loc_74E0 boundary correction.",
+    "scope": "Woods of Despair 1 RockTank slot 21 is one pixel ahead after hidden settle, with matching Object and Gfx counts."
   }
 ]

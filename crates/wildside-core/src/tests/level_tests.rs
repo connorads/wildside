@@ -6029,6 +6029,21 @@ mod chunk_02 {
 
         assert_eq!(tank.y_pos, 0x04c0_0000);
         assert_eq!((frame.number_objects, frame.number_gfx_objects), (6, 10));
+        for (layout_index, oracle_x) in [(15, 197), (16, 389)] {
+            let tank = frame
+                .active_enemy_details
+                .iter()
+                .find(|enemy| {
+                    enemy.kind == NativeObjectKind::Enemy { object_type: 0x0a }
+                        && enemy.layout_index == Some(layout_index)
+                })
+                .expect("ASM loc_74E0 -> loc_3C026 keeps the RockTank active");
+            assert_eq!(
+                tank.x_pos >> 16,
+                oracle_x,
+                "ASM loc_74E0 starts the title-window object scheduler at oracle step 75"
+            );
+        }
     }
 
     #[test]

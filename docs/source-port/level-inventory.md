@@ -99,8 +99,9 @@ without a nonzero process exit; inspect the report counts, not just exit status.
 ASM `loc_3C0FA -> loc_3C152` turns RockTank slot 21 at X235
 before it enters the hurt cell at X234. The cache-backed settled regression
 pins the third live RockTank and the oracle's six Object/ten Gfx counts.
-Enemy positions remain different under #509; the green state row does not
-prove enemy-position or natural-route fidelity.
+Title-wait scheduling at ASM `loc_74E0` puts RockTank slots 15/16 at their
+oracle X positions. Slot 21 remains one pixel ahead under #509; the green
+state row does not prove exact enemy-position or natural-route fidelity.
 
 ## Shared-header verification
 
