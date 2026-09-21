@@ -7,6 +7,33 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 handoff (slope-air exit)
+
+The ordinary-input BLW2 continuation exposes the missing `loc_A04C` /
+`loc_9F3A` slope-centre exit. The fix projects whole-word X onto Y, snaps
+clear by collision half-width, halves vertical velocity and hibernates in
+Jump. It preserves fractional Y and bypasses the slope-animation advance.
+The rightward red-first regression includes the next airborne step; a
+leftward regression checks the other snap and Y fraction. All 235 slope
+regressions pass.
+
+The complete 282-frame replay has exact Kid position/velocity, movement,
+camera, HP and Object count at every checkpoint. Pixel-exact frames rise
+188 -> 247 and changed pixels fall 4,194,410 -> 3,323. The remaining Gfx
+count discrepancy is confined to frame 229; pose differences at 186..188 and
+rubber-block differences from 250 remain visible. The route does not reach
+the teleporter. Full sweeps preserve every prior state/pixel record. See
+archive #498 for artefacts and the separate next investigations.
+
+The fast gate passes with 7,429 core tests and Clippy green. Full TAS checks
+all 37,759 frames and retains 241 divergent frames / 2,391 pixels, the frozen
+GEMS signature baseline and zero GEMS command mismatches. Mutation testing
+covers 26 candidates: 17 caught, 8 unbuildable and one equivalent high/low-word
+OR-to-XOR change. Four parallel debug builds hit disk capacity; the serial
+continuation with debug information disabled completes the remaining cases.
+Temporary mutation trees are removed and the working source is intact.
+No paid Jev calls.
+
 ## 2026-09-21 handoff (Jev actor coordinate units)
 
 The private case service sends enemy/projectile positions and velocities in

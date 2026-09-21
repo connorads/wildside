@@ -11,6 +11,111 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #498
+
+The 2026-09-21 offline continuation of Jev's stalled BLW2 attempt reproduces a
+slope-to-air transition defect. The permanent ordinary-input fixture is
+`tests/data/dynamic-scenarios/issue-498-slope-air-exit.json`. It starts from a
+settled level 0x01 warp; its movement is ordinary input, not a natural campaign
+entry. Baseline `.cache/recordings/jev-shaft-all-frames/` replays exactly.
+Kid position and velocity match the emulator through frame 189. At 190 native
+retains slope movement 6 at (337.15625,175), while the ROM enters Jump 3 at
+(341,177), with x velocity 3 and y velocity 1.5. Native incorrectly accepts
+the trailing solid tile at (20,11) as floor support.
+
+ASM `loc_9F3A` integrates X and `sub_A254` projects its whole-word change
+onto Y, preserving the fractional Y word. `loc_A04C` reads the projected
+centre tile (21,11), which is empty. Rightward slope-down motion takes the
+non-solid exit, clears X's fraction, snaps to `(X & FFF0) + FA78`, halves
+y velocity and enters `loc_A6F8`. The leftward slope-up branch uses
+`(X & FFF0) + 15 - FA78`. Solid-centre and uphill exits use different paths.
+The exact following oracle frame is (343.99609375,178.75).
+
+This internal branch is reversible without changing a contract. Three options
+were considered: implement the slope coroutine's centre-cell exit before the
+general floor pass; change every floor pass to centre-only support; leave the
+behaviour pending more evidence. The source-specific branch preserves flat
+ledge support and matches the observed coroutine resume address A71C. Global
+centre-only support would change unrelated standing/walking collision. Waiting
+adds no discrimination because the source, exact state and resume address agree.
+
+Direct oracle watch `/tmp/wildside-slope-entry-watch-ki1tl7ua/` confirms
+`F8F0` remains 382 on exit, mapping becomes 004C, FA72/has_level_collision
+become FF, and facing stays Right. The branch bypasses `loc_A13A` animation
+advance. Platform, FA96, FA66 and charge were already zero in this encounter;
+the observation does not exercise their clearing branches. The earlier
+186..188 sprite mismatch is a separate slope-entry animation defect, with
+exact state, and does not belong to this physics fix.
+
+The red-first public-step regression reproduces the wrong X snap and verifies
+the exit plus the next airborne step. A leftward slope-up regression checks
+the other snap direction and preserved Y fraction. All 235 slope-filtered
+core tests pass. The baseline full idle sweep 1789948892 covers levels
+00/01/06; it passes with maximum pixel counts 0/7/1475. Idle checkpoints are
+regression evidence, not proof of slope traversal.
+
+The fixed bundle `.cache/recordings/issue-498-slope-air-exit-fixed/` has exact
+native replay. Direct integer comparison of every checkpoint proves exact
+Kid X/Y, both velocities, movement state, camera X/Y, HP and object count
+through all 282 frames. The verifier stays red for a separate single-frame
+Gfx count at 229 (12 native, 6 oracle). There are 247 pixel-exact checkpoints;
+186..188 retain the known slope-entry pose error and 250..281 have later
+12..355-pixel differences. No comparator tolerance or allowance changes.
+Before/after/oracle frame 192 was inspected; the fixed image is pixel-exact.
+
+Full affected-level sweep 1789949051 exactly matches 1789948892 in all
+state/pixel records. The 105-level state sweep 1789949017 exactly matches
+1789946909 in every state-difference record: 95 passes, 10 failures,
+28 blocking differences, 6 advisory differences and 96 oracle limitations.
+The closure is limited to the reproduced slope-air exit and its regression;
+no whole-route pixel parity, teleporter traversal or human playtest is claimed.
+
+The next count investigation is isolated to Drips allocation staging. At 229,
+layouts 7/8 occupy Object slots with resume PC `03333E` and no Gfx; at 230
+`Enemy16_Drip_Init` allocates three Gfx each. Native's hidden Drips projection
+adds all six at allocation. Motion/timers already match from 230, so delaying
+Drips movement is a rejected fix. The smallest regression observes +2 Objects/
++0 Gfx at allocation, then +0 Objects/+6 Gfx with parent Y543 -> 542 at init.
+The existing pending Gfx count only feeds the late-demo count projection.
+
+The later pixel bounds map to the two rubber blocks at world x336..367,
+y576..591, and native diagnostics identify `block_overrides`. Frame 250 is
+before contact at 251, ruling out bounce scheduling as the sole cause. Next
+compare oracle VRAM tiles 2F3..2FA and plane attributes with generated rubber
+art at 250/251/264. Source routines are `sub_144DA`, `sub_10DE4` and `sub_11530`;
+native construction is in `bundle.rs`. Extra Kid-sized differences at 277/280
+need separate inspection. These observations retain the whole-route red result.
+
+Verification notes: the first fast gate rejected an unnested Rust or-pattern.
+After nesting the alternatives, the fast gate passes in 416.56 seconds with
+7,429 core tests, Clippy and the empty workspace failure baseline green.
+
+Mutation testing is restricted to the movement diff with `--in-diff`, which
+lists 26 candidates without the unrelated field-deletion candidates seen with
+regex-only filtering. Four isolated debug builds exhausted the local disk.
+The mutator's temporary trees were removed, leaving the source tree intact;
+no mutation markers occur in the working file. The incomplete first run caught
+12 candidates, found 8 unviable and retained one equivalent survivor: joining
+`u16 << 16` and `value & FFFF` with XOR equals OR for every possible input,
+because their set bits cannot overlap. That survivor is not a missed behaviour.
+The remaining run uses one isolated worker with Cargo debug information and
+incremental output disabled; the initial report is preserved separately.
+
+Full TAS verification checks all 37,759 frames and preserves the frozen
+baseline: 37,518 exact frames, 241 divergent frames and 2,391 changed pixels.
+GEMS signatures retain 36,836 mismatched frames from 923; command comparison
+has zero mismatches. Logs are `/tmp/wildside-slope-exit-fast.log` and
+`/tmp/wildside-slope-exit-tas.log`. No baseline or allowance changes.
+
+The serial mutation continuation completes the six remaining candidates in
+two minutes: five caught and the same equivalent OR/XOR survivor. Across the
+26 candidates, 17 are caught, 8 cannot build and 1 is equivalent. There are
+no timeouts or unexplained survivors. The resumed command uses `--iterate`
+without changing source or assertions; it excludes the 20 previously caught
+or unviable candidates. Logs/results are `/tmp/wildside-slope-exit-mutants.log`,
+`/tmp/wildside-slope-exit-mutants-resume.log`,
+`/tmp/mutants-slope-air-exit-first/` and `/tmp/mutants-slope-air-exit/`.
+
 ### #497
 
 The 2026-09-21 source-exit audit reproduces a shifted flag coordinate defect.
@@ -25814,6 +25919,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 498 | [x] | P1 | player/slope | Slope-to-air exits snap and enter Jump using the ROM centre-cell branch. | Red-first exit regression, leftward fractional-Y case, exact 282-frame Kid/camera state and unchanged sweeps. |
 | 497 | [x] | P1 | level/flag | Shifted flag collision and rendering use ROM world coordinates. | Red-first contact/word-wrap regressions; exact local stop position and oracle Gfx anchors; inspected captures. |
 | 496 | [x] | P1 | enemy/Tank | Settled-entry Tank initial wait and sprite position follow the ROM. | Red-first init/render regressions; exact 600-frame body/mouth state, 600 pixel-exact checkpoints and full sweep comparison. |
 | 495 | [-] | P2 | enemy/Driller | Level `$55` gameplay and all 360 enemy frames match; Driller hurt return and later right-turn callbacks follow the ROM. | Frame 120 remains improved at 1,576 px; remaining checkpoint residue is presentation-only. See archive #495. |

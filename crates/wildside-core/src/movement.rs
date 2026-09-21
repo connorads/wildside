@@ -3157,6 +3157,7 @@ impl OpeningSliceState {
                 }
             }
             PhysicsOrder::AsmFaithful => {
+                let slope_sliding_before = self.terrain.slope_sliding;
                 if let Some(ref mut t) = self.physics_trace {
                     t.pre_horizontal = (self.player.x_pos, self.player.x_velocity);
                     t.on_ground_before = on_ground_before;
@@ -3478,6 +3479,7 @@ impl OpeningSliceState {
                 // Step 1: sub_B084 — horizontal velocity only (no x_pos update).
                 // Suppressed during wall-cling (ASM loc_AA22 never calls sub_B084).
                 let x_velocity_before_sub_b084 = self.player.x_velocity;
+                let walk_visual_accumulator_before = self.walk_visual_accumulator;
                 let horizontal_step_applied = if self.player.wall_cling_direction.is_some() {
                     false
                 } else if suppress_probe_slope_velocity {
@@ -3547,6 +3549,64 @@ impl OpeningSliceState {
                         terrain::CollisionKind::SlopeDown => self.player.x_velocity,
                         _ => self.player.y_velocity,
                     };
+                }
+                if slope_sliding_before
+                    && self.player.on_ground
+                    && !jump_pressed
+                    && let (Some(grid), Some(slope)) =
+                        (block_grid.as_deref(), grounded_slope_for_loc_9d22)
+                    && matches!(
+                        (slope, self.player.x_velocity.cmp(&0)),
+                        (terrain::CollisionKind::SlopeUp, std::cmp::Ordering::Less)
+                            | (
+                                terrain::CollisionKind::SlopeDown,
+                                std::cmp::Ordering::Equal | std::cmp::Ordering::Greater
+                            )
+                    )
+                {
+                    // ASM loc_9F3A/sub_A254 (kid.asm): integrate X, then
+                    // project its whole-word change onto Y, preserving Y's
+                    // fraction. The active slope's intercept stays constant.
+                    let next_x = self
+                        .player
+                        .x_pos
+                        .wrapping_add_signed(self.player.x_velocity);
+                    let delta_x =
+                        ((next_x >> 16) as u16).wrapping_sub((self.player.x_pos >> 16) as u16);
+                    let y_word = (self.player.y_pos >> 16) as u16;
+                    let next_y_word = match slope {
+                        terrain::CollisionKind::SlopeUp => y_word.wrapping_sub(delta_x),
+                        _ => y_word.wrapping_add(delta_x),
+                    };
+                    let cell = grid.cell_at((next_x >> 20) as u16, next_y_word >> 4);
+                    if cell.collision != slope && cell.collision != terrain::CollisionKind::Solid {
+                        // ASM loc_A04C / loc_9F3A (kid.asm): an empty centre
+                        // exits even if the trailing hitbox overlaps solid.
+                        // Clear X's fraction, snap by FA78 and halve y_vel;
+                        // loc_A6F8 hibernates before airborne integration.
+                        let tile_x = (next_x >> 16) as u16 & 0xfff0;
+                        let x_word = match slope {
+                            terrain::CollisionKind::SlopeUp => {
+                                tile_x.wrapping_add(15).wrapping_sub(collision_hw as u16)
+                            }
+                            _ => tile_x.wrapping_add(collision_hw as u16),
+                        };
+                        self.player.x_pos = u32::from(x_word) << 16;
+                        self.player.y_pos =
+                            (u32::from(next_y_word) << 16) | (self.player.y_pos & 0xffff);
+                        self.player.y_velocity >>= 1;
+                        self.player.on_ground = false;
+                        self.player.on_spikes = false;
+                        self.terrain.slope_sliding = false;
+                        // ASM loc_A6F8 bypasses loc_A13A's animation advance.
+                        self.walk_visual_accumulator = walk_visual_accumulator_before;
+                        kid_flip_follow_on_stages.after_wall =
+                            self.kid_flip_follow_on_stage_state();
+                        self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
+                        self.finalise_trace();
+                        self.update_camera_follow(y_look_offset);
+                        return;
+                    }
                 }
                 if self.player.on_ground
                     && self.terrain.floor_terrain_type == TerrainType::Normal

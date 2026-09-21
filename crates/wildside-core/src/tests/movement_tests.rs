@@ -21694,6 +21694,114 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_9F3A -> sub_A254 -> loc_A04C -> loc_A6F8 (kid.asm):
+    /// BLW2 route frame 190 leaves the centre slope cell while its trailing
+    /// hitbox still overlaps solid ground. The slope coroutine snaps X and
+    /// halves vertical speed before hibernating in Jump.
+    #[test]
+    fn slope_down_air_exit_ignores_trailing_solid_support() {
+        let mut grid = grid_with_cells(24, 20, &[(20, 10, 0x50, 0x95), (20, 11, 0x60, 0x34)]);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 384,
+            height_pixels: 320,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.walk_visual_accumulator = 382;
+        slice.player.x_pos = 0x014e_2800;
+        slice.player.y_pos = 0x00ae_0000;
+        slice.player.x_velocity = 0x0003_0000;
+        slice.player.y_velocity = 0x0003_0000;
+        slice.terrain.floor_y_pos = slice.player.y_pos;
+        slice.terrain.slope_walk_kind = Some(terrain::CollisionKind::SlopeDown);
+        slice.terrain.slope_sliding = true;
+        let input = FrameInput {
+            right: true,
+            a: true,
+            ..FrameInput::default()
+        };
+
+        slice.step_with_order(
+            input,
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(slice.walk_visual_accumulator, 382);
+        assert_eq!(slice.player.x_pos, 0x0155_0000);
+        assert_eq!(slice.player.y_pos, 0x00b1_0000);
+        assert_eq!(slice.player.x_velocity, 0x0003_0000);
+        assert_eq!(slice.player.y_velocity, 0x0001_8000);
+        assert!(!slice.player.on_ground);
+        assert!(!slice.terrain.slope_sliding);
+
+        slice.step_with_order(
+            input,
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+        // ASM loc_A73A: the following update executes airborne physics.
+        assert_eq!(slice.player.x_pos, 0x0157_ff00);
+        assert_eq!(slice.player.y_pos, 0x00b2_c000);
+    }
+
+    /// ASM loc_9F3A/sub_A254 (kid.asm): the leftward exit uses
+    /// `(x & FFF0) + 15 - FA78`; its Y word write preserves the fraction.
+    #[test]
+    fn slope_up_air_exit_preserves_y_fraction() {
+        let mut grid = grid_with_cells(24, 20, &[(20, 10, 0x40, 0), (20, 11, 0x60, 0)]);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 384,
+            height_pixels: 320,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Left;
+        slice.player.x_pos = 0x0141_d800;
+        slice.player.y_pos = 0x00ae_4000;
+        slice.player.x_velocity = -0x0003_0000;
+        slice.player.y_velocity = 0x0003_0000;
+        slice.terrain.floor_y_pos = slice.player.y_pos;
+        slice.terrain.slope_walk_kind = Some(terrain::CollisionKind::SlopeUp);
+        slice.terrain.slope_sliding = true;
+
+        slice.step_with_order(
+            FrameInput {
+                left: true,
+                a: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(slice.player.x_pos, 0x013a_0000);
+        assert_eq!(slice.player.y_pos, 0x00b1_4000);
+        assert_eq!(slice.player.x_velocity, -0x0003_0000);
+        assert_eq!(slice.player.y_velocity, 0x0001_8000);
+        assert!(!slice.player.on_ground);
+    }
+
     /// ASM loc_9F18 -> loc_9FBC (kid.asm:12223-12290): after SlopeUp motion,
     /// a non-slope/solid current tile takes the wall-exit tail, snaps the high
     /// Y word to the adjacent solid row, and clears y_vel before returning to

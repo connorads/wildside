@@ -1,0 +1,1420 @@
+{
+  "slug": "issue-498-slope-air-exit",
+  "script": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72
+  ],
+  "frame_count": 282,
+  "checkpoints": [
+    {
+      "frame_index": 0,
+      "label": "route-0"
+    },
+    {
+      "frame_index": 1,
+      "label": "route-1"
+    },
+    {
+      "frame_index": 2,
+      "label": "route-2"
+    },
+    {
+      "frame_index": 3,
+      "label": "route-3"
+    },
+    {
+      "frame_index": 4,
+      "label": "route-4"
+    },
+    {
+      "frame_index": 5,
+      "label": "route-5"
+    },
+    {
+      "frame_index": 6,
+      "label": "route-6"
+    },
+    {
+      "frame_index": 7,
+      "label": "route-7"
+    },
+    {
+      "frame_index": 8,
+      "label": "route-8"
+    },
+    {
+      "frame_index": 9,
+      "label": "route-9"
+    },
+    {
+      "frame_index": 10,
+      "label": "route-10"
+    },
+    {
+      "frame_index": 11,
+      "label": "route-11"
+    },
+    {
+      "frame_index": 12,
+      "label": "route-12"
+    },
+    {
+      "frame_index": 13,
+      "label": "route-13"
+    },
+    {
+      "frame_index": 14,
+      "label": "route-14"
+    },
+    {
+      "frame_index": 15,
+      "label": "route-15"
+    },
+    {
+      "frame_index": 16,
+      "label": "route-16"
+    },
+    {
+      "frame_index": 17,
+      "label": "route-17"
+    },
+    {
+      "frame_index": 18,
+      "label": "route-18"
+    },
+    {
+      "frame_index": 19,
+      "label": "route-19"
+    },
+    {
+      "frame_index": 20,
+      "label": "route-20"
+    },
+    {
+      "frame_index": 21,
+      "label": "route-21"
+    },
+    {
+      "frame_index": 22,
+      "label": "route-22"
+    },
+    {
+      "frame_index": 23,
+      "label": "route-23"
+    },
+    {
+      "frame_index": 24,
+      "label": "route-24"
+    },
+    {
+      "frame_index": 25,
+      "label": "route-25"
+    },
+    {
+      "frame_index": 26,
+      "label": "route-26"
+    },
+    {
+      "frame_index": 27,
+      "label": "route-27"
+    },
+    {
+      "frame_index": 28,
+      "label": "route-28"
+    },
+    {
+      "frame_index": 29,
+      "label": "route-29"
+    },
+    {
+      "frame_index": 30,
+      "label": "route-30"
+    },
+    {
+      "frame_index": 31,
+      "label": "route-31"
+    },
+    {
+      "frame_index": 32,
+      "label": "route-32"
+    },
+    {
+      "frame_index": 33,
+      "label": "route-33"
+    },
+    {
+      "frame_index": 34,
+      "label": "route-34"
+    },
+    {
+      "frame_index": 35,
+      "label": "route-35"
+    },
+    {
+      "frame_index": 36,
+      "label": "route-36"
+    },
+    {
+      "frame_index": 37,
+      "label": "route-37"
+    },
+    {
+      "frame_index": 38,
+      "label": "route-38"
+    },
+    {
+      "frame_index": 39,
+      "label": "route-39"
+    },
+    {
+      "frame_index": 40,
+      "label": "route-40"
+    },
+    {
+      "frame_index": 41,
+      "label": "route-41"
+    },
+    {
+      "frame_index": 42,
+      "label": "route-42"
+    },
+    {
+      "frame_index": 43,
+      "label": "route-43"
+    },
+    {
+      "frame_index": 44,
+      "label": "route-44"
+    },
+    {
+      "frame_index": 45,
+      "label": "route-45"
+    },
+    {
+      "frame_index": 46,
+      "label": "route-46"
+    },
+    {
+      "frame_index": 47,
+      "label": "route-47"
+    },
+    {
+      "frame_index": 48,
+      "label": "route-48"
+    },
+    {
+      "frame_index": 49,
+      "label": "route-49"
+    },
+    {
+      "frame_index": 50,
+      "label": "route-50"
+    },
+    {
+      "frame_index": 51,
+      "label": "route-51"
+    },
+    {
+      "frame_index": 52,
+      "label": "route-52"
+    },
+    {
+      "frame_index": 53,
+      "label": "route-53"
+    },
+    {
+      "frame_index": 54,
+      "label": "route-54"
+    },
+    {
+      "frame_index": 55,
+      "label": "route-55"
+    },
+    {
+      "frame_index": 56,
+      "label": "route-56"
+    },
+    {
+      "frame_index": 57,
+      "label": "route-57"
+    },
+    {
+      "frame_index": 58,
+      "label": "route-58"
+    },
+    {
+      "frame_index": 59,
+      "label": "route-59"
+    },
+    {
+      "frame_index": 60,
+      "label": "route-60"
+    },
+    {
+      "frame_index": 61,
+      "label": "route-61"
+    },
+    {
+      "frame_index": 62,
+      "label": "route-62"
+    },
+    {
+      "frame_index": 63,
+      "label": "route-63"
+    },
+    {
+      "frame_index": 64,
+      "label": "route-64"
+    },
+    {
+      "frame_index": 65,
+      "label": "route-65"
+    },
+    {
+      "frame_index": 66,
+      "label": "route-66"
+    },
+    {
+      "frame_index": 67,
+      "label": "route-67"
+    },
+    {
+      "frame_index": 68,
+      "label": "route-68"
+    },
+    {
+      "frame_index": 69,
+      "label": "route-69"
+    },
+    {
+      "frame_index": 70,
+      "label": "route-70"
+    },
+    {
+      "frame_index": 71,
+      "label": "route-71"
+    },
+    {
+      "frame_index": 72,
+      "label": "route-72"
+    },
+    {
+      "frame_index": 73,
+      "label": "route-73"
+    },
+    {
+      "frame_index": 74,
+      "label": "route-74"
+    },
+    {
+      "frame_index": 75,
+      "label": "route-75"
+    },
+    {
+      "frame_index": 76,
+      "label": "route-76"
+    },
+    {
+      "frame_index": 77,
+      "label": "route-77"
+    },
+    {
+      "frame_index": 78,
+      "label": "route-78"
+    },
+    {
+      "frame_index": 79,
+      "label": "route-79"
+    },
+    {
+      "frame_index": 80,
+      "label": "route-80"
+    },
+    {
+      "frame_index": 81,
+      "label": "route-81"
+    },
+    {
+      "frame_index": 82,
+      "label": "route-82"
+    },
+    {
+      "frame_index": 83,
+      "label": "route-83"
+    },
+    {
+      "frame_index": 84,
+      "label": "route-84"
+    },
+    {
+      "frame_index": 85,
+      "label": "route-85"
+    },
+    {
+      "frame_index": 86,
+      "label": "route-86"
+    },
+    {
+      "frame_index": 87,
+      "label": "route-87"
+    },
+    {
+      "frame_index": 88,
+      "label": "route-88"
+    },
+    {
+      "frame_index": 89,
+      "label": "route-89"
+    },
+    {
+      "frame_index": 90,
+      "label": "route-90"
+    },
+    {
+      "frame_index": 91,
+      "label": "route-91"
+    },
+    {
+      "frame_index": 92,
+      "label": "route-92"
+    },
+    {
+      "frame_index": 93,
+      "label": "route-93"
+    },
+    {
+      "frame_index": 94,
+      "label": "route-94"
+    },
+    {
+      "frame_index": 95,
+      "label": "route-95"
+    },
+    {
+      "frame_index": 96,
+      "label": "route-96"
+    },
+    {
+      "frame_index": 97,
+      "label": "route-97"
+    },
+    {
+      "frame_index": 98,
+      "label": "route-98"
+    },
+    {
+      "frame_index": 99,
+      "label": "route-99"
+    },
+    {
+      "frame_index": 100,
+      "label": "route-100"
+    },
+    {
+      "frame_index": 101,
+      "label": "route-101"
+    },
+    {
+      "frame_index": 102,
+      "label": "route-102"
+    },
+    {
+      "frame_index": 103,
+      "label": "route-103"
+    },
+    {
+      "frame_index": 104,
+      "label": "route-104"
+    },
+    {
+      "frame_index": 105,
+      "label": "route-105"
+    },
+    {
+      "frame_index": 106,
+      "label": "route-106"
+    },
+    {
+      "frame_index": 107,
+      "label": "route-107"
+    },
+    {
+      "frame_index": 108,
+      "label": "route-108"
+    },
+    {
+      "frame_index": 109,
+      "label": "route-109"
+    },
+    {
+      "frame_index": 110,
+      "label": "route-110"
+    },
+    {
+      "frame_index": 111,
+      "label": "route-111"
+    },
+    {
+      "frame_index": 112,
+      "label": "route-112"
+    },
+    {
+      "frame_index": 113,
+      "label": "route-113"
+    },
+    {
+      "frame_index": 114,
+      "label": "route-114"
+    },
+    {
+      "frame_index": 115,
+      "label": "route-115"
+    },
+    {
+      "frame_index": 116,
+      "label": "route-116"
+    },
+    {
+      "frame_index": 117,
+      "label": "route-117"
+    },
+    {
+      "frame_index": 118,
+      "label": "route-118"
+    },
+    {
+      "frame_index": 119,
+      "label": "route-119"
+    },
+    {
+      "frame_index": 120,
+      "label": "route-120"
+    },
+    {
+      "frame_index": 121,
+      "label": "route-121"
+    },
+    {
+      "frame_index": 122,
+      "label": "route-122"
+    },
+    {
+      "frame_index": 123,
+      "label": "route-123"
+    },
+    {
+      "frame_index": 124,
+      "label": "route-124"
+    },
+    {
+      "frame_index": 125,
+      "label": "route-125"
+    },
+    {
+      "frame_index": 126,
+      "label": "route-126"
+    },
+    {
+      "frame_index": 127,
+      "label": "route-127"
+    },
+    {
+      "frame_index": 128,
+      "label": "route-128"
+    },
+    {
+      "frame_index": 129,
+      "label": "route-129"
+    },
+    {
+      "frame_index": 130,
+      "label": "route-130"
+    },
+    {
+      "frame_index": 131,
+      "label": "route-131"
+    },
+    {
+      "frame_index": 132,
+      "label": "route-132"
+    },
+    {
+      "frame_index": 133,
+      "label": "route-133"
+    },
+    {
+      "frame_index": 134,
+      "label": "route-134"
+    },
+    {
+      "frame_index": 135,
+      "label": "route-135"
+    },
+    {
+      "frame_index": 136,
+      "label": "route-136"
+    },
+    {
+      "frame_index": 137,
+      "label": "route-137"
+    },
+    {
+      "frame_index": 138,
+      "label": "route-138"
+    },
+    {
+      "frame_index": 139,
+      "label": "route-139"
+    },
+    {
+      "frame_index": 140,
+      "label": "route-140"
+    },
+    {
+      "frame_index": 141,
+      "label": "route-141"
+    },
+    {
+      "frame_index": 142,
+      "label": "route-142"
+    },
+    {
+      "frame_index": 143,
+      "label": "route-143"
+    },
+    {
+      "frame_index": 144,
+      "label": "route-144"
+    },
+    {
+      "frame_index": 145,
+      "label": "route-145"
+    },
+    {
+      "frame_index": 146,
+      "label": "route-146"
+    },
+    {
+      "frame_index": 147,
+      "label": "route-147"
+    },
+    {
+      "frame_index": 148,
+      "label": "route-148"
+    },
+    {
+      "frame_index": 149,
+      "label": "route-149"
+    },
+    {
+      "frame_index": 150,
+      "label": "route-150"
+    },
+    {
+      "frame_index": 151,
+      "label": "route-151"
+    },
+    {
+      "frame_index": 152,
+      "label": "route-152"
+    },
+    {
+      "frame_index": 153,
+      "label": "route-153"
+    },
+    {
+      "frame_index": 154,
+      "label": "route-154"
+    },
+    {
+      "frame_index": 155,
+      "label": "route-155"
+    },
+    {
+      "frame_index": 156,
+      "label": "route-156"
+    },
+    {
+      "frame_index": 157,
+      "label": "route-157"
+    },
+    {
+      "frame_index": 158,
+      "label": "route-158"
+    },
+    {
+      "frame_index": 159,
+      "label": "route-159"
+    },
+    {
+      "frame_index": 160,
+      "label": "route-160"
+    },
+    {
+      "frame_index": 161,
+      "label": "route-161"
+    },
+    {
+      "frame_index": 162,
+      "label": "route-162"
+    },
+    {
+      "frame_index": 163,
+      "label": "route-163"
+    },
+    {
+      "frame_index": 164,
+      "label": "route-164"
+    },
+    {
+      "frame_index": 165,
+      "label": "route-165"
+    },
+    {
+      "frame_index": 166,
+      "label": "route-166"
+    },
+    {
+      "frame_index": 167,
+      "label": "route-167"
+    },
+    {
+      "frame_index": 168,
+      "label": "route-168"
+    },
+    {
+      "frame_index": 169,
+      "label": "route-169"
+    },
+    {
+      "frame_index": 170,
+      "label": "route-170"
+    },
+    {
+      "frame_index": 171,
+      "label": "route-171"
+    },
+    {
+      "frame_index": 172,
+      "label": "route-172"
+    },
+    {
+      "frame_index": 173,
+      "label": "route-173"
+    },
+    {
+      "frame_index": 174,
+      "label": "route-174"
+    },
+    {
+      "frame_index": 175,
+      "label": "route-175"
+    },
+    {
+      "frame_index": 176,
+      "label": "route-176"
+    },
+    {
+      "frame_index": 177,
+      "label": "route-177"
+    },
+    {
+      "frame_index": 178,
+      "label": "route-178"
+    },
+    {
+      "frame_index": 179,
+      "label": "route-179"
+    },
+    {
+      "frame_index": 180,
+      "label": "route-180"
+    },
+    {
+      "frame_index": 181,
+      "label": "route-181"
+    },
+    {
+      "frame_index": 182,
+      "label": "route-182"
+    },
+    {
+      "frame_index": 183,
+      "label": "route-183"
+    },
+    {
+      "frame_index": 184,
+      "label": "route-184"
+    },
+    {
+      "frame_index": 185,
+      "label": "route-185"
+    },
+    {
+      "frame_index": 186,
+      "label": "route-186"
+    },
+    {
+      "frame_index": 187,
+      "label": "route-187"
+    },
+    {
+      "frame_index": 188,
+      "label": "route-188"
+    },
+    {
+      "frame_index": 189,
+      "label": "route-189"
+    },
+    {
+      "frame_index": 190,
+      "label": "route-190"
+    },
+    {
+      "frame_index": 191,
+      "label": "route-191"
+    },
+    {
+      "frame_index": 192,
+      "label": "route-192"
+    },
+    {
+      "frame_index": 193,
+      "label": "route-193"
+    },
+    {
+      "frame_index": 194,
+      "label": "route-194"
+    },
+    {
+      "frame_index": 195,
+      "label": "route-195"
+    },
+    {
+      "frame_index": 196,
+      "label": "route-196"
+    },
+    {
+      "frame_index": 197,
+      "label": "route-197"
+    },
+    {
+      "frame_index": 198,
+      "label": "route-198"
+    },
+    {
+      "frame_index": 199,
+      "label": "route-199"
+    },
+    {
+      "frame_index": 200,
+      "label": "route-200"
+    },
+    {
+      "frame_index": 201,
+      "label": "route-201"
+    },
+    {
+      "frame_index": 202,
+      "label": "route-202"
+    },
+    {
+      "frame_index": 203,
+      "label": "route-203"
+    },
+    {
+      "frame_index": 204,
+      "label": "route-204"
+    },
+    {
+      "frame_index": 205,
+      "label": "route-205"
+    },
+    {
+      "frame_index": 206,
+      "label": "route-206"
+    },
+    {
+      "frame_index": 207,
+      "label": "route-207"
+    },
+    {
+      "frame_index": 208,
+      "label": "route-208"
+    },
+    {
+      "frame_index": 209,
+      "label": "route-209"
+    },
+    {
+      "frame_index": 210,
+      "label": "route-210"
+    },
+    {
+      "frame_index": 211,
+      "label": "route-211"
+    },
+    {
+      "frame_index": 212,
+      "label": "route-212"
+    },
+    {
+      "frame_index": 213,
+      "label": "route-213"
+    },
+    {
+      "frame_index": 214,
+      "label": "route-214"
+    },
+    {
+      "frame_index": 215,
+      "label": "route-215"
+    },
+    {
+      "frame_index": 216,
+      "label": "route-216"
+    },
+    {
+      "frame_index": 217,
+      "label": "route-217"
+    },
+    {
+      "frame_index": 218,
+      "label": "route-218"
+    },
+    {
+      "frame_index": 219,
+      "label": "route-219"
+    },
+    {
+      "frame_index": 220,
+      "label": "route-220"
+    },
+    {
+      "frame_index": 221,
+      "label": "route-221"
+    },
+    {
+      "frame_index": 222,
+      "label": "route-222"
+    },
+    {
+      "frame_index": 223,
+      "label": "route-223"
+    },
+    {
+      "frame_index": 224,
+      "label": "route-224"
+    },
+    {
+      "frame_index": 225,
+      "label": "route-225"
+    },
+    {
+      "frame_index": 226,
+      "label": "route-226"
+    },
+    {
+      "frame_index": 227,
+      "label": "route-227"
+    },
+    {
+      "frame_index": 228,
+      "label": "route-228"
+    },
+    {
+      "frame_index": 229,
+      "label": "route-229"
+    },
+    {
+      "frame_index": 230,
+      "label": "route-230"
+    },
+    {
+      "frame_index": 231,
+      "label": "route-231"
+    },
+    {
+      "frame_index": 232,
+      "label": "route-232"
+    },
+    {
+      "frame_index": 233,
+      "label": "route-233"
+    },
+    {
+      "frame_index": 234,
+      "label": "route-234"
+    },
+    {
+      "frame_index": 235,
+      "label": "route-235"
+    },
+    {
+      "frame_index": 236,
+      "label": "route-236"
+    },
+    {
+      "frame_index": 237,
+      "label": "route-237"
+    },
+    {
+      "frame_index": 238,
+      "label": "route-238"
+    },
+    {
+      "frame_index": 239,
+      "label": "route-239"
+    },
+    {
+      "frame_index": 240,
+      "label": "route-240"
+    },
+    {
+      "frame_index": 241,
+      "label": "route-241"
+    },
+    {
+      "frame_index": 242,
+      "label": "route-242"
+    },
+    {
+      "frame_index": 243,
+      "label": "route-243"
+    },
+    {
+      "frame_index": 244,
+      "label": "route-244"
+    },
+    {
+      "frame_index": 245,
+      "label": "route-245"
+    },
+    {
+      "frame_index": 246,
+      "label": "route-246"
+    },
+    {
+      "frame_index": 247,
+      "label": "route-247"
+    },
+    {
+      "frame_index": 248,
+      "label": "route-248"
+    },
+    {
+      "frame_index": 249,
+      "label": "route-249"
+    },
+    {
+      "frame_index": 250,
+      "label": "route-250"
+    },
+    {
+      "frame_index": 251,
+      "label": "route-251"
+    },
+    {
+      "frame_index": 252,
+      "label": "route-252"
+    },
+    {
+      "frame_index": 253,
+      "label": "route-253"
+    },
+    {
+      "frame_index": 254,
+      "label": "route-254"
+    },
+    {
+      "frame_index": 255,
+      "label": "route-255"
+    },
+    {
+      "frame_index": 256,
+      "label": "route-256"
+    },
+    {
+      "frame_index": 257,
+      "label": "route-257"
+    },
+    {
+      "frame_index": 258,
+      "label": "route-258"
+    },
+    {
+      "frame_index": 259,
+      "label": "route-259"
+    },
+    {
+      "frame_index": 260,
+      "label": "route-260"
+    },
+    {
+      "frame_index": 261,
+      "label": "route-261"
+    },
+    {
+      "frame_index": 262,
+      "label": "route-262"
+    },
+    {
+      "frame_index": 263,
+      "label": "route-263"
+    },
+    {
+      "frame_index": 264,
+      "label": "route-264"
+    },
+    {
+      "frame_index": 265,
+      "label": "route-265"
+    },
+    {
+      "frame_index": 266,
+      "label": "route-266"
+    },
+    {
+      "frame_index": 267,
+      "label": "route-267"
+    },
+    {
+      "frame_index": 268,
+      "label": "route-268"
+    },
+    {
+      "frame_index": 269,
+      "label": "route-269"
+    },
+    {
+      "frame_index": 270,
+      "label": "route-270"
+    },
+    {
+      "frame_index": 271,
+      "label": "route-271"
+    },
+    {
+      "frame_index": 272,
+      "label": "route-272"
+    },
+    {
+      "frame_index": 273,
+      "label": "route-273"
+    },
+    {
+      "frame_index": 274,
+      "label": "route-274"
+    },
+    {
+      "frame_index": 275,
+      "label": "route-275"
+    },
+    {
+      "frame_index": 276,
+      "label": "route-276"
+    },
+    {
+      "frame_index": 277,
+      "label": "route-277"
+    },
+    {
+      "frame_index": 278,
+      "label": "route-278"
+    },
+    {
+      "frame_index": 279,
+      "label": "route-279"
+    },
+    {
+      "frame_index": 280,
+      "label": "route-280"
+    },
+    {
+      "frame_index": 281,
+      "label": "route-281"
+    }
+  ],
+  "warp_to_level": 1,
+  "settle_oracle_warp": true
+}
