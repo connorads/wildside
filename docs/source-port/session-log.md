@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 - #507 recording enemy comparison
+
+Closed #507. Native and saved oracle enemy lists use one comparison order, so
+all 360 airborne replay state checkpoints pass with existing tolerances. The
+one-pixel HUD life-icon difference at frame 140 still fails strict visual
+verification. Eight comparator mutation survivors identified missing boundary
+checks; the final suite pins both axes at and beyond position/velocity limits.
+All 16 targeted tolerance mutations are caught after the new regression.
+A separate #508 tracks 599 enemy X-velocity differences within the unchanged
+1 px/frame tolerance; the state result does not claim exact enemy parity.
+
+The native-only #300 route now reaches the smash-block shaft at x1879 with
+Red Stealth helmet3 and HP1. Stationary jumps clear col117, a retained
+adjacent block supports the upper passage, and a later tank still blocks a
+surviving route. No emulator route comparison or teleporter completion yet.
+No paid Jev calls. The campaign remains open and frozen #406/#409/#416
+remain unchanged.
+
 ## 2026-09-21 - #506 title-card enemy allocation
 
 Closed #506. A pre-skip register change exposed the trailing enemy loader

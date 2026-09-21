@@ -1556,11 +1556,15 @@ fn state_player_words_are_authoritative(native: &OracleState, oracle: &OracleSta
 fn comparable_enemy_snapshots_for_state_compare(
     enemies: &[OracleEnemyState],
 ) -> Vec<OracleEnemyState> {
-    enemies
+    let mut comparable = enemies
         .iter()
         .filter(|enemy| !enemy_snapshot_is_archer_linked_arrow_gfx_loc_33fda(enemy))
         .cloned()
-        .collect()
+        .collect::<Vec<_>>();
+    // Saved oracle captures use position order; native snapshots use layout
+    // order. Pair both by the same key before comparing their field values.
+    sort_enemy_states(&mut comparable);
+    comparable
 }
 
 fn enemy_snapshot_is_archer_linked_arrow_gfx_loc_33fda(enemy: &OracleEnemyState) -> bool {
@@ -2472,6 +2476,118 @@ mod tests {
         assert_eq!(enemies[0].x_velocity, -0x0002_0000);
         assert_eq!(enemies[0].facing, EnemyFacing::Left);
         assert_eq!(enemies[0].layout_index, None);
+    }
+
+    fn driller_state_compare_fixture() -> OracleState {
+        let mut state = oracle_state("airborne-0", 0, 0x000C);
+        // ASM Manage_EnemyLoading loc_3691E retains layout identity. The
+        // #507 oracle witness lists layout 3 at X12 before layout 2 at X404;
+        // native lists layout 2 first. Coordinates do not define identity.
+        state.active_enemies = [(2, 404, 160), (3, 12, 176)]
+            .into_iter()
+            .map(|(layout_index, x, y)| OracleEnemyState {
+                object_type: 0x1A,
+                x_pos: x << 16,
+                y_pos: y << 16,
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: EnemyFacing::Left,
+                collision_type: None,
+                collision_source: None,
+                layout_index: Some(layout_index),
+                layout_ptr: None,
+                parent_object_ptr: None,
+                gfx_slot_index: None,
+                on_ground: Some(true),
+                current_hp: Some(3),
+                debug_fields: BTreeMap::new(),
+            })
+            .collect();
+        state.number_objects = 2;
+        state.number_gfx_objects = 2;
+        state
+    }
+
+    #[test]
+    fn compare_native_states_pairs_enemies_by_layout_before_position() {
+        let run_dir = Path::new("/tmp/enemy-comparison-order");
+        for reverse_native in [false, true] {
+            for reverse_oracle in [false, true] {
+                let mut native = driller_state_compare_fixture();
+                let mut oracle = native.clone();
+                if reverse_native {
+                    native.active_enemies.reverse();
+                }
+                if reverse_oracle {
+                    oracle.active_enemies.reverse();
+                }
+                compare_native_states_against_oracle(run_dir, &[native], &[oracle])
+                    .expect("equivalent layout-owned enemies compare independently of list order");
+            }
+        }
+    }
+
+    #[test]
+    fn compare_native_states_rejects_changes_after_enemy_reordering() {
+        let run_dir = Path::new("/tmp/enemy-comparison-negative-controls");
+        for changed_field in ["position", "velocity", "facing", "identity", "count"] {
+            let native = driller_state_compare_fixture();
+            let mut oracle = native.clone();
+            oracle.active_enemies.reverse();
+            match changed_field {
+                "position" => oracle.active_enemies[0].x_pos += 32 << 16,
+                "velocity" => oracle.active_enemies[0].x_velocity = 2 << 16,
+                "facing" => oracle.active_enemies[0].facing = EnemyFacing::Right,
+                "identity" => oracle.active_enemies[0].layout_index = Some(4),
+                "count" => {
+                    oracle.active_enemies.pop();
+                }
+                _ => unreachable!(),
+            }
+            assert!(
+                compare_native_states_against_oracle(run_dir, &[native], &[oracle]).is_err(),
+                "changed {changed_field} must still fail after pairing"
+            );
+        }
+    }
+
+    #[test]
+    fn compare_native_states_preserves_enemy_tolerance_boundaries() {
+        let run_dir = Path::new("/tmp/enemy-comparison-tolerance-boundaries");
+        // ASM Manage_EnemyLoading loc_3691E keeps each Driller's layout
+        // identity while the capture order differs. The recording comparator
+        // accepts the stated per-axis boundary, then rejects one unit beyond.
+        for field in ["x_pos", "y_pos", "x_velocity", "y_velocity"] {
+            for beyond in [false, true] {
+                let mut native = driller_state_compare_fixture();
+                let mut oracle = native.clone();
+                oracle.active_enemies.reverse();
+                let native_enemy = &mut native.active_enemies[0];
+                let oracle_enemy = &mut oracle.active_enemies[1];
+                let delta = match field {
+                    "x_pos" | "y_pos" => (16 << 16) + i32::from(beyond),
+                    _ => (1 << 16) + i32::from(beyond),
+                };
+                match field {
+                    "x_pos" => oracle_enemy.x_pos += delta as u32,
+                    "y_pos" => oracle_enemy.y_pos += delta as u32,
+                    "x_velocity" => {
+                        native_enemy.x_velocity = 2 << 16;
+                        oracle_enemy.x_velocity = (2 << 16) + delta;
+                    }
+                    "y_velocity" => {
+                        native_enemy.y_velocity = 2 << 16;
+                        oracle_enemy.y_velocity = (2 << 16) + delta;
+                    }
+                    _ => unreachable!(),
+                }
+                assert_eq!(
+                    compare_native_states_against_oracle(run_dir, &[native], &[oracle]).is_err(),
+                    beyond,
+                    "{field} delta {delta} must respect the existing tolerance"
+                );
+            }
+        }
     }
 
     #[test]

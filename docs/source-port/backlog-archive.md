@@ -150,7 +150,7 @@ and audio commands remain exact. No baseline changes or paid Jev calls.
 Objective #505 closes on timer RAM, inspected pixels and permanent entry/exit
 regressions. #506 and wider route coverage remain open.
 
-<a id="issue-506"></a>
+<a id="issue-507"></a>
 ### #507
 
 The #506 RNG correction lets the existing 360-frame airborne replay reach
@@ -175,6 +175,58 @@ fast-slice plus replay comparison. ASM `Manage_EnemyLoading loc_3691E` and
 `Driller.asm` parent/child ownership constrain identity; sorting alone is
 not a proof of parent/child state fidelity.
 
+2026-09-21 comparator correction:
+
+Both filtered lists use the existing native sort key before comparison.
+This private change also handles saved captures; changing only the oracle
+capture order would leave historical recordings inconsistent. No fields,
+tolerances, capture schemas or exception classifications change. The
+shuffled-equivalent regression fails before the fix and passes afterwards.
+Changed position, velocity, facing, layout identity and count still fail.
+The focused comparison suite passes all 32 tests.
+
+The complete 360-frame replay is native deterministic and passes the
+recording state comparator. Its strict visual result remains red for the
+same single HUD life-icon pixel at (291,13), frame 140. The before/after
+composite is byte-identical. This result is tolerance-bounded: only one
+checkpoint has exactly equal compared enemy fields. The other checkpoints
+contain 599 X-velocity differences within the existing 1 px/frame limit,
+tracked as #508. Position tolerance remains 16 px. These are not claims of
+exact enemy fidelity or full replay certification.
+
+Fast gate passes in 205.32s, including 7,437 core tests and Clippy. No
+production gameplay or rendering code changes. No paid Jev calls or
+baseline updates. A focused mutation audit initially passes its baseline but stops at disk
+exhaustion. After `cargo clean -p wildside-cli`, the retry tests 27 mutants:
+18 caught, 8 missed tolerance boundaries, 1 unviable. Boundary regressions
+cover accepted limits and one unit beyond on both position and velocity axes;
+these also distinguish subtraction from addition for nonzero equal velocities.
+A targeted retry of the original survivors and same-line variants catches all
+16 selected mutants. Output: `/tmp/mutants-recording-enemy-boundaries/`.
+
+<a id="issue-508"></a>
+### #508
+
+The #507 canonical pairing preflight on
+`.cache/recordings/issue-506-title-loader-fixed/` finds 599 enemy X-velocity
+differences across 360 checkpoints. All fit the existing 1 px/frame
+recording tolerance; only one checkpoint is exactly equal on all compared
+enemy fields. Frame 0 layout-2 Driller body at (404,160) reports native
+-65536 and oracle 0. Its two child slots and all three layout-3 slots agree
+on that frame. Native reproduction and authoritative oracle difference are
+observed; the gameplay consequence remains unestablished.
+
+ASM Driller `loc_3BE60` dispatches into shared walker `loc_3C026/loc_3C0D2`,
+which clear Gfx X/Y velocity. Grounded `loc_3C04E/loc_3C0FA` add/subtract
+Object `$50(a5)` directly from X position. This distinguishes displacement
+from the Gfx velocity field. Trace the native body export and airborne
+transitions before choosing a fix; do not zero all moving enemies or change
+tolerances to hide the discrepancy. Permanent witness:
+`tests/data/dynamic-scenarios/issue-505-airborne-helmet-timer.json`.
+Minimum gate: focused exact-velocity regression, replay comparison and
+fast-slice; full TAS/state sweep if gameplay scheduling or motion changes.
+
+<a id="issue-506"></a>
 ### #506
 
 2026-09-21 title-card enemy-loader investigation:
@@ -26386,6 +26438,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 507 | [x] | P1 | verification/enemies | Recording comparisons pair saved native and oracle enemies by the same key. | Shuffled-equivalent regression and changed-state controls; 360 tolerance-bounded state checkpoints pass; strict pixels remain red. |
 | 506 | [x] | P1 | oracle/RNG | Title cards cannot allocate gameplay enemies or consume their initialisation RNG. | ASM Mode_Standard/loc_80C; 360 exact RNG checkpoints; state sweep improves to 97/105 passes. |
 | 505 | [x] | P3 | HUD/rendering | The timer ticks before transform entry and stays frozen on cleanup of the suspended Object pass. | ASM Mode_Level/loc_BE82/loc_7E90; exact timer RAM on both callbacks and a fully exact 300-frame replay. |
 | 504 | [x] | P1 | player/forms | Grounded helmet collision starts transformation before motion and preserves fractional X. | ASM loc_75D4/sub_7B30; all 300 replay state checkpoints exact; timer pixels tracked as #505. |
