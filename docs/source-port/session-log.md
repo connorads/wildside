@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 - Jev stalled-route guard
+
+The BLW2 paid collector now stops after 24 six-frame decisions without
+a new best Kid X and retains its input journal. The offline guard regression
+passes on a release-stall pattern and a moving route with a detour. No paid
+Jev call was made, so route quality remains unverified. #300 still needs
+natural teleporter contact and destination evidence.
+
 ## 2026-09-21 - #502 moving pressure probes
 
 The follow-up #502 moving probes held Right for 1,000 frames on levels

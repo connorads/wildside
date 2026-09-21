@@ -17,6 +17,34 @@ struct CaseInput {
     live: bool,
 }
 
+/// A paid route that does not improve its best forward position for 24
+/// six-frame decisions has stalled before the BLW2 pad at X2503.
+struct ForwardProgressGuard {
+    best_x: i32,
+    stagnant_batches: usize,
+}
+
+impl ForwardProgressGuard {
+    const STALL_BATCHES: usize = 24;
+
+    fn new(x: i32) -> Self {
+        Self {
+            best_x: x,
+            stagnant_batches: 0,
+        }
+    }
+
+    fn observe(&mut self, x: i32) -> bool {
+        if x > self.best_x {
+            self.best_x = x;
+            self.stagnant_batches = 0;
+        } else {
+            self.stagnant_batches += 1;
+        }
+        self.stagnant_batches >= Self::STALL_BATCHES
+    }
+}
+
 fn collect(config: &CaseInput, manifest: &AssetManifest, start: RecordingStart) -> Result<Vec<u8>> {
     let initial = build_recording(manifest, "case-live", start, vec![], vec![])?;
     let mut runtime =
@@ -27,6 +55,8 @@ fn collect(config: &CaseInput, manifest: &AssetManifest, start: RecordingStart) 
     );
     let mut script = Vec::new();
     let mut observed = Vec::new();
+    let initial_x = runtime.trace_frame().kid_x_pos.unwrap_or_default() as i32 >> 16;
+    let mut progress = ForwardProgressGuard::new(initial_x);
     let parent = config.output.parent().context("case output parent")?;
     let mut journal = fs::File::create(parent.join("inputs.bin"))?;
     journal.write_all(&script)?;
@@ -87,6 +117,17 @@ fn collect(config: &CaseInput, manifest: &AssetManifest, start: RecordingStart) 
         }
         journal.flush()?;
         println!("Jev case {} frame {}", config.issue, script.len());
+        let current_x = runtime.trace_frame().kid_x_pos.unwrap_or_default() as i32 >> 16;
+        if progress.observe(current_x) {
+            fs::write(
+                parent.join("collection-stop.txt"),
+                format!(
+                    "no new forward position for {} controller decisions; saved input journal remains replayable",
+                    ForwardProgressGuard::STALL_BATCHES
+                ),
+            )?;
+            break;
+        }
     }
     if start.settled {
         rebase_trace_frame_indices(&mut observed);
@@ -190,4 +231,23 @@ fn gameplay_regression_jev_case_starts_do_not_seed_gameplay_state() -> Result<()
     assert_eq!(case_start(370)?.warp_level, Some(0));
     assert!(case_start(372).is_err());
     Ok(())
+}
+
+#[test]
+fn stalled_jev_route_stops_after_saved_blw2_release_pattern() {
+    let mut guard = ForwardProgressGuard::new(32);
+    assert!(!guard.observe(58));
+    for _ in 1..ForwardProgressGuard::STALL_BATCHES {
+        assert!(!guard.observe(58));
+    }
+    assert!(guard.observe(58));
+
+    let mut advancing = ForwardProgressGuard::new(32);
+    for x in 33..=60 {
+        assert!(!advancing.observe(x));
+    }
+    for _ in 0..ForwardProgressGuard::STALL_BATCHES - 1 {
+        assert!(!advancing.observe(57));
+    }
+    assert!(!advancing.observe(61));
 }

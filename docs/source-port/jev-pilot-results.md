@@ -205,3 +205,12 @@ reaches the lower shaft. Its all-frame comparison first differs visually at
 #300 before treating the continuation as emulator-matched route evidence.
 The case window, attempt count and $0.186974676 lifetime charge are unchanged.
 A separate progress/stall guard remains required before further paid discovery.
+
+## Collection progress guard - 2026-09-21
+
+The BLW2 live collector stops after 24 six-frame Jev decisions without
+improving Kid's best forward X position. It writes a stop reason and retains
+the append-only input journal for exact replay. An offline regression covers
+the saved release-stall pattern and a moving route with a temporary detour.
+This bounds the known paid stall; no new Jev route or model-policy improvement
+has been measured.
