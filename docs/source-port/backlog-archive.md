@@ -238,6 +238,18 @@ edge-turn branch is not the residual cause. Compare the first scheduled
 object tick and allocation order for slot 21 against slots 15/16; avoid
 changing the shared turn condition from the one-pixel frame-0 residue.
 
+Follow-up tick trace 2026-09-22: temporary native `step_pacer` logging
+(removed) counted 105 pre-step tank positions for each of slots 15/16/21.
+These match the oracle's title-wait positions through row 119 and its
+`post_title_wait`/`post_title_start` hand-off. At oracle `target_live` row 0,
+the position repeats `post_title_start`; native steps once. The first
+mismatches are native/oracle X171/172 for slot 15, X331/332 for slot 16,
+and X266/265 for slot 21. Slots 15/16 later recover the pixel at their
+turns; slot 21 carries it through frame 0. This rejects both the tank's
+allocation order and the left-edge turn as the cause. Next test this shared
+object-step boundary on another measured level before changing the
+recording hand-off; do not add a level- or Tank-specific age offset.
+
 <a id="issue-508"></a>
 ### #508
 
