@@ -1033,6 +1033,35 @@ mod tests {
     }
 
     #[test]
+    fn recording_title_shell_does_not_load_enemies_loc_80c() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.set_recorded_title_card_handoff_delay(true);
+        for frame in 0..720 {
+            runtime.step_frame(FrameInput {
+                start: BOOT_TO_LEVEL_START_FRAMES.contains(&frame),
+                ..FrameInput::default()
+            });
+        }
+        // ASM GameModesArray selects Mode_Standard for the title card. It
+        // burns one Execute_Objects longword but never calls loc_80C's enemy
+        // loader. The recording helper writes Current_LevelID before waiting
+        // 60 frames; that register change must not allocate the new layout.
+        // Oracle #506 pre_skip_wait rows 1..60 retain only title workers.
+        runtime.current_level = LevelId(0x54);
+        let mut expected_rng = runtime.rom_random.clone();
+        for step in 1..=60 {
+            expected_rng.next_long();
+            let frame = runtime.step_frame(FrameInput::default());
+            assert_eq!(frame.game_mode, GameMode::LevelTransition);
+            assert_eq!(runtime.rom_random, expected_rng, "title wait {step}");
+            assert!(runtime.active_enemies.is_empty(), "title wait {step}");
+        }
+    }
+
+    #[test]
     fn recording_title_bootstrap_preserves_loader_rng_freeze_loc_1ae2e() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

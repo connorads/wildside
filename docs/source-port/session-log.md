@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 - #506 title-card enemy allocation
+
+Closed #506. A pre-skip register change exposed the trailing enemy loader
+running in Mode_Standard: two EmoRock initialisers burned two extra random
+bytes. The gameplay-mode guard and red/green 60-frame regression remove
+that allocation. All 360 replay RNG rings, offsets and last bytes match the
+emulator. Existing images and gameplay traces remain unchanged; the single
+HUD pixel at frame 140 remains. Full replay certification stays red on newly
+tracked #507, where native and oracle enemy sort keys differ before a zip.
+
+Fast gate passes in 250.97s with 7,437 core tests and Clippy. Full TAS retains
+all frozen pixel/audio limits and zero audio-command mismatches. State sweep
+1789962933 improves 95 to 97 passes and 28 to 24 authoritative differences;
+only two HP checkpoints each in 0x0F and 0x1C change. Full BLW2 1789962965
+retains seven pixels. No paid Jev calls, seed adjustment or baseline change.
+
+Next fix #507 with shuffled-equivalent and changed-state controls, then
+resume #300. Geometry suggests retaining a smash block as a step at x1896,
+feet511, before jumping over the wall at x1936, feet495. Every periodic
+continuation inspected loses Red Stealth, so none establishes that route's
+feasibility. The campaign remains incomplete; frozen #406/#409/#416 stays
+unchanged. Three fixes follow the last mutation audit; audit after the next.
+
 ## 2026-09-21 - #505 transform HUD timer boundaries
 
 Closed #505. Live InGame runs the HUD tick before the Object pass; a frozen

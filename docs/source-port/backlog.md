@@ -31,7 +31,7 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-09-21):** #504/#505 make the 300-frame settled Red Stealth pickup match every oracle state checkpoint and pixel. Continue #300 from this prefix with ordinary controls; no teleporter traversal is verified. #506 tracks the pre-existing level-55 settled-entry RNG offset. #502 retains the live Object-pressure gap. Parent roster/count gaps, slope-entry poses and rubber-block art remain open.
+- **Current work (2026-09-21):** Fix #507 comparator ordering before interpreting the airborne replay enemy failure. #506 closes title-card enemy allocation: all 360 RNG checkpoints match and the state sweep improves to 97/105 passes. Then continue #300 from the exact 300-frame Red Stealth prefix, preserving a smash-block step through the upper passage; no teleporter traversal is verified. #502 live Object pressure, parent roster gaps, slope poses and rubber art remain open. Run focused mutation testing after the next fix (three fixes since the last audit).
 - **Selection:** Run `mise run project-status` and `mise run jev-audit`. Objective awaiting-human cases are eligible for investigation and evidence-backed closure. Coverage prerequisites come first, then P0 #210, #370 and #374 according to dependencies and available evidence.
 - **Scope:** Single-player across all playable levels, branches, forms and bosses. Preserve frozen #406/#409/#416 timing debt and its ratchets. Final package retains subjective/device checks; no human validation is claimed.
 - **Jev allowance:** $5 additional across the campaign. First attempt used 100 requests and $0.010448214; lifetime charged upper bound is $0.186974676. The six-frame preflight passed, but collection stalled at x58 and did not reach the pad. Its deadline was expired under the ledger lock, preserving spend, attempt count and the original case window. Actor coordinate units are corrected; add a progress/stall guard before any further paid attempt.
@@ -58,7 +58,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 506 | [ ] | P1 | oracle/RNG | Settled level 0x55 entry starts native RNG two bytes ahead of the emulator. | Compare frame 0 FFF5 versus FFF3; trace loader consumption before recorded input. |
+| 507 | [ ] | P1 | verification/enemies | Recording comparator pairs enemy lists using incompatible native and oracle ordering. | Root cause identified: normalise both lists and retain identity-sensitive negative controls. |
 | 502 | [ ] | P1 | enemies/scheduling | Drips range checks omit the live Object-pressure branch above 20 workers. | Acquire an interleaved allocation/deletion witness crossing 20/21 Objects. |
 | 300 | [~] | P1 | level/teleporter | Captured hidden and shifted pad records are restored; live destination verification remains open. | Record a successful accessible pad route and compare the destination with the oracle. |
 | 433 | [ ] | P1 | enemies/RNG | Robot shot lifecycle and grounded turns verified; init, hurt and natural-entry fidelity remain open. | Retain first/third Crypt shot regressions; probe parent init residue and interrupted turns. |

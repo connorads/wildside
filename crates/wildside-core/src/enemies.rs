@@ -16696,7 +16696,13 @@ impl NativeRuntime {
     }
 
     pub(crate) fn manage_enemy_loading_after_execute_objects_loc_80c(&mut self) {
-        if self.paused
+        // ASM GameModesArray runs title cards through Mode_Standard, which
+        // has no loc_80C enemy-loading tail. Only Mode_Level owns this pass;
+        // the hidden debug loader dispatches its own trailing allocation.
+        if !matches!(
+            self.boot_state,
+            BootState::InGame | BootState::DemoPlay { .. }
+        ) || self.paused
             || self.gameplay_hibernating_for_transform()
             || self.debug_level_entry_mode_level_active_loc_74e0()
             || !self.enemy_loading_enabled()

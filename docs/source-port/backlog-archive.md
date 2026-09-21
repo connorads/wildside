@@ -151,7 +151,89 @@ Objective #505 closes on timer RAM, inspected pixels and permanent entry/exit
 regressions. #506 and wider route coverage remain open.
 
 <a id="issue-506"></a>
+### #507
+
+The #506 RNG correction lets the existing 360-frame airborne replay reach
+the enemy comparison. `verify-recording` fails at frame 0 with native
+Driller position ($017C,$00A0) versus oracle ($000C,$00B0). Both positions
+exist in both lists. The six position/layout tuples are unchanged by #506;
+this failure was hidden behind its earlier RNG check.
+
+`compare.rs::sort_enemy_states` orders native snapshots by object type,
+layout index, layout pointer, X and Y. The oracle helper's
+`capture_enemy_states` sorts by object type, X and Y. The comparison then
+zips the lists. Frame 0 puts layout 2 first in native and layout 3 first in
+oracle. This is a mismatched pairing, not evidence that a Driller moved
+368 pixels. The complete verifier remains red; no result is suppressed.
+
+Witness: `tests/data/dynamic-scenarios/issue-505-airborne-helmet-timer.json`,
+recording `.cache/recordings/issue-506-title-loader-fixed/`. Normalise both
+sides at the comparator boundary, with a shuffled-equivalent positive
+case and changed position/identity negative controls. Re-run the complete
+recording afterwards; later differences remain unknown. Minimum gate is
+fast-slice plus replay comparison. ASM `Manage_EnemyLoading loc_3691E` and
+`Driller.asm` parent/child ownership constrain identity; sorting alone is
+not a proof of parent/child state fidelity.
+
 ### #506
+
+2026-09-21 title-card enemy-loader investigation:
+
+Applying exactly two `Get_RandomNumber_byte sub_9FE` draws to every oracle
+RNG ring reproduces native offset, last byte and all 55 ring bytes at all
+360 checkpoints. This rejects an arithmetic defect or accumulating gameplay
+consumption. Current settle capture
+`.cache/debug/issue-506-settle-current-c1271582e/` matches the complete
+native ring after cold boot at frame 720, offset $FFDE. The mismatch already
+exists before the target loader: native pre-skip $FFF4 versus oracle $FFF2.
+
+A temporary capture using the existing settle-row fields expands the 60
+pre-skip frames in `.cache/debug/issue-506-preskip-current-c1271582e/`.
+Oracle advances four bytes every frame. Native's first frame advances six
+bytes and allocates two EmoRocks from the patched predecessor level $54;
+remaining frames advance four. The probe source is restored afterwards.
+`Mode_Standard` has no enemy loader; only `Mode_Level loc_80C` invokes
+`Manage_EnemyLoading`. `Emo_Rock.asm loc_361F4` consumes one byte at each
+initialisation. Native's trailing loader lacked the gameplay-mode guard
+already present on its Object pass. This is an enemy allocation defect in
+the title shell, not a level-55 seed correction. The initial title contains
+only title Objects in the emulator; native's hidden enemy list is not proof
+of a live encounter.
+
+`recording_title_shell_does_not_load_enemies_loc_80c` boots with the normal
+Start sequence, applies the recording helper's level-register change and
+steps all 60 title frames. It fails on the old two-byte burn and passes with
+the loader guard, checking the complete RNG state and empty enemy list.
+The cache-backed test is explicitly run with `KID_ENABLE_CACHE_BACKED_TESTS=1`.
+The permanent 360-frame #505 scenario remains the end-to-end witness.
+
+The corrected `.cache/recordings/issue-506-title-loader-fixed/` replay is
+deterministic and matches oracle RNG offset, last byte and the complete ring
+at all 360 checkpoints. Only those RNG fields and the associated measured
+Mode_Level work change against the committed timer fix; Kid, enemy and
+camera traces are unchanged. All images are unchanged: 359 exact frames,
+with the existing one-pixel HUD life-icon difference at frame 140. The
+before/after composite is inspected. Full recording certification remains
+red on #507's incompatible enemy ordering; no comparison is masked.
+
+`verify-slice-fast` passes in 250.97s with 7,437 maintained core tests,
+Clippy and the existing replay/source ratchets. Full TAS passes all 37,759
+frames with 37,518 exact pixel frames, 241 divergent frames and 2,391 changed
+pixels. GEMS signatures retain 36,836 mismatches from frame 923; audio
+commands have zero mismatches. Frozen #406/#409/#416 limits are unchanged.
+No paid Jev requests, seeds, baselines or public interfaces are changed.
+
+State sweep `1789962933` improves on `1789961329`: 97 passes, eight failures
+and 24 authoritative differences, down from 95/10/28. Only levels $0F and
+$1C change; each loses its two HP differences (native 1 versus oracle 2).
+All other normalised fields are identical, including six advisory and 96
+oracle-limitation differences. Full BLW2 sweep `1789962965` matches
+`1789961343`, retaining seven differing pixels. This closes the title-mode
+allocation/RNG defect only; #507 and wider entry/traversal coverage remain
+open. The coherent commit carrying this entry records the verified revision.
+
+Initial reproduction before the loader investigation:
+
 
 The ordinary-input, settled level-0x55 replay for #505 starts at native RNG
 offset $FFF5 versus oracle $FFF3. Native replay of committed `fa4b6d235` in
@@ -26304,6 +26386,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 506 | [x] | P1 | oracle/RNG | Title cards cannot allocate gameplay enemies or consume their initialisation RNG. | ASM Mode_Standard/loc_80C; 360 exact RNG checkpoints; state sweep improves to 97/105 passes. |
 | 505 | [x] | P3 | HUD/rendering | The timer ticks before transform entry and stays frozen on cleanup of the suspended Object pass. | ASM Mode_Level/loc_BE82/loc_7E90; exact timer RAM on both callbacks and a fully exact 300-frame replay. |
 | 504 | [x] | P1 | player/forms | Grounded helmet collision starts transformation before motion and preserves fractional X. | ASM loc_75D4/sub_7B30; all 300 replay state checkpoints exact; timer pixels tracked as #505. |
 | 503 | [x] | P1 | combat | Tank side-contact damage consumes the collision on the following Object pass. | ASM loc_1CF2/loc_B700; exact HP and damage flag across 232 route checkpoints; archive #503. |

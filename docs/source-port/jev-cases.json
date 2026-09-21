@@ -1099,14 +1099,14 @@
     "scope": "Drips use the tighter unload bounds only while more than 20 Object workers are linked."
   },
   {
-    "issue": 506,
+    "issue": 507,
     "readiness": "needs_comparison",
-    "active_path": "Settled level 0x55 RNG handoff before the first recorded input",
+    "active_path": "Recorded enemy comparison after gameplay and RNG checks",
     "route": "tests/data/dynamic-scenarios/issue-505-airborne-helmet-timer.json",
     "evidence": [
-      "docs/source-port/backlog-archive.md#issue-506"
+      "docs/source-port/backlog-archive.md#issue-507"
     ],
-    "next_action": "Trace the settled level-55 loader RNG consumption; frame 0 starts at FFF5 native versus FFF3 oracle on committed fa4b6d235.",
-    "scope": "Two-byte RNG offset at settled entry; no natural-entry or gameplay RNG fix is inferred."
+    "next_action": "Normalise comparator input ordering with shuffled-equivalent and changed-state controls; re-run all 360 checkpoints.",
+    "scope": "Native and oracle use different enemy sort keys before a positional zip; later fidelity differences remain unverified."
   }
 ]
