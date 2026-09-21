@@ -1077,15 +1077,15 @@
     "issue": 433,
     "readiness": "needs_comparison",
     "active_path": "crates/wildside-core/src/enemies/robot.rs parent lifecycle and projectiles.rs delayed worker",
-    "route": "Settled Crypt full sweep at frames 0,30,60,120,300,359; natural entry remains to be acquired",
+    "route": "Settled Crypt 104-checkpoint replay across opening and shot windows; natural entry remains to be acquired",
     "evidence": [
       "docs/source-port/backlog-archive.md#issue-433",
       "docs/source-port/level-inventory.md",
       "crates/wildside-data/src/lib.rs",
       "crates/wildside-cli/src/sweep/mod.rs"
     ],
-    "next_action": "Implement Robot head-animation eligibility, signed random gate, independent head turn and parent recovery; compare frames 297/307/308, then flight collision order and natural entry",
-    "scope": "Crypt shared assets, truthful comparison and exposed Robot/RNG/HUD discrepancies; natural route completion remains a separate evidence requirement"
+    "next_action": "Probe hurt and interrupted head/body turns against ASM and oracle; acquire natural Crypt entry and raw slot reuse evidence.",
+    "scope": "Robot init, grounded turns and first/third shot lifecycle verified on settled Crypt; natural route and hurt/slot reuse remain."
   },
   {
     "issue": 502,

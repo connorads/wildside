@@ -1540,6 +1540,44 @@ mod tests {
         Some(wildside_data::load_manifest(&manifest_path).expect("load cached manifest"))
     }
 
+    #[test]
+    fn recording_robot_init_hibernates_before_first_walk_loc_3a884() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        // ASM Robot.asm Enemy03_Robot_Init loc_3A884 enters the shared
+        // walker at loc_3C0D2/loc_3C026, whose first pass hibernates before
+        // loc_3C04E/loc_3C0FA can move the body. ROM 28b904000b2863b6760531807760b571f1a5fc1d,
+        // settled Crypt layout 11, oracle recording frames 0..5.
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x41));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x41));
+        for (frame, (x, rng)) in [
+            (0x0095_0000, 0xFFFA),
+            (0x0094_8000, 0xFFFE),
+            (0x0094_0000, 0xFFCB),
+            (0x0093_8000, 0xFFCF),
+            (0x0093_0000, 0xFFD3),
+            (0x0092_8000, 0xFFD7),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            runtime.step_frame(FrameInput::default());
+            let robot = runtime
+                .active_enemies
+                .iter()
+                .find(|enemy| matches!(enemy.family, EnemyFamily::Robot))
+                .expect("Crypt Robot layout 11 remains active");
+            assert_eq!(robot.x_pos, x, "Robot body X at frame {frame}");
+            assert_eq!(
+                runtime.rom_random.offset_word(),
+                rng,
+                "RNG at frame {frame}"
+            );
+        }
+    }
+
     // Boot script that presses Start through the Sega/intro/title sequence,
     // exercising the VDP-shell screens where snapshot capture is active.
     // 0x80 is the Start button mask.

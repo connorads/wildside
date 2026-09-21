@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 - #433 Robot first-init movement
+
+Robot's settled Crypt body was half a pixel ahead at frame 0 although Kid,
+camera and RNG matched. Oracle title-wait rows show the allocated Object
+spends its first pass in `Enemy03_Robot_Init`, then walks. Native skipped
+that hibernate. The shared fresh-enemy scheduler now defers Robot's first
+walk after both title-shell and ordinary gameplay allocation. A red/green
+cache-backed regression pins exact body X and RNG over frames 0..5.
+
+The 104-checkpoint Crypt replay passes state and strict pixels around the
+opening and both shot windows. All 86 focused Robot tests pass. The full
+Crypt sweep keeps its seven HUD pixels, and the 105-level state sweep stays
+97 pass / 8 fail / 24 authoritative diffs. Fast gate passes with 7,438
+core tests. Full TAS preserves 37,518 exact / 241 divergent frames,
+2,391 changed pixels, the 36,836-frame frozen GEMS signature mismatch,
+and zero GEMS command mismatches. Diagnostic `41.*` layout sidecars were
+moved to the debug cache before the final green gate. No paid Jev calls.
+#433 remains open for hurt/turn interruptions, raw slot reuse and natural
+Crypt entry. The campaign remains incomplete.
+
 ## 2026-09-21 - #507 recording enemy comparison
 
 Closed #507. Native and saved oracle enemy lists use one comparison order, so

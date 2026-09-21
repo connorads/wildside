@@ -8877,7 +8877,9 @@ fn fresh_enemy_no_step_passes_loc_3691e(family: EnemyFamily, enemy_level: u8) ->
         EnemyFamily::Goat | EnemyFamily::Ninja | EnemyFamily::Armadillo | EnemyFamily::Orca => 1,
         // ASM Tank.asm loc_3B40A enters loc_3C026/loc_3C0D2 and
         // hibernates before the first loc_3B41C movement callback.
-        EnemyFamily::Tank => 1,
+        // Robot.asm Enemy03_Robot_Init loc_3A884 reaches the same shared
+        // walker entry, so its init pass cannot move the body either.
+        EnemyFamily::Tank | EnemyFamily::Robot => 1,
         // ASM Crab.asm Enemy09_Crab_Init opens with one hibernate, then its
         // loc_3C0D2/loc_3C026 shared-walker entry hibernates once more.
         EnemyFamily::Crab => 2,
@@ -16750,6 +16752,15 @@ impl NativeRuntime {
                 .filter(|enemy| enemy.family == EnemyFamily::Tornado)
                 .map(|enemy| (enemy.segment_index, enemy.layout_index)),
         );
+        // ASM Enemy03_Robot_Init loc_3A884 enters loc_3C026/loc_3C0D2 and
+        // hibernates on its first Object pass. The trailing loader runs after
+        // Execute_Objects, so the next pass must initialise before walking.
+        for enemy in &self.active_enemies[active_before_trailing_load..] {
+            if enemy.family == EnemyFamily::Robot {
+                self.freshly_loaded_enemies_loc_3691e
+                    .insert(ActiveEnemyKey::from_enemy(enemy), 1);
+            }
+        }
         self.ensure_heady_metal_breakup_slots_loc_39247();
     }
 

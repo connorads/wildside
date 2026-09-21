@@ -4754,6 +4754,52 @@ surface one row.
 
 ### #433
 
+2026-09-21 Robot initial walker pass:
+
+The existing settled Crypt recording had native layout-11 Robot body X
+148.5 versus oracle 149 at frame 0, with Kid, camera, counts and RNG
+matching. A six-frame oracle probe and a temporary native target-window
+probe separated position age from global RNG age. Shortening the hidden
+window by one frame aligns body X but leaves RNG one longword behind, so
+altering the settle count is rejected. Oracle title-wait row 75 allocates
+Robot as an Object with resume PC `Enemy03_Robot_Init loc_3A770`; row 76
+initialises its Gfx slot at X120; row 77 first walks to X120.5. Native
+walked to X120.5 on its init row. Robot.asm `loc_3A884` enters shared
+walker `loc_3C026/loc_3C0D2`, whose first Object pass hibernates before
+`loc_3C04E/loc_3C0FA` movement. The generic fresh-enemy scheduler now
+defers Robot's first movement pass for both the hidden debug-title loader
+and ordinary trailing gameplay allocation. This is a family-level timing
+rule, not a Crypt coordinate adjustment. Temporary diagnostics were
+removed after the source/phase comparison.
+
+The cache-backed regression `recording_robot_init_hibernates_before_first_walk_loc_3a884`
+fails before the correction at frame 0 (native 148.5, oracle 149) and
+passes after it with exact body X and RNG offsets through frame 5. All 86
+focused Robot tests pass. The checkpointed 360-frame replay
+`.cache/recordings/crypt-robot-init-delay-dense/` compares 104 points
+across frames 0..71 and 295..325 plus 359; its state and strict pixels
+pass at every checkpoint. The first attempt using the older zero-checkpoint
+scenario was comparison-empty and is not evidence. Saved before/after
+Crypt sweep PNGs at frames 0, 30, 120 and 300 are byte-identical because
+Robot is outside the viewport; an inspected native frame confirms that
+visibility limit. Full Crypt sweep 1789981357 passes 0x38/0x41/0x47 with
+the existing seven-pixel HUD residue.
+
+The 105-level state sweep 1789981379 matches the #506 baseline exactly
+apart from artefact paths: 97 passes, 8 fails, 24 authoritative diffs,
+6 advisory diffs and 96 oracle limitations. The recording command generated diagnostic `level-layout/41.*` files that
+made the web asset-catalogue test fail; those four cache-only sidecars are
+isolated in `.cache/debug/robot-init-probe-sidecars/`. The workspace test
+ratchet then passes with zero new failures. No comparison tolerance,
+exception or baseline changes. This closes the first-init position gap
+only; Robot hurt/turn interruption, raw slot reuse and natural entry remain
+under #433. `verify-slice-fast` passes in 195.25s with 7,438 core
+tests, Clippy, all frontier checks and zero new workspace failures. Full
+TAS checks all 37,759 frames: gameplay/enemy/RNG comparisons retain their
+baseline, 37,518 exact / 241 divergent frames and 2,391 changed pixels,
+36,836 GEMS signature mismatches from frame 923, and zero GEMS command
+mismatches. No paid Jev calls.
+
 2026-09-20 Robot child wake, terrain and impact investigation:
 
 The frame-307 deletion is the generic owner's Lion camera cull. Excluding
