@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 - Jev case-specific collector and #502 preflight
+
+The collector now takes a case start, goal and optional progress limit. #502
+uses trace `number_objects` as a 21-Object discovery trigger and cannot pass
+on that count alone. Offline six-frame capture/replay succeeds on level 0x2C,
+but oracle frame 0 differs in RNG and 39 pixels. Level 0x48 differs in enemy
+count and 19 pixels. Paid discovery remains gated; no additional Jev spend.
+
 ## 2026-09-21 - Jev stalled-route guard
 
 The BLW2 paid collector now stops after 24 six-frame decisions without

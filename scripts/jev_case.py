@@ -16,6 +16,13 @@ from jev_audit import ROOT, audit
 from jev_proof import command, read_json, sha256, write_json
 import jev_case_service
 
+CASE_STARTS = {210: None, 254: None, 327: 1, 370: 0, 502: 0x2c}
+LIVE_GOALS = {
+    327: "Reach the BLW2 teleporter at x2503 y575, stand still for 90 frames, then observe arrival near x448 y143. Stay alive and find a higher route around walls.",
+    502: "In level 0x2c, keep Drips workers alive while moving through the level. Reach at least 21 live Objects, then move back and forth across the Drips activation range to capture both sides of the threshold.",
+}
+STALL_LIMITS = {327: 24}
+
 
 def route(issue):
     if issue in (210, 254):
@@ -33,6 +40,14 @@ def breath(frame):
 
 
 def encounter(issue, trace):
+    if issue == 502:
+        witness = next((i for i, frame in enumerate(trace)
+                        if frame.get("number_objects", 0) >= 21), None)
+        return {"complete": witness is not None, "witness_frame": witness,
+                "symptom_pass": False,
+                "window": [max(0, (witness if witness is not None else len(trace) - 1) - 30),
+                           min(len(trace) - 1, (witness if witness is not None else len(trace) - 1) + 30)],
+                "scope": "Drips live Object count threshold witness; range-call parity still required"}
     if issue in (210, 254):
         complete = len(trace) >= 3300 and any(f["game_mode"] == "TitleScreen" for f in trace[:2718])
         return {"complete": complete, "symptom_pass": complete and all(
@@ -116,7 +131,8 @@ def render_report(output, report):
 def capture(output, issue, inputs, checkpoints, env, live=False):
     config = output / "input.json"
     write_json(config, {"issue": issue, "output": str(output / "bundle"), "script": inputs,
-                        "checkpoints": checkpoints, "live": live})
+                        "checkpoints": checkpoints, "live": live, "start_level": CASE_STARTS[issue],
+                        "goal": LIVE_GOALS.get(issue), "stall_after_batches": STALL_LIMITS.get(issue)})
     command(["cargo", "test", "-q", "-p", "wildside-cli", "recording::jev_cases::case_bundle",
              "--", "--ignored", "--exact", "--nocapture"], ROOT, output / "capture.log",
             env=env | {"JEV_CASE_INPUT": str(config)})
@@ -166,7 +182,8 @@ def negative_control(output, issue, inputs, trace, assessment, env, revision):
                 checkout, output / "rebuild-sandbox-wrappers.log", env=env)
     config = output / "negative-input.json"
     write_json(config, {"issue": issue, "output": str(output / "negative-bundle"),
-                       "script": inputs, "checkpoints": [0, len(inputs) - 1]})
+                       "script": inputs, "checkpoints": [0, len(inputs) - 1],
+                       "start_level": CASE_STARTS[issue]})
     command(["cargo", "test", "-q", "-p", "wildside-cli", "recording::jev_cases::case_bundle",
              "--", "--ignored", "--exact", "--nocapture"], checkout, output / "negative-capture.log",
             env=env | {"JEV_CASE_INPUT": str(config), "CARGO_TARGET_DIR": str(build)})
@@ -237,13 +254,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--issue", type=int, required=True)
     parser.add_argument("--script", type=Path, help="private JSON array of ordinary controller masks")
-    parser.add_argument("--live", action="store_true", help="explicitly permit bounded paid discovery for #327")
+    parser.add_argument("--live", action="store_true", help="explicitly permit bounded paid route discovery")
     args = parser.parse_args()
     entries = {row["issue"]: row for row in audit()}
     if args.issue not in entries:
         parser.error("issue is not in the unresolved catalogue")
-    if args.live and (args.issue != 327 or args.script):
-        parser.error("live discovery starts naturally at BLW2; no unverified prefix is accepted")
+    if args.issue not in CASE_STARTS:
+        parser.exit(1, entries[args.issue]["next_action"] + "\n")
+    if args.live and (args.issue not in LIVE_GOALS or args.script):
+        parser.error("live discovery needs a configured case goal and no unverified prefix")
     if args.live and not os.environ.get("TYPESAFE_API_KEY"):
         parser.error("TYPESAFE_API_KEY is required for --live")
     inputs = [] if args.live else read_json(args.script) if args.script else route(args.issue)

@@ -214,3 +214,16 @@ the append-only input journal for exact replay. An offline regression covers
 the saved release-stall pattern and a moving route with a temporary detour.
 This bounds the known paid stall; no new Jev route or model-policy improvement
 has been measured.
+
+## Case-specific route collection - 2026-09-21
+
+The private collector takes an explicit settled start, goal and optional
+forward-progress limit. #327 retains its 24-decision X guard. #502 has a
+separate level 0x2C Drips goal and checks the trace's `number_objects` field
+for a 21-Object candidate. A candidate is discovery evidence only: the
+`Object_CheckInRange` 20/21 call and native/oracle outcome still need proof.
+
+An offline six-frame #502 run replays exactly but cannot pass the paid
+preflight. At level 0x2C, frame 0 RNG differs (native FFCB, oracle FFF2)
+and 39 pixels differ. Level 0x48 also fails at frame 0 (native four enemy
+Objects, oracle ten; 19 pixels differ). No paid #502 request was sent.
