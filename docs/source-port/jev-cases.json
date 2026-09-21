@@ -1107,7 +1107,7 @@
       "docs/source-port/backlog-archive.md#issue-509",
       "crates/wildside-core/src/tests/level_tests.rs"
     ],
-    "next_action": "Probe slot 21's loc_3C152 edge-turn tick against oracle title-wait rows; slots 15/16 already match after the loc_74E0 boundary correction.",
+    "next_action": "Compare slot 21's first scheduled object tick with slots 15/16 during title-wait allocation; the X235 edge turn already matches oracle rows 90-91.",
     "scope": "Woods of Despair 1 RockTank slot 21 is one pixel ahead after hidden settle, with matching Object and Gfx counts."
   }
 ]

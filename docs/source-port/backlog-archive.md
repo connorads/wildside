@@ -230,6 +230,14 @@ its existing tolerance. `verify-slice-fast` and `verify-tas-full` pass. Full
 105-level state sweep stays at 98 pass/7 fail with no changed blocking row
 (`.cache/sweep-runs/1790033818/report.json`).
 
+Follow-up probe 2026-09-22: temporary native `step_pacer` tracing (removed)
+shows slot 21 entering the walker at X248, stepping left to X235, holding
+X235 for its turn, then walking right. Oracle title-wait rows 77-92 have
+the same X248-to-X235 sequence and one held X235 turn. The `loc_3C152`
+edge-turn branch is not the residual cause. Compare the first scheduled
+object tick and allocation order for slot 21 against slots 15/16; avoid
+changing the shared turn condition from the one-pixel frame-0 residue.
+
 <a id="issue-508"></a>
 ### #508
 
