@@ -14870,8 +14870,8 @@ mod chunk_04 {
             "ASM loc_333F6 should converge inside the safety frame budget",
         );
         assert_eq!(
-            enemy.y_velocity, 0,
-            "ASM loc_333F6 clears y_vel on ceiling contact",
+            enemy.y_velocity, DRIPS_CEILING_ATTACH_RISE_VELOCITY,
+            "ASM loc_1A6C preserves y_vel until the next loc_333F6 Object pass",
         );
         assert_eq!(
             enemy.y_pos, 0x0022_0000,
@@ -14887,6 +14887,12 @@ mod chunk_04 {
         );
 
         step_drips(&mut enemy, &mut projectiles, Some(&grid));
+        assert_eq!(enemy.y_pos, 0x0022_0000);
+        assert_eq!(
+            enemy.y_velocity, 0,
+            "ASM loc_333F6 clears y_vel on the first Object pass after contact",
+        );
+        assert_eq!(enemy.wait_timer, DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E);
         step_drips(&mut enemy, &mut projectiles, Some(&grid));
         assert_eq!(
             enemy.wait_timer, DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E,

@@ -11,6 +11,81 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #500
+
+The #498 route, extended with 318 released-input frames to 600 total,
+reproduces the Drips contact-velocity defect at frame 243. Baseline bundle
+`.cache/recordings/drips-parent-idle-baseline/` replays exactly. All 600
+Kid position/velocity/HP and Object/Gfx counts match the emulator. Identifying
+parents by their Gfx slots 6/9 gives 740 observations from 230 through 599:
+only the two Y velocities at 243 differ, native zero versus oracle -65536.
+Positions, including the ceiling snap, remain exact. At 244 the ROM clears
+velocity. The existing 282-frame #498 fixture already reproduces the defect;
+the extension covers the later forming/drop phases without a second fixture.
+
+ASM `Mode_Level` executes Objects before Gfx movement and collision.
+`loc_1A6C` writes colid_ceiling and snaps Y without touching y_vel. The next
+`Drips.asm loc_333F6` resume observes that collision, clears velocity and
+enters `loc_3340E`. `GfxObjects_Collision_TopBoundary loc_1B30` likewise
+leaves velocity intact. Native calls the ceiling-gate helper during collision
+instead of on that next resume.
+
+The private correction moves the existing gate to the existing pending-seed
+bridge. Reversal requires only moving the clear back; no exposed schema,
+new state field, comparator exception or compatibility layer is needed.
+Changing the rise, snap or RNG schedule is rejected because those observations
+already match. This unit does not claim parent roster/deletion/attack parity.
+
+The red-first focused regression fails with velocity zero instead of -65536.
+The family suite then identifies an older rise-to-ceiling test whose expected
+zero encoded the same premature clear. Its assertion is corrected from source
+and it checks both contact and the immediately following Object pass, including
+unchanged snapped position and pending RNG phase. The temporary overlapping
+short test is consolidated into that permanent regression. Existing terrain
+left/right and top-boundary tests retain their geometry checks with the correct
+contact-frame velocity; no values are accepted from native output alone.
+
+All 178 Drips-filtered core tests pass. Fixed bundle
+`.cache/recordings/issue-500-drips-contact-fixed/` replays exactly. A recursive
+before/after comparison of all 600 native trace frames has exactly two changed
+leaves: `active_enemy_details[2/3].y_velocity` at 243, zero to -65536.
+All 740 parent observations have exact X/Y and both velocities against the
+oracle, identified by persistent parent Gfx slots 6/9 even while their falling
+children are visible. All 600 Kid position/velocity/HP and Object/Gfx counts
+remain exact. Every native PNG is byte-identical to baseline; before/after
+contact captures are inspected. The whole-route verifier remains red at 230
+for the pre-existing missing-parent roster. Its 247 exact images / 13,294
+changed pixels include uncorrected slope-entry and rubber-block art.
+
+The 105-level state sweep 1789952244 matches every record and summary of
+1789950739 after normalising artefact paths: 95 pass / 10 fail, 28 blocking,
+6 advisory and 96 oracle limitations. No comparison tolerance or baseline
+changes; no paid Jev requests.
+
+Full level-01 sweep 1789952272 preserves every state/MAE/pixel/checkpoint
+result from 1789950763, including seven mismatched pixels.
+
+`mise run verify-slice-fast` passes in 229.56 seconds with 7,431 core tests,
+Clippy, script checks, workspace ratchets and catalogue audit green.
+
+The wider parent-roster investigation remains open. A continuation of the
+600-frame idle prefix with 240 Right+A frames loses HP at 617 and dies before
+camera X reaches 877, the normal-range deletion threshold for the X456 parent.
+Right+A+B at 600..624 or 600..650 followed by Right+A also dies, with first
+HP loss at 613 and maximum camera X530. Those native-only controls cannot
+attribute contact or deletion behaviour to the oracle. Their recording slugs
+are `drips-range-right-control`, `drips-range-jump-624` and
+`drips-range-jump-650`. Park this late-approach family; continue from the earlier
+282-frame prefix before the first drop, or use an explicitly diagnostic fork.
+The ROM range check runs in rising/falling-child phases, not every dormant
+countdown. Native's retained/paused parent approximation and recording-only
+count helper must not be promoted into claimed lifetime fidelity.
+
+`mise run verify-tas-full` passes across all 37,759 frames. Frozen pixel debt
+remains 37,518 exact / 241 divergent / 2,391 changed pixels; GEMS signatures
+retain 36,836 mismatches beginning at 923 and GEMS commands retain zero
+mismatches. #500 closes only the premature ceiling-contact velocity clear.
+
 ### #499
 
 The 2026-09-21 BLW2 route from #498 first fails state comparison at frame
@@ -26005,6 +26080,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 500 | [x] | P1 | enemy/Drips | Parent velocity clears on the Object pass after ceiling contact. | ASM loc_1A6C/loc_333F6; 740 exact parent observations through 600-frame replay; archive #500. |
 | 499 | [x] | P1 | trace/Drips | Drips Gfx slots count only after the initialiser pass. | ASM Enemy16_Drip_Init; exact Object/Gfx counts at all 282 BLW2 checkpoints; archive #499. |
 | 498 | [x] | P1 | player/slope | Slope-to-air exits snap and enter Jump using the ROM centre-cell branch. | Red-first exit regression, leftward fractional-Y case, exact 282-frame Kid/camera state and unchanged sweeps. |
 | 497 | [x] | P1 | level/flag | Shifted flag collision and rendering use ROM world coordinates. | Red-first contact/word-wrap regressions; exact local stop position and oracle Gfx anchors; inspected captures. |

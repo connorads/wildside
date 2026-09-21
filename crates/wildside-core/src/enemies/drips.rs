@@ -1453,8 +1453,8 @@ pub(crate) fn step_drips(
 ) {
     // ASM Enemy16_Drip_Init -> loc_333F6 (Drips.asm:35-64): the slime spawns
     // with `y_vel=-$10000` and hibernates one frame at a time until the
-    // engine reports `collision_type(a3) == colid_ceiling`. On collision the
-    // ROM clears collision_type and y_vel, then enters the wait/drop cycle.
+    // engine reports `collision_type(a3) == colid_ceiling`. On the following
+    // Object pass the ROM clears collision_type and y_vel, then waits to drop.
     if !enemy.drips_attached {
         if let Some(grid) = block_grid {
             // Apply the -1px/frame rise, then test the box-top row the way
@@ -1473,11 +1473,7 @@ pub(crate) fn step_drips(
                 // ASM GfxObjects_Collision_TopBoundary (loc_1B30): a negative
                 // box top clamps the object so its box top rests at 0 and
                 // reports colid_ceiling.
-                let gate = drips_ceiling_gate_loc_333_f6(DRIPS_COLID_CEILING, enemy.y_velocity);
-                debug_assert!(!gate.waiting_for_ceiling);
-                debug_assert_eq!(gate.collision_type, 0);
                 enemy.y_pos = (DRIPS_CEILING_BOX_TOP_OFFSET_LOC_1A6C as u32) << 16;
-                enemy.y_velocity = gate.y_velocity;
                 enemy.drips_attached = true;
                 enemy.wait_timer = DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E;
                 return;
@@ -1496,15 +1492,11 @@ pub(crate) fn step_drips(
                 )
             });
             if contact {
-                // ASM loc_333F6 exits only after GfxObjects_Collision has
-                // reported colid_ceiling. loc_1A6C then writes back
+                // ASM loc_1A6C reports colid_ceiling and writes back
                 // `y = contact_tile_top - y_off + $10` = tile_top + $12.
-                let gate = drips_ceiling_gate_loc_333_f6(DRIPS_COLID_CEILING, enemy.y_velocity);
-                debug_assert!(!gate.waiting_for_ceiling);
-                debug_assert_eq!(gate.collision_type, 0);
+                // It leaves y_vel intact for the next loc_333F6 resume.
                 let contact_tile_top = i32::from(contact_row) * 16;
                 enemy.y_pos = ((contact_tile_top + DRIPS_CEILING_SNAP_TOP_OFFSET) as u32) << 16;
-                enemy.y_velocity = gate.y_velocity;
                 enemy.drips_attached = true;
                 // ASM loc_3340E draws the RNG byte at the object's own
                 // Execute_Objects slot. Same-frame attaches must consume RNG
@@ -1527,6 +1519,12 @@ pub(crate) fn step_drips(
         return;
     }
     if enemy.wait_timer == DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E {
+        // ASM loc_333F6 resumes after the previous frame's collision pass;
+        // the ceiling snap itself does not clear the rising Gfx velocity.
+        let gate = drips_ceiling_gate_loc_333_f6(DRIPS_COLID_CEILING, enemy.y_velocity);
+        debug_assert!(!gate.waiting_for_ceiling);
+        debug_assert_eq!(gate.collision_type, 0);
+        enemy.y_velocity = gate.y_velocity;
         enemy.wait_timer = DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E;
         return;
     }
@@ -1994,8 +1992,8 @@ mod tests {
             "ASM loc_1B30 clamps the object so its 2px top box rests at the level top",
         );
         assert_eq!(
-            enemy.y_velocity, 0,
-            "ASM Drips.asm loc_333F6 clears y_vel after the top-boundary ceiling contact",
+            enemy.y_velocity, DRIPS_CEILING_ATTACH_RISE_VELOCITY,
+            "ASM loc_1B30 leaves y_vel intact until the next Drips.asm loc_333F6 resume",
         );
         assert_eq!(
             enemy.wait_timer, DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E,
@@ -2054,7 +2052,7 @@ mod tests {
             enemy.y_pos, 0x0032_0000,
             "ASM loc_1A6C snaps to contact tile top plus `$12` after ceiling terrain contact",
         );
-        assert_eq!(enemy.y_velocity, 0);
+        assert_eq!(enemy.y_velocity, DRIPS_CEILING_ATTACH_RISE_VELOCITY);
         assert_eq!(enemy.wait_timer, DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E);
         assert!(projectiles.is_empty());
     }
@@ -2081,7 +2079,7 @@ mod tests {
             "ASM loc_333F6/loc_1A6C includes the right `center_x+5` ceiling probe column",
         );
         assert_eq!(enemy.y_pos, 0x0032_0000);
-        assert_eq!(enemy.y_velocity, 0);
+        assert_eq!(enemy.y_velocity, DRIPS_CEILING_ATTACH_RISE_VELOCITY);
         assert_eq!(enemy.wait_timer, DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E);
         assert!(projectiles.is_empty());
     }

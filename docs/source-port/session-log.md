@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 handoff (Drips ceiling-contact velocity)
+
+#500 moves the Drips velocity clear from collision to the following Object
+pass, matching `loc_1A6C` and `loc_333F6`. The red-first observation is
+consolidated into the permanent rise-to-ceiling regression, which checks
+contact, immediate resume, position and pending RNG state. Existing left/right
+terrain and top-boundary expectations are corrected from ASM. All 178 Drips
+tests pass. The 600-frame replay changes exactly two native trace values,
+parent Y velocities at 243. All 740 parent observations match emulator position
+and velocity; Kid state, counts and every native PNG are unchanged.
+
+State sweep 1789952244 and full level-01 sweep 1789952272 preserve every prior
+result. Fast gate passes in 229.56 seconds with 7,431 core tests and Clippy
+green. Full TAS retains all 37,759 checked frames and the frozen pixel/audio
+baselines, with zero GEMS command mismatches. No paid Jev calls.
+
+The route verifier still rejects the omitted parent roster. Lifetime and
+direct-boot count boundaries need evidence before exposing retained controllers
+as Gfx snapshots. Three native-only continuations after the 600-frame wait die
+before the deletion boundary; their rejected timings are in archive #500.
+Continue #300 from the earlier 282-frame prefix, before the first falling drop.
+Slope-entry poses and rubber-block art remain unresolved. Jev observation units
+are corrected, but a progress/stall guard remains required before paid collection.
+#499 is committed as d3b365759. Frozen debt is unchanged and no teleporter route
+or whole-game completion is claimed.
+
 ## 2026-09-21 handoff (Drips allocation counts)
 
 #499 counts newly allocated Drips Objects immediately and their three Gfx
