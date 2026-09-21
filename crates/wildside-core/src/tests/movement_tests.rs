@@ -10439,6 +10439,36 @@ mod chunk_11 {
         assert_eq!(left.player.wall_cling_direction, None);
         assert!(!left.player.left_wall_sticky);
     }
+
+    #[test]
+    fn hidden_canyon_rubber_entry_refreshes_speed_before_motion_loc_8e16_sub_8600() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x35)
+            .settle_recording_warp()
+            .run(&[0x48; 120], 120);
+
+        assert_eq!(
+            (
+                trace[118].kid_x_pos,
+                trace[118].kid_x_velocity,
+                trace[118].camera_x_pos
+            ),
+            (Some(0x00FB_5980), Some(0x0003_1800), 0x004A_0000),
+            "ASM loc_8E16: normal ground acceleration still applies before the rubber-majority foot span"
+        );
+        assert_eq!(
+            (
+                trace[119].kid_x_pos,
+                trace[119].kid_x_velocity,
+                trace[119].camera_x_pos
+            ),
+            (Some(0x00FD_D980), Some(0x0002_8000), 0x004C_0000),
+            "ASM loc_8E16 -> sub_8600 -> sub_9A0A: terrain code 2 selects unk_9C7A before the frame-119 X step"
+        );
+    }
 }
 
 mod chunk_12 {

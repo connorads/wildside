@@ -3227,23 +3227,10 @@ impl OpeningSliceState {
                     // sub_8600 on every flat walking frame before sub_9A0A
                     // chooses the ground speed table.
                     //
-                    // Native keeps rubber entry constrained while the
-                    // high-speed rubber/death seam is still modelled by older
-                    // collision paths: the natural frame-731 hand-off is a
-                    // stale Normal latch at or below the normal walking cap.
-                    // Leaving rubber is different: ASM sub_8600 refreshes code
-                    // 0 unconditionally before sub_9A0A, and stale rubber
-                    // latches must not survive onto normal support.
                     let x_px = (self.player.x_pos >> 16) as i32;
                     let y_px = (self.player.y_pos >> 16) as i32;
                     let refreshed = grounded_surface_type_sub_8600(grid, x_px, y_px, collision_hw);
-                    let speed = self.player.x_velocity.unsigned_abs();
-                    if (refreshed == TerrainType::Rubber && speed <= 0x0002_0000)
-                        || (self.terrain.floor_terrain_type != TerrainType::Normal
-                            && refreshed == TerrainType::Normal)
-                    {
-                        self.terrain.floor_terrain_type = refreshed;
-                    }
+                    self.terrain.floor_terrain_type = refreshed;
                 }
 
                 let entry_stage = self.kid_flip_follow_on_stage_state();

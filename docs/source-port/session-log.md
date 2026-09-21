@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 - Hidden Canyon rubber entry from saved Jev replay
+
+The saved #502 input route exposed a frame-119 movement divergence. Oracle terrain
+RAM and ASM `loc_8E16` showed a rubber entry at speed above `$20000`; native
+detected the block but held the old Normal terrain. Removing that guard makes all
+390 replay frames match oracle player/camera CRC. The focused regression,
+`verify-slice-fast`, and the 37,759-frame full TAS gate pass. #502 remains open
+because no Drips close-range range check was reached; its paid case is exhausted.
+
 ## 2026-09-21 - #502 paid Hidden Canyon pilot
 
 Three bounded Jev attempts charged 269 requests and $0.045005898. The
