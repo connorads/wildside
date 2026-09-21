@@ -187,23 +187,6 @@ pub(crate) fn drips_surface_sprite_write_loc_3350e(selected_sprite_offset: u16) 
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) struct DripsIdleLoopLoc33516 {
-    pub(crate) hibernates_one_frame: bool,
-    pub(crate) checks_in_range: bool,
-    pub(crate) loops_forever: bool,
-}
-
-pub(crate) fn drips_idle_loop_loc_33516() -> DripsIdleLoopLoc33516 {
-    // ASM Drips.asm loc_33516: call one-frame hibernate, run
-    // Object_CheckInRange, then branch back to the same idle loop.
-    DripsIdleLoopLoc33516 {
-        hibernates_one_frame: true,
-        checks_in_range: true,
-        loops_forever: true,
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct DripsVelocityDeltasLoc33526 {
     pub(crate) x_delta: i32,
     pub(crate) y_delta: i32,
@@ -1446,6 +1429,37 @@ pub(crate) fn drips_child_state_bytes_loc_3333e(enemy_level: u8) -> (u8, u8) {
     }
 }
 
+/// ASM Drips.asm loc_333F6/loc_3345C: check range only after their hibernate.
+pub(super) fn drips_parent_exits_range(
+    enemy: &ActiveEnemy,
+    camera_x_px: Option<u32>,
+    camera_y_px: Option<u32>,
+) -> bool {
+    // ASM loc_3345C applies its first gravity after the zero-velocity child
+    // frame. Native materialises that child on the first gravity pass, when
+    // the final forming marker is 1 (oracle #501 frames544/545).
+    let checks_range = !enemy.drips_attached
+        || drips_pre_drop_animation_remaining_loc_33424(enemy.wait_timer) == Some(1)
+        || matches!(
+            enemy.wait_timer,
+            DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E | DRIPS_DROP_IN_FLIGHT_TIMER
+        );
+    if !checks_range {
+        return false;
+    }
+    let (Some(camera_x_px), Some(camera_y_px)) = (camera_x_px, camera_y_px) else {
+        return false;
+    };
+    // TODO(fidelity): #502 must supply live Number_Objects for the tighter
+    // Object_CheckInRange bounds above 20; this is the normal-range branch.
+    let object_x_pos = (enemy.x_pos >> 16) as i16;
+    let object_y_pos = (enemy.y_pos >> 16) as i16;
+    let camera_x_pos = camera_x_px as i16;
+    let camera_y_pos = camera_y_px as i16;
+    !crate::level::object_check_in_range_normal_x_loc_320C0(object_x_pos, camera_x_pos)
+        || !crate::level::object_check_in_range_normal_y_loc_320D8(object_y_pos, camera_y_pos)
+}
+
 pub(crate) fn step_drips(
     enemy: &mut ActiveEnemy,
     projectiles: &mut Vec<EnemyProjectile>,
@@ -1513,9 +1527,9 @@ pub(crate) fn step_drips(
     }
 
     if enemy.wait_timer == DRIPS_DROP_IN_FLIGHT_TIMER {
-        // ASM Drips.asm loc_33516: while the preallocated falling child is
-        // active, the parent hibernates one frame, range-checks, and loops.
-        let _idle = drips_idle_loop_loc_33516();
+        // ASM Drips.asm loc_3345C: the coroutine range check runs in enemy
+        // dispatch; step_projectiles advances the owned child's gravity and
+        // collision while this controller waits for its splash.
         return;
     }
     if enemy.wait_timer == DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E {
@@ -1951,19 +1965,6 @@ mod tests {
             drips_surface_sprite_write_loc_3350e(0),
             0,
             "ASM Drips.asm loc_3350E also writes the zero sprite word produced by the table reset path"
-        );
-    }
-
-    #[test]
-    fn drips_idle_loop_matches_loc_33516() {
-        assert_eq!(
-            drips_idle_loop_loc_33516(),
-            DripsIdleLoopLoc33516 {
-                hibernates_one_frame: true,
-                checks_in_range: true,
-                loops_forever: true,
-            },
-            "ASM Drips.asm loc_33516 hibernates for one frame, checks object range, then branches back to itself"
         );
     }
 

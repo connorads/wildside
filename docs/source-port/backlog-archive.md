@@ -26080,6 +26080,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 501 | [x] | P1 | enemy/Drips | Parents retain normal-range coroutine lifetime and release their owned falling child on unload. | ASM loc_333F6/loc_3345C; 645 exact parent observations and 560 exact RNG frames; archive #501. |
 | 500 | [x] | P1 | enemy/Drips | Parent velocity clears on the Object pass after ceiling contact. | ASM loc_1A6C/loc_333F6; 740 exact parent observations through 600-frame replay; archive #500. |
 | 499 | [x] | P1 | trace/Drips | Drips Gfx slots count only after the initialiser pass. | ASM Enemy16_Drip_Init; exact Object/Gfx counts at all 282 BLW2 checkpoints; archive #499. |
 | 498 | [x] | P1 | player/slope | Slope-to-air exits snap and enter Jump using the ROM centre-cell branch. | Red-first exit regression, leftward fractional-Y case, exact 282-frame Kid/camera state and unchanged sweeps. |
@@ -28249,3 +28250,33 @@ path, so it cannot silently borrow `Mode_Level`'s absent `sub_6874` or
 `sub_E12` calls. One implementation covers all 62 repeat edges. NEXT: compose
 the pre-VINT, sprite/palette/scroll DMA, and repeat suffix around one retained
 cursor; keep the nine descriptor transitions as typed handler edges.
+
+<a id="issue-501"></a>
+## #501 - Drips parent lifetime at normal Object pressure
+
+- Reproduced with ordinary inputs after settled level-01 entry in `tests/data/dynamic-scenarios/issue-501-drips-parent-lifetime.json`. Kid position, velocity, HP and camera match the emulator for all 560 frames. This is not natural campaign entry or a completed teleporter route.
+- Baseline `.cache/recordings/drips-range-healthy-prefix/` deletes parent x456 at 392 and x584 at 431. Oracle keeps the first through 544 and the second through 559. RNG first differs at 431. Earlier one-Object deficits at 309/359 remain separate.
+- ASM Drips.asm loc_333F6 and loc_3345C check range after hibernating. Dormant loc_33424, forming and splash animation do not. Deallocate_ObjectSlot frees the three owned Gfx slots; independently allocated crawlers survive. Observed Object42 values 87/88 take Object_OutOfRange's no-status-write path.
+- Design decision is reversible. Return private deleted-owner keys from enemy execution, release owned drops immediately and remove parents after restoring storage order. Reversal is local to dispatch and its two runtime callers. A pre-pass would run before Haze/init skips; deleting directly from the ordered slice would invalidate storage restoration. Neither fits the coroutine boundary.
+- Scope is the existing normal-range branch. The witness has at most 12 Objects. #502 tracks the absent live-pressure count; a frame-start snapshot or projectile-length delta cannot represent parent-held children or interleaved allocations. No high-pressure correctness claim.
+
+- Source correction: the native falling-child sentinel corresponds to loc_3345C, not the separate loc_33516 idle loop. Remove the unused constant-return idle helper and its mirror test; live dispatch tests verify the actual coroutine boundary.
+
+- First implementation restores all 560 RNG samples but unloads x456 at 546, one frame late. Oracle exposes its zero-velocity falling child at 544 and deletes the parent at 545. Native's final forming timer value 1 overlaps that ROM child frame; materialisation on the next pass also applies the first loc_3345C gravity step. The range check must precede that step, including this final timer value. Waiting for the native in-flight sentinel misses the first resume. This is a phase-mapping correction, not a camera offset.
+
+- Final replay `.cache/recordings/issue-501-drips-parent-lifetime-fixed/` is native-deterministic. Across all 560 frames, Kid X/Y, velocities, HP, camera and RNG offset/last-byte/ring are bit-exact against the emulator. All 645 initialised parent position/velocity observations and both lifetimes match: x456 persists through 544 and deletes 545; x584 persists through 559. Frame 545 removes exactly one Object and three Gfx slots.
+- Objective boundary: the full verifier remains red at 230 because native suppresses parent roster entries. Other count gaps remain visible (57 Object-count frames, 54 Gfx-count frames); the scoped lifetime/RNG evidence does not close them. Initial pending allocation 229 is outside the 645 initialised-parent observations.
+- Visual check: all 560 native PNGs are byte-identical to the unfixed replay; 316 are oracle-exact, 95,490 changed pixels remain across the route. Before/after frame 431 inspected. State sweep 1789955312 matches 1789952244 in every normalised report field (95 pass/10 fail, 28 blocking, 6 advisory, 96 limitations). Full level-01 sweep 1789955351 matches 1789952272, retaining 7 pixels at idle_tail. No baseline or exception changes.
+- Permanent regressions cover dormant execution, forming/splash retention, first falling resume, Haze/init deferral, inclusive signed-word range bounds, owned drop deletion, independent crawler survival and retained allocation counts. 182 focused Drips tests pass. The corrected dormant timer and retained-count tests fail before the fix; the first-fall regression fails on the initial one-frame-late implementation.
+
+- Retention audit: Drips init consumes and overwrites its layout pointer; loc_333F6/loc_3345C consult only live state. Manage_EnemyLoading loc_3682C..loc_36968 does not delete previously linked Objects. Retention therefore precedes native segment/index validation. A changed or empty layout view cannot delete the controller.
+- Separate investigation candidate: native selects EnemyLayoutView from camera on every refresh; ASM loc_31FD4 selects during Load_InGame's j_loc_31F8E call. The 560-frame route does not verify dynamic bucket selection or status-table consequences. Probe that wider loader behaviour before changing it.
+
+- Closure under the campaign's objective-evidence rule. Final fast gate passes in 273.88s with 7,435 core tests and Clippy green. Full TAS checks 37,759 frames and retains 37,518 exact/241 divergent frames, 2,391 changed pixels, 36,836 frozen GEMS-signature differences from 923 and zero command differences. Final-build recording replay remains exact; no existing failure is masked or baseline relaxed.
+
+<a id="issue-502"></a>
+## #502 - Live Object pressure at Drips range checks
+
+- Source-backed gap, no isolated emulator witness yet. Object_CheckInRange reads Number_Objects at each call, selecting tighter signed-word bounds above 20. Drips dispatch uses only normal bounds. Minimum gate is fast-slice plus full TAS and a named 20/21 oracle witness.
+- Rejected shortcut: `active_enemies.len()+3` omits child, block, prize and system workers. `active_objects()` reads the cached roster, which refresh_active_roster clears before dispatch. A projectile delta also misses Lion parent counters, Dragon breath lifecycle and preallocated Shishkaboss children.
+- Candidate seam: share the mutable-enemy worker projection with trace counts, preserve the fixed-worker component before clearing rosters and recompute live mutable workers at each check. Verify earlier allocation and earlier deletion crossing the threshold, Haze/init skips and Object42 status-write routes. Do not broaden #501's low-pressure proof to this gap.

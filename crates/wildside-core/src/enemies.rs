@@ -5056,7 +5056,7 @@ pub(crate) fn step_active_enemies_with_rng(
     drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
     played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
     freshly_loaded_enemies: &mut std::collections::HashMap<ActiveEnemyKey, u8>,
-) {
+) -> Vec<ActiveEnemyKey> {
     step_active_enemies_with_rng_context(
         active,
         block_grid,
@@ -5076,7 +5076,7 @@ pub(crate) fn step_active_enemies_with_rng(
         played_sound_effects,
         freshly_loaded_enemies,
         BossFireFrameContext::default(),
-    );
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -5111,7 +5111,8 @@ fn step_active_enemies_with_rng_context(
     mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
     freshly_loaded_enemies: &mut std::collections::HashMap<ActiveEnemyKey, u8>,
     boss_fire_context: BossFireFrameContext,
-) {
+) -> Vec<ActiveEnemyKey> {
+    let mut deleted_parents = Vec::new();
     seed_pending_archer_initial_hibernates_loc_33fda(active, camera_x_px, rng);
 
     let mut drill_drive_refcount = active
@@ -6041,9 +6042,21 @@ fn step_active_enemies_with_rng_context(
                         );
                     }
                 } else if matches!(enemy.family, EnemyFamily::Drips) {
-                    if let Some(projs) = projectiles.as_deref_mut()
-                        && drips_object_check_in_range_loc_333f6(enemy, camera_x_px, camera_y_px)
-                    {
+                    if drips_parent_exits_range(enemy, camera_x_px, camera_y_px) {
+                        // ASM Object_OutOfRange -> Deallocate_ObjectSlot frees
+                        // the parent and its owned Gfx pointers $36/$3A/$3E.
+                        // loc_335D8 crawlers own independent Object/Gfx slots.
+                        if let Some(projs) = projectiles.as_deref_mut() {
+                            projs.retain(|projectile| {
+                                projectile.kind != EnemyProjectileKind::DripsDrop
+                                    || projectile.owner.is_none_or(|owner| {
+                                        owner.segment_index != enemy.segment_index
+                                            || owner.layout_index != enemy.layout_index
+                                    })
+                            });
+                        }
+                        deleted_parents.push(ActiveEnemyKey::from_enemy(enemy));
+                    } else if let Some(projs) = projectiles.as_deref_mut() {
                         step_drips(enemy, projs, block_grid);
                     }
                 } else if let Some(ref mut projs) = projectiles {
@@ -6091,7 +6104,14 @@ fn step_active_enemies_with_rng_context(
             advance_robot_gfx(enemy);
         }
     }
+    // ASM loc_333F6 exits before loc_3340E can consume RNG. Deleted phases
+    // never hold the seed-pending sentinel consumed by this deferred pass.
+    debug_assert!(active.iter().all(|enemy| {
+        !deleted_parents.contains(&ActiveEnemyKey::from_enemy(enemy))
+            || enemy.wait_timer != DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E
+    }));
     seed_pending_drips_initial_waits_loc_3340e(active, player_x_pos, rng);
+    deleted_parents
 }
 
 /// Temporarily arrange allocation-order storage for Execute_Objects loc_E1E.
@@ -7759,6 +7779,12 @@ pub(crate) fn enemy_should_remain_active(
         // ASM Robot.asm loc_3AA4C/loc_3AB14 hibernates without walker unload checks.
         return true;
     }
+    // ASM Drips.asm loc_33424 and Hibernate_UntilAnimFinished do not check
+    // range. Only the resumed loc_333F6/loc_3345C Object slot can unload it.
+    if enemy.family == EnemyFamily::Drips {
+        return true;
+    }
+
     if enemy.segment_index != view.segment_index {
         return false;
     }
@@ -10552,26 +10578,6 @@ pub(crate) fn drips_wait_timer_with_rng_loc_3340e(rng: &mut RomRandomState, kid_
 /// the slime with -1.0 fp/frame upward velocity before the loc_333F6 loop.
 pub(crate) const DRIPS_CEILING_ATTACH_RISE_VELOCITY: i32 = -0x1_0000;
 
-pub(crate) fn drips_object_check_in_range_loc_333f6(
-    enemy: &ActiveEnemy,
-    camera_x_px: Option<u32>,
-    camera_y_px: Option<u32>,
-) -> bool {
-    let (Some(camera_x_px), Some(camera_y_px)) = (camera_x_px, camera_y_px) else {
-        return true;
-    };
-    // ASM Drips.asm loc_333F6/loc_3345C calls `Object_CheckInRange` before the
-    // attach and falling-child loops. Native retains layout-backed active
-    // enemies instead of deleting the object, so an out-of-range controller
-    // pauses here rather than consuming `off_33520` and spawning loc_335D8 early.
-    let object_x_pos = (enemy.x_pos >> 16) as i16;
-    let object_y_pos = (enemy.y_pos >> 16) as i16;
-    let camera_x_pos = camera_x_px.min(u32::from(u16::MAX)) as i16;
-    let camera_y_pos = camera_y_px.min(u32::from(u16::MAX)) as i16;
-    crate::level::object_check_in_range_normal_x_loc_320C0(object_x_pos, camera_x_pos)
-        && crate::level::object_check_in_range_normal_y_loc_320D8(object_y_pos, camera_y_pos)
-}
-
 pub(crate) const SPINNING_TWINS_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3BC22: u16 = 0xBC22;
 
 fn step_spinning_twins_berzerker_launch(enemy: &mut ActiveEnemy) {
@@ -12305,6 +12311,120 @@ pub(crate) mod test_fixtures {
 mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
+
+    /// ASM Drips.asm Enemy16_Drip_Init consumes the layout once;
+    /// Manage_EnemyLoading loc_3682C does not delete previously linked Objects.
+    #[test]
+    fn drips_parent_lifetime_does_not_depend_on_the_current_layout_view() {
+        let parent = ActiveEnemy {
+            family: EnemyFamily::Drips,
+            drips_attached: true,
+            wait_timer: 5,
+            ..mini_hopping_skull_test_enemy()
+        };
+        for segment_index in [parent.segment_index, parent.segment_index + 1] {
+            let view = EnemyLayoutView {
+                segment_index,
+                lower_bound: 0,
+                upper_bound: 0,
+                enemy_type_slots: &[],
+                objects: &[],
+            };
+            let mut active = vec![parent];
+            retain_active_enemies_before_execute_objects_loc_3c46e(
+                &mut active,
+                &view,
+                ActivationWindow {
+                    x_min: 900,
+                    x_max: 1200,
+                    y_min: 0,
+                    y_max: 224,
+                },
+                900,
+                0,
+                physics::LevelBounds {
+                    width_pixels: 2000,
+                    height_pixels: 1000,
+                },
+            );
+            assert_eq!(active.len(), 1);
+        }
+    }
+
+    /// ASM Execute_Objects loc_E1E and Enemy16_Drip_Init yield before the
+    /// first loc_333F6 range check, even when the parent is already outside.
+    #[test]
+    fn drips_range_check_waits_for_haze_and_initialisation() {
+        for fresh_init in [false, true] {
+            let parent = ActiveEnemy {
+                family: EnemyFamily::Drips,
+                x_pos: 456 << 16,
+                y_pos: 530 << 16,
+                drips_attached: false,
+                ..mini_hopping_skull_test_enemy()
+            };
+            let key = ActiveEnemyKey::from_enemy(&parent);
+            let mut active = [parent];
+            let mut fresh = std::collections::HashMap::new();
+            if fresh_init {
+                fresh.insert(key, 1);
+            }
+            let mut rng = RomRandomState::default();
+            let mut step = |frame| {
+                step_active_enemies_with_rng(
+                    &mut active,
+                    None,
+                    None,
+                    None,
+                    Some(877),
+                    Some(400),
+                    None,
+                    None,
+                    None,
+                    PlayerForm::TheKid,
+                    frame,
+                    !fresh_init,
+                    Some(&mut Vec::new()),
+                    &mut rng,
+                    &mut Vec::new(),
+                    None,
+                    &mut fresh,
+                )
+            };
+            assert!(step(1).is_empty());
+            assert_eq!(step(4), vec![key]);
+        }
+    }
+
+    /// ASM Object_CheckInRange_NormalRange subtracts signed words and accepts
+    /// inclusive X[-420,740]/Y[-420,644] before Object_OutOfRange deletes.
+    #[test]
+    fn drips_normal_range_checks_word_edges_and_wrap() {
+        for (x, y, camera_x, camera_y, exits) in [
+            (456, 530, 876, 400, false),
+            (456, 530, 877, 400, true),
+            (740, 0, 0, 0, false),
+            (741, 0, 0, 0, true),
+            (0, 644, 0, 0, false),
+            (0, 645, 0, 0, true),
+            (0, 0, 0, 420, false),
+            (0, 0, 0, 421, true),
+            (0xFFFF, 0xFFFF, 0, 0, false),
+            (0, 0, 0xFFFF, 0xFFFF, false),
+        ] {
+            let parent = ActiveEnemy {
+                family: EnemyFamily::Drips,
+                x_pos: x << 16,
+                y_pos: y << 16,
+                drips_attached: false,
+                ..mini_hopping_skull_test_enemy()
+            };
+            assert_eq!(
+                drips_parent_exits_range(&parent, Some(camera_x), Some(camera_y)),
+                exits
+            );
+        }
+    }
 
     #[test]
     fn shared_walker_gravity_wraps_before_terminal_speed_clamp_loc_3e77e_3e89a() {
@@ -15948,7 +16068,7 @@ impl NativeRuntime {
                             y_pos: (anchor.y_pos_fp >> 16) as u16,
                         }),
                 };
-                step_active_enemies_with_rng_context(
+                let deleted_parents = step_active_enemies_with_rng_context(
                     &mut self.active_enemies,
                     self.block_grid.as_ref(),
                     Some(frame.kid_x_pos),
@@ -15969,6 +16089,8 @@ impl NativeRuntime {
                     boss_fire_context,
                 );
                 restore_active_enemy_storage_order(&mut self.active_enemies, &enemy_storage_order);
+                self.active_enemies
+                    .retain(|enemy| !deleted_parents.contains(&ActiveEnemyKey::from_enemy(enemy)));
                 self.move_heady_metal_body_piece_workers_sub_376ec();
                 self.spawn_fire_demon_walking_trails_loc_3a542();
                 materialize_spinning_twins_drop_splits(&mut self.active_enemies);
@@ -16379,7 +16501,7 @@ impl NativeRuntime {
                             y_pos: (anchor.y_pos_fp >> 16) as u16,
                         }),
                 };
-                step_active_enemies_with_rng_context(
+                let deleted_parents = step_active_enemies_with_rng_context(
                     &mut self.active_enemies,
                     self.block_grid.as_ref(),
                     Some(slice.player.x_pos),
@@ -16402,6 +16524,8 @@ impl NativeRuntime {
                     boss_fire_context,
                 );
                 restore_active_enemy_storage_order(&mut self.active_enemies, &enemy_storage_order);
+                self.active_enemies
+                    .retain(|enemy| !deleted_parents.contains(&ActiveEnemyKey::from_enemy(enemy)));
                 self.move_heady_metal_body_piece_workers_sub_376ec();
                 for effect in played_enemy_sound_effects {
                     self.queue_start_sequence(effect);

@@ -14922,11 +14922,9 @@ mod chunk_04 {
     }
 
     #[test]
-    fn drips_dispatch_pauses_outside_object_check_in_range_loc_333f6() {
-        // ASM Drips.asm loc_333F6/loc_3345C calls `Object_CheckInRange` before
-        // the attach and falling-child loops. The object is outside
-        // Object_CheckInRange_NormalRange X high edge (`camera+$2E4`) here, so
-        // the native dispatcher must not advance the wait/drop cycle.
+    fn drips_dormant_dispatch_continues_outside_range_loc_33424() {
+        // ASM Drips.asm loc_33424 does not call Object_CheckInRange during
+        // its dormant countdown, even beyond the normal X high edge.
         let mut enemies = [test_enemy(EnemyFamily::Drips, 0x02E5 << 16, 20 << 16, 1)];
         enemies[0].drips_attached = true;
         enemies[0].wait_timer = 5;
@@ -14955,8 +14953,8 @@ mod chunk_04 {
         );
 
         assert_eq!(
-            enemies[0].wait_timer, 5,
-            "ASM Object_CheckInRange should stop off-window Drips from consuming its dormant timer",
+            enemies[0].wait_timer, 4,
+            "ASM loc_33424 continues its dormant countdown outside the range window",
         );
         assert!(
             projectiles.is_empty(),
@@ -14984,9 +14982,102 @@ mod chunk_04 {
         );
 
         assert_eq!(
-            enemies[0].wait_timer, 4,
-            "once inside the ROM range window, Drips should resume the loc_3340E wait cycle",
+            enemies[0].wait_timer, 3,
+            "ASM loc_33424 keeps the same countdown when the camera moves",
         );
+    }
+
+    /// ASM Drips.asm loc_333F6/loc_3345C check range after their hibernate;
+    /// loc_33424 and Hibernate_UntilAnimFinished retain the allocated parent.
+    #[test]
+    fn drips_parent_unloads_only_on_checking_resumes() {
+        let mut forming_parent = test_enemy(EnemyFamily::Drips, 456 << 16, 530 << 16, 1);
+        forming_parent.drips_attached = true;
+        step_drips(&mut forming_parent, &mut Vec::new(), None);
+        let mut first_fall_resume = forming_parent;
+        for _ in 1..DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424 {
+            step_drips(&mut first_fall_resume, &mut Vec::new(), None);
+        }
+        for (attached, timer, survives) in [
+            (true, first_fall_resume.wait_timer, false),
+            (false, 0, false),
+            (true, DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E, false),
+            (true, DRIPS_DROP_IN_FLIGHT_TIMER, false),
+            (true, 5, true),
+            (true, forming_parent.wait_timer, true),
+            (true, drips_splash_animation_timer_loc_33488(1), true),
+            (true, DRIPS_SPLASH_RESUME_PENDING_TIMER_LOC_33488, true),
+        ] {
+            let mut runtime = NativeRuntime::new(manifest());
+            runtime.boot_state = BootState::InGame;
+            runtime.enemy_loading_initial_pass_complete = true;
+            let mut slice = OpeningSliceState::new(default_bounds());
+            slice.camera.x_pos = 877 << 16;
+            slice.camera.y_pos = 400 << 16;
+            runtime.opening_slice = Some(slice);
+            let mut parent = test_enemy(EnemyFamily::Drips, 456 << 16, 530 << 16, 1);
+            parent.drips_attached = attached;
+            parent.wait_timer = timer;
+            let mut second = test_enemy(EnemyFamily::Drips, 584 << 16, 530 << 16, 1);
+            second.layout_index = 1;
+            second.drips_attached = true;
+            second.wait_timer = 5;
+            runtime.active_enemies = vec![parent, second];
+            let owner = EnemyProjectileOwner {
+                segment_index: 0,
+                layout_index: 0,
+                token: 0,
+            };
+            runtime.projectiles = vec![
+                EnemyProjectile {
+                    kind: EnemyProjectileKind::DripsDrop,
+                    owner: Some(owner),
+                    ..Default::default()
+                },
+                EnemyProjectile {
+                    kind: EnemyProjectileKind::DripsDrop,
+                    owner: Some(EnemyProjectileOwner {
+                        layout_index: 1,
+                        ..owner
+                    }),
+                    ..Default::default()
+                },
+                EnemyProjectile {
+                    kind: EnemyProjectileKind::DripsDrop,
+                    owner: Some(EnemyProjectileOwner {
+                        segment_index: 1,
+                        ..owner
+                    }),
+                    ..Default::default()
+                },
+                EnemyProjectile {
+                    kind: EnemyProjectileKind::DripsSurfaceCrawler,
+                    ..Default::default()
+                },
+            ];
+            runtime.drips_surface_crawler_count_loc_fffffb42 = 1;
+            let rng_before = runtime.rom_random.clone();
+            let status_before = runtime.enemy_status_words;
+
+            runtime.refresh_active_roster();
+
+            assert_eq!(
+                runtime.active_enemies.len(),
+                if survives { 2 } else { 1 },
+                "attached={attached} timer={timer}"
+            );
+            assert_eq!(runtime.active_enemies.last().unwrap().layout_index, 1);
+            assert_eq!(runtime.active_enemies.last().unwrap().wait_timer, 4);
+            assert_eq!(runtime.projectiles.len(), if survives { 4 } else { 3 });
+            assert_eq!(
+                runtime.projectiles.last().unwrap().kind,
+                EnemyProjectileKind::DripsSurfaceCrawler
+            );
+            assert_eq!(runtime.drips_surface_crawler_count_loc_fffffb42, 1);
+            assert_eq!(runtime.rom_random, rng_before);
+            assert_eq!(runtime.enemy_status_words, status_before);
+            assert!(runtime.killed_enemies.is_empty());
+        }
     }
 
     #[test]

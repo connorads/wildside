@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-21 - #501 Drips parent lifetime
+
+Closed #501 with ASM and emulator evidence. Drips parents retain their allocated lifetime across loading-window/view changes and non-checking phases; checking resumes release owned drops and then remove the parent after storage order is restored. The first native falling resume required an explicit range check before gravity. The healthy 560-frame BLW2 fixture restores all RNG samples and matches 645 parent observations, including deletion 545; all native PNGs remain byte-identical. Final state/full sweeps preserve their reports, fast gate passes 7,435 core tests and full TAS retains frozen debt. #502 tracks missing live Object pressure above 20. The full recording verifier remains red for missing parent roster entries and other count gaps; no natural-entry or teleporter completion is claimed. Continue #300 from the healthy prefix, preserving the paid Jev budget and adding the stall guard before another paid run.
+
 ## 2026-09-21 handoff (Drips ceiling-contact velocity)
 
 #500 moves the Drips velocity clear from collision to the following Object

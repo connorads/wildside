@@ -1086,5 +1086,16 @@
     ],
     "next_action": "Implement Robot head-animation eligibility, signed random gate, independent head turn and parent recovery; compare frames 297/307/308, then flight collision order and natural entry",
     "scope": "Crypt shared assets, truthful comparison and exposed Robot/RNG/HUD discrepancies; natural route completion remains a separate evidence requirement"
+  },
+  {
+    "issue": 502,
+    "readiness": "needs_route",
+    "active_path": "Drips.asm loc_333F6/loc_3345C -> Object_CheckInRange",
+    "route": "missing interleaved 20/21 Object-pressure route",
+    "evidence": [
+      "docs/source-port/backlog-archive.md#issue-502"
+    ],
+    "next_action": "Acquire a reachable Drips encounter crossing 20/21 live Objects; compare checks after an earlier allocation and an earlier deletion.",
+    "scope": "Drips use the tighter unload bounds only while more than 20 Object workers are linked."
   }
 ]

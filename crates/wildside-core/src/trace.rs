@@ -4430,6 +4430,25 @@ mod tests {
         );
     }
 
+    /// ASM loc_33424 hibernates without Object_CheckInRange; allocated parent
+    /// and child slots remain counted beyond the normal unload boundary.
+    #[test]
+    fn dormant_drips_workers_remain_counted_outside_range() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0x14);
+        runtime.recording_oracle_debug_lifecycle_completed = true;
+        let baseline = runtime.object_counts_from_roster(&[], 1005 << 16, 0);
+        let mut parent = drips_test_enemy(0x0038, 0);
+        parent.drips_attached = true;
+        parent.wait_timer = 5;
+        runtime.active_enemies.push(parent);
+        assert_eq!(
+            runtime.object_counts_from_roster(&[], 1005 << 16, 0),
+            (baseline.0 + 1, baseline.1 + 3),
+        );
+    }
+
     #[test]
     fn drips_surface_crawler_counts_as_object_and_gfx_worker_loc_335d8() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
@@ -16101,7 +16120,7 @@ impl NativeRuntime {
             0
         };
         let transient_gfx_only_workers = if include_runtime_transients {
-            self.gameplay_transient_gfx_only_worker_count(camera_x_pos, camera_y_pos)
+            self.gameplay_transient_gfx_only_worker_count()
         } else {
             0
         };
@@ -16182,16 +16201,13 @@ impl NativeRuntime {
         camera_x_pos: u32,
         camera_y_pos: u32,
     ) -> u16 {
-        let drips_parent_workers = self.hidden_drips_parent_worker_count_enemy16_drip_init(
-            &self.active_enemies,
-            camera_x_pos,
-            camera_y_pos,
-        );
+        let drips_parent_workers =
+            self.hidden_drips_parent_worker_count_enemy16_drip_init(&self.active_enemies);
         // ASM Drips.asm Enemy16_Drip_Init is an Object_RAM coroutine whose
         // parent gfx object stays hidden through loc_333F6..loc_3350E. Native
         // deliberately suppresses that parent from `active_enemy_roster`.
-        // The exact loc_74E0 recording route keeps those in-range controller
-        // slots live behind the title shell; ordinary direct boot probes use
+        // The exact loc_74E0 recording route counts allocated controllers
+        // through their Object_CheckInRange deletion; direct boot probes use
         // their established roster-derived counts.
         // ASM loc_10DA4/sub_10DE4 (kid.asm:22692,22717) allocates a standard
         // Object_RAM coroutine for each rubber-block skin swap, but unlike
@@ -16308,22 +16324,12 @@ impl NativeRuntime {
             .count() as u16
     }
 
-    fn hidden_drips_parent_worker_count_enemy16_drip_init(
-        &self,
-        enemies: &[ActiveEnemy],
-        camera_x_pos: u32,
-        camera_y_pos: u32,
-    ) -> u16 {
+    fn hidden_drips_parent_worker_count_enemy16_drip_init(&self, enemies: &[ActiveEnemy]) -> u16 {
         enemies
             .iter()
             .filter(|enemy| {
                 self.recording_oracle_debug_lifecycle_completed
                     && enemy.family == EnemyFamily::Drips
-                    && drips_object_check_in_range_loc_333f6(
-                        enemy,
-                        Some(camera_x_pos >> 16),
-                        Some(camera_y_pos >> 16),
-                    )
             })
             .count() as u16
     }
@@ -16548,11 +16554,7 @@ impl NativeRuntime {
             + boss_projectile_gfx_workers) as u16
     }
 
-    fn gameplay_transient_gfx_only_worker_count(
-        &self,
-        camera_x_pos: u32,
-        camera_y_pos: u32,
-    ) -> u16 {
+    fn gameplay_transient_gfx_only_worker_count(&self) -> u16 {
         // #449: per-family gfx-only children the roster never exports,
         // derived from `EnemyFamily::unexported_gfx_child_slots` — the
         // Archer held arrow (loc_33FDA -> loc_32188), the Tar Monster spliced
@@ -16578,8 +16580,6 @@ impl NativeRuntime {
         let hidden_drips_gfx_workers = self
             .hidden_drips_parent_worker_count_enemy16_drip_init(
                 &self.active_enemies[..initialised_enemy_count],
-                camera_x_pos,
-                camera_y_pos,
             )
             .saturating_mul(3);
         // ASM loc_108EE/loc_10B3A allocate each visible prize child through
