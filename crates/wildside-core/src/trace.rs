@@ -12112,11 +12112,13 @@ impl NativeRuntime {
             gameplay_debug_fields.insert(
                 "teleport_background_work_loc_1280a".into(),
                 format!(
-                    "format={:?} placements={} visited={} copied={} enigma_streams={} enigma_instructions={} enigma_raw_cycles={} enigma_output_words={}",
+                    "format={:?} placements={} visited={} copied={} chunk_loop_instructions={} chunk_loop_raw_cycles={} enigma_streams={} enigma_instructions={} enigma_raw_cycles={} enigma_output_words={}",
                     workload.format,
                     workload.placements,
                     workload.cells_visited,
                     workload.cells_copied,
+                    workload.chunk_loop_instruction_count,
+                    workload.chunk_loop_raw_cycles,
                     workload.enigma_streams,
                     workload.enigma_instruction_count,
                     workload.enigma_raw_cycles,

@@ -17,6 +17,8 @@ pub(crate) struct BackgroundMappingsWorkload {
     pub(crate) placements: u32,
     pub(crate) cells_visited: u32,
     pub(crate) cells_copied: u32,
+    pub(crate) chunk_loop_instruction_count: u32,
+    pub(crate) chunk_loop_raw_cycles: u32,
     pub(crate) enigma_streams: u32,
     pub(crate) enigma_instruction_count: u32,
     pub(crate) enigma_raw_cycles: u32,
@@ -231,6 +233,12 @@ pub(crate) fn background_chunk_mappings_workload_loc_12830(
     let mut placements = 0_u32;
     let mut cells_visited = 0_u32;
     let mut cells_copied = 0_u32;
+    let mut chunk_loop_instruction_count = 0_u32;
+    let mut chunk_loop_raw_cycles = 0_u32;
+    let mut emit = |cycles: &[u32]| {
+        chunk_loop_instruction_count += cycles.len() as u32;
+        chunk_loop_raw_cycles += cycles.iter().sum::<u32>();
+    };
     loop {
         let chunk_index = read_word(layout, offset)?;
         offset += 2;
@@ -243,23 +251,44 @@ pub(crate) fn background_chunk_mappings_workload_loc_12830(
         let chunk = load_chunk(chunk_index)?;
         let width = read_word(&chunk, 0)?;
         let height = read_word(&chunk, 2)?;
-        if chunk.len() < 4 + usize::from(width) * usize::from(height) {
+        if width == 0 || height == 0 || chunk.len() < 4 + usize::from(width) * usize::from(height) {
             return None;
         }
         placements += 1;
         cells_visited += u32::from(width) * u32::from(height);
         for row in 0..height {
+            // ASM loc_12884: reset the inner DBF counter, destination and X.
+            emit(&[4, 4, 4]);
             for column in 0..width {
                 let target_x = x.wrapping_add_unsigned(column);
                 let target_y = y.wrapping_add_unsigned(row);
-                if target_x >= 0
-                    && target_x < background_width as i16
-                    && target_y >= 0
-                    && target_y < background_height as i16
-                {
-                    cells_copied += 1;
+                emit(&[4]);
+                if target_x < 0 {
+                    emit(&[10]);
+                } else {
+                    emit(&[8, 12]);
+                    if target_x >= background_width as i16 {
+                        emit(&[10]);
+                    } else {
+                        emit(&[8, 4]);
+                        if target_y < 0 {
+                            emit(&[10]);
+                        } else {
+                            emit(&[8, 12]);
+                            if target_y >= background_height as i16 {
+                                emit(&[10]);
+                            } else {
+                                emit(&[8, 12]);
+                                cells_copied += 1;
+                            }
+                        }
+                    }
                 }
+                // ASM loc_128A0 and the inner DBF.
+                emit(&[8, 8, 4, if column + 1 == width { 14 } else { 10 }]);
             }
+            // ASM loc_128A8 and the outer DBF.
+            emit(&[12, 4, if row + 1 == height { 14 } else { 10 }]);
         }
     }
 
@@ -268,6 +297,8 @@ pub(crate) fn background_chunk_mappings_workload_loc_12830(
         placements,
         cells_visited,
         cells_copied,
+        chunk_loop_instruction_count,
+        chunk_loop_raw_cycles,
         enigma_streams: 0,
         enigma_instruction_count: 0,
         enigma_raw_cycles: 0,
@@ -299,6 +330,8 @@ pub(crate) fn background_layered_mappings_workload_loc_128ba(
         placements: 0,
         cells_visited: 0,
         cells_copied: 0,
+        chunk_loop_instruction_count: 0,
+        chunk_loop_raw_cycles: 0,
         enigma_streams: streams.len() as u32,
         enigma_instruction_count,
         enigma_raw_cycles,
@@ -409,6 +442,8 @@ mod tests {
         assert_eq!(workload.placements, 1);
         assert_eq!(workload.cells_visited, 4);
         assert_eq!(workload.cells_copied, 2);
+        assert_eq!(workload.chunk_loop_instruction_count, 50);
+        assert_eq!(workload.chunk_loop_raw_cycles, 388);
     }
 
     #[test]

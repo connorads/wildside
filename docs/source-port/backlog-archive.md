@@ -25907,6 +25907,16 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 direct background loop timing: the live workload now follows every
+`loc_12884` bounds branch and both DBF exits using the destination layout's
+actual chunk coordinates and dimensions. Swamp resource 0x15 executes 76,888
+loop instructions for 623,248 raw cycles while copying all 5,656 visited cells;
+Forest resource 0x6E correctly records zero because it uses the layered Enigma
+path. Both saved routes pin the totals. The wrapper, chunk-address setup and
+variable `muls.w` remain outside this loop measurement, alongside block entry
+handlers and theme phases. The ignored timing regression remains red at frame
+166 with native 4/4 against ROM 0/0. No paid Jev call or human playtest.
+
 2026-09-22 block bit-reader timing: the private ROM-format reader now assigns
 instruction-level 68000 costs to `sub_13618`, both `sub_13622` branches,
 `sub_1363C`, `sub_1364C` and the rolling refill at `loc_13650`. Resource 0x6E

@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 direct background loop timing
+
+The Swamp destination's `loc_12884` loop now has an exact source measurement:
+76,888 instructions and 623,248 raw cycles across 5,656 copied cells. Forest
+correctly records zero direct-loop work because it uses layered Enigma data.
+Continue with the direct wrapper, block dispatcher and entry handlers, then
+theme phases and schedule composition. No Jev spend or human playtest.
+
 ## 2026-09-22 - #300 block bit-reader timing
 
 The live transition now assigns exact source instruction costs to the
