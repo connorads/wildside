@@ -15701,6 +15701,21 @@ impl NativeRuntime {
             return true;
         }
 
+        // ASM Execute_Objects loc_E1E visits Kid first. A lethal latched
+        // Arrow contact enters Death loc_B7FA's synchronous loop before the
+        // Arrow's object wake, leaving its Object/Gfx slots live in that frame.
+        if normal_recent_damage_live
+            && matches!(self.player_lifecycle, PlayerLifecycle::Alive)
+            && self.progression.current_form == PlayerForm::TheKid
+            && self.progression.number_hitpoints == 1
+            && self.archer_arrow_latched_damage_before_step_loc_b700(slice)
+        {
+            self.opening_slice = Some(*slice);
+            self.apply_damage();
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ProjectileDamage;
+            return true;
+        }
+
         self.step_projectiles();
         if !kid_damage_invulnerable {
             match self.projectile_player_contact_after_step_loc_b640(slice) {

@@ -5397,7 +5397,13 @@ impl NativeRuntime {
     }
 
     fn step_allow_pausing_fade_sub_73d0(&mut self) {
-        if self.allow_pausing || !matches!(self.boot_state, BootState::InGame) {
+        if self.allow_pausing
+            || !matches!(self.boot_state, BootState::InGame)
+            || matches!(
+                self.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+            )
+        {
             return;
         }
         // ASM sub_73D0 $73D0: this is the first instruction in the fade

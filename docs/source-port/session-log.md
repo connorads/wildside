@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #374 Scorpion lethal Arrow and death render
+
+ROM death at frame 440 suspends Archer Arrow wakes, retaining the two
+Arrows and Object/Gfx counts 11/15 through the death loop. Native now
+applies the latched fatal contact before projectile stepping. Death no
+longer starts a black level-entry fade when it disables pausing. The
+checked-in 534-frame route matches all gameplay/RNG checkpoints; the
+dense route first differs at respawn frame 534. The frame-440 scene is
+visible, with 284 HUD pixels still different. #374 stays open for that
+HUD, Scorpion reload, Stairway art and Bloody Swamp's death tail. No
+paid Jev call or human playtest.
+
 ## 2026-09-22 - #374 Scorpion Archer Arrow cap timing
 
 ROM `loc_34248` checks its two-Arrow cap after each shooting-table

@@ -10874,7 +10874,11 @@ impl NativeRuntime {
                     .demo_level_entry_palette_fade_progress_sub_73d0()
                     .is_some()
                     || (!matches!(self.boot_state, BootState::DemoPlay { .. })
-                        && !self.allow_pausing)
+                        && !self.allow_pausing
+                        && !matches!(
+                            self.player_lifecycle,
+                            PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+                        ))
                 {
                     // ASM loc_7402 -> loc_7420: DemoPlay owns the fade worker
                     // outside the ordinary InGame `Allow_Pausing` lifecycle.
@@ -12675,7 +12679,12 @@ impl NativeRuntime {
             } else if matches!(
                 self.boot_state,
                 BootState::StartingLevel { .. } | BootState::LevelSkipHold
-            ) || (matches!(self.boot_state, BootState::InGame) && !self.allow_pausing)
+            ) || (matches!(self.boot_state, BootState::InGame)
+                && !self.allow_pausing
+                && !matches!(
+                    self.player_lifecycle,
+                    PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+                ))
             {
                 self.teleport_warp_colour_fbcc
             } else {
@@ -12688,8 +12697,13 @@ impl NativeRuntime {
                 .or_else(|| self.demo_title_palette_fade_progress_loc_28c6())
                 .or_else(|| self.demo_level_entry_palette_fade_progress_sub_73d0())
                 .or_else(|| {
-                    (matches!(self.boot_state, BootState::InGame) && !self.allow_pausing)
-                        .then_some(self.level_entry_fade_progress_sub_73d0)
+                    (matches!(self.boot_state, BootState::InGame)
+                        && !self.allow_pausing
+                        && !matches!(
+                            self.player_lifecycle,
+                            PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+                        ))
+                    .then_some(self.level_entry_fade_progress_sub_73d0)
                 }),
             two_player: self.two_player,
             options_two_player_two_controllers: self.options_two_player_two_controllers,

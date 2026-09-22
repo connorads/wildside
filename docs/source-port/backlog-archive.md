@@ -14,6 +14,28 @@ order at split time; nothing here is re-attributed or deduplicated.
 <a id="issue-374"></a>
 ### #374
 
+2026-09-22 Scorpion lethal Arrow and death render: ROM WRAM keeps both
+Archer Arrows and Object/Gfx counts 11/15 across frames 439-443 while
+Kid loses his last HP at frame 440. `Execute_Objects loc_E1E` visits Kid
+before the Arrow; `Death loc_B7FA` enters a synchronous loop before the
+Arrow's next wake. Native had stepped the Arrow first and removed one
+Object/Gfx slot. The latched contact now damages Kid before projectile
+stepping on the lethal path. Death also sets `Allow_Pausing=0`, which
+native wrongly treated as level-entry fade progress zero and rendered a
+black frame. The fade worker and trace exclude death windup. The checked-in
+534-frame diagnostic warp route matches every gameplay/RNG checkpoint,
+including ROM counts 11/15 at frames 440, 441, 443, 500 and 533. The
+dense 760-frame route's first authoritative difference moves to frame
+534 at the respawn hand-off; first RNG difference remains frame 547.
+Frame 439 is pixel-exact, and frame 440 has 284 HUD pixels different
+after the black-frame repair. #374 remains open for that HUD, the respawn
+hand-off, Stairway foreground and Bloody Swamp death tail. No Jev spend
+or human playtest. `verify-slice-fast` and the 37,759-frame
+`verify-tas-full` pass with frozen pixel/audio debt unchanged; the
+105-level state sweep remains 102 passed / 3 failed. The generated
+Scorpion layout's `3F.json` request is included in the web runtime
+asset catalogue.
+
 2026-09-22 Scorpion Archer cap timing: the ROM Archer at layout index 20
 holds `d3=100` on frame 66, reaches `d3=0` on frame 166 and sees two
 live Arrows at the `loc_34248` cap check on frame 167. It restarts its

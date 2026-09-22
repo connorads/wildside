@@ -5443,6 +5443,26 @@ impl NativeRuntime {
         self.projectile_player_contact_loc_b640(slice, false)
     }
 
+    pub(crate) fn archer_arrow_latched_damage_before_step_loc_b700(
+        &self,
+        slice: &OpeningSliceState,
+    ) -> bool {
+        // ASM Execute_Objects loc_E1E visits Kid before Archer Arrow objects.
+        // A prior GfxObjects_CollisionKid `$28` can therefore enter Death
+        // before Enemy07_ArcherArrow_Init consumes its collision word.
+        let player_y = (slice.player.y_pos >> 16) as i32;
+        let stomp_blocked = self.stomp_registration_blocked_loc_1ce4(slice.player);
+        self.projectiles.iter().any(|projectile| {
+            projectile.kind == EnemyProjectileKind::ArcherArrow
+                && projectile.archer_kid_contact_pending
+                && !projectile.friendly
+                && projectile_player_contact_kind_loc_b640(
+                    (projectile.y_pos >> 16) as i32 - player_y,
+                    stomp_blocked,
+                ) == ProjectilePlayerContactLocB640::Damage
+        })
+    }
+
     pub(crate) fn hostile_projectile_overlaps_player_for_fa75_loc_1c18(
         &self,
         slice: &OpeningSliceState,
@@ -5915,6 +5935,7 @@ mod archer_arrow_collision_tests {
             ProjectilePlayerContactLocB640::None,
         );
         assert_eq!(runtime.projectiles.len(), 1);
+        assert!(runtime.archer_arrow_latched_damage_before_step_loc_b700(&slice));
         assert_eq!(
             runtime.projectile_player_contact_after_step_loc_b640(&slice),
             ProjectilePlayerContactLocB640::Damage,

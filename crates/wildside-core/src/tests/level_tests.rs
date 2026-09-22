@@ -6313,6 +6313,27 @@ mod chunk_02 {
                 "ASM Archer.asm loc_34248 keeps the next Arrow cycle aligned at ROM frame {frame}",
             );
         }
+        assert_eq!(frames[440].number_hitpoints, 0);
+        assert_eq!(
+            frames[440].level_entry_fade_progress_sub_73d0, None,
+            "ASM Death loc_B7FA retains the gameplay palette instead of starting sub_73D0",
+        );
+        for frame in [440, 441, 443, 500] {
+            assert_eq!(
+                (
+                    frames[frame].number_objects,
+                    frames[frame].number_gfx_objects
+                ),
+                (11, 15),
+                "ASM Death loc_B7FA keeps Arrow workers frozen during the fatal loop at ROM frame {frame}",
+            );
+        }
+        assert_eq!(frames[533].number_hitpoints, 2);
+        assert_eq!(
+            (frames[533].number_objects, frames[533].number_gfx_objects),
+            (11, 15),
+            "ASM loc_B8DE returns to the populated Scorpion level after death",
+        );
     }
 
     #[test]
