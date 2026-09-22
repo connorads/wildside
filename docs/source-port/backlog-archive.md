@@ -250,6 +250,19 @@ allocation order and the left-edge turn as the cause. Next test this shared
 object-step boundary on another measured level before changing the
 recording hand-off; do not add a level- or Tank-specific age offset.
 
+Cross-level probe 2026-09-22: a settled 0x07 oracle trace and temporary
+native `step_lion` logging (removed) show Lion layout slot 1 matching X/Y
+through title-wait row 119 and both post-title rows. Oracle `target_live`
+row 0 repeats X570/Y624 from `post_title_start`; native enters that row at
+X568/Y624, one Lion movement pass ahead. This independently confirms a
+shared recording hand-off difference. The existing cache-backed 0x07 Lion
+test remains red on player HP/damage and is not a green regression for this
+probe. A simple reduction of the live-window frame count is unproven: it
+would also change player, camera, RNG and object timing, while slots 15/16
+already match frame-0 X after their turns. Stop #509 investigation here;
+next work needs a narrow hand-off instrumentation or scenario that compares
+the scheduler pass independently of the rest of the live frame.
+
 <a id="issue-508"></a>
 ### #508
 

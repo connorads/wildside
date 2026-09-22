@@ -1101,13 +1101,13 @@
   {
     "issue": 509,
     "readiness": "needs_comparison",
-    "active_path": "shared walker loc_3C0FA left turn and Load_InGame title-wait enemy scheduling",
+    "active_path": "Load_InGame title-to-live object scheduling across RockTank and Lion",
     "route": "Settled logical 0x1F warp with 30 neutral frames; inspect offscreen RockTank layout slots 15, 16 and 21",
     "evidence": [
       "docs/source-port/backlog-archive.md#issue-509",
       "crates/wildside-core/src/tests/level_tests.rs"
     ],
-    "next_action": "Probe the shared post_title_start to target_live row-0 object-step boundary on another measured level before changing the recording hand-off; all three 0x1F tanks first diverge there.",
-    "scope": "Woods of Despair 1 RockTank slot 21 is one pixel ahead after hidden settle, with matching Object and Gfx counts."
+    "next_action": "Instrument one object scheduler pass independently of player and RNG at the post_title_start to target_live row-0 hand-off; 0x07 Lion independently confirms the same extra native movement.",
+    "scope": "Native advances objects at target-live row 0 where oracle holds their positions; 0x1F RockTank slot 21 retains a one-pixel frame-0 lead."
   }
 ]
