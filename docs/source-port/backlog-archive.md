@@ -29157,6 +29157,12 @@ cursor; keep the nine descriptor transitions as typed handler edges.
 <a id="issue-502"></a>
 ## #502 - Live Object pressure at Drips range checks
 
+- Rejected 2026-09-22 level-0x4C idle variant: 1,000 settled oracle
+  frames make zero Drips `Object_CheckInRange` calls. The watched
+  `Number_Objects` peaks at 10 on frame 467. This route never reaches
+  the branch, so it supplies no 20/21-Object evidence and cannot
+  justify a range patch. Keep the offline witness requirement.
+
 - Rejected 2026-09-22 offline 0x48 variant: 1,000 settled frames alternating
   36 frames of input mask 88 with 36 of mask 72 produced 1,006 Drips
   `Object_CheckInRange` calls, all on the normal branch. Frame-end

@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #502 level-0x4C idle pressure check
+
+A 1,000-frame settled ROM idle probe on level 0x4C makes zero Drips
+`Object_CheckInRange` calls and peaks at 10 live Objects. The call-PC
+witness checker rejects it. #502 remains open for a reachable 20/21
+call-time Object count; no paid Jev call or gameplay patch followed.
+
 ## 2026-09-22 - #374 Scorpion respawn reload timing
 
 ROM and native both enter `lose_life` at frame 515 and respawn at 547.
