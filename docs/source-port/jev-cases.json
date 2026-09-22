@@ -407,19 +407,6 @@
     "scope": "2026-06-10 playtest: intro shows the jacket sprite in the bottom-left before\u2026"
   },
   {
-    "issue": 290,
-    "readiness": "ready_replay",
-    "active_path": "Published-route interval-1 TAS native/oracle state and RNG comparison",
-    "route": "tests/data/tas/any-percent-published/scenario.json",
-    "evidence": [
-      "docs/source-port/backlog-awaiting-human.md#issue-290",
-      "docs/source-port/backlog-archive.md#issue-290",
-      "docs/source-port/backlog-awaiting-human.md"
-    ],
-    "next_action": "Re-run existing interval-1 full-route report; report exact covered player/camera/RNG/enemy domains without extending to whole RAM, pixels or audio.",
-    "scope": "Review the interval-1 published-route report and its evidence boundary."
-  },
-  {
     "issue": 292,
     "readiness": "needs_route",
     "active_path": "LevelTimer initialisation, clock-prize bonus and timer-expiry death",

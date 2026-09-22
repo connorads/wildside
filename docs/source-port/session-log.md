@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #290 interval-1 published-route trace closure
+
+Fresh current-HEAD enemy and gameplay replays cover all 37,759 published
+frames at interval 1. Enemy rosters and 37,743 complete post-init RNG states
+match exactly; gameplay has zero authoritative differences and 24 visible,
+classified Object/Gfx counter sampling limitations, including `loc_10396`
+prize-diamond rows. The
+permanent full-TAS gate pins these bounds. Objective #290 closes for this
+recorded route only; pixels, audio, unrecorded inputs and game coverage
+retain their own work. No Jev call or human playtest.
+
 ## 2026-09-22 - #300 destination palette display
 
 The first pad route matches all 25 destination gameplay checkpoints.

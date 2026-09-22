@@ -23888,6 +23888,27 @@ brackets. Nothing is re-attributed: text is verbatim.
 
 ### #290
 
+2026-09-22 objective closure. The historical frame-7800 demo Object/Gfx
+failure recorded below is the positive baseline; subsequent fixes include
+Dragon breath worker counts (`7318abab5`), explicit breath sampling
+classification (`f0b024eed`) and carried-wrap enemy loader order
+(`9d22e16c0`). ASM `Dragon.asm loc_3CE90/loc_3CF90`,
+`PrizeDiamond_Init loc_10396` and `Manage_EnemyLoading loc_3691E` identify
+the compared worker lifecycles. The permanent `verify-tas-full` gate uses
+interval 1 and checks the full 37,759-frame CRC, exported gameplay,
+enemy-frontier and RNG baselines; `tests/tas_frontier.json` pins its results.
+Fresh current-HEAD replays with `--checkpoint-interval 1 --include-rng`
+and both `--frontier-kind enemy` and `gameplay` report 37,759/37,759
+checkpoints, 37,759 matching player/camera CRC frames, 37,743 matching
+post-`Init_RNG` frames and zero enemy roster differences. Gameplay reports
+zero authoritative/advisory differences and 24 `oracle_limitation` Object/Gfx
+counter rows. The reported `loc_10396` prize-diamond hibernated-slot
+sampling case is guarded by matching mode, level, camera, Kid motion and
+enemy roster plus the oracle Object slot PC. The raw count difference
+remains visible. This closes the published-route trace claim only. Neither
+whole RAM, pixels, audio, other inputs nor complete game coverage follows
+from it; those remain in their own lanes.
+
 - [current_blocker] STALE 2026-06-10 (later): the full run now reports its first authoritative divergence at checkpoint frame_7800 (demo_play object/gfx counts 9/4 vs 10/9) — pre-existing on main at 27537816, verified by stash baseline, filed as backlog #290 (suspect: commit 7280bada Tank-pair object-count collapse). Kid fields still match. Earlier note: `any-percent-published` is gameplay-CRC-clean through the recorded script end again as of 2026-06-10: `verify-tas --frame-start 0 --frame-end 37759 --checkpoint-interval 25 --bisect --frontier-kind gameplay` passes all 37759 frames on a build that includes the Drips lifecycle/attach fixes. Two regressions from the 2026-05/06 commit pile were bisected and fixed first: (1) commit c60742f3 raised the shared IntroSequence6 attract lock 185->237 from a cold-route oracle measurement, delaying the timeout-restart IntroSequence6 -> DemoPlay flip by 52 frames at frame 21765 — fixed by lineage-splitting the lock (timeout-restart keeps the ASM loc_1BAB0 $B8 DBF 185; natural/cold keeps the observed 237, extra 52 frames untraced, TODO(fidelity)); (2) stale `deferred_ceiling_clears` prize workers survived level entry (ASM loc_6E2 wipes the sub_1007A coroutines with Object_RAM) and wrote a phantom $E001 Smash cell at (22,14) into the Knight's Isle attract demo at frame 24636, wall-latching the demo Kid at 24921 — fixed by clear_block_object_workers_loc_6e2() at every object-RAM wipe site; the phantom-wall mechanism is also the candidate root cause for playtest #270/#277 wall reports. The ASM-correct sub_8F26 -> sub_922C wall column scan (7319a33a) only exposed the phantom cell. Periodically re-run the full sweep after gameplay-affecting commits; the 2026-05-21 'clean' claim went stale silently for three weeks.
 
 ## Slimmed table prose (2026-06-10)
@@ -26765,6 +26786,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 290 | [x] | P1 | trace/objects | Published-route exported gameplay, enemy and RNG state matches across every recorded frame. | Interval-1 37,759 checkpoints; zero authoritative/roster/RNG differences; 24 classified diamond counter sampling rows. |
 | 510 | [x] | P2 | enemies/lifecycle | 0x4B Drips crawlers draw RNG in Object order and finish after ROM animation timing. | Frame-183 directions and frame-244 9/18 counts; 0x4B sweep pass; fast gate and full TAS pass. |
 | 508 | [x] | P1 | enemies/trace | Grounded Driller exports zero Gfx X velocity while Object patrol displacement remains internal. | ASM loc_3BE60/loc_3C026; 360 exact Driller velocity checkpoints; fast gate and full TAS pass. |
 | 507 | [x] | P1 | verification/enemies | Recording comparisons pair saved native and oracle enemies by the same key. | Shuffled-equivalent regression and changed-state controls; 360 tolerance-bounded state checkpoints pass; strict pixels remain red. |
