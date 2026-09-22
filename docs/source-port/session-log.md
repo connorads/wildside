@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #300 natural teleporter route and standing rescan
+
+An ordinary-input route from logical 0x1C reaches a visible pad. Emulator PC
+and RAM traces show two support scans when Kid brakes on frame 151, then a
+cross-level activation at frame 223 with Game_Mode `$C`. The native standing
+redispatch scans support again with a focused test. The checked-in 260-frame
+route keeps the loader defect reproducible as an ignored end-to-end test:
+native still enters the debug level-skip shell instead of retaining the old
+scene during the teleport fade. Next implement the dedicated fade handoff,
+then compare framewise state and pixels through destination entry. #300 stays
+open. No paid Jev call.
+
 ## 2026-09-22 - 0x4B Drips crawler RNG and finish timing
 
 Two frame-183 Drips splashes exposed parent/child RNG interleaving: the ROM

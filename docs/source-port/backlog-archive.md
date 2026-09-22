@@ -25570,6 +25570,24 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-22 natural pad probe: `tests/data/dynamic-scenarios/issue-300-skydragon-teleporter.json`
+uses ordinary Right/B input from logical 0x1C's settled spawn. Kid lands on
+the visible pad at frame 134 and stops walking on frame 151. The ROM calls
+`sub_B43A` twice on that transfer through `loc_8E16 -> loc_7606 -> loc_78C6`,
+decrementing Telepad_timer from 74 to 72. It activates `loc_B522` at frame 223,
+sets logical 0x51 through `loc_BCD6/loc_BCF6`, and retains Game_Mode `$C` and
+the departing Kid pose through frame 249. Native missed the second scan and
+entered `LevelSkipHold` (`$8`) via `pending_level_skip`. The support rescan has
+a focused regression. The checked-in route regression is ignored while the
+cross-level loader is wrong. The same-level immediate-load path drops the old
+scene early, and the debug level-skip path changes Game_Mode; the next fix
+needs a teleport fade shell that retains the old scene while storing the new
+Current_LevelID at activation. No paid Jev request was used. The route starts
+from a diagnostic warp to 0x1C, so it does not prove campaign entry to 0x1C.
+The fast gate passes 7,444 active core tests; full TAS preserves 37,759
+player/camera frames and its frozen pixel/RNG baselines. The 105-level state
+sweep remains 100 passed, five failed.
+
 2026-09-20 source-exit inventory investigation:
 
 After the logical inspector correction, the normal runtime path exposes 163

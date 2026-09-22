@@ -5521,41 +5521,48 @@ impl OpeningSliceState {
             && form != PlayerForm::Skycutter
             && self.player.x_velocity != 0
             && new_vel == 0
-            && (input.left || input.right)
         {
-            // ASM loc_8E16/loc_8DFC (kid.asm:10210-10219): a zero result from
-            // sub_9A0A stores MoveID_Standingstill, then `bra.w loc_7606`
-            // re-enters the character dispatcher in the same object update. If
-            // a horizontal direction is still held, loc_77C2/loc_77FC immediately
-            // falls back into the walking path and runs sub_9A0A again. Without
-            // this same-frame re-dispatch, native stalls for one frame at zero
-            // velocity during flat turnarounds.
-            (new_vel, new_facing) = if input.down && !self.kid_grabbed_by_hand {
-                let air_table = match self.terrain.floor_terrain_type {
-                    TerrainType::Normal => &physics::AIR_NORMAL,
-                    TerrainType::Ice => &physics::AIR_ICE,
-                    TerrainType::Rubber => &physics::AIR_RUBBER,
-                };
-                physics::update_air_horizontal_velocity(new_vel, new_facing, h_input, air_table)
-            } else {
-                let previous_x_velocity = new_vel;
-                let (new_vel, new_facing) = physics::update_horizontal_velocity(
-                    previous_x_velocity,
-                    new_facing,
-                    h_input,
-                    form.ground_speed_table(self.terrain.floor_terrain_type),
-                );
-                if should_advance_grounded_walk_visual_accumulator_loc_95da(
-                    form, new_facing, new_vel,
-                ) {
-                    self.walk_visual_accumulator = grounded_walk_visual_accumulator_loc_95da(
-                        self.walk_visual_accumulator,
-                        form,
-                        new_vel,
+            // ASM loc_8E16 -> loc_7606 -> loc_78C6 (kid.asm:10210,7953):
+            // walking-to-standing re-dispatch scans the floor again. This also
+            // advances a contacted telepad for the second time in this frame.
+            if let Some(grid) = block_grid {
+                self.walking_floor_support_exists_at_current_position(grid, form.half_width());
+            }
+            if input.left || input.right {
+                // ASM loc_8E16/loc_8DFC (kid.asm:10210-10219): a zero result from
+                // sub_9A0A stores MoveID_Standingstill, then `bra.w loc_7606`
+                // re-enters the character dispatcher in the same object update. If
+                // a horizontal direction is still held, loc_77C2/loc_77FC immediately
+                // falls back into the walking path and runs sub_9A0A again. Without
+                // this same-frame re-dispatch, native stalls for one frame at zero
+                // velocity during flat turnarounds.
+                (new_vel, new_facing) = if input.down && !self.kid_grabbed_by_hand {
+                    let air_table = match self.terrain.floor_terrain_type {
+                        TerrainType::Normal => &physics::AIR_NORMAL,
+                        TerrainType::Ice => &physics::AIR_ICE,
+                        TerrainType::Rubber => &physics::AIR_RUBBER,
+                    };
+                    physics::update_air_horizontal_velocity(new_vel, new_facing, h_input, air_table)
+                } else {
+                    let previous_x_velocity = new_vel;
+                    let (new_vel, new_facing) = physics::update_horizontal_velocity(
+                        previous_x_velocity,
+                        new_facing,
+                        h_input,
+                        form.ground_speed_table(self.terrain.floor_terrain_type),
                     );
-                }
-                (new_vel, new_facing)
-            };
+                    if should_advance_grounded_walk_visual_accumulator_loc_95da(
+                        form, new_facing, new_vel,
+                    ) {
+                        self.walk_visual_accumulator = grounded_walk_visual_accumulator_loc_95da(
+                            self.walk_visual_accumulator,
+                            form,
+                            new_vel,
+                        );
+                    }
+                    (new_vel, new_facing)
+                };
+            }
         }
         self.player.x_velocity = new_vel;
         self.player.facing = new_facing;

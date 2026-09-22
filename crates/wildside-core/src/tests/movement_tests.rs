@@ -26408,6 +26408,36 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_8E16 -> loc_7606 -> loc_78C6 scans support again when a
+    /// walking Kid brakes to standing, including on a telepad.
+    #[test]
+    fn walking_to_standing_redispatch_scans_telepad_loc_78c6_b522() {
+        let grid = grid_with_cells(8, 8, &[(2, 4, 0xE4, 0x00)]);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 39 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.x_velocity = 0x0000_0930;
+        slice.telepad_timer = 2;
+
+        slice.update_horizontal_velocity_only(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            Some(&grid),
+            false,
+        );
+
+        assert_eq!(slice.player.x_velocity, 0);
+        assert_eq!(
+            slice.telepad_timer, 1,
+            "loc_78C6 calls sub_B43A again after walking stops"
+        );
+    }
+
     /// ASM sub_B43A loc_B4FA -> loc_B522: a Solid telepad floor cell keeps
     /// returning floor support while `Telepad_timer` is nonzero, and only queues
     /// the later loc_BC80 teleporter lookup when the countdown reaches zero.

@@ -6101,6 +6101,45 @@ mod chunk_02 {
     }
 
     #[test]
+    #[ignore = "cross-level teleporter still enters the debug level-skip loader"]
+    fn issue_300_skydragon_telepad_transitions_on_rom_frame_loc_78c6_b522_bcf6() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../tests/data/dynamic-scenarios/issue-300-skydragon-teleporter.json"
+        ))
+        .expect("checked-in ordinary-input teleporter route");
+        let script = scenario["script"]
+            .as_array()
+            .expect("per-frame input masks")
+            .iter()
+            .map(|mask| mask.as_u64().expect("u8 input mask") as u8)
+            .collect::<Vec<_>>();
+        let frames = ScriptRunner::new(manifest)
+            .warp_to_level(0x1c)
+            .settle_recording_warp()
+            .run(&script, script.len());
+
+        assert_eq!(frames[222].current_level, LevelId(0x1c));
+        assert_eq!(
+            frames[223].current_level,
+            LevelId(0x51),
+            "ASM loc_78C6 double-scans sub_B43A on the frame-151 walking-to-standing transfer; loc_B522 reaches zero and loc_BCF6 writes the MapOrder destination on frame 223"
+        );
+        assert_eq!(
+            frames[223].game_mode,
+            GameMode::InGame,
+            "ASM Teleport keeps Game_Mode=$000C when loc_BCF6 sets FC29 for a cross-level pad"
+        );
+        assert_eq!(
+            (frames[223].kid_x_pos, frames[223].kid_y_pos),
+            (Some(416 << 16), Some(2111 << 16)),
+            "ASM Teleport retains the departing Kid GfxObject during the first fade frame"
+        );
+    }
+
+    #[test]
     fn level30_ufo_contact_death_freezes_live_object_counts_at_death_loc_b7ea() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
