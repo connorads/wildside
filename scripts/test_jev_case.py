@@ -15,7 +15,6 @@ import jev_case_service as service
 class VerdictTests(unittest.TestCase):
     def test_distinct_drips_case_configures_level_and_never_proves_threshold_alone(self):
         self.assertEqual(jev_case.CASE_STARTS[502], 0x35)
-        self.assertNotEqual(jev_case.LIVE_GOALS[502], jev_case.LIVE_GOALS[327])
         trace = [{"number_objects": 20}, {"number_objects": 21}]
         assessment = jev_case.encounter(502, trace)
         self.assertTrue(assessment["complete"])
@@ -94,12 +93,23 @@ class VerdictTests(unittest.TestCase):
         self.assertIn("start", service.question_for_state(running | {"mode": "LevelTransition"})["criteria"])
 
     def test_repeated_stationary_right_cannot_keep_selecting_straight_right(self):
-        moving = {"mode": "InGame", "paused": False, "stalled_forward_decisions": 2}
+        moving = {"mode": "InGame", "paused": False, "progress": "rightward", "stalled_forward_decisions": 2}
         self.assertIn("run_right", service.question_for_state(moving)["criteria"])
         stalled = service.question_for_state(moving | {"stalled_forward_decisions": 3})["criteria"]
         self.assertNotIn("run_right", stalled)
         self.assertNotIn("right", stalled)
         self.assertIn("run_right_jump", stalled)
+
+    def test_general_controls_and_action_subsets_reach_the_request(self):
+        self.assertEqual({name: service.MASKS[name] for name in ("up", "down", "a", "special", "jump_special")},
+                         {"up": 1, "down": 2, "a": 64, "special": 32, "jump_special": 48})
+        state = {"mode": "InGame", "actions": ["release", "up", "special"], "allow_wait": True,
+                 "progress": "cells", "stalled_forward_decisions": 3}
+        self.assertEqual(set(service.question_for_state(state)["criteria"]), {"release", "up", "special"})
+        self.assertIn("right", service.question_for_state({"mode": "InGame", "progress": "cells",
+                                                         "stalled_forward_decisions": 3})["criteria"])
+        self.assertIn("start", service.question_for_state({"mode": "TitleScreen"})["criteria"])
+        self.assertEqual(set(service.question_for_state({"mode": "InGame", "actions": ["release"]})["criteria"]), {"release"})
 
     def test_control_removes_only_the_respawn_projectile_clear(self):
         source = """outside.clear();

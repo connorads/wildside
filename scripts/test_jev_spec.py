@@ -95,6 +95,21 @@ class SpecificationTests(unittest.TestCase):
                         jev_case.run(output, RunSpec(344, 0, "Stomp Dragon"), [16, 0], "discover")
                     paid.assert_not_called()
 
+    def test_discovery_policy_rejects_unknown_controls_and_unbounded_waits(self):
+        spec = RunSpec.parse({"issue": 344, "actions": ["release", "up", "special"],
+                              "target": {"kind": "position", "level": 0, "x": 32, "y": 191,
+                                         "radius": 16, "dwell_frames": 90}})
+        self.assertEqual(spec.progress, "cells")
+        self.assertEqual(spec.tail_frames, 30)
+        self.assertEqual(spec.actions, ("release", "up", "special"))
+        for change in ({"actions": ["teleport"]}, {"actions": ["right"]},
+                       {"progress": "anything"}, {"stop_on_death": 1},
+                       {"target": {"kind": "position", "level": 0, "x": 32, "y": 191,
+                                   "radius": 16, "dwell_frames": 0}},
+                       {"target": {"kind": "unknown"}}, {"tail_frames": -1}):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                RunSpec.parse({"issue": 344} | change)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -13,7 +13,7 @@ import urllib.request
 import uuid
 
 from jev_request import ENDPOINT, MODEL, deadline
-from jev_spec import assert_source_current
+from jev_spec import assert_source_current, ACTION_MASKS as MASKS
 
 LEDGER = Path(__file__).resolve().parents[1] / ".cache/jev-cases/budget.json"
 PRIOR = 24_954_048
@@ -21,15 +21,20 @@ LIMIT = 1_000_000_000
 CAMPAIGN_ID = "single-player-completion-2026-09-20"
 CAMPAIGN_ALLOWANCE = 5_000_000_000
 RESERVATION = 64_000 * 42
-MASKS = {"release": 0, "left": 4, "right": 8, "jump": 16, "left_jump": 20,
-         "right_jump": 24, "run_right": 72, "run_right_jump": 88,
-         "run_left": 68, "run_left_jump": 84, "start": 128}
+
 
 
 QUESTION = {
     "type": "choice",
-    "instructions": "Choose ordinary controls for six game frames to achieve the stated goal. Positions are pixels and velocities are pixels per frame, right/down positive. B jumps; release B before a new jump. A runs. Momentum persists. Use terrain to find a higher route if blocked. Use Start to leave LevelTransition title cards or resume a paused game. Do not repeat an action that leaves Kid stationary when the goal requires movement. Never change game state.",
+    "instructions": "Choose ordinary controls for six game frames to achieve the stated goal. Positions are pixels and velocities are pixels per frame, right/down positive. Default bindings: B jumps, A runs, C uses the current form special. Up/down steer or select. Options may remap A/B/C. Release a button before pressing it again. Momentum persists. Use terrain to find a higher route if blocked. Use Start to leave LevelTransition title cards or resume a paused game. Do not repeat an action that leaves Kid stationary when the goal requires movement. Never change game state.",
     "criteria": {
+        "up": "Press Up to steer upwards, climb where supported, or select a menu entry.",
+        "down": "Press Down to crouch, steer downwards, or select a menu entry.",
+        "a": "Press A alone; default run button. Form and game mode determine its effect.",
+        "special": "Press C for the current form special action under default bindings; release before another press.",
+        "left_special": "Press Left+C to move left while using the form special under default bindings.",
+        "right_special": "Press Right+C to move right while using the form special under default bindings.",
+        "jump_special": "Press B+C to jump and use the form special under default bindings.",
         "release": "Release held buttons before another Start or jump, or wait still when the stated goal requires it.",
         "left": "Unpaused InGame: move left slowly to backtrack or adjust position.",
         "right": "Unpaused InGame: move right slowly for precise positioning.",
@@ -47,14 +52,17 @@ QUESTION = {
 
 def question_for_state(state):
     question = QUESTION.copy()
-    question["criteria"] = QUESTION["criteria"].copy()
+    permitted = state.get("actions", list(MASKS))
+    question["criteria"] = {name: rubric for name, rubric in QUESTION["criteria"].items() if name in permitted}
     if not state.get("allow_wait") and not any(state.get("held_buttons", {}).values()):
-        question["criteria"].pop("release")
-    if state.get("mode") != "LevelTransition" and not state.get("paused"):
-        question["criteria"].pop("start")
-    if state.get("stalled_forward_decisions", 0) >= 3:
-        question["criteria"].pop("right")
-        question["criteria"].pop("run_right")
+        question["criteria"].pop("release", None)
+    if state.get("mode") == "InGame" and not state.get("paused"):
+        question["criteria"].pop("start", None)
+    if state.get("progress") == "rightward" and state.get("stalled_forward_decisions", 0) >= 3:
+        question["criteria"].pop("right", None)
+        question["criteria"].pop("run_right", None)
+    if not question["criteria"]:
+        question["criteria"] = {"release": QUESTION["criteria"]["release"]}
     return question
 
 

@@ -19,11 +19,6 @@ import jev_case_service
 from jev_spec import RunSpec, load_scenario, assert_source_current
 
 CASE_STARTS = {210: None, 254: None, 327: 1, 370: 0, 502: 0x35}
-LIVE_GOALS = {
-    327: "Reach the BLW2 teleporter at x2503 y575, stand still for 90 frames, then observe arrival near x448 y143. Stay alive and find a higher route around walls.",
-    502: "In Hidden Canyon level 0x35, reach the Drips near x1032-1450 y176 and keep workers alive. Reach at least 21 live Objects, then cross their activation range in both directions to capture both sides of the threshold.",
-}
-STALL_LIMITS = {327: 24, 502: 24}
 
 
 def route(issue):
@@ -148,9 +143,9 @@ def capture(output, spec, inputs, checkpoints, env, live=False):
     config = output / "input.json"
     write_json(config, {"issue": issue, "output": str(output / "bundle"), "script": inputs,
                         "checkpoints": checkpoints, "live": live, "start_level": spec.start_level,
-                        "goal": spec.goal, "stall_after_batches": STALL_LIMITS.get(issue),
-                        "allow_wait": issue == 327, "stop_on_death": issue == 502,
-                        "max_decisions": spec.max_decisions})
+                        "goal": spec.goal, "max_decisions": spec.max_decisions,
+                        "actions": spec.actions, "progress": spec.progress, "target": spec.target,
+                        "tail_frames": spec.tail_frames, "stop_on_death": spec.stop_on_death})
     command(["cargo", "test", "-q", "-p", "wildside-cli", "recording::jev_cases::case_bundle",
              "--", "--ignored", "--exact", "--nocapture"], ROOT, output / "capture.log",
             env=env | {"JEV_CASE_INPUT": str(config)})
@@ -267,8 +262,12 @@ def run(output, spec, inputs, operation="check", checkpoints=()):
     if live:
         assert_source_current(ROOT, source_provenance)
     trace = read_json(output / "bundle/trace.json")
+    collection = read_json(output / "collection.json") if live else None
     assessment = encounter(issue, trace) if operation == "check" else None
     begin, end = assessment["window"] if assessment else (max(0, len(trace) - 60), len(trace) - 1)
+    if collection and collection.get("target_witness_frame") is not None:
+        dwell = spec.target.get("dwell_frames", 1) if spec.target else 1
+        begin = max(0, collection["target_witness_frame"] - dwell + 1 - 30)
     # Preserve the whole event window, including prefix checkpoints, not just favourable frames.
     frames = sorted({*checkpoints, *range(begin, end + 1)})
     manifest = read_json(output / "bundle/manifest.json")
@@ -283,10 +282,18 @@ def run(output, spec, inputs, operation="check", checkpoints=()):
     sensitivity = negative_control(output, issue, manifest["scenario"]["script"], trace, assessment, env, revision) if (
         assessment and issue in (210, 254, 370) and assessment["complete"] and assessment["symptom_pass"]) else None
     proof = verdict(assessment, comparison, sensitivity)
-    result = proof if operation == "check" else "replay matched" if comparable(comparison) else "comparison inconclusive"
-    stop = output / "collection-stop.txt"
+    if assessment and assessment["complete"] and not comparable(comparison, frames):
+        proof = "comparison inconclusive"
+    result = proof if operation == "check" else "replay matched" if comparable(comparison, frames) else "comparison inconclusive"
+    if live:
+        if collection["stop_reason"] == "request_failed_or_limit":
+            result = "collection interrupted"
+        elif collection["suffix_frames"] == 0:
+            result = "no inputs collected"
+        else:
+            result = "route collected" if comparable(comparison, frames) else "comparison inconclusive"
     return {"issue": issue, "operation": operation, "verdict": result, "proof": proof,
-            "collection": {"stop_reason": stop.read_text().strip() if stop.exists() else "frame limit"} if live else None,
+            "collection": collection,
             "encounter": assessment,
             "comparison": comparison, "negative_control": sensitivity,
             "provenance": {**source_provenance,
@@ -343,10 +350,12 @@ def main():
         report = run(output, spec, inputs, args.operation, checkpoints)
     except (ValueError, OSError, RuntimeError, subprocess.SubprocessError) as error:
         report = {"issue": spec.issue, "verdict": "execution failed", "proof": "not evaluated", "error": str(error)}
+        if (output / "collection.json").exists():
+            report["collection"] = read_json(output / "collection.json")
     write_json(output / "report.json", report)
     render_report(output, report)
     print(report["verdict"], flush=True)
-    return 0 if report["verdict"] in ("proven check", "replay matched") else 1
+    return 0 if report["verdict"] in ("proven check", "replay matched", "route collected") else 1
 
 
 if __name__ == "__main__":
