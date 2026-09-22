@@ -605,6 +605,23 @@ pub(crate) fn step_archer(
         return;
     }
 
+    // ASM Archer.asm loc_34248 checks Number_of_Arrows after every DBF span.
+    // The native countdown combines 101, 7, and 13 wakes; 20 and 13 are the
+    // two intermediate table-entry boundaries before the zero fire sentinel.
+    if enemy.dragon_script_cmd == ARCHER_PHASE_SHOOTING_TABLE_LOC_34248
+        && matches!(enemy.wait_timer, 20 | 13)
+        && projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::ArcherArrow)
+            .take(2)
+            .count()
+            >= 2
+    {
+        enemy.dragon_script_cmd = ARCHER_PHASE_AIM_HIBERNATE_LOC_3408C;
+        enemy.wait_timer = 1;
+        return;
+    }
+
     // Count down fire timer.
     if enemy.wait_timer > 0 {
         enemy.wait_timer -= 1;
@@ -1112,6 +1129,45 @@ mod tests {
             projectiles.is_empty(),
             "ASM Archer.asm loc_34248 should not reach the fire sentinel while the countdown remains non-zero"
         );
+    }
+
+    /// ASM Archer.asm loc_34248 checks Number_of_Arrows after each DBF pose
+    /// span, before loc_341BE reads the next table word.
+    #[test]
+    fn archer_restarts_when_two_arrows_survive_the_idle_or_first_pose_span() {
+        for remaining in [20, 13] {
+            let mut archer = ActiveEnemy {
+                family: EnemyFamily::Archer,
+                dragon_script_cmd: ARCHER_PHASE_SHOOTING_TABLE_LOC_34248,
+                wait_timer: remaining,
+                ..mini_hopping_skull_test_enemy()
+            };
+            let mut projectiles = vec![
+                EnemyProjectile {
+                    kind: EnemyProjectileKind::ArcherArrow,
+                    ..Default::default()
+                },
+                EnemyProjectile {
+                    kind: EnemyProjectileKind::ArcherArrow,
+                    ..Default::default()
+                },
+            ];
+
+            step_archer(
+                &mut archer,
+                &mut projectiles,
+                Some(100 << 16),
+                Some(100 << 16),
+                None,
+            );
+
+            assert_eq!(
+                archer.dragon_script_cmd,
+                ARCHER_PHASE_AIM_HIBERNATE_LOC_3408C
+            );
+            assert_eq!(archer.wait_timer, 1);
+            assert_eq!(projectiles.len(), 2);
+        }
     }
 
     #[test]

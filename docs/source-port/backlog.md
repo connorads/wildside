@@ -31,7 +31,7 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-09-22):** P0 #374 remains open. All five named starts match emulator state at frame 60. Hoverboard Beach and Lion's Den match pixels at two checkpoints; Stairway has an 84-pixel extra foreground shape. Scorpion Isle's Archer Arrow wall contact matches ROM at frames 256-257 and its sweep checkpoints now pass; the dense idle route next differs in Object count at frame 289. Trace that lifecycle and Bloody Swamp's death tail. #502's Jev route attempts have no 20/21-Object witness. #300's second teleporter still loads ten frames early. The state sweep is 102/105.
+- **Current work (2026-09-22):** P0 #374 remains open. All five named starts match emulator state at frame 60. Hoverboard Beach and Lion's Den match pixels at two checkpoints; Stairway has an 84-pixel extra foreground shape. Scorpion Isle's Archer wall contact and Arrow-cap timing match through frame 439; the dense idle route next differs in Object count at frame 440. Trace that lifecycle and Bloody Swamp's death tail. #502's Jev route attempts have no 20/21-Object witness. #300's second teleporter still loads ten frames early. The state sweep is 102/105.
 - **Selection:** Run `mise run project-status` and `mise run jev-audit`. Objective awaiting-human cases are eligible for investigation and evidence-backed closure. Coverage prerequisites come first, then P0 #210, #370 and #374 according to dependencies and available evidence.
 - **Scope:** Single-player across all playable levels, branches, forms and bosses. Preserve frozen #406/#409/#416 timing debt and its ratchets. Final package retains subjective/device checks; no human validation is claimed.
 - **Jev allowance:** $5 additional across the campaign. BLW2 used 100 requests and $0.010448214. #502 used 269 charged requests across its three allowed attempts, adding $0.045005898; lifetime charged upper bound is $0.231980574. The best #502 route reached X607 and 15 Objects but no close-range Drips call. Its case window and attempt count are exhausted. No objective bug is closed from these routes.
@@ -58,7 +58,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 374 | [~] | P0 | level/render | All five starts match state; Scorpion Arrow contacts match; later tails and Stairway art differ. | Trace Scorpion frame-289 Object, Bloody death tail, and Stairway foreground. |
+| 374 | [~] | P0 | level/render | All five starts match state; Scorpion Arrow contacts and cap match; later tails and Stairway art differ. | Trace Scorpion frame-440 Object, Bloody death tail, and Stairway foreground. |
 | 502 | [ ] | P1 | enemies/scheduling | Drips range checks omit the live Object-pressure branch above 20 workers. | Acquire an interleaved allocation/deletion witness crossing 20/21 Objects. |
 | 300 | [~] | P1 | level/teleporter | First pad route matches 25/25 gameplay frames with 31,226 changed pixels; second loads 10 frames early. | Model ASM reload work; resolve remaining pixels and natural entry. |
 | 433 | [~] | P1 | enemies/RNG | Robot first-init motion, shots and grounded turns verified; hurt, slot reuse and natural entry remain open. | Probe interrupted turns and acquire a natural Crypt entry. |

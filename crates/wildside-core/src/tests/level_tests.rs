@@ -6289,6 +6289,11 @@ mod chunk_02 {
         assert_eq!(frames[195].number_objects, 10);
         assert_eq!(frames[220].number_hitpoints, 1);
         assert_eq!(
+            (frames[167].number_objects, frames[167].number_gfx_objects),
+            (11, 15),
+            "ASM Archer.asm loc_34248 restarts at the first pose boundary when two arrows survive",
+        );
+        assert_eq!(
             (frames[256].number_objects, frames[256].number_gfx_objects),
             (11, 15),
             "ASM GfxObjects_Collision latches the Archer Arrow's left-wall contact",
@@ -6298,6 +6303,16 @@ mod chunk_02 {
             (10, 14),
             "ASM loc_342D6/loc_34336 removes that Arrow on its next wake",
         );
+        for frame in [289, 309, 439] {
+            assert_eq!(
+                (
+                    frames[frame].number_objects,
+                    frames[frame].number_gfx_objects
+                ),
+                (11, 15),
+                "ASM Archer.asm loc_34248 keeps the next Arrow cycle aligned at ROM frame {frame}",
+            );
+        }
     }
 
     #[test]

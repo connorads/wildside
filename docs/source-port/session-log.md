@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #374 Scorpion Archer Arrow cap timing
+
+ROM `loc_34248` checks its two-Arrow cap after each shooting-table
+delay. Native checked only after the combined span, delaying the next
+Scorpion shot by 20 frames. The checked-in route now matches all 440
+gameplay/RNG checkpoints; the dense route next differs at frame 440
+Object count. Frame-289 pixels match exactly, fast/full TAS gates pass,
+and the state sweep stays 102/105. #374 stays open for that lifecycle,
+Stairway art, and Bloody Swamp's death tail. No paid Jev call or human
+playtest.
+
 ## 2026-09-22 - #374 Scorpion Archer Arrow wall contact
 
 ROM CPU tracing corrected the earlier empty horizontal hitbox claim: the

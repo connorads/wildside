@@ -14,6 +14,23 @@ order at split time; nothing here is re-attributed or deduplicated.
 <a id="issue-374"></a>
 ### #374
 
+2026-09-22 Scorpion Archer cap timing: the ROM Archer at layout index 20
+holds `d3=100` on frame 66, reaches `d3=0` on frame 166 and sees two
+live Arrows at the `loc_34248` cap check on frame 167. It restarts its
+aim cycle and fires on frame 289. Native collapsed the three shooting
+table delays (101, 7, 13 wakes) into one 121-frame timer, checked the
+cap only at its end on frame 187 and fired on frame 309. It now checks
+`Number_of_Arrows` at both intermediate pose boundaries as the ASM
+does. A red-first unit regression covers both boundaries; the checked-in
+Scorpion route extends to 440 frames and matches all gameplay/RNG
+checkpoints through frame 439, including Object/Gfx counts 11/15 at
+frames 167, 289, 309 and 439. The dense 760-frame route's next
+authoritative difference is Object count at frame 440 (native 10,
+ROM 11); #374 remains open. The frame-289 native and oracle images are
+pixel-exact. `verify-slice-fast` and the 37,759-frame `verify-tas-full`
+pass with frozen pixel/audio debt unchanged; the 105-level sweep stays
+102 passed / 3 failed (0x1B, 0x4C, 0x5C). No Jev spend or human playtest.
+
 2026-09-22 correction and Scorpion wall contact: ROM CPU tracing at frame 44
 shows sprite offset `$0CC4` selects `CollisionSize_Index[814]` entry
 `unk_31B10`, a narrow `(-7,14,-1,3)` box. The earlier empty-box claim
