@@ -24,9 +24,9 @@ The native Goal retains the existing tools and verification gates without those
 obligations. It still requires an available execution environment.
 
 1. Read NOW, run `mise run project-status` and `mise run jev-audit`.
-2. Complete coverage prerequisites, then select the highest-severity actionable
-   objective case. The awaiting-human lane is eligible for investigation; move a
-   selected objective row to `[~]` in the open queue, preserving its old evidence
+2. Follow [the loop](loop.md) for priority selection, coverage prerequisites and
+   periodic Jev exploration. The awaiting-human lane is eligible for investigation;
+   move a selected objective row to `[~]` in the open queue, preserving its old evidence
    in the archive. A readiness label is not a passing result.
 3. Reproduce using ordinary recorded inputs; trace ASM and emulator state; inspect
    images; implement the smallest engine fix with a permanent regression.
@@ -104,7 +104,8 @@ on the first attempt, with the existing charged upper bound and exactly
 Attempts belong to that campaign; historical attempts remain in the ledger
 and their tokens cannot dispatch. Missing or invalid accounting stops paid
 requests. Failed and interrupted requests retain their reserved charge.
-Campaign discovery uses this shared case controller and its ledger.
+Campaign discovery uses this shared case controller and its ledger through
+[the case runner](jev-cases.md).
 
 This private extension retains the existing spend and attempt fields; callers
 continue through the same case API. Stopping dispatch reverses the execution

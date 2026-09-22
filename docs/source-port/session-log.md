@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - Jev runner and loop integration
+
+Split discovery, replay and registered proof checks; added verified ordinary-input
+prefix continuation and bounded controller policies. The loop reuses saved routes
+before paid navigation and reviews exploration after three gameplay fixes. The
+fast gate includes the catalogue audit. Python policy/accounting tests and native
+collection/replay tests pass. A six-frame native/oracle replay matches. Live smoke
+stops before collection because the API credential is unavailable; the spending
+ledger is unchanged. No gameplay issue closes from this tooling work. P0 #374
+remains the next implementation item.
+
 ## 2026-09-22 - #350 Hills foliage objective closure
 
 A checked-in frame-39 Hills route confirms zero native/ROM pixel differences

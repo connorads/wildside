@@ -5,7 +5,8 @@ This repo keeps source-port research material in cache-local checkouts and repo 
 ## Loop sessions
 
 If your prompt mentions a loop session (or you're asked to "take the next item"),
-follow `docs/source-port/loop.md`; it is the whole loop. The backlog is sharded by
+follow `docs/source-port/loop.md`; it is the whole loop, including saved-route
+validation and periodic Jev exploration. The backlog is sharded by
 reader: `docs/source-port/backlog.md` holds the NOW handoff and the open queue
 (`[ ]`/`[~]` rows, plus never-selectable frozen `[f]` lanes);
 `backlog-awaiting-human.md` holds `[?]`/`[b]` cases eligible for objective investigation under

@@ -1,5 +1,8 @@
 # Jev prize-block playtest
 
+Campaign discovery uses [the case runner and shared ledger](jev-cases.md).
+This prize-block pilot documents its separate experiment.
+
 This private experiment asks Jev to hit the forest prize block at cell `(8, 12)`
 in level `0x00`, then retains the `sub_1007A` animation for independent review of
 #372. The controller reads internal state; visual assessment uses native and

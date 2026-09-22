@@ -94,6 +94,7 @@ depends = [
   "lint",
   "verify-tas-frontier",
   "backlog-lint",
+  "jev-audit",
   "audit-debug-fields",
   "asm-coverage-check-required",
   "asm-coverage-check-no-new-test-only",

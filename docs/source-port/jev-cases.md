@@ -4,7 +4,9 @@
 prints the joined records. Frozen lanes are excluded. Backlog status and
 priority remain authoritative; the catalogue never changes status. Objective
 closure follows [the completion campaign](completion-campaign.md); subjective and
-device checks remain for the final human playtest.
+device checks remain for the final human playtest. Route selection and exploration
+cadence follow [the loop](loop.md); its [instruction evaluation](jev-loop-evaluation.md)
+records the decision checks. `verify-slice-fast` includes the catalogue audit.
 
 Readiness describes the next experiment, not a passing result:
 
