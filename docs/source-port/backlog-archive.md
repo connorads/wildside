@@ -25907,6 +25907,18 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-22 foreground expansion workload: the live cross-level transition now
+derives `Level_width_blocks * Level_height_blocks` from the destination header
+and visits every source instruction in ASM `loc_11C34/loc_11C36`. Resource 0x6E
+records 1,120 cells, 9,186 instructions and 82,214 raw cycles; resource 0x15
+records 7,280 cells, 58,354 instructions and 524,950 cycles. The 442,736-cycle
+difference is exposed in a registered frame diagnostic and pinned on both saved
+routes. The ignored second-destination regression still fails at frame 166 with
+native 4/4 against ROM 0/0, as expected: foreground work alone does not include
+block decode, background mapping or later theme loads. Continue by adding those
+format-specific visitors before scheduling the hand-off. No paid Jev call or
+human playtest.
+
 2026-09-22 parked timing investigation: the red cache-backed second-destination
 regression still observes native 4/4 Object/Gfx counts at frame 166 while ROM
 remains 0/0 until frame 176. Both routes reach `loc_11AE4` at activation+33,

@@ -9,6 +9,7 @@ mod gfx_animation;
 mod helmets;
 pub mod intro_timing;
 mod level;
+mod load_in_game_timing;
 mod mode_level_timing;
 mod movement;
 pub mod physics;

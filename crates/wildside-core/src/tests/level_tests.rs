@@ -6135,6 +6135,11 @@ mod chunk_02 {
             "ASM Teleport keeps Game_Mode=$000C when loc_BCF6 sets FC29 for a cross-level pad"
         );
         assert_eq!(
+            frames[223].gameplay_debug_fields["teleport_foreground_work_loc_11c34"],
+            "cells=1120 instructions=9186 raw_cycles=82214",
+            "ASM loc_11C34 source work must come from the destination resource dimensions"
+        );
+        assert_eq!(
             (frames[223].kid_x_pos, frames[223].kid_y_pos),
             (Some(27_264_512), Some(138_346_496)),
             "ASM Teleport retains the departing Kid GfxObject during the first fade frame"
@@ -6246,6 +6251,11 @@ mod chunk_02 {
             .run(&script, script.len());
 
         assert_eq!(frames[103].current_level, LevelId(0x3e));
+        assert_eq!(
+            frames[103].gameplay_debug_fields["teleport_foreground_work_loc_11c34"],
+            "cells=7280 instructions=58354 raw_cycles=524950",
+            "ASM loc_11C34 source work distinguishes the slower destination before scheduling"
+        );
         assert_eq!(
             (frames[166].number_objects, frames[166].number_gfx_objects),
             (0, 0),

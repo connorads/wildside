@@ -4554,6 +4554,8 @@ pub(crate) struct TeleportTransitionState {
     pub(crate) frozen_active_objects: Vec<NativeObjectSnapshot>,
     pub(crate) frozen_number_objects: u16,
     pub(crate) frozen_number_gfx_objects: u16,
+    pub(crate) foreground_collision_timing_loc_11c34:
+        Option<crate::load_in_game_timing::ForegroundCollisionExpansionTimingLoc11c34>,
 }
 
 #[derive(Debug, Clone)]

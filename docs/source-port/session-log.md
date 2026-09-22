@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #300 foreground expansion workload
+
+The live cross-level transition now records exact ASM `loc_11C34/loc_11C36`
+source work from destination dimensions. Resource 0x6E costs 82,214 raw cycles;
+resource 0x15 costs 524,950, a 442,736-cycle difference pinned on both saved
+routes. The ten-frame regression remains deliberately red because block decode,
+background mapping and theme loads still need format-specific visitors before
+the hand-off can use the composed schedule. No Jev spend or human playtest.
+
 ## 2026-09-22 - #433 interrupted Robot aim hurt
 
 ASM `loc_3AAD4 -> loc_3AB04 -> loc_3AAC4` proves that a nonfatal hit during

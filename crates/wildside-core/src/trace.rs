@@ -12091,6 +12091,19 @@ impl NativeRuntime {
             Some(_) => ModeLevelPlayerWorkBeforeHud::Stationary,
         };
         let mut gameplay_debug_fields = BTreeMap::new();
+        if let Some(timing) = self
+            .teleport_transition
+            .as_ref()
+            .and_then(|transition| transition.foreground_collision_timing_loc_11c34)
+        {
+            gameplay_debug_fields.insert(
+                "teleport_foreground_work_loc_11c34".into(),
+                format!(
+                    "cells={} instructions={} raw_cycles={}",
+                    timing.cells, timing.instruction_count, timing.raw_cycles
+                ),
+            );
+        }
         if self.progression.form_change_flash_frames > 1 {
             gameplay_debug_fields.insert("currently_transforming".into(), "true".into());
         }

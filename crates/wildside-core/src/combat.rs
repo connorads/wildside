@@ -15859,6 +15859,21 @@ impl NativeRuntime {
                     );
                 // ASM loc_BCF6 writes Current_LevelID before Teleport enters
                 // loc_6E2. The departing scene remains allocated for its fade.
+                let foreground_collision_timing_loc_11c34 =
+                    load_level_asset_bundle_with_source(
+                        &self.assets,
+                        dest_map,
+                        self.assets_source.as_ref(),
+                    )
+                    .ok()
+                    .and_then(|bundle| bundle.parsed_header)
+                    .map(|header| {
+                        crate::load_in_game_timing::visit_foreground_collision_expansion_instructions_loc_11c34(
+                            u16::from(header.width_screens) * 20,
+                            u16::from(header.height_screens) * 14,
+                            |_| {},
+                        )
+                    });
                 self.current_level = LevelId(dest_map);
                 self.teleport_transition = Some(TeleportTransitionState {
                     start_frame: self.frame_index,
@@ -15867,6 +15882,7 @@ impl NativeRuntime {
                     frozen_active_objects,
                     frozen_number_objects,
                     frozen_number_gfx_objects,
+                    foreground_collision_timing_loc_11c34,
                 });
             }
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::Teleporter;
