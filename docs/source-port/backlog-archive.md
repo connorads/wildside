@@ -228,6 +228,24 @@ disappears. Other crawlers also differ in X, so ownership and
 saved neutral route and dense oracle frame probe are under `.cache/issue-4b-*`.
 This issue is distinct from #502's unexercised >20-Object range branch.
 
+Closed 2026-09-22: the dual-splash frame-183 oracle PC trace shows both
+`loc_3340E` parent reseeds before the newly allocated `loc_335D8` children
+draw direction RNG in Object slot order. Native interleaved each parent and
+child, giving the X425 crawler byte `$19` instead of `$3E` and the wrong
+direction. `Make_SpriteFromGfxObject loc_11B6` leaves GfxObject `$19` set
+while that child is clipped at X425 with camera X0; `loc_33588` enters
+`loc_338EA` on frame 214. The `stru_33FA6` startup and `stru_33FB4`
+finish each have three ten-frame mappings, and `loc_3392C` deletes the
+Object after frame 243. Native's 36-frame startup and 60-frame finish
+kept the Object/Gfx pair past frame 244. The red-first 0x4B regression pins
+both frame-183 directions and exact 9/18 Object/Gfx counts at frame 244.
+Two older #260 unit expectations contradicted the archive's established
+parent-before-child RNG order and are corrected. The 105-level state sweep
+improves from 98/105 to 100/105; 0x4B and 0x2C pass with no new failing
+levels (`.cache/sweep-runs/1790038271/report.json`). `verify-slice-fast`
+passes 7,443 core tests and the full 37,759-frame TAS passes its unchanged
+pixel and GEMS baselines. No paid Jev request or human playtest is claimed.
+
 <a id="issue-509"></a>
 ### #509 - Woods of Despair 1 RockTank settle positions
 
@@ -26598,6 +26616,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 510 | [x] | P2 | enemies/lifecycle | 0x4B Drips crawlers draw RNG in Object order and finish after ROM animation timing. | Frame-183 directions and frame-244 9/18 counts; 0x4B sweep pass; fast gate and full TAS pass. |
 | 508 | [x] | P1 | enemies/trace | Grounded Driller exports zero Gfx X velocity while Object patrol displacement remains internal. | ASM loc_3BE60/loc_3C026; 360 exact Driller velocity checkpoints; fast gate and full TAS pass. |
 | 507 | [x] | P1 | verification/enemies | Recording comparisons pair saved native and oracle enemies by the same key. | Shuffled-equivalent regression and changed-state controls; 360 tolerance-bounded state checkpoints pass; strict pixels remain red. |
 | 506 | [x] | P1 | oracle/RNG | Title cards cannot allocate gameplay enemies or consume their initialisation RNG. | ASM Mode_Standard/loc_80C; 360 exact RNG checkpoints; state sweep improves to 97/105 passes. |

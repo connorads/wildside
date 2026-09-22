@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - 0x4B Drips crawler RNG and finish timing
+
+Two frame-183 Drips splashes exposed parent/child RNG interleaving: the ROM
+reseeds both parents before initialising children in Object slot order.
+The X425 child then clips at camera X0, enters its finish on frame 214,
+and deletes after frame 243's last animation mapping. Native matches the
+frame-183 directions and frame-244 9/18 Object/Gfx count. The state sweep
+improves from 98/105 to 100/105, with 0x4B and 0x2C newly passing; fast
+and full TAS gates pass. #510 closes with no paid Jev request.
+
 ## 2026-09-22 - 0x4B Drips loader timing
 
 Oracle title-wait RNG resumes at row 60 in logical 0x4B; native used the

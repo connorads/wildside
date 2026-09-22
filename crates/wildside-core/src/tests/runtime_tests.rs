@@ -21030,7 +21030,7 @@ mod chunk_09 {
     }
 
     #[test]
-    fn drips_sentinel_splash_runs_crawler_rng_before_parent_reseed_loc_33488() {
+    fn drips_sentinel_splash_reseeds_parent_before_crawler_rng_loc_33488() {
         let mut rt = NativeRuntime::new(manifest());
         let mut drips = test_enemy(EnemyFamily::Drips, 0x0020_0000, 0x0020_0000, 1);
         drips.drips_attached = true;
@@ -21048,10 +21048,8 @@ mod chunk_09 {
             .find(|enemy| enemy.family == EnemyFamily::Drips)
             .expect("Drips parent remains active after sentinel splash");
         assert_eq!(
-            drips.wait_timer, 0x0024,
-            "ASM Drips.asm loc_33488 queues loc_335D8 before the parent returns to loc_3340E; \
-            oracle issue-260 frame 639 already has the child's random direction branch applied, \
-            so the parent reseed consumes the following RNG byte"
+            drips.wait_timer, 0x0030,
+            "ASM Drips.asm loc_33488 queues loc_335D8; loc_3340E reseeds the parent before the new child draws its direction byte"
         );
         assert!(
             rt.projectiles
@@ -21083,7 +21081,7 @@ mod chunk_09 {
             .find(|enemy| enemy.family == EnemyFamily::Drips)
             .expect("Drips parent remains active after sentinel splash");
         assert_eq!(
-            drips.wait_timer, 0x0064,
+            drips.wait_timer, 0x0070,
             "ASM Drips.asm loc_3350E returns to loc_3340E after the splash; loc_3340E reads Addr_GfxObject_Kid x_pos directly, so issue-260 post-splash reseeds must not add a Drips-local 16px offset"
         );
     }

@@ -6070,6 +6070,37 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level4b_drips_same_frame_splashes_initialise_children_after_reseeds_loc_335d8() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let frames = ScriptRunner::new(manifest)
+            .warp_to_level(0x4b)
+            .settle_recording_warp()
+            .run(&vec![0; 245], 245);
+        for (x, velocity) in [(425, -0x3000), (249, 0x3000)] {
+            let crawler = frames[183]
+                .active_projectile_details
+                .iter()
+                .find(|projectile| {
+                    projectile.kind == ActiveProjectileKind::DripsSurfaceCrawler
+                        && projectile.x_pos == x << 16
+                })
+                .expect("ASM Drips.asm loc_335D8 allocates both same-frame splash children");
+            assert_eq!(
+                crawler.x_velocity, velocity,
+                "ASM loc_33488 parent reseeds run before loc_335D8 child RNG in Object slot order"
+            );
+        }
+        assert_eq!(
+            (frames[244].number_objects, frames[244].number_gfx_objects),
+            (9, 18),
+            "ASM loc_33588 -> loc_338EA -> loc_3392C deletes the first crawler after its finish animation"
+        );
+    }
+
+    #[test]
     fn level30_ufo_contact_death_freezes_live_object_counts_at_death_loc_b7ea() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

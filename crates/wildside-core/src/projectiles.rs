@@ -136,7 +136,7 @@ pub(crate) fn fire_demon_trail_offscreen_flag_loc_11ee(
 
 pub(crate) const DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488: usize = 5;
 const DRIPS_SURFACE_CRAWLER_LIFETIME: u16 = u16::MAX;
-const DRIPS_SURFACE_CRAWLER_STARTUP_FRAMES_LOC_335D8: u16 = 36;
+const DRIPS_SURFACE_CRAWLER_STARTUP_FRAMES_LOC_335D8: u16 = 30;
 const DRIPS_SURFACE_CRAWLER_POST_STARTUP_HIBERNATE_FRAMES_LOC_33650: u16 = 1;
 const DRIPS_SURFACE_CRAWLER_KID_CONTACT_HALF_WIDTH_LOC_33550: i32 = PROJECTILE_HITBOX_HALF + 9;
 const DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C: i32 = 5;
@@ -1021,7 +1021,7 @@ fn drips_surface_crawler_finish_animation_loc_3392c(crawler: &EnemyProjectile) -
         x_pos: crawler.x_pos,
         y_pos: crawler.y_pos,
         palette_variant: crawler.palette_variant,
-        lifetime: 60,
+        lifetime: 29,
         ..Default::default()
     }
 }
@@ -1447,8 +1447,8 @@ mod drips_surface_crawler_tests {
         );
         assert_eq!(finish.y_velocity, 0);
         assert_eq!(
-            finish.lifetime, 60,
-            "native finish-shell lifetime stands in for `Hibernate_UntilAnimFinished` before `$FFFFFB42` decrements"
+            finish.lifetime, 29,
+            "ASM ingame/anim/enemy/Drips.asm stru_33FB4 has three ten-frame mappings before loc_3392C deletes the object"
         );
         assert_eq!(finish.gravity, 0);
         assert!(!finish.friendly);
@@ -3719,6 +3719,7 @@ impl NativeRuntime {
         let player_x = player_x.unwrap_or(0);
         let kid_x_word = ((player_x >> 16) & 0xFFFF) as u16;
         let mut reseed_events = Vec::new();
+        let mut pending_crawlers = Vec::new();
         let mut ready_drips_indices = self
             .active_enemies
             .iter()
@@ -3771,37 +3772,27 @@ impl NativeRuntime {
                 enemy.drips_surface_table_index = table_start_index as u8;
                 true
             };
-            // ASM Drips.asm loc_33488 allocates the loc_335D8 child object,
-            // then the parent continues through loc_3350E back to loc_3340E.
-            // The oracle issue-260 frame-639 trace already has loc_335D8's
-            // random direction branch applied to the new child, so the child
-            // consumes the next RNG byte before the parent wait reseed.
+            // ASM Drips.asm loc_33488 allocates loc_335D8, then loc_3350E
+            // reseeds the parent. The new child runs in object-slot order
+            // after the ready parents have returned.
             let rng_before = self.rom_random.offset_word();
-            let crawler_random_byte = if spawn_crawler_on_splash
-                && *drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
-            {
-                Some(self.rom_random.next_byte())
-            } else {
-                None
-            };
-            let reseed_random_byte = self.rom_random.next_byte();
-            let rng_after = self.rom_random.offset_word();
-            if spawn_crawler_on_splash
-                && *drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
-            {
+            let queued_crawler = spawn_crawler_on_splash
+                && *drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488;
+            if queued_crawler {
                 let (drips_child_byte_44, drips_child_byte_45) =
                     drips_child_state_bytes_loc_3333e(enemy.enemy_level);
-                spawned_projectiles.push(drips_surface_crawler_from_splash_loc_335d8(
+                pending_crawlers.push((
                     enemy.drips_pending_splash_x_pos,
                     enemy.drips_pending_splash_y_pos,
                     drips_child_byte_44,
                     drips_child_byte_45,
                     enemy.palette_variant,
-                    crawler_random_byte.expect("crawler random byte is reserved above"),
                 ));
                 *drips_surface_crawler_count += 1;
                 self.drips_surface_crawler_count_loc_fffffb42 += 1;
             }
+            let reseed_random_byte = self.rom_random.next_byte();
+            let rng_after = self.rom_random.offset_word();
             // ASM loc_3350E branches back to loc_3340E after the splash path.
             let wait_timer = drips_wait_timer_loc_3340e(reseed_random_byte, kid_x_word);
             reseed_events.push(format!(
@@ -3812,7 +3803,7 @@ impl NativeRuntime {
                 table_index,
                 enemy.drips_surface_table_index,
                 u8::from(spawn_crawler_on_splash),
-                crawler_random_byte.map_or_else(|| String::from("none"), |byte| format!("{byte:#04x}")),
+                if queued_crawler { "deferred" } else { "none" },
                 kid_x_word,
                 rng_before,
                 rng_after,
@@ -3820,6 +3811,18 @@ impl NativeRuntime {
                 wait_timer
             ));
             enemy.wait_timer = wait_timer;
+        }
+        // ASM loc_335D8: newly allocated children initialise in object-slot
+        // order, opposite the parent continuation order observed at frame 183.
+        for (x, y, child_44, child_45, palette) in pending_crawlers.into_iter().rev() {
+            spawned_projectiles.push(drips_surface_crawler_from_splash_loc_335d8(
+                x,
+                y,
+                child_44,
+                child_45,
+                palette,
+                self.rom_random.next_byte(),
+            ));
         }
         if !reseed_events.is_empty() {
             self.last_drips_splash_reseed_probe = Some(reseed_events.join(";"));
@@ -4620,16 +4623,24 @@ impl NativeRuntime {
 
             if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
                 && !drips_movement_state_handled
-                && drips_surface_crawler_out_of_level_bounds_loc_33588(
+                && (drips_surface_crawler_out_of_level_bounds_loc_33588(
                     p,
                     level_bounds.width_pixels,
                     level_bounds.height_pixels,
-                )
+                ) || camera.is_some_and(|camera| {
+                    // ASM Make_SpriteFromGfxObject loc_11B6 leaves `$19`
+                    // set for a clipped sprite; Drips.asm loc_33588 reads it
+                    // on the crawler's first wake after startup.
+                    archer_arrow_outside_horizontal_sprite_bounds_loc_11b6(
+                        p.x_pos,
+                        camera.x_pos,
+                    )
+                }))
             {
-                // ASM Drips.asm loc_33588/loc_335B0 route out-of-level edge
-                // probes through loc_338EA/loc_338F8, then loc_3392C deletes
-                // the crawler after its finish animation and decrements
-                // `$FFFFFB42`.
+                // ASM Drips.asm loc_33588/loc_335B0 route a clipped sprite
+                // or out-of-level edge through loc_338EA/loc_338F8, then
+                // loc_3392C deletes it after the finish animation and
+                // decrements `$FFFFFB42`.
                 *p = drips_surface_crawler_finish_animation_loc_3392c(p);
                 return true;
             }
