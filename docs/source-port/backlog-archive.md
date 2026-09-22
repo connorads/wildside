@@ -14,6 +14,27 @@ order at split time; nothing here is re-attributed or deduplicated.
 <a id="issue-374"></a>
 ### #374
 
+2026-09-22 Scorpion respawn reload timing investigation: a dense
+760-frame replay first differs at frame 534 only because native hides
+the old Kid pose then, while ROM WRAM keeps x=`$003C0000`,
+y=`$01DF5000` through frame 541. Native and ROM both enter
+`lose_life -> loc_B8DE` on frame 515 and expose the respawn bootstrap on
+frame 547; extending the entire death lifecycle would be wrong. ROM
+selected-PC tracing reaches `loc_700` at frame 533 after the 17
+`Pal_FadeOut loc_28C6` body visits and `loc_28EA` at 532. Its
+`loc_700/loc_70E` VRAM clear runs through frame 541; the
+`loc_714/loc_720` Sprite Table clear spans frames 542-546. Kid WRAM
+clears at 542, the camera and Object/Gfx lists clear at 546. Native's
+fixed hidden-shell, camera and Object-count thresholds clear Kid at
+534, camera/Objects at 538, then invent 2/11/15 Object-count steps
+before the actual 547 respawn. The 8-frame displacement is a shell
+projection defect, not an early `lose_life`. Reject a Scorpion-only
+threshold and a global `+8`: earlier level-1/2 oracle regressions pin
+different windows. Next experiment: compare selected-PC `loc_700`,
+`loc_714` and slot-initialiser boundaries on the level-1/2 routes,
+then derive one source-timed reload projection from the existing
+`intro_timing` clear visitors. No native change or Jev spend here.
+
 2026-09-22 Scorpion lethal Arrow and death render: ROM WRAM keeps both
 Archer Arrows and Object/Gfx counts 11/15 across frames 439-443 while
 Kid loses his last HP at frame 440. `Execute_Objects loc_E1E` visits Kid

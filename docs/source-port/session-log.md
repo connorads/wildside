@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #374 Scorpion respawn reload timing
+
+ROM and native both enter `lose_life` at frame 515 and respawn at 547.
+Native hides the old Kid pose at 534; ROM keeps it through 541 while
+`loc_700/loc_70E` clears VRAM. The ROM Sprite Table clear then runs
+through 546. Fixed hidden-shell thresholds derived from earlier
+level-1/2 routes cannot be shifted globally without comparison. #374
+stays open; compare those routes' selected-PC clear boundaries before
+modelling one source-timed reload projection. The dense Bloody Swamp
+route independently first differs at frame 144. No native change or
+Jev spend this session.
+
 ## 2026-09-22 - #374 Scorpion lethal Arrow and death render
 
 ROM death at frame 440 suspends Archer Arrow wakes, retaining the two
