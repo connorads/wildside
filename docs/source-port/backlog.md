@@ -36,6 +36,7 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 - **Scope:** Single-player across all playable levels, branches, forms and bosses. Preserve frozen #406/#409/#416 timing debt and its ratchets. Final package retains subjective/device checks; no human validation is claimed.
 - **Jev allowance:** $5 additional across the campaign. BLW2 used 100 requests and $0.010448214. #502 used 269 charged requests across its three allowed attempts, adding $0.045005898; lifetime charged upper bound is $0.231980574. The best #502 route reached X607 and 15 Objects but no close-range Drips call. Its case window and attempt count are exhausted. No objective bug is closed from these routes.
 - **#370 boundary:** Resident death fade and first Dragon breath duration are fixed. Natural reload remains comparison-inconclusive; title/load timing needs source-derived investigation. See `jev-pilot-results.md`; do not close from the symptom assertion alone.
+- **Objective closure:** #350 Hills lower foliage is ROM-pixel-exact on the checked-in frame-39 route. A removed-fix control fails by 1,334 lower-scene pixels; 57 upper-sky pixels remain tracked separately.
 - **Evidence boundary:** Published-route state/RNG gates cover one route. Frozen visual debt is 241 frames / 2,391 pixels. Neither that replay nor idle sweep checkpoints proves whole-game completion.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never

@@ -902,21 +902,6 @@
     "scope": "Tap Start as soon as a title card is visible; it should enter the level immediately."
   },
   {
-    "issue": 350,
-    "readiness": "needs_comparison",
-    "active_path": "crates/wildside-frame/src/scene.rs layered foliage palette helper; actual gameplay VDP pixel path unproven",
-    "route": "historical level 0x08 frame39 crop comparison; current route needs refresh",
-    "evidence": [
-      "docs/source-port/backlog-awaiting-human.md",
-      "docs/source-port/backlog-archive.md#issue-350",
-      "crates/wildside-frame/src/scene.rs",
-      "crates/wildside-cli/src/native_player/mod.rs",
-      "crates/wildside-cli/src/recording.rs"
-    ],
-    "next_action": "Capture Hills level0x08 lower foliage on active VDP; compare full frame and below-canopy crop, retaining separate sky-seam differences",
-    "scope": "Fixed candidate 2026-06-21: Hills (theme 3) below-canopy foliage no longer renders blue/purple. Hills uses the LAYERED background path (not the chunked `background_palette_for_scene` the original note blamed); its lower foliage plane (ASM loc_1295E base `$07C0` = CRAM line 0) was indexing the background sky palette. Extended the Mountain two-line branch to theme 3 so the line-0 foliage reads the foreground CRAM line, exactly like Mountain's `$07E5` follow-up."
-  },
-  {
     "issue": 351,
     "readiness": "needs_route",
     "active_path": "Drips child palette propagates in trace; historical scene draw path at scene.rs:8696 does not prove VDP palette",

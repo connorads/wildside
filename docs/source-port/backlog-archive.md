@@ -11,6 +11,27 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+<a id="issue-350"></a>
+### #350
+
+2026-09-22 objective closure `[x]`: the reproducible
+`tests/data/dynamic-scenarios/issue-350-hills-foliage.json` idle route
+reaches Hills of the Warrior 1 at frame 39. ASM `loc_1295E` assigns the
+lower foliage plane CRAM line 0 (`$07C0`); `loc_11E16` keeps foreground
+colours on that line. Fix `6308be6f9` applies the two-line palette to Hills.
+Fresh native and ROM captures were inspected side by side. The fixed image
+has zero different pixels at y>=128; all 57 remaining differences lie in
+the upper sky at y17-44 and belong to the separate #280/#289 seam work.
+A labelled negative control that temporarily removed Hills from the
+two-line palette branch produced 1,334 wrong pixels at y>=128 on the
+same route, with the same 57 upper-sky differences; the control was
+restored and the working tree was clean. The permanent
+`hills_background_palette_reads_foreground_foliage_plane_loc_1295e`
+test checks both foliage and main-plane sampled colours. `verify-tas`
+frame 39 matches player/camera and enemy state; no Jev or human playtest
+is claimed. This closes the objective blue-foliage report only, not
+natural campaign progression through Hills.
+
 <a id="issue-374"></a>
 ### #374
 
@@ -26983,6 +27004,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 350 | [x] | P1 | render | Hills lower foliage uses foreground colours, not sky blue. | Checked-in frame-39 route: 0 lower-scene pixel diffs vs ROM; 1,334 in negative control; sampled-colour regression passes. |
 | 290 | [x] | P1 | trace/objects | Published-route exported gameplay, enemy and RNG state matches across every recorded frame. | Interval-1 37,759 checkpoints; zero authoritative/roster/RNG differences; 24 classified diamond counter sampling rows. |
 | 510 | [x] | P2 | enemies/lifecycle | 0x4B Drips crawlers draw RNG in Object order and finish after ROM animation timing. | Frame-183 directions and frame-244 9/18 counts; 0x4B sweep pass; fast gate and full TAS pass. |
 | 508 | [x] | P1 | enemies/trace | Grounded Driller exports zero Gfx X velocity while Object patrol displacement remains internal. | ASM loc_3BE60/loc_3C026; 360 exact Driller velocity checkpoints; fast gate and full TAS pass. |

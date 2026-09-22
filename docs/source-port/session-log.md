@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #350 Hills foliage objective closure
+
+A checked-in frame-39 Hills route confirms zero native/ROM pixel differences
+below y128 after fix `6308be6f9`. Removing the Hills palette branch as a
+labelled negative control creates 1,334 wrong lower pixels; the 57 remaining
+upper-sky differences are separate. The existing sampled-colour regression
+and fresh state comparison support objective closure without claiming
+natural progression or human playtest. #350 moved to the resolved lane.
+
 ## 2026-09-22 - #374 Scorpion Island shore-art boundary
 
 ROM VRAM keeps the `$F6C0` shore band unchanged through fatal frames
