@@ -24,32 +24,38 @@ const RECORDING_DEBUG_TITLE_WAIT_FRAMES_LOC_1AE2E: usize = 120;
 pub(crate) fn debug_level_entry_load_complete_step_loc_74e0(level: LevelId) -> Option<usize> {
     match level {
         LevelId(0x49) => Some(56),
-        LevelId(0x52) => Some(57),
-        LevelId(0x50 | 0x67 | 0x68) => Some(58),
+        LevelId(0x4d | 0x52) => Some(57),
+        LevelId(0x4a | 0x4f | 0x50 | 0x5d | 0x5e | 0x67 | 0x68) => Some(58),
         LevelId(0x59) => Some(59),
-        LevelId(0x4b | 0x53 | 0x58) => Some(60),
-        LevelId(0x55 | 0x66) => Some(61),
+        LevelId(0x4b | 0x53 | 0x58 | 0x5f) => Some(60),
+        LevelId(0x55 | 0x5a | 0x66) => Some(61),
         LevelId(0x57 | 0x60) => Some(62),
-        LevelId(0x33 | 0x65) => Some(63),
-        LevelId(0x54 | 0x56 | 0x61) => Some(64),
-        LevelId(0x51) => Some(65),
+        LevelId(0x33 | 0x4c | 0x65) => Some(63),
+        LevelId(0x4e | 0x54 | 0x56 | 0x5c | 0x61) => Some(64),
+        LevelId(0x51 | 0x5b) => Some(65),
+        LevelId(0x2a) => Some(66),
+        LevelId(0x1b) => Some(67),
         LevelId(0x07 | 0x10 | 0x26) => Some(68),
-        LevelId(0x16 | 0x27) => Some(69),
-        LevelId(0x01 | 0x64) => Some(70),
-        LevelId(0x02 | 0x05 | 0x25 | 0x39 | 0x62) => Some(71),
+        LevelId(0x16 | 0x1e | 0x27) => Some(69),
+        LevelId(0x01 | 0x0b | 0x1d | 0x64) => Some(70),
+        LevelId(0x02 | 0x05 | 0x0c | 0x1a | 0x1c | 0x25 | 0x39 | 0x62) => Some(71),
         LevelId(0x48 | 0x63) => Some(72),
-        LevelId(0x03) => Some(73),
-        LevelId(0x11 | 0x15 | 0x18 | 0x24) => Some(74),
+        LevelId(0x03 | 0x2b) => Some(73),
+        LevelId(0x0a | 0x0e | 0x11 | 0x15 | 0x18 | 0x24 | 0x3a | 0x3e) => Some(74),
         // #509: 0x1F allocates its RockTanks on oracle title-wait row 75;
         // RNG resumes on row 76, after the first object scheduler pass.
-        LevelId(0x09 | 0x1f | 0x23 | 0x28 | 0x30 | 0x38 | 0x41 | 0x45 | 0x47) => Some(75),
-        LevelId(0x06 | 0x17 | 0x31 | 0x37 | 0x44 | 0x46) => Some(76),
-        LevelId(0x19 | 0x40 | 0x42) => Some(77),
-        LevelId(0x22 | 0x36) => Some(78),
+        LevelId(0x09 | 0x1f | 0x23 | 0x28 | 0x2f | 0x30 | 0x38 | 0x3c | 0x41 | 0x45 | 0x47) => {
+            Some(75)
+        }
+        LevelId(0x06 | 0x0d | 0x17 | 0x2c | 0x2e | 0x31 | 0x37 | 0x44 | 0x46) => Some(76),
+        LevelId(0x0f | 0x19 | 0x3d | 0x40 | 0x42) => Some(77),
+        LevelId(0x22 | 0x2d | 0x36) => Some(78),
         LevelId(0x14 | 0x20 | 0x21 | 0x34 | 0x35 | 0x43) => Some(79),
         LevelId(0x08 | 0x13 | 0x29 | 0x32) => Some(80),
         LevelId(0x04) => Some(81),
+        LevelId(0x3b) => Some(82),
         LevelId(0x12) => Some(84),
+        LevelId(0x3f) => Some(85),
         _ => None,
     }
 }
@@ -1199,8 +1205,8 @@ mod tests {
     fn recording_oracle_warp_target_live_frames_is_the_measured_helper_minimum() {
         // #442: the debug title lifecycle ages every measured level from its
         // per-level load completion, so the residual stable window is the
-        // helper minimum (census v2 run 1786640409 measured exactly 60 on all
-        // 68 warped levels). The old 0x01/0x06/0x08/0x1B/0x3E/0x46/0x64 tails
+        // helper minimum (census v2 measures exactly 60 on all 104 warped
+        // level IDs). The old 0x01/0x06/0x08/0x1B/0x3E/0x46/0x64 tails
         // and Driller/boss/Drips family adjustments modelled the missing load
         // duration and are deleted.
         for level in [
@@ -1321,68 +1327,100 @@ mod tests {
 
     #[test]
     fn debug_level_entry_load_complete_table_pins_every_measured_level_loc_74e0() {
-        // oracle-settle-census derivation v2, run 1786640409, plus the #509
-        // level 0x1F/0x4B title-wait traces. An exhaustive
+        // oracle-settle-census derivation v2, all 105 level IDs, plus the
+        // #509 level 0x1F/0x4B title-wait traces. An exhaustive
         // domain assertion prevents an individual match arm silently falling
         // back to `None` while the three historical anchors remain green.
         let expected = [
             (0x49, 56),
+            (0x4d, 57),
             (0x52, 57),
+            (0x4a, 58),
+            (0x4f, 58),
             (0x50, 58),
+            (0x5d, 58),
+            (0x5e, 58),
             (0x67, 58),
             (0x68, 58),
             (0x59, 59),
             (0x53, 60),
             (0x58, 60),
             (0x4b, 60),
+            (0x5f, 60),
             (0x55, 61),
+            (0x5a, 61),
             (0x66, 61),
             (0x57, 62),
             (0x60, 62),
             (0x33, 63),
+            (0x4c, 63),
             (0x65, 63),
             (0x54, 64),
             (0x56, 64),
+            (0x4e, 64),
+            (0x5c, 64),
             (0x61, 64),
             (0x51, 65),
+            (0x5b, 65),
+            (0x2a, 66),
+            (0x1b, 67),
             (0x07, 68),
             (0x10, 68),
             (0x26, 68),
             (0x16, 69),
+            (0x1e, 69),
             (0x27, 69),
             (0x01, 70),
+            (0x0b, 70),
+            (0x1d, 70),
             (0x64, 70),
             (0x02, 71),
             (0x05, 71),
+            (0x0c, 71),
+            (0x1a, 71),
+            (0x1c, 71),
             (0x25, 71),
             (0x39, 71),
             (0x62, 71),
             (0x48, 72),
             (0x63, 72),
             (0x03, 73),
+            (0x2b, 73),
+            (0x0a, 74),
+            (0x0e, 74),
             (0x11, 74),
             (0x15, 74),
             (0x18, 74),
             (0x24, 74),
+            (0x3a, 74),
+            (0x3e, 74),
             (0x09, 75),
             (0x1f, 75),
             (0x23, 75),
             (0x28, 75),
+            (0x2f, 75),
             (0x30, 75),
             (0x38, 75),
+            (0x3c, 75),
             (0x41, 75),
             (0x45, 75),
             (0x47, 75),
             (0x06, 76),
+            (0x0d, 76),
             (0x17, 76),
+            (0x2c, 76),
+            (0x2e, 76),
             (0x31, 76),
             (0x37, 76),
             (0x44, 76),
             (0x46, 76),
             (0x19, 77),
+            (0x0f, 77),
+            (0x3d, 77),
             (0x40, 77),
             (0x42, 77),
             (0x22, 78),
+            (0x2d, 78),
             (0x36, 78),
             (0x14, 79),
             (0x20, 79),
@@ -1395,11 +1433,14 @@ mod tests {
             (0x29, 80),
             (0x32, 80),
             (0x04, 81),
+            (0x3b, 82),
             (0x12, 84),
+            (0x3f, 85),
         ];
         let expected = expected
             .into_iter()
             .collect::<std::collections::BTreeMap<_, _>>();
+        assert_eq!(expected.len(), 104, "all debug-warp level IDs are pinned");
         for level in 0u8..=0x68 {
             assert_eq!(
                 debug_level_entry_load_complete_step_loc_74e0(LevelId(level)),

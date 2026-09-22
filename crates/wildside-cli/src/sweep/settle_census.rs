@@ -508,7 +508,15 @@ mod tests {
              --shell-table crates/wildside-cli/data/oracle-settle-shell.yaml`"
         );
         assert_eq!(census.derivation_version, SETTLE_CENSUS_DERIVATION_VERSION);
-        assert_eq!(census.levels.len(), 69, "one row per valid BCD level id");
+        assert_eq!(census.levels.len(), 105, "one row per logical level id");
+        assert!(
+            census
+                .levels
+                .iter()
+                .enumerate()
+                .all(|(id, level)| usize::from(level.level_id) == id),
+            "settle census must include every level ID 0x00..0x68",
+        );
         assert!(
             census.levels.iter().all(|level| level.measurable),
             "the 2026-08-01 census measured every level; a new unmeasurable row needs investigation"
@@ -632,7 +640,7 @@ mod tests {
     #[test]
     fn gameplay_regression_settled_warp_frame0_witnesses_probe_levels() {
         let mismatches = settled_warp_frame0_witness_mismatches(&[
-            0x00, 0x01, 0x24, 0x30, 0x40, 0x48, 0x50, 0x60, 0x61,
+            0x00, 0x01, 0x17, 0x23, 0x24, 0x30, 0x3a, 0x3e, 0x3f, 0x40, 0x48, 0x50, 0x60, 0x61,
         ]);
         assert!(
             mismatches.is_empty(),
@@ -642,8 +650,8 @@ mod tests {
     }
 
     /// Every measured load completion in the checked-in shell table, including
-    /// shared map headers (ASM MapHeader_09_1A_41_42_48). The table does not
-    /// cover every logical ID; unmatched witnesses require investigation.
+    /// shared map headers (ASM MapHeader_09_1A_41_42_48). The table covers
+    /// all logical IDs; unmatched witnesses require investigation.
     #[test]
     #[ignore = "slow full-coverage witness sweep; run explicitly during #442 sessions"]
     fn settled_warp_frame0_witnesses_all_levels() {

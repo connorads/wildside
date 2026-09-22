@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #374 complete debug-warp settle census
+
+A fresh full-range emulator census measured load completion for all 105
+logical IDs; the prior 69-row table omitted 36 non-BCD IDs and applied
+the fixed title-shell boundary to them. The expanded `loc_74E0` table and
+focused frame-0 witness regression cover all five reported late levels.
+Bloody Swamp and Scorpion Isle now match at the first frame-60 checkpoint;
+inspected frames show coherent starts. Their 700-frame idle tails remain
+red, with Scorpion HP/Object drift from frame 193. The all-level frame-0
+witness sweep still exposes 15 other mismatches. The fast gate and full TAS
+pass; the state sweep improves from 100/105 to 101/105 with 0x3E's settle
+fixed. #374 stays open; no Jev call or human playtest.
+
 ## 2026-09-22 - #290 interval-1 published-route trace closure
 
 Fresh current-HEAD enemy and gameplay replays cover all 37,759 published

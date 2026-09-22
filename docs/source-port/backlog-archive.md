@@ -11,6 +11,42 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+<a id="issue-374"></a>
+### #374
+
+2026-09-22 current-HEAD recheck rejects the 2026-07-06 fixed-candidate
+conclusion for full idle routes. Replaying the old 0x3E and 0x3F bundles
+drifts at native trace frame 0. Fresh recordings of their unchanged idle
+inputs diverge from emulator RNG at level-settle frame 60. A full
+`oracle-settle-census --levels 0-104` measured every logical level ID;
+the checked-in table had only 69 decimal-looking hex IDs and silently
+used fixed `loc_74E0` boundary 71 for the other 36. ASM `loc_1AE2E ->
+loc_74E0 -> loc_6E2` runs the target's hidden live title shell after its
+per-level load completion. ROM measures step 74 for 0x3A/0x3E and 85
+for 0x3F. The table now covers all 104 debug-warp targets; level 0 takes
+the direct-title path. The #509 0x1F first-object-pass exception remains.
+The full census and frame-0 witness gate pin all five named levels.
+
+After the boundary correction, 0x3E and 0x3F recording checkpoints match
+at frame 60. Inspected native/oracle frame-60 PNGs show playable starts
+and coherent terrain; Bloody Swamp retains a murder-wall palette residue,
+while Scorpion Isle's visible start is close. Both 700-frame idle recording
+verifiers still fail at the tail. Scorpion Isle first has authoritative
+HP/Object count differences at frame 193, then RNG and player/camera CRC
+diverge at 272; the enemy-roster comparator is already red at frame 0
+because its Archer representation differs. Bloody Swamp's frame-60 state
+is corrected, but its later death/respawn tail diverges. No human playtest
+or full-route closure is claimed. The intentionally ignored all-level
+frame-0 witness sweep reports 15 remaining level mismatches for separate
+investigation; the 14-level focused witness passes. A web-session regression
+boots all five named levels into live, nonblank frames. The observable
+runtime asset catalogue drops `level-layout/3E.json`, which the corrected
+level-0x3E web boot no longer requests; a direct web session still draws
+the level. `verify-slice-fast` and `verify-tas-full` pass without baseline
+changes. The full state sweep improves from 100 passed/5 failed to
+101 passed/4 failed: 0x3E's two authoritative level-settle differences
+disappear; 0x3F remains failed, and no other level changes pass/fail status.
+
 <a id="issue-504"></a>
 ### #504
 

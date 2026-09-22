@@ -1051,13 +1051,13 @@
     "issue": 374,
     "readiness": "needs_comparison",
     "active_path": "Load_InGame shell and per-level VDP; five targets 0x17/0x23/0x3A/0x3E/0x3F",
-    "route": ".cache/recordings/issue374-bloody-swamp-idle/scenario.json; .cache/recordings/issue374-scorpion-isle-idle/scenario.json",
+    "route": ".cache/recordings/issue374-bloody-swamp-complete-shell/scenario.json; .cache/recordings/issue374-scorpion-isle-complete-shell/scenario.json",
     "evidence": [
-      "docs/source-port/backlog-awaiting-human.md#issue-374",
+      "docs/source-port/backlog.md#issue-374",
       "docs/source-port/backlog-archive.md#issue-374",
       "crates/wildside-core/src/level.rs"
     ],
-    "next_action": "Re-record the two existing inputs on current HEAD, capture all five starts, and distinguish pre-existing strict pixel residuals from corrupt tilemaps or premature death.",
+    "next_action": "Capture 0x17/0x23/0x3A starts, then trace Scorpion frame-193 HP/Object and Bloody Swamp death-tail divergence against ASM and oracle.",
     "scope": "Load Stairway to Oblivion, Bloody Swamp, Scorpion Isle, Lion's Den, and Hoverboard Beach; each should spawn playable with coherent level art, no instant death."
   },
   {

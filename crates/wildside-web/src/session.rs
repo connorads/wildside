@@ -310,6 +310,26 @@ mod tests {
     }
 
     #[test]
+    fn issue_374_named_level_boots_render_live_gameplay_loc_74e0() {
+        let Some(root) = cached_generated_root() else {
+            return;
+        };
+        for level in [0x17, 0x23, 0x3a, 0x3e, 0x3f] {
+            let mut session =
+                WebSession::from_source(Arc::new(FsAssetSource::new(root.clone())), Some(level))
+                    .expect("named level should load its generated art");
+            session.step(0);
+            assert_eq!(session.trace.current_level.0, level);
+            assert_eq!(session.trace.game_mode, wildside_core::GameMode::InGame);
+            assert!(session.trace.kid_x_pos.is_some());
+            assert!(
+                session.rgb.chunks_exact(3).any(|pixel| pixel != [0, 0, 0]),
+                "level {level:#04x} must draw a nonblank game frame"
+            );
+        }
+    }
+
+    #[test]
     fn runtime_asset_catalogue_covers_attract_audio_and_every_level_boot() {
         let Some(root) = cached_generated_root() else {
             return;

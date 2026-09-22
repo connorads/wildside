@@ -9,7 +9,7 @@
 helper_cache_version: 95d0542da9a3980f5c61a7809db4ef3f427e3360
 rom_sha1: 28b904000b2863b6760531807760b571f1a5fc1d
 derivation_version: 2
-census_run_id: '1786877828'
+census_run_id: '1790055415'
 levels:
 - level_id: 0
   measurable: true
@@ -217,6 +217,132 @@ levels:
   rng_freeze_start_step: 2
   load_complete_step: 75
   title_wait_live_rows: 45
+- level_id: 10
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65522
+    rng_ring_sha1: f674c2502a26f734bc872a391a0b78a2be3fd66d
+    number_objects: 9
+    kid_x_pos: 2097152
+    kid_y_pos: 41877504
+    camera_x_pos: 0
+    camera_y_pos: 31195136
+  rng_freeze_start_step: 2
+  load_complete_step: 74
+  title_wait_live_rows: 46
+- level_id: 11
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65484
+    rng_ring_sha1: 268f59edf2762d79568c5dedcda5defd338165cd
+    number_objects: 7
+    kid_x_pos: 2097152
+    kid_y_pos: 24051712
+    camera_x_pos: 0
+    camera_y_pos: 13828096
+  rng_freeze_start_step: 2
+  load_complete_step: 70
+  title_wait_live_rows: 50
+- level_id: 12
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65534
+    rng_ring_sha1: c018fd7f03db1f085299307fb8e37c61dc671bb9
+    number_objects: 3
+    kid_x_pos: 2097152
+    kid_y_pos: 33488896
+    camera_x_pos: 0
+    camera_y_pos: 23265280
+  rng_freeze_start_step: 2
+  load_complete_step: 71
+  title_wait_live_rows: 49
+- level_id: 13
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65514
+    rng_ring_sha1: 2092be96adf0dc610b6b1662502fa0c0cf99ebff
+    number_objects: 5
+    kid_x_pos: 3145728
+    kid_y_pos: 20905984
+    camera_x_pos: 0
+    camera_y_pos: 10223616
+  rng_freeze_start_step: 2
+  load_complete_step: 76
+  title_wait_live_rows: 44
+- level_id: 14
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65522
+    rng_ring_sha1: f674c2502a26f734bc872a391a0b78a2be3fd66d
+    number_objects: 5
+    kid_x_pos: 3145728
+    kid_y_pos: 39780352
+    camera_x_pos: 0
+    camera_y_pos: 29360128
+  rng_freeze_start_step: 2
+  load_complete_step: 74
+  title_wait_live_rows: 46
+- level_id: 15
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65510
+    rng_ring_sha1: 7a4f724084020aad9398a5486af4fbf20218bd0f
+    number_objects: 4
+    kid_x_pos: 1048576
+    kid_y_pos: 6225920
+    camera_x_pos: 0
+    camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 77
+  title_wait_live_rows: 43
 - level_id: 16
   measurable: true
   phase: target_live
@@ -427,6 +553,132 @@ levels:
   rng_freeze_start_step: 2
   load_complete_step: 77
   title_wait_live_rows: 43
+- level_id: 26
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65500
+    rng_ring_sha1: 4e6135383a444958a96bd434755f3df5478cc838
+    number_objects: 5
+    kid_x_pos: 2097152
+    kid_y_pos: 53411840
+    camera_x_pos: 0
+    camera_y_pos: 42729472
+  rng_freeze_start_step: 2
+  load_complete_step: 71
+  title_wait_live_rows: 49
+- level_id: 27
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65495
+    rng_ring_sha1: 263b232ee3ec50e2b691b546021c495afb7302e9
+    number_objects: 4
+    kid_x_pos: 2097152
+    kid_y_pos: 48168960
+    camera_x_pos: 0
+    camera_y_pos: 37945344
+  rng_freeze_start_step: 2
+  load_complete_step: 67
+  title_wait_live_rows: 53
+- level_id: 28
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65502
+    rng_ring_sha1: eff44488db0ef9fc5433d5548a0d52da67543346
+    number_objects: 6
+    kid_x_pos: 6291456
+    kid_y_pos: 142540800
+    camera_x_pos: 0
+    camera_y_pos: 132120576
+  rng_freeze_start_step: 2
+  load_complete_step: 71
+  title_wait_live_rows: 49
+- level_id: 29
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65483
+    rng_ring_sha1: 8a84661e4333b799a0f703dba82be34bf08d56cb
+    number_objects: 5
+    kid_x_pos: 1572864
+    kid_y_pos: 21954560
+    camera_x_pos: 0
+    camera_y_pos: 11665408
+  rng_freeze_start_step: 2
+  load_complete_step: 70
+  title_wait_live_rows: 50
+- level_id: 30
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65487
+    rng_ring_sha1: 985a54cd9b984e2b4735b362095fdedfbda78893
+    number_objects: 3
+    kid_x_pos: 1048576
+    kid_y_pos: 11468800
+    camera_x_pos: 0
+    camera_y_pos: 786432
+  rng_freeze_start_step: 2
+  load_complete_step: 69
+  title_wait_live_rows: 51
+- level_id: 31
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65514
+    rng_ring_sha1: 2092be96adf0dc610b6b1662502fa0c0cf99ebff
+    number_objects: 6
+    kid_x_pos: 2097152
+    kid_y_pos: 76480512
+    camera_x_pos: 0
+    camera_y_pos: 66256896
+  rng_freeze_start_step: 2
+  load_complete_step: 76
+  title_wait_live_rows: 44
 - level_id: 32
   measurable: true
   phase: target_live
@@ -637,6 +889,132 @@ levels:
   rng_freeze_start_step: 2
   load_complete_step: 80
   title_wait_live_rows: 40
+- level_id: 42
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65499
+    rng_ring_sha1: 673dfdc0dd94b3bb87b2cb01a5b9271c880f7180
+    number_objects: 3
+    kid_x_pos: 1048576
+    kid_y_pos: 3080192
+    camera_x_pos: 0
+    camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 66
+  title_wait_live_rows: 54
+- level_id: 43
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65526
+    rng_ring_sha1: 390814c31d3627d173cfe0d2c23ff1905b807ef3
+    number_objects: 3
+    kid_x_pos: 143654912
+    kid_y_pos: 7274496
+    camera_x_pos: 125829120
+    camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 73
+  title_wait_live_rows: 47
+- level_id: 44
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65518
+    rng_ring_sha1: e013f6dfa4002196bb73000954ca7319aad6ddb1
+    number_objects: 7
+    kid_x_pos: 1572864
+    kid_y_pos: 40828928
+    camera_x_pos: 0
+    camera_y_pos: 30146560
+  rng_freeze_start_step: 2
+  load_complete_step: 76
+  title_wait_live_rows: 44
+- level_id: 45
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65512
+    rng_ring_sha1: 4e0380e83b2029c47bc399d26913f5d63ee141f9
+    number_objects: 6
+    kid_x_pos: 3145728
+    kid_y_pos: 56557568
+    camera_x_pos: 0
+    camera_y_pos: 44040192
+  rng_freeze_start_step: 2
+  load_complete_step: 78
+  title_wait_live_rows: 42
+- level_id: 46
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65514
+    rng_ring_sha1: 2092be96adf0dc610b6b1662502fa0c0cf99ebff
+    number_objects: 5
+    kid_x_pos: 4194304
+    kid_y_pos: 216989696
+    camera_x_pos: 0
+    camera_y_pos: 205520896
+  rng_freeze_start_step: 2
+  load_complete_step: 76
+  title_wait_live_rows: 44
+- level_id: 47
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65518
+    rng_ring_sha1: e013f6dfa4002196bb73000954ca7319aad6ddb1
+    number_objects: 3
+    kid_x_pos: 2097152
+    kid_y_pos: 19857408
+    camera_x_pos: 0
+    camera_y_pos: 9633792
+  rng_freeze_start_step: 2
+  load_complete_step: 75
+  title_wait_live_rows: 45
 - level_id: 48
   measurable: true
   phase: target_live
@@ -847,6 +1225,132 @@ levels:
   rng_freeze_start_step: 2
   load_complete_step: 71
   title_wait_live_rows: 49
+- level_id: 58
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65522
+    rng_ring_sha1: f674c2502a26f734bc872a391a0b78a2be3fd66d
+    number_objects: 5
+    kid_x_pos: 7340032
+    kid_y_pos: 8323072
+    camera_x_pos: 0
+    camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 74
+  title_wait_live_rows: 46
+- level_id: 59
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65490
+    rng_ring_sha1: 8e5a78ce809dd9c5e9ffc7e60a4c038c4779c9ec
+    number_objects: 4
+    kid_x_pos: 3145728
+    kid_y_pos: 43122688
+    camera_x_pos: 0
+    camera_y_pos: 31064064
+  rng_freeze_start_step: 2
+  load_complete_step: 82
+  title_wait_live_rows: 38
+- level_id: 60
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65518
+    rng_ring_sha1: e013f6dfa4002196bb73000954ca7319aad6ddb1
+    number_objects: 18
+    kid_x_pos: 8388608
+    kid_y_pos: 13565952
+    camera_x_pos: 0
+    camera_y_pos: 2883584
+  rng_freeze_start_step: 2
+  load_complete_step: 75
+  title_wait_live_rows: 45
+- level_id: 61
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65510
+    rng_ring_sha1: 7a4f724084020aad9398a5486af4fbf20218bd0f
+    number_objects: 3
+    kid_x_pos: 104857600
+    kid_y_pos: 5177344
+    camera_x_pos: 94633984
+    camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 77
+  title_wait_live_rows: 43
+- level_id: 62
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65522
+    rng_ring_sha1: f674c2502a26f734bc872a391a0b78a2be3fd66d
+    number_objects: 3
+    kid_x_pos: 8388608
+    kid_y_pos: 9371648
+    camera_x_pos: 0
+    camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 74
+  title_wait_live_rows: 46
+- level_id: 63
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65482
+    rng_ring_sha1: e0176aa6f9e68bcb6ac662f984c3d3dae89f0607
+    number_objects: 9
+    kid_x_pos: 1507328
+    kid_y_pos: 16711680
+    camera_x_pos: 0
+    camera_y_pos: 6488064
+  rng_freeze_start_step: 2
+  load_complete_step: 85
+  title_wait_live_rows: 35
 - level_id: 64
   measurable: true
   phase: target_live
@@ -1057,6 +1561,132 @@ levels:
   rng_freeze_start_step: 2
   load_complete_step: 56
   title_wait_live_rows: 64
+- level_id: 74
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65532
+    rng_ring_sha1: 8955a2c0d17729c4989f99b20d3c3dcce1be3302
+    number_objects: 4
+    kid_x_pos: 1048576
+    kid_y_pos: 26148864
+    camera_x_pos: 0
+    camera_y_pos: 14680064
+  rng_freeze_start_step: 2
+  load_complete_step: 58
+  title_wait_live_rows: 62
+- level_id: 75
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65529
+    rng_ring_sha1: e26e45563e6b7e8b769c8d3212fa96b23b4fb9af
+    number_objects: 7
+    kid_x_pos: 2097152
+    kid_y_pos: 5177344
+    camera_x_pos: 0
+    camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 60
+  title_wait_live_rows: 60
+- level_id: 76
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65512
+    rng_ring_sha1: a6d463761031df15793ba5feb333e64f0da569a8
+    number_objects: 6
+    kid_x_pos: 1048576
+    kid_y_pos: 27197440
+    camera_x_pos: 0
+    camera_y_pos: 14680064
+  rng_freeze_start_step: 2
+  load_complete_step: 63
+  title_wait_live_rows: 57
+- level_id: 77
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65535
+    rng_ring_sha1: 7fef3441692b7733e730eda36e9208f9bfb56d43
+    number_objects: 7
+    kid_x_pos: 17825792
+    kid_y_pos: 26148864
+    camera_x_pos: 7143424
+    camera_y_pos: 14680064
+  rng_freeze_start_step: 2
+  load_complete_step: 57
+  title_wait_live_rows: 63
+- level_id: 78
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65507
+    rng_ring_sha1: eb7395b09b112d0d7f2a14e91a84d402735f46c5
+    number_objects: 5
+    kid_x_pos: 1048576
+    kid_y_pos: 52363264
+    camera_x_pos: 0
+    camera_y_pos: 42139648
+  rng_freeze_start_step: 2
+  load_complete_step: 64
+  title_wait_live_rows: 56
+- level_id: 79
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65531
+    rng_ring_sha1: d2eb08623683ba5e20807a5c7b222a80ec478ab7
+    number_objects: 14
+    kid_x_pos: 4194304
+    kid_y_pos: 10420224
+    camera_x_pos: 0
+    camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 58
+  title_wait_live_rows: 62
 - level_id: 80
   measurable: true
   phase: target_live
@@ -1267,6 +1897,132 @@ levels:
   rng_freeze_start_step: 2
   load_complete_step: 59
   title_wait_live_rows: 61
+- level_id: 90
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65487
+    rng_ring_sha1: f2012a97ca94d168310e79bbe5f69ba228c7ba6c
+    number_objects: 5
+    kid_x_pos: 1048576
+    kid_y_pos: 49217536
+    camera_x_pos: 0
+    camera_y_pos: 38993920
+  rng_freeze_start_step: 2
+  load_complete_step: 61
+  title_wait_live_rows: 59
+- level_id: 91
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65503
+    rng_ring_sha1: f54dfd277782f3930744d853b1d309fcfae0b87f
+    number_objects: 5
+    kid_x_pos: 2097152
+    kid_y_pos: 23003136
+    camera_x_pos: 0
+    camera_y_pos: 12779520
+  rng_freeze_start_step: 2
+  load_complete_step: 65
+  title_wait_live_rows: 55
+- level_id: 92
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65507
+    rng_ring_sha1: eb7395b09b112d0d7f2a14e91a84d402735f46c5
+    number_objects: 6
+    kid_x_pos: 1048576
+    kid_y_pos: 7274496
+    camera_x_pos: 0
+    camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 64
+  title_wait_live_rows: 56
+- level_id: 93
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65531
+    rng_ring_sha1: d2eb08623683ba5e20807a5c7b222a80ec478ab7
+    number_objects: 5
+    kid_x_pos: 1048576
+    kid_y_pos: 13565952
+    camera_x_pos: 0
+    camera_y_pos: 0
+  rng_freeze_start_step: 2
+  load_complete_step: 58
+  title_wait_live_rows: 62
+- level_id: 94
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65531
+    rng_ring_sha1: d2eb08623683ba5e20807a5c7b222a80ec478ab7
+    number_objects: 4
+    kid_x_pos: 2097152
+    kid_y_pos: 24051712
+    camera_x_pos: 0
+    camera_y_pos: 13828096
+  rng_freeze_start_step: 2
+  load_complete_step: 58
+  title_wait_live_rows: 62
+- level_id: 95
+  measurable: true
+  phase: target_live
+  shell_frames_to_frame0: 59
+  native_target_live_frames: 60
+  first_live_step: 0
+  last_live_step: 59
+  paused_live_rows: 0
+  flap_resets: 0
+  took_debug_skip: false
+  frame0:
+    rng_offset: 65523
+    rng_ring_sha1: bcf91d73c6769a207e288728196fcd616a873c3a
+    number_objects: 9
+    kid_x_pos: 1048576
+    kid_y_pos: 18808832
+    camera_x_pos: 0
+    camera_y_pos: 8126464
+  rng_freeze_start_step: 2
+  load_complete_step: 60
+  title_wait_live_rows: 60
 - level_id: 96
   measurable: true
   phase: target_live
