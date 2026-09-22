@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #502 route rejection and #300 residual split
+
+A 1,000-frame settled 0x48 input variant made 1,006 Drips range calls, all
+normal, with at most 15 frame-end Objects. Park that pattern; #502 still needs
+an exact-call threshold witness. On #300's checked-in pad replay, enemy
+positions already differ at diagnostic frame 0 and destination RockTanks
+resemble #509's first-live-tick gap without a proven common cause. Frame 286 has a separate loader
+allocation mismatch: native Object/Gfx 4/5, oracle 8/4. An oracle PC trace
+shows four base Object allocations on frame 285, then 12
+`Manage_EnemyLoading loc_36840` checks and four enemy Object allocations on
+frame 286. Native publishes the destination before that allocation pass.
+Implement the pass without stepping newly allocated enemies, then verify a
+second destination before generalising the timing.
+No gameplay code or paid Jev request changed in this session.
+
 ## 2026-09-22 - #300 cross-level teleport fade and raw destination entry
 
 The 0x1C pad route now matches all 310 player/camera CRC frames against the

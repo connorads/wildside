@@ -25570,6 +25570,25 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-22 residual split: `tas-diff` on the checked-in 310-frame pad route
+shows an enemy-roster difference already at settled-warp frame 0. At frame
+287, native RockTank children have stepped while the oracle's six linked
+RockTank entries remain at their load poses. This resembles #509's measured
+target-live hand-off gap; it does not yet prove a common cause or justify a
+teleporter-specific enemy patch. Separately, the first destination checkpoint at frame 286 has native
+Object/Gfx counts 4/5 against oracle 8/4. Frames 287-290 retain a one-Gfx
+surplus, while frames 249-253 carry the outgoing level's 11/12 against 10/11.
+An exact-PC oracle probe identifies the missing allocation pass: frame 285
+executes `Allocate_ObjectSlot sub_DAC` four times and
+`Allocate_GfxObjectSlot sub_F6E` twice. Frame 286 executes `sub_F6E`
+twice, checks 12 layout entries at `Manage_EnemyLoading loc_36840`, then
+executes `sub_DAC` four more times. The corresponding frame-end ROM
+`Number_Objects` rises from 4 to 8. Native publishes frame 286 after
+`Load_InGame` but before its first roster activation. Implement the
+`loc_36840` allocation phase there without stepping the just-allocated
+enemies; verify the same ordering on a second destination. This is distinct
+from #509. Do not adjust count output to conceal missing workers.
+
 2026-09-22 natural pad probe: `tests/data/dynamic-scenarios/issue-300-skydragon-teleporter.json`
 uses ordinary Right/B input from logical 0x1C's settled spawn. Kid lands on
 the visible pad at frame 134 and stops walking on frame 151. The ROM calls
@@ -28859,6 +28878,13 @@ cursor; keep the nine descriptor transitions as typed handler edges.
 
 <a id="issue-502"></a>
 ## #502 - Live Object pressure at Drips range checks
+
+- Rejected 2026-09-22 offline 0x48 variant: 1,000 settled frames alternating
+  36 frames of input mask 88 with 36 of mask 72 produced 1,006 Drips
+  `Object_CheckInRange` calls, all on the normal branch. Frame-end
+  `Number_Objects` peaked at 15 and never exceeded 20. The exact-call
+  `scripts/drips_range_witness.py` discriminator confirms no close branch;
+  frame-end counts alone are not call-time proof. Park this input pattern.
 
 - Source-backed gap, no isolated emulator witness yet. Object_CheckInRange reads Number_Objects at each call, selecting tighter signed-word bounds above 20. Drips dispatch uses only normal bounds. Minimum gate is fast-slice plus full TAS and a named 20/21 oracle witness.
 - Rejected shortcut: `active_enemies.len()+3` omits child, block, prize and system workers. `active_objects()` reads the cached roster, which refresh_active_roster clears before dispatch. A projectile delta also misses Lion parent counters, Dragon breath lifecycle and preallocated Shishkaboss children.
