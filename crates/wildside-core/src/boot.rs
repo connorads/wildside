@@ -8619,6 +8619,30 @@ impl NativeRuntime {
                 return false;
             }
             PlayerLifecycle::Respawning { remaining_frames } => {
+                let respawn_elapsed =
+                    PLAYER_DEATH_RESPAWN_SETTLE_FRAMES.saturating_sub(remaining_frames);
+                let loader_frames = self.death_respawn_title_card_loader_frames_loc_726();
+                if loader_frames > 0 && respawn_elapsed.saturating_add(1) == 3 {
+                    // ASM Load_TitleCard -> MainGameLoop -> Mode_Standard ->
+                    // Execute_Objects loc_E12 (kid.asm:854, 1636): the first
+                    // hidden controller pass burns one RNG longword while
+                    // loc_1AB26 is still decompressing letter art. Bloody
+                    // Swamp's oracle trace records this on loader frame 3.
+                    let _ = self.rom_random.next_long();
+                }
+                if loader_frames > 0 && respawn_elapsed.saturating_add(1) == loader_frames {
+                    // ASM Mode_Standard -> Execute_Objects loc_E12 burns the
+                    // pass RNG longword before the resumed loc_1AB26 worker
+                    // allocates and runs the loc_1AC70 letters.
+                    let _ = self.rom_random.next_long();
+                    self.maybe_seed_starting_level_title_workers(
+                        crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME,
+                    );
+                } else if loader_frames > 0 && respawn_elapsed == loader_frames {
+                    self.maybe_seed_starting_level_title_workers(
+                        crate::movement::LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME,
+                    );
+                }
                 // #248: the real death-respawn re-enters via `lose_life` ->
                 // `move.w #8,(Game_Mode)` -> `jmp (j_loc_6E2)` (kid.asm:14787,823),
                 // i.e. the SAME `Game_Mode=8` title-card/level-load path as a

@@ -596,6 +596,12 @@ pub(crate) const PLAYER_DEATH_HIDDEN_SHELL_VISIBLE_FRAMES: usize = 27;
 // state four frames later. That maps to remaining 2 visible and remaining 1
 // clear on the native hidden countdown.
 pub(crate) const PLAYER_DEATH_HIDDEN_CAMERA_VISIBLE_FRAMES: usize = 31;
+// ASM loc_726 -> Load_TitleCard (kid.asm:845, 28588): after object RAM is
+// cleared, the synchronous theme-art and tilemap decompression runs before
+// loc_1AB26 allocates the title-letter workers. The Bloody Swamp oracle PC
+// trace completes loc_726 on route frame 252, keeps both object lists empty
+// through frame 259, and first exposes loc_1AC70 workers on frame 260.
+pub(crate) const PLAYER_DEATH_TITLE_CARD_LOAD_FRAMES: usize = 7;
 // Oracle-backed death/respawn traces keep Kid on the hidden respawn settle path
 // far longer than the old 428-frame placeholder: the canonical
 // `death-respawn-level1` window compare still reports the mode-8 bootstrap hold

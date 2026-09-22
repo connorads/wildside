@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #374 Bloody Swamp title-card loader
+
+Selected-PC and RNG traces place the empty `loc_726 -> Load_TitleCard` window
+on frames 253-259 and the first `loc_1AB26/loc_1AC70` letter pass on frame 260.
+Native now delays the title workers and their RNG seeding to those source
+boundaries. The checked-in route pins 0/0 Object/GfxObject counts through frame
+259 and 12/11 on frame 260. Player/camera CRCs match all 760 frames and both
+checkpoints pass. The remaining route difference is the retained native title
+roster at the idle-tail enemy checkpoint. No Jev spend or human playtest. One
+gameplay fix has landed since the latest Jev exploration review.
+
 ## 2026-09-22 - #374 Bloody Swamp murder-wall contact
 
 ASM `sub_5E02` records the exact hitbox-edge murder-wall collision after the

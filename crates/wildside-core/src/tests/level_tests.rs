@@ -3996,6 +3996,9 @@ mod chunk_02 {
             remaining_frames: crate::constants::PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
         };
 
+        for _ in 0..crate::constants::PLAYER_DEATH_TITLE_CARD_LOAD_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
         let trace = runtime.trace_frame();
 
         assert!(
@@ -6399,6 +6402,18 @@ mod chunk_02 {
             "ASM sub_5E02 loc_5E34 latches colid_rightwall; the next Character_CheckCollision reaches Death before another sub_71E4 wall step",
         );
         assert_eq!(frames[144].death_windup_elapsed, 0);
+        for frame in &frames[253..260] {
+            assert_eq!(
+                (frame.number_objects, frame.number_gfx_objects),
+                (0, 0),
+                "ASM loc_726 -> Load_TitleCard keeps object and GfxObject RAM empty while the synchronous title art/map load runs"
+            );
+        }
+        assert_eq!(
+            (frames[260].number_objects, frames[260].number_gfx_objects),
+            (12, 11),
+            "ASM Load_TitleCard completes before loc_1AB26 creates Bloody Swamp's eleven loc_1AC70 letter workers and loc_1AE2E gate"
+        );
     }
 
     #[test]

@@ -2246,10 +2246,14 @@ impl NativeRuntime {
         // bootstrap resumes live gameplay.
         self.rebuild_starting_level_title_workers();
         self.starting_level_title_rng = None;
-        self.maybe_seed_starting_level_title_workers(LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME);
-        self.maybe_seed_starting_level_title_workers(
-            LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME,
-        );
+        if self.death_respawn_title_card_loader_frames_loc_726() == 0 {
+            self.maybe_seed_starting_level_title_workers(
+                LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME,
+            );
+            self.maybe_seed_starting_level_title_workers(
+                LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME,
+            );
+        }
     }
 
     pub(crate) fn starting_level_slot_2_pose(&self, elapsed_frames: usize) -> Option<PlayerState> {

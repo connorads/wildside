@@ -35,6 +35,19 @@ natural campaign progression through Hills.
 <a id="issue-374"></a>
 ### #374
 
+2026-09-22 Bloody Swamp title-card reload phase: selected-PC tracing reaches
+`loc_726` on frame 252, then runs synchronous `Load_TitleCard` art/map work
+before `loc_1AB26` exposes the eleven `loc_1AC70` letter workers on frame 260.
+Oracle RNG tracing also records the hidden `Execute_Objects loc_E12` burns on
+frames 256 and 260. Native now keeps object/GfxObject lists empty through
+frames 253-259, defers letter RNG seeding to the source pass, exposes 12/11
+Object/GfxObject counts on frame 260, and hides stale Kid/murder-wall state
+during the loader. The checked-in route extends to frame 260 and pins both
+boundaries. Player/camera CRCs now match all 760 saved-route frames and both
+checkpoints pass. One authoritative enemy-checkpoint difference remains: the
+native title-letter roster survives at the idle tail after the oracle list is
+empty. No Jev spend or human playtest.
+
 2026-09-22 Bloody Swamp murder-wall contact boundary: the saved idle route and
 oracle WRAM show `MurderWall_X_pos=$004B8A00` after frame 143. ASM `sub_5E02
 loc_5E24` then compares wall `$4B+$30` with The Kid's left hitbox `$7B` and
@@ -23834,6 +23847,8 @@ brackets. Nothing is re-attributed: text is verbatim.
 - [rejected_hypotheses] {"name": "Existing RockTank/death recordings expose a current #167 Tank death regression", "reason": "Rejected 2026-06-02. ASM recheck confirms `Tank.asm loc_3B41C -> loc_3B480` and `Tank_Shooting.asm loc_3B6E6` hide the linked mouth/turret child, initialise `stru_3B29A`/`stru_3B518`, and hibernate the parent until the death animation finishes before shared deletion. Current focused checks pass: `cargo test -p kid-core tank_death_waits_for_stru_3b29a_animation_before_delete -- --nocapture`, `cargo test -p kid-core tank_shooting_death_waits_for_stru_3b518_animation_before_delete -- --nocapture`, and `cargo test -p kidcli tank_and_robot_death_snapshots_select_waited_body_frames -- --nocapture`. Candidate bundles are not current evidence: `debug-rocktank-level2` and `tmp-death-animation-level0-stomp-current` both drift at frame 0 under native-only verification, and the Level 01 tank-walk transcripts only show Kid HP damage, not a Tank kill. Capture a fresh deterministic live Level 01 Tank/RockTank final-hit route before changing #167 death rendering."}
 
 ### #169
+
+- [rejected_hypotheses] {"name": "The saved `drips-range-healthy-prefix` is a comparable Jev continuation point", "reason": "Rejected 2026-09-22 during the scheduled exploration review at revision 9e53f986b. Current native replay reproduces all 560 input frames and captured pixels exactly, but emulator comparison first fails at frame 230 because native has 2 enemies while the oracle has 4. Jev preflight therefore blocks paid continuation before any API request. Repair or replace the prefix from the first enemy-count divergence before exploring the later floor splash/crawler/attack encounter. Evidence: `.cache/jev-cases/1790106994094550000/`; no spend or encounter proof."}
 
 - [rejected_hypotheses] {"name": "Backlog #169 old Level 2 Drips bundles expose a current actionable slime/drop mismatch", "reason": "Rejected 2026-06-02. Current focused Drips coverage is green (`cargo test -p kid-core drips_ -- --nocapture`, 109 tests), and the clean current route is only the 64-frame `issue-213-drips-camera-only` prefix (`cargo run -p kidcli -- case verify --case issue-213-drips-camera-only` passes). The old #169 bundles are stale before oracle comparison: `cargo run -p kidcli -- verify-recording --slug issue-169-drips-level2-walk --native-only` and `cargo run -p kidcli -- verify-recording --slug issue-169-drips-level2-stomp-long --native-only` both drift at frame 0. Rechecked 2026-06-03: selector-picked `issue-169-drips-probe-near-pool` is also stale at frame 0 in both full and native-only verification, with `trace_match=false`, `oracle_state_match=true`, `oracle_frame_match=true`, `first_trace_drift.frame_index=0`, and matching trace lengths (`recorded_trace_len=420`, `replay_trace_len=420`). The requested 0..120 case `issue-169-drips-probe-near-pool_case_00000_00120` fails with `likely_subsystems=[\"recording verification\"]`, and reduction refuses because the source recording replay drifted at frame 0. The resource-pool variant `issue-169-drips-probe-near-resource-pool` is stale the same way, with matching 540-frame trace lengths and `issue-169-drips-probe-near-resource-pool_case_00000_00120` blocked by recording verification. The Level 2 route `issue-169-level2-drips` is also stale at frame 0 with matching 1861-frame trace lengths and `walk_right_01_case_00000_00120` blocked by recording verification. Continue the live Drips/slime/metal-block report under #213 with a fresh longer settled Level 01 route that reaches drop/pool/terrain and upward jump contact."}
 

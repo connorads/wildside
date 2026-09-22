@@ -12720,7 +12720,9 @@ impl NativeRuntime {
             level_prize_collected: self.level_prize_collected,
             level_speed_bonus_awarded: self.level_speed_bonus_awarded,
             level_path_bonus_amount: self.level_path_bonus_amount,
-            murder_wall_x: self.murder_wall.map(|w| w.x_pos),
+            murder_wall_x: (!matches!(self.player_lifecycle, PlayerLifecycle::Respawning { .. }))
+                .then(|| self.murder_wall.map(|w| w.x_pos))
+                .flatten(),
             murder_wall_warning_animation_frame_sub_5e02: self
                 .murder_wall_warning_animation_frame_fabf,
             active_projectiles: self
@@ -14894,7 +14896,10 @@ impl NativeRuntime {
                     Some(player_state)
                 } else if let Some(player_state) = self.death_respawn_bootstrap_player_state() {
                     Some(player_state)
-                } else if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
+                } else if matches!(
+                    self.player_lifecycle,
+                    PlayerLifecycle::Dying { .. } | PlayerLifecycle::Respawning { .. }
+                ) {
                     None
                 } else {
                     self.opening_slice.map(|slice| slice.player)
@@ -15482,10 +15487,21 @@ impl NativeRuntime {
                 || !self.starting_level_title_workers.is_empty())
         {
             if !self.starting_level_title_workers.is_empty() {
-                let title_elapsed = crate::movement::LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME
-                    + self
-                        .death_respawn_bootstrap_elapsed_frames()
-                        .unwrap_or_default();
+                let respawn_elapsed = self
+                    .death_respawn_bootstrap_elapsed_frames()
+                    .unwrap_or_default();
+                // ASM loc_726 -> Load_TitleCard performs its synchronous
+                // decompression before loc_1AB26 can allocate any title
+                // workers. Keep the rebuilt native worker model private
+                // during that measured loader phase, then start its visible
+                // animation age at the first post-load object pass.
+                let loader_frames = self.death_respawn_title_card_loader_frames_loc_726();
+                if respawn_elapsed < loader_frames {
+                    objects.clear();
+                    return objects;
+                }
+                let title_elapsed = crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
+                    + respawn_elapsed.saturating_sub(loader_frames);
                 objects.extend(self.starting_level_title_active_objects(title_elapsed));
             }
             // ASM lose_life -> Teleport loc_B8DE -> loc_6E2 clears object RAM
@@ -16192,6 +16208,23 @@ impl NativeRuntime {
         if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
             return (0, 0);
         }
+        if self
+            .death_respawn_bootstrap_elapsed_frames()
+            .is_some_and(|elapsed| elapsed < self.death_respawn_title_card_loader_frames_loc_726())
+        {
+            return (0, 0);
+        }
+        if self.death_respawn_bootstrap_elapsed_frames().is_some()
+            && self.death_respawn_title_card_loader_frames_loc_726() > 0
+            && !self.starting_level_title_workers.is_empty()
+        {
+            let total_worker_count = self.starting_level_title_workers.len() as u16;
+            let active_gfx_count = active_objects
+                .iter()
+                .filter(|object| !matches!(object.kind, NativeObjectKind::Player))
+                .count() as u16;
+            return (total_worker_count.saturating_add(1), active_gfx_count);
+        }
         if let Some(counts) = self.death_respawn_bootstrap_object_counts() {
             return counts;
         }
@@ -16793,6 +16826,15 @@ impl NativeRuntime {
 
     fn death_respawn_bootstrap_player_state(&self) -> Option<PlayerState> {
         let elapsed = self.death_respawn_bootstrap_elapsed_frames()?;
+        let loader_frames = self.death_respawn_title_card_loader_frames_loc_726();
+        if elapsed < loader_frames {
+            return None;
+        }
+        if loader_frames > 0 && !self.starting_level_title_workers.is_empty() {
+            let title_elapsed = crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
+                + elapsed.saturating_sub(loader_frames);
+            return self.starting_level_slot_2_pose(title_elapsed);
+        }
         let profile = self.death_respawn_bootstrap_profile()?;
         if elapsed < profile.animation_frames {
             let elapsed_i64 = i64::try_from(elapsed).unwrap_or(i64::MAX);
@@ -16911,6 +16953,19 @@ impl NativeRuntime {
                 hold_number_gfx_objects: 14,
             }),
             _ => None,
+        }
+    }
+
+    pub(crate) fn death_respawn_title_card_loader_frames_loc_726(&self) -> usize {
+        // The existing level-0/1 bootstrap profiles begin at their
+        // oracle-observed post-Load_TitleCard worker frame. Other levels enter
+        // Respawning at loc_726 and therefore retain the measured loader span.
+        // TODO(fidelity): replace both legacy pose profiles with one typed
+        // loc_726 -> Load_TitleCard lifecycle once their earlier phases move.
+        if self.death_respawn_bootstrap_profile().is_some() {
+            0
+        } else {
+            PLAYER_DEATH_TITLE_CARD_LOAD_FRAMES
         }
     }
 }

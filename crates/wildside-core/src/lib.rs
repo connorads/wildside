@@ -4497,6 +4497,7 @@ impl NativeRuntime {
         {
             if gameplay_slice_active
                 && !self.paused
+                && !matches!(self.player_lifecycle, PlayerLifecycle::Respawning { .. })
                 && self.pending_pause_restart_round.is_none()
                 && !pause_last_life_exit_frame
                 && (matches!(self.boot_state, BootState::InGame)
