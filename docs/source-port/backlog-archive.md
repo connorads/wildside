@@ -25887,6 +25887,25 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-22 parked timing investigation: the red cache-backed second-destination
+regression still observes native 4/4 Object/Gfx counts at frame 166 while ROM
+remains 0/0 until frame 176. Both routes reach `loc_11AE4` at activation+33,
+which rules out the common `loc_6E2` prelude. Resource 0x6E reaches `loc_11E60`
+at +5; resource 0x15 takes +13. `loc_11C10` foreground decompression and the
+`loc_11C34` cell loop explain six relative frames, then
+`Load_BackgroundMappings` explains two. Theme-art decompression, conditional
+loads and Murderwall account for the remaining two before `loc_11FD2`. The
+mapped workloads differ materially: 0x6E expands 238 compressed bytes into
+1,120 terrain cells, while 0x15 expands 810 compressed bytes into 7,280 cells
+and crosses the `$1000` decoder window. Compressed byte length alone is not a
+valid duration formula because token branches, cell loops, VDP stalls and
+background records all contribute. Rejected: another fixed delay, a
+destination-id exception, or
+a compressed-size heuristic. Resume by adding format-specific timing visitors
+for `LoadBlockLayout` and `Load_BackgroundMappings`, then schedule all source
+phases through the existing `LoadInGameCpuRasterCursor`. No code commit, Jev
+spend or human playtest.
+
 2026-09-22 destination entry palette display: on the checked-in 0x1C
 pad route, native trace progress `$FFFFF876` already matches ROM at
 frames 286/287. Pixel comparison of all 87 transition frames 223-309

@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #300 variable loader timing boundary
+
+The second saved route remains red by ten frames. Both destinations share the
+first 33 frames, then differ in foreground decompression/cell expansion,
+background mapping and theme/murder-wall work. Exact Saxman measurements and
+PC boundaries reject the fixed-delay and compressed-size approaches. #300 is
+parked until those missing format-specific timing visitors feed the existing
+CPU/raster scheduler. Continue with #433. No Jev spend or human playtest.
+
 ## 2026-09-22 - #374 objective closure
 
 Fresh Stairway replay localises all 84 changed pixels to the animated HUD
