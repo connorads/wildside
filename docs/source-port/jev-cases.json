@@ -469,7 +469,7 @@
       "docs/source-port/backlog-archive.md#issue-300",
       "crates/wildside-core/src/level.rs:19178"
     ],
-    "next_action": "Add source-timed foreground, block/background-mapping and theme-load workload visitors, then re-enable the second-destination timing regression.",
+      "next_action": "Add block decode, direct-chunk instruction timing and theme-load visitors, compose the loader schedule, then re-enable the second-destination timing regression.",
     "scope": "Use an inter-level teleporter where map id differs; it should load the ROM destination."
   },
   {

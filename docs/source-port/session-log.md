@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #300 background mapping workload
+
+The live transition now distinguishes `Load_BackgroundMappings` formats from
+source assets. Forest runs three Enigma streams with 45,764 exact source
+instructions and 373,634 raw cycles. Swamp dispatches 48 chunks and visits
+5,656 in-bounds cells. Both saved routes pin the census. The ten-frame bug stays
+red until direct-chunk instruction timing, block decoding and theme phases join
+the schedule. No Jev spend or human playtest.
+
 ## 2026-09-22 - #300 foreground expansion workload
 
 The live cross-level transition now records exact ASM `loc_11C34/loc_11C36`

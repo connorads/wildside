@@ -6140,6 +6140,11 @@ mod chunk_02 {
             "ASM loc_11C34 source work must come from the destination resource dimensions"
         );
         assert_eq!(
+            frames[223].gameplay_debug_fields["teleport_background_work_loc_1280a"],
+            "format=Layered placements=0 visited=0 copied=0 enigma_streams=3 enigma_instructions=45764 enigma_raw_cycles=373634 enigma_output_words=2688",
+            "ASM loc_128BA loads all three Forest Enigma layers"
+        );
+        assert_eq!(
             (frames[223].kid_x_pos, frames[223].kid_y_pos),
             (Some(27_264_512), Some(138_346_496)),
             "ASM Teleport retains the departing Kid GfxObject during the first fade frame"
@@ -6255,6 +6260,11 @@ mod chunk_02 {
             frames[103].gameplay_debug_fields["teleport_foreground_work_loc_11c34"],
             "cells=7280 instructions=58354 raw_cycles=524950",
             "ASM loc_11C34 source work distinguishes the slower destination before scheduling"
+        );
+        assert_eq!(
+            frames[103].gameplay_debug_fields["teleport_background_work_loc_1280a"],
+            "format=Chunked placements=48 visited=5656 copied=5656 enigma_streams=0 enigma_instructions=0 enigma_raw_cycles=0 enigma_output_words=0",
+            "ASM loc_12830 dispatches all Swamp chunk placements and loc_12884 visits their source cells"
         );
         assert_eq!(
             (frames[166].number_objects, frames[166].number_gfx_objects),

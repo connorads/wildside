@@ -12104,6 +12104,26 @@ impl NativeRuntime {
                 ),
             );
         }
+        if let Some(workload) = self
+            .teleport_transition
+            .as_ref()
+            .and_then(|transition| transition.background_mappings_workload)
+        {
+            gameplay_debug_fields.insert(
+                "teleport_background_work_loc_1280a".into(),
+                format!(
+                    "format={:?} placements={} visited={} copied={} enigma_streams={} enigma_instructions={} enigma_raw_cycles={} enigma_output_words={}",
+                    workload.format,
+                    workload.placements,
+                    workload.cells_visited,
+                    workload.cells_copied,
+                    workload.enigma_streams,
+                    workload.enigma_instruction_count,
+                    workload.enigma_raw_cycles,
+                    workload.enigma_output_words
+                ),
+            );
+        }
         if self.progression.form_change_flash_frames > 1 {
             gameplay_debug_fields.insert("currently_transforming".into(), "true".into());
         }

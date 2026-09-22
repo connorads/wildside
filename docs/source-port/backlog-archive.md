@@ -25907,6 +25907,17 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-22 background mapping workload: the live transition now selects the
+ASM `Load_BackgroundMappings` format from the destination header. Forest runs
+the three extracted `loc_128BA` Enigma streams: 45,764 source instructions,
+373,634 raw cycles and 2,688 output words. Swamp parses all 48 `loc_12830`
+placements, loads their ROM chunk dimensions and visits 5,656 `loc_12884`
+cells, all inside the destination buffer. Both saved routes pin these values.
+The workload retains format and clipping inputs without converting them into a
+delay: direct-chunk instruction timing, block decoding and later theme loads
+remain before the hand-off can be scheduled. No paid Jev call or human
+playtest.
+
 2026-09-22 foreground expansion workload: the live cross-level transition now
 derives `Level_width_blocks * Level_height_blocks` from the destination header
 and visits every source instruction in ASM `loc_11C34/loc_11C36`. Resource 0x6E

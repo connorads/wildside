@@ -15859,14 +15859,15 @@ impl NativeRuntime {
                     );
                 // ASM loc_BCF6 writes Current_LevelID before Teleport enters
                 // loc_6E2. The departing scene remains allocated for its fade.
-                let foreground_collision_timing_loc_11c34 =
-                    load_level_asset_bundle_with_source(
-                        &self.assets,
-                        dest_map,
-                        self.assets_source.as_ref(),
-                    )
-                    .ok()
-                    .and_then(|bundle| bundle.parsed_header)
+                let destination_bundle = load_level_asset_bundle_with_source(
+                    &self.assets,
+                    dest_map,
+                    self.assets_source.as_ref(),
+                )
+                .ok();
+                let foreground_collision_timing_loc_11c34 = destination_bundle
+                    .as_ref()
+                    .and_then(|bundle| bundle.parsed_header.as_ref())
                     .map(|header| {
                         crate::load_in_game_timing::visit_foreground_collision_expansion_instructions_loc_11c34(
                             u16::from(header.width_screens) * 20,
@@ -15874,6 +15875,64 @@ impl NativeRuntime {
                             |_| {},
                         )
                     });
+                let background_mappings_workload = destination_bundle.as_ref().and_then(|bundle| {
+                    let header = bundle.parsed_header.as_ref()?;
+                    let background = bundle.background.as_ref()?;
+                    let background_width = if matches!(header.background_theme, 3 | 5 | 7 | 9) {
+                        0x40
+                    } else {
+                        u16::from(header.width_screens) * 10 + 0x1e
+                    };
+                    let background_height = u16::from(header.height_screens) * 7 + 0x15;
+                    if matches!(header.background_theme, 3 | 5 | 7 | 9) {
+                        let (name, indices, bases): (&str, &[u8], &[u16]) =
+                            match header.background_theme {
+                                3 => ("hill", &[0, 1, 2], &[0x2780, 0x2780, 0x07c0]),
+                                5 => ("desert", &[0, 1, 2], &[0x2780, 0x2780, 0x2780]),
+                                7 if matches!(header.weather_flags, 2 | 3) => {
+                                    ("mountain", &[0, 1, 2, 4], &[0x2780, 0x2780, 0x2780, 0x27e5])
+                                }
+                                7 => ("mountain", &[0, 1, 2, 3], &[0x2780, 0x2780, 0x2780, 0x07e5]),
+                                9 => ("forest", &[0, 1, 2], &[0x0780, 0x0780, 0x0780]),
+                                _ => return None,
+                            };
+                        let loaded = indices
+                            .iter()
+                            .map(|index| {
+                                self.assets_source
+                                    .read(
+                                        &std::path::Path::new("theme/bg_chunks")
+                                            .join(format!("{name}_eni_{index:02X}.bin")),
+                                    )
+                                    .ok()
+                            })
+                            .collect::<Option<Vec<_>>>()?;
+                        let streams = loaded
+                            .iter()
+                            .zip(bases.iter().copied())
+                            .map(|(bytes, base)| (bytes.as_slice(), base))
+                            .collect::<Vec<_>>();
+                        crate::load_in_game_timing::background_layered_mappings_workload_loc_128ba(
+                            &streams,
+                        )
+                    } else {
+                        let theme = crate::level::theme_palette_basename(header.background_theme)?
+                            .strip_suffix(".bin")?;
+                        crate::load_in_game_timing::background_chunk_mappings_workload_loc_12830(
+                            &background.bytes,
+                            background_width,
+                            background_height,
+                            |index| {
+                                self.assets_source
+                                    .read(
+                                        &std::path::Path::new("theme/bg_chunks")
+                                            .join(format!("{theme}_{index:02X}.bin")),
+                                    )
+                                    .ok()
+                            },
+                        )
+                    }
+                });
                 self.current_level = LevelId(dest_map);
                 self.teleport_transition = Some(TeleportTransitionState {
                     start_frame: self.frame_index,
@@ -15883,6 +15942,7 @@ impl NativeRuntime {
                     frozen_number_objects,
                     frozen_number_gfx_objects,
                     foreground_collision_timing_loc_11c34,
+                    background_mappings_workload,
                 });
             }
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::Teleporter;
