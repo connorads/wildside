@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #300 stale projectile and fade worker
+
+ROM WRAM at destination frame 287 has 12 Gfx slots: two Kid, eight enemy,
+two offscreen. Native's 13th was a Cloud lightning projectile retained from
+the outgoing level. `loc_6E2` clears both ROM lists before `Load_InGame`, so
+the shared native load now clears projectiles. The no-card Teleport fade's
+Object-only `sub_73D0` worker is counted through its active phase without
+changing diagnostic settled-warp counts. The checked-in pad replay now
+matches 24/25 gameplay frames 285-309; frame 291 is one Object short.
+Fast gate, full TAS and 105-level sweep pass; sweep remains 100/105. No
+paid Jev request or human playtest.
+
 ## 2026-09-22 - #300 destination enemy allocation
 
 The 0x1C -> 0x51 pad replay now matches the ROM's frame-286 Object/Gfx

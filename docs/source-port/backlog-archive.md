@@ -25570,6 +25570,24 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-22 outgoing projectile cleanup: a red-first extension of the
+checked-in 0x1C -> 0x51 pad replay found frame 287 native Object/Gfx 8/13
+against ROM 8/12. The ROM WRAM Gfx linked list has two Kid, eight enemy,
+and two offscreen slots. Native's extra Gfx count came from a Cloud
+lightning projectile retained from the departing level. ASM `loc_6E2`
+clears `Initialize_ObjectSlots` and `Initialize_GfxObjectSlots` before
+`Load_InGame`; the shared native load now clears its projectile list.
+That exposed an Object-only `sub_73D0` fade worker: ROM frame 287 has four
+base Objects, while native's ordinary roster projection accounted for three.
+The no-card `loc_BCF6` Teleport entry counts the fade worker until `loc_7420`
+enables pausing. Diagnostic settled warps use their established count path.
+The replay now matches all gameplay fields on 24/25 destination frames
+285-309; frame 291 remains native one Object short (8 vs ROM 9). The 23
+teleporter tests, `verify-slice-fast`, `verify-tas-full`, and 105-level
+state sweep pass, with the sweep still 100/105. Later pixel differences,
+a second destination timing witness, and natural campaign entry remain
+open. No paid Jev request or human playtest is claimed.
+
 2026-09-22 destination allocation fix: the checked-in 0x1C -> 0x51 pad
 regression now asserts frame 286 Object/Gfx counts 8/4. Native runs the
 `Manage_EnemyLoading loc_36840` initial allocation after `Load_InGame` and

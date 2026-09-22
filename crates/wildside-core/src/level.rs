@@ -19813,6 +19813,7 @@ impl NativeRuntime {
     pub(crate) fn begin_teleport_level_entry_load_ingame_loc_bcf6(&mut self, level_id: LevelId) {
         self.boot_state = BootState::InGame;
         self.load_level_entry_common(level_id);
+        self.teleport_entry_fade_object_counted_loc_bcf6 = true;
         // Load_InGame never allocates the loc_1AC70/loc_1AE2E title-card
         // workers, so there is no title shell to rebuild or seed.
         self.starting_level_title_workers.clear();
@@ -19847,6 +19848,7 @@ impl NativeRuntime {
         // Palette_Buffer before the loc_11F96 post-load workers can animate
         // those same CRAM slots.
         self.load_level_theme_palettes_loc_11db0_11e16(level_id);
+        self.teleport_entry_fade_object_counted_loc_bcf6 = false;
         // ASM sub_73D0 / loc_73E2 / loc_73F4 (kid.asm:7527): the
         // Load_InGame worker snapshots the live Palette_Buffer into
         // Palette_Buffer_2 and flood-fills Palette_Buffer_3 from `$FFFFFBCC`
@@ -19869,6 +19871,10 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.pending_dragon_death_children.clear();
         self.pending_dragon_death_animations.clear();
+        // ASM loc_6E2 -> Initialize_ObjectSlots / Initialize_GfxObjectSlots
+        // discards outgoing projectile workers before Load_InGame allocates
+        // the destination's objects.
+        self.projectiles.clear();
         // ASM Load_InGame rebuilds EnemyStatus_Table before
         // Manage_EnemyLoading loc_36840. Native's parallel killed-index set
         // must reset at the same boundary, or a dead index from the previous

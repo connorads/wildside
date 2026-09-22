@@ -6187,6 +6187,11 @@ mod chunk_02 {
             "ASM Load_InGame loc_11FD2 -> Manage_EnemyLoading loc_36840 allocates four destination enemy Objects after four preload Objects; their GfxObjects wait for the first enemy handler pass"
         );
         assert_eq!(
+            (frames[287].number_objects, frames[287].number_gfx_objects),
+            (8, 12),
+            "ASM loc_6E2 clears prior-level Object and Gfx lists; frame-287 Elsewhere has two Kid, eight enemy, and two offscreen Gfx slots"
+        );
+        assert_eq!(
             (
                 frames[286].teleport_warp_colour,
                 frames[286].level_entry_fade_progress_sub_73d0

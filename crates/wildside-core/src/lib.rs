@@ -391,6 +391,8 @@ pub struct NativeRuntime {
     /// ASM `sub_73D0` fade progress word `$FFFFF876` for the live level-entry
     /// fullscreen fade worker.
     level_entry_fade_progress_sub_73d0: u16,
+    /// ASM loc_BCF6 no-card Teleport counts sub_73D0 outside the gameplay roster.
+    teleport_entry_fade_object_counted_loc_bcf6: bool,
     /// ASM `$FFFFF888`: pending palette mask for `Palette_Buffer+$00..+$3E`
     /// during the live `sub_73D0` level-entry fullscreen fade.
     level_entry_pending_palette_0_mask_sub_73d0: u32,
@@ -1661,6 +1663,7 @@ impl NativeRuntime {
             teleport_render_snapshot: None,
             teleport_warp_colour_fbcc: 0,
             level_entry_fade_progress_sub_73d0: 0,
+            teleport_entry_fade_object_counted_loc_bcf6: false,
             level_entry_pending_palette_0_mask_sub_73d0: 0,
             level_entry_pending_palette_1_mask_sub_73d0: 0,
             palette_dma_suppressed_f890: false,
@@ -5429,6 +5432,7 @@ impl NativeRuntime {
         self.allow_pausing_fade_frames = self.allow_pausing_fade_frames.saturating_add(1);
         if fade_completed {
             self.allow_pausing = true;
+            self.teleport_entry_fade_object_counted_loc_bcf6 = false;
             // ASM Load_InGame leaves FBCC as scratch reset by the next load.
             // The title-card / level-skip paths cleared the warp colour at
             // their StartingLevel/Hold -> InGame hand-off (boot.rs:7449/7571);
@@ -5462,6 +5466,7 @@ impl NativeRuntime {
 
     pub(crate) fn clear_level_entry_fade_sub_73d0(&mut self) {
         self.palette_dma_suppressed_f890 = false;
+        self.teleport_entry_fade_object_counted_loc_bcf6 = false;
         self.level_entry_fade_progress_sub_73d0 = 0;
         self.level_entry_pending_palette_0_mask_sub_73d0 = 0;
         self.level_entry_pending_palette_1_mask_sub_73d0 = 0;

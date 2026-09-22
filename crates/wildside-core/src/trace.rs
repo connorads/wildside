@@ -16216,6 +16216,13 @@ impl NativeRuntime {
         } else {
             0
         };
+        // ASM loc_BCF6 -> sub_7196 allocates the Object-only sub_73D0
+        // palette worker on the no-card Teleport path. It remains linked
+        // until loc_7420 enables pausing.
+        let entry_fade_object_worker = u16::from(
+            self.teleport_entry_fade_object_counted_loc_bcf6
+                && matches!(self.boot_state, BootState::InGame),
+        );
         // ASM Tank.asm loc_3B372 / Robot.asm / Scorpion.asm allocate their
         // linked child through j_Allocate_GfxObjectSlot_a1 — a GFX slot that
         // never increments Number_Objects (`EnemyFamily::child_slots`). The
@@ -16278,7 +16285,11 @@ impl NativeRuntime {
             }
         });
         (
-            roster_object_count + 2 + extra + transient_object_only_workers,
+            roster_object_count
+                + 2
+                + extra
+                + transient_object_only_workers
+                + entry_fade_object_worker,
             roster_gfx_count + 3 + transient_gfx_only_workers,
         )
     }
