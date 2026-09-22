@@ -9755,6 +9755,14 @@ impl NativeRuntime {
         (elapsed <= 17).then(|| 0x100_u16.saturating_sub((elapsed.saturating_sub(2) as u16) * 0x10))
     }
 
+    /// ASM Pal_FadeOut loc_28C6/loc_28EA: two source-palette transfers,
+    /// then sixteen decrement steps to the FBCC teleport target colour.
+    fn teleport_palette_fade_progress_loc_28c6(&self) -> Option<u16> {
+        let transition = self.teleport_transition.as_ref()?;
+        let elapsed = self.frame_index.saturating_sub(transition.start_frame);
+        Some(0x100_u16.saturating_sub((elapsed.saturating_sub(2) as u16) * 0x10))
+    }
+
     fn dying_hidden_shell_still_visible(&self) -> bool {
         matches!(
             self.player_lifecycle,
@@ -12659,7 +12667,9 @@ impl NativeRuntime {
             // level-skip path under LevelSkipHold; the no-card Teleport
             // (Load_InGame, loc_BCF6) runs it under InGame while the entry fade
             // is still in progress (`!allow_pausing`).
-            teleport_warp_colour: if self.demo_title_palette_fade_progress_loc_28c6().is_some() {
+            teleport_warp_colour: if self.teleport_transition.is_some() {
+                0x00EE
+            } else if self.demo_title_palette_fade_progress_loc_28c6().is_some() {
                 // ASM loc_119D8 writes `$082A` to FBCC before Pal_FadeOut.
                 0x082A
             } else if matches!(
@@ -12672,7 +12682,8 @@ impl NativeRuntime {
                 0
             },
             level_entry_fade_progress_sub_73d0: self
-                .death_palette_fade_progress()
+                .teleport_palette_fade_progress_loc_28c6()
+                .or_else(|| self.death_palette_fade_progress())
                 .or_else(|| self.title_card_live_handoff_palette_fade_progress_sub_73d0())
                 .or_else(|| self.demo_title_palette_fade_progress_loc_28c6())
                 .or_else(|| self.demo_level_entry_palette_fade_progress_sub_73d0())
@@ -14675,6 +14686,20 @@ impl NativeRuntime {
     }
 
     pub(crate) fn current_player_state(&self) -> Option<PlayerState> {
+        if let Some(transition) = self.teleport_transition.as_ref() {
+            let elapsed = self.frame_index.saturating_sub(transition.start_frame);
+            if elapsed < 63 {
+                return Some(if elapsed < 27 {
+                    transition.frozen_player
+                } else {
+                    PlayerState {
+                        x_pos: 0,
+                        y_pos: 0,
+                        ..transition.frozen_player
+                    }
+                });
+            }
+        }
         if self.pause_restart_zero_kid_shell_active_loc_6e2() {
             // ASM loc_6E2 restart reload: oracle WRAM shows Kid's object
             // position zeroed during the hidden reload shell before Load_InGame
@@ -15124,6 +15149,34 @@ impl NativeRuntime {
     }
 
     pub(crate) fn current_camera_state(&self) -> CameraState {
+        if let Some(transition) = self.teleport_transition.as_ref() {
+            let elapsed = self.frame_index.saturating_sub(transition.start_frame);
+            if elapsed < 63 {
+                return if elapsed < 31 {
+                    transition.frozen_camera
+                } else if elapsed < 54 {
+                    CameraState::default()
+                } else {
+                    let pose = self.level_start_pose(
+                        self.current_level,
+                        self.level_bounds(self.current_level),
+                    );
+                    CameraState {
+                        x_pos: pose.camera_x_pos,
+                        y_pos: if elapsed == 54 {
+                            // TODO(fidelity): identify the indirect loader write
+                            // that exposes this pre-page-alignment camera seed.
+                            self.pending_player_start_override_loc_11bd2
+                                .map_or(pose.camera_y_pos, |(_, y)| {
+                                    u32::from(y.saturating_sub(176)) << 16
+                                })
+                        } else {
+                            pose.camera_y_pos
+                        },
+                    }
+                };
+            }
+        }
         if self.level_skip_resume_hold {
             return self.level_skip_resume_camera_state();
         }
@@ -15303,6 +15356,15 @@ impl NativeRuntime {
     }
 
     pub(crate) fn active_objects(&self) -> Vec<NativeObjectSnapshot> {
+        if let Some(transition) = self.teleport_transition.as_ref()
+            && self.frame_index.saturating_sub(transition.start_frame) < 63
+        {
+            return if self.frame_index.saturating_sub(transition.start_frame) < 31 {
+                transition.frozen_active_objects.clone()
+            } else {
+                Vec::new()
+            };
+        }
         if self.pause_restart_zero_kid_shell_active_loc_6e2() {
             return Vec::new();
         }
@@ -15481,6 +15543,23 @@ impl NativeRuntime {
         camera_y_pos: u32,
         include_runtime_transients: bool,
     ) -> (u16, u16) {
+        if let Some(transition) = self.teleport_transition.as_ref() {
+            let elapsed = self.frame_index.saturating_sub(transition.start_frame);
+            if elapsed < 63 {
+                return if elapsed < 31 {
+                    (
+                        transition.frozen_number_objects,
+                        transition.frozen_number_gfx_objects,
+                    )
+                } else if elapsed == 62 {
+                    // ASM Load_InGame allocates its four preload workers just
+                    // before the first destination Kid slot becomes visible.
+                    (4, 2)
+                } else {
+                    (0, 0)
+                };
+            }
+        }
         if self.level_skip_resume_hold {
             return self.level_skip_resume_object_counts();
         }

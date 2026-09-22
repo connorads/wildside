@@ -6101,7 +6101,6 @@ mod chunk_02 {
     }
 
     #[test]
-    #[ignore = "cross-level teleporter still enters the debug level-skip loader"]
     fn issue_300_skydragon_telepad_transitions_on_rom_frame_loc_78c6_b522_bcf6() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
@@ -6134,8 +6133,74 @@ mod chunk_02 {
         );
         assert_eq!(
             (frames[223].kid_x_pos, frames[223].kid_y_pos),
-            (Some(416 << 16), Some(2111 << 16)),
+            (Some(27_264_512), Some(138_346_496)),
             "ASM Teleport retains the departing Kid GfxObject during the first fade frame"
+        );
+        assert_eq!(
+            (
+                frames[223].teleport_warp_colour,
+                frames[223].level_entry_fade_progress_sub_73d0
+            ),
+            (0x00EE, Some(0x0100)),
+            "ASM Pal_FadeOut starts from the old scene"
+        );
+        assert_eq!(
+            (
+                frames[240].teleport_warp_colour,
+                frames[240].level_entry_fade_progress_sub_73d0
+            ),
+            (0x00EE, Some(0x0010)),
+            "ASM loc_28C6 fades toward the yellow warp target"
+        );
+        assert_eq!(
+            (frames[249].kid_x_pos, frames[249].kid_y_pos),
+            (Some(27_264_512), Some(138_346_496))
+        );
+        assert_eq!(
+            (frames[250].kid_x_pos, frames[250].kid_y_pos),
+            (Some(0), Some(0)),
+            "ASM loc_6E2 clears the departing Kid slot at the fade boundary"
+        );
+        assert_eq!(
+            (frames[254].number_objects, frames[254].number_gfx_objects),
+            (0, 0),
+            "ASM loc_6E2 clears both object tables before Load_InGame"
+        );
+        assert_eq!(
+            frames[277].camera_y_pos, 40_894_464,
+            "Load_InGame exposes the pre-alignment destination camera seed"
+        );
+        assert_eq!(
+            frames[278].camera_y_pos, 44_040_192,
+            "ASM loc_11F48 page-aligns the destination camera"
+        );
+        assert_eq!(
+            (frames[285].number_objects, frames[285].number_gfx_objects),
+            (4, 2),
+            "ASM Load_InGame allocates preload workers before Kid"
+        );
+        assert_eq!(frames[286].current_level, LevelId(0x51));
+        assert_eq!(frames[286].game_mode, GameMode::InGame);
+        assert_eq!(
+            (
+                frames[286].teleport_warp_colour,
+                frames[286].level_entry_fade_progress_sub_73d0
+            ),
+            (0x00EE, Some(0)),
+            "the outgoing yellow palette remains visible at the destination load boundary"
+        );
+        assert_eq!(
+            (
+                frames[287].teleport_warp_colour,
+                frames[287].level_entry_fade_progress_sub_73d0
+            ),
+            (0, Some(0x0010)),
+            "ASM loc_6E2 clears FBCC before the black Load_InGame entry fade"
+        );
+        assert_eq!(
+            (frames[286].kid_x_pos, frames[286].kid_y_pos),
+            (Some(48 << 16), Some(799 << 16)),
+            "ASM Load_InGame exposes the destination start pose at frame 286"
         );
     }
 

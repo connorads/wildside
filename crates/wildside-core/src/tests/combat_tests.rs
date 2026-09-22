@@ -2644,7 +2644,7 @@ fn landing_dragon_graze_consumes_after_existing_landing_defer_loc_b700_issue_245
 }
 
 #[test]
-fn live_teleporter_pending_skip_uses_map_order_index_loc_bcd6() {
+fn live_teleporter_transit_uses_map_order_index_loc_bcd6_bcf6() {
     let mut manifest = manifest_with_levels(4);
     manifest.map_order = vec![0x4A, 0x4B, 0x2D, 0x2E];
     let mut runtime = NativeRuntime::new(manifest);
@@ -2671,9 +2671,13 @@ fn live_teleporter_pending_skip_uses_map_order_index_loc_bcd6() {
         "teleporter activation should consume the frame"
     );
     assert_eq!(
-        runtime.pending_level_skip,
-        Some(LevelId(2)),
-        "ASM loc_BCD6 stores the logical MapOrder index, not raw map byte `$2D`"
+        runtime.current_level,
+        LevelId(2),
+        "ASM loc_BCD6/loc_BCF6 writes the logical MapOrder index at activation, not raw map byte `$2D`"
+    );
+    assert!(
+        runtime.teleport_transition.is_some(),
+        "ASM loc_BCF6 retains the old scene while loc_6E2 fades out"
     );
     assert_eq!(
         runtime.last_kid_frame_post_motion_mutator,
@@ -11016,8 +11020,8 @@ mod chunk_03 {
             "ASM loc_DA4A writes PlayerStart_X_pos=$20 and sets `$FFFFFC29`; loc_11BD2 preserves it instead of reading the destination header"
         );
         assert_eq!(
-            opening.player.y_pos, 0x09BA_0000,
-            "ASM loc_DA4A clears Current_Helmet before Teleport, so the loc_11BD2/loc_11BEC hidden Load_InGame settle uses Kid-form support"
+            opening.player.y_pos, 0x048F_0000,
+            "ASM loc_DA4A writes PlayerStart_Y=$48F; loc_7526 starts one pixel above it and this completed frame advances the raw spawn fall once"
         );
     }
 

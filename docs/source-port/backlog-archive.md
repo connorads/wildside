@@ -25588,6 +25588,28 @@ The fast gate passes 7,444 active core tests; full TAS preserves 37,759
 player/camera frames and its frozen pixel/RNG baselines. The 105-level state
 sweep remains 100 passed, five failed.
 
+2026-09-22 cross-level handoff follow-up: the 0x1C -> 0x51 route has 310
+ordinary-input frames. `loc_BCF6` writes the logical destination and retains
+mode `$C` at frame 223. `Pal_FadeOut` carries the source scene to yellow,
+`loc_6E2` clears the old Kid at 250 and object tables at 254, `loc_11F48`
+seeds the destination camera at 277-278, and `Load_InGame` exposes its raw
+spawn fall from frame 286. Native mirrors those phases with a dedicated
+teleport transit and keeps the old scene for the palette fade. The saved
+scenario now passes its active regression. Emulator comparison matches all
+310 player/camera CRC frames; frames 223-309 have 47 exact and 40 divergent
+pixel frames. Solid-yellow frames 250-287 are visually exact. The 87-frame
+transition range still has 95 authoritative state differences, mostly the
+Object/Gfx roster gap present before activation. Frames 288-302 also carry
+destination fade/renderer differences; do not close #300. The +63 hidden
+reload duration and frame-277 pre-alignment camera seed come from this one
+route and remain `TODO(fidelity)` until ASM cycle analysis and a second pad
+destination verify them. No paid Jev request was used.
+`verify-slice-fast` passes 7,445 active core tests. The full 37,759-frame TAS
+gate preserves its 241-frame / 2,391-pixel frozen visual baseline and RNG
+parity. The 105-level state sweep remains 100 passed, five failed. The old
+same-level telepad and Hundred K Trip tests now assert the raw `loc_11BD2`
+start instead of a pre-settled floor position.
+
 2026-09-20 source-exit inventory investigation:
 
 After the logical inspector correction, the normal runtime path exposes 163

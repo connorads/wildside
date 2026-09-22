@@ -19721,7 +19721,6 @@ impl NativeRuntime {
         level_id: LevelId,
         carry_title_start: bool,
     ) {
-        let entered_from_live_gameplay = matches!(self.boot_state, BootState::InGame);
         let level_has_title_card = self.level_has_title_card(level_id);
         let cold_intro_sequence_1_title = matches!(
             self.title_screen_intro_return_lineage,
@@ -19786,7 +19785,7 @@ impl NativeRuntime {
         } else {
             None
         };
-        self.load_level_entry_common(level_id, entered_from_live_gameplay);
+        self.load_level_entry_common(level_id);
         // ASM Load_TitleCard allocates both the visible loc_1AC70 workers and
         // the hidden loc_1AE2E gate up front. The early title-start lineage
         // still needs the worker shell until the later Start edge flips into
@@ -19813,7 +19812,7 @@ impl NativeRuntime {
     /// PlayerStart override, the FBCC warp colour, and the sfx.
     pub(crate) fn begin_teleport_level_entry_load_ingame_loc_bcf6(&mut self, level_id: LevelId) {
         self.boot_state = BootState::InGame;
-        self.load_level_entry_common(level_id, true);
+        self.load_level_entry_common(level_id);
         // Load_InGame never allocates the loc_1AC70/loc_1AE2E title-card
         // workers, so there is no title shell to rebuild or seed.
         self.starting_level_title_workers.clear();
@@ -19827,7 +19826,7 @@ impl NativeRuntime {
     /// palettes, entry fade, opening slice, rosters, murder wall, weather,
     /// post-load objects, start BGM, and the per-level counters. The caller
     /// sets `boot_state` and any title-worker state before/after this.
-    fn load_level_entry_common(&mut self, level_id: LevelId, entered_from_live_gameplay: bool) {
+    fn load_level_entry_common(&mut self, level_id: LevelId) {
         self.current_level = level_id;
         self.level_start_frame = None;
         self.player_lifecycle = PlayerLifecycle::Alive;
@@ -19854,17 +19853,14 @@ impl NativeRuntime {
         // before the visible level-entry fade begins.
         self.initialise_level_entry_fade_sub_73d0();
         let preserves_player_start = self.pending_player_start_override_loc_11bd2.is_some();
-        let should_floor_snap_entry =
-            self.block_grid.is_some() && (!preserves_player_start || entered_from_live_gameplay);
+        let should_floor_snap_entry = self.block_grid.is_some() && !preserves_player_start;
         self.opening_slice = Some(if should_floor_snap_entry {
             // ASM Load_InGame seeds the level header pose and spends hidden
             // frames settling Kid onto the real floor before visible gameplay.
             // Booted level entry should therefore start from the same settled
             // spawn helper we already use for respawn/playtest paths, not the
-            // generic title-screen opening pose. A gameplay Teleport/Hundred K
-            // Trip loc_11BD2 override still falls through loc_11BEC's
-            // Load_InGame setup and hidden floor-settle; non-gameplay
-            // bootstrap paths keep their existing raw slot-2 title-card pose.
+            // generic title-screen opening pose. The loc_11BD2 teleport
+            // override preserves its raw start pose for the visible fall.
             self.level_respawn_slice_with_floor_snap(level_id)
         } else {
             self.level_respawn_slice(level_id)

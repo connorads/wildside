@@ -15826,7 +15826,30 @@ impl NativeRuntime {
             if dest_map == self.current_level.0 {
                 self.begin_teleport_level_entry_load_ingame_loc_bcf6(self.current_level);
             } else {
-                self.pending_level_skip = Some(LevelId(dest_map));
+                self.teleport_render_snapshot = Some(Box::new(ResidentGameplayRenderSnapshot {
+                    trace: self.trace_frame(),
+                    block_grid: self.block_grid.clone(),
+                }));
+                let frozen_player = self.current_player_state().unwrap_or(slice.player);
+                let frozen_camera = self.current_camera_state();
+                let frozen_active_objects = self.active_objects();
+                let (frozen_number_objects, frozen_number_gfx_objects) = self
+                    .object_counts_from_roster(
+                        &frozen_active_objects,
+                        frozen_camera.x_pos,
+                        frozen_camera.y_pos,
+                    );
+                // ASM loc_BCF6 writes Current_LevelID before Teleport enters
+                // loc_6E2. The departing scene remains allocated for its fade.
+                self.current_level = LevelId(dest_map);
+                self.teleport_transition = Some(TeleportTransitionState {
+                    start_frame: self.frame_index,
+                    frozen_player,
+                    frozen_camera,
+                    frozen_active_objects,
+                    frozen_number_objects,
+                    frozen_number_gfx_objects,
+                });
             }
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::Teleporter;
             return true;

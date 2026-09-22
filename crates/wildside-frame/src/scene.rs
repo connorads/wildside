@@ -1456,6 +1456,10 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         && trace.resident_gameplay_vdp_camera_loc_300ba.is_some()
         && trace.level_entry_fade_progress_sub_73d0.is_some();
     let resident_gameplay_fade = death_palette_fade
+        || (trace.game_mode == GameMode::InGame
+            && trace.teleport_warp_colour == 0x00EE
+            && trace.level_entry_fade_progress_sub_73d0.is_some()
+            && resident_gameplay_trace.is_some())
         || (matches!(
             trace.game_mode,
             GameMode::SegaScreen | GameMode::TitleScreen
@@ -1491,7 +1495,7 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
                 .prize_block_worker_tails_sub_1007a
                 .clone_from(&trace.prize_block_worker_tails_sub_1007a);
         }
-        render_trace.game_mode = if death_palette_fade {
+        render_trace.game_mode = if death_palette_fade || trace.teleport_warp_colour == 0x00EE {
             GameMode::InGame
         } else {
             GameMode::DemoPlay
@@ -10197,6 +10201,33 @@ mod tests {
         assert_eq!(rendered.hud_timer_sprite_seconds_loc_bee8, Some(173));
         assert_eq!(rendered.level_entry_fade_progress_sub_73d0, Some(0xE0));
         assert_eq!(trace.number_lives, 2, "rendering must not alter game state");
+    }
+
+    #[test]
+    fn cross_level_teleport_loc_bcf6_fades_the_departing_scene() {
+        let resident = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            camera_y_pos: 1948 << 16,
+            kid_x_pos: Some(27_264_512),
+            ..NativeTraceFrame::default()
+        };
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            camera_y_pos: 0,
+            kid_x_pos: Some(0),
+            teleport_warp_colour: 0x00EE,
+            level_entry_fade_progress_sub_73d0: Some(0),
+            ..NativeTraceFrame::default()
+        };
+
+        let rendered =
+            render_trace_with_vdp_latched_state_and_resident(&trace, None, Some(&resident));
+
+        assert_eq!(rendered.game_mode, GameMode::InGame);
+        assert_eq!(rendered.camera_y_pos, 1948 << 16);
+        assert_eq!(rendered.kid_x_pos, Some(27_264_512));
+        assert_eq!(rendered.teleport_warp_colour, 0x00EE);
+        assert_eq!(rendered.level_entry_fade_progress_sub_73d0, Some(0));
     }
 
     #[test]

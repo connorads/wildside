@@ -382,6 +382,8 @@ pub struct NativeRuntime {
     allow_pausing_fade_frames: u8,
     pending_level_skip: Option<LevelId>,
     pending_level_skip_resume: bool,
+    teleport_transition: Option<TeleportTransitionState>,
+    teleport_render_snapshot: Option<Box<ResidentGameplayRenderSnapshot>>,
     /// ASM `$FFFFFBCC`: palette fade target colour. Teleporter `loc_BCF6`
     /// seeds `$00EE` before branching through `Teleport`; the level-entry
     /// fade shell copies this word into `Palette_Buffer_3`.
@@ -1655,6 +1657,8 @@ impl NativeRuntime {
             allow_pausing_fade_frames: 0,
             pending_level_skip: None,
             pending_level_skip_resume: false,
+            teleport_transition: None,
+            teleport_render_snapshot: None,
             teleport_warp_colour_fbcc: 0,
             level_entry_fade_progress_sub_73d0: 0,
             level_entry_pending_palette_0_mask_sub_73d0: 0,
@@ -2590,7 +2594,11 @@ impl NativeRuntime {
     /// image. ASM loc_119D8 changes `Current_LevelID` to zero before
     /// Pal_FadeOut has finished presenting the demo gameplay planes.
     pub fn source_port_render_level(&self) -> LevelId {
-        if self.demo_title_palette_fade_progress_loc_28c6().is_some() {
+        if self.teleport_transition.is_some() {
+            self.teleport_render_snapshot
+                .as_deref()
+                .map_or(self.current_level, |snapshot| snapshot.trace.current_level)
+        } else if self.demo_title_palette_fade_progress_loc_28c6().is_some() {
             self.demo_title_visual_level.unwrap_or(self.current_level)
         } else {
             self.current_level
@@ -2599,18 +2607,29 @@ impl NativeRuntime {
 
     /// ASM Pal_FadeOut retains the terminal gameplay planes and sprites.
     pub fn source_port_render_trace_snapshot(&self) -> Option<&NativeTraceFrame> {
-        self.death_palette_fade_progress()
-            .and(self.death_palette_fade_snapshot.as_deref())
+        self.teleport_transition
+            .as_ref()
+            .and(self.teleport_render_snapshot.as_deref())
+            .map(|snapshot| &snapshot.trace)
             .or_else(|| {
-                self.demo_title_palette_fade_progress_loc_28c6()
-                    .and(self.demo_title_render_snapshot.as_deref())
-                    .map(|snapshot| &snapshot.trace)
+                self.death_palette_fade_progress()
+                    .and(self.death_palette_fade_snapshot.as_deref())
+                    .or_else(|| {
+                        self.demo_title_palette_fade_progress_loc_28c6()
+                            .and(self.demo_title_render_snapshot.as_deref())
+                            .map(|snapshot| &snapshot.trace)
+                    })
             })
     }
 
     /// Outgoing mutated layout retained alongside the demo-return trace.
     pub fn source_port_render_block_grid(&self) -> Option<&terrain::BlockGrid> {
-        if self.demo_title_palette_fade_progress_loc_28c6().is_some() {
+        if self.teleport_transition.is_some() {
+            self.teleport_render_snapshot
+                .as_deref()
+                .and_then(|snapshot| snapshot.block_grid.as_ref())
+                .or(self.block_grid.as_ref())
+        } else if self.demo_title_palette_fade_progress_loc_28c6().is_some() {
             self.demo_title_render_snapshot
                 .as_deref()
                 .and_then(|snapshot| snapshot.block_grid.as_ref())
@@ -3927,6 +3946,9 @@ impl NativeRuntime {
             ModeLevelVblankWorkBeforeSubE12,
         ) -> Option<vdp::ModeLevelRasterSeedSubE12>,
     ) -> NativeTraceFrame {
+        if let Some(trace) = self.step_teleport_fade_loc_6e2(input) {
+            return trace;
+        }
         let transform_hibernating_at_frame_start =
             self.object_pass_hibernating_for_transform_loc_7e90();
         // ASM Death loc_B80C and lose_life suspend Execute_Objects until reload.
@@ -4939,6 +4961,42 @@ impl NativeRuntime {
         }
         self.frame_index += 1;
         trace
+    }
+
+    /// ASM loc_BCF6 -> Teleport -> loc_6E2: WaitForVint inside Pal_FadeOut
+    /// suspends the current object pass until Load_InGame rebuilds the world.
+    fn step_teleport_fade_loc_6e2(&mut self, input: FrameInput) -> Option<NativeTraceFrame> {
+        let transition = self.teleport_transition.as_ref()?;
+        let elapsed = self.frame_index.saturating_sub(transition.start_frame);
+        // Oracle PC/WRAM checkpoints on the 0x1C -> 0x51 pad: loc_6E2 clears
+        // the old Kid slot at +27, clears object slots by +31, and exposes
+        // the destination Load_InGame roster at +63.
+        // TODO(fidelity): derive the hidden reload duration from ASM cycles
+        // for other destination asset sets before treating +63 as universal.
+        if elapsed >= 64 {
+            self.teleport_transition = None;
+            self.teleport_render_snapshot = None;
+            return None;
+        }
+        if elapsed >= 18 {
+            // ASM loc_6E2 clears FBCC after Pal_FadeOut returns. The VDP
+            // retains the yellow outgoing palette until Load_InGame starts.
+            self.teleport_warp_colour_fbcc = 0;
+        }
+        if elapsed == 63 {
+            self.begin_teleport_level_entry_load_ingame_loc_bcf6(self.current_level);
+            if let Some(slice) = self.opening_slice.as_mut() {
+                // ASM loc_75D4 -> sub_71E4 follows the first destination Kid
+                // pose before the first visible Load_InGame checkpoint.
+                slice.update_camera_follow(0);
+            }
+        }
+        self.trace_input = input;
+        let trace = self.trace_frame();
+        self.prior_input = self.previous_input;
+        self.previous_input = input;
+        self.frame_index += 1;
+        Some(trace)
     }
 
     fn begin_kid_pre_physics_probe(&mut self, player: PlayerState) {

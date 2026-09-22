@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #300 cross-level teleport fade and raw destination entry
+
+The 0x1C pad route now matches all 310 player/camera CRC frames against the
+emulator. Native writes logical 0x51 on frame 223, carries the old scene
+through the yellow fade, clears Kid and the object tables on the observed
+reload frames, then starts the destination's raw spawn fall under mode `$C`.
+Frames 250-287 render exact solid yellow/black handoff images. Object/Gfx
+roster differences begin before pad activation and persist after entry;
+40 of 87 transition pixel frames remain divergent. #300 stays open for those
+residuals and a second destination timing witness. Fast gate, full TAS and
+105-level state sweep preserve their baselines. No paid Jev call.
+
 ## 2026-09-22 - #300 natural teleporter route and standing rescan
 
 An ordinary-input route from logical 0x1C reaches a visible pad. Emulator PC

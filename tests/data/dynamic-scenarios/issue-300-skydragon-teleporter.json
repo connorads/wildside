@@ -260,9 +260,59 @@
     0,
     0,
     0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
     0
   ],
-  "frame_count": 260,
+  "frame_count": 310,
   "checkpoints": [
     {
       "label": "pad-134",
@@ -287,6 +337,22 @@
     {
       "label": "pad-259",
       "frame_index": 259
+    },
+    {
+      "label": "pad-250",
+      "frame_index": 250
+    },
+    {
+      "label": "pad-254",
+      "frame_index": 254
+    },
+    {
+      "label": "destination-286",
+      "frame_index": 286
+    },
+    {
+      "label": "destination-300",
+      "frame_index": 300
     }
   ],
   "warp_to_level": 28,
