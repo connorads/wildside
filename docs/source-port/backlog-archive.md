@@ -35,6 +35,18 @@ natural campaign progression through Hills.
 <a id="issue-374"></a>
 ### #374
 
+2026-09-22 Bloody Swamp murder-wall contact boundary: the saved idle route and
+oracle WRAM show `MurderWall_X_pos=$004B8A00` after frame 143. ASM `sub_5E02
+loc_5E24` then compares wall `$4B+$30` with The Kid's left hitbox `$7B` and
+latches `colid_rightwall`. On frame 144 `Character_CheckCollision` consumes
+that latch through `Crushed_to_Death` before another `sub_71E4` wall/camera
+step. Native now preserves that two-pass order and uses form hitbox edges; the
+checked-in 146-frame route pins camera `$004B0000` and wall `$004B8A00` on
+frames 143-144. The full saved route's gameplay frontier advances from frame
+144 to frame 253, where later reload-shell timing differs. `verify-slice-fast`
+and the full 37,759-frame TAS gate pass with the frozen 37,518 exact / 241
+divergent / 2,391-pixel baseline. No Jev spend or human playtest.
+
 2026-09-22 Scorpion source-timed reload clear: selected-PC probes on saved
 level 0, level 1 and Scorpion routes all reach ASM `loc_714` nine frames
 after `loc_700`, then `loc_726` four frames later. WRAM confirms Kid remains

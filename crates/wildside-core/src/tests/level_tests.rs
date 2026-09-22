@@ -6369,6 +6369,39 @@ mod chunk_02 {
     }
 
     #[test]
+    fn issue_374_bloody_swamp_murder_wall_contact_stops_before_next_sub_71e4_step() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../tests/data/dynamic-scenarios/issue-374-bloody-swamp-murder-wall.json"
+        ))
+        .expect("checked-in Bloody Swamp murder-wall route");
+        let script = scenario["script"]
+            .as_array()
+            .expect("per-frame input masks")
+            .iter()
+            .map(|mask| mask.as_u64().expect("u8 input mask") as u8)
+            .collect::<Vec<_>>();
+        let frames = ScriptRunner::new(manifest)
+            .warp_to_level(0x3e)
+            .settle_recording_warp()
+            .run(&script, script.len());
+
+        assert_eq!(
+            (frames[143].camera_x_pos, frames[143].murder_wall_x),
+            (0x004B_0000, Some(0x004B_8A00)),
+            "ASM loc_7334/loc_7346 advances the wall and camera before sub_5E02 latches exact-edge contact",
+        );
+        assert_eq!(
+            (frames[144].camera_x_pos, frames[144].murder_wall_x),
+            (0x004B_0000, Some(0x004B_8A00)),
+            "ASM sub_5E02 loc_5E34 latches colid_rightwall; the next Character_CheckCollision reaches Death before another sub_71E4 wall step",
+        );
+        assert_eq!(frames[144].death_windup_elapsed, 0);
+    }
+
+    #[test]
     fn level30_ufo_contact_death_freezes_live_object_counts_at_death_loc_b7ea() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

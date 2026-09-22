@@ -3066,16 +3066,15 @@ impl NativeRuntime {
         let Some(wall) = &self.murder_wall else {
             return false;
         };
-        let player_x = slice.player.x_pos as i64;
-        let wall_x = wall.x_pos;
+        let player_x = (slice.player.x_pos >> 16) as i32;
+        let half_width = self.progression.current_form.half_width();
+        let wall_x = (wall.x_pos >> 16) as i32;
         if wall.reversed {
-            // Wall moves right-to-left: kill if player's right side touches wall
-            let wall_left = wall_x;
-            player_x + (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16) >= wall_left
+            // ASM sub_5E02 loc_5E12: wall+$110 <= Kid_hitbox_right.
+            wall_x + 0x110 <= player_x + half_width
         } else {
-            // Wall moves left-to-right: kill if wall passes player's left side
-            let wall_right = wall_x + (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16);
-            wall_right >= player_x
+            // ASM sub_5E02 loc_5E24: wall+$30 >= Kid_hitbox_left.
+            wall_x + MURDER_WALL_CAMERA_OFFSET_PX >= player_x - half_width
         }
     }
 
@@ -3620,6 +3619,7 @@ impl NativeRuntime {
     }
 
     pub(crate) fn init_murder_wall(&mut self, level_id: LevelId, camera_x: u32) {
+        self.murder_wall_collision_latched_sub_5e02 = false;
         let header = self.level_header(level_id);
         let flags = header.map_or(0, |h| h.murder_wall_flags);
         if flags & 0b10 != 0 {

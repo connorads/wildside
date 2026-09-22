@@ -15788,10 +15788,9 @@ impl NativeRuntime {
             }
         }
 
-        // Murder wall: advance and kill player on contact.
-        // ASM loc_7396/loc_73B8: reversed wall can push camera_x.
-        self.step_murder_wall(&mut slice.camera.x_pos);
-        if self.murder_wall_kills_player(slice) {
+        // ASM Character_CheckCollision consumes sub_5E02's prior object-pass
+        // collision before the murder-wall coroutine can run again.
+        if std::mem::take(&mut self.murder_wall_collision_latched_sub_5e02) {
             self.opening_slice = Some(*slice);
             // ASM sub_5E02 loc_5E34 writes colid_rightwall ($04), and
             // Character_CheckCollision dispatches it through Crushed_to_Death
@@ -15800,6 +15799,10 @@ impl NativeRuntime {
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::MurderWallDamage;
             return true;
         }
+        // ASM loc_7396/loc_73B8 advances the wall and may push camera_x.
+        // The later sub_5E02 pass records contact for Kid's next object pass.
+        self.step_murder_wall(&mut slice.camera.x_pos);
+        self.murder_wall_collision_latched_sub_5e02 = self.murder_wall_kills_player(slice);
 
         // Teleporter: stepping on a teleporter block warps the player.
         // ASM loc_BCB2 (kid.asm:15245): destination extraction — `addq.w #6,a4`

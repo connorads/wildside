@@ -552,6 +552,9 @@ pub struct NativeRuntime {
     island_shore_dma_uploads_loc_1202a: Vec<IslandShoreDmaUploadLoc1202A>,
     lava_geyser_art_uploads_loc_14c6a: Vec<LavaGeyserArtUploadLoc14C6A>,
     murder_wall: Option<MurderWallState>,
+    /// ASM sub_5E02 writes Kid's GfxObject collision word after the wall
+    /// worker; Character_CheckCollision consumes it on Kid's next object pass.
+    murder_wall_collision_latched_sub_5e02: bool,
     /// ASM `$FFFFFAC0`: five-tick murder-wall pattern countdown.
     murder_wall_warning_animation_timer_fac0: u8,
     /// ASM `$FFFFFABF`: two-bit murder-wall pattern index.
@@ -1751,6 +1754,7 @@ impl NativeRuntime {
             island_shore_dma_uploads_loc_1202a: Vec::new(),
             lava_geyser_art_uploads_loc_14c6a: Vec::new(),
             murder_wall: None,
+            murder_wall_collision_latched_sub_5e02: false,
             murder_wall_warning_animation_timer_fac0: 0,
             murder_wall_warning_animation_frame_fabf: 0,
             block_bounces: Vec::new(),
@@ -5857,6 +5861,15 @@ impl NativeRuntime {
                 OpeningSliceState::new(bounds)
             }
         });
+        // ASM loc_75D4/loc_8218/loc_8BF0 calls Character_CheckCollision
+        // before this wake's movement and sub_71E4 camera step. sub_5E02
+        // recorded the murder-wall contact during the preceding object pass.
+        if std::mem::take(&mut self.murder_wall_collision_latched_sub_5e02) {
+            self.opening_slice = Some(slice);
+            self.begin_death_windup();
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::MurderWallDamage;
+            return;
+        }
         // ASM sub_7B30 (kid.asm:8230): before Kid_Transform, checks if the
         // new helmet's wider hitbox overlaps walls and immediately pushes the
         // player clear. This can come from a transform resolved last frame or

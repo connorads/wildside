@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #374 Bloody Swamp murder-wall contact
+
+ASM `sub_5E02` records the exact hitbox-edge murder-wall collision after the
+wall moves; the next Kid wake consumes it through `Crushed_to_Death` before
+movement or another `sub_71E4` camera step. Native now preserves that latch.
+The checked-in route matches camera `$004B0000` and wall `$004B8A00` through
+frame 144, and the full-route gameplay frontier advances from 144 to 253.
+Fast/full gates preserve the frozen 37,518/241/2,391 pixel baseline. #374
+remains open for the later reload shell and Stairway foreground. No Jev spend
+or human playtest. Three gameplay fixes have landed since the last exploration
+review, so the next session starts with that bounded review.
+
 ## 2026-09-22 - #374 source-timed reload clear
 
 Level 0, level 1 and Scorpion selected-PC probes agree that `loc_714`

@@ -1431,6 +1431,7 @@ level-layout/3D.bin
 level-layout/3D.blocklist.bin
 level-layout/3E.bin
 level-layout/3E.blocklist.bin
+level-layout/3E.json
 level-layout/3F.bin
 level-layout/3F.blocklist.bin
 level-layout/3F.json

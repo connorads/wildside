@@ -25445,13 +25445,15 @@ mod chunk_05 {
             "player should be safe when wall is far behind"
         );
 
-        // Player just at the wall edge — killed
-        // wall_right = wall_x + (MURDER_WALL_CAMERA_OFFSET_PX << 16)
-        let wall_right = wall_x + (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16);
-        slice.player.x_pos = wall_right as u32;
+        // ASM sub_5E02 loc_5E24 compares wall+$30 to Kid_hitbox_left.
+        let player_x = wall_x
+            + (i64::from(
+                MURDER_WALL_CAMERA_OFFSET_PX + runtime.progression.current_form.half_width(),
+            ) << 16);
+        slice.player.x_pos = player_x as u32;
         assert!(
             runtime.murder_wall_kills_player(&slice),
-            "player should die when wall_right == player_x"
+            "player should die when wall+$30 == Kid_hitbox_left"
         );
     }
 
@@ -25474,9 +25476,9 @@ mod chunk_05 {
             "player should be safe when far from reversed wall"
         );
 
-        // Player at the wall — killed
-        // kill when player_x + (OFFSET << 16) >= wall_x
-        let threshold = wall_x - (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16);
+        // ASM sub_5E02 loc_5E12 compares wall+$110 to Kid_hitbox_right.
+        let threshold =
+            wall_x + (i64::from(0x110 - runtime.progression.current_form.half_width()) << 16);
         slice.player.x_pos = threshold as u32;
         assert!(
             runtime.murder_wall_kills_player(&slice),
@@ -25507,9 +25509,14 @@ mod chunk_05 {
         runtime.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
 
         let mut slice = airborne_slice();
-        slice.player.x_pos = 0x0050_0000 + ((MURDER_WALL_CAMERA_OFFSET_PX as u32) << 16);
+        slice.player.x_pos = 0x0050_0000
+            + (((MURDER_WALL_CAMERA_OFFSET_PX + runtime.progression.current_form.half_width())
+                as u32)
+                << 16);
+        let latched = runtime.resolve_frame_hazards(&mut slice, FrameInput::default(), 0, 0, 0, 0);
         let consumed = runtime.resolve_frame_hazards(&mut slice, FrameInput::default(), 0, 0, 0, 0);
 
+        assert!(!latched, "sub_5E02 should only latch contact on this pass");
         assert!(consumed, "murder-wall contact should consume the frame");
         assert!(
             matches!(
@@ -25538,9 +25545,14 @@ mod chunk_05 {
         runtime.just_received_damage = true;
 
         let mut slice = airborne_slice();
-        slice.player.x_pos = 0x0050_0000 + ((MURDER_WALL_CAMERA_OFFSET_PX as u32) << 16);
+        slice.player.x_pos = 0x0050_0000
+            + (((MURDER_WALL_CAMERA_OFFSET_PX + runtime.progression.current_form.half_width())
+                as u32)
+                << 16);
+        let latched = runtime.resolve_frame_hazards(&mut slice, FrameInput::default(), 0, 0, 0, 0);
         let consumed = runtime.resolve_frame_hazards(&mut slice, FrameInput::default(), 0, 0, 0, 0);
 
+        assert!(!latched, "sub_5E02 should only latch contact on this pass");
         assert!(consumed, "murder-wall contact should consume the frame");
         assert!(
             matches!(

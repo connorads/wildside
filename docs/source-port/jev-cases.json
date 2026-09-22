@@ -1042,7 +1042,7 @@
       "docs/source-port/backlog-archive.md#issue-374",
       "crates/wildside-core/src/level.rs"
     ],
-    "next_action": "Trace Bloody Swamp's frame-144 drift, then attribute Stairway's 84-pixel extra foreground shape; Scorpion fatal and reload-clear checkpoints are exact.",
+    "next_action": "Trace Bloody Swamp's frame-253 reload-shell drift, then attribute Stairway's 84-pixel extra foreground shape; the murder-wall contact boundary and Scorpion checkpoints are exact.",
     "scope": "Load Stairway to Oblivion, Bloody Swamp, Scorpion Isle, Lion's Den, and Hoverboard Beach; each should spawn playable with coherent level art, no instant death."
   },
   {
