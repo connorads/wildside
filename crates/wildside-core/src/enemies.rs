@@ -2493,11 +2493,16 @@ impl ActiveEnemy {
                 // ASM Robot.asm loc_3A8FC -> loc_3A96C: a final hit does not
                 // delete the Robot; it enters the `$800` collision charge state.
                 enter_robot_charge_loc_3a96c(self);
-            } else if matches!(self.robot_state, RobotState::Shooting) {
-                // ASM Robot.asm loc_3AAD4 -> loc_3AB04 -> loc_3AAC4:
-                // a nonfatal collision during the shooting coroutine restores
-                // the walking animation path instead of resuming the shoot.
-                finish_robot_shoot_sequence(self);
+            } else {
+                // ASM Robot.asm loc_3A936 / loc_3AB14 restores both walk
+                // scripts after the hurt frame. Aiming and Shooting are both
+                // phases of Enemy03_Robot_Shoot, whose hit path then branches
+                // through loc_3AAC4 to the shared walker.
+                reset_robot_walk_animation(self);
+                if matches!(self.robot_state, RobotState::Aiming | RobotState::Shooting) {
+                    self.robot_state = RobotState::Walking;
+                    self.wait_timer = 0;
+                }
             }
             return false;
         }

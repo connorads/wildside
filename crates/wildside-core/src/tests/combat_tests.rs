@@ -18879,6 +18879,60 @@ mod chunk_03 {
     }
 
     #[test]
+    fn robot_aim_turn_nonfatal_hit_restores_walk_scripts_loc_3ab04_3aac4() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut robot = test_enemy(EnemyFamily::Robot, 100 << 16, 120 << 16, 2);
+        robot.robot_state = RobotState::Aiming;
+        robot.wait_timer = 12;
+        robot.robot_gfx.body = RobotAnimationCursor {
+            selected: 4,
+            next_entry: 5,
+            timer: 3,
+        };
+        robot.robot_gfx.head = RobotAnimationCursor {
+            selected: 22,
+            next_entry: 4,
+            timer: 7,
+        };
+        runtime.active_enemies = vec![robot];
+        runtime.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 120 << 16,
+            friendly: true,
+            lifetime: 10,
+            ..Default::default()
+        });
+
+        runtime.process_friendly_projectile_hits();
+
+        let robot = &runtime.active_enemies[0];
+        assert_eq!(robot.hit_points, 1);
+        assert_eq!(robot.robot_state, RobotState::Walking);
+        assert_eq!(robot.wait_timer, 0);
+        assert_eq!(
+            robot.robot_gfx.body,
+            RobotAnimationCursor {
+                selected: 0,
+                next_entry: 0,
+                timer: 1,
+            }
+        );
+        assert_eq!(
+            robot.robot_gfx.head,
+            RobotAnimationCursor {
+                selected: 10,
+                next_entry: 0,
+                timer: 1,
+            }
+        );
+        assert_eq!(
+            robot.damage_flash_frames, ROBOT_HURT_ANIMATION_FRAMES_STRU_3A744,
+            "ASM Robot.asm loc_3AB04 waits through stru_3A744 before loc_3AAC4 resumes walking"
+        );
+    }
+
+    #[test]
     fn robot_mid_shoot_final_projectile_hit_enters_charge_loc_3ab56_3a96c() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);

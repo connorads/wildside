@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #433 interrupted Robot aim hurt
+
+ASM `loc_3AAD4 -> loc_3AB04 -> loc_3AAC4` proves that a nonfatal hit during
+the Robot head-turn phase restores both walk scripts and resumes the shared
+walker. Native only handled the later Shooting state. The live projectile path
+now restores Aiming and Shooting alike, with a red-first state and animation
+cursor regression. Saved and synthetic Crypt probes did not reach either hurt
+PC, so natural hurt, raw slot reuse and natural entry remain open. No Jev spend
+or human playtest.
+
 ## 2026-09-22 - #300 variable loader timing boundary
 
 The second saved route remains red by ten frames. Both destinations share the

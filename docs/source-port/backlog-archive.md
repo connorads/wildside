@@ -5166,6 +5166,26 @@ surface one row.
 
 ### #433
 
+2026-09-22 Robot shoot-turn hurt recovery:
+
+ASM establishes a defect in the live native collision path without requiring a
+new state model. `RobotState::Aiming` remains inside `Enemy03_Robot_Shoot`;
+`loc_3AAD4 -> loc_3AB04` plays the same nine-tick `stru_3A744` hurt frame as
+the shooting waits, restores body `stru_3A6E2` and head `stru_3A716`, then
+branches through `loc_3AAC4` to the shared walker. Native only restored
+`RobotState::Shooting`, leaving an interrupted aim turn active. The red-first
+regression reproduces that state and cursor error through the live friendly
+projectile path. Nonfatal Robot hurt now resets both walk cursors and resumes
+walking from either shoot phase; all 87 Robot tests pass.
+
+No oracle hurt claim is made. The settled Crypt route starts Kid at (141,1295)
+and the target Robot at (149,1040), separated by terrain. Existing 600-frame
+inputs, two 1,800-frame pulsed routes, five nearby Y starts and four downward
+velocities produced no `loc_3A8FC` or `loc_3AB04` PC hit. Patched starts also
+have an unrelated frame-zero Kid Y mismatch. Current DynamicScenario fields
+cannot inject an enemy collision. Retain the natural hurt witness, raw slot
+reuse and natural Crypt entry as #433's remaining evidence gaps. No Jev spend.
+
 2026-09-21 Robot initial walker pass:
 
 The existing settled Crypt recording had native layout-11 Robot body X
