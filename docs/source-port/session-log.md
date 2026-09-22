@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #374 Bloody Swamp title-worker classification
+
+Oracle debug state keeps the eleven title Object and Gfx slots alive at the
+idle tail while excluding them from its enemy-layout roster. Native now applies
+the same boundary to snapshots marked `glyph`; an ordinary type-0 enemy remains
+authoritative. The red-first regression and both full-route enemy checkpoints
+pass. #374 continues with Stairway's 84-pixel foreground difference. No Jev
+spend or human playtest. This verifier-only correction does not increment the
+gameplay-fix exploration cadence.
+
 ## 2026-09-22 - #374 Bloody Swamp title-card loader
 
 Selected-PC and RNG traces place the empty `loc_726 -> Load_TitleCard` window

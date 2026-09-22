@@ -35,6 +35,15 @@ natural campaign progression through Hills.
 <a id="issue-374"></a>
 ### #374
 
+2026-09-22 Bloody Swamp title-worker classification: the idle-tail structural
+enemy difference was verifier-only. Oracle debug evidence keeps all eleven
+`loc_1AD2E` Object slots and `loc_1AC70` Gfx slots alive while its enemy-layout
+roster is empty. Native now excludes snapshots marked `glyph` from that roster
+without excluding ordinary type-0 enemies. The focused red-first regression
+passes, and the full 760-frame saved route passes both enemy checkpoints. The
+remaining #374 defect is Stairway's 84-pixel extra foreground shape. No Jev
+spend or human playtest.
+
 2026-09-22 Bloody Swamp title-card reload phase: selected-PC tracing reaches
 `loc_726` on frame 252, then runs synchronous `Load_TitleCard` art/map work
 before `loc_1AB26` exposes the eleven `loc_1AC70` letter workers on frame 260.
@@ -44,9 +53,9 @@ frames 253-259, defers letter RNG seeding to the source pass, exposes 12/11
 Object/GfxObject counts on frame 260, and hides stale Kid/murder-wall state
 during the loader. The checked-in route extends to frame 260 and pins both
 boundaries. Player/camera CRCs now match all 760 saved-route frames and both
-checkpoints pass. One authoritative enemy-checkpoint difference remains: the
-native title-letter roster survives at the idle tail after the oracle list is
-empty. No Jev spend or human playtest.
+checkpoints pass. The idle-tail structural comparison still classified native
+title Gfx workers as enemies; the following verifier correction resolves that
+difference. No Jev spend or human playtest.
 
 2026-09-22 Bloody Swamp murder-wall contact boundary: the saved idle route and
 oracle WRAM show `MurderWall_X_pos=$004B8A00` after frame 143. ASM `sub_5E02

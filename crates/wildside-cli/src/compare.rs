@@ -1206,6 +1206,14 @@ pub(crate) fn active_enemy_states_from_native_frame(
         .active_objects
         .iter()
         .filter_map(|object| match object.kind {
+            // ASM Load_TitleCard loc_1AC70 allocates GfxObject letter workers,
+            // not enemy-layout objects. Native snapshots share the generic
+            // object kind, while the oracle enemy roster excludes these slots.
+            wildside_core::NativeObjectKind::Enemy { .. }
+                if object.debug_fields.contains_key("glyph") =>
+            {
+                None
+            }
             wildside_core::NativeObjectKind::Enemy { object_type } => Some(OracleEnemyState {
                 object_type,
                 x_pos: object.x_pos,
@@ -2476,6 +2484,47 @@ mod tests {
         assert_eq!(enemies[0].x_velocity, -0x0002_0000);
         assert_eq!(enemies[0].facing, EnemyFacing::Left);
         assert_eq!(enemies[0].layout_index, None);
+    }
+
+    #[test]
+    fn native_enemy_states_exclude_title_letter_gfx_workers_loc_1ac70() {
+        let object = |glyph| {
+            let mut debug_fields = std::collections::BTreeMap::new();
+            if glyph {
+                debug_fields.insert(String::from("glyph"), String::from("K"));
+            }
+            wildside_core::NativeObjectSnapshot {
+                kind: wildside_core::NativeObjectKind::Enemy { object_type: 0 },
+                x_pos: 0x0028_0000,
+                y_pos: 0x0040_C000,
+                layout_index: None,
+                x_velocity: Some(0),
+                y_velocity: Some(0),
+                facing: None,
+                on_ground: None,
+                hit_points: None,
+                damage_flash: false,
+                palette_variant: 0,
+                stationary: false,
+                contact_phase: None,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                sprite_animation_phase: None,
+                wait_timer: None,
+                debug_fields,
+            }
+        };
+        let frame = NativeTraceFrame {
+            active_objects: vec![object(true), object(false)],
+            ..NativeTraceFrame::default()
+        };
+
+        let enemies = active_enemy_states_from_native_frame(&frame);
+
+        assert_eq!(enemies.len(), 1);
+        assert!(!enemies[0].debug_fields.contains_key("glyph"));
     }
 
     fn driller_state_compare_fixture() -> OracleState {
