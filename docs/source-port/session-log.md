@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #374 objective closure
+
+Fresh Stairway replay localises all 84 changed pixels to the animated HUD
+diamond at x288-299, y34-45. The old foreground-shape attribution was wrong;
+terrain and level art match. Together with the exact Hoverboard/Lion routes,
+Scorpion reload route and Bloody Swamp gameplay/enemy route, this proves all
+five named levels spawn playable with coherent art. #374 is closed `[x]`; the
+HUD phase remains frozen under #409. No Jev spend or human playtest.
+
 ## 2026-09-22 - #374 Bloody Swamp title-worker classification
 
 Oracle debug state keeps the eleven title Object and Gfx slots alive at the

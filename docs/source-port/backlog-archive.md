@@ -35,6 +35,17 @@ natural campaign progression through Hills.
 <a id="issue-374"></a>
 ### #374
 
+2026-09-22 objective closure `[x]`: all five named levels spawn playable
+with coherent art and match emulator gameplay state at the checked routes.
+Hoverboard Beach and Lion's Den are pixel-exact at both checkpoints. Scorpion
+Isle's lethal Archer route matches through the reload clear. Bloody Swamp
+matches all 760 player/camera frames and both structural enemy checkpoints.
+Fresh Stairway replay confirms its only 84 changed pixels are the animated HUD
+diamond at x288-299, y34-45; terrain, player, enemies and level art match. The
+old "extra foreground shape" attribution was wrong. That HUD phase is covered
+by frozen #409 and does not violate #374's level-load scope. No Jev spend or
+human playtest.
+
 2026-09-22 Bloody Swamp title-worker classification: the idle-tail structural
 enemy difference was verifier-only. Oracle debug evidence keeps all eleven
 `loc_1AD2E` Object slots and `loc_1AC70` Gfx slots alive while its enemy-layout
@@ -27071,6 +27082,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 374 | [x] | P0 | level/render | All five named levels spawn playable with coherent art and matching emulator state. | Five saved routes; Stairway residual is only frozen #409 HUD diamond timing. |
 | 350 | [x] | P1 | render | Hills lower foliage uses foreground colours, not sky blue. | Checked-in frame-39 route: 0 lower-scene pixel diffs vs ROM; 1,334 in negative control; sampled-colour regression passes. |
 | 290 | [x] | P1 | trace/objects | Published-route exported gameplay, enemy and RNG state matches across every recorded frame. | Interval-1 37,759 checkpoints; zero authoritative/roster/RNG differences; 24 classified diamond counter sampling rows. |
 | 510 | [x] | P2 | enemies/lifecycle | 0x4B Drips crawlers draw RNG in Object order and finish after ROM animation timing. | Frame-183 directions and frame-244 9/18 counts; 0x4B sweep pass; fast gate and full TAS pass. |
