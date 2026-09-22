@@ -25907,6 +25907,16 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-22 block bit-reader timing: the private ROM-format reader now assigns
+instruction-level 68000 costs to `sub_13618`, both `sub_13622` branches,
+`sub_1363C`, `sub_1364C` and the rolling refill at `loc_13650`. Resource 0x6E
+executes 5,353 reader instructions for 57,206 raw cycles; resource 0x15 executes
+9,235 for 97,600. Both saved routes pin the exact totals. These totals cover the
+bit-reader body only; the `LoadBlockLayout` dispatcher and entry handlers,
+direct background chunks and later theme phases remain outside the model. The
+ignored second-destination regression therefore remains red at frame 166 with
+native 4/4 against ROM 0/0. No paid Jev call or human playtest.
+
 2026-09-22 block-layout branch trace: a private ROM-format reader now retains
 every `sub_13622` field request and `loc_13650` rolling refill selected by the
 destination block resource. Resource 0x6E decodes six groups and 57 entries via

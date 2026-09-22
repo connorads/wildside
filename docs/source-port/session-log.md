@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #300 block bit-reader timing
+
+The live transition now assigns exact source instruction costs to the
+`LoadBlockLayout` bit-reader body. Resource 0x6E costs 57,206 raw cycles and
+resource 0x15 costs 97,600; both saved routes pin the totals. The ignored route
+still reaches the intended frame-166 failure. Continue with the block
+dispatcher and entry handlers, direct background chunks and theme phases
+before composing the loader schedule. No Jev spend or human playtest.
+
 ## 2026-09-22 - #300 block-layout branch trace
 
 The live transition now retains every `LoadBlockLayout` field read and rolling

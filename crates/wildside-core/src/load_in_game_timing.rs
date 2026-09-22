@@ -34,6 +34,8 @@ pub(crate) struct BlockLayoutDecodeWorkloadLoc132a6 {
     pub(crate) bits_requested: u32,
     pub(crate) rolling_refills: u32,
     pub(crate) bytes_consumed: u32,
+    pub(crate) bit_reader_instruction_count: u32,
+    pub(crate) bit_reader_raw_cycles: u32,
 }
 
 /// Trace the compressed block-layout branches selected by the ROM bit stream.
@@ -131,6 +133,8 @@ pub(crate) fn block_layout_decode_workload_loc_132a6(
         bits_requested: reader.bits_requested,
         rolling_refills: reader.rolling_refills,
         bytes_consumed: reader.position as u32,
+        bit_reader_instruction_count: reader.instruction_count,
+        bit_reader_raw_cycles: reader.raw_cycles,
     })
 }
 
@@ -142,6 +146,8 @@ struct BlockLayoutBitReader<'a> {
     bit_read_calls: u32,
     bits_requested: u32,
     rolling_refills: u32,
+    instruction_count: u32,
+    raw_cycles: u32,
 }
 
 impl<'a> BlockLayoutBitReader<'a> {
@@ -154,6 +160,9 @@ impl<'a> BlockLayoutBitReader<'a> {
             bit_read_calls: 0,
             bits_requested: 0,
             rolling_refills: 0,
+            // ASM sub_13618 seeds d5/d6 before the first sub_13622 call.
+            instruction_count: 5,
+            raw_cycles: 58,
         })
     }
 
@@ -164,10 +173,16 @@ impl<'a> BlockLayoutBitReader<'a> {
         self.bit_read_calls += 1;
         self.bits_requested += u32::from(width);
         if width <= 8 {
-            return self.read_short(width);
+            self.emit(&[8, 10, 18]);
+            let value = self.read_short(width)?;
+            self.emit(&[16]);
+            return Some(value);
         }
+        self.emit(&[8, 8, 4, 18]);
         let high = self.read_short(width - 8)?;
+        self.emit(&[22, 8, 4, 18]);
         let low = self.read_short(8)?;
+        self.emit(&[8, 16]);
         Some((high << 8) | low)
     }
 
@@ -178,14 +193,25 @@ impl<'a> BlockLayoutBitReader<'a> {
         let shift = self.remaining - width;
         let mask = (1_u16 << width) - 1;
         let value = (self.word >> shift) & mask;
+        // ASM sub_1363C, the immediate shift in sub_1364C, then loc_13650.
+        self.emit(&[4, 4, 4, 6 + 2 * u32::from(shift), 4, 14, 16, 8]);
         self.remaining -= width;
-        if self.remaining < 9 {
+        let rolling_refill = self.remaining < 9;
+        self.emit(&[4, 8, if rolling_refill { 12 } else { 10 }]);
+        if rolling_refill {
             self.remaining += 8;
             self.word = (self.word << 8) | u16::from(*self.bytes.get(self.position)?);
             self.position += 1;
             self.rolling_refills += 1;
+            self.emit(&[8, 22, 8]);
         }
+        self.emit(&[16]);
         Some(value)
+    }
+
+    fn emit(&mut self, cycles: &[u32]) {
+        self.instruction_count += cycles.len() as u32;
+        self.raw_cycles += cycles.iter().sum::<u32>();
     }
 }
 
@@ -403,5 +429,7 @@ mod tests {
         assert!(workload.entries > 1);
         assert!(workload.bit_read_calls > 3);
         assert!(workload.rolling_refills > 0);
+        assert!(workload.bit_reader_instruction_count > workload.bit_read_calls);
+        assert!(workload.bit_reader_raw_cycles > workload.bits_requested);
     }
 }

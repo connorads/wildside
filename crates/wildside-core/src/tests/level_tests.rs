@@ -6146,7 +6146,7 @@ mod chunk_02 {
         );
         assert_eq!(
             frames[223].gameplay_debug_fields["teleport_block_decode_work_loc_132a6"],
-            "x_width=5 y_width=6 groups=6 entries=57 properties=27 bit_reads=305 bits=1155 refills=144 bytes=146",
+            "x_width=5 y_width=6 groups=6 entries=57 properties=27 bit_reads=305 bits=1155 refills=144 bytes=146 reader_instructions=5353 reader_raw_cycles=57206",
             "ASM loc_132A6 preserves every source bit-read and refill boundary for resource 0x6E"
         );
         assert_eq!(
@@ -6273,7 +6273,7 @@ mod chunk_02 {
         );
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_block_decode_work_loc_132a6"],
-            "x_width=9 y_width=5 groups=7 entries=80 properties=24 bit_reads=428 bits=2085 refills=260 bytes=262",
+            "x_width=9 y_width=5 groups=7 entries=80 properties=24 bit_reads=428 bits=2085 refills=260 bytes=262 reader_instructions=9235 reader_raw_cycles=97600",
             "ASM loc_132A6 preserves every source bit-read and refill boundary for resource 0x15"
         );
         assert_eq!(
