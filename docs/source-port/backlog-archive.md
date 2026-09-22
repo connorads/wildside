@@ -14,6 +14,22 @@ order at split time; nothing here is re-attributed or deduplicated.
 <a id="issue-374"></a>
 ### #374
 
+2026-09-22 fatal-frame H-scroll latch: Scorpion frame 439 was pixel-exact,
+but frame 440 differed by 284 pixels in three auto-scrolling cloud shapes.
+ROM WRAM `Time_Frames` is `$0218` at 439 and remains `$0218` from the
+fatal frame onward. `Death loc_B80C -> sub_8E0 loc_8FE` transfers the
+current Horiz_Scroll_Data table on the synchronous death VBlank; native
+rendering kept the ordinary previous-table phase. The render projection
+now retains the terminal current table during fatal and tumble fields
+without changing the authoritative state trace or the latched HUD.
+A red-first `death_sub_8e0_displays_current_auto_scroll_table_loc_8fe`
+regression pins both ordinary and fatal phases. Fresh exact pixel
+comparison on frames 438-444 improves from two to three exact frames:
+438, 439 and 440 now match. Frames 441-444 retain 2,777 changed pixels
+in a lower-scene cluster and remain open. `verify-slice-fast` and the
+37,759-frame `verify-tas-full` pass; the published 241-frame/2,391-pixel
+frozen visual baseline is unchanged. No Jev spend or human playtest.
+
 2026-09-22 Scorpion respawn reload timing investigation: a dense
 760-frame replay first differs at frame 534 only because native hides
 the old Kid pose then, while ROM WRAM keeps x=`$003C0000`,

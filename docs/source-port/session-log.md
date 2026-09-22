@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #374 Scorpion fatal H-scroll latch
+
+ROM `Death loc_B80C -> sub_8E0 loc_8FE` transfers the current H-scroll
+table while Time_Frames freezes. Native used the ordinary previous-table
+phase, shifting clouds by one pixel on fatal frame 440. A red-first
+renderer regression and exact pixel comparison now match frames 438-440;
+frames 441-444 retain 2,777 lower-scene pixel differences. #374 remains
+open for those frames, the frame-534 reload shell, Bloody Swamp and
+Stairway art. No Jev spend or human playtest.
+
 ## 2026-09-22 - #502 level-0x4C idle pressure check
 
 A 1,000-frame settled ROM idle probe on level 0x4C makes zero Drips

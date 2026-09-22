@@ -1510,6 +1510,14 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         // returning to Mode_Level's loc_67E4 pause-menu renderer.
         render_trace.paused = false;
     }
+    if trace.game_mode == GameMode::InGame
+        && (trace.number_hitpoints == 0 || trace.death_windup_elapsed > 0)
+    {
+        // ASM Death loc_B80C -> sub_8E0 loc_8FE transfers the current
+        // Horiz_Scroll_Data on its synchronous VBlank, even though the HUD
+        // and Sprite_Table below still present their earlier latches.
+        render_trace.resident_gameplay_vdp_terminal_scroll_table_loc_28c6 = true;
+    }
     if matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay)
         && trace.level_complete
         && trace.level_complete_elapsed_frames == 0
@@ -14820,6 +14828,31 @@ mod tests {
             background_display_scroll_data_word_loc_3050a(&retained, 768, 0x00),
             1_106,
             "ASM ReadJoypad loc_C0A -> Pal_FadeOut loc_28C6 reaches another WaitForVint, which presents the terminal loc_3050A table retained for the mode-0 fade",
+        );
+    }
+
+    #[test]
+    fn death_sub_8e0_displays_current_auto_scroll_table_loc_8fe() {
+        let before = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            number_hitpoints: 1,
+            time_frames_loc_3038a: 536,
+            ..NativeTraceFrame::default()
+        };
+        let fatal_state = NativeTraceFrame {
+            number_hitpoints: 0,
+            ..before.clone()
+        };
+        let ordinary = render_trace_with_vdp_latched_state(&before, Some(&before));
+        let fatal = render_trace_with_vdp_latched_state(&fatal_state, Some(&before));
+        assert_eq!(
+            background_display_scroll_data_word_loc_3050a(&ordinary, 0, 0x00),
+            background_scroll_data_word_loc_30452(535, 0, 0x00),
+        );
+        assert_eq!(
+            background_display_scroll_data_word_loc_3050a(&fatal, 0, 0x00),
+            background_scroll_data_word_loc_30452(536, 0, 0x00),
+            "ASM Death loc_B80C -> sub_8E0 loc_8FE transfers the current Horiz_Scroll_Data table",
         );
     }
 
