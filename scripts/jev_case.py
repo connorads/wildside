@@ -1,6 +1,7 @@
 """Run one private bug case through the existing recording/oracle pipeline."""
 
 import argparse
+from dataclasses import asdict
 import base64
 import html
 import json
@@ -15,6 +16,7 @@ import time
 from jev_audit import ROOT, audit
 from jev_proof import command, read_json, sha256, write_json
 import jev_case_service
+from jev_spec import RunSpec, load_scenario
 
 CASE_STARTS = {210: None, 254: None, 327: 1, 370: 0, 502: 0x35}
 LIVE_GOALS = {
@@ -85,14 +87,22 @@ def encounter(issue, trace):
                 "window": [max(0, contact - 30) if contact is not None else max(0, len(trace) - 60),
                            min(len(trace) - 1, (relocated if relocated is not None else len(trace) - 31) + 30)],
                 "scope": "natural BLW2 same-level teleporter, excluding cross-level warp"}
-    raise ValueError("unsupported case")
+    return None
+
+
+def comparable(comparison):
+    return bool(comparison and not comparison.get("native_replay_only")
+                and all(comparison.get(key) for key in
+                        ("trace_match", "oracle_state_match", "oracle_frame_match"))
+                and comparison.get("frame_diffs"))
 
 
 def verdict(assessment, comparison, sensitivity):
+    if assessment is None:
+        return "not evaluated"
     if not assessment["complete"]:
         return "not exercised"
-    if not comparison or comparison.get("native_replay_only") or not all(comparison.get(key) for key in
-            ("trace_match", "oracle_state_match", "oracle_frame_match")) or not comparison.get("frame_diffs"):
+    if not comparable(comparison):
         return "comparison inconclusive"
     if not assessment["symptom_pass"]:
         return "symptom failed"
@@ -128,11 +138,12 @@ def render_report(output, report):
     (output / "report.html").write_text(document)
 
 
-def capture(output, issue, inputs, checkpoints, env, live=False):
+def capture(output, spec, inputs, checkpoints, env, live=False):
+    issue = spec.issue
     config = output / "input.json"
     write_json(config, {"issue": issue, "output": str(output / "bundle"), "script": inputs,
-                        "checkpoints": checkpoints, "live": live, "start_level": CASE_STARTS[issue],
-                        "goal": LIVE_GOALS.get(issue), "stall_after_batches": STALL_LIMITS.get(issue),
+                        "checkpoints": checkpoints, "live": live, "start_level": spec.start_level,
+                        "goal": spec.goal, "stall_after_batches": STALL_LIMITS.get(issue),
                         "allow_wait": issue == 327, "stop_on_death": issue == 502})
     command(["cargo", "test", "-q", "-p", "wildside-cli", "recording::jev_cases::case_bundle",
              "--", "--ignored", "--exact", "--nocapture"], ROOT, output / "capture.log",
@@ -201,7 +212,10 @@ def negative_control(output, issue, inputs, trace, assessment, env, revision):
             "trace_sha256": sha256(output / "negative-bundle/trace.json")}
 
 
-def run(output, issue, inputs, live=False):
+def run(output, spec, inputs, operation="check", checkpoints=()):
+    issue = spec.issue
+    live = operation == "discover"
+    write_json(output / "run-spec.json", asdict(spec) | {"operation": operation})
     env = os.environ.copy()
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     (output / "source.patch").write_bytes(subprocess.check_output(["git", "diff", revision, "--binary"], cwd=ROOT))
@@ -215,24 +229,23 @@ def run(output, issue, inputs, live=False):
         preflight.mkdir()
         offline_env = env.copy()
         offline_env.pop("TYPESAFE_API_KEY", None)
-        capture(preflight, issue, [0] * 6, [0, 5], offline_env)
+        capture(preflight, spec, [0] * 6, [0, 5], offline_env)
         command(["cargo", "run", "-q", "-p", "wildside-cli", "--", "verify-recording", "--bundle",
                  str(preflight / "bundle")], ROOT, preflight / "verify.log", env=offline_env, allowed=(0, 1))
         check = read_json(preflight / "bundle/verify/report.json")
-        if check.get("native_replay_only") or not all(check.get(key) for key in
-                ("trace_match", "oracle_state_match", "oracle_frame_match")):
+        if not comparable(check):
             raise RuntimeError("live discovery blocked by starting-state oracle comparison; see preflight/verify.log")
         env["JEV_CASE_TOKEN"] = jev_case_service.begin_attempt(issue, output)
     else:
         env.pop("TYPESAFE_API_KEY", None)
-    checkpoints = [0] if live else [0, len(inputs) - 1]
-    capture(output, issue, inputs, checkpoints, env, live)
+    checkpoints = [0] if live else sorted({0, len(inputs) - 1, *checkpoints})
+    capture(output, spec, inputs, checkpoints, env, live)
     env.pop("TYPESAFE_API_KEY", None)
     trace = read_json(output / "bundle/trace.json")
-    assessment = encounter(issue, trace)
-    begin, end = assessment["window"]
+    assessment = encounter(issue, trace) if operation == "check" else None
+    begin, end = assessment["window"] if assessment else (max(0, len(trace) - 60), len(trace) - 1)
     # Preserve the whole event window, including prefix checkpoints, not just favourable frames.
-    frames = sorted({0, *range(begin, end + 1)})
+    frames = sorted({*checkpoints, *range(begin, end + 1)})
     manifest = read_json(output / "bundle/manifest.json")
     manifest["scenario"]["checkpoints"] = [{"frame_index": frame, "label": f"case-{frame}"} for frame in frames]
     write_json(output / "bundle/manifest.json", manifest)
@@ -241,8 +254,13 @@ def run(output, issue, inputs, live=False):
              "--bundle", str(output / "bundle")], ROOT, output / "verify.log", env=env, allowed=(0, 1))
     comparison = read_json(output / "bundle/verify/report.json")
     sensitivity = negative_control(output, issue, manifest["scenario"]["script"], trace, assessment, env, revision) if (
-        issue in (210, 254, 370) and assessment["complete"] and assessment["symptom_pass"]) else None
-    return {"issue": issue, "verdict": verdict(assessment, comparison, sensitivity), "encounter": assessment,
+        assessment and issue in (210, 254, 370) and assessment["complete"] and assessment["symptom_pass"]) else None
+    proof = verdict(assessment, comparison, sensitivity)
+    result = proof if operation == "check" else "replay matched" if comparable(comparison) else "comparison inconclusive"
+    stop = output / "collection-stop.txt"
+    return {"issue": issue, "operation": operation, "verdict": result, "proof": proof,
+            "collection": {"stop_reason": stop.read_text().strip() if stop.exists() else "frame limit"} if live else None,
+            "encounter": assessment,
             "comparison": comparison, "negative_control": sensitivity,
             "provenance": {**source_provenance,
                 "scenario_sha256": sha256(output / "bundle/scenario.json"),
@@ -253,35 +271,52 @@ def run(output, issue, inputs, live=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--issue", type=int, required=True)
-    parser.add_argument("--script", type=Path, help="private JSON array of ordinary controller masks")
-    parser.add_argument("--live", action="store_true", help="explicitly permit bounded paid route discovery")
+    commands = parser.add_subparsers(dest="operation", required=True)
+    discover = commands.add_parser("discover", help="explicitly permit paid route collection")
+    discover.add_argument("--spec", type=Path, required=True)
+    replay = commands.add_parser("replay", help="compare an ordinary-input scenario without paid calls")
+    replay.add_argument("--scenario", type=Path, required=True)
+    check = commands.add_parser("check", help="apply a registered issue assertion and negative control")
+    check.add_argument("--issue", type=int, required=True)
+    check.add_argument("--scenario", type=Path)
     args = parser.parse_args()
-    entries = {row["issue"]: row for row in audit()}
-    if args.issue not in entries:
-        parser.error("issue is not in the unresolved catalogue")
-    if args.issue not in CASE_STARTS:
-        parser.exit(1, entries[args.issue]["next_action"] + "\n")
-    if args.live and (args.issue not in LIVE_GOALS or args.script):
-        parser.error("live discovery needs a configured case goal and no unverified prefix")
-    if args.live and not os.environ.get("TYPESAFE_API_KEY"):
-        parser.error("TYPESAFE_API_KEY is required for --live")
-    inputs = [] if args.live else read_json(args.script) if args.script else route(args.issue)
-    if inputs is None:
-        parser.exit(1, entries[args.issue]["next_action"] + "\n")
-    if not isinstance(inputs, list) or not (0 if args.live else 1) <= len(inputs) <= 3600 or any(type(x) is not int or not 0 <= x <= 255 for x in inputs):
-        parser.error("script must contain 1..3600 byte masks")
+    checkpoints = []
+    try:
+        if args.operation == "discover":
+            spec = RunSpec.parse(read_json(args.spec))
+            entries = {row["issue"]: row for row in audit()}
+            if spec.issue not in entries:
+                raise ValueError("discovery issue must be in the unresolved catalogue")
+            if entries[spec.issue]["readiness"] in ("inactive_path", "human_device"):
+                raise ValueError("establish an active objective path before discovery")
+            if not spec.goal.strip() or spec.start_level is None:
+                raise ValueError("discovery needs a goal and settled start_level")
+            if not os.environ.get("TYPESAFE_API_KEY"):
+                raise ValueError("TYPESAFE_API_KEY is required for discovery")
+            inputs = []
+        elif args.scenario:
+            level, inputs, checkpoints = load_scenario(read_json(args.scenario))
+            spec = RunSpec(args.issue if args.operation == "check" else 0, level)
+            if args.operation == "check" and spec.issue in CASE_STARTS and level != CASE_STARTS[spec.issue]:
+                raise ValueError("scenario start does not match the registered proof case")
+        else:
+            if args.issue not in CASE_STARTS or route(args.issue) is None:
+                raise ValueError("this case needs --scenario")
+            spec = RunSpec(args.issue, CASE_STARTS[args.issue])
+            inputs = route(args.issue)
+    except (ValueError, OSError) as error:
+        parser.error(str(error))
     output = ROOT / ".cache/jev-cases" / str(time.time_ns())
     output.mkdir(parents=True)
     print(f"Case evidence: {output}", flush=True)
     try:
-        report = run(output, args.issue, inputs, args.live)
+        report = run(output, spec, inputs, args.operation, checkpoints)
     except (ValueError, OSError, RuntimeError, subprocess.SubprocessError) as error:
-        report = {"issue": args.issue, "verdict": "execution failed", "error": str(error)}
+        report = {"issue": spec.issue, "verdict": "execution failed", "proof": "not evaluated", "error": str(error)}
     write_json(output / "report.json", report)
     render_report(output, report)
     print(report["verdict"], flush=True)
-    return 0 if report["verdict"] == "proven check" else 1
+    return 0 if report["verdict"] in ("proven check", "replay matched") else 1
 
 
 if __name__ == "__main__":

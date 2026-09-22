@@ -37,21 +37,36 @@ with the relevant oracle evidence, and a verified negative control fails the
 same check. Synthetic controls are labelled; they do not reproduce a historical
 build. Inconclusive comparisons and blocked routes never count as proven cases.
 
-Run `mise run jev-case -- --issue 210` or `--issue 370` for offline controls.
-`--script path.json` accepts a private array of ordinary controller bytes.
-It cannot set position, form, health or lives. Standard recording bundles and
-an HTML frame viewer are written beneath `.cache/jev-cases/<run>/`.
-The recorder continues through death and title cards. Oracle errors and all
-pixel differences remain visible. Non-proven outcomes exit one.
+## Commands
+
+- `mise run jev-case -- check --issue 210` and `check --issue 370` run the
+  registered offline controls. Other registered cases accept `--scenario path.json`.
+- `mise run jev-case -- replay --scenario path.json` compares an ordinary-input
+  DynamicScenario on the current build. It does not evaluate a defect assertion.
+- `mise run jev-case -- discover --spec path.json` explicitly permits paid
+  collection for an unresolved objective issue. The private specification is:
+
+```json
+{"issue": 344, "start_level": 0, "goal": "Stomp a full-health walking Dragon once"}
+```
+
+`start_level` is a decimal logical level index. Discovery compares the settled
+start against the oracle before requesting any paid decisions. Scenarios accept
+ordinary boot or settled diagnostic warps and reject injected gameplay state.
+A settled warp establishes diagnostic coverage, not natural level entry.
+
+Standard recording bundles and an HTML frame viewer are written beneath
+`.cache/jev-cases/<run>/`. Reports separate collection, comparison, encounter and
+proof results. An unregistered assertion is `not evaluated`; navigation success
+cannot prove a fix. Replay exits zero for a comparable match; check exits zero
+only for `proven check`. Inconclusive outcomes exit one. The recorder continues
+through death and title cards. All oracle errors and pixel differences remain
+visible. `TYPESAFE_API_KEY` stays in the environment; offline subprocesses do not
+inherit it. Interrupted calls keep their spend reservation.
+
 Ordinary-runtime tests use constructor defaults. Calling
 `set_recorded_title_card_handoff_delay(false)` selects the separate direct
 capture path; it does not restore ordinary runtime behaviour.
-
-`mise run jev-case -- --issue 327 --live` explicitly permits paid discovery.
-It first compares the settled start with the oracle. A red comparison prevents
-paid requests. `TYPESAFE_API_KEY` stays in the environment; offline subprocesses
-do not inherit it. Successful routes retain controller bytes and exact native
-replay evidence. Interrupted calls keep their spend reservation.
 
 Preserve the locked `.cache/jev-cases/budget.json` ledger across runs. Missing
 accounting blocks paid requests; the controller never recreates the file.

@@ -53,7 +53,7 @@ class VerdictTests(unittest.TestCase):
                     patch.object(jev_case.subprocess, "check_output", side_effect=git), \
                     patch.object(jev_case, "capture", side_effect=capture), \
                     patch.object(jev_case, "command", side_effect=verify):
-                report = jev_case.run(output, 327, [0])
+                report = jev_case.run(output, jev_case.RunSpec(327, 1), [0])
 
             self.assertEqual(report["provenance"]["revision"], "before")
             self.assertEqual(report["provenance"]["runner_sha256"],

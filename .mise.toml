@@ -65,7 +65,7 @@ description = "Audit unresolved bug readiness without model calls or backlog sta
 
 [tasks.jev-case]
 run = "python3 scripts/jev_case.py"
-description = "Run one bug case; paid teleporter discovery requires --live"
+description = "Discover routes explicitly or replay/check saved JEV cases offline"
 
 [tasks.playtest-ingest]
 run = "cargo run --release -p wildside-cli -- playtest-ingest"

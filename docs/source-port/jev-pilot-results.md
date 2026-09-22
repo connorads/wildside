@@ -16,9 +16,9 @@ later commit or temporary hook stash cannot replace its source evidence.
 | #370 | Natural breath fatal hit at 302. Native resets at 409 and resumes at 562; oracle resumes at 571 and lands at 583. Removing the projectile clear retains the stale child and fails the same check after 303 identical prefix frames. This control is synthetic. | Pixels match through 409. State still differs in player clearing at 396, camera clearing at 400 and loader RNG at 409. Title-loader pixels differ from 410. |
 | #327 | Six neutral starting frames replay exactly and match oracle state and pixels after the HUD-clock reset. | No natural teleporter route is proven. Paid discovery requires this clean preflight. |
 
-Reproduce #210/#254 with `mise run jev-case -- --issue 210` and #370 with
-`mise run jev-case -- --issue 370`. Both return non-zero for an inconclusive
-comparison. #327 supports `mise run jev-case -- --issue 327 --script <input-file>`
+Reproduce #210/#254 with `mise run jev-case -- check --issue 210` and #370 with
+`mise run jev-case -- check --issue 370`. Both return non-zero for an inconclusive
+comparison. #327 supports `mise run jev-case -- check --issue 327 --scenario <scenario-file>`
 for offline replay. Its starting-state preflight passes, but the three-attempt
 paid discovery allowance is exhausted.
 
@@ -144,7 +144,7 @@ Their full-route rendering was stopped after the missing encounters were
 established. Offline reviews replay the complete controller scripts and
 capture frame zero plus the final second. Inputs are retained in
 `.cache/jev-cases/pilot-inputs/attempt-{1,2,3}.json`; reproduce each with
-`mise run jev-case -- --issue 327 --script <input-file>`.
+`mise run jev-case -- check --issue 327 --scenario <scenario-file>`.
 
 These are unsuccessful discovery attempts. They establish neither a
 teleporter reproduction nor a fix. The synthetic #370 control is also not

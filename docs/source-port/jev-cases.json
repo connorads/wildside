@@ -159,7 +159,7 @@
     "issue": 210,
     "readiness": "needs_comparison",
     "active_path": "NativeRuntime title-menu carry, Pal_FadeOut and loc_1AE2E handoff; VDP render active",
-    "route": "mise run jev-case -- --issue 210; ordinary 3300-frame cold boot, shared by #254",
+    "route": "mise run jev-case -- check --issue 210; ordinary 3300-frame cold boot, shared by #254",
     "evidence": [
       "docs/source-port/backlog-awaiting-human.md#issue-210",
       "docs/source-port/backlog-archive.md#issue-210",
@@ -301,7 +301,7 @@
     "issue": 254,
     "readiness": "needs_comparison",
     "active_path": "Same active title/menu VDP transition as #210; separate art complaint unproven",
-    "route": "mise run jev-case -- --issue 210; ordinary 3300-frame cold boot, shared by #254",
+    "route": "mise run jev-case -- check --issue 210; ordinary 3300-frame cold boot, shared by #254",
     "evidence": [
       "docs/source-port/backlog-awaiting-human.md#issue-254",
       "docs/source-port/backlog-archive.md#issue-254",
@@ -1009,7 +1009,7 @@
     "issue": 370,
     "readiness": "needs_comparison",
     "active_path": "DragonWalkingBreath projectile collision then Load_InGame respawn cleanup",
-    "route": "mise run jev-case -- --issue 370; 620 ordinary frames, natural breath fatal hit at 302, Start at 500, living gameplay at 562",
+    "route": "mise run jev-case -- check --issue 370; 620 ordinary frames, natural breath fatal hit at 302, Start at 500, living gameplay at 562",
     "evidence": [
       "docs/source-port/backlog-awaiting-human.md#issue-370",
       "docs/source-port/backlog-archive.md#issue-370",
