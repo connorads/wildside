@@ -23,6 +23,172 @@ pub(crate) struct BackgroundMappingsWorkload {
     pub(crate) enigma_output_words: u32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutDecodeWorkloadLoc132a6 {
+    pub(crate) x_width: u8,
+    pub(crate) y_width: u8,
+    pub(crate) groups: u32,
+    pub(crate) entries: u32,
+    pub(crate) property_words: u32,
+    pub(crate) bit_read_calls: u32,
+    pub(crate) bits_requested: u32,
+    pub(crate) rolling_refills: u32,
+    pub(crate) bytes_consumed: u32,
+}
+
+/// Trace the compressed block-layout branches selected by the ROM bit stream.
+///
+/// ASM `LoadBlockLayout loc_132A6` uses `sub_13622` for every field and
+/// `loc_13650` for byte refills. Retaining those calls is required because two
+/// layouts with the same decoded words can cross different refill boundaries.
+pub(crate) fn block_layout_decode_workload_loc_132a6(
+    bytes: &[u8],
+) -> Option<BlockLayoutDecodeWorkloadLoc132a6> {
+    if bytes.first() != Some(&0x40) {
+        return None;
+    }
+    let mut padded = bytes.to_vec();
+    padded.extend_from_slice(&[0; 8]);
+    let mut reader = BlockLayoutBitReader::new(&padded)?;
+    reader.read(8)?;
+    let x_width = reader.read(4)? as u8;
+    let y_width = reader.read(4)? as u8;
+    let x_sentinel = if x_width == 0 {
+        0
+    } else {
+        (1_u16 << x_width) - 1
+    };
+    let mut groups = 0_u32;
+    let mut entries = 0_u32;
+    let mut property_words = 0_u32;
+
+    loop {
+        reader.read(1)?;
+        let block_type = reader.read(5)?;
+        if block_type == 0x1f {
+            break;
+        }
+        groups += 1;
+        loop {
+            let x = reader.read(x_width.max(1))?;
+            if x == x_sentinel {
+                break;
+            }
+            entries += 1;
+            reader.read(y_width.max(1))?;
+            match block_type {
+                0 | 2 | 5 | 6 | 7 | 8 | 9 | 13 | 14 | 15 => {
+                    reader.read(4)?;
+                    reader.read(1)?;
+                }
+                1 => {
+                    let count = reader.read(4)? + 1;
+                    reader.read(1)?;
+                    property_words += u32::from(count);
+                    for _ in 0..count {
+                        reader.read(1)?;
+                        reader.read(4)?;
+                    }
+                }
+                10 | 12 => {
+                    let count = reader.read(4)? + 1;
+                    reader.read(1)?;
+                    property_words += u32::from(count);
+                    for _ in 0..count {
+                        reader.read(4)?;
+                    }
+                }
+                3 => {
+                    for width in [3, 1, 8, 3, 8, 8] {
+                        reader.read(width)?;
+                    }
+                }
+                4 => {
+                    reader.read(16)?;
+                    reader.read(9)?;
+                }
+                11 => {}
+                16 => {
+                    let count = reader.read(4)? + 1;
+                    reader.read(1)?;
+                    property_words += u32::from(count);
+                    for _ in 0..count {
+                        reader.read(3)?;
+                    }
+                }
+                _ => return None,
+            }
+        }
+    }
+
+    Some(BlockLayoutDecodeWorkloadLoc132a6 {
+        x_width,
+        y_width,
+        groups,
+        entries,
+        property_words,
+        bit_read_calls: reader.bit_read_calls,
+        bits_requested: reader.bits_requested,
+        rolling_refills: reader.rolling_refills,
+        bytes_consumed: reader.position as u32,
+    })
+}
+
+struct BlockLayoutBitReader<'a> {
+    bytes: &'a [u8],
+    position: usize,
+    word: u16,
+    remaining: u8,
+    bit_read_calls: u32,
+    bits_requested: u32,
+    rolling_refills: u32,
+}
+
+impl<'a> BlockLayoutBitReader<'a> {
+    fn new(bytes: &'a [u8]) -> Option<Self> {
+        Some(Self {
+            bytes,
+            position: 2,
+            word: u16::from_be_bytes([*bytes.first()?, *bytes.get(1)?]),
+            remaining: 16,
+            bit_read_calls: 0,
+            bits_requested: 0,
+            rolling_refills: 0,
+        })
+    }
+
+    fn read(&mut self, width: u8) -> Option<u16> {
+        if width == 0 || width > 16 {
+            return None;
+        }
+        self.bit_read_calls += 1;
+        self.bits_requested += u32::from(width);
+        if width <= 8 {
+            return self.read_short(width);
+        }
+        let high = self.read_short(width - 8)?;
+        let low = self.read_short(8)?;
+        Some((high << 8) | low)
+    }
+
+    fn read_short(&mut self, width: u8) -> Option<u16> {
+        if width > self.remaining {
+            return None;
+        }
+        let shift = self.remaining - width;
+        let mask = (1_u16 << width) - 1;
+        let value = (self.word >> shift) & mask;
+        self.remaining -= width;
+        if self.remaining < 9 {
+            self.remaining += 8;
+            self.word = (self.word << 8) | u16::from(*self.bytes.get(self.position)?);
+            self.position += 1;
+            self.rolling_refills += 1;
+        }
+        Some(value)
+    }
+}
+
 /// Census the direct background-layout path and every source cell considered
 /// by `Load_BackgroundChunk`.
 ///
@@ -217,5 +383,25 @@ mod tests {
         assert_eq!(workload.placements, 1);
         assert_eq!(workload.cells_visited, 4);
         assert_eq!(workload.cells_copied, 2);
+    }
+
+    #[test]
+    fn loc_132a6_retains_bit_reads_and_rolling_refills() {
+        // Raw `level/block/05.bin`, also used by the data decoder golden.
+        let bytes = [
+            0x40, 0x65, 0x84, 0x60, 0x81, 0x92, 0xd0, 0x0c, 0x35, 0x80, 0x9b, 0x4c, 0x06, 0xbf,
+            0x19, 0x8c, 0xf8, 0x8c, 0xf8, 0x0c, 0xbb, 0xf1, 0x45, 0x28, 0x89, 0x28, 0x9d, 0x28,
+            0xa1, 0x28, 0xa5, 0x30, 0x0d, 0x41, 0x5a, 0x41, 0x44, 0x53, 0xe3, 0x53, 0xd0, 0x68,
+            0xd7, 0x68, 0xcd, 0x89, 0x5a, 0x89, 0x7f, 0xfc,
+        ];
+        let workload =
+            block_layout_decode_workload_loc_132a6(&bytes).expect("valid compressed block layout");
+
+        assert_eq!(workload.x_width, 6);
+        assert_eq!(workload.y_width, 5);
+        assert!(workload.groups > 1);
+        assert!(workload.entries > 1);
+        assert!(workload.bit_read_calls > 3);
+        assert!(workload.rolling_refills > 0);
     }
 }

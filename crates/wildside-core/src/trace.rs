@@ -12124,6 +12124,27 @@ impl NativeRuntime {
                 ),
             );
         }
+        if let Some(workload) = self
+            .teleport_transition
+            .as_ref()
+            .and_then(|transition| transition.block_layout_decode_workload_loc_132a6)
+        {
+            gameplay_debug_fields.insert(
+                "teleport_block_decode_work_loc_132a6".into(),
+                format!(
+                    "x_width={} y_width={} groups={} entries={} properties={} bit_reads={} bits={} refills={} bytes={}",
+                    workload.x_width,
+                    workload.y_width,
+                    workload.groups,
+                    workload.entries,
+                    workload.property_words,
+                    workload.bit_read_calls,
+                    workload.bits_requested,
+                    workload.rolling_refills,
+                    workload.bytes_consumed
+                ),
+            );
+        }
         if self.progression.form_change_flash_frames > 1 {
             gameplay_debug_fields.insert("currently_transforming".into(), "true".into());
         }

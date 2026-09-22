@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #300 block-layout branch trace
+
+The live transition now retains every `LoadBlockLayout` field read and rolling
+refill. Resource 0x6E takes 305 reads and 144 refills; resource 0x15 takes 428
+and 260, with ROM-style read-ahead preserved. Both saved routes pin their group,
+entry, property, bit and byte counts. Attach instruction cycles to these and the
+direct-chunk branches before composing the loader schedule. No Jev spend or
+human playtest.
+
 ## 2026-09-22 - #300 background mapping workload
 
 The live transition now distinguishes `Load_BackgroundMappings` formats from

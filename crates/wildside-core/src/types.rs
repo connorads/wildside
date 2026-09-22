@@ -4558,6 +4558,8 @@ pub(crate) struct TeleportTransitionState {
         Option<crate::load_in_game_timing::ForegroundCollisionExpansionTimingLoc11c34>,
     pub(crate) background_mappings_workload:
         Option<crate::load_in_game_timing::BackgroundMappingsWorkload>,
+    pub(crate) block_layout_decode_workload_loc_132a6:
+        Option<crate::load_in_game_timing::BlockLayoutDecodeWorkloadLoc132a6>,
 }
 
 #[derive(Debug, Clone)]

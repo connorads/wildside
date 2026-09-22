@@ -6145,6 +6145,11 @@ mod chunk_02 {
             "ASM loc_128BA loads all three Forest Enigma layers"
         );
         assert_eq!(
+            frames[223].gameplay_debug_fields["teleport_block_decode_work_loc_132a6"],
+            "x_width=5 y_width=6 groups=6 entries=57 properties=27 bit_reads=305 bits=1155 refills=144 bytes=146",
+            "ASM loc_132A6 preserves every source bit-read and refill boundary for resource 0x6E"
+        );
+        assert_eq!(
             (frames[223].kid_x_pos, frames[223].kid_y_pos),
             (Some(27_264_512), Some(138_346_496)),
             "ASM Teleport retains the departing Kid GfxObject during the first fade frame"
@@ -6265,6 +6270,11 @@ mod chunk_02 {
             frames[103].gameplay_debug_fields["teleport_background_work_loc_1280a"],
             "format=Chunked placements=48 visited=5656 copied=5656 enigma_streams=0 enigma_instructions=0 enigma_raw_cycles=0 enigma_output_words=0",
             "ASM loc_12830 dispatches all Swamp chunk placements and loc_12884 visits their source cells"
+        );
+        assert_eq!(
+            frames[103].gameplay_debug_fields["teleport_block_decode_work_loc_132a6"],
+            "x_width=9 y_width=5 groups=7 entries=80 properties=24 bit_reads=428 bits=2085 refills=260 bytes=262",
+            "ASM loc_132A6 preserves every source bit-read and refill boundary for resource 0x15"
         );
         assert_eq!(
             (frames[166].number_objects, frames[166].number_gfx_objects),

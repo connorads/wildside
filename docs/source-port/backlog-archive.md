@@ -25907,6 +25907,16 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-22 block-layout branch trace: a private ROM-format reader now retains
+every `sub_13622` field request and `loc_13650` rolling refill selected by the
+destination block resource. Resource 0x6E decodes six groups and 57 entries via
+305 reads, 1,155 requested bits and 144 refills. Resource 0x15 decodes seven
+groups and 80 entries via 428 reads, 2,085 bits and 260 refills. The read-ahead
+byte counts of 146 and 262 also preserve the ROM decoder's access past the
+extracted resource boundary. Both saved routes pin the live trace. Instruction
+cycles still need attaching to these branches before the composed schedule can
+replace the fixed hand-off. No paid Jev call or human playtest.
+
 2026-09-22 background mapping workload: the live transition now selects the
 ASM `Load_BackgroundMappings` format from the destination header. Forest runs
 the three extracted `loc_128BA` Enigma streams: 45,764 source instructions,

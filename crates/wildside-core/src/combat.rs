@@ -15933,6 +15933,14 @@ impl NativeRuntime {
                         )
                     }
                 });
+                let block_layout_decode_workload_loc_132a6 = destination_bundle
+                    .as_ref()
+                    .and_then(|bundle| bundle.block.as_ref())
+                    .and_then(|block| {
+                        crate::load_in_game_timing::block_layout_decode_workload_loc_132a6(
+                            &block.bytes,
+                        )
+                    });
                 self.current_level = LevelId(dest_map);
                 self.teleport_transition = Some(TeleportTransitionState {
                     start_frame: self.frame_index,
@@ -15943,6 +15951,7 @@ impl NativeRuntime {
                     frozen_number_gfx_objects,
                     foreground_collision_timing_loc_11c34,
                     background_mappings_workload,
+                    block_layout_decode_workload_loc_132a6,
                 });
             }
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::Teleporter;
