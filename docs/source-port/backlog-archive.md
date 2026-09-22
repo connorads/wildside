@@ -25570,6 +25570,24 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-22 trailing enemy Object count: the checked-in 0x1C -> 0x51 pad
+replay now matches all 25 destination gameplay checkpoints at frames
+285-309. ROM camera Y falls from 657 to 655 at frame 291, placing the
+Tar Monster at Y528 inside the inclusive -128 loading boundary. The
+emulator calls `Allocate_ObjectSlot sub_DAC` once during
+`Manage_EnemyLoading loc_36840`; `Number_Objects` rises from 8 to 9,
+while the two Gfx slots appear on frame 292. Native already allocated
+the enemy after `Execute_Objects`, but its count used the render roster
+built earlier in the frame. The count projection includes pending enemy
+Objects on this path. Diagnostic title and demo counts use their own
+projections. A red-first route assertion covers frame 291. The full
+published TAS retains zero authoritative divergences and its frozen
+pixel/RNG/audio baselines. The fast gate passes 7,445 core tests and the
+105-level state sweep remains 100 passed / five failed. The route remains
+diagnostic at its start. Later pixel differences, natural entry and a
+second destination timing witness keep #300 open. No paid Jev call or
+human playtest is claimed.
+
 2026-09-22 outgoing projectile cleanup: a red-first extension of the
 checked-in 0x1C -> 0x51 pad replay found frame 287 native Object/Gfx 8/13
 against ROM 8/12. The ROM WRAM Gfx linked list has two Kid, eight enemy,

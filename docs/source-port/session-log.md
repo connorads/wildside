@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #300 trailing enemy Object count
+
+The 0x1C -> 0x51 pad replay matches all 25 destination gameplay
+checkpoints at frames 285-309. ROM `Manage_EnemyLoading loc_36840`
+links a Tar Monster Object at frame 291 when camera Y reaches 655;
+its Gfx slots initialise on frame 292. Native already linked the enemy
+but counted a render roster built before the loader. The ordinary
+gameplay count now includes pending Objects, while demo and diagnostic
+paths retain their own projections. Full TAS keeps zero authoritative
+differences and the frozen pixel/RNG/audio baselines. The fast gate
+passes and the state sweep remains 100/105. Continue #300
+with a second destination and natural entry; later pixels remain open.
+No paid Jev call or human playtest.
+
 ## 2026-09-22 - #300 stale projectile and fade worker
 
 ROM WRAM at destination frame 287 has 12 Gfx slots: two Kid, eight enemy,

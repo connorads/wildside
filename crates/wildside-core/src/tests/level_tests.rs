@@ -6192,6 +6192,11 @@ mod chunk_02 {
             "ASM loc_6E2 clears prior-level Object and Gfx lists; frame-287 Elsewhere has two Kid, eight enemy, and two offscreen Gfx slots"
         );
         assert_eq!(
+            (frames[291].number_objects, frames[291].number_gfx_objects),
+            (9, 12),
+            "ASM Mode_Level loc_80C -> Manage_EnemyLoading loc_3691E links layout #10 Tar Monster at the Y528/camera Y655 boundary; its Gfx pair waits until frame 292"
+        );
+        assert_eq!(
             (
                 frames[286].teleport_warp_colour,
                 frames[286].level_entry_fade_progress_sub_73d0

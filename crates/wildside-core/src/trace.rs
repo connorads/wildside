@@ -16301,6 +16301,29 @@ impl NativeRuntime {
     ) -> u16 {
         let drips_parent_workers =
             self.hidden_drips_parent_worker_count_enemy16_drip_init(&self.active_enemies);
+        // ASM Mode_Level loc_80C -> loc_3691E links new enemy Object slots
+        // after the render roster has been built. Their Gfx slots wait for
+        // the next Execute_Objects pass, but Number_Objects rises now.
+        let pending_enemy_object_workers = if self.debug_level_entry_mode_level_active_loc_74e0()
+            || self.demo_startup_frame().is_some()
+        {
+            // The diagnostic title shell rebuilds its render roster after
+            // the trailing loader. Demo counts use their own worker projection,
+            // which includes pending enemy Objects where the ROM does.
+            0
+        } else {
+            self.active_enemies
+                .iter()
+                .rev()
+                .take(usize::from(
+                    self.pending_enemy_gfx_initialisations_loc_3691e,
+                ))
+                .filter(|enemy| {
+                    !(self.recording_oracle_debug_lifecycle_completed
+                        && enemy.family == EnemyFamily::Drips)
+                })
+                .count() as u16
+        };
         // ASM Drips.asm Enemy16_Drip_Init is an Object_RAM coroutine whose
         // parent gfx object stays hidden through loc_333F6..loc_3350E. Native
         // deliberately suppresses that parent from `active_enemy_roster`.
@@ -16353,6 +16376,7 @@ impl NativeRuntime {
         // pattern for descent fire; native models it as a projectile but ROM
         // Number_Objects includes the child worker.
         drips_parent_workers
+            .saturating_add(pending_enemy_object_workers)
             .saturating_add(dormant_mini_hopping_skull_workers)
             // ASM Fire_Demon.asm loc_3A414 allocates loc_3A48E through
             // j_Allocate_ObjectSlot only while the global Fire_Demon byte is
