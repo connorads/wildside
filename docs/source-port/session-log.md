@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #300 destination palette display
+
+The first pad route matches all 25 destination gameplay checkpoints.
+Its 87-frame transition pixel comparison had 402,476 changed pixels.
+ASM `loc_7402` advances entry-fade progress after the VBlank palette
+transfer, so scene rendering now displays the preceding blend step
+without changing gameplay progress. The route falls to 31,226 changed
+pixels and frame 288 is pixel-exact with a rendered-frame hash regression.
+The fast gate and full TAS pass, and the state sweep remains 100/105.
+Early enemy drift, later pixel residues, the second destination's ten-frame
+reload gap and natural entry keep #300 open. No paid Jev call or human
+playtest.
+
 ## 2026-09-22 - #300 second destination timing witness
 
 A checked-in diagnostic 0x59 -> 0x3E pad route activates at frame 103.

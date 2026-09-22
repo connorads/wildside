@@ -25570,6 +25570,24 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-22 destination entry palette display: on the checked-in 0x1C
+pad route, native trace progress `$FFFFF876` already matches ROM at
+frames 286/287. Pixel comparison of all 87 transition frames 223-309
+showed 40 divergent frames and 402,476 changed pixels. Native frame 301
+matched the following ROM frame far better than the same frame; static
+scene colours likewise displayed one blend step early. ASM `loc_7402`
+increments `$FFFFF876` after the VBlank palette transfer. The scene
+renderer now displays the preceding blend step for live InGame entry
+fade, while retaining the current trace progress and outgoing fade.
+The route improves to 39 divergent frames and 31,226 changed pixels;
+frame 288 is pixel-exact and a cache-backed rendered RGB hash regression
+pins the ROM image without storing its art. Frames 223-240 retain
+16,130 pixels of enemy sprite drift already visible at frame 222;
+frames 289-302 retain 9,170 and 303-309 retain 5,926. These residuals
+remain open. `verify-slice-fast` and `verify-tas-full` pass; the full TAS
+baseline is unchanged. The 105-level state sweep remains 100 passed,
+5 failed. No paid Jev call or human playtest is claimed.
+
 2026-09-22 second destination timing witness: the checked-in
 `issue-300-elsewhere15-teleporter.json` settles logical 0x59, places Kid
 at (8,170) above its pad and idles. ROM `loc_BCF6` activates the pad at

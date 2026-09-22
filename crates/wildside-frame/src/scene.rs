@@ -9686,9 +9686,18 @@ fn push_level_entry_palette_fade_sub_73d0(
     trace: &NativeTraceFrame,
 ) {
     if let Some(fade_progress) = trace.level_entry_fade_progress_sub_73d0 {
+        // ASM loc_7402 increments $FFFFF876 after the VBlank palette
+        // transfer. Mode_Level's entry-fade pixels therefore still show
+        // the preceding blend step on the increment frame.
+        let displayed_progress =
+            if trace.game_mode == GameMode::InGame && trace.teleport_warp_colour == 0 {
+                fade_progress.saturating_sub(0x10)
+            } else {
+                fade_progress
+            };
         commands.push(DrawCommand::PaletteFadeSub73D0 {
             target_word: trace.teleport_warp_colour,
-            fade_progress,
+            fade_progress: displayed_progress,
         });
     }
 }

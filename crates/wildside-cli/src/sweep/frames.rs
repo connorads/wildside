@@ -1128,6 +1128,43 @@ mod tests {
     }
 
     #[test]
+    fn issue_300_teleport_entry_fade_displays_prior_vblank_palette_loc_7402() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario: DynamicScenario = serde_json::from_str(include_str!(
+            "../../../../tests/data/dynamic-scenarios/issue-300-skydragon-teleporter.json"
+        ))
+        .expect("checked-in teleporter route");
+        let output_dir = tempfile::tempdir().expect("tempdir");
+        capture_scenario_frames(
+            &manifest,
+            &scenario,
+            &[288],
+            output_dir.path(),
+            native_player::LayerFilter::default(),
+            false,
+        )
+        .expect("capture destination fade frame");
+        let rgb = image::open(
+            output_dir
+                .path()
+                .join("issue-300-skydragon-teleporter_frame_00288.png"),
+        )
+        .expect("read captured frame")
+        .to_rgb8()
+        .into_raw();
+
+        // ROM frame 288 is pixel-exact when loc_7402's $FFFFF876
+        // increment takes effect after the displayed VBlank transfer.
+        assert_eq!(
+            format!("{:x}", Sha1::digest(rgb)),
+            "30ba2c88b034849f3302ac1b3fbc961db5b4bd97",
+            "ASM loc_7402 -> Mode_Level palette transfer must display the preceding fade step",
+        );
+    }
+
+    #[test]
     fn golden_scenarios_cover_standard_level_routes() {
         let scenarios = golden_scenarios_for_level(0x2A);
         let summary = scenarios
