@@ -16354,6 +16354,42 @@ impl NativeRuntime {
         }
     }
 
+    /// ASM Load_InGame loc_11FD2 returns to Mode_Level, whose first
+    /// Manage_EnemyLoading loc_36840 pass links destination enemies after
+    /// Execute_Objects. They have not run their own handlers at this point.
+    pub(crate) fn preload_teleport_enemy_objects_loc_36840(&mut self) {
+        let Some(slice) = self.opening_slice else {
+            return;
+        };
+        let Some(layout) = self.enemy_layout(self.current_level).cloned() else {
+            return;
+        };
+        let camera_x_px = slice.camera.x_pos >> 16;
+        let camera_y_px = slice.camera.y_pos >> 16;
+        let level_bounds = self.level_bounds(self.current_level);
+        let blank_top_rows = self.level_header(self.current_level).map_or(0, |header| {
+            terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits)
+        });
+        activate_enemies_with_rng(
+            &mut self.active_enemies,
+            &layout,
+            ActivationWindow::from_camera(slice.camera),
+            camera_x_px,
+            camera_y_px,
+            level_bounds,
+            slice.player.x_pos,
+            slice.player.y_pos,
+            blank_top_rows,
+            false,
+            &self.killed_enemies,
+            &mut self.enemy_status_words,
+            &mut self.rom_random,
+        );
+        // ASM loc_36840 allocates Object slots after Execute_Objects. Their
+        // linked Gfx slots are created by each enemy's first handler on the
+        // next Mode_Level pass, so keep this frame's render roster empty.
+    }
+
     pub(crate) fn refresh_active_roster(&mut self) {
         if self.paused {
             return;

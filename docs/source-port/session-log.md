@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #300 destination enemy allocation
+
+The 0x1C -> 0x51 pad replay now matches the ROM's frame-286 Object/Gfx
+counts 8/4. Native allocates four destination enemy Objects in
+`Manage_EnemyLoading loc_36840` after `Load_InGame`, with Gfx children
+deferred until their handlers run. The checked-in route test failed at 4/5
+before the fix. Frame 287 still has one extra native GfxObject, and another
+destination must verify the generic reload timing. The 23 teleporter tests,
+fast gate, full TAS gate and 105-level state sweep pass; sweep baseline is
+100/105. No paid Jev request or human playtest.
+
 ## 2026-09-22 - #502 route rejection and #300 residual split
 
 A 1,000-frame settled 0x48 input variant made 1,006 Drips range calls, all

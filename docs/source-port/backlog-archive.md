@@ -25570,6 +25570,18 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-22 destination allocation fix: the checked-in 0x1C -> 0x51 pad
+regression now asserts frame 286 Object/Gfx counts 8/4. Native runs the
+`Manage_EnemyLoading loc_36840` initial allocation after `Load_InGame` and
+retains the four new enemy Objects without publishing their Gfx children on
+that frame. The focused test was red at 4/5 before the fix. `tas-diff`
+frames 285-289 now matches both counts at 286; the one-Gfx surplus begins
+at 287 and remains open. The 23 teleporter tests, `verify-slice-fast`,
+`verify-tas-full`, and the 105-level state sweep pass; the sweep stays
+100/105. The route starts from a diagnostic settled warp, and the same
+hidden reload duration and base Gfx count still need another destination
+witness. No paid Jev request or human playtest is claimed.
+
 2026-09-22 residual split: `tas-diff` on the checked-in 310-frame pad route
 shows an enemy-roster difference already at settled-warp frame 0. At frame
 287, native RockTank children have stepped while the oracle's six linked

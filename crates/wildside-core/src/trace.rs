@@ -15545,6 +15545,14 @@ impl NativeRuntime {
     ) -> (u16, u16) {
         if let Some(transition) = self.teleport_transition.as_ref() {
             let elapsed = self.frame_index.saturating_sub(transition.start_frame);
+            if elapsed == 63 {
+                // ASM Load_InGame -> Mode_Level loc_36840 allocates enemy
+                // Objects after the four base workers, while the new enemy
+                // handlers have not allocated their GfxObjects yet.
+                // TODO(fidelity): confirm the base Gfx phase on another pad
+                // destination before treating this loader timing as universal.
+                return (4 + self.active_enemies.len() as u16, 4);
+            }
             if elapsed < 63 {
                 return if elapsed < 31 {
                     (

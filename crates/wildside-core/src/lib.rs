@@ -4990,6 +4990,7 @@ impl NativeRuntime {
                 // pose before the first visible Load_InGame checkpoint.
                 slice.update_camera_follow(0);
             }
+            self.preload_teleport_enemy_objects_loc_36840();
         }
         self.trace_input = input;
         let trace = self.trace_frame();

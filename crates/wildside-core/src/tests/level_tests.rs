@@ -6182,6 +6182,11 @@ mod chunk_02 {
         assert_eq!(frames[286].current_level, LevelId(0x51));
         assert_eq!(frames[286].game_mode, GameMode::InGame);
         assert_eq!(
+            (frames[286].number_objects, frames[286].number_gfx_objects),
+            (8, 4),
+            "ASM Load_InGame loc_11FD2 -> Manage_EnemyLoading loc_36840 allocates four destination enemy Objects after four preload Objects; their GfxObjects wait for the first enemy handler pass"
+        );
+        assert_eq!(
             (
                 frames[286].teleport_warp_colour,
                 frames[286].level_entry_fade_progress_sub_73d0
