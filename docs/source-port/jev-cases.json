@@ -1109,5 +1109,17 @@
     ],
     "next_action": "Instrument one object scheduler pass independently of player and RNG at the post_title_start to target_live row-0 hand-off; 0x07 Lion independently confirms the same extra native movement.",
     "scope": "Native advances objects at target-live row 0 where oracle holds their positions; 0x1F RockTank slot 21 retains a one-pixel frame-0 lead."
+  },
+  {
+    "issue": 510,
+    "readiness": "needs_comparison",
+    "active_path": "Drips.asm surface crawler loc_33550/loc_33630 and child Object deletion",
+    "route": "Settled logical 0x4B idle replay through frames 243/244 and 359",
+    "evidence": [
+      "docs/source-port/backlog-archive.md#issue-510",
+      "crates/wildside-core/src/tests/level_tests.rs"
+    ],
+    "next_action": "Compare native crawler owner and position with oracle child Object slots at frames 243/244; attribute the deletion branch before changing lifetime or movement.",
+    "scope": "After exact frame-60 RNG and first child allocations, 0x4B native retains one extra Drips Object/Gfx pair from frame 244."
   }
 ]

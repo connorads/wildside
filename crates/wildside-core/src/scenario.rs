@@ -18,16 +18,16 @@ const RECORDING_DEBUG_TITLE_WAIT_FRAMES_LOC_1AE2E: usize = 120;
 /// controller RNG freezes until this title-wait step; the level then runs
 /// live Mode_Level under the remaining window. Measured by
 /// `oracle-settle-census` derivation v2 (run 1786640409) and checked in as
-/// `crates/wildside-cli/data/oracle-settle-shell.yaml`; a CLI test pins this
-/// table to that YAML. Level 0 takes the title path and has no debug-warp
-/// load freeze.
+/// `crates/wildside-cli/data/oracle-settle-shell.yaml`, with direct title-wait
+/// traces for 0x1F and 0x4B. An exhaustive core test pins the table. Level 0
+/// takes the title path and has no debug-warp load freeze.
 pub(crate) fn debug_level_entry_load_complete_step_loc_74e0(level: LevelId) -> Option<usize> {
     match level {
         LevelId(0x49) => Some(56),
         LevelId(0x52) => Some(57),
         LevelId(0x50 | 0x67 | 0x68) => Some(58),
         LevelId(0x59) => Some(59),
-        LevelId(0x53 | 0x58) => Some(60),
+        LevelId(0x4b | 0x53 | 0x58) => Some(60),
         LevelId(0x55 | 0x66) => Some(61),
         LevelId(0x57 | 0x60) => Some(62),
         LevelId(0x33 | 0x65) => Some(63),
@@ -1322,7 +1322,7 @@ mod tests {
     #[test]
     fn debug_level_entry_load_complete_table_pins_every_measured_level_loc_74e0() {
         // oracle-settle-census derivation v2, run 1786640409, plus the #509
-        // level 0x1F title-wait trace. An exhaustive
+        // level 0x1F/0x4B title-wait traces. An exhaustive
         // domain assertion prevents an individual match arm silently falling
         // back to `None` while the three historical anchors remain green.
         let expected = [
@@ -1334,6 +1334,7 @@ mod tests {
             (0x59, 59),
             (0x53, 60),
             (0x58, 60),
+            (0x4b, 60),
             (0x55, 61),
             (0x66, 61),
             (0x57, 62),

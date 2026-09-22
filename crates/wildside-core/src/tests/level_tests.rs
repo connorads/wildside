@@ -6047,6 +6047,29 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level4b_drips_initial_children_follow_title_load_boundary_loc_74e0_3340e() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let frames = ScriptRunner::new(manifest)
+            .warp_to_level(0x4b)
+            .settle_recording_warp()
+            .run(&vec![0; 360], 360);
+        assert_eq!(frames[60].rng_offset, Some(0xffdc));
+        for (frame, objects, gfx) in [(183, 9, 18), (189, 10, 19)] {
+            assert_eq!(
+                (
+                    frames[frame].number_objects,
+                    frames[frame].number_gfx_objects
+                ),
+                (objects, gfx),
+                "ASM loc_74E0 row-60 load completion ages Drips loc_3340E before frame {frame}"
+            );
+        }
+    }
+
+    #[test]
     fn level30_ufo_contact_death_freezes_live_object_counts_at_death_loc_b7ea() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

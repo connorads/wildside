@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - 0x4B Drips loader timing
+
+Oracle title-wait RNG resumes at row 60 in logical 0x4B; native used the
+row-72 fallback. Pinning the measured `loc_74E0` boundary makes frame-60 RNG
+and Drips child allocations at frames 183/189 exact. The 105-level state
+sweep remains 98 pass/7 fail because a crawler persists after oracle frame
+244. #510 owns that separate child lifecycle mismatch.
+
 ## 2026-09-22 - Woods of Despair 1 title-window tank scheduling
 
 Oracle settle trace first allocates the 0x1F RockTanks on title-wait row 75;

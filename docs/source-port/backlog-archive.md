@@ -204,6 +204,30 @@ these also distinguish subtraction from addition for nonzero equal velocities.
 A targeted retry of the original survivors and same-line variants catches all
 16 selected mutants. Output: `/tmp/mutants-recording-enemy-boundaries/`.
 
+<a id="issue-510"></a>
+### #510 - 0x4B Drips crawler lifetime after loader parity
+
+Oracle `--capture-settle-trace` for a settled logical 0x4B idle route shows
+the title-wait RNG freeze ending on row 60. Native used the row-72 fallback.
+A red-first cache-backed `loc_74E0/loc_3340E` regression pinned frame-60
+RNG offset `$FFDC` and the first Drips child counts: frame 183 has 9
+Objects/18 Gfx and frame 189 has 10/19. Pinning 0x4B to the measured row 60
+passes those checks; before the correction native had 7/16 at frame 183 and
+RNG offset `$FFE3` at frame 60. The new frame-60 RNG and child counts match
+the oracle. The full state sweep remains 98 pass/7 fail with no changed
+blocking row (`.cache/sweep-runs/1790035962/report.json`).
+
+The later count gap is separate. With row-60 loading, native and oracle RNG
+remain equal through frame 262, but oracle removes one Drips Object/Gfx pair
+at frame 244 while native retains 10/19 against oracle 9/18; native adds
+another child at frame 250 and has 11/20 against oracle 10/19 through the
+idle tail. A native surface crawler is at X429.5/Y176 at frame 243 and
+continues to X429.7 at 244, while an oracle child at about X424.8/Y176
+disappears. Other crawlers also differ in X, so ownership and
+`loc_33550` deletion need a per-child trace before a lifetime patch. The
+saved neutral route and dense oracle frame probe are under `.cache/issue-4b-*`.
+This issue is distinct from #502's unexercised >20-Object range branch.
+
 <a id="issue-509"></a>
 ### #509 - Woods of Despair 1 RockTank settle positions
 
