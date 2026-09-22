@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #300 second destination timing witness
+
+A checked-in diagnostic 0x59 -> 0x3E pad route activates at frame 103.
+The ROM keeps Object/Gfx lists empty at 166, allocates 4/4 preload slots
+by 175 and exposes Kid at 176. Native exposes 4/4 at 166 because its
+`loc_6E2` loader uses the +63 duration measured on the first destination.
+The ignored regression fails at that exact boundary. PC probes reach
+`loc_11AE4` at activation+33 on both routes, then `loc_11E60` after
+five frames on the first route and 13 on the second. The six-frame
+relative gap through `loc_11D0C` comes from layout decompression and
+tile fill; background mappings add two more. Derive those costs from
+ROM data and ASM before changing the duration. The route starts from
+a position patch; natural entry and later pixels remain open. No paid
+Jev call or human playtest.
+
 ## 2026-09-22 - #300 trailing enemy Object count
 
 The 0x1C -> 0x51 pad replay matches all 25 destination gameplay

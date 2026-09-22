@@ -25570,6 +25570,30 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-22 second destination timing witness: the checked-in
+`issue-300-elsewhere15-teleporter.json` settles logical 0x59, places Kid
+at (8,170) above its pad and idles. ROM `loc_BCF6` activates the pad at
+frame 103 and writes logical 0x3E. ROM `loc_6E2` leaves Object/Gfx lists
+empty at frame 166, has 4/4 preload slots at 175 and exposes Kid at 176.
+Native's fixed +63 `Load_InGame` hand-off exposes 4/4 slots at 166, ten
+frames early. The first 0x1C -> 0x51 route remains correct at +63; the
+second route disproves that duration as a universal loader rule. The
+ignored core regression is red with native 4/4 against ROM 0/0 at frame
+166. The route's first typed difference is an earlier `murder_wall_x`
+None/Some(0) at 136; player/camera CRC first diverges at 166. PC probes
+put `loc_11AE4` at activation+33 on both routes (256/136). The first
+route reaches `loc_11E60` at 261 (+5), the second at 149 (+13).
+`loc_11E8A` follows eight frames later on both. The remaining two
+frames accrue by `loc_11FD2` (277 versus 166). A finer PC probe shows
+`Decompress_Chunk loc_11C10` once at 256 on the first route, versus
+frames 136-138 on the second. Tile fill `loc_11C34` spans 257 versus
+138-142; both reach block-list tail `loc_11D0C` at 258/144, a six-frame
+relative gap. `Load_BackgroundMappings` adds the other two before
+`loc_11D42` at 261/149. A general loader needs compressed-layout,
+tile-fill and mapping costs derived from ROM data and ASM. The start
+is a diagnostic position patch, so this does not prove natural entry.
+No paid Jev call or human playtest is claimed.
+
 2026-09-22 trailing enemy Object count: the checked-in 0x1C -> 0x51 pad
 replay now matches all 25 destination gameplay checkpoints at frames
 285-309. ROM camera Y falls from 657 to 655 at frame 291, placing the

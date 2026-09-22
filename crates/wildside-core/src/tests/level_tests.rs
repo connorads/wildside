@@ -6220,6 +6220,42 @@ mod chunk_02 {
     }
 
     #[test]
+    #[ignore = "ROM loc_6E2 -> Load_InGame reaches this destination 10 frames after the current fixed native delay; derive the load duration from ASM before enabling"]
+    fn issue_300_elsewhere15_telepad_waits_for_rom_reload_loc_6e2() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../tests/data/dynamic-scenarios/issue-300-elsewhere15-teleporter.json"
+        ))
+        .expect("checked-in second-destination timing probe");
+        let script = scenario["script"]
+            .as_array()
+            .expect("per-frame input masks")
+            .iter()
+            .map(|mask| mask.as_u64().expect("u8 input mask") as u8)
+            .collect::<Vec<_>>();
+        let frames = ScriptRunner::new(manifest)
+            .warp_to_level(0x59)
+            .settle_recording_warp()
+            .probe_start_position(8, 170)
+            .probe_camera_position(0, 0)
+            .run(&script, script.len());
+
+        assert_eq!(frames[103].current_level, LevelId(0x3e));
+        assert_eq!(
+            (frames[166].number_objects, frames[166].number_gfx_objects),
+            (0, 0),
+            "ASM loc_6E2 -> Load_InGame remains in the empty object-list phase at ROM frame 166"
+        );
+        assert_eq!(
+            (frames[176].number_objects, frames[176].number_gfx_objects),
+            (4, 4),
+            "ASM Load_InGame exposes the destination Kid on ROM frame 176"
+        );
+    }
+
+    #[test]
     fn level30_ufo_contact_death_freezes_live_object_counts_at_death_loc_b7ea() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
