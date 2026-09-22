@@ -13952,17 +13952,18 @@ impl NativeRuntime {
             let pry = (projectile.y_pos >> 16) as i32;
             let dx = prx - px;
             let dy = pry - py;
-            let overlaps = if projectile.kind == EnemyProjectileKind::LionProjectile {
-                // ASM Lion.asm loc_3E12A -> stru_3DF34 maps through
-                // CollisionSize_Index[667..669] to `unk_31944` (-5,9,-5,9);
-                // GfxObjects_CollisionKid loc_1BCE uses inclusive edge checks.
-                prx - 5 <= player_right
-                    && prx + 4 >= player_left
-                    && pry - 5 <= player_bottom
-                    && pry + 4 >= player_top
-            } else {
-                dx.abs() < half + 8 && dy.abs() < half + 16
-            };
+            let overlaps = crate::projectiles::projectile_overlaps_player_loc_1c18(
+                projectile,
+                px,
+                py,
+                half,
+                crate::projectiles::ProjectilePlayerBoundsPx {
+                    left: player_left,
+                    right: player_right,
+                    top: player_top,
+                    bottom: player_bottom,
+                },
+            );
             let distance = dx.abs() + dy.abs();
             let owner = projectile.owner.map_or_else(
                 || String::from("none"),

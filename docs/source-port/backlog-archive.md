@@ -14,6 +14,35 @@ order at split time; nothing here is re-attributed or deduplicated.
 <a id="issue-374"></a>
 ### #374
 
+2026-09-22 Scorpion Isle Arrow contact repair: the fresh 0x3F idle replay
+first diverged at frame 193, where native lost one HP and one Object/Gfx
+slot while ROM did not. Oracle WRAM at that frame gives Kid bounds
+x=18..28, y=224..255. Native's horizontal Archer Arrow was at x=36,
+y=245 and the ROM Arrow at x=36, y=247. `Archer.asm`
+`Enemy07_ArcherArrow_AngleToSpeedAndAnim` maps that horizontal angle to
+`LnkTo_unk_C81F8`; `kid.asm` `CollisionSize_Index[814]` points to empty
+`unk_31B0E`. Native's generic projectile box caused the false hit.
+All thirteen Arrow frame mappings now use their ROM sub-boxes, including
+the empty horizontal entry. `loc_342D6` re-aims on the wake when `d3`
+decrements to zero; native had waited one extra wake. ROM latches the
+new angled Arrow contact at frame 194 (`collision_type=$28`) and consumes
+it at 195. Native now follows that one-wake contact sequence. Permanent
+idle route `tests/data/dynamic-scenarios/issue-374-scorpion-archer-contact.json`
+pins HP 2/2/1 and Object count 11/11/10 at frames 193/194/195;
+native and oracle gameplay fields match across frames 190..220. The full
+760-frame route's first blocking state difference moves from frame 193
+to frame 258 (`number_objects`, native 11 versus ROM 10). This does not
+close Scorpion's full idle path or #374. Fresh 0x23/0x3A recording
+generated level-layout sidecars that the web asset-catalogue test then
+requested; the runtime asset catalogue includes those two paths. The
+checked-in 221-frame route passes every gameplay and RNG checkpoint;
+its enemy-roster comparator remains red from frame 0 because native's
+Archer representation differs from raw ROM object slots. It begins from
+a diagnostic settled warp, not natural campaign entry. `verify-slice-fast`
+and the 37,759-frame `verify-tas-full` pass with unchanged frozen
+pixel/audio debt. The 105-level state sweep remains 101 passed / four
+failed, including 0x3F's later idle-tail failure.
+
 2026-09-22 three fresh 90-frame idle recordings settle and replay on current
 HEAD. `issue374-hoverboard-current` (0x17) and `issue374-lion-den-current`
 (0x23) match emulator trace, state, and every pixel at both frame-60 and

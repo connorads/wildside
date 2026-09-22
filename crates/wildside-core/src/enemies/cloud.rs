@@ -657,6 +657,7 @@ fn cloud_projectile_spawn_loc_35df0(
         wall_bounce: false,
         lion_projectile_bounce_empty_checks_loc_3e2c0: 0,
         reaim_interval: 0,
+        archer_kid_contact_pending: false,
         reaim_countdown: 0,
         current_angle: 0,
         terrain_kill: true,

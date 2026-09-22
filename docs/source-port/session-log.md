@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #374 Scorpion Archer Arrow contact
+
+ROM `CollisionSize_Index[814]` has no hitbox for horizontal Archer
+Arrows; native used a broad generic box and hurt Kid at Scorpion frame
+193. Correct per-angle boxes, `loc_342D6` re-aim cadence and one-wake
+collision consumption match ROM HP/Object state at frames 193-195 and
+all 221 checked-in gameplay/RNG checkpoints. The diagnostic route pins
+the sequence; the 760-frame route now first diverges at frame 258 Object
+count. Fast and full TAS gates pass, and the state sweep stays 101/105. Stairway
+foreground and Bloody Swamp death tail remain open. No paid Jev call or
+human playtest.
+
 ## 2026-09-22 - #374 named-level idle route triage
 
 Fresh 0x17 and 0x23 idle recordings match emulator state and pixels at both

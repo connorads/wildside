@@ -6256,6 +6256,41 @@ mod chunk_02 {
     }
 
     #[test]
+    fn issue_374_scorpion_archer_arrow_contact_matches_loc_342d6_and_gfxobjects_collisionkid() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../tests/data/dynamic-scenarios/issue-374-scorpion-archer-contact.json"
+        ))
+        .expect("checked-in Scorpion Isle idle route");
+        let script = scenario["script"]
+            .as_array()
+            .expect("per-frame input masks")
+            .iter()
+            .map(|mask| mask.as_u64().expect("u8 input mask") as u8)
+            .collect::<Vec<_>>();
+        let frames = ScriptRunner::new(manifest)
+            .warp_to_level(0x3f)
+            .settle_recording_warp()
+            .run(&script, script.len());
+
+        for frame in [193, 194] {
+            assert_eq!(
+                frames[frame].number_hitpoints, 2,
+                "ROM frame {frame} keeps Kid unharmed"
+            );
+            assert_eq!(
+                frames[frame].number_objects, 11,
+                "ROM frame {frame} retains the arrow Object"
+            );
+        }
+        assert_eq!(frames[195].number_hitpoints, 1);
+        assert_eq!(frames[195].number_objects, 10);
+        assert_eq!(frames[220].number_hitpoints, 1);
+    }
+
+    #[test]
     fn level30_ufo_contact_death_freezes_live_object_counts_at_death_loc_b7ea() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
@@ -29806,13 +29841,11 @@ mod chunk_10 {
 
     #[test]
     fn reaim_adjusts_arrow_angle_when_countdown_reaches_zero() {
-        // ASM loc_342D6: every reaim_interval frames, adjust angle toward player.
-        // Kills: reaim_interval > 0 (line 23), reaim_countdown == 0 (line 24),
-        // reaim_countdown -= 1 (line 34).
+        // ASM loc_342D6: hibernate, decrement d3, then adjust on zero.
         let mut rt = NativeRuntime::new(manifest());
         let mut proj = make_projectile(50, 50);
         proj.reaim_interval = 3;
-        proj.reaim_countdown = 2; // will count down 2→1, then 1→0, then re-aim fires
+        proj.reaim_countdown = 2;
         // Start at angle 6 (straight up: x=0, y=-32). Player is far right+below,
         // so re-aim will adjust angle toward ~22-24, moving away from straight-up.
         proj.current_angle = 6;
@@ -29833,24 +29866,20 @@ mod chunk_10 {
         );
         let xv_after_1 = rt.projectiles[0].x_velocity;
 
-        // Frame 2: countdown 1 → 0, no re-aim
-        rt.step_projectiles();
-        assert_eq!(
-            rt.projectiles[0].reaim_countdown, 0,
-            "countdown should decrement from 1 to 0"
-        );
-
-        // Frame 3: countdown == 0 → re-aim fires, countdown resets to interval
+        // Frame 2: countdown 1 → 0 and re-aim on this wake.
         rt.step_projectiles();
         assert_eq!(
             rt.projectiles[0].reaim_countdown, 3,
-            "countdown should reset to reaim_interval after re-aim"
+            "countdown should reset when the decrement reaches zero"
         );
         // Angle adjusted from 6 → 5 or 7. Either way, x_velocity changes from 0.
         assert_ne!(
             rt.projectiles[0].x_velocity, xv_after_1,
             "re-aiming from straight-up should change x_velocity toward player"
         );
+
+        rt.step_projectiles();
+        assert_eq!(rt.projectiles[0].reaim_countdown, 2);
     }
 
     #[test]

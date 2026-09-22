@@ -1137,7 +1137,7 @@ mod drips_surface_crawler_tests {
         );
     }
 
-    fn minimal_manifest() -> wildside_data::AssetManifest {
+    pub(super) fn minimal_manifest() -> wildside_data::AssetManifest {
         wildside_data::AssetManifest {
             generated_bundle_version: wildside_data::GENERATED_BUNDLE_VERSION,
             rom_sha1: String::from("projectiles-test"),
@@ -4417,6 +4417,9 @@ impl NativeRuntime {
             // compute target angle toward player, adjust current_angle by ±1,
             // then update velocity from the new angle.
             if p.reaim_interval > 0 {
+                // ASM loc_342D6 hibernates, then `subq.w #1,d3; bne`.
+                // The wake that changes 1 to 0 re-aims immediately.
+                p.reaim_countdown = p.reaim_countdown.saturating_sub(1);
                 if p.reaim_countdown == 0 {
                     p.reaim_countdown = p.reaim_interval;
                     if let (Some(px), Some(py)) = (player_x, player_y) {
@@ -4426,8 +4429,6 @@ impl NativeRuntime {
                         p.x_velocity = reaim.x_velocity;
                         p.y_velocity = reaim.y_velocity;
                     }
-                } else {
-                    p.reaim_countdown -= 1;
                 }
             }
             let mut lion_pre_homing_velocity_loc_3e192 = None;
@@ -5513,11 +5514,19 @@ impl NativeRuntime {
             }
             let prx = (p.x_pos >> 16) as i32;
             let pry = (p.y_pos >> 16) as i32;
-            let overlaps = if p.kind == EnemyProjectileKind::ShooterBlock {
+            let overlaps_now = if p.kind == EnemyProjectileKind::ShooterBlock {
                 shooter_block_overlaps_player_sub_219c(p, player_bounds)
             } else {
                 projectile_overlaps_player_loc_1c18(p, px, py, half, player_bounds)
             };
+            // ASM GfxObjects_CollisionKid writes `$28` for the arrow after
+            // the movement pass. Enemy07_ArcherArrow_Init loc_342D6 consumes
+            // that result on its next wake, as at Scorpion Isle frames 194-195.
+            if p.kind == EnemyProjectileKind::ArcherArrow && !p.archer_kid_contact_pending {
+                p.archer_kid_contact_pending = overlaps_now;
+                return true;
+            }
+            let overlaps = overlaps_now || p.archer_kid_contact_pending;
             if overlaps {
                 let projectile_contact = if p.kind == EnemyProjectileKind::ShooterBlock {
                     // ASM Process_ShooterObjects loc_EDFA..loc_EF62 is a
@@ -5651,11 +5660,11 @@ fn ufo_beam_hits_floor_loc_355d4(grid: &terrain::BlockGrid, projectile: &EnemyPr
 }
 
 #[derive(Debug, Clone, Copy)]
-struct ProjectilePlayerBoundsPx {
-    left: i32,
-    right: i32,
-    top: i32,
-    bottom: i32,
+pub(crate) struct ProjectilePlayerBoundsPx {
+    pub(crate) left: i32,
+    pub(crate) right: i32,
+    pub(crate) top: i32,
+    pub(crate) bottom: i32,
 }
 
 fn projectile_player_bounds_px_loc_1c18(
@@ -5689,7 +5698,7 @@ pub(crate) fn projectile_participates_in_kid_collision(projectile: &EnemyProject
     projectile.kind != EnemyProjectileKind::BossDeathBurst && projectile.robot_shot_has_gfx_object()
 }
 
-fn projectile_overlaps_player_loc_1c18(
+pub(crate) fn projectile_overlaps_player_loc_1c18(
     projectile: &EnemyProjectile,
     player_x_px: i32,
     player_y_px: i32,
@@ -5698,6 +5707,9 @@ fn projectile_overlaps_player_loc_1c18(
 ) -> bool {
     let prx = (projectile.x_pos >> 16) as i32;
     let pry = (projectile.y_pos >> 16) as i32;
+    if projectile.kind == EnemyProjectileKind::ArcherArrow {
+        return archer_arrow_overlaps_player_loc_1bce(projectile, player_bounds);
+    }
     if projectile.kind == EnemyProjectileKind::TarMonsterStraightGlob {
         // ASM loc_3247E uses LnkTo_unk_C781E; CollisionSize_Index entry
         // 441/unk_316AC is left -4, width 8, top -4, height 8.
@@ -5734,6 +5746,112 @@ fn projectile_overlaps_player_loc_1c18(
         (prx - player_x_px).abs() < half + 8
     };
     x_overlaps && (pry - player_y_px).abs() < half + 16
+}
+
+fn archer_arrow_overlaps_player_loc_1bce(
+    arrow: &EnemyProjectile,
+    player: ProjectilePlayerBoundsPx,
+) -> bool {
+    use crate::types::ArcherArrowSpriteFrame::{
+        C81F8, C8200, C8208, C8210, C8218, C8220, C8228, C8230, C8238, C8240, C8248, C8250, C8258,
+    };
+
+    // ASM Archer.asm byte_3437A/off_343EA selects the frame and flip byte.
+    // CollisionSize_Index[814..826] (kid.asm) supplies these sub-boxes.
+    // C81F8 points at unk_31B0E, an empty collision entry, so horizontal
+    // arrows are visible but cannot damage Kid.
+    let (frame, flipped) = crate::archer_arrow_sprite_frame_from_angle(arrow.current_angle);
+    let boxes: &[[i32; 4]] = match frame {
+        C81F8 => &[],
+        C8200 => &[[-7, 14, -1, 3]],
+        C8208 | C8238 => &[[-3, 14, -2, 4]],
+        C8210 => &[[-8, 7, 0, 4], [1, 6, -4, 4]],
+        C8218 => &[[-5, 5, 1, 4], [1, 5, -6, 6]],
+        C8220 => &[[-4, 4, 1, 7], [1, 3, -8, 8]],
+        C8228 => &[[1, 2, -9, 9]],
+        C8230 => &[[-1, 2, -9, 9]],
+        C8240 => &[[-8, 7, -4, 5], [1, 6, 1, 4]],
+        C8248 => &[[-5, 5, -4, 5], [1, 5, 1, 5]],
+        C8250 => &[[-4, 5, -8, 8], [1, 3, 1, 7]],
+        C8258 => &[[1, 2, 1, 8]],
+    };
+    let x = (arrow.x_pos >> 16) as i32;
+    let y = (arrow.y_pos >> 16) as i32;
+    boxes
+        .iter()
+        .any(|&[left_offset, width, top_offset, height]| {
+            let (left, right) = if flipped {
+                let right = x - left_offset;
+                (right - width, right)
+            } else {
+                let left = x + left_offset;
+                (left, left + width)
+            };
+            let top = y + top_offset;
+            inclusive_bounds_overlap_loc_1bce(left, right, top, top + height, player)
+        })
+}
+
+#[cfg(test)]
+mod archer_arrow_collision_tests {
+    use super::*;
+
+    /// ASM Enemy07_ArcherArrow_AngleToSpeedAndAnim / GfxObjects_CollisionKid:
+    /// `LnkTo_unk_C81F8` maps to empty CollisionSize_Index entry `unk_31B0E`.
+    #[test]
+    fn horizontal_arrow_cannot_hit_kid_at_scorpion_frame_193() {
+        let arrow = EnemyProjectile {
+            kind: EnemyProjectileKind::ArcherArrow,
+            current_angle: 13,
+            x_pos: 0x0024_c000,
+            y_pos: 0x00f5_8000,
+            ..Default::default()
+        };
+        let kid = ProjectilePlayerBoundsPx {
+            left: 18,
+            right: 28,
+            top: 224,
+            bottom: 255,
+        };
+        assert!(!projectile_overlaps_player_loc_1c18(
+            &arrow,
+            23,
+            255,
+            PROJECTILE_HITBOX_HALF,
+            kid
+        ));
+    }
+
+    /// ASM GfxObjects_CollisionKid latches `$28` on frame 194; the
+    /// Enemy07_ArcherArrow_Init wake consumes that collision on frame 195.
+    #[test]
+    fn archer_arrow_contact_is_consumed_one_wake_after_rom_collision() {
+        let mut runtime =
+            NativeRuntime::new(super::drips_surface_crawler_tests::minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::ArcherArrow,
+            current_angle: 12,
+            x_pos: 34 << 16,
+            y_pos: 246 << 16,
+            lifetime: 100,
+            ..Default::default()
+        });
+        let mut slice = OpeningSliceState::respawn(runtime.level_bounds(LevelId(0x3f)));
+        slice.player.x_pos = 23 << 16;
+        slice.player.y_pos = 255 << 16;
+
+        assert_eq!(
+            runtime.projectile_player_contact_after_step_loc_b640(&slice),
+            ProjectilePlayerContactLocB640::None,
+        );
+        assert_eq!(runtime.projectiles.len(), 1);
+        assert_eq!(
+            runtime.projectile_player_contact_after_step_loc_b640(&slice),
+            ProjectilePlayerContactLocB640::Damage,
+        );
+        assert!(runtime.projectiles.is_empty());
+    }
 }
 
 fn shooter_block_overlaps_player_sub_219c(
