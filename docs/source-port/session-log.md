@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #374 fatal Island worker suspension
+
+The Scorpion fatal pass now stops the later Island shore worker after Kid
+enters ASM `Death loc_B80C`. Frames 438-444 are pixel-exact, including the
+former 2,777-pixel lower-scene window. A broad worker reorder regressed 1,197
+published-route exact frames and was rejected; the fatal-only rollback keeps
+the full 37,759-frame gameplay, RNG and enemy gates green and preserves the
+37,518/241/2,391 frozen pixel baseline. #374 remains open for reload timing,
+Stairway foreground and Bloody Swamp drift. No Jev spend or human playtest.
+
 ## 2026-09-22 - Jev live smoke
 
 Local ignored environment files supply the API credential through mise. At

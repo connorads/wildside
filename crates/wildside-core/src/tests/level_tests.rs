@@ -6315,6 +6315,15 @@ mod chunk_02 {
         }
         assert_eq!(frames[440].number_hitpoints, 0);
         assert_eq!(
+            frames[440].island_shore_vram_frames_loc_1202a,
+            frames[439].island_shore_vram_frames_loc_1202a,
+            "ASM Execute_Objects loc_E1E reaches Kid's fatal Arrow contact before the later loc_1202A Island worker",
+        );
+        assert!(
+            frames[440].island_shore_dma_uploads_loc_1202a.is_empty(),
+            "ASM Death loc_B80C suspends the object pass before loc_12110 can queue the $F6C0 DMA",
+        );
+        assert_eq!(
             frames[440].level_entry_fade_progress_sub_73d0, None,
             "ASM Death loc_B7FA retains the gameplay palette instead of starting sub_73D0",
         );

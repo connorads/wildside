@@ -1042,7 +1042,7 @@
       "docs/source-port/backlog-archive.md#issue-374",
       "crates/wildside-core/src/level.rs"
     ],
-    "next_action": "Compare level-1/2 and Scorpion reload clear PC boundaries, then source-time the frame-534 shell; trace death-frame 441+ lower-scene pixels, Stairway foreground, and Bloody Swamp's frame-144 drift.",
+    "next_action": "Compare level-1/2 and Scorpion reload clear PC boundaries, then source-time the frame-534 shell; trace Stairway foreground and Bloody Swamp's frame-144 drift.",
     "scope": "Load Stairway to Oblivion, Bloody Swamp, Scorpion Isle, Lion's Den, and Hoverboard Beach; each should spawn playable with coherent level art, no instant death."
   },
   {

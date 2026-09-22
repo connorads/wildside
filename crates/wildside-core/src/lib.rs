@@ -7117,6 +7117,7 @@ impl NativeRuntime {
         self.step_weather(&slice);
         self.step_lava_geysers(&slice);
         self.step_rotate_palette_lava_water_loc_1223c();
+        let island_shore_before_kid_loc_e1e = self.island_shore_cycle_loc_1202a;
         self.step_island_shore_cycle_loc_1202a();
 
         if self.resolve_frame_hazards(
@@ -7127,6 +7128,13 @@ impl NativeRuntime {
             frame_start_x_pos,
             frame_start_y_pos,
         ) {
+            if matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }) {
+                // ASM Execute_Objects loc_E1E reaches Kid before the later
+                // loc_1202A Island worker. Death loc_B80C consumes the pass,
+                // so retain the resident shore bands and their countdowns.
+                self.island_shore_cycle_loc_1202a = island_shore_before_kid_loc_e1e;
+                self.island_shore_dma_uploads_loc_1202a.clear();
+            }
             return;
         }
         if slice.player.on_ground {

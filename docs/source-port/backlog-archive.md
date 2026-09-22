@@ -35,6 +35,21 @@ natural campaign progression through Hills.
 <a id="issue-374"></a>
 ### #374
 
+2026-09-22 Scorpion fatal shore scheduler boundary: the checked-in route
+showed native advancing the Island middle band from `(3,2,0)` to `(3,3,0)`
+and queuing a `$F6C0` DMA on fatal frame 440. ASM `Execute_Objects loc_E1E`
+reaches Kid first on this object order; `Death loc_B80C` then consumes the
+pass before the later `loc_1202A/loc_12110` worker can wake. Native now
+restores the pre-worker Island state only when that pass enters Death and
+discards its speculative uploads. Frames 438-444 are pixel-exact against
+fresh emulator captures, with gameplay state matching at every frame. A
+broader attempt to move the worker after all hazards was rejected because
+non-fatal hazard returns lost 1,197 exact published-route frames; the
+fatal-only rollback preserves the full gate at 37,518 exact frames, 241
+frozen divergent frames and 2,391 frozen pixels. #374 remains open for the
+frame-534 reload shell, Stairway foreground and Bloody Swamp frame-144 drift.
+No Jev spend or human playtest.
+
 2026-09-22 Scorpion shore-art death probe: after the H-scroll fix, frames
 441-444 differed by 2,777 pixels. Layer captures isolate 549 persistent
 pixels to the Island shore animation. ROM VRAM `$F6C0..$F75F` is byte-identical
