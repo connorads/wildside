@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - Jev live smoke
+
+Local ignored environment files supply the API credential through mise. At
+`fb40190ed`, the bounded #344 smoke verified a six-frame prefix, made two paid
+decisions and collected 12 suffix frames. Exact native reconstruction, oracle
+state and captured pixels pass. The frame limit stopped collection before the
+target witness; proof remains not evaluated. The ledger charged upper bound
+increased by $0.000242592 to $0.232223166. This consumed one #344 attempt under
+its existing issue window. Evidence is in
+`.cache/jev-cases/1790087381207941000/`; no gameplay issue closes.
+
 ## 2026-09-22 - Jev runner and loop integration
 
 Split discovery, replay and registered proof checks; added verified ordinary-input
