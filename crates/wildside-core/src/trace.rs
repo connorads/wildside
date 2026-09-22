@@ -8450,12 +8450,11 @@ mod tests {
             frozen_number_gfx_objects: 8,
         });
 
-        // ASM lose_life -> Teleport loc_B8DE enters the hidden mode-8 hand-off;
-        // oracle route issue-213-drips-upjump-right-probe-cache keeps the
-        // shell pose through frame 370, clears Kid on 371, and keeps camera
-        // through frame 374 before the blank pre-bootstrap window.
+        // ASM lose_life -> Teleport loc_B8DE enters the hidden mode-8 hand-off.
+        // Cross-route PC probes place the sprite clear at loc_714, nine frames
+        // after loc_700, and the camera clear at loc_726 four frames later.
         runtime.player_lifecycle = PlayerLifecycle::Dying {
-            remaining_frames: 14,
+            remaining_frames: 6,
         };
         let last_shell = runtime.trace_frame();
         assert_eq!(last_shell.kid_x_pos, Some(0x038b_2100));
@@ -8467,7 +8466,7 @@ mod tests {
         assert_eq!(last_shell.number_gfx_objects, 8);
 
         runtime.player_lifecycle = PlayerLifecycle::Dying {
-            remaining_frames: 13,
+            remaining_frames: 5,
         };
         let after_shell = runtime.trace_frame();
         assert_eq!(after_shell.kid_x_pos, None);
@@ -8479,7 +8478,7 @@ mod tests {
         assert_eq!(after_shell.number_gfx_objects, 8);
 
         runtime.player_lifecycle = PlayerLifecycle::Dying {
-            remaining_frames: 10,
+            remaining_frames: 2,
         };
         let last_camera = runtime.trace_frame();
         assert_eq!(last_camera.kid_x_pos, None);
@@ -8490,7 +8489,7 @@ mod tests {
         assert_eq!(last_camera.number_gfx_objects, 8);
 
         runtime.player_lifecycle = PlayerLifecycle::Dying {
-            remaining_frames: 9,
+            remaining_frames: 1,
         };
         let after_camera = runtime.trace_frame();
         assert_eq!(after_camera.kid_x_pos, None);
@@ -8499,21 +8498,6 @@ mod tests {
         assert!(!after_camera.just_received_damage);
         assert_eq!(after_camera.number_objects, 0);
         assert_eq!(after_camera.number_gfx_objects, 8);
-
-        runtime.player_lifecycle = PlayerLifecycle::Dying {
-            remaining_frames: 5,
-        };
-        assert_eq!(runtime.trace_frame().number_objects, 2);
-
-        runtime.player_lifecycle = PlayerLifecycle::Dying {
-            remaining_frames: 2,
-        };
-        assert_eq!(runtime.trace_frame().number_objects, 9);
-
-        runtime.player_lifecycle = PlayerLifecycle::Dying {
-            remaining_frames: 1,
-        };
-        assert_eq!(runtime.trace_frame().number_objects, 15);
     }
 
     #[test]
@@ -9784,7 +9768,7 @@ impl NativeRuntime {
     }
 
     fn dying_hidden_number_objects_loc_b8de(&self, snapshot: &LevelSkipTransitionState) -> u16 {
-        let PlayerLifecycle::Dying { remaining_frames } = self.player_lifecycle else {
+        let PlayerLifecycle::Dying { .. } = self.player_lifecycle else {
             return snapshot.frozen_number_objects;
         };
         // ASM lose_life -> Teleport loc_B8DE enters mode 8 without allocating
@@ -9793,13 +9777,9 @@ impl NativeRuntime {
         if self.dying_hidden_camera_still_visible() {
             snapshot.frozen_number_objects
         } else {
-            match remaining_frames {
-                6..=9 => 0,
-                3..=5 => 2,
-                2 => snapshot.frozen_number_objects,
-                1 => 15,
-                _ => snapshot.frozen_number_objects,
-            }
+            // ASM loc_726 clears gameplay Object state. The next respawn
+            // frame owns bootstrap allocation.
+            0
         }
     }
 

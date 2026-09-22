@@ -534,9 +534,23 @@
     0,
     0,
     0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
     0
   ],
-  "frame_count": 534,
+  "frame_count": 548,
   "checkpoints": [
     {
       "label": "archer_idle_cap",
@@ -595,8 +609,28 @@
       "frame_index": 500
     },
     {
-      "label": "pre_next_frontier",
+      "label": "reload_loc_700",
       "frame_index": 533
+    },
+    {
+      "label": "last_frozen_kid_before_loc_714",
+      "frame_index": 541
+    },
+    {
+      "label": "sprite_table_clear_loc_714",
+      "frame_index": 542
+    },
+    {
+      "label": "last_frozen_camera_before_loc_726",
+      "frame_index": 545
+    },
+    {
+      "label": "gameplay_state_clear_loc_726",
+      "frame_index": 546
+    },
+    {
+      "label": "respawn_bootstrap",
+      "frame_index": 547
     }
   ],
   "warp_to_level": 63,

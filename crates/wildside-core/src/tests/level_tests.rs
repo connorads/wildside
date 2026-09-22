@@ -6341,7 +6341,30 @@ mod chunk_02 {
         assert_eq!(
             (frames[533].number_objects, frames[533].number_gfx_objects),
             (11, 15),
-            "ASM loc_B8DE returns to the populated Scorpion level after death",
+            "ASM loc_B8DE reaches loc_700 with the frozen Scorpion shell still resident",
+        );
+        assert!(
+            frames[541].kid_x_pos.is_some(),
+            "ASM loc_700 keeps the frozen Kid through the frame before loc_714 clears the sprite table",
+        );
+        assert_eq!(
+            (frames[542].kid_x_pos, frames[542].kid_y_pos),
+            (None, None),
+            "ASM loc_714 clears the frozen Kid coordinates nine frames after loc_700",
+        );
+        assert_ne!(
+            (frames[545].camera_x_pos, frames[545].camera_y_pos),
+            (0, 0),
+            "ASM loc_714 retains the frozen camera through the frame before loc_726",
+        );
+        assert_eq!(
+            (frames[546].camera_x_pos, frames[546].camera_y_pos),
+            (0, 0),
+            "ASM loc_726 clears the frozen camera four frames after loc_714",
+        );
+        assert_eq!(
+            frames[546].number_objects, 0,
+            "ASM loc_726 clears gameplay Object state before respawn allocation",
         );
     }
 

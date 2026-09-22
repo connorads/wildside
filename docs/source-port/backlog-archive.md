@@ -35,6 +35,22 @@ natural campaign progression through Hills.
 <a id="issue-374"></a>
 ### #374
 
+2026-09-22 Scorpion source-timed reload clear: selected-PC probes on saved
+level 0, level 1 and Scorpion routes all reach ASM `loc_714` nine frames
+after `loc_700`, then `loc_726` four frames later. WRAM confirms Kid remains
+through the frame before `loc_714`; camera and gameplay Object state remain
+through the frame before `loc_726`. Native's 32-frame hidden countdown reaches
+`loc_700` with 14 frames left, so the projection now clears Kid at remaining
+5 and camera/Object state at remaining 1. The invented intermediate 2/11/15
+Object-count sequence is removed; respawn allocation remains on the following
+frame. The checked-in Scorpion route extends through frame 547 and permanently
+pins the two clear boundaries. Fresh native and emulator captures are
+pixel-exact at frames 533, 541, 542, 545, 546 and 547. `verify-slice-fast` and
+the full 37,759-frame TAS gate pass with all gameplay, enemy and RNG checks
+green and the frozen 37,518 exact / 241 divergent / 2,391-pixel baseline
+unchanged. #374 remains open for Bloody Swamp frame 144 and Stairway's
+84-pixel foreground shape. No Jev spend or human playtest.
+
 2026-09-22 Scorpion fatal shore scheduler boundary: the checked-in route
 showed native advancing the Island middle band from `(3,2,0)` to `(3,3,0)`
 and queuing a `$F6C0` DMA on fatal frame 440. ASM `Execute_Objects loc_E1E`

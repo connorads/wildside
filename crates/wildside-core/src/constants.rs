@@ -586,18 +586,16 @@ pub(crate) const PLAYER_DEATH_WINDUP_FRAMES: usize = 159;
 // one-frame-late death-arc launch (#245); once the death lands on the oracle's
 // frame (1684, not 1685) the hidden window is 32 frames, not 40.
 pub(crate) const PLAYER_DEATH_HIDE_FRAMES: usize = 32;
-// Oracle-backed `lose_life` / `Teleport` traces keep the frozen post-Death
-// shell pose visible until 13 frames remain (Level 1 oracle clears Kid's WRAM
-// pose on frame 1780 = lose_life + 21), then Kid's coordinates clear while the
-// transition camera remains latched. `HIDE - SHELL = 13`, the pose-clear point
-// the loc_b8de Level 2 probe also pins (remaining 14 visible -> 13 cleared).
-pub(crate) const PLAYER_DEATH_HIDDEN_SHELL_VISIBLE_FRAMES: usize = 19;
-// Oracle-backed `lose_life -> Teleport -> loc_6E2` traces keep the frozen
-// shell camera until 9 frames remain (Level 1 oracle zeroes Camera_X/Y on frame
-// 1785 = lose_life + 26), then clears it before the respawn bootstrap takes
-// over. `HIDE - CAMERA = 9`, matching the loc_b8de Level 2 probe (remaining 10
-// visible -> 9 cleared).
-pub(crate) const PLAYER_DEATH_HIDDEN_CAMERA_VISIBLE_FRAMES: usize = 23;
+// ASM loc_700 starts the VRAM clear while the frozen post-Death Kid remains
+// resident. Cross-route PC probes reach loc_714 nine frames later; that routine
+// clears the sprite table and Kid coordinates. Native reaches loc_700 with 14
+// countdown frames left, so the shell remains visible through remaining 6 and
+// clears at remaining 5.
+pub(crate) const PLAYER_DEATH_HIDDEN_SHELL_VISIBLE_FRAMES: usize = 27;
+// ASM loc_714 retains the transition camera until loc_726 clears gameplay
+// state four frames later. That maps to remaining 2 visible and remaining 1
+// clear on the native hidden countdown.
+pub(crate) const PLAYER_DEATH_HIDDEN_CAMERA_VISIBLE_FRAMES: usize = 31;
 // Oracle-backed death/respawn traces keep Kid on the hidden respawn settle path
 // far longer than the old 428-frame placeholder: the canonical
 // `death-respawn-level1` window compare still reports the mode-8 bootstrap hold

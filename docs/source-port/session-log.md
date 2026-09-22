@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #374 source-timed reload clear
+
+Level 0, level 1 and Scorpion selected-PC probes agree that `loc_714`
+follows `loc_700` by nine frames and `loc_726` follows four frames later.
+Native now keeps the frozen Kid and camera/Object state through those source
+phases. Scorpion frames 533, 541, 542, 545, 546 and 547 are pixel-exact, the
+checked-in route pins the boundaries, and fast/full gates preserve the frozen
+37,518/241/2,391 pixel baseline. #374 remains open for Bloody Swamp frame 144
+and Stairway foreground. No Jev spend or human playtest.
+
 ## 2026-09-22 - #374 fatal Island worker suspension
 
 The Scorpion fatal pass now stops the later Island shore worker after Kid
