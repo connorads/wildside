@@ -14,6 +14,21 @@ order at split time; nothing here is re-attributed or deduplicated.
 <a id="issue-374"></a>
 ### #374
 
+2026-09-22 Scorpion shore-art death probe: after the H-scroll fix, frames
+441-444 differed by 2,777 pixels. Layer captures isolate 549 persistent
+pixels to the Island shore animation. ROM VRAM `$F6C0..$F75F` is byte-identical
+at frames 439-442 and ROM `loc_12098/loc_12110/loc_12188` leaves the shore
+countdowns `$44/$46/$48(a5)` at 4/1/9 on fatal frame 440. Native's mid
+countdown instead reaches zero on 440 and queues a `$F6C0` DMA: its tuple
+changes `(3,2,0)` to `(3,3,0)`, displayed from 441. The native settled-warp
+frame-0 countdown is 2/8/8 against ROM 3/9/9, a one-tick object-clock offset.
+Rewinding that worker one hidden pass globally was rejected: the 445-frame
+pixel comparison fell from 352 to 264 exact frames, despite improving
+438-444 from three to six exact frames. The broad rewind and its probe test
+were removed. Next: trace the Island object's real DMA residency across the
+settled-warp handoff and death VBlank, then pin the displayed VRAM state
+without changing the earlier visible cadence. No native change or Jev spend.
+
 2026-09-22 fatal-frame H-scroll latch: Scorpion frame 439 was pixel-exact,
 but frame 440 differed by 284 pixels in three auto-scrolling cloud shapes.
 ROM WRAM `Time_Frames` is `$0218` at 439 and remains `$0218` from the

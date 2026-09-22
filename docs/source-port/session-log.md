@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #374 Scorpion Island shore-art boundary
+
+ROM VRAM keeps the `$F6C0` shore band unchanged through fatal frames
+439-442. Native schedules a mid-band DMA on frame 440 because its
+settled-warp Island object clock starts one tick ahead. Rewinding the
+whole hidden window improved the fatal span but reduced exact frames
+from 352 to 264 over frames 0-444, so that experiment was removed.
+The remaining investigation must model displayed VRAM residency
+without regressing the earlier cadence. No native change or Jev spend.
+
 ## 2026-09-22 - #374 Scorpion fatal H-scroll latch
 
 ROM `Death loc_B80C -> sub_8E0 loc_8FE` transfers the current H-scroll
