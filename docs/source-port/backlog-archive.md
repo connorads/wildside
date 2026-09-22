@@ -14,6 +14,27 @@ order at split time; nothing here is re-attributed or deduplicated.
 <a id="issue-374"></a>
 ### #374
 
+2026-09-22 three fresh 90-frame idle recordings settle and replay on current
+HEAD. `issue374-hoverboard-current` (0x17) and `issue374-lion-den-current`
+(0x23) match emulator trace, state, and every pixel at both frame-60 and
+frame-149 captures. Lion's Den has no oracle enemy snapshots at those
+checkpoints, so that pass does not establish enemy parity. The
+`issue374-stairway-current` (0x3A) trace and state also match, but each
+captured frame differs by 84 pixels: native draws an extra foreground
+shape beside spawn at about x=65..80, y=95..125. The layer capture places
+it in terrain, not Kid or an enemy. This is a reproducible visual failure.
+Scorpion Isle's first authoritative idle difference remains frame 193:
+native loses one HP and one Object/Gfx slot while oracle does not. The
+closest native projectile immediately beforehand is an Archer Arrow.
+ASM `Enemy07_ArcherArrow_Init` / `loc_342D6` and
+`GfxObjects_CollisionKid` show arrow lifetime and collision are sprite
+driven; the native Arrow currently falls through a generic 14-pixel by
+22-pixel centre-window contact test. This is a hypothesis, not an
+attributed fix. Park this investigation until the arrow's ROM collision
+size and frame-193 position can be measured; do not change the generic
+hitbox from the symptom alone. Bloody Swamp's later death path remains
+unexplained. No Jev call was made for these deterministic idle routes.
+
 2026-09-22 current-HEAD recheck rejects the 2026-07-06 fixed-candidate
 conclusion for full idle routes. Replaying the old 0x3E and 0x3F bundles
 drifts at native trace frame 0. Fresh recordings of their unchanged idle

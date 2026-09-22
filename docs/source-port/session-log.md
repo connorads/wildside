@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #374 named-level idle route triage
+
+Fresh 0x17 and 0x23 idle recordings match emulator state and pixels at both
+checkpoints. 0x3A matches state but draws an extra 84-pixel foreground shape
+beside spawn. Scorpion Isle's first authoritative frame-193 loss of HP and
+one Object/Gfx slot occurs near an Archer Arrow. The ROM's sprite collision
+size and arrow position remain unmeasured, so no collision change is made.
+Bloody Swamp's death tail remains open. Investigation is parked with these
+specific next probes; no Jev call or human playtest.
+
 ## 2026-09-22 - #374 complete debug-warp settle census
 
 A fresh full-range emulator census measured load completion for all 105
