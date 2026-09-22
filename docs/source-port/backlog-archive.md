@@ -14,6 +14,26 @@ order at split time; nothing here is re-attributed or deduplicated.
 <a id="issue-374"></a>
 ### #374
 
+2026-09-22 correction and Scorpion wall contact: ROM CPU tracing at frame 44
+shows sprite offset `$0CC4` selects `CollisionSize_Index[814]` entry
+`unk_31B10`, a narrow `(-7,14,-1,3)` box. The earlier empty-box claim
+below was an index error: the first index entry follows the label line.
+At frame 193 that box misses Kid by one pixel. Correcting all thirteen
+Arrow frame entries and the init hibernation wake keeps the 258-frame
+checked-in route gameplay/RNG-equivalent to ROM. The angled Arrow's box
+reaches the Scorpion left wall at frame 256, where `GfxObjects_Collision`
+latches contact; `loc_342D6/loc_34336` removes it on frame 257. Native
+previously tested only the Arrow centre and retained one extra Object/Gfx
+slot. A default-running synthetic wall test and the cache-backed route
+test pin this behaviour; the latter requires
+`KID_ENABLE_CACHE_BACKED_TESTS=1`. A diagnostic settled-warp replay has no
+gameplay or RNG divergence through frame 258; the 760-frame route's first
+gameplay difference is now Object count at frame 289. This does not close
+Scorpion's full idle path or #374. `verify-slice-fast` and the 37,759-frame
+`verify-tas-full` pass with frozen pixel/audio debt unchanged. The 105-level
+state sweep rises from 101 to 102 passed because 0x3F now passes; 0x1B,
+0x4C and 0x5C remain failed.
+
 2026-09-22 Scorpion Isle Arrow contact repair: the fresh 0x3F idle replay
 first diverged at frame 193, where native lost one HP and one Object/Gfx
 slot while ROM did not. Oracle WRAM at that frame gives Kid bounds

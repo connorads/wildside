@@ -6288,6 +6288,16 @@ mod chunk_02 {
         assert_eq!(frames[195].number_hitpoints, 1);
         assert_eq!(frames[195].number_objects, 10);
         assert_eq!(frames[220].number_hitpoints, 1);
+        assert_eq!(
+            (frames[256].number_objects, frames[256].number_gfx_objects),
+            (11, 15),
+            "ASM GfxObjects_Collision latches the Archer Arrow's left-wall contact",
+        );
+        assert_eq!(
+            (frames[257].number_objects, frames[257].number_gfx_objects),
+            (10, 14),
+            "ASM loc_342D6/loc_34336 removes that Arrow on its next wake",
+        );
     }
 
     #[test]

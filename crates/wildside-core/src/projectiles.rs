@@ -2044,6 +2044,31 @@ fn projectile_terrain_contact_loc_3345c(
 ) -> bool {
     let px_i = (projectile.x_pos >> 16) as i32;
     let py_i = (projectile.y_pos >> 16) as i32;
+    if projectile.kind == EnemyProjectileKind::ArcherArrow {
+        // ASM GfxObjects_Collision_SubBoxLoop (kid.asm) tests each box
+        // selected by Archer.asm off_343EA. An angled Arrow can hit a wall
+        // before its centre reaches that tile.
+        return archer_arrow_collision_rects(projectile).any(|[left, right, top, bottom]| {
+            if left < 0 || right >= grid.width_pixels() || top < 0 || bottom >= grid.height_pixels()
+            {
+                return true;
+            }
+            let left_col = terrain::pixel_to_cell(left) as u16;
+            let right_col = terrain::pixel_to_cell(right) as u16;
+            let top_row = terrain::pixel_to_cell(top) as u16;
+            let bottom_row = terrain::pixel_to_cell(bottom) as u16;
+            (top_row..=bottom_row).any(|row| {
+                (left_col..=right_col).any(|col| {
+                    matches!(
+                        grid.cell_at(col, row).collision,
+                        terrain::CollisionKind::Solid
+                            | terrain::CollisionKind::SlopeUp
+                            | terrain::CollisionKind::SlopeDown
+                    )
+                })
+            })
+        });
+    }
     if matches!(
         projectile.kind,
         EnemyProjectileKind::TankBullet | EnemyProjectileKind::TarMonsterStraightGlob
@@ -4227,6 +4252,16 @@ impl NativeRuntime {
                 archer_arrow_count = delete.number_of_arrows;
                 return false;
             }
+            if p.kind == EnemyProjectileKind::ArcherArrow && p.archer_level_contact_pending {
+                // ASM loc_342D6 consumes the collision word written by the
+                // preceding frame's GfxObjects_Collision pass.
+                let delete = archer_arrow_delete_loc_34336(archer_arrow_count);
+                debug_assert!(delete.deletes_current_object);
+                archer_arrow_count = delete.number_of_arrows;
+                return false;
+            }
+            let archer_initialising =
+                p.kind == EnemyProjectileKind::ArcherArrow && p.animation_elapsed_frames == 0;
             if p.kind == EnemyProjectileKind::ArcherArrow {
                 // ASM Enemy07_ArcherArrow_Init reaches loc_342D6 by
                 // hibernating first. Make_SpriteFromGfxObject writes `$19`
@@ -4416,7 +4451,7 @@ impl NativeRuntime {
             // Arrow re-aiming: ASM loc_342D6 loop. Every `reaim_interval` frames,
             // compute target angle toward player, adjust current_angle by ±1,
             // then update velocity from the new angle.
-            if p.reaim_interval > 0 {
+            if p.reaim_interval > 0 && !archer_initialising {
                 // ASM loc_342D6 hibernates, then `subq.w #1,d3; bne`.
                 // The wake that changes 1 to 0 re-aims immediately.
                 p.reaim_countdown = p.reaim_countdown.saturating_sub(1);
@@ -5194,9 +5229,8 @@ impl NativeRuntime {
                     released_owners.push(owner);
                 }
                 if p.kind == EnemyProjectileKind::ArcherArrow {
-                    let delete = archer_arrow_delete_loc_34336(archer_arrow_count);
-                    debug_assert!(delete.deletes_current_object);
-                    archer_arrow_count = delete.number_of_arrows;
+                    p.archer_level_contact_pending = true;
+                    return true;
                 }
                 return false; // destroyed on terrain contact
             }
@@ -5752,34 +5786,39 @@ fn archer_arrow_overlaps_player_loc_1bce(
     arrow: &EnemyProjectile,
     player: ProjectilePlayerBoundsPx,
 ) -> bool {
+    archer_arrow_collision_rects(arrow).any(|[left, right, top, bottom]| {
+        inclusive_bounds_overlap_loc_1bce(left, right, top, bottom, player)
+    })
+}
+
+fn archer_arrow_collision_rects(arrow: &EnemyProjectile) -> impl Iterator<Item = [i32; 4]> + '_ {
     use crate::types::ArcherArrowSpriteFrame::{
         C81F8, C8200, C8208, C8210, C8218, C8220, C8228, C8230, C8238, C8240, C8248, C8250, C8258,
     };
 
     // ASM Archer.asm byte_3437A/off_343EA selects the frame and flip byte.
     // CollisionSize_Index[814..826] (kid.asm) supplies these sub-boxes.
-    // C81F8 points at unk_31B0E, an empty collision entry, so horizontal
-    // arrows are visible but cannot damage Kid.
+    // C81F8 maps to unk_31B10; the first entry follows the index label.
     let (frame, flipped) = crate::archer_arrow_sprite_frame_from_angle(arrow.current_angle);
     let boxes: &[[i32; 4]] = match frame {
-        C81F8 => &[],
-        C8200 => &[[-7, 14, -1, 3]],
-        C8208 | C8238 => &[[-3, 14, -2, 4]],
-        C8210 => &[[-8, 7, 0, 4], [1, 6, -4, 4]],
-        C8218 => &[[-5, 5, 1, 4], [1, 5, -6, 6]],
-        C8220 => &[[-4, 4, 1, 7], [1, 3, -8, 8]],
-        C8228 => &[[1, 2, -9, 9]],
-        C8230 => &[[-1, 2, -9, 9]],
-        C8240 => &[[-8, 7, -4, 5], [1, 6, 1, 4]],
-        C8248 => &[[-5, 5, -4, 5], [1, 5, 1, 5]],
-        C8250 => &[[-4, 5, -8, 8], [1, 3, 1, 7]],
-        C8258 => &[[1, 2, 1, 8]],
+        C81F8 => &[[-7, 14, -1, 3]],
+        C8200 | C8230 => &[[-3, 14, -2, 4]],
+        C8208 => &[[-8, 7, 0, 4], [1, 6, -4, 4]],
+        C8210 => &[[-5, 5, 1, 4], [1, 5, -6, 6]],
+        C8218 => &[[-4, 4, 1, 7], [1, 3, -8, 8]],
+        C8220 => &[[1, 2, -9, 9]],
+        C8228 => &[[-1, 2, -9, 9]],
+        C8238 => &[[-8, 7, -4, 5], [1, 6, 1, 4]],
+        C8240 => &[[-5, 5, -4, 5], [1, 5, 1, 5]],
+        C8248 => &[[-4, 5, -8, 8], [1, 3, 1, 7]],
+        C8250 => &[[1, 2, 1, 8]],
+        C8258 => &[[-1, 2, 0, 9]],
     };
     let x = (arrow.x_pos >> 16) as i32;
     let y = (arrow.y_pos >> 16) as i32;
     boxes
         .iter()
-        .any(|&[left_offset, width, top_offset, height]| {
+        .map(move |&[left_offset, width, top_offset, height]| {
             let (left, right) = if flipped {
                 let right = x - left_offset;
                 (right - width, right)
@@ -5788,7 +5827,7 @@ fn archer_arrow_overlaps_player_loc_1bce(
                 (left, left + width)
             };
             let top = y + top_offset;
-            inclusive_bounds_overlap_loc_1bce(left, right, top, top + height, player)
+            [left, right, top, top + height]
         })
 }
 
@@ -5797,9 +5836,10 @@ mod archer_arrow_collision_tests {
     use super::*;
 
     /// ASM Enemy07_ArcherArrow_AngleToSpeedAndAnim / GfxObjects_CollisionKid:
-    /// `LnkTo_unk_C81F8` maps to empty CollisionSize_Index entry `unk_31B0E`.
+    /// `LnkTo_unk_C81F8` maps to `unk_31B10` (-7,14,-1,3), leaving a
+    /// one-pixel gap to Kid at the recorded frame-193 position.
     #[test]
-    fn horizontal_arrow_cannot_hit_kid_at_scorpion_frame_193() {
+    fn horizontal_arrow_misses_kid_by_one_pixel_at_scorpion_frame_193() {
         let arrow = EnemyProjectile {
             kind: EnemyProjectileKind::ArcherArrow,
             current_angle: 13,
@@ -5820,6 +5860,35 @@ mod archer_arrow_collision_tests {
             PROJECTILE_HITBOX_HALF,
             kid
         ));
+        let touching_arrow = EnemyProjectile {
+            x_pos: 35 << 16,
+            ..arrow
+        };
+        assert!(projectile_overlaps_player_loc_1c18(
+            &touching_arrow,
+            23,
+            255,
+            PROJECTILE_HITBOX_HALF,
+            kid
+        ));
+    }
+
+    /// ASM GfxObjects_Collision_SubBoxLoop uses the live C8208 box, whose
+    /// flipped left edge reaches the wall although the Arrow centre does not.
+    #[test]
+    fn angled_archer_arrow_hits_scorpion_left_wall_with_its_sprite_box() {
+        let mut layout = vec![0u8; 4 * 20 * 2];
+        layout[(16 * 4 + 2) * 2] = 0x60;
+        let grid = terrain::BlockGrid::from_level_layout(&layout, 4, 20);
+        let arrow = EnemyProjectile {
+            kind: EnemyProjectileKind::ArcherArrow,
+            current_angle: 11,
+            x_pos: 54 << 16,
+            y_pos: 270 << 16,
+            ..Default::default()
+        };
+        assert_eq!(grid.cell_at(3, 16).collision, terrain::CollisionKind::Empty);
+        assert!(projectile_terrain_contact_loc_3345c(&grid, &arrow));
     }
 
     /// ASM GfxObjects_CollisionKid latches `$28` on frame 194; the

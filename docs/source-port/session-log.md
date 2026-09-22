@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-22 - #374 Scorpion Archer Arrow wall contact
+
+ROM CPU tracing corrected the earlier empty horizontal hitbox claim: the
+actual box misses Kid by one pixel. Correcting the thirteen box entries
+and first wake timing, then testing each box against terrain, matches
+Scorpion Arrow removal at frames 256-257. The checked-in 258-frame route
+matches gameplay/RNG checkpoints; the 760-frame route first differs at
+frame 289 Object count. Fast/full TAS gates pass; the state sweep rises to
+102/105 as 0x3F passes. #374 stays open for that lifecycle, Stairway art,
+and Bloody Swamp's death tail. No paid Jev call or human playtest.
+
 ## 2026-09-22 - #374 Scorpion Archer Arrow contact
 
 ROM `CollisionSize_Index[814]` has no hitbox for horizontal Archer

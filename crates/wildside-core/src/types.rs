@@ -5504,6 +5504,8 @@ pub(crate) struct EnemyProjectile {
     pub(crate) reaim_interval: u16,
     /// ASM GfxObjects_CollisionKid writes arrow contact for its next object wake.
     pub(crate) archer_kid_contact_pending: bool,
+    /// ASM GfxObjects_Collision writes wall contact for the next loc_342D6 wake.
+    pub(crate) archer_level_contact_pending: bool,
     /// Countdown to next re-aim (decremented each frame).
     pub(crate) reaim_countdown: u16,
     /// Current angle index (0..27) for ±1 circular re-aim adjustment.

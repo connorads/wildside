@@ -221,9 +221,46 @@
     0,
     0,
     0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
     0
   ],
-  "frame_count": 221,
+  "frame_count": 258,
   "checkpoints": [
     {
       "label": "arrow_193",
@@ -240,6 +277,14 @@
     {
       "label": "arrow_220",
       "frame_index": 220
+    },
+    {
+      "label": "arrow_wall_contact",
+      "frame_index": 256
+    },
+    {
+      "label": "arrow_wall_cleanup",
+      "frame_index": 257
     }
   ],
   "warp_to_level": 63,

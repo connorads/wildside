@@ -723,6 +723,7 @@ pub(crate) fn step_archer(
         lion_projectile_bounce_empty_checks_loc_3e2c0: 0,
         reaim_interval: reaim,
         archer_kid_contact_pending: false,
+        archer_level_contact_pending: false,
         reaim_countdown: reaim,
         current_angle: angle as u8,
         terrain_kill: true,
