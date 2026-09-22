@@ -1374,6 +1374,7 @@ level-layout/22.bin
 level-layout/22.blocklist.bin
 level-layout/23.bin
 level-layout/23.blocklist.bin
+level-layout/23.json
 level-layout/24.bin
 level-layout/24.blocklist.bin
 level-layout/25.bin
@@ -1421,6 +1422,7 @@ level-layout/39.bin
 level-layout/39.blocklist.bin
 level-layout/3A.bin
 level-layout/3A.blocklist.bin
+level-layout/3A.json
 level-layout/3B.bin
 level-layout/3B.blocklist.bin
 level-layout/3C.bin
