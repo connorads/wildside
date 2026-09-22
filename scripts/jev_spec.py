@@ -1,6 +1,8 @@
 """Private JEV inputs. Scenarios retain only ordinary controls and lawful starts."""
 
 from dataclasses import dataclass
+import hashlib
+import subprocess
 
 
 def integer(value, low, high, name):
@@ -47,10 +49,12 @@ class RunSpec:
     issue: int
     start_level: int | None = None
     goal: str = ""
+    prefix: str | None = None
+    max_decisions: int = 600
 
     @classmethod
     def parse(cls, value):
-        if not isinstance(value, dict) or value.keys() - {"issue", "start_level", "goal"}:
+        if not isinstance(value, dict) or value.keys() - {"issue", "start_level", "goal", "prefix", "max_decisions"}:
             raise ValueError("unknown run specification fields")
         issue = integer(value.get("issue"), 1, 65535, "issue")
         level = value.get("start_level")
@@ -59,4 +63,19 @@ class RunSpec:
         goal = value.get("goal", "")
         if not isinstance(goal, str):
             raise ValueError("goal must be text")
-        return cls(issue, level, goal)
+        prefix = value.get("prefix")
+        if prefix is not None and (not isinstance(prefix, str) or not prefix.strip()):
+            raise ValueError("prefix must name a scenario file")
+        if prefix is not None and "start_level" in value:
+            raise ValueError("prefix supplies its own start; omit start_level")
+        decisions = integer(value.get("max_decisions", 600), 1, 600, "max_decisions")
+        return cls(issue, level, goal, prefix, decisions)
+
+
+def assert_source_current(root, identity):
+    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    patch = subprocess.check_output(["git", "diff", revision, "--binary"], cwd=root)
+    untracked = subprocess.check_output(["git", "ls-files", "--others", "--exclude-standard", "scripts", "crates"], cwd=root)
+    if (revision != identity["revision"] or hashlib.sha256(patch).hexdigest() != identity["source_patch_sha256"]
+            or untracked.strip()):
+        raise ValueError("source changed or contains untracked code; repeat preflight")

@@ -51,7 +51,20 @@ build. Inconclusive comparisons and blocked routes never count as proven cases.
 ```
 
 `start_level` is a decimal logical level index. Discovery compares the settled
-start against the oracle before requesting any paid decisions. Scenarios accept
+start against the oracle before requesting any paid decisions. Omit `start_level`
+for ordinary boot. To continue a saved route, replace `start_level` with
+`"prefix": "route.json"`, relative to the specification file. The prefix supplies
+its own start and must contain no injected state. `max_decisions` limits the new
+suffix to 1..600 six-frame decisions; the prefix does not consume that limit.
+
+Preflight compares frame zero, the prefix's existing checkpoints and each frame
+of its final 30-frame handoff window. A green result covers those checkpoints.
+The report lists their indices. Collection preserves held controls at the
+handoff and verifies exact replay of the complete input stream. Source identity
+is checked before collection, before each paid request and after collection;
+the collector also checks the preflight ROM identity. Changed source or ROM
+requires another preflight. Runs retain a resolved specification, prefix and
+source hashes alongside their recording bundle. Scenarios accept
 ordinary boot or settled diagnostic warps and reject injected gameplay state.
 A settled warp establishes diagnostic coverage, not natural level entry.
 
@@ -77,7 +90,8 @@ is $0.176526462; an allocation at that value has a $5.176526462 total ceiling.
 Three attempts per case, 600 decisions per attempt and a 20-minute collection
 deadline apply within this campaign. Historical tokens cannot dispatch.
 Each decision
-applies six frames, with at most 3,600 frames per route. Pricing and request
+applies six frames, with at most 3,600 newly collected frames per attempt.
+Saved prefix frames are retained separately from this limit. Pricing and request
 limits follow the pinned [Jev model](https://docs.typesafe.ai/models) and
 [HTTP API](https://docs.typesafe.ai/api). No bulk runner is provided.
 

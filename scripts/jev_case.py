@@ -1,7 +1,7 @@
 """Run one private bug case through the existing recording/oracle pipeline."""
 
 import argparse
-from dataclasses import asdict
+from dataclasses import asdict, replace
 import base64
 import html
 import json
@@ -16,7 +16,7 @@ import time
 from jev_audit import ROOT, audit
 from jev_proof import command, read_json, sha256, write_json
 import jev_case_service
-from jev_spec import RunSpec, load_scenario
+from jev_spec import RunSpec, load_scenario, assert_source_current
 
 CASE_STARTS = {210: None, 254: None, 327: 1, 370: 0, 502: 0x35}
 LIVE_GOALS = {
@@ -90,12 +90,17 @@ def encounter(issue, trace):
     return None
 
 
-def comparable(comparison):
+def comparable(comparison, frames=()):
     return bool(comparison and not comparison.get("native_replay_only")
                 and all(comparison.get(key) for key in
                         ("trace_match", "oracle_state_match", "oracle_frame_match"))
-                and comparison.get("frame_diffs"))
+                and comparison.get("frame_diffs")
+                and set(frames) <= {row.get("frame_index") for row in comparison["frame_diffs"]})
 
+
+
+def preflight_frames(length, checkpoints):
+    return sorted({0, *checkpoints, *range(max(0, length - 30), length)})
 
 def verdict(assessment, comparison, sensitivity):
     if assessment is None:
@@ -144,7 +149,8 @@ def capture(output, spec, inputs, checkpoints, env, live=False):
     write_json(config, {"issue": issue, "output": str(output / "bundle"), "script": inputs,
                         "checkpoints": checkpoints, "live": live, "start_level": spec.start_level,
                         "goal": spec.goal, "stall_after_batches": STALL_LIMITS.get(issue),
-                        "allow_wait": issue == 327, "stop_on_death": issue == 502})
+                        "allow_wait": issue == 327, "stop_on_death": issue == 502,
+                        "max_decisions": spec.max_decisions})
     command(["cargo", "test", "-q", "-p", "wildside-cli", "recording::jev_cases::case_bundle",
              "--", "--ignored", "--exact", "--nocapture"], ROOT, output / "capture.log",
             env=env | {"JEV_CASE_INPUT": str(config)})
@@ -215,7 +221,7 @@ def negative_control(output, issue, inputs, trace, assessment, env, revision):
 def run(output, spec, inputs, operation="check", checkpoints=()):
     issue = spec.issue
     live = operation == "discover"
-    write_json(output / "run-spec.json", asdict(spec) | {"operation": operation})
+    write_json(output / "run-spec.json", asdict(spec))
     env = os.environ.copy()
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     (output / "source.patch").write_bytes(subprocess.check_output(["git", "diff", revision, "--binary"], cwd=ROOT))
@@ -224,29 +230,50 @@ def run(output, spec, inputs, operation="check", checkpoints=()):
     source_provenance = {"revision": revision,
                          "source_patch_sha256": sha256(output / "source.patch"),
                          "runner_sha256": sha256(Path(__file__))}
+    write_json(output / "source.json", source_provenance)
     if live:
+        assert_source_current(ROOT, source_provenance)
+        write_json(output / "prefix.json", {"warp_to_level": spec.start_level,
+                   "settle_oracle_warp": spec.start_level is not None, "script": inputs,
+                   "frame_count": len(inputs), "checkpoints": [{"frame_index": f, "label": f"prefix-{f}"} for f in checkpoints]})
+        if inputs:
+            resolved = asdict(spec) | {"prefix": "prefix.json"}
+            resolved.pop("start_level")
+            write_json(output / "run-spec.json", resolved)
+        source_provenance["prefix_sha256"] = sha256(output / "prefix.json")
         preflight = output / "preflight"
         preflight.mkdir()
         offline_env = env.copy()
         offline_env.pop("TYPESAFE_API_KEY", None)
-        capture(preflight, spec, [0] * 6, [0, 5], offline_env)
+        preflight_inputs = inputs or [0] * 6
+        expected_frames = preflight_frames(len(preflight_inputs), checkpoints)
+        capture(preflight, spec, preflight_inputs, expected_frames, offline_env)
         command(["cargo", "run", "-q", "-p", "wildside-cli", "--", "verify-recording", "--bundle",
                  str(preflight / "bundle")], ROOT, preflight / "verify.log", env=offline_env, allowed=(0, 1))
         check = read_json(preflight / "bundle/verify/report.json")
-        if not comparable(check):
+        if not comparable(check, expected_frames):
             raise RuntimeError("live discovery blocked by starting-state oracle comparison; see preflight/verify.log")
+        source_provenance["preflight_frames"] = expected_frames
+        source_provenance["rom_sha1"] = read_json(preflight / "bundle/manifest.json")["rom_sha1"]
+        assert_source_current(ROOT, source_provenance)
+        env["JEV_SOURCE_IDENTITY"] = str(output / "source.json")
+        env["JEV_EXPECTED_ROM_SHA1"] = source_provenance["rom_sha1"]
         env["JEV_CASE_TOKEN"] = jev_case_service.begin_attempt(issue, output)
     else:
         env.pop("TYPESAFE_API_KEY", None)
-    checkpoints = [0] if live else sorted({0, len(inputs) - 1, *checkpoints})
+    checkpoints = sorted({0, *checkpoints}) if live else sorted({0, len(inputs) - 1, *checkpoints})
     capture(output, spec, inputs, checkpoints, env, live)
     env.pop("TYPESAFE_API_KEY", None)
+    if live:
+        assert_source_current(ROOT, source_provenance)
     trace = read_json(output / "bundle/trace.json")
     assessment = encounter(issue, trace) if operation == "check" else None
     begin, end = assessment["window"] if assessment else (max(0, len(trace) - 60), len(trace) - 1)
     # Preserve the whole event window, including prefix checkpoints, not just favourable frames.
     frames = sorted({*checkpoints, *range(begin, end + 1)})
     manifest = read_json(output / "bundle/manifest.json")
+    if live and manifest["rom_sha1"] != source_provenance["rom_sha1"]:
+        raise ValueError("ROM changed after preflight")
     manifest["scenario"]["checkpoints"] = [{"frame_index": frame, "label": f"case-{frame}"} for frame in frames]
     write_json(output / "bundle/manifest.json", manifest)
     write_json(output / "bundle/scenario.json", manifest["scenario"])
@@ -289,11 +316,14 @@ def main():
                 raise ValueError("discovery issue must be in the unresolved catalogue")
             if entries[spec.issue]["readiness"] in ("inactive_path", "human_device"):
                 raise ValueError("establish an active objective path before discovery")
-            if not spec.goal.strip() or spec.start_level is None:
-                raise ValueError("discovery needs a goal and settled start_level")
+            if not spec.goal.strip():
+                raise ValueError("discovery needs a goal")
             if not os.environ.get("TYPESAFE_API_KEY"):
                 raise ValueError("TYPESAFE_API_KEY is required for discovery")
             inputs = []
+            if spec.prefix:
+                level, inputs, checkpoints = load_scenario(read_json(args.spec.parent / spec.prefix))
+                spec = replace(spec, start_level=level)
         elif args.scenario:
             level, inputs, checkpoints = load_scenario(read_json(args.scenario))
             spec = RunSpec(args.issue if args.operation == "check" else 0, level)

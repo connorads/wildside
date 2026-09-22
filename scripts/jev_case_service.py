@@ -13,6 +13,7 @@ import urllib.request
 import uuid
 
 from jev_request import ENDPOINT, MODEL, deadline
+from jev_spec import assert_source_current
 
 LEDGER = Path(__file__).resolve().parents[1] / ".cache/jev-cases/budget.json"
 PRIOR = 24_954_048
@@ -181,6 +182,8 @@ def main():
     signal.signal(signal.SIGALRM, deadline)
     signal.alarm(12)
     try:
+        identity = json.loads(Path(os.environ["JEV_SOURCE_IDENTITY"]).read_text())
+        assert_source_current(Path(__file__).resolve().parents[1], identity)
         print(decision(os.environ["JEV_CASE_TOKEN"], json.load(sys.stdin), os.environ.get("TYPESAFE_API_KEY", "")))
     except Exception:
         # API exception text may contain request details. Retain accounting, not secrets.
