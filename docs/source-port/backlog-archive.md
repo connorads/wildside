@@ -25907,6 +25907,16 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 hidden prize-handler timing: a fresh saved-route trace extended the
+PC range from `0x12800` through `0x12808`, correcting the earlier incomplete
+hidden-path lead by including `sub_127CE`'s register restore and return. The
+generic overlay parser now models sorted hidden-record insertion, including
+the data-dependent search and backwards copy loops. Forest's hidden type-1
+group executes 569 instructions for 6,862 raw cycles, exactly matching the
+corrected full-PC trace; 108 further cycles are measured bus waits. Ghost,
+terrain, teleporter and property handlers remain before composition through
+`loc_11D0C`. No paid Jev request or human playtest.
+
 2026-09-23 visible prize-handler timing: the generic overlay parser now assigns
 ordered ASM costs to visible type-1 `loc_123DC` runs, including one-time base
 initialisation, signed property selection, record writes and horizontal or

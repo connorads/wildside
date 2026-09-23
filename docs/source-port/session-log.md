@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 hidden prize overlay timing
+
+The Forest hidden type-1 run now includes exact `sub_127A8` cell preparation
+and sorted `sub_127CE` record insertion. A corrected full-PC trace includes the
+previously omitted restore and return and pins 569 instructions, 6,862 raw
+cycles and 108 bus-wait cycles. Continue with ghost, terrain, teleporter and
+property handlers before composing through `loc_11D0C`. No Jev spend or human
+playtest.
+
 ## 2026-09-23 - #300 visible prize overlay timing
 
 Visible type-1 overlay runs now match exact Forest and Swamp emulator traces.

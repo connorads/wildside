@@ -232,6 +232,8 @@ pub(crate) struct BlockOverlayWorkloadLoc11c7e {
     pub(crate) fixed_handler_raw_cycles: u32,
     pub(crate) visible_prize_handler_instruction_count: u32,
     pub(crate) visible_prize_handler_raw_cycles: u32,
+    pub(crate) hidden_prize_handler_instruction_count: u32,
+    pub(crate) hidden_prize_handler_raw_cycles: u32,
 }
 
 /// Census the `$FFFF`-terminated stream consumed by ASM `loc_11C7E` and
@@ -239,6 +241,7 @@ pub(crate) struct BlockOverlayWorkloadLoc11c7e {
 #[cfg(test)]
 pub(crate) fn block_overlay_workload_loc_11c7e(
     words: &[u16],
+    level_width_tiles: u16,
 ) -> Option<BlockOverlayWorkloadLoc11c7e> {
     let mut workload = BlockOverlayWorkloadLoc11c7e {
         groups: 0,
@@ -252,9 +255,13 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
         fixed_handler_raw_cycles: 0,
         visible_prize_handler_instruction_count: 0,
         visible_prize_handler_raw_cycles: 0,
+        hidden_prize_handler_instruction_count: 0,
+        hidden_prize_handler_raw_cycles: 0,
     };
     let mut pos = 0_usize;
     let mut prize_handler_seen = false;
+    let mut hidden_prize_addresses = Vec::<u32>::new();
+    let mut hidden_list_complete = true;
     loop {
         let type_word = *words.get(pos)?;
         pos += 1;
@@ -269,6 +276,7 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
         workload.hidden_groups += u32::from(hidden);
         let fixed_handler = matches!(block_type, 0 | 2 | 5 | 7 | 9);
         let visible_prize_handler = block_type == 1 && !hidden;
+        let hidden_prize_handler = block_type == 1 && hidden;
         if fixed_handler {
             // ASM loc_122B8..loc_122BC: select word_122C6[block_type].
             workload.fixed_handler_instruction_count += 3;
@@ -279,6 +287,19 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
             workload.visible_prize_handler_instruction_count +=
                 if prize_handler_seen { 2 } else { 3 };
             workload.visible_prize_handler_raw_cycles += if prize_handler_seen { 26 } else { 40 };
+        }
+        if hidden_prize_handler {
+            if !hidden_list_complete {
+                return None;
+            }
+            // ASM loc_123DC..loc_123E2: later type-1 groups reuse the base.
+            workload.hidden_prize_handler_instruction_count +=
+                if prize_handler_seen { 2 } else { 3 };
+            workload.hidden_prize_handler_raw_cycles += if prize_handler_seen { 26 } else { 40 };
+        } else if hidden {
+            // Timing for the other hidden handler families must add their
+            // sub_127CE records before a later hidden prize group is measurable.
+            hidden_list_complete = false;
         }
         if block_type == 1 {
             prize_handler_seen = true;
@@ -298,6 +319,10 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
                     // ASM loc_123E6..loc_123EA: read the group terminator and return.
                     workload.visible_prize_handler_instruction_count += 3;
                     workload.visible_prize_handler_raw_cycles += 32;
+                }
+                if hidden_prize_handler {
+                    workload.hidden_prize_handler_instruction_count += 3;
+                    workload.hidden_prize_handler_raw_cycles += 32;
                 }
                 break;
             }
@@ -350,6 +375,40 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
                         workload.visible_prize_handler_raw_cycles += entry_cycles
                             + count.checked_mul(cell_cycles)?
                             + negative_properties.checked_mul(2)?;
+                    }
+                    if hidden_prize_handler {
+                        let count_u32 = u32::try_from(count).ok()?;
+                        workload.hidden_prize_handler_instruction_count +=
+                            14_u32.checked_add(count_u32.checked_mul(52)?)?;
+                        workload.hidden_prize_handler_raw_cycles +=
+                            118_u32.checked_add(count_u32.checked_mul(608)?)?;
+                        let x = u32::from(x);
+                        let y = u32::from(*words.get(pos)?);
+                        let row_stride = u32::from(level_width_tiles);
+                        for cell in 0..count_u32 {
+                            let address = if stride {
+                                y.checked_add(cell)?
+                                    .checked_mul(row_stride)?
+                                    .checked_add(x)?
+                            } else {
+                                y.checked_mul(row_stride)?
+                                    .checked_add(x)?
+                                    .checked_add(cell)?
+                            };
+                            let insertion_index = hidden_prize_addresses
+                                .partition_point(|existing| *existing <= address);
+                            let scanned = u32::try_from(insertion_index).ok()?;
+                            let shifted =
+                                u32::try_from(hidden_prize_addresses.len() - insertion_index + 1)
+                                    .ok()?;
+                            workload.hidden_prize_handler_instruction_count += scanned
+                                .checked_mul(4)?
+                                .checked_add(shifted.checked_mul(3)?)?;
+                            workload.hidden_prize_handler_raw_cycles += scanned
+                                .checked_mul(34)?
+                                .checked_add(shifted.checked_mul(54)?)?;
+                            hidden_prize_addresses.insert(insertion_index, address);
+                        }
                     }
                     pos = pos.checked_add(3)?.checked_add(count)?;
                     let count = u32::try_from(count).ok()?;

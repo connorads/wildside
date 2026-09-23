@@ -6157,7 +6157,8 @@ mod chunk_02 {
         assert_eq!(
             crate::load_in_game_timing::block_overlay_workload_loc_11c7e(
                 &crate::level::decode_block_layout_loc_132A6(&forest_block.bytes)
-                    .expect("decode Forest block layout")
+                    .expect("decode Forest block layout"),
+                u16::from(forest_header.width_screens) * 20,
             ),
             Some(crate::load_in_game_timing::BlockOverlayWorkloadLoc11c7e {
                 groups: 6,
@@ -6171,6 +6172,8 @@ mod chunk_02 {
                 fixed_handler_raw_cycles: 19_452,
                 visible_prize_handler_instruction_count: 652,
                 visible_prize_handler_raw_cycles: 6_152,
+                hidden_prize_handler_instruction_count: 569,
+                hidden_prize_handler_raw_cycles: 6_862,
             }),
             "ASM loc_11C7E dispatches every Forest overlay record before background loading"
         );
@@ -6397,7 +6400,8 @@ mod chunk_02 {
         assert_eq!(
             crate::load_in_game_timing::block_overlay_workload_loc_11c7e(
                 &crate::level::decode_block_layout_loc_132A6(&swamp_block.bytes)
-                    .expect("decode Swamp block layout")
+                    .expect("decode Swamp block layout"),
+                u16::from(swamp_header.width_screens) * 20,
             ),
             Some(crate::load_in_game_timing::BlockOverlayWorkloadLoc11c7e {
                 groups: 7,
@@ -6411,6 +6415,8 @@ mod chunk_02 {
                 fixed_handler_raw_cycles: 6_810,
                 visible_prize_handler_instruction_count: 346,
                 visible_prize_handler_raw_cycles: 3_292,
+                hidden_prize_handler_instruction_count: 0,
+                hidden_prize_handler_raw_cycles: 0,
             }),
             "ASM loc_11C7E dispatches every Swamp overlay record before background loading"
         );
