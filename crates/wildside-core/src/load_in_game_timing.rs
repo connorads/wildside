@@ -226,15 +226,22 @@ pub(crate) struct BlockLayoutDecodeWorkloadLoc132a6 {
 pub(crate) fn block_layout_decode_workload_loc_132a6(
     bytes: &[u8],
 ) -> Option<BlockLayoutDecodeWorkloadLoc132a6> {
+    visit_block_layout_decode_instructions_loc_132a6(bytes, |_| {})
+}
+
+fn visit_block_layout_decode_instructions_loc_132a6(
+    bytes: &[u8],
+    mut visit: impl FnMut(u32),
+) -> Option<BlockLayoutDecodeWorkloadLoc132a6> {
     if bytes.first() != Some(&0x40) {
         return None;
     }
     let mut padded = bytes.to_vec();
     padded.extend_from_slice(&[0; 8]);
-    let mut reader = BlockLayoutBitReader::new(&padded)?;
-    reader.read(8)?;
-    let x_width = reader.read(4)? as u8;
-    let y_width = reader.read(4)? as u8;
+    let mut reader = BlockLayoutBitReader::new(&padded, &mut visit)?;
+    reader.read(8, &mut visit)?;
+    let x_width = reader.read(4, &mut visit)? as u8;
+    let y_width = reader.read(4, &mut visit)? as u8;
     let x_sentinel = if x_width == 0 {
         0
     } else {
@@ -245,100 +252,106 @@ pub(crate) fn block_layout_decode_workload_loc_132a6(
     let mut property_words = 0_u32;
     let mut decoder_instruction_count = 0_u32;
     let mut decoder_raw_cycles = 0_u32;
-    let mut emit_decoder = |cycles: &[u32]| {
-        decoder_instruction_count += cycles.len() as u32;
-        decoder_raw_cycles += cycles.iter().sum::<u32>();
-    };
+    macro_rules! emit_decoder {
+        ($cycles:expr) => {{
+            let cycles: &[u32] = $cycles;
+            decoder_instruction_count += cycles.len() as u32;
+            decoder_raw_cycles += cycles.iter().sum::<u32>();
+            for &cycle in cycles {
+                visit(cycle);
+            }
+        }};
+    }
     // ASM loc_132A6: save 14 registers (a1 and a7 excluded), initialise the
     // reader, decode the two field widths and select the X sentinel mask.
-    emit_decoder(&[120, 4, 18, 12, 4, 18, 4, 18, 4, 4, 8, 14, 4, 18, 4]);
+    emit_decoder!(&[120, 4, 18, 12, 4, 18, 4, 18, 4, 4, 8, 14, 4, 18, 4]);
 
     loop {
-        emit_decoder(&[4, 18, 8, 4, 4, 18, 8]);
-        reader.read(1)?;
-        let block_type = reader.read(5)?;
+        emit_decoder!(&[4, 18, 8, 4, 4, 18, 8]);
+        reader.read(1, &mut visit)?;
+        let block_type = reader.read(5, &mut visit)?;
         if block_type == 0x1f {
-            emit_decoder(&[10, 12, 12, 124, 16]);
+            emit_decoder!(&[10, 12, 12, 124, 16]);
             break;
         }
-        emit_decoder(&[12, 4, 8, 4, 14, 14]);
+        emit_decoder!(&[12, 4, 8, 4, 14, 14]);
         groups += 1;
         loop {
-            emit_decoder(&[4, 18, 4]);
-            let x = reader.read(x_width.max(1))?;
+            emit_decoder!(&[4, 18, 4]);
+            let x = reader.read(x_width.max(1), &mut visit)?;
             if x == x_sentinel {
-                emit_decoder(&[8, 12, 10]);
+                emit_decoder!(&[8, 12, 10]);
                 break;
             }
-            emit_decoder(&[10, 8, 4, 18, 8]);
+            emit_decoder!(&[10, 8, 4, 18, 8]);
             entries += 1;
-            reader.read(y_width.max(1))?;
+            reader.read(y_width.max(1), &mut visit)?;
             match block_type {
                 0 | 2 | 5 | 6 | 7 | 8 | 9 | 13 | 14 | 15 => {
-                    emit_decoder(&[4, 18, 4, 8, 4, 18, 8, 10]);
-                    reader.read(4)?;
-                    reader.read(1)?;
+                    emit_decoder!(&[4, 18, 4, 8, 4, 18, 8, 10]);
+                    reader.read(4, &mut visit)?;
+                    reader.read(1, &mut visit)?;
                 }
                 1 => {
-                    emit_decoder(&[4, 18, 4, 4, 8, 4, 18, 8]);
-                    let count = reader.read(4)? + 1;
-                    reader.read(1)?;
+                    emit_decoder!(&[4, 18, 4, 4, 8, 4, 18, 8]);
+                    let count = reader.read(4, &mut visit)? + 1;
+                    reader.read(1, &mut visit)?;
                     property_words += u32::from(count);
                     for index in 0..count {
-                        emit_decoder(&[4, 18, 4]);
-                        let high_bit = reader.read(1)? != 0;
-                        emit_decoder(&[if high_bit { 8 } else { 10 }, 4, 18]);
-                        reader.read(4)?;
+                        emit_decoder!(&[4, 18, 4]);
+                        let high_bit = reader.read(1, &mut visit)? != 0;
+                        emit_decoder!(&[if high_bit { 8 } else { 10 }, 4, 18]);
+                        reader.read(4, &mut visit)?;
                         if high_bit {
-                            emit_decoder(&[8, 10]);
+                            emit_decoder!(&[8, 10]);
                         }
-                        emit_decoder(&[8, if index + 1 == count { 14 } else { 10 }]);
+                        emit_decoder!(&[8, if index + 1 == count { 14 } else { 10 }]);
                     }
-                    emit_decoder(&[10]);
+                    emit_decoder!(&[10]);
                 }
                 10 | 12 => {
-                    emit_decoder(&[4, 18, 4, 4, 8, 4, 18, 8]);
-                    let count = reader.read(4)? + 1;
-                    reader.read(1)?;
+                    emit_decoder!(&[4, 18, 4, 4, 8, 4, 18, 8]);
+                    let count = reader.read(4, &mut visit)? + 1;
+                    reader.read(1, &mut visit)?;
                     property_words += u32::from(count);
                     for index in 0..count {
-                        emit_decoder(&[4, 18]);
-                        reader.read(4)?;
-                        emit_decoder(&[8, if index + 1 == count { 14 } else { 10 }]);
+                        emit_decoder!(&[4, 18]);
+                        reader.read(4, &mut visit)?;
+                        emit_decoder!(&[8, if index + 1 == count { 14 } else { 10 }]);
                     }
-                    emit_decoder(&[10]);
+                    emit_decoder!(&[10]);
                 }
                 3 => {
                     for (index, width) in [3, 1, 8, 3, 8, 8].into_iter().enumerate() {
-                        emit_decoder(&[4, 18]);
-                        reader.read(width)?;
+                        emit_decoder!(&[4, 18]);
+                        reader.read(width, &mut visit)?;
                         if index == 0 {
-                            emit_decoder(&[4, 8]);
+                            emit_decoder!(&[4, 8]);
                         } else {
-                            emit_decoder(&[8]);
+                            emit_decoder!(&[8]);
                         }
                     }
-                    emit_decoder(&[10]);
+                    emit_decoder!(&[10]);
                 }
                 4 => {
-                    emit_decoder(&[4, 18]);
-                    reader.read(16)?;
-                    emit_decoder(&[4, 8, 4, 18]);
-                    reader.read(9)?;
-                    emit_decoder(&[8, 10]);
+                    emit_decoder!(&[4, 18]);
+                    reader.read(16, &mut visit)?;
+                    emit_decoder!(&[4, 8, 4, 18]);
+                    reader.read(9, &mut visit)?;
+                    emit_decoder!(&[8, 10]);
                 }
-                11 => emit_decoder(&[10]),
+                11 => emit_decoder!(&[10]),
                 16 => {
-                    emit_decoder(&[4, 18, 4, 4, 8, 4, 18, 8]);
-                    let count = reader.read(4)? + 1;
-                    reader.read(1)?;
+                    emit_decoder!(&[4, 18, 4, 4, 8, 4, 18, 8]);
+                    let count = reader.read(4, &mut visit)? + 1;
+                    reader.read(1, &mut visit)?;
                     property_words += u32::from(count);
                     for index in 0..count {
-                        emit_decoder(&[4, 18]);
-                        reader.read(3)?;
-                        emit_decoder(&[8, if index + 1 == count { 14 } else { 10 }]);
+                        emit_decoder!(&[4, 18]);
+                        reader.read(3, &mut visit)?;
+                        emit_decoder!(&[8, if index + 1 == count { 14 } else { 10 }]);
                     }
-                    emit_decoder(&[10]);
+                    emit_decoder!(&[10]);
                 }
                 _ => return None,
             }
@@ -375,8 +388,8 @@ struct BlockLayoutBitReader<'a> {
 }
 
 impl<'a> BlockLayoutBitReader<'a> {
-    fn new(bytes: &'a [u8]) -> Option<Self> {
-        Some(Self {
+    fn new(bytes: &'a [u8], visit: &mut impl FnMut(u32)) -> Option<Self> {
+        let reader = Self {
             bytes,
             position: 2,
             word: u16::from_be_bytes([*bytes.first()?, *bytes.get(1)?]),
@@ -387,30 +400,33 @@ impl<'a> BlockLayoutBitReader<'a> {
             // ASM sub_13618 seeds d5/d6 before the first sub_13622 call.
             instruction_count: 5,
             raw_cycles: 58,
-        })
+        };
+        for cycle in [8, 22, 8, 4, 16] {
+            visit(cycle);
+        }
+        Some(reader)
     }
 
-    fn read(&mut self, width: u8) -> Option<u16> {
+    fn read(&mut self, width: u8, visit: &mut impl FnMut(u32)) -> Option<u16> {
         if width == 0 || width > 16 {
             return None;
         }
         self.bit_read_calls += 1;
         self.bits_requested += u32::from(width);
         if width <= 8 {
-            self.emit(&[8, 10, 18]);
-            let value = self.read_short(width)?;
-            self.emit(&[16]);
+            self.emit(&[8, 10, 18], visit);
+            let value = self.read_short(width, visit)?;
             return Some(value);
         }
-        self.emit(&[8, 8, 4, 18]);
-        let high = self.read_short(width - 8)?;
-        self.emit(&[22, 8, 4, 18]);
-        let low = self.read_short(8)?;
-        self.emit(&[8, 16]);
+        self.emit(&[8, 8, 4, 18, 18], visit);
+        let high = self.read_short(width - 8, visit)?;
+        self.emit(&[22, 8, 4, 18, 18], visit);
+        let low = self.read_short(8, visit)?;
+        self.emit(&[8, 16], visit);
         Some((high << 8) | low)
     }
 
-    fn read_short(&mut self, width: u8) -> Option<u16> {
+    fn read_short(&mut self, width: u8, visit: &mut impl FnMut(u32)) -> Option<u16> {
         if width > self.remaining {
             return None;
         }
@@ -418,24 +434,27 @@ impl<'a> BlockLayoutBitReader<'a> {
         let mask = (1_u16 << width) - 1;
         let value = (self.word >> shift) & mask;
         // ASM sub_1363C, the immediate shift in sub_1364C, then loc_13650.
-        self.emit(&[4, 4, 4, 6 + 2 * u32::from(shift), 4, 14, 16, 8]);
+        self.emit(&[4, 4, 4, 6 + 2 * u32::from(shift), 4, 14, 16, 8], visit);
         self.remaining -= width;
         let rolling_refill = self.remaining < 9;
-        self.emit(&[4, 8, if rolling_refill { 12 } else { 10 }]);
+        self.emit(&[4, 8, if rolling_refill { 12 } else { 10 }], visit);
         if rolling_refill {
             self.remaining += 8;
             self.word = (self.word << 8) | u16::from(*self.bytes.get(self.position)?);
             self.position += 1;
             self.rolling_refills += 1;
-            self.emit(&[8, 22, 8]);
+            self.emit(&[8, 22, 8], visit);
         }
-        self.emit(&[16]);
+        self.emit(&[16], visit);
         Some(value)
     }
 
-    fn emit(&mut self, cycles: &[u32]) {
+    fn emit(&mut self, cycles: &[u32], visit: &mut impl FnMut(u32)) {
         self.instruction_count += cycles.len() as u32;
         self.raw_cycles += cycles.iter().sum::<u32>();
+        for &cycle in cycles {
+            visit(cycle);
+        }
     }
 }
 
@@ -779,8 +798,22 @@ pub(crate) struct ForegroundPrefixAdvanceLoc11ae4 {
     pub(crate) prelude_cursor_loc_11c10: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) decoder_cursor_loc_11c18: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) collision_cursor_loc_11c30: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) collision_exit_cursor_loc_11c52: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) foreground_refresh_events: u32,
+    pub(crate) block_post_guard_cursor_loc_11c7e: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) cursor: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) refresh_events: u32,
+}
+
+#[cfg(test)]
+pub(crate) struct LoadLayoutScheduleInputsLoc11ae4<'a> {
+    pub(crate) width_blocks: u16,
+    pub(crate) height_blocks: u16,
+    pub(crate) background_height: u16,
+    pub(crate) murder_wall_flags: u8,
+    pub(crate) layered_background: bool,
+    pub(crate) foreground_stream: &'a [u8],
+    pub(crate) block_layout_stream: &'a [u8],
 }
 
 /// Visit ASM `loc_11AE4..loc_11C0E` for a teleporter `Load_InGame`.
@@ -871,27 +904,23 @@ pub(crate) fn visit_level_layout_prelude_instructions_loc_11ae4(
     }
 }
 
-/// Schedule ASM `loc_11AE4..loc_11C50` without resetting raster state between
-/// the level-layout prelude, foreground decoder and collision expansion.
+/// Schedule ASM `loc_11AE4..loc_11C7E` without resetting raster state between
+/// the level-layout prelude, foreground decoder, collision expansion and block
+/// layout decoder.
 #[cfg(test)]
 pub(crate) fn schedule_foreground_prefix_loc_11ae4(
     entry: crate::vdp::LoadInGameCpuRasterCursor,
-    width_blocks: u16,
-    height_blocks: u16,
-    background_height: u16,
-    murder_wall_flags: u8,
-    layered_background: bool,
-    foreground_stream: &[u8],
+    inputs: &LoadLayoutScheduleInputsLoc11ae4<'_>,
 ) -> anyhow::Result<ForegroundPrefixAdvanceLoc11ae4> {
     let mut scheduler = crate::vdp::LoadInGameRasterScheduler::new(entry);
     let mut schedule_ok = true;
 
     visit_level_layout_prelude_instructions_loc_11ae4(
-        width_blocks,
-        height_blocks,
-        background_height,
-        murder_wall_flags,
-        layered_background,
+        inputs.width_blocks,
+        inputs.height_blocks,
+        inputs.background_height,
+        inputs.murder_wall_flags,
+        inputs.layered_background,
         |cycles| {
             if schedule_ok {
                 schedule_ok = scheduler.advance_instruction(cycles).is_some();
@@ -899,7 +928,7 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         },
     );
     let prelude_cursor_loc_11c10 = scheduler.cursor();
-    visit_foreground_terrain_decoder_instructions_loc_11c10(foreground_stream, |cycles| {
+    visit_foreground_terrain_decoder_instructions_loc_11c10(inputs.foreground_stream, |cycles| {
         if schedule_ok {
             schedule_ok = scheduler.advance_instruction(cycles).is_some();
         }
@@ -914,20 +943,48 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
     }
     let collision_cursor_loc_11c30 = scheduler.cursor();
     visit_foreground_collision_expansion_instructions_loc_11c34(
-        width_blocks,
-        height_blocks,
+        inputs.width_blocks,
+        inputs.height_blocks,
         |cycles| {
             if schedule_ok {
                 schedule_ok = scheduler.advance_instruction(cycles).is_some();
             }
         },
     );
+    let collision_exit_cursor_loc_11c52 = scheduler.cursor();
+    let foreground_refresh_events = scheduler.refresh_events();
+    // ASM loc_11C52..loc_11C6A: seed the temporary block-list buffer, fetch
+    // the compressed layout and call LoadBlockLayout. LoadBlockLayout
+    // loc_1329E verifies the $40 marker before entering loc_132A6.
+    for cycles in [24, 20, 12, 12, 18, 12, 10] {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(cycles).is_some();
+        }
+    }
+    visit_block_layout_decode_instructions_loc_132a6(inputs.block_layout_stream, |cycles| {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(cycles).is_some();
+        }
+    })
+    .ok_or_else(|| anyhow::anyhow!("invalid LoadBlockLayout stream"))?;
+    // ASM loc_11C6E..loc_11C74: the Forced Entry guard follows the decoder
+    // return. Moving through both instructions services any refresh slot
+    // pending at the return-PC boundary.
+    for cycles in [16, 10] {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(cycles).is_some();
+        }
+    }
+    let block_post_guard_cursor_loc_11c7e = scheduler.cursor();
 
-    anyhow::ensure!(schedule_ok, "Load_InGame foreground schedule overflow");
+    anyhow::ensure!(schedule_ok, "Load_InGame layout schedule overflow");
     Ok(ForegroundPrefixAdvanceLoc11ae4 {
         prelude_cursor_loc_11c10,
         decoder_cursor_loc_11c18,
         collision_cursor_loc_11c30,
+        collision_exit_cursor_loc_11c52,
+        foreground_refresh_events,
+        block_post_guard_cursor_loc_11c7e,
         cursor: scheduler.cursor(),
         refresh_events: scheduler.refresh_events(),
     })

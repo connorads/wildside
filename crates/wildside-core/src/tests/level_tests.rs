@@ -6153,6 +6153,7 @@ mod chunk_02 {
             .expect("load Forest destination assets");
         let forest_header = forest_bundle.parsed_header.expect("parsed Forest header");
         let forest_foreground = forest_bundle.foreground.expect("Forest foreground stream");
+        let forest_block = forest_bundle.block.expect("Forest block-layout stream");
         let forest_entry = crate::vdp::LoadInGameCpuRasterCursor {
             beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
                 155_878_532,
@@ -6161,12 +6162,15 @@ mod chunk_02 {
         };
         let forest_prefix = crate::load_in_game_timing::schedule_foreground_prefix_loc_11ae4(
             forest_entry,
-            20,
-            56,
-            49,
-            forest_header.murder_wall_flags,
-            true,
-            &forest_foreground.bytes,
+            &crate::load_in_game_timing::LoadLayoutScheduleInputsLoc11ae4 {
+                width_blocks: 20,
+                height_blocks: 56,
+                background_height: 49,
+                murder_wall_flags: forest_header.murder_wall_flags,
+                layered_background: true,
+                foreground_stream: &forest_foreground.bytes,
+                block_layout_stream: &forest_block.bytes,
+            },
         )
         .expect("schedule Forest layout, decoder and collision prefix");
         assert_eq!(
@@ -6197,7 +6201,7 @@ mod chunk_02 {
             },
         );
         assert_eq!(
-            forest_prefix.cursor,
+            forest_prefix.collision_exit_cursor_loc_11c52,
             crate::vdp::LoadInGameCpuRasterCursor {
                 beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
                     156_005_998
@@ -6206,7 +6210,17 @@ mod chunk_02 {
             },
             "ASM loc_11AE4..loc_11C50 reaches the exact emulator cursor without resetting VINT or refresh state between phases"
         );
-        assert_eq!(forest_prefix.refresh_events, 996);
+        assert_eq!(forest_prefix.foreground_refresh_events, 996);
+        assert_eq!(
+            forest_prefix.block_post_guard_cursor_loc_11c7e,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    156_071_910
+                ),),
+                refresh_phase: M68kRefreshPhase::new(29).expect("oracle refresh phase"),
+            },
+            "ASM loc_11AE4..loc_11C7E reaches the exact emulator cursor without resetting VINT or refresh state between phases"
+        );
         assert_eq!(
             frames[223].gameplay_debug_fields["teleport_background_work_loc_1280a"],
             "format=Layered placements=0 visited=0 copied=0 chunk_loop_instructions=0 chunk_loop_raw_cycles=0 chunk_wrapper_instructions=0 chunk_wrapper_raw_cycles=0 enigma_streams=3 enigma_instructions=45764 enigma_raw_cycles=373634 enigma_output_words=2688",
@@ -6214,7 +6228,7 @@ mod chunk_02 {
         );
         assert_eq!(
             frames[223].gameplay_debug_fields["teleport_block_decode_work_loc_132a6"],
-            "x_width=5 y_width=6 groups=6 entries=57 properties=27 bit_reads=305 bits=1155 refills=144 bytes=146 reader_instructions=5353 reader_raw_cycles=57206 decoder_instructions=1290 decoder_raw_cycles=12204",
+            "x_width=5 y_width=6 groups=6 entries=57 properties=27 bit_reads=305 bits=1155 refills=144 bytes=146 reader_instructions=5054 reader_raw_cycles=52430 decoder_instructions=1290 decoder_raw_cycles=12204",
             "ASM loc_132A6 preserves every source bit-read and refill boundary for resource 0x6E"
         );
         assert_eq!(
@@ -6359,6 +6373,7 @@ mod chunk_02 {
             .expect("load Swamp destination assets");
         let swamp_header = swamp_bundle.parsed_header.expect("parsed Swamp header");
         let swamp_foreground = swamp_bundle.foreground.expect("Swamp foreground stream");
+        let swamp_block = swamp_bundle.block.expect("Swamp block-layout stream");
         let swamp_entry = crate::vdp::LoadInGameCpuRasterCursor {
             beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
                 140_517_883,
@@ -6367,12 +6382,15 @@ mod chunk_02 {
         };
         let swamp_prefix = crate::load_in_game_timing::schedule_foreground_prefix_loc_11ae4(
             swamp_entry,
-            260,
-            28,
-            35,
-            swamp_header.murder_wall_flags,
-            false,
-            &swamp_foreground.bytes,
+            &crate::load_in_game_timing::LoadLayoutScheduleInputsLoc11ae4 {
+                width_blocks: 260,
+                height_blocks: 28,
+                background_height: 35,
+                murder_wall_flags: swamp_header.murder_wall_flags,
+                layered_background: false,
+                foreground_stream: &swamp_foreground.bytes,
+                block_layout_stream: &swamp_block.bytes,
+            },
         )
         .expect("schedule Swamp layout, decoder and collision prefix");
         assert_eq!(
@@ -6403,7 +6421,7 @@ mod chunk_02 {
             },
         );
         assert_eq!(
-            swamp_prefix.cursor,
+            swamp_prefix.collision_exit_cursor_loc_11c52,
             crate::vdp::LoadInGameCpuRasterCursor {
                 beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
                     141_297_445
@@ -6412,7 +6430,17 @@ mod chunk_02 {
             },
             "ASM loc_11AE4..loc_11C50 retains the same scheduler across all three Swamp decoder windows and collision rows"
         );
-        assert_eq!(swamp_prefix.refresh_events, 6_090);
+        assert_eq!(swamp_prefix.foreground_refresh_events, 6_090);
+        assert_eq!(
+            swamp_prefix.block_post_guard_cursor_loc_11c7e,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    141_411_459
+                ),),
+                refresh_phase: M68kRefreshPhase::new(67).expect("oracle refresh phase"),
+            },
+            "ASM loc_11AE4..loc_11C7E retains one scheduler across the Swamp foreground and block decoders"
+        );
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_background_work_loc_1280a"],
             "format=Chunked placements=48 visited=5656 copied=5656 chunk_loop_instructions=76888 chunk_loop_raw_cycles=623248 chunk_wrapper_instructions=1452 chunk_wrapper_raw_cycles=16584 enigma_streams=0 enigma_instructions=0 enigma_raw_cycles=0 enigma_output_words=0",
@@ -6420,7 +6448,7 @@ mod chunk_02 {
         );
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_block_decode_work_loc_132a6"],
-            "x_width=9 y_width=5 groups=7 entries=80 properties=24 bit_reads=428 bits=2085 refills=260 bytes=262 reader_instructions=9235 reader_raw_cycles=97600 decoder_instructions=1755 decoder_raw_cycles=16604",
+            "x_width=9 y_width=5 groups=7 entries=80 properties=24 bit_reads=428 bits=2085 refills=260 bytes=262 reader_instructions=9074 reader_raw_cycles=95380 decoder_instructions=1755 decoder_raw_cycles=16604",
             "ASM loc_132A6 preserves every source bit-read and refill boundary for resource 0x15"
         );
         assert_eq!(

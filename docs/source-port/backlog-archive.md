@@ -25907,6 +25907,17 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 corrected block-layout composition: full saved-route PC traces
+showed the decoder body was already exact, but the reader invented a second RTS
+after each short `ble.s sub_1364C` tail-call and omitted the inner
+`sub_1364C -> sub_1363C` BSR on wide reads. Forest is now 5,054 reader
+instructions and 52,430 cycles; Swamp is 9,074 and 95,380. The caller also
+executes the previously omitted `LoadBlockLayout loc_1329E` format guard before
+`loc_132A6`. One persistent scheduler now reaches the exact Forest and Swamp
+`loc_11C7E` cursors after the prelude, foreground decoder, collision expansion
+and block decoder. The ignored Swamp regression still reaches only its intended
+frame-166 loader-boundary failure. No paid Jev request or human playtest.
+
 2026-09-23 rejected block-layout composition: fresh saved-route selected-PC
 traces put Forest `loc_132A6` at cycle 156,006,108 and its return
 `loc_11C6E` at 156,071,884; Swamp uses 141,297,555 and 141,411,433. Converting

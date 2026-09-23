@@ -26670,6 +26670,13 @@ allowance; historical charged upper bound is $0.176526462, with no new paid call
 - `loc_11C10` exposes ordered BSR, decoder, TST and branch instructions for the
   persistent loader raster owner. Both saved routes pin wrapper and decoder work.
 - No Jev request or spend. Next: convert collision, block and background phases.
+## 2026-09-23 - #300 corrected block-layout composition
+
+Full PC traces corrected the reader's short-return and wide-call instruction
+ordering plus the caller's `loc_1329E` format guard. The persistent scheduler
+now reaches exact Forest and Swamp `loc_11C7E` cursors. Continue with the
+block-overlay dispatcher and background loader. No Jev spend or human playtest.
+
 ## 2026-09-23 - #300 rejected block-layout composition
 
 Saved-route PC traces bound `LoadBlockLayout` at 156,006,108..156,071,884 for
