@@ -26649,3 +26649,8 @@ allowance; historical charged upper bound is $0.176526462, with no new paid call
   state across the ordered `Load_InGame` phases.
 - A boundary regression proves phase changes cannot service one VINT twice.
 - No Jev request or spend. Next: route measured visitors through the owner.
+# 2026-09-23 - #300 foreground decoder visitor
+
+- `loc_11C10` exposes ordered BSR, decoder, TST and branch instructions for the
+  persistent loader raster owner. Both saved routes pin wrapper and decoder work.
+- No Jev request or spend. Next: convert collision, block and background phases.

@@ -25907,6 +25907,14 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 foreground decoder visitor: ASM `loc_11C10` now emits the ordered
+BSR, every `Decompress_Chunk` instruction, TST and taken/final BNE rather than
+only returning aggregates. Forest adds three wrapper instructions and 30 raw
+cycles around one decoder call; Swamp adds nine and 94 around three resumed
+calls. Saved routes pin both while retaining the established decoder totals.
+This is the first data-dependent phase ready for the persistent raster owner.
+No paid Jev call or human playtest.
+
 2026-09-23 persistent raster owner: `LoadInGameRasterScheduler` now keeps the
 beam, refresh counter, VINT armed edge and VDP FIFO alive across consecutive
 loader phases. A regression starts on the real scanline-224 interrupt boundary

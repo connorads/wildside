@@ -11,6 +11,8 @@ pub(crate) struct ForegroundTerrainDecoderWorkloadLoc11c10 {
     pub(crate) output_bytes: u32,
     pub(crate) instruction_count: u32,
     pub(crate) raw_cycles: u32,
+    pub(crate) wrapper_instruction_count: u32,
+    pub(crate) wrapper_raw_cycles: u32,
 }
 
 /// Measure each ASM `Decompress_Chunk loc_11C10` call selected by the
@@ -18,24 +20,40 @@ pub(crate) struct ForegroundTerrainDecoderWorkloadLoc11c10 {
 pub(crate) fn foreground_terrain_decoder_workload_loc_11c10(
     stream: &[u8],
 ) -> anyhow::Result<ForegroundTerrainDecoderWorkloadLoc11c10> {
+    visit_foreground_terrain_decoder_instructions_loc_11c10(stream, |_| {})
+}
+
+/// Visit the ordered source instructions selected by ASM `loc_11C10`.
+pub(crate) fn visit_foreground_terrain_decoder_instructions_loc_11c10(
+    stream: &[u8],
+    mut visit: impl FnMut(u32),
+) -> anyhow::Result<ForegroundTerrainDecoderWorkloadLoc11c10> {
     let mut workload = ForegroundTerrainDecoderWorkloadLoc11c10 {
         decoder_calls: 0,
         output_bytes: 0,
         instruction_count: 0,
         raw_cycles: 0,
+        wrapper_instruction_count: 0,
+        wrapper_raw_cycles: 0,
     };
     let mut resume = None;
     loop {
-        let visit = crate::saxman_timing::visit_decompress_chunk_instructions_sub_13684(
-            stream,
-            resume,
-            |_| {},
+        // ASM loc_11C10: BSR.W Decompress_Chunk.
+        visit(18);
+        let decoder = crate::saxman_timing::visit_decompress_chunk_instructions_sub_13684(
+            stream, resume, &mut visit,
         )?;
         workload.decoder_calls += 1;
-        workload.output_bytes += u32::from(visit.timing.output_bytes);
-        workload.instruction_count += visit.timing.instruction_count;
-        workload.raw_cycles += visit.timing.raw_cycles;
-        resume = visit.resume;
+        workload.output_bytes += u32::from(decoder.timing.output_bytes);
+        workload.instruction_count += decoder.timing.instruction_count;
+        workload.raw_cycles += decoder.timing.raw_cycles;
+        resume = decoder.resume;
+        // ASM loc_11C14/loc_11C18: TST.W d0; BNE.S loc_11C10.
+        visit(4);
+        let branch_cycles = if resume.is_some() { 10 } else { 8 };
+        visit(branch_cycles);
+        workload.wrapper_instruction_count += 3;
+        workload.wrapper_raw_cycles += 22 + branch_cycles;
         if resume.is_none() {
             return Ok(workload);
         }

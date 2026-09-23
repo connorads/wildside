@@ -12099,11 +12099,13 @@ impl NativeRuntime {
             gameplay_debug_fields.insert(
                 "teleport_foreground_decoder_work_loc_11c10".into(),
                 format!(
-                    "decoder_calls={} output_bytes={} instructions={} raw_cycles={}",
+                    "decoder_calls={} output_bytes={} instructions={} raw_cycles={} wrapper_instructions={} wrapper_raw_cycles={}",
                     workload.decoder_calls,
                     workload.output_bytes,
                     workload.instruction_count,
-                    workload.raw_cycles
+                    workload.raw_cycles,
+                    workload.wrapper_instruction_count,
+                    workload.wrapper_raw_cycles
                 ),
             );
         }

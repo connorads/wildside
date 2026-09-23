@@ -6136,7 +6136,7 @@ mod chunk_02 {
         );
         assert_eq!(
             frames[223].gameplay_debug_fields["teleport_foreground_decoder_work_loc_11c10"],
-            "decoder_calls=1 output_bytes=1120 instructions=3116 raw_cycles=29662",
+            "decoder_calls=1 output_bytes=1120 instructions=3116 raw_cycles=29662 wrapper_instructions=3 wrapper_raw_cycles=30",
             "ASM loc_11C10 follows the destination foreground Saxman stream"
         );
         assert_eq!(
@@ -6279,7 +6279,7 @@ mod chunk_02 {
         assert_eq!(frames[103].current_level, LevelId(0x3e));
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_foreground_decoder_work_loc_11c10"],
-            "decoder_calls=3 output_bytes=7280 instructions=18754 raw_cycles=184840",
+            "decoder_calls=3 output_bytes=7280 instructions=18754 raw_cycles=184840 wrapper_instructions=9 wrapper_raw_cycles=94",
             "ASM loc_11C10 follows every resumed destination foreground decoder window"
         );
         assert_eq!(
