@@ -236,6 +236,8 @@ pub(crate) struct BlockOverlayWorkloadLoc11c7e {
     pub(crate) hidden_prize_handler_raw_cycles: u32,
     pub(crate) visible_filling_ghost_handler_instruction_count: u32,
     pub(crate) visible_filling_ghost_handler_raw_cycles: u32,
+    pub(crate) visible_terrain_handler_instruction_count: u32,
+    pub(crate) visible_terrain_handler_raw_cycles: u32,
 }
 
 /// Census the `$FFFF`-terminated stream consumed by ASM `loc_11C7E` and
@@ -244,6 +246,7 @@ pub(crate) struct BlockOverlayWorkloadLoc11c7e {
 pub(crate) fn block_overlay_workload_loc_11c7e(
     words: &[u16],
     level_width_tiles: u16,
+    terrain_layout: &[u8],
 ) -> Option<BlockOverlayWorkloadLoc11c7e> {
     let mut workload = BlockOverlayWorkloadLoc11c7e {
         groups: 0,
@@ -261,6 +264,8 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
         hidden_prize_handler_raw_cycles: 0,
         visible_filling_ghost_handler_instruction_count: 0,
         visible_filling_ghost_handler_raw_cycles: 0,
+        visible_terrain_handler_instruction_count: 0,
+        visible_terrain_handler_raw_cycles: 0,
     };
     let mut pos = 0_usize;
     let mut prize_handler_seen = false;
@@ -313,6 +318,11 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
             workload.visible_filling_ghost_handler_instruction_count += 1;
             workload.visible_filling_ghost_handler_raw_cycles += 16;
         }
+        if block_type == 6 && !hidden {
+            // ASM loc_1233C: preserve the terrain cursor once per group.
+            workload.visible_terrain_handler_instruction_count += 1;
+            workload.visible_terrain_handler_raw_cycles += 12;
+        }
 
         loop {
             let x = *words.get(pos)?;
@@ -338,6 +348,11 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
                     workload.visible_filling_ghost_handler_instruction_count += 4;
                     workload.visible_filling_ghost_handler_raw_cycles += 40;
                 }
+                if block_type == 6 && !hidden {
+                    // ASM loc_1233E..loc_12344: restore the terrain cursor and return.
+                    workload.visible_terrain_handler_instruction_count += 4;
+                    workload.visible_terrain_handler_raw_cycles += 44;
+                }
                 break;
             }
             workload.entries = workload.entries.checked_add(1)?;
@@ -345,6 +360,7 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
                 0 | 2 | 5 | 6 | 7 | 8 | 9 | 13 | 14 | 15 => {
                     let count = u32::from(*words.get(pos + 1)?);
                     let stride = *words.get(pos + 2)? != 0;
+                    let y = u32::from(*words.get(pos)?);
                     pos = pos.checked_add(3)?;
                     workload.placement_cells = workload.placement_cells.checked_add(count)?;
                     let writes = if block_type == 8 {
@@ -365,6 +381,32 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
                         // ASM loc_12316/loc_1233A: return to the next X word.
                         workload.fixed_handler_instruction_count += 1;
                         workload.fixed_handler_raw_cycles += 10;
+                    }
+                    if block_type == 6 && !hidden {
+                        let x = u32::from(x);
+                        let row_stride = u32::from(level_width_tiles);
+                        let mut zero_cells = 0_u32;
+                        for cell in 0..count {
+                            let index = if stride {
+                                y.checked_add(cell)?
+                                    .checked_mul(row_stride)?
+                                    .checked_add(x)?
+                            } else {
+                                y.checked_mul(row_stride)?
+                                    .checked_add(x)?
+                                    .checked_add(cell)?
+                            };
+                            let index = usize::try_from(index).ok()?;
+                            zero_cells += u32::from(*terrain_layout.get(index)? == 0);
+                        }
+                        // ASM loc_12346..loc_123D8: each zero terrain byte takes
+                        // the extra `$E60C` move-and-branch path.
+                        workload.visible_terrain_handler_instruction_count += 19_u32
+                            .checked_add(count.checked_mul(10)?)?
+                            .checked_add(zero_cells)?;
+                        workload.visible_terrain_handler_raw_cycles += 160_u32
+                            .checked_add(count.checked_mul(82)?)?
+                            .checked_add(zero_cells.checked_mul(8)?)?;
                     }
                 }
                 1 | 10 | 12 | 16 => {

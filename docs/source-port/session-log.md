@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 terrain-dependent overlay timing
+
+Swamp's 24 type-6 records now index the decompressed terrain stream and time
+61 cells, including 51 zero-terrain branches. The source-filtered trace pins
+1,122 instructions and 9,306 raw cycles; the raster scheduler separately owns
+the interrupt that splits the handler across two frames. Continue with
+teleporter and property handlers before composing through `loc_11D0C`. No Jev
+spend or human playtest.
+
 ## 2026-09-23 - #300 visible ghost overlay timing
 
 Swamp's twelve type-3 records now time exact metadata writes and 27 horizontal

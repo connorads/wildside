@@ -25907,6 +25907,15 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 visible terrain-handler timing: Swamp's decoded type-6 records now
+index the decompressed terrain bytes and select the exact `$E60C` zero or
+`$E60E` occupied branch at `loc_12372`. Its 24 records visit 61 cells, 51 of
+them zero, for 1,122 source instructions and 9,306 raw cycles. The two-frame
+full-PC trace matches after excluding one 44-cycle VINT pseudo-row and its
+replayed branch; the persistent raster scheduler owns that interrupt. Teleporter
+and property handlers remain before composition through `loc_11D0C`. No paid
+Jev request or human playtest.
+
 2026-09-23 visible ghost-handler timing: the decoded Swamp type-3 records now
 drive exact `loc_124A6` timing for metadata writes and zero-control horizontal
 or vertical `$E304` fills. Its twelve records place 27 ghost cells and execute
