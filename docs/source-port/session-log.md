@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 visible prize overlay timing
+
+Visible type-1 overlay runs now match exact Forest and Swamp emulator traces.
+The model covers signed prize properties and both placement directions: Forest
+costs 652 instructions and 6,152 raw cycles; Swamp costs 346 and 3,292. Continue
+with hidden prize, ghost, terrain, teleporter and property handlers before
+composing through `loc_11D0C`. No Jev spend or human playtest.
+
 ## 2026-09-23 - #300 composed foreground loader prefix
 
 The persistent raster scheduler now reproduces exact Forest and Swamp emulator

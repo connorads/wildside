@@ -6169,6 +6169,8 @@ mod chunk_02 {
                 handler_groups: [1, 2, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                 fixed_handler_instruction_count: 2_194,
                 fixed_handler_raw_cycles: 19_452,
+                visible_prize_handler_instruction_count: 652,
+                visible_prize_handler_raw_cycles: 6_152,
             }),
             "ASM loc_11C7E dispatches every Forest overlay record before background loading"
         );
@@ -6407,6 +6409,8 @@ mod chunk_02 {
                 handler_groups: [1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
                 fixed_handler_instruction_count: 818,
                 fixed_handler_raw_cycles: 6_810,
+                visible_prize_handler_instruction_count: 346,
+                visible_prize_handler_raw_cycles: 3_292,
             }),
             "ASM loc_11C7E dispatches every Swamp overlay record before background loading"
         );

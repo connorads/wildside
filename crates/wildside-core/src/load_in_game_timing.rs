@@ -230,6 +230,8 @@ pub(crate) struct BlockOverlayWorkloadLoc11c7e {
     pub(crate) handler_groups: [u16; 17],
     pub(crate) fixed_handler_instruction_count: u32,
     pub(crate) fixed_handler_raw_cycles: u32,
+    pub(crate) visible_prize_handler_instruction_count: u32,
+    pub(crate) visible_prize_handler_raw_cycles: u32,
 }
 
 /// Census the `$FFFF`-terminated stream consumed by ASM `loc_11C7E` and
@@ -248,8 +250,11 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
         handler_groups: [0; 17],
         fixed_handler_instruction_count: 0,
         fixed_handler_raw_cycles: 0,
+        visible_prize_handler_instruction_count: 0,
+        visible_prize_handler_raw_cycles: 0,
     };
     let mut pos = 0_usize;
+    let mut prize_handler_seen = false;
     loop {
         let type_word = *words.get(pos)?;
         pos += 1;
@@ -263,10 +268,20 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
         workload.groups = workload.groups.checked_add(1)?;
         workload.hidden_groups += u32::from(hidden);
         let fixed_handler = matches!(block_type, 0 | 2 | 5 | 7 | 9);
+        let visible_prize_handler = block_type == 1 && !hidden;
         if fixed_handler {
             // ASM loc_122B8..loc_122BC: select word_122C6[block_type].
             workload.fixed_handler_instruction_count += 3;
             workload.fixed_handler_raw_cycles += 22;
+        }
+        if visible_prize_handler {
+            // ASM loc_123DC..loc_123E2: initialise the prize-record base once.
+            workload.visible_prize_handler_instruction_count +=
+                if prize_handler_seen { 2 } else { 3 };
+            workload.visible_prize_handler_raw_cycles += if prize_handler_seen { 26 } else { 40 };
+        }
+        if block_type == 1 {
+            prize_handler_seen = true;
         }
 
         loop {
@@ -278,6 +293,11 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
                     // return to loc_11C94.
                     workload.fixed_handler_instruction_count += 3;
                     workload.fixed_handler_raw_cycles += 32;
+                }
+                if visible_prize_handler {
+                    // ASM loc_123E6..loc_123EA: read the group terminator and return.
+                    workload.visible_prize_handler_instruction_count += 3;
+                    workload.visible_prize_handler_raw_cycles += 32;
                 }
                 break;
             }
@@ -310,6 +330,27 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
                 }
                 1 | 10 | 12 | 16 => {
                     let count = usize::from(*words.get(pos + 1)?);
+                    let stride = *words.get(pos + 2)? != 0;
+                    let properties = words.get(pos + 3..pos + 3 + count)?;
+                    if visible_prize_handler {
+                        // ASM loc_123EC..loc_124A6: consume one visible horizontal
+                        // or vertical record through the nullsub_1 path.
+                        workload.visible_prize_handler_instruction_count +=
+                            14_u32.checked_add(u32::try_from(count).ok()?.checked_mul(20)?)?;
+                        let negative_properties = u32::try_from(
+                            properties
+                                .iter()
+                                .filter(|property| **property & 0x8000 != 0)
+                                .count(),
+                        )
+                        .ok()?;
+                        let count = u32::try_from(count).ok()?;
+                        let entry_cycles = if stride { 122 } else { 118 };
+                        let cell_cycles = if stride { 210 } else { 202 };
+                        workload.visible_prize_handler_raw_cycles += entry_cycles
+                            + count.checked_mul(cell_cycles)?
+                            + negative_properties.checked_mul(2)?;
+                    }
                     pos = pos.checked_add(3)?.checked_add(count)?;
                     let count = u32::try_from(count).ok()?;
                     workload.placement_cells = workload.placement_cells.checked_add(count)?;

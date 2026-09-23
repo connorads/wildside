@@ -25907,6 +25907,14 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 visible prize-handler timing: the generic overlay parser now assigns
+ordered ASM costs to visible type-1 `loc_123DC` runs, including one-time base
+initialisation, signed property selection, record writes and horizontal or
+vertical stepping. Forest executes 652 instructions for 6,152 raw cycles;
+Swamp executes 346 for 3,292. Both totals exactly match independent full-PC
+traces. Hidden prize, ghost, terrain, teleporter and property handlers remain
+before composition through `loc_11D0C`. No paid Jev request or human playtest.
+
 2026-09-23 fixed block-handler timing: the generic overlay parser now assigns
 ordered ASM costs to visible `loc_122B8` fixed runs, including every X/Y setup,
 horizontal or vertical cell write, DBF exit and group return. Forest's type
