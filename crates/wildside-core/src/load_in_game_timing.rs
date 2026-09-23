@@ -1631,6 +1631,7 @@ pub(crate) struct ForegroundPrefixAdvanceLoc11ae4 {
     pub(crate) block_post_guard_cursor_loc_11c7e: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) block_overlay_cursor_loc_11d0c: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) background_cursor_loc_11d12: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) theme_entry_cursor_loc_11e60: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) cursor: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) refresh_events: u32,
 }
@@ -1645,6 +1646,96 @@ pub(crate) struct LoadLayoutScheduleInputsLoc11ae4<'a> {
     pub(crate) foreground_stream: &'a [u8],
     pub(crate) block_layout_stream: &'a [u8],
     pub(crate) background_instruction_cycles: &'a [u32],
+    pub(crate) map_order_id: u8,
+    pub(crate) foreground_theme: u16,
+}
+
+/// Visit ASM `loc_11D12..loc_11E5E`, ending at the foreground-theme
+/// `DecompressToRAM` call at `loc_11E60`.
+#[cfg(test)]
+fn visit_theme_caller_instructions_loc_11d12(
+    map_order_id: u8,
+    foreground_theme: u16,
+    mut visit: impl FnMut(u32),
+) {
+    let mut emit = |cycles: &[u32]| {
+        for &cycle in cycles {
+            visit(cycle);
+        }
+    };
+
+    // Theme mapping pointer, enemy layout pointer and the ordinary-priority
+    // block-mapping table setup. Both saved teleporter destinations enter
+    // with $FFFFF896 clear.
+    emit(&[20, 30, 12, 24, 16, 20, 12, 4, 12, 10, 8]);
+    for index in 0..162 {
+        emit(&[12, 8, 12, if index == 161 { 14 } else { 10 }]);
+    }
+
+    // ASM loc_11D50..loc_11D72 selects the foreground palette source.
+    emit(&[20, 4, 10, 14, 16, 4, 12, 12, 20, 14]);
+    match map_order_id {
+        0x03 => emit(&[8, 10, 8]),
+        0x08 => emit(&[8, 8, 8, 10, 8]),
+        0x05 => emit(&[8, 8, 8, 8, 8, 8, 8, 10]),
+        _ => emit(&[8, 8, 8, 8, 8, 10]),
+    }
+    match map_order_id {
+        0x1C => emit(&[8, 10, 4]),
+        0x73 => emit(&[8, 8, 8, 10, 4]),
+        _ => emit(&[8, 8, 8, 10]),
+    }
+    match map_order_id {
+        0x1A => emit(&[8, 10, 8]),
+        0x17 => emit(&[8, 8, 8, 8, 8]),
+        _ => emit(&[8, 8, 8, 10]),
+    }
+    emit(&[12, 4]);
+    for index in 0..15 {
+        emit(&[12, if index == 14 { 14 } else { 10 }]);
+    }
+
+    // ASM loc_11DBE..loc_11E16 selects and copies the background palette.
+    emit(&[20, 4, 12, 4, 14, 16, 4, 12, 12, 20, 14]);
+    match map_order_id {
+        0x03 => emit(&[8, 10, 8]),
+        0x08 => emit(&[8, 8, 8, 10, 8]),
+        _ => emit(&[8, 8, 8, 10]),
+    }
+    match map_order_id {
+        0x1C => emit(&[8, 10, 4]),
+        0x73 => emit(&[8, 8, 8, 10, 4]),
+        _ => emit(&[8, 8, 8, 10]),
+    }
+    match map_order_id {
+        0x1A => emit(&[8, 10, 8]),
+        0x17 => emit(&[8, 8, 8, 8, 8]),
+        _ => emit(&[8, 8, 8, 10]),
+    }
+    emit(&[20, 12, 4]);
+    for index in 0..7 {
+        emit(&[12, if index == 6 { 14 } else { 10 }]);
+    }
+
+    // ASM loc_11E2A..loc_11E5E selects the foreground permutation table.
+    emit(&[20, 18, 8, 8, 16]);
+    if foreground_theme == 0x0A {
+        emit(&[8, 8]);
+    } else {
+        emit(&[10]);
+    }
+    emit(&[16]);
+    if foreground_theme == 0x09 {
+        emit(&[8, 8]);
+    } else {
+        emit(&[10]);
+    }
+    emit(&[16]);
+    if foreground_theme == 0x07 {
+        emit(&[8, 8]);
+    } else {
+        emit(&[10]);
+    }
 }
 
 /// Visit ASM `loc_11AE4..loc_11C0E` for a teleporter `Load_InGame`.
@@ -1834,6 +1925,16 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         }
     }
     let background_cursor_loc_11d12 = scheduler.cursor();
+    visit_theme_caller_instructions_loc_11d12(
+        inputs.map_order_id,
+        inputs.foreground_theme,
+        |cycles| {
+            if schedule_ok {
+                schedule_ok = scheduler.advance_instruction(cycles).is_some();
+            }
+        },
+    );
+    let theme_entry_cursor_loc_11e60 = scheduler.cursor();
 
     anyhow::ensure!(schedule_ok, "Load_InGame layout schedule overflow");
     Ok(ForegroundPrefixAdvanceLoc11ae4 {
@@ -1845,6 +1946,7 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         block_post_guard_cursor_loc_11c7e,
         block_overlay_cursor_loc_11d0c,
         background_cursor_loc_11d12,
+        theme_entry_cursor_loc_11e60,
         cursor: scheduler.cursor(),
         refresh_events: scheduler.refresh_events(),
     })

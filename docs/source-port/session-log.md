@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 theme caller composition
+
+The palette, mapping-copy and foreground permutation caller now runs through
+the persistent scheduler after background mapping. Fresh saved-route traces
+pin exact Forest and Swamp `loc_11E60` cursors. Continue with foreground and
+background theme art, then Murderwall. No Jev spend or human playtest.
+
 ## 2026-09-23 - #300 background scheduler composition
 
 Forest's layered Enigma mappings and Swamp's direct chunk mappings now execute

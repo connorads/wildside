@@ -25907,6 +25907,15 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 theme-caller scheduler composition: fresh saved-route PC traces put
+Forest at `loc_11E60` on cycle 156,500,570 with refresh phase 17 and Swamp on
+142,100,733 with phase 61. The source visitor now executes the shared mapping
+copy, both palette copies, every MapOrder palette branch and the foreground
+permutation selection through the persistent scheduler. Forest's extra
+permutation-table LEA accounts for the six-cycle path difference. Both cursors
+match the emulator exactly. Continue with theme-art decompression and
+Murderwall. No paid Jev request or human playtest.
+
 2026-09-23 background scheduler composition: instruction-ordered visitors now
 drive Forest's three layered Enigma streams and Swamp's 48 direct chunk
 placements through the persistent scheduler. Fresh saved-route PC traces exposed

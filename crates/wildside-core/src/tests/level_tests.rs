@@ -6252,6 +6252,8 @@ mod chunk_02 {
                 foreground_stream: &forest_foreground.bytes,
                 block_layout_stream: &forest_block.bytes,
                 background_instruction_cycles: &forest_background_cycles,
+                map_order_id: 0x6E,
+                foreground_theme: u16::from(forest_header.level_theme),
             },
         )
         .expect("schedule Forest layout, decoder and collision prefix");
@@ -6322,6 +6324,16 @@ mod chunk_02 {
                 refresh_phase: M68kRefreshPhase::new(71).expect("oracle refresh phase"),
             },
             "ASM loc_11D0C -> Load_BackgroundMappings_Layered reaches the exact Forest return cursor"
+        );
+        assert_eq!(
+            forest_prefix.theme_entry_cursor_loc_11e60,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    156_500_570
+                )),
+                refresh_phase: M68kRefreshPhase::new(17).expect("oracle refresh phase"),
+            },
+            "ASM loc_11D12..loc_11E60 reaches the exact Forest theme-art entry cursor"
         );
         assert_eq!(
             frames[223].gameplay_debug_fields["teleport_background_work_loc_1280a"],
@@ -6570,6 +6582,8 @@ mod chunk_02 {
                 foreground_stream: &swamp_foreground.bytes,
                 block_layout_stream: &swamp_block.bytes,
                 background_instruction_cycles: &swamp_background_cycles,
+                map_order_id: 0x15,
+                foreground_theme: u16::from(swamp_header.level_theme),
             },
         )
         .expect("schedule Swamp layout, decoder and collision prefix");
@@ -6640,6 +6654,16 @@ mod chunk_02 {
                 refresh_phase: M68kRefreshPhase::new(121).expect("oracle refresh phase"),
             },
             "ASM loc_11D0C -> Load_BackgroundMappings reaches the exact Swamp return cursor"
+        );
+        assert_eq!(
+            swamp_prefix.theme_entry_cursor_loc_11e60,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    142_100_733
+                )),
+                refresh_phase: M68kRefreshPhase::new(61).expect("oracle refresh phase"),
+            },
+            "ASM loc_11D12..loc_11E60 reaches the exact Swamp theme-art entry cursor"
         );
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_background_work_loc_1280a"],
