@@ -25907,6 +25907,14 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 block-overlay scheduler composition: the decoded overlay visitor now
+emits every source instruction in execution order through `loc_11D08`, including
+data-dependent hidden insertion, terrain and ghost-fill branches. The persistent
+raster scheduler reaches Forest `loc_11D0C` at cycle 156,106,568 with refresh
+phase 127 and Swamp at 141,439,601 with phase 49, exactly matching the emulator.
+The ignored Swamp regression advances to its intended frame-166 failure. Model
+background, theme and Murderwall next. No paid Jev request or human playtest.
+
 2026-09-23 complete route overlay timing: visible `loc_1263C` teleporter
 records cost 31 instructions and 354 raw cycles on both destinations. Swamp's
 five visible type-10 property records add 241 instructions and 2,096 cycles.

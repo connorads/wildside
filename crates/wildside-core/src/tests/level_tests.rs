@@ -6191,6 +6191,23 @@ mod chunk_02 {
             }),
             "ASM loc_11C7E dispatches every Forest overlay record before background loading"
         );
+        let forest_overlay_cycles =
+            crate::load_in_game_timing::block_overlay_instruction_cycles_loc_11c7e(
+                &wildside_data::decode_block_layout(&forest_block.bytes)
+                    .expect("decode Forest block layout"),
+                u16::from(forest_header.width_screens) * 20,
+                &wildside_data::decode_saxman(&forest_foreground.bytes)
+                    .expect("decode Forest terrain layout"),
+            )
+            .expect("visit Forest block overlay instructions");
+        assert_eq!(
+            (
+                forest_overlay_cycles.len() as u32,
+                forest_overlay_cycles.iter().sum::<u32>()
+            ),
+            (3_556, 34_118),
+            "ASM loc_11C7E..loc_11D08 instruction order preserves the measured Forest totals"
+        );
         let forest_entry = crate::vdp::LoadInGameCpuRasterCursor {
             beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
                 155_878_532,
@@ -6257,6 +6274,16 @@ mod chunk_02 {
                 refresh_phase: M68kRefreshPhase::new(29).expect("oracle refresh phase"),
             },
             "ASM loc_11AE4..loc_11C7E reaches the exact emulator cursor without resetting VINT or refresh state between phases"
+        );
+        assert_eq!(
+            forest_prefix.block_overlay_cursor_loc_11d0c,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    156_106_568
+                )),
+                refresh_phase: M68kRefreshPhase::new(127).expect("oracle refresh phase"),
+            },
+            "ASM loc_11C7E..loc_11D08 schedules each Forest overlay instruction across refresh and VINT boundaries"
         );
         assert_eq!(
             frames[223].gameplay_debug_fields["teleport_background_work_loc_1280a"],
@@ -6448,6 +6475,23 @@ mod chunk_02 {
             }),
             "ASM loc_11C7E dispatches every Swamp overlay record before background loading"
         );
+        let swamp_overlay_cycles =
+            crate::load_in_game_timing::block_overlay_instruction_cycles_loc_11c7e(
+                &wildside_data::decode_block_layout(&swamp_block.bytes)
+                    .expect("decode Swamp block layout"),
+                u16::from(swamp_header.width_screens) * 20,
+                &wildside_data::decode_saxman(&swamp_foreground.bytes)
+                    .expect("decode Swamp terrain layout"),
+            )
+            .expect("visit Swamp block overlay instructions");
+        assert_eq!(
+            (
+                swamp_overlay_cycles.len() as u32,
+                swamp_overlay_cycles.iter().sum::<u32>()
+            ),
+            (3_084, 27_588),
+            "ASM loc_11C7E..loc_11D08 instruction order preserves the measured Swamp totals"
+        );
         let swamp_entry = crate::vdp::LoadInGameCpuRasterCursor {
             beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
                 140_517_883,
@@ -6514,6 +6558,16 @@ mod chunk_02 {
                 refresh_phase: M68kRefreshPhase::new(67).expect("oracle refresh phase"),
             },
             "ASM loc_11AE4..loc_11C7E retains one scheduler across the Swamp foreground and block decoders"
+        );
+        assert_eq!(
+            swamp_prefix.block_overlay_cursor_loc_11d0c,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    141_439_601
+                )),
+                refresh_phase: M68kRefreshPhase::new(49).expect("oracle refresh phase"),
+            },
+            "ASM loc_11C7E..loc_11D08 schedules each Swamp overlay instruction across refresh and VINT boundaries"
         );
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_background_work_loc_1280a"],

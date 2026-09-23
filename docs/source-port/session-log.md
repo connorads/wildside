@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 block-overlay scheduler composition
+
+An instruction-ordered visitor now drives every Forest and Swamp block-overlay
+handler through the persistent refresh/VINT scheduler. Both `loc_11D0C` cursors
+match the emulator exactly. The Swamp timing regression reaches its existing
+frame-166 background-work boundary. Continue with background, theme and
+Murderwall before changing the fixed hand-off. No Jev spend or human playtest.
+
 ## 2026-09-23 - #300 complete route overlay timing
 
 Teleporter and property handlers complete both destination overlay paths. The

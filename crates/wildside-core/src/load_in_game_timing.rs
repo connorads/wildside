@@ -618,6 +618,351 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
     }
 }
 
+/// Emit the non-VDP source instructions executed by ASM `loc_11C7E..loc_11D08`
+/// for the block-handler families exercised by the teleporter timing routes.
+#[cfg(test)]
+pub(crate) fn block_overlay_instruction_cycles_loc_11c7e(
+    words: &[u16],
+    level_width_tiles: u16,
+    terrain_layout: &[u8],
+) -> Option<Vec<u32>> {
+    fn emit_dbf(cycles: &mut Vec<u32>, body: &[u32], count: usize) {
+        for index in 0..count {
+            cycles.extend_from_slice(body);
+            cycles.push(if index + 1 == count { 14 } else { 10 });
+        }
+    }
+
+    fn emit_hidden_prepare(cycles: &mut Vec<u32>) {
+        // ASM sub_127A8.
+        cycles.extend_from_slice(&[24, 12, 12, 4, 8, 8, 8, 4, 16, 28, 16]);
+    }
+
+    fn emit_hidden_insert(cycles: &mut Vec<u32>, scanned: usize, shifted: usize) {
+        // ASM sub_127CE: sorted search followed by a backwards record copy.
+        cycles.extend_from_slice(&[32, 4, 16, 4]);
+        for _ in 0..scanned {
+            cycles.extend_from_slice(&[8, 8, 8, 10]);
+        }
+        cycles.extend_from_slice(&[8, 10, 4, 12, 12, 8, 4, 4, 12, 8, 8]);
+        emit_dbf(cycles, &[22, 22], shifted);
+        cycles.extend_from_slice(&[16, 36, 16]);
+    }
+
+    let mut cycles = Vec::new();
+    let mut pos = 0_usize;
+    let mut prize_handler_seen = false;
+    let mut teleporter_handler_seen = false;
+    let mut hidden_addresses = Vec::<u32>::new();
+    let mut prize_records = 0_u32;
+    let mut ghost_records = 0_u32;
+    let mut teleporter_records = 0_u32;
+
+    loop {
+        let type_word = *words.get(pos)?;
+        pos += 1;
+        if type_word == 0xffff {
+            cycles.extend_from_slice(&[8, 8, 10]);
+            let hidden_records = hidden_addresses.len();
+            if hidden_records == 0 {
+                cycles.extend_from_slice(&[12, 10, 24]);
+            } else {
+                cycles.extend_from_slice(&[12, 8, 4, 16, 12]);
+                emit_dbf(&mut cycles, &[20, 20], hidden_records);
+                cycles.push(10);
+            }
+            cycles.extend_from_slice(if prize_records == 0 {
+                &[16, 10]
+            } else {
+                &[16, 8, 12, 12, 4, 8, 8]
+            });
+            cycles.extend_from_slice(if ghost_records == 0 {
+                &[16, 10]
+            } else {
+                &[16, 8, 12, 44, 4, 8, 8]
+            });
+            cycles.extend_from_slice(if teleporter_records == 0 {
+                &[16, 10]
+            } else {
+                &[16, 8, 12, 46, 4, 8, 8]
+            });
+            cycles.extend_from_slice(if hidden_records == 0 {
+                &[16, 10]
+            } else {
+                &[16, 8, 12, 12, 4, 8, 10]
+            });
+            return Some(cycles);
+        }
+
+        let hidden = type_word & 0x8000 != 0;
+        let block_type = usize::from(type_word & 0x7fff);
+        // ASM loc_11C7E..loc_11C92, excluding the trailing branch until the
+        // selected handler returns.
+        cycles.extend_from_slice(&[8, 8, 8, 4, 10, 8, 18, 16]);
+
+        match block_type {
+            0 | 2 | 5 | 7 | 9 if !hidden => {
+                cycles.extend_from_slice(&[4, 4, 14]);
+                loop {
+                    let x = *words.get(pos)?;
+                    pos += 1;
+                    if x == 0xffff {
+                        cycles.extend_from_slice(&[8, 8, 16]);
+                        break;
+                    }
+                    let count = usize::from(*words.get(pos + 1)?);
+                    let stride = *words.get(pos + 2)? != 0;
+                    pos += 3;
+                    cycles.extend_from_slice(&[
+                        8,
+                        10,
+                        8,
+                        4,
+                        4,
+                        12,
+                        14,
+                        8,
+                        8,
+                        8,
+                        4,
+                        8,
+                        if stride { 10 } else { 8 },
+                    ]);
+                    emit_dbf(
+                        &mut cycles,
+                        if stride {
+                            &[4, 8, 8, 10, 16]
+                        } else {
+                            &[4, 8, 8, 10, 8]
+                        },
+                        count,
+                    );
+                    cycles.push(10);
+                }
+            }
+            1 => {
+                cycles.extend_from_slice(if prize_handler_seen {
+                    &[16, 10]
+                } else {
+                    &[16, 8, 16]
+                });
+                prize_handler_seen = true;
+                loop {
+                    let x = *words.get(pos)?;
+                    pos += 1;
+                    if x == 0xffff {
+                        cycles.extend_from_slice(&[8, 8, 16]);
+                        break;
+                    }
+                    let y = *words.get(pos)?;
+                    let count = usize::from(*words.get(pos + 1)?);
+                    let stride = *words.get(pos + 2)? != 0;
+                    let properties = words.get(pos + 3..pos + 3 + count)?;
+                    pos += 3 + count;
+                    prize_records = prize_records.checked_add(u32::try_from(count).ok()?)?;
+                    cycles.extend_from_slice(&[
+                        8,
+                        10,
+                        8,
+                        4,
+                        4,
+                        12,
+                        14,
+                        8,
+                        8,
+                        8,
+                        4,
+                        8,
+                        if stride { 10 } else { 8 },
+                    ]);
+                    for (cell, property) in properties.iter().enumerate() {
+                        cycles.extend_from_slice(&[8, 18, 16, 4]);
+                        if hidden {
+                            cycles.extend_from_slice(&[10, 18]);
+                            emit_hidden_prepare(&mut cycles);
+                            cycles.push(18);
+                            let address = if stride {
+                                u32::from(y)
+                                    .checked_add(u32::try_from(cell).ok()?)?
+                                    .checked_mul(u32::from(level_width_tiles))?
+                                    .checked_add(u32::from(x))?
+                            } else {
+                                u32::from(y)
+                                    .checked_mul(u32::from(level_width_tiles))?
+                                    .checked_add(u32::from(x))?
+                                    .checked_add(u32::try_from(cell).ok()?)?
+                            };
+                            let insertion =
+                                hidden_addresses.partition_point(|value| *value <= address);
+                            let shifted = hidden_addresses.len() - insertion + 1;
+                            emit_hidden_insert(&mut cycles, insertion, shifted);
+                            hidden_addresses.insert(insertion, address);
+                            cycles.extend_from_slice(&[8, 8, 8, 8, 12]);
+                        } else {
+                            cycles.extend_from_slice(&[8, 4]);
+                            cycles.extend_from_slice(if property & 0x8000 == 0 {
+                                &[8, 12, 10]
+                            } else {
+                                &[10, 12, 10]
+                            });
+                        }
+                        cycles.extend_from_slice(&[16, 12, 12, 8, 8, 8, 8, 8, 16, 8]);
+                        cycles.push(if cell + 1 == count { 14 } else { 10 });
+                    }
+                    cycles.push(10);
+                }
+            }
+            3 if !hidden => {
+                cycles.push(16);
+                loop {
+                    let x = *words.get(pos)?;
+                    pos += 1;
+                    if x == 0xffff {
+                        cycles.extend_from_slice(&[8, 8, 8, 16]);
+                        break;
+                    }
+                    let count = usize::from(*words.get(pos + 1)?);
+                    let stride = *words.get(pos + 2)? != 0;
+                    let fill_control = *words.get(pos + 4)?;
+                    pos += 7;
+                    ghost_records = ghost_records.checked_add(1)?;
+                    if fill_control != 0 {
+                        return None;
+                    }
+                    cycles.extend_from_slice(&[
+                        8, 10, 12, 4, 4, 12, 14, 8, 8, 16, 12, 10, 8, 16, 16, 8, 8, 8, 16, 16, 16,
+                        12, 8, 12, 4, 12,
+                    ]);
+                    // ASM loc_12514: the vertical-fill branch is taken.
+                    cycles.push(if stride { 10 } else { 8 });
+                    emit_dbf(
+                        &mut cycles,
+                        if stride { &[12, 16] } else { &[12, 8] },
+                        count,
+                    );
+                    cycles.extend_from_slice(&[8, 10]);
+                }
+            }
+            4 if !hidden => {
+                cycles.extend_from_slice(if teleporter_handler_seen {
+                    &[16, 10]
+                } else {
+                    &[16, 8, 16]
+                });
+                teleporter_handler_seen = true;
+                loop {
+                    let x = *words.get(pos)?;
+                    pos += 1;
+                    if x == 0xffff {
+                        cycles.extend_from_slice(&[8, 8, 16]);
+                        break;
+                    }
+                    pos += 3;
+                    teleporter_records = teleporter_records.checked_add(1)?;
+                    cycles.extend_from_slice(&[
+                        8, 10, 8, 4, 4, 12, 14, 8, 8, 4, 8, 12, 16, 10, 16, 12, 46, 8, 8, 8, 8, 12,
+                        12, 16, 10,
+                    ]);
+                }
+            }
+            6 if !hidden => {
+                cycles.push(12);
+                loop {
+                    let x = *words.get(pos)?;
+                    pos += 1;
+                    if x == 0xffff {
+                        cycles.extend_from_slice(&[8, 8, 12, 16]);
+                        break;
+                    }
+                    let y = *words.get(pos)?;
+                    let count = usize::from(*words.get(pos + 1)?);
+                    let stride = *words.get(pos + 2)? != 0;
+                    pos += 3;
+                    cycles.extend_from_slice(&[
+                        8,
+                        10,
+                        8,
+                        4,
+                        4,
+                        12,
+                        14,
+                        12,
+                        4,
+                        14,
+                        4,
+                        8,
+                        8,
+                        8,
+                        8,
+                        4,
+                        8,
+                        if stride { 10 } else { 8 },
+                    ]);
+                    for cell in 0..count {
+                        let index = if stride {
+                            usize::from(y)
+                                .checked_add(cell)?
+                                .checked_mul(usize::from(level_width_tiles))?
+                                .checked_add(usize::from(x))?
+                        } else {
+                            usize::from(y)
+                                .checked_mul(usize::from(level_width_tiles))?
+                                .checked_add(usize::from(x))?
+                                .checked_add(cell)?
+                        };
+                        cycles.extend_from_slice(&[4, 8, 8]);
+                        cycles.extend_from_slice(if *terrain_layout.get(index)? == 0 {
+                            &[8, 8, 10]
+                        } else {
+                            &[10, 8]
+                        });
+                        cycles.extend_from_slice(&[8, 10, 8, 8]);
+                        cycles.push(if cell + 1 == count { 14 } else { 10 });
+                    }
+                    cycles.push(10);
+                }
+            }
+            10 | 12 if !hidden => loop {
+                let x = *words.get(pos)?;
+                pos += 1;
+                if x == 0xffff {
+                    cycles.extend_from_slice(&[8, 8, 16]);
+                    break;
+                }
+                let count = usize::from(*words.get(pos + 1)?);
+                let stride = *words.get(pos + 2)? != 0;
+                pos += 3 + count;
+                cycles.extend_from_slice(&[
+                    8,
+                    10,
+                    8,
+                    4,
+                    4,
+                    12,
+                    14,
+                    8,
+                    8,
+                    8,
+                    4,
+                    8,
+                    if stride { 10 } else { 8 },
+                ]);
+                let mut body = vec![8, 4, 8, 4, 4, 8, 8];
+                body.extend_from_slice(if block_type == 12 {
+                    &[8, 16, 10]
+                } else {
+                    &[10, 16, 10]
+                });
+                body.push(if stride { 16 } else { 8 });
+                emit_dbf(&mut cycles, &body, count);
+                cycles.push(10);
+            },
+            _ => return None,
+        }
+        cycles.push(10);
+    }
+}
+
 /// Trace the compressed block-layout branches selected by the ROM bit stream.
 ///
 /// ASM `LoadBlockLayout loc_132A6` uses `sub_13622` for every field and
@@ -1201,6 +1546,7 @@ pub(crate) struct ForegroundPrefixAdvanceLoc11ae4 {
     pub(crate) collision_exit_cursor_loc_11c52: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) foreground_refresh_events: u32,
     pub(crate) block_post_guard_cursor_loc_11c7e: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) block_overlay_cursor_loc_11d0c: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) cursor: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) refresh_events: u32,
 }
@@ -1376,6 +1722,22 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         }
     }
     let block_post_guard_cursor_loc_11c7e = scheduler.cursor();
+    let block_words = wildside_data::decode_block_layout(inputs.block_layout_stream)
+        .map_err(|error| anyhow::anyhow!("invalid decoded block layout: {error}"))?;
+    let terrain_layout = wildside_data::decode_saxman(inputs.foreground_stream)
+        .map_err(|error| anyhow::anyhow!("invalid decoded foreground terrain: {error}"))?;
+    let block_overlay_cycles = block_overlay_instruction_cycles_loc_11c7e(
+        &block_words,
+        inputs.width_blocks,
+        &terrain_layout,
+    )
+    .ok_or_else(|| anyhow::anyhow!("unsupported block overlay handler"))?;
+    for cycles in block_overlay_cycles {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(cycles).is_some();
+        }
+    }
+    let block_overlay_cursor_loc_11d0c = scheduler.cursor();
 
     anyhow::ensure!(schedule_ok, "Load_InGame layout schedule overflow");
     Ok(ForegroundPrefixAdvanceLoc11ae4 {
@@ -1385,6 +1747,7 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         collision_exit_cursor_loc_11c52,
         foreground_refresh_events,
         block_post_guard_cursor_loc_11c7e,
+        block_overlay_cursor_loc_11d0c,
         cursor: scheduler.cursor(),
         refresh_events: scheduler.refresh_events(),
     })
