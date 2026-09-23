@@ -25907,6 +25907,14 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 persistent raster owner: `LoadInGameRasterScheduler` now keeps the
+beam, refresh counter, VINT armed edge and VDP FIFO alive across consecutive
+loader phases. A regression starts on the real scanline-224 interrupt boundary
+and proves two phase-local instructions service `V_Int $390..$3A2` once rather
+than resetting and servicing it twice. The measured foreground, background,
+block, theme and Murderwall visitors still need feeding through this owner
+before the runtime hand-off changes. No paid Jev call or human playtest.
+
 2026-09-23 Murderwall art timing: selected-PC probes give the same `loc_11AE4`
 hardware phase on both saved routes, at scanline 195 with refresh counter 59.
 Bloody Swamp's header then selects ASM `Murderwall loc_140D2`, while Forest

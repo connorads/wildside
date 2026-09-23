@@ -26643,3 +26643,9 @@ allowance; historical charged upper bound is $0.176526462, with no new paid call
 - Its 4,608-byte upload costs 214,276 raw source cycles. This accounts for the
   final two frames of the ten-frame destination gap. Raster composition remains.
 - No Jev request or spend.
+# 2026-09-23 - #300 persistent loader raster owner
+
+- Added `LoadInGameRasterScheduler` to retain beam, refresh, VINT edge and FIFO
+  state across the ordered `Load_InGame` phases.
+- A boundary regression proves phase changes cannot service one VINT twice.
+- No Jev request or spend. Next: route measured visitors through the owner.

@@ -3184,6 +3184,108 @@ pub struct LoadInGameCpuRasterCursor {
     pub refresh_phase: M68kRefreshPhase,
 }
 
+/// Persistent CPU/VDP owner for one uninterrupted `Load_InGame` invocation.
+///
+/// ASM `Load_InGame $11A0E` crosses several decoder helpers without resetting
+/// the VDP FIFO or VINT edge state. Keeping both here prevents phase-local
+/// schedulers from inventing an empty FIFO or a second interrupt at a boundary.
+#[derive(Debug)]
+pub struct LoadInGameRasterScheduler {
+    fifo: PlatformArtFifoScheduler,
+    refresh_phase: M68kRefreshPhase,
+    vint: DecompressToVramVintTracker,
+    refresh_events: u32,
+    fifo_halted_ticks: u32,
+}
+
+impl LoadInGameRasterScheduler {
+    #[must_use]
+    pub fn new(entry: LoadInGameCpuRasterCursor) -> Self {
+        Self {
+            fifo: PlatformArtFifoScheduler::new(entry.beam),
+            refresh_phase: entry.refresh_phase,
+            vint: DecompressToVramVintTracker::new(u8::MAX),
+            refresh_events: 0,
+            fifo_halted_ticks: 0,
+        }
+    }
+
+    #[must_use]
+    pub fn cursor(&self) -> LoadInGameCpuRasterCursor {
+        LoadInGameCpuRasterCursor {
+            beam: self.fifo.beam,
+            refresh_phase: self.refresh_phase,
+        }
+    }
+
+    #[must_use]
+    pub const fn refresh_events(&self) -> u32 {
+        self.refresh_events
+    }
+
+    #[must_use]
+    pub const fn fifo_halted_ticks(&self) -> u32 {
+        self.fifo_halted_ticks
+    }
+
+    /// Advance one non-VDP source instruction, servicing at most one pending
+    /// ASM `V_Int $390..$3A2` edge before the opcode executes.
+    pub fn advance_instruction(&mut self, raw_cycles: u32) -> Option<()> {
+        let mut no_external_wait = |_: M68kCycleCount, _: bool| Some(M68kCycleCount::from_raw(0));
+        service_decompress_to_vram_vint_if_pending(
+            &mut self.vint,
+            &mut self.fifo,
+            &mut self.refresh_phase,
+            &mut self.refresh_events,
+            &mut no_external_wait,
+        )?;
+        advance_decompress_to_vram_source_instruction(
+            raw_cycles,
+            &mut self.fifo,
+            &mut self.refresh_phase,
+            &mut self.refresh_events,
+            true,
+            &mut no_external_wait,
+        )?;
+        Some(())
+    }
+
+    /// Advance one source instruction which writes a word to the VDP data
+    /// port, retaining FIFO occupancy for the following loader phase.
+    pub fn write_data_word(&mut self, raw_cycles: u32) -> Option<()> {
+        let mut no_external_wait = |_: M68kCycleCount, _: bool| Some(M68kCycleCount::from_raw(0));
+        service_decompress_to_vram_vint_if_pending(
+            &mut self.vint,
+            &mut self.fifo,
+            &mut self.refresh_phase,
+            &mut self.refresh_events,
+            &mut no_external_wait,
+        )?;
+        let wait = advance_decompress_to_vram_source_instruction(
+            raw_cycles,
+            &mut self.fifo,
+            &mut self.refresh_phase,
+            &mut self.refresh_events,
+            false,
+            &mut no_external_wait,
+        )?;
+        self.fifo.push_word();
+        drain_decompress_to_vram_wait(
+            wait,
+            &mut self.fifo,
+            &mut self.refresh_phase,
+            &mut no_external_wait,
+        )?;
+        while self.fifo.pending_words != 0 {
+            let halt = M68kCycleCount::from_raw(1);
+            self.fifo.advance_m68k_cycles(halt);
+            self.refresh_phase = M68kRefreshPhase::new(0).expect("zero refresh phase");
+            self.fifo_halted_ticks = self.fifo_halted_ticks.checked_add(1)?;
+        }
+        Some(())
+    }
+}
+
 /// CPU/raster result of one ASM `DecompressToVRAM loc_14314` transfer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DecompressToVramTransferAdvance {
@@ -16439,4 +16541,26 @@ mod tests {
         assert_eq!(decoded.len(), 4, "fixture decodes to four literal bytes");
         assert_eq!(decoded, b"ABCD", "fixture decodes to ASCII 'ABCD'");
     }
+}
+#[test]
+fn load_in_game_raster_scheduler_retains_vint_edge_across_phase_boundaries() {
+    let entry = LoadInGameCpuRasterCursor {
+        beam: H40BeamPosition::new(224, 16).expect("VINT assertion beam"),
+        refresh_phase: M68kRefreshPhase::new(0).expect("zero refresh phase"),
+    };
+    let mut scheduler = LoadInGameRasterScheduler::new(entry);
+
+    scheduler.advance_instruction(4).expect("first phase");
+    scheduler.advance_instruction(4).expect("second phase");
+
+    assert_eq!(scheduler.refresh_events(), 0);
+    assert_eq!(scheduler.fifo_halted_ticks(), 0);
+    assert_eq!(scheduler.cursor().refresh_phase.get(), 122);
+    assert_eq!(
+        scheduler.cursor().beam,
+        entry
+            .beam
+            .advance_m68k_cycles(M68kCycleCount::from_raw(122)),
+        "ASM V_Int $390..$3A2 runs once, then its disarmed edge survives the phase boundary"
+    );
 }
