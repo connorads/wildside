@@ -6135,6 +6135,11 @@ mod chunk_02 {
             "ASM Teleport keeps Game_Mode=$000C when loc_BCF6 sets FC29 for a cross-level pad"
         );
         assert_eq!(
+            frames[223].gameplay_debug_fields["teleport_layout_prelude_work_loc_11ae4"],
+            "instructions=647 raw_cycles=6640",
+            "ASM loc_11AE4 builds the destination-sized layout pointer tables"
+        );
+        assert_eq!(
             frames[223].gameplay_debug_fields["teleport_foreground_decoder_work_loc_11c10"],
             "decoder_calls=1 output_bytes=1120 instructions=3116 raw_cycles=29662 wrapper_instructions=3 wrapper_raw_cycles=30",
             "ASM loc_11C10 follows the destination foreground Saxman stream"
@@ -6277,6 +6282,11 @@ mod chunk_02 {
             .run(&script, script.len());
 
         assert_eq!(frames[103].current_level, LevelId(0x3e));
+        assert_eq!(
+            frames[103].gameplay_debug_fields["teleport_layout_prelude_work_loc_11ae4"],
+            "instructions=1400 raw_cycles=13040",
+            "ASM loc_11AE4 includes the wide Swamp layout and Murderwall branches"
+        );
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_foreground_decoder_work_loc_11c10"],
             "decoder_calls=3 output_bytes=7280 instructions=18754 raw_cycles=184840 wrapper_instructions=9 wrapper_raw_cycles=94",

@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 level-layout prelude timing
+
+The ordered loader stream now begins at `loc_11AE4`. Exact emulator PC traces
+pin Forest at 647 instructions and 6,640 raw cycles, and Swamp at 1,400
+instructions and 13,040 raw cycles through `loc_11C0E`. Continue by composing
+this prelude, foreground decoding and collision through the persistent raster
+scheduler. No Jev spend or human playtest.
+
 ## 2026-09-23 - #300 foreground terrain decoder timing
 
 The omitted `loc_11C10` phase is now measured. Forest costs 29,662 raw cycles;

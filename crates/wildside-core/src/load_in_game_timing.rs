@@ -766,3 +766,96 @@ mod tests {
         );
     }
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelLayoutPreludeWorkloadLoc11ae4 {
+    pub(crate) instruction_count: u32,
+    pub(crate) raw_cycles: u32,
+}
+
+/// Visit ASM `loc_11AE4..loc_11C0E` for a teleporter `Load_InGame`.
+pub(crate) fn visit_level_layout_prelude_instructions_loc_11ae4(
+    width_blocks: u16,
+    height_blocks: u16,
+    background_height: u16,
+    murder_wall_flags: u8,
+    layered_background: bool,
+    mut visit: impl FnMut(u32),
+) -> LevelLayoutPreludeWorkloadLoc11ae4 {
+    let mut instruction_count = 0_u32;
+    let mut raw_cycles = 0_u32;
+    macro_rules! emit {
+        ($cycles:expr) => {{
+            let cycles = $cycles;
+            instruction_count += 1;
+            raw_cycles += cycles;
+            visit(cycles);
+        }};
+    }
+    macro_rules! emit_many {
+        ($cycles:expr) => {{
+            for cycles in $cycles {
+                emit!(*cycles);
+            }
+        }};
+    }
+
+    // ASM loc_11AE4..loc_11AFE: select the small row-pointer buffer.
+    emit_many!(&[12, 12, 8, 8, 8, 12, 4]);
+    for index in 0..height_blocks {
+        emit_many!(&[8, 16, if index + 1 == height_blocks { 14 } else { 10 }]);
+    }
+    emit_many!(&[12, 4, 8]);
+    for index in 0..width_blocks {
+        emit_many!(&[8, if index + 1 == width_blocks { 14 } else { 10 }]);
+    }
+    emit!(4);
+    for index in 0..8 {
+        emit_many!(&[8, if index == 7 { 14 } else { 10 }]);
+    }
+    emit_many!(&[12, 4, 4]);
+    for index in 0..width_blocks {
+        emit_many!(&[8, if index + 1 == width_blocks { 14 } else { 10 }]);
+    }
+    emit_many!(&[12, 12, 12, 4]);
+    for index in 0..height_blocks {
+        emit_many!(&[8, 16, if index + 1 == height_blocks { 14 } else { 10 }]);
+    }
+    emit_many!(&[12, 10, 8, 12, 12, 10, 8, 12, 12, 8, 12, 4, 12]);
+    for index in 0..background_height {
+        emit_many!(&[
+            8,
+            8,
+            if index + 1 == background_height {
+                14
+            } else {
+                10
+            },
+        ]);
+    }
+
+    // ASM loc_11B82..loc_11B9A: decode foreground Murderwall flags.
+    emit_many!(&[4, 8]);
+    if murder_wall_flags == 0 {
+        emit!(10);
+    } else {
+        emit_many!(&[8, 10]);
+        if murder_wall_flags & 1 != 0 {
+            emit!(16);
+        }
+        emit_many!(&[10, 8, 16]);
+    }
+    // ASM loc_11B9A..loc_11BD2: themes and background-format override.
+    emit_many!(&[12, 16, 16, 10, 4, 8, 4, 14, 8, 12, 8, 12, 8, 6, 16]);
+    emit!(if layered_background { 8 } else { 10 });
+    if layered_background {
+        emit!(16);
+    }
+    // Teleport has FC29 set, so loc_11BD2 skips the header start coordinates.
+    emit_many!(&[12, 12, 8, 16, 10]);
+    emit_many!(&[16, 16, 12, 32, 4, 8, 12, 12, 4, 4, 4, 4]);
+
+    LevelLayoutPreludeWorkloadLoc11ae4 {
+        instruction_count,
+        raw_cycles,
+    }
+}

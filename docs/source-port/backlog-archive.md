@@ -26331,6 +26331,17 @@ the actual transition.
 The expired #327 case window and campaign charge remain intact. No pad has
 been reached, so #300 remains open.
 
+2026-09-23 layout-prelude timing: instruction-by-instruction emulator traces
+from ASM `loc_11AE4` through `loc_11C0E` pin the destination-sized row-pointer,
+clear, terrain-pointer, background-pointer, Murderwall flag, theme-format and
+FC29 teleporter branches. The Forest route executes 647 instructions for
+6,640 raw cycles. The wider Swamp route executes 1,400 instructions for
+13,040 raw cycles. Both saved routes assert these exact totals; the ignored
+Swamp regression then reaches only its existing frame-166 loader-boundary
+failure. This ordered visitor supplies the shared raster seed before
+`loc_11C10`; it does not change the fixed hand-off or close #300. No paid Jev
+request was used.
+
 ### #301
 
 - Filed 2026-06-11 as the bosses cluster umbrella (audits/bosses-fidelity-audit.md: 28 gaps, 13 high). The boss layer is an invented substitute: dead `sub_3A292` (collision/HP/palette), `sub_39846`+wrappers (waypoint movement), `loc_37F30`/`38012`/`380F4` (attack FSM), whole HeadyMetal `loc_37582`/`loc_3763A` handler; live heads flat-chase the player and fire on a fixed 180-frame clock; Shishkaboss heads 2/3 HP 30 vs ROM $14; HeadyMetal tracking -0xB000 vs -0x5000; boss-level flagpole suppression `loc_C03A` absent. Treat as one rewiring effort, not 28 patches. Minimum gate: 1p-playable on boss levels.

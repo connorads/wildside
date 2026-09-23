@@ -12109,6 +12109,19 @@ impl NativeRuntime {
                 ),
             );
         }
+        if let Some(workload) = self
+            .teleport_transition
+            .as_ref()
+            .and_then(|transition| transition.level_layout_prelude_workload_loc_11ae4)
+        {
+            gameplay_debug_fields.insert(
+                "teleport_layout_prelude_work_loc_11ae4".into(),
+                format!(
+                    "instructions={} raw_cycles={}",
+                    workload.instruction_count, workload.raw_cycles
+                ),
+            );
+        }
         if let Some(timing) = self
             .teleport_transition
             .as_ref()

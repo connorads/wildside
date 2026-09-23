@@ -15875,6 +15875,22 @@ impl NativeRuntime {
                             |_| {},
                         )
                     });
+                let level_layout_prelude_workload_loc_11ae4 = destination_bundle
+                    .as_ref()
+                    .and_then(|bundle| bundle.parsed_header.as_ref())
+                    .map(|header| {
+                        let width_blocks = u16::from(header.width_screens) * 20;
+                        let height_blocks = u16::from(header.height_screens) * 14;
+                        let background_height = height_blocks * 2 / 4 + 0x15;
+                        crate::load_in_game_timing::visit_level_layout_prelude_instructions_loc_11ae4(
+                            width_blocks,
+                            height_blocks,
+                            background_height,
+                            header.murder_wall_flags,
+                            matches!(header.background_theme, 3 | 5 | 7 | 9),
+                            |_| {},
+                        )
+                    });
                 let foreground_terrain_decoder_workload_loc_11c10 = destination_bundle
                     .as_ref()
                     .and_then(|bundle| bundle.foreground.as_ref())
@@ -16019,6 +16035,7 @@ impl NativeRuntime {
                     frozen_active_objects,
                     frozen_number_objects,
                     frozen_number_gfx_objects,
+                    level_layout_prelude_workload_loc_11ae4,
                     foreground_collision_timing_loc_11c34,
                     foreground_terrain_decoder_workload_loc_11c10,
                     background_mappings_workload,
