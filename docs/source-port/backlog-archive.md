@@ -25907,6 +25907,14 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 visible ghost-handler timing: the decoded Swamp type-3 records now
+drive exact `loc_124A6` timing for metadata writes and zero-control horizontal
+or vertical `$E304` fills. Its twelve records place 27 ghost cells and execute
+434 instructions for 4,732 raw cycles, exactly matching a fresh saved-route
+full-PC trace; 74 further cycles are measured bus waits. Terrain, teleporter
+and property handlers remain before composition through `loc_11D0C`. No paid
+Jev request or human playtest.
+
 2026-09-23 hidden prize-handler timing: a fresh saved-route trace extended the
 PC range from `0x12800` through `0x12808`, correcting the earlier incomplete
 hidden-path lead by including `sub_127CE`'s register restore and return. The

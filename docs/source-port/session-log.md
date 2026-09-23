@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 visible ghost overlay timing
+
+Swamp's twelve type-3 records now time exact metadata writes and 27 horizontal
+or vertical ghost cells. The saved-route trace pins 434 instructions, 4,732
+raw cycles and 74 bus-wait cycles. Continue with terrain, teleporter and
+property handlers before composing through `loc_11D0C`. No Jev spend or human
+playtest.
+
 ## 2026-09-23 - #300 hidden prize overlay timing
 
 The Forest hidden type-1 run now includes exact `sub_127A8` cell preparation

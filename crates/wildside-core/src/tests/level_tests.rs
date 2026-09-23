@@ -6174,6 +6174,8 @@ mod chunk_02 {
                 visible_prize_handler_raw_cycles: 6_152,
                 hidden_prize_handler_instruction_count: 569,
                 hidden_prize_handler_raw_cycles: 6_862,
+                visible_filling_ghost_handler_instruction_count: 0,
+                visible_filling_ghost_handler_raw_cycles: 0,
             }),
             "ASM loc_11C7E dispatches every Forest overlay record before background loading"
         );
@@ -6417,6 +6419,8 @@ mod chunk_02 {
                 visible_prize_handler_raw_cycles: 3_292,
                 hidden_prize_handler_instruction_count: 0,
                 hidden_prize_handler_raw_cycles: 0,
+                visible_filling_ghost_handler_instruction_count: 434,
+                visible_filling_ghost_handler_raw_cycles: 4_732,
             }),
             "ASM loc_11C7E dispatches every Swamp overlay record before background loading"
         );

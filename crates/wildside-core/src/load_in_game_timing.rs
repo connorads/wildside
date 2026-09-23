@@ -234,6 +234,8 @@ pub(crate) struct BlockOverlayWorkloadLoc11c7e {
     pub(crate) visible_prize_handler_raw_cycles: u32,
     pub(crate) hidden_prize_handler_instruction_count: u32,
     pub(crate) hidden_prize_handler_raw_cycles: u32,
+    pub(crate) visible_filling_ghost_handler_instruction_count: u32,
+    pub(crate) visible_filling_ghost_handler_raw_cycles: u32,
 }
 
 /// Census the `$FFFF`-terminated stream consumed by ASM `loc_11C7E` and
@@ -257,6 +259,8 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
         visible_prize_handler_raw_cycles: 0,
         hidden_prize_handler_instruction_count: 0,
         hidden_prize_handler_raw_cycles: 0,
+        visible_filling_ghost_handler_instruction_count: 0,
+        visible_filling_ghost_handler_raw_cycles: 0,
     };
     let mut pos = 0_usize;
     let mut prize_handler_seen = false;
@@ -304,6 +308,11 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
         if block_type == 1 {
             prize_handler_seen = true;
         }
+        if block_type == 3 && !hidden {
+            // ASM loc_124A6: save the ghost-record destination once per group.
+            workload.visible_filling_ghost_handler_instruction_count += 1;
+            workload.visible_filling_ghost_handler_raw_cycles += 16;
+        }
 
         loop {
             let x = *words.get(pos)?;
@@ -323,6 +332,11 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
                 if hidden_prize_handler {
                     workload.hidden_prize_handler_instruction_count += 3;
                     workload.hidden_prize_handler_raw_cycles += 32;
+                }
+                if block_type == 3 && !hidden {
+                    // ASM loc_124AA..loc_124BC: consume the group terminator.
+                    workload.visible_filling_ghost_handler_instruction_count += 4;
+                    workload.visible_filling_ghost_handler_raw_cycles += 40;
                 }
                 break;
             }
@@ -418,11 +432,22 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
                 }
                 3 => {
                     let count = u32::from(*words.get(pos + 1)?);
-                    let priority = *words.get(pos + 4)?;
+                    let stride = *words.get(pos + 2)? != 0;
+                    let fill_control = *words.get(pos + 4)?;
                     pos = pos.checked_add(7)?;
                     workload.placement_cells = workload.placement_cells.checked_add(count)?;
-                    if priority == 0 {
+                    if fill_control == 0 {
                         workload.written_cells = workload.written_cells.checked_add(count)?;
+                        if !hidden {
+                            // ASM loc_124BE..loc_12538: zero at $A(a1) records
+                            // metadata, then fills horizontally or vertically.
+                            workload.visible_filling_ghost_handler_instruction_count +=
+                                29_u32.checked_add(count.checked_mul(3)?)?;
+                            let entry_cycles: u32 = if stride { 310 } else { 308 };
+                            let cell_cycles: u32 = if stride { 38 } else { 30 };
+                            workload.visible_filling_ghost_handler_raw_cycles +=
+                                entry_cycles.checked_add(count.checked_mul(cell_cycles)?)?;
+                        }
                     }
                 }
                 4 => {
