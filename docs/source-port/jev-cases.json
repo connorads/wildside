@@ -469,7 +469,7 @@
       "docs/source-port/backlog-archive.md#issue-300",
       "crates/wildside-core/src/level.rs:19178"
     ],
-      "next_action": "Measure the fixed theme permutation and VDP-write wrappers, compose the loader raster schedule, then re-enable the second-destination timing regression.",
+      "next_action": "Compose the measured loader phases through the existing FIFO/VINT raster scheduler, then re-enable the second-destination timing regression.",
     "scope": "Use an inter-level teleporter where map id differs; it should load the ROM destination."
   },
   {

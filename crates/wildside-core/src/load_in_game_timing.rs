@@ -12,6 +12,8 @@ pub(crate) struct ThemeArtDecoderWorkloadLoc11e60 {
     pub(crate) decoder_calls: u32,
     pub(crate) instruction_count: u32,
     pub(crate) raw_cycles: u32,
+    pub(crate) wrapper_instruction_count: u32,
+    pub(crate) wrapper_raw_cycles: u32,
 }
 
 /// Measure the data-dependent Saxman decoder work selected by the theme loads.
@@ -29,8 +31,14 @@ pub(crate) fn theme_art_decoder_workload_loc_11e60(
         decoder_calls: 0,
         instruction_count: 0,
         raw_cycles: 0,
+        wrapper_instruction_count: 0,
+        wrapper_raw_cycles: 0,
     };
     for stream in streams {
+        // ASM loc_11E60/loc_11EA2/loc_11EF2 caller BSR, DecompressToRAM's
+        // sub_142CC setup and loc_143CC/loc_143CE permutation-table loops.
+        workload.wrapper_instruction_count += 1 + 19 + 1_856;
+        workload.wrapper_raw_cycles += 18 + 182 + 18_814;
         let mut resume = None;
         loop {
             let visit = crate::saxman_timing::visit_decompress_chunk_instructions_sub_13684(
@@ -42,6 +50,18 @@ pub(crate) fn theme_art_decoder_workload_loc_11e60(
             workload.output_bytes += u32::from(visit.timing.output_bytes);
             workload.instruction_count += visit.timing.instruction_count;
             workload.raw_cycles += visit.timing.raw_cycles;
+            let output_words = u32::from(visit.timing.output_bytes / 2);
+            // ASM loc_143EA through loc_1440A: 11 setup instructions bracket
+            // the decoder, then seven source instructions transfer each
+            // output word. A resumed window copies 512 history longwords at
+            // loc_14430; the final window takes return_14438.
+            if visit.resume.is_some() {
+                workload.wrapper_instruction_count += 1_041 + 7 * output_words;
+                workload.wrapper_raw_cycles += 15_500 + 84 * output_words;
+            } else {
+                workload.wrapper_instruction_count += 14 + 7 * output_words;
+                workload.wrapper_raw_cycles += 116 + 84 * output_words;
+            }
             resume = visit.resume;
             if resume.is_none() {
                 break;

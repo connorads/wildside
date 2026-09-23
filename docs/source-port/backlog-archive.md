@@ -25907,6 +25907,17 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 theme-art fixed wrapper timing: the measured theme workload now
+includes each caller BSR, `sub_142CC`, all 256 `loc_143CE` permutation-table
+writes, the `loc_143EA` chunk setup, every remapped VDP word at `loc_1440A`,
+and each `$800` history rollover at `loc_14430`. Forest adds 61,704 fixed
+wrapper instructions and 745,380 raw cycles to its decoder, totalling
+1,346,014 source cycles. Swamp adds 61,480 instructions and 742,692 cycles,
+totalling 1,333,270. Both saved routes pin the complete source census. VDP
+FIFO halts, refresh and VINT service remain dependent on the composed raster
+entry, so the ignored frame-166 regression remains red. No paid Jev call or
+human playtest.
+
 2026-09-23 theme-art decoder timing: the live transition now selects the
 destination foreground and background art streams used by ASM `loc_11E60` and
 `loc_11EA2`, then follows every data-dependent `Decompress_Chunk sub_13684`

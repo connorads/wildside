@@ -6151,7 +6151,7 @@ mod chunk_02 {
         );
         assert_eq!(
             frames[223].gameplay_debug_fields["teleport_theme_art_work_loc_11e60"],
-            "streams=2 output_bytes=15360 decoder_calls=6 instructions=75565 raw_cycles=600634",
+            "streams=2 output_bytes=15360 decoder_calls=6 decoder_instructions=75565 decoder_raw_cycles=600634 wrapper_instructions=61704 wrapper_raw_cycles=745380",
             "ASM loc_11E60/loc_11EA2 decode the selected Forest theme art streams"
         );
         assert_eq!(
@@ -6283,7 +6283,7 @@ mod chunk_02 {
         );
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_theme_art_work_loc_11e60"],
-            "streams=2 output_bytes=15296 decoder_calls=6 instructions=74225 raw_cycles=590578",
+            "streams=2 output_bytes=15296 decoder_calls=6 decoder_instructions=74225 decoder_raw_cycles=590578 wrapper_instructions=61480 wrapper_raw_cycles=742692",
             "ASM loc_11E60/loc_11EA2 decode the selected Swamp theme art streams"
         );
         assert_eq!(

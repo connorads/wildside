@@ -12161,12 +12161,14 @@ impl NativeRuntime {
             gameplay_debug_fields.insert(
                 "teleport_theme_art_work_loc_11e60".into(),
                 format!(
-                    "streams={} output_bytes={} decoder_calls={} instructions={} raw_cycles={}",
+                    "streams={} output_bytes={} decoder_calls={} decoder_instructions={} decoder_raw_cycles={} wrapper_instructions={} wrapper_raw_cycles={}",
                     workload.streams,
                     workload.output_bytes,
                     workload.decoder_calls,
                     workload.instruction_count,
-                    workload.raw_cycles
+                    workload.raw_cycles,
+                    workload.wrapper_instruction_count,
+                    workload.wrapper_raw_cycles
                 ),
             );
         }

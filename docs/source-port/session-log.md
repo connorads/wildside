@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 theme-art fixed wrapper timing
+
+Theme-art timing now covers the complete `DecompressToRAM` source path. Forest
+costs 1,346,014 raw cycles and Swamp 1,333,270 across decoder and wrapper work.
+Continue by composing all measured phases through the existing FIFO/VINT raster
+scheduler before replacing the fixed hand-off. No Jev spend or human playtest.
+
 ## 2026-09-23 - #300 theme-art decoder timing
 
 Both saved destinations now record the exact selected theme-art Saxman work.

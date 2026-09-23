@@ -880,8 +880,8 @@
       "status": "exploratory",
       "owner": "issue-300-teleport-loader",
       "first_added_commit": "pending",
-      "intended_meaning": "Selected foreground and background theme-art Saxman streams and exact Decompress_Chunk decoder work for ASM loc_11E60/loc_11EA2.",
-      "promotion_trigger": "Promote into the typed Load_InGame schedule once the fixed permutation and VDP-write wrappers are measured."
+      "intended_meaning": "Selected foreground and background theme-art streams with exact Decompress_Chunk and fixed DecompressToRAM wrapper work for ASM loc_11E60/loc_11EA2.",
+      "promotion_trigger": "Promote into the typed Load_InGame schedule when these source phases are composed through the existing FIFO/VINT raster scheduler."
     },
     {
       "key": "teleport_block_decode_work_loc_132a6",
