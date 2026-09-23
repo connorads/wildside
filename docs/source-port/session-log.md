@@ -26670,6 +26670,13 @@ allowance; historical charged upper bound is $0.176526462, with no new paid call
 - `loc_11C10` exposes ordered BSR, decoder, TST and branch instructions for the
   persistent loader raster owner. Both saved routes pin wrapper and decoder work.
 - No Jev request or spend. Next: convert collision, block and background phases.
+## 2026-09-23 - #300 fixed block-handler timing
+
+Visible `loc_122B8` runs now reproduce the full-PC instruction and cycle totals:
+2,194/19,452 for Forest and 818/6,810 for Swamp. Continue with the remaining
+overlay handler families before composing through `loc_11D0C`. No Jev spend or
+human playtest.
+
 ## 2026-09-23 - #300 block-overlay branch census
 
 The decoded `loc_11C7E` stream now pins every group, entry, placement, write,

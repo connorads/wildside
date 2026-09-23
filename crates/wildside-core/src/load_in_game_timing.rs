@@ -228,6 +228,8 @@ pub(crate) struct BlockOverlayWorkloadLoc11c7e {
     pub(crate) property_words: u32,
     pub(crate) hidden_groups: u32,
     pub(crate) handler_groups: [u16; 17],
+    pub(crate) fixed_handler_instruction_count: u32,
+    pub(crate) fixed_handler_raw_cycles: u32,
 }
 
 /// Census the `$FFFF`-terminated stream consumed by ASM `loc_11C7E` and
@@ -244,6 +246,8 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
         property_words: 0,
         hidden_groups: 0,
         handler_groups: [0; 17],
+        fixed_handler_instruction_count: 0,
+        fixed_handler_raw_cycles: 0,
     };
     let mut pos = 0_usize;
     loop {
@@ -258,17 +262,30 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
         *handler_count = handler_count.checked_add(1)?;
         workload.groups = workload.groups.checked_add(1)?;
         workload.hidden_groups += u32::from(hidden);
+        let fixed_handler = matches!(block_type, 0 | 2 | 5 | 7 | 9);
+        if fixed_handler {
+            // ASM loc_122B8..loc_122BC: select word_122C6[block_type].
+            workload.fixed_handler_instruction_count += 3;
+            workload.fixed_handler_raw_cycles += 22;
+        }
 
         loop {
             let x = *words.get(pos)?;
             pos += 1;
             if x == 0xffff {
+                if fixed_handler {
+                    // ASM loc_122C0..loc_122C4: read the group terminator and
+                    // return to loc_11C94.
+                    workload.fixed_handler_instruction_count += 3;
+                    workload.fixed_handler_raw_cycles += 32;
+                }
                 break;
             }
             workload.entries = workload.entries.checked_add(1)?;
             match block_type {
                 0 | 2 | 5 | 6 | 7 | 8 | 9 | 13 | 14 | 15 => {
                     let count = u32::from(*words.get(pos + 1)?);
+                    let stride = *words.get(pos + 2)? != 0;
                     pos = pos.checked_add(3)?;
                     workload.placement_cells = workload.placement_cells.checked_add(count)?;
                     let writes = if block_type == 8 {
@@ -277,6 +294,19 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
                         count
                     };
                     workload.written_cells = workload.written_cells.checked_add(writes)?;
+                    if fixed_handler {
+                        // ASM loc_122C0..loc_122F4: X/Y/count/stride setup.
+                        workload.fixed_handler_instruction_count += 13;
+                        workload.fixed_handler_raw_cycles += if stride { 106 } else { 104 };
+                        // Visible loc_122F6 or loc_12318 body, including DBF.
+                        workload.fixed_handler_instruction_count += count.checked_mul(6)?;
+                        let body_cycles = if stride { 56 } else { 48 };
+                        workload.fixed_handler_raw_cycles +=
+                            count.checked_mul(body_cycles)?.checked_add(4)?;
+                        // ASM loc_12316/loc_1233A: return to the next X word.
+                        workload.fixed_handler_instruction_count += 1;
+                        workload.fixed_handler_raw_cycles += 10;
+                    }
                 }
                 1 | 10 | 12 | 16 => {
                     let count = usize::from(*words.get(pos + 1)?);

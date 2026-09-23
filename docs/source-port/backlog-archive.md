@@ -25907,6 +25907,15 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 fixed block-handler timing: the generic overlay parser now assigns
+ordered ASM costs to visible `loc_122B8` fixed runs, including every X/Y setup,
+horizontal or vertical cell write, DBF exit and group return. Forest's type
+0/5/7 groups execute 2,194 instructions for 19,452 raw cycles; Swamp's type 0/2
+groups execute 818 for 6,810. Both totals exactly match their independent
+full-PC traces. Prize, ghost, terrain, teleporter, property and hidden handlers
+remain before composition through `loc_11D0C`. No paid Jev request or human
+playtest.
+
 2026-09-23 block-overlay branch census: the decoded `loc_11C7E` stream now has
 a checked, route-independent parser for every `AddrTbl_BlockTypes` record
 shape. Forest contains six groups and 57 entries covering 309 placements, 310
