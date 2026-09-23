@@ -25907,6 +25907,16 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 complete route overlay timing: visible `loc_1263C` teleporter
+records cost 31 instructions and 354 raw cycles on both destinations. Swamp's
+five visible type-10 property records add 241 instructions and 2,096 cycles.
+The `loc_11C7E..loc_11D08` dispatcher, hidden-list consolidation and metadata
+bounds checks are now composed with every exercised handler. Forest totals
+3,556 source instructions and 34,118 raw cycles; Swamp totals 3,084 and 27,588.
+Both exactly match source-filtered full-PC traces. Swamp excludes the VINT
+pseudo-row and replayed branch owned by the raster scheduler. Compose this phase
+into that scheduler next. No paid Jev request or human playtest.
+
 2026-09-23 visible terrain-handler timing: Swamp's decoded type-6 records now
 index the decompressed terrain bytes and select the exact `$E60C` zero or
 `$E60E` occupied branch at `loc_12372`. Its 24 records visit 61 cells, 51 of

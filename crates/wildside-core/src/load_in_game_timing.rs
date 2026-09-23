@@ -238,6 +238,14 @@ pub(crate) struct BlockOverlayWorkloadLoc11c7e {
     pub(crate) visible_filling_ghost_handler_raw_cycles: u32,
     pub(crate) visible_terrain_handler_instruction_count: u32,
     pub(crate) visible_terrain_handler_raw_cycles: u32,
+    pub(crate) visible_teleporter_handler_instruction_count: u32,
+    pub(crate) visible_teleporter_handler_raw_cycles: u32,
+    pub(crate) visible_property_handler_instruction_count: u32,
+    pub(crate) visible_property_handler_raw_cycles: u32,
+    pub(crate) shell_instruction_count: u32,
+    pub(crate) shell_raw_cycles: u32,
+    pub(crate) overlay_instruction_count: u32,
+    pub(crate) overlay_raw_cycles: u32,
 }
 
 /// Census the `$FFFF`-terminated stream consumed by ASM `loc_11C7E` and
@@ -266,15 +274,72 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
         visible_filling_ghost_handler_raw_cycles: 0,
         visible_terrain_handler_instruction_count: 0,
         visible_terrain_handler_raw_cycles: 0,
+        visible_teleporter_handler_instruction_count: 0,
+        visible_teleporter_handler_raw_cycles: 0,
+        visible_property_handler_instruction_count: 0,
+        visible_property_handler_raw_cycles: 0,
+        shell_instruction_count: 0,
+        shell_raw_cycles: 0,
+        overlay_instruction_count: 0,
+        overlay_raw_cycles: 0,
     };
     let mut pos = 0_usize;
     let mut prize_handler_seen = false;
+    let mut teleporter_handler_seen = false;
     let mut hidden_prize_addresses = Vec::<u32>::new();
     let mut hidden_list_complete = true;
+    let mut prize_records = 0_u32;
+    let mut ghost_records = 0_u32;
+    let mut teleporter_records = 0_u32;
     loop {
         let type_word = *words.get(pos)?;
         pos += 1;
         if type_word == 0xffff {
+            // ASM loc_11C7E..loc_11D08: dispatch every group, consolidate the
+            // sorted hidden list, then bounds-check each metadata list before
+            // entering background loading at loc_11D0C.
+            workload.shell_instruction_count = workload.groups.checked_mul(9)?.checked_add(3)?;
+            workload.shell_raw_cycles = workload.groups.checked_mul(90)?.checked_add(26)?;
+            let hidden_records = u32::try_from(hidden_prize_addresses.len()).ok()?;
+            if hidden_records == 0 {
+                workload.shell_instruction_count += 3;
+                workload.shell_raw_cycles += 46;
+            } else {
+                workload.shell_instruction_count +=
+                    6_u32.checked_add(hidden_records.checked_mul(3)?)?;
+                workload.shell_raw_cycles += 66_u32.checked_add(hidden_records.checked_mul(50)?)?;
+            }
+            for (records, present_instructions, present_cycles) in [
+                (prize_records, 7_u32, 68_u32),
+                (ghost_records, 7, 100),
+                (teleporter_records, 7, 102),
+                (hidden_records, 7, 70),
+            ] {
+                workload.shell_instruction_count += if records == 0 {
+                    2
+                } else {
+                    present_instructions
+                };
+                workload.shell_raw_cycles += if records == 0 { 26 } else { present_cycles };
+            }
+            workload.overlay_instruction_count = workload
+                .fixed_handler_instruction_count
+                .checked_add(workload.visible_prize_handler_instruction_count)?
+                .checked_add(workload.hidden_prize_handler_instruction_count)?
+                .checked_add(workload.visible_filling_ghost_handler_instruction_count)?
+                .checked_add(workload.visible_terrain_handler_instruction_count)?
+                .checked_add(workload.visible_teleporter_handler_instruction_count)?
+                .checked_add(workload.visible_property_handler_instruction_count)?
+                .checked_add(workload.shell_instruction_count)?;
+            workload.overlay_raw_cycles = workload
+                .fixed_handler_raw_cycles
+                .checked_add(workload.visible_prize_handler_raw_cycles)?
+                .checked_add(workload.hidden_prize_handler_raw_cycles)?
+                .checked_add(workload.visible_filling_ghost_handler_raw_cycles)?
+                .checked_add(workload.visible_terrain_handler_raw_cycles)?
+                .checked_add(workload.visible_teleporter_handler_raw_cycles)?
+                .checked_add(workload.visible_property_handler_raw_cycles)?
+                .checked_add(workload.shell_raw_cycles)?;
             return Some(workload);
         }
         let hidden = type_word & 0x8000 != 0;
@@ -323,6 +388,16 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
             workload.visible_terrain_handler_instruction_count += 1;
             workload.visible_terrain_handler_raw_cycles += 12;
         }
+        if block_type == 4 && !hidden {
+            // ASM loc_1263C..loc_12642: initialise the teleporter-record base once.
+            workload.visible_teleporter_handler_instruction_count +=
+                if teleporter_handler_seen { 2 } else { 3 };
+            workload.visible_teleporter_handler_raw_cycles +=
+                if teleporter_handler_seen { 26 } else { 40 };
+        }
+        if block_type == 4 {
+            teleporter_handler_seen = true;
+        }
 
         loop {
             let x = *words.get(pos)?;
@@ -352,6 +427,16 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
                     // ASM loc_1233E..loc_12344: restore the terrain cursor and return.
                     workload.visible_terrain_handler_instruction_count += 4;
                     workload.visible_terrain_handler_raw_cycles += 44;
+                }
+                if block_type == 4 && !hidden {
+                    // ASM loc_12646..loc_1264A: consume the group terminator.
+                    workload.visible_teleporter_handler_instruction_count += 3;
+                    workload.visible_teleporter_handler_raw_cycles += 32;
+                }
+                if matches!(block_type, 10 | 12) && !hidden {
+                    // ASM loc_125A6..loc_125AA: consume the group terminator.
+                    workload.visible_property_handler_instruction_count += 3;
+                    workload.visible_property_handler_raw_cycles += 32;
                 }
                 break;
             }
@@ -466,13 +551,31 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
                             hidden_prize_addresses.insert(insertion_index, address);
                         }
                     }
+                    if matches!(block_type, 10 | 12) && !hidden {
+                        let count = u32::try_from(count).ok()?;
+                        // ASM loc_125AC..loc_1263A: type 10 takes the `$E0xx`
+                        // property path; type 12 takes its adjacent compare-equal path.
+                        workload.visible_property_handler_instruction_count +=
+                            14_u32.checked_add(count.checked_mul(12)?)?;
+                        let entry_cycles: u32 = if stride { 120 } else { 118 };
+                        let mut cell_cycles: u32 = if stride { 106 } else { 98 };
+                        if block_type == 12 {
+                            cell_cycles = cell_cycles.checked_sub(2)?;
+                        }
+                        workload.visible_property_handler_raw_cycles +=
+                            entry_cycles.checked_add(count.checked_mul(cell_cycles)?)?;
+                    }
                     pos = pos.checked_add(3)?.checked_add(count)?;
                     let count = u32::try_from(count).ok()?;
+                    if block_type == 1 {
+                        prize_records = prize_records.checked_add(count)?;
+                    }
                     workload.placement_cells = workload.placement_cells.checked_add(count)?;
                     workload.written_cells = workload.written_cells.checked_add(count)?;
                     workload.property_words = workload.property_words.checked_add(count)?;
                 }
                 3 => {
+                    ghost_records = ghost_records.checked_add(1)?;
                     let count = u32::from(*words.get(pos + 1)?);
                     let stride = *words.get(pos + 2)? != 0;
                     let fill_control = *words.get(pos + 4)?;
@@ -493,9 +596,16 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
                     }
                 }
                 4 => {
+                    teleporter_records = teleporter_records.checked_add(1)?;
                     pos = pos.checked_add(3)?;
                     workload.placement_cells = workload.placement_cells.checked_add(1)?;
                     workload.written_cells = workload.written_cells.checked_add(2)?;
+                    if !hidden {
+                        // ASM loc_1264C..loc_126B8: write the two-cell marker and
+                        // append its five-word teleporter record.
+                        workload.visible_teleporter_handler_instruction_count += 25;
+                        workload.visible_teleporter_handler_raw_cycles += 282;
+                    }
                 }
                 11 => {
                     pos = pos.checked_add(1)?;

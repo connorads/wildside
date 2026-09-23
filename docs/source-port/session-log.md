@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 complete route overlay timing
+
+Teleporter and property handlers complete both destination overlay paths. The
+dispatcher, hidden-list consolidation and metadata checks compose to 3,556
+instructions and 34,118 raw cycles for Forest, versus 3,084 and 27,588 for
+Swamp. Both source totals match full-PC traces. Compose this phase into the
+persistent scheduler next, then background, theme and Murderwall. No Jev spend
+or human playtest.
+
 ## 2026-09-23 - #300 terrain-dependent overlay timing
 
 Swamp's 24 type-6 records now index the decompressed terrain stream and time

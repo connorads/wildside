@@ -6180,6 +6180,14 @@ mod chunk_02 {
                 visible_filling_ghost_handler_raw_cycles: 0,
                 visible_terrain_handler_instruction_count: 0,
                 visible_terrain_handler_raw_cycles: 0,
+                visible_teleporter_handler_instruction_count: 31,
+                visible_teleporter_handler_raw_cycles: 354,
+                visible_property_handler_instruction_count: 0,
+                visible_property_handler_raw_cycles: 0,
+                shell_instruction_count: 110,
+                shell_raw_cycles: 1_298,
+                overlay_instruction_count: 3_556,
+                overlay_raw_cycles: 34_118,
             }),
             "ASM loc_11C7E dispatches every Forest overlay record before background loading"
         );
@@ -6429,6 +6437,14 @@ mod chunk_02 {
                 visible_filling_ghost_handler_raw_cycles: 4_732,
                 visible_terrain_handler_instruction_count: 1_122,
                 visible_terrain_handler_raw_cycles: 9_306,
+                visible_teleporter_handler_instruction_count: 31,
+                visible_teleporter_handler_raw_cycles: 354,
+                visible_property_handler_instruction_count: 241,
+                visible_property_handler_raw_cycles: 2_096,
+                shell_instruction_count: 92,
+                shell_raw_cycles: 998,
+                overlay_instruction_count: 3_084,
+                overlay_raw_cycles: 27_588,
             }),
             "ASM loc_11C7E dispatches every Swamp overlay record before background loading"
         );
