@@ -1632,6 +1632,7 @@ pub(crate) struct ForegroundPrefixAdvanceLoc11ae4 {
     pub(crate) block_overlay_cursor_loc_11d0c: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) background_cursor_loc_11d12: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) theme_entry_cursor_loc_11e60: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) shared_art_cursor_loc_11efa: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) cursor: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) refresh_events: u32,
 }
@@ -1648,6 +1649,120 @@ pub(crate) struct LoadLayoutScheduleInputsLoc11ae4<'a> {
     pub(crate) background_instruction_cycles: &'a [u32],
     pub(crate) map_order_id: u8,
     pub(crate) foreground_theme: u16,
+    pub(crate) background_theme: u16,
+    pub(crate) theme_art_streams: &'a [&'a [u8]],
+}
+
+#[derive(Debug, Clone, Copy)]
+#[cfg(test)]
+enum LoadInGameTimedInstruction {
+    Cpu(u32),
+    VdpDataWord(u32),
+}
+
+#[cfg(test)]
+fn visit_decompress_to_ram_instructions_loc_143c0(
+    stream: &[u8],
+    mut visit: impl FnMut(LoadInGameTimedInstruction),
+) -> anyhow::Result<()> {
+    macro_rules! cpu {
+        ($cycles:expr) => {
+            for &cycle in $cycles {
+                visit(LoadInGameTimedInstruction::Cpu(cycle));
+            }
+        };
+    }
+
+    // ASM DecompressToRAM: call sub_142CC and build the 256-byte palette
+    // permutation table at loc_143CC/loc_143CE.
+    cpu!(&[
+        18, 4, 10, 8, 8, 8, 4, 4, 16, 8, 22, 8, 12, 12, 4, 4, 16, 12, 4,
+    ]);
+    for outer in 0..16 {
+        cpu!(&[4]);
+        for inner in 0..16 {
+            cpu!(&[14, 14, 14, 8, 4, 8, if inner == 15 { 8 } else { 10 }]);
+        }
+        cpu!(&[4, 8, if outer == 15 { 8 } else { 10 }]);
+    }
+
+    let mut resume = None;
+    loop {
+        cpu!(&[4, 4, 4, 18]);
+        let decoder = crate::saxman_timing::visit_decompress_chunk_instructions_sub_13684(
+            stream,
+            resume,
+            |cycles| visit(LoadInGameTimedInstruction::Cpu(cycles)),
+        )?;
+        cpu!(&[12, 4, 8, 8, 4, 12, 4]);
+        let words = decoder.timing.output_bytes / 2;
+        for word in 0..words {
+            cpu!(&[8, 14, 22, 8, 14]);
+            visit(LoadInGameTimedInstruction::VdpDataWord(8));
+            cpu!(&[if word + 1 == words { 14 } else { 10 }]);
+        }
+        cpu!(&[4]);
+        if decoder.resume.is_some() {
+            cpu!(&[8, 12, 8, 8]);
+            for longword in 0..512 {
+                cpu!(&[20, if longword == 511 { 14 } else { 10 }]);
+            }
+            cpu!(&[10]);
+        } else {
+            cpu!(&[10, 16]);
+        }
+        resume = decoder.resume;
+        if resume.is_none() {
+            return Ok(());
+        }
+    }
+}
+
+#[cfg(test)]
+fn visit_theme_art_instructions_loc_11e60(
+    streams: &[&[u8]],
+    background_theme: u16,
+    mut visit: impl FnMut(LoadInGameTimedInstruction),
+) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        streams.len() == 2 && !matches!(background_theme, 3 | 7),
+        "this scheduler slice requires the two-stream non-Hills/non-Mountain path"
+    );
+    visit(LoadInGameTimedInstruction::Cpu(18));
+    visit_decompress_to_ram_instructions_loc_143c0(streams[0], &mut visit)?;
+
+    macro_rules! cpu {
+        ($cycles:expr) => {
+            for &cycle in $cycles {
+                visit(LoadInGameTimedInstruction::Cpu(cycle));
+            }
+        };
+    }
+    // ASM loc_11E64..loc_11EA0 selects the background stream and palette.
+    cpu!(&[20, 12, 4, 4, 18, 8, 8, 16]);
+    if background_theme == 9 {
+        cpu!(&[8, 8]);
+    } else {
+        cpu!(&[10]);
+    }
+    cpu!(&[16]);
+    if background_theme == 7 {
+        cpu!(&[8, 8]);
+    } else {
+        cpu!(&[10]);
+    }
+    cpu!(&[16]);
+    if background_theme == 3 {
+        cpu!(&[8, 8]);
+    } else {
+        cpu!(&[10]);
+    }
+
+    visit(LoadInGameTimedInstruction::Cpu(18));
+    visit_decompress_to_ram_instructions_loc_143c0(streams[1], &mut visit)?;
+    // Both measured destinations skip the Hills and Mountain follow-up art.
+    cpu!(&[16, 10, 16, 10]);
+    Ok(())
 }
 
 /// Visit ASM `loc_11D12..loc_11E5E`, ending at the foreground-theme
@@ -1935,6 +2050,24 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         },
     );
     let theme_entry_cursor_loc_11e60 = scheduler.cursor();
+    visit_theme_art_instructions_loc_11e60(
+        inputs.theme_art_streams,
+        inputs.background_theme,
+        |instruction| {
+            if !schedule_ok {
+                return;
+            }
+            schedule_ok = match instruction {
+                LoadInGameTimedInstruction::Cpu(cycles) => {
+                    scheduler.advance_instruction(cycles).is_some()
+                }
+                LoadInGameTimedInstruction::VdpDataWord(cycles) => {
+                    scheduler.write_data_word(cycles).is_some()
+                }
+            };
+        },
+    )?;
+    let shared_art_cursor_loc_11efa = scheduler.cursor();
 
     anyhow::ensure!(schedule_ok, "Load_InGame layout schedule overflow");
     Ok(ForegroundPrefixAdvanceLoc11ae4 {
@@ -1947,6 +2080,7 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         block_overlay_cursor_loc_11d0c,
         background_cursor_loc_11d12,
         theme_entry_cursor_loc_11e60,
+        shared_art_cursor_loc_11efa,
         cursor: scheduler.cursor(),
         refresh_events: scheduler.refresh_events(),
     })

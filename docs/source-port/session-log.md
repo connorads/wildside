@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 theme art composition
+
+Foreground and background theme art now execute through the persistent
+scheduler with every `loc_14418` VDP word write classified. Forest and Swamp
+reach exact emulator `loc_11EFA` cursors. Continue with shared art and the
+Swamp-only Murderwall load. No Jev spend or human playtest.
+
 ## 2026-09-23 - #300 theme caller composition
 
 The palette, mapping-copy and foreground permutation caller now runs through

@@ -6241,6 +6241,22 @@ mod chunk_02 {
             (46_328, 379_336),
             "ASM loc_1280A/loc_128BA wrappers compose with the three exact Forest EniDec streams"
         );
+        let forest_theme_name = crate::level::theme_palette_basename(forest_header.level_theme)
+            .expect("Forest foreground theme")
+            .strip_suffix(".bin")
+            .expect("theme basename suffix");
+        let forest_theme_art = ["artcomp_fg", "artcomp_bg"].map(|directory| {
+            std::fs::read(
+                manifest
+                    .output_root
+                    .join(format!("theme/{directory}/{forest_theme_name}.bin")),
+            )
+            .expect("read Forest theme art")
+        });
+        let forest_theme_art_refs = forest_theme_art
+            .iter()
+            .map(Vec::as_slice)
+            .collect::<Vec<_>>();
         let forest_prefix = crate::load_in_game_timing::schedule_foreground_prefix_loc_11ae4(
             forest_entry,
             &crate::load_in_game_timing::LoadLayoutScheduleInputsLoc11ae4 {
@@ -6254,6 +6270,8 @@ mod chunk_02 {
                 background_instruction_cycles: &forest_background_cycles,
                 map_order_id: 0x6E,
                 foreground_theme: u16::from(forest_header.level_theme),
+                background_theme: u16::from(forest_header.background_theme),
+                theme_art_streams: &forest_theme_art_refs,
             },
         )
         .expect("schedule Forest layout, decoder and collision prefix");
@@ -6334,6 +6352,16 @@ mod chunk_02 {
                 refresh_phase: M68kRefreshPhase::new(17).expect("oracle refresh phase"),
             },
             "ASM loc_11D12..loc_11E60 reaches the exact Forest theme-art entry cursor"
+        );
+        assert_eq!(
+            forest_prefix.shared_art_cursor_loc_11efa,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    157_869_436
+                )),
+                refresh_phase: M68kRefreshPhase::new(51).expect("oracle refresh phase"),
+            },
+            "ASM loc_11E60..loc_11EFA reaches the exact Forest shared-art cursor"
         );
         assert_eq!(
             frames[223].gameplay_debug_fields["teleport_background_work_loc_1280a"],
@@ -6571,6 +6599,18 @@ mod chunk_02 {
                 },
             )
             .expect("visit Swamp background instructions");
+        let swamp_theme_art = ["artcomp_fg", "artcomp_bg"].map(|directory| {
+            std::fs::read(
+                manifest
+                    .output_root
+                    .join(format!("theme/{directory}/{swamp_theme}.bin")),
+            )
+            .expect("read Swamp theme art")
+        });
+        let swamp_theme_art_refs = swamp_theme_art
+            .iter()
+            .map(Vec::as_slice)
+            .collect::<Vec<_>>();
         let swamp_prefix = crate::load_in_game_timing::schedule_foreground_prefix_loc_11ae4(
             swamp_entry,
             &crate::load_in_game_timing::LoadLayoutScheduleInputsLoc11ae4 {
@@ -6584,6 +6624,8 @@ mod chunk_02 {
                 background_instruction_cycles: &swamp_background_cycles,
                 map_order_id: 0x15,
                 foreground_theme: u16::from(swamp_header.level_theme),
+                background_theme: u16::from(swamp_header.background_theme),
+                theme_art_streams: &swamp_theme_art_refs,
             },
         )
         .expect("schedule Swamp layout, decoder and collision prefix");
@@ -6664,6 +6706,16 @@ mod chunk_02 {
                 refresh_phase: M68kRefreshPhase::new(61).expect("oracle refresh phase"),
             },
             "ASM loc_11D12..loc_11E60 reaches the exact Swamp theme-art entry cursor"
+        );
+        assert_eq!(
+            swamp_prefix.shared_art_cursor_loc_11efa,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    143_456_531
+                )),
+                refresh_phase: M68kRefreshPhase::new(83).expect("oracle refresh phase"),
+            },
+            "ASM loc_11E60..loc_11EFA reaches the exact Swamp shared-art cursor"
         );
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_background_work_loc_1280a"],

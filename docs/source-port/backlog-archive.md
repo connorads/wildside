@@ -25907,6 +25907,15 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 theme-art scheduler composition: the measured foreground and
+background Saxman streams now emit their source instructions in order, marking
+every `loc_14418` VDP data write so the persistent scheduler retains FIFO
+stalls. Fresh saved-route boundaries match exactly: Forest reaches `loc_11EFA`
+at cycle 157,869,436 with refresh phase 51; Swamp reaches it at 143,456,531
+with phase 83. The ignored Swamp regression still fails only at the intended
+frame-166 hand-off. Continue with shared art and destination-only Murderwall.
+No paid Jev request or human playtest.
+
 2026-09-23 theme-caller scheduler composition: fresh saved-route PC traces put
 Forest at `loc_11E60` on cycle 156,500,570 with refresh phase 17 and Swamp on
 142,100,733 with phase 61. The source visitor now executes the shared mapping
