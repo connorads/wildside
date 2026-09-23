@@ -6159,6 +6159,12 @@ mod chunk_02 {
             "streams=2 output_bytes=15360 decoder_calls=6 decoder_instructions=75565 decoder_raw_cycles=600634 wrapper_instructions=61704 wrapper_raw_cycles=745380",
             "ASM loc_11E60/loc_11EA2 decode the selected Forest theme art streams"
         );
+        assert!(
+            !frames[223]
+                .gameplay_debug_fields
+                .contains_key("teleport_murder_wall_art_work_loc_140d2"),
+            "ASM loc_11FC8 skips Murderwall for the Forest destination"
+        );
         assert_eq!(
             (frames[223].kid_x_pos, frames[223].kid_y_pos),
             (Some(27_264_512), Some(138_346_496)),
@@ -6295,6 +6301,11 @@ mod chunk_02 {
             frames[103].gameplay_debug_fields["teleport_theme_art_work_loc_11e60"],
             "streams=2 output_bytes=15296 decoder_calls=6 decoder_instructions=74225 decoder_raw_cycles=590578 wrapper_instructions=61480 wrapper_raw_cycles=742692",
             "ASM loc_11E60/loc_11EA2 decode the selected Swamp theme art streams"
+        );
+        assert_eq!(
+            frames[103].gameplay_debug_fields["teleport_murder_wall_art_work_loc_140d2"],
+            "output_bytes=4608 decoder_calls=2 decoder_instructions=17140 decoder_raw_cycles=147808 wrapper_instructions=5681 wrapper_raw_cycles=66468",
+            "ASM Murderwall loc_140D2 loads the destination-only wall art before loc_11FD2"
         );
         assert_eq!(
             (frames[166].number_objects, frames[166].number_gfx_objects),

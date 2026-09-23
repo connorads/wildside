@@ -26636,3 +26636,10 @@ allowance; historical charged upper bound is $0.176526462, with no new paid call
   `verify-tas --scenario tests/data/tas/any-percent-published/scenario.json
   --frame-start 0 --checkpoint-interval 1 --bisect --frontier-kind gameplay`
   passes all 37759 frames by CRC.
+# 2026-09-23 - #300 Murderwall art phase measured
+
+- Emulator PC probes put both saved routes at `loc_11AE4` on scanline 195 with
+  refresh counter 59. Bloody Swamp alone runs `Murderwall loc_140D2`.
+- Its 4,608-byte upload costs 214,276 raw source cycles. This accounts for the
+  final two frames of the ten-frame destination gap. Raster composition remains.
+- No Jev request or spend.

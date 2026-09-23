@@ -16000,6 +16000,17 @@ impl NativeRuntime {
                         crate::load_in_game_timing::theme_art_decoder_workload_loc_11e60(&streams)
                             .ok()
                     });
+                let murder_wall_art_workload_loc_140d2 = destination_bundle
+                    .as_ref()
+                    .and_then(|bundle| bundle.parsed_header.as_ref())
+                    .filter(|header| header.murder_wall_flags != 0)
+                    .and_then(|_| {
+                        let stream = self
+                            .assets_source
+                            .read(std::path::Path::new("ingame/artcomp/Murder_wall.bin"))
+                            .ok()?;
+                        crate::load_in_game_timing::murder_wall_art_workload_loc_140d2(&stream).ok()
+                    });
                 self.current_level = LevelId(dest_map);
                 self.teleport_transition = Some(TeleportTransitionState {
                     start_frame: self.frame_index,
@@ -16013,6 +16024,7 @@ impl NativeRuntime {
                     background_mappings_workload,
                     block_layout_decode_workload_loc_132a6,
                     theme_art_decoder_workload_loc_11e60,
+                    murder_wall_art_workload_loc_140d2,
                 });
             }
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::Teleporter;

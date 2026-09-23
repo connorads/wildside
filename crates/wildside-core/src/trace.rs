@@ -12188,6 +12188,24 @@ impl NativeRuntime {
                 ),
             );
         }
+        if let Some(workload) = self
+            .teleport_transition
+            .as_ref()
+            .and_then(|transition| transition.murder_wall_art_workload_loc_140d2)
+        {
+            gameplay_debug_fields.insert(
+                "teleport_murder_wall_art_work_loc_140d2".into(),
+                format!(
+                    "output_bytes={} decoder_calls={} decoder_instructions={} decoder_raw_cycles={} wrapper_instructions={} wrapper_raw_cycles={}",
+                    workload.output_bytes,
+                    workload.decoder_calls,
+                    workload.instruction_count,
+                    workload.raw_cycles,
+                    workload.wrapper_instruction_count,
+                    workload.wrapper_raw_cycles
+                ),
+            );
+        }
         if self.progression.form_change_flash_frames > 1 {
             gameplay_debug_fields.insert("currently_transforming".into(), "true".into());
         }

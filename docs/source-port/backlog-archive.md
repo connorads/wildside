@@ -25907,6 +25907,17 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 Murderwall art timing: selected-PC probes give the same `loc_11AE4`
+hardware phase on both saved routes, at scanline 195 with refresh counter 59.
+Bloody Swamp's header then selects ASM `Murderwall loc_140D2`, while Forest
+skips it. Its art expands 4,608 bytes through two Saxman calls, costing 147,808
+decoder cycles plus 66,468 `DecompressToVRAM` wrapper cycles. The 214,276-cycle
+load crosses the remaining two ROM frame boundaries before `loc_11FD2`.
+Together with the eight-frame pre-theme difference, every destination-specific
+frame in the ten-frame hand-off gap now has an ASM phase. The ignored hand-off
+regression stays red pending FIFO/VINT composition. No paid Jev call or human
+playtest.
+
 2026-09-23 foreground terrain decoder timing: the transition now measures the
 Saxman stream before collision expansion at ASM `loc_11C10`. Forest expands
 1,120 bytes in one call, 3,116 instructions and 29,662 raw cycles. Swamp

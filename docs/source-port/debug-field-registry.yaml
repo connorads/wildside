@@ -893,6 +893,15 @@
       "promotion_trigger": "Promote into the typed Load_InGame schedule when these source phases are composed through the existing FIFO/VINT raster scheduler."
     },
     {
+      "key": "teleport_murder_wall_art_work_loc_140d2",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "issue-300-teleport-loader",
+      "first_added_commit": "pending",
+      "intended_meaning": "Destination-selected Murderwall art Saxman decode and DecompressToVRAM wrapper work at ASM loc_140D2 before loc_11FD2.",
+      "promotion_trigger": "Promote into the typed Load_InGame schedule when the loader source phases are raster-composed."
+    },
+    {
       "key": "teleport_block_decode_work_loc_132a6",
       "scope": "frame",
       "status": "exploratory",

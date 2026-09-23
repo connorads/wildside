@@ -53,6 +53,59 @@ pub(crate) struct ThemeArtDecoderWorkloadLoc11e60 {
     pub(crate) wrapper_raw_cycles: u32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct MurderWallArtWorkloadLoc140d2 {
+    pub(crate) output_bytes: u32,
+    pub(crate) decoder_calls: u32,
+    pub(crate) instruction_count: u32,
+    pub(crate) raw_cycles: u32,
+    pub(crate) wrapper_instruction_count: u32,
+    pub(crate) wrapper_raw_cycles: u32,
+}
+
+/// Measure ASM `Murderwall loc_140D2`'s `DecompressToVRAM` art load.
+pub(crate) fn murder_wall_art_workload_loc_140d2(
+    stream: &[u8],
+) -> anyhow::Result<MurderWallArtWorkloadLoc140d2> {
+    let mut workload = MurderWallArtWorkloadLoc140d2 {
+        output_bytes: 0,
+        decoder_calls: 0,
+        instruction_count: 0,
+        raw_cycles: 0,
+        // ASM loc_140D2: LEA/MOVE/BSR, then DecompressToVRAM's sub_142CC setup.
+        wrapper_instruction_count: 3 + 19,
+        wrapper_raw_cycles: 12 + 8 + 18 + 174,
+    };
+    let mut resume = None;
+    loop {
+        let visit = crate::saxman_timing::visit_decompress_chunk_instructions_sub_13684(
+            stream,
+            resume,
+            |_| {},
+        )?;
+        workload.decoder_calls += 1;
+        workload.output_bytes += u32::from(visit.timing.output_bytes);
+        workload.instruction_count += visit.timing.instruction_count;
+        workload.raw_cycles += visit.timing.raw_cycles;
+        let output_words = u32::from(visit.timing.output_bytes / 2);
+        // ASM loc_14300/loc_14314: decoder entry/exit, one VDP write and DBF
+        // per word, then either the history rollover or final return.
+        workload.wrapper_instruction_count += 7 + 2 * output_words;
+        workload.wrapper_raw_cycles += 58 + 22 * output_words + 4;
+        if visit.resume.is_some() {
+            workload.wrapper_instruction_count += 1_034;
+            workload.wrapper_raw_cycles += 15_414;
+        } else {
+            workload.wrapper_instruction_count += 3;
+            workload.wrapper_raw_cycles += 30;
+        }
+        resume = visit.resume;
+        if resume.is_none() {
+            return Ok(workload);
+        }
+    }
+}
+
 /// Measure the data-dependent Saxman decoder work selected by the theme loads.
 ///
 /// ASM `loc_11E60`, `loc_11EA2` and the conditional `loc_11EF2` calls all
