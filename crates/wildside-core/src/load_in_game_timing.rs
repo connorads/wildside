@@ -19,6 +19,8 @@ pub(crate) struct BackgroundMappingsWorkload {
     pub(crate) cells_copied: u32,
     pub(crate) chunk_loop_instruction_count: u32,
     pub(crate) chunk_loop_raw_cycles: u32,
+    pub(crate) chunk_wrapper_instruction_count: u32,
+    pub(crate) chunk_wrapper_raw_cycles: u32,
     pub(crate) enigma_streams: u32,
     pub(crate) enigma_instruction_count: u32,
     pub(crate) enigma_raw_cycles: u32,
@@ -235,14 +237,25 @@ pub(crate) fn background_chunk_mappings_workload_loc_12830(
     let mut cells_copied = 0_u32;
     let mut chunk_loop_instruction_count = 0_u32;
     let mut chunk_loop_raw_cycles = 0_u32;
+    let mut chunk_wrapper_instruction_count = 0_u32;
+    let mut chunk_wrapper_raw_cycles = 0_u32;
     let mut emit = |cycles: &[u32]| {
         chunk_loop_instruction_count += cycles.len() as u32;
         chunk_loop_raw_cycles += cycles.iter().sum::<u32>();
     };
+    let mut emit_wrapper = |cycles: &[u32]| {
+        chunk_wrapper_instruction_count += cycles.len() as u32;
+        chunk_wrapper_raw_cycles += cycles.iter().sum::<u32>();
+    };
+    // ASM Load_BackgroundMappings: select the direct format, preserve d5-d7,
+    // initialise both offsets and branch into loc_12830.
+    emit_wrapper(&[12, 12, 12, 12, 32, 4, 4, 10]);
     loop {
         let chunk_index = read_word(layout, offset)?;
         offset += 2;
         if chunk_index & 0x8000 != 0 {
+            // ASM loc_12830/loc_12842: terminal BMI, register restore and RTS.
+            emit_wrapper(&[8, 10, 36, 16]);
             break;
         }
         let x = read_word(layout, offset)? as i16;
@@ -254,6 +267,38 @@ pub(crate) fn background_chunk_mappings_workload_loc_12830(
         if width == 0 || height == 0 || chunk.len() < 4 + usize::from(width) * usize::from(height) {
             return None;
         }
+        // ASM loc_12830 plus Load_BackgroundChunk up to loc_12884. The MULS
+        // uses Background_width as its source operand, whose bit transitions
+        // determine 68000 execution time.
+        emit_wrapper(&[
+            8,
+            8,
+            8,
+            4,
+            8,
+            4,
+            18,
+            24,
+            4,
+            4,
+            12,
+            20,
+            12,
+            4,
+            4,
+            18,
+            8,
+            muls_word_absolute_short_cycles(background_width),
+            8,
+            8,
+            4,
+            4,
+            18,
+            8,
+            8,
+            4,
+            4,
+        ]);
         placements += 1;
         cells_visited += u32::from(width) * u32::from(height);
         for row in 0..height {
@@ -290,6 +335,9 @@ pub(crate) fn background_chunk_mappings_workload_loc_12830(
             // ASM loc_128A8 and the outer DBF.
             emit(&[12, 4, if row + 1 == height { 14 } else { 10 }]);
         }
+        // ASM loc_128AC/loc_12842: restore the chunk registers, return to the
+        // placement caller and branch back to loc_12830.
+        emit_wrapper(&[28, 16, 10]);
     }
 
     Some(BackgroundMappingsWorkload {
@@ -299,6 +347,8 @@ pub(crate) fn background_chunk_mappings_workload_loc_12830(
         cells_copied,
         chunk_loop_instruction_count,
         chunk_loop_raw_cycles,
+        chunk_wrapper_instruction_count,
+        chunk_wrapper_raw_cycles,
         enigma_streams: 0,
         enigma_instruction_count: 0,
         enigma_raw_cycles: 0,
@@ -332,11 +382,29 @@ pub(crate) fn background_layered_mappings_workload_loc_128ba(
         cells_copied: 0,
         chunk_loop_instruction_count: 0,
         chunk_loop_raw_cycles: 0,
+        chunk_wrapper_instruction_count: 0,
+        chunk_wrapper_raw_cycles: 0,
         enigma_streams: streams.len() as u32,
         enigma_instruction_count,
         enigma_raw_cycles,
         enigma_output_words,
     })
+}
+
+fn muls_word_absolute_short_cycles(source: u16) -> u32 {
+    // Motorola 68000 MULS timing as implemented by the oracle's m68000 core:
+    // 38 + two cycles for every source-bit transition, plus eight cycles for
+    // the absolute-short word source used at Load_BackgroundChunk.
+    let mut last_bit = false;
+    let mut transitions = 0_u32;
+    for bit in 0..16 {
+        let current = source & (1 << bit) != 0;
+        if current != last_bit {
+            transitions += 1;
+        }
+        last_bit = current;
+    }
+    46 + 2 * transitions
 }
 
 fn read_word(bytes: &[u8], offset: usize) -> Option<u16> {
@@ -444,6 +512,9 @@ mod tests {
         assert_eq!(workload.cells_copied, 2);
         assert_eq!(workload.chunk_loop_instruction_count, 50);
         assert_eq!(workload.chunk_loop_raw_cycles, 388);
+        assert_eq!(muls_word_absolute_short_cycles(2), 50);
+        assert_eq!(workload.chunk_wrapper_instruction_count, 42);
+        assert_eq!(workload.chunk_wrapper_raw_cycles, 506);
     }
 
     #[test]

@@ -6141,7 +6141,7 @@ mod chunk_02 {
         );
         assert_eq!(
             frames[223].gameplay_debug_fields["teleport_background_work_loc_1280a"],
-            "format=Layered placements=0 visited=0 copied=0 chunk_loop_instructions=0 chunk_loop_raw_cycles=0 enigma_streams=3 enigma_instructions=45764 enigma_raw_cycles=373634 enigma_output_words=2688",
+            "format=Layered placements=0 visited=0 copied=0 chunk_loop_instructions=0 chunk_loop_raw_cycles=0 chunk_wrapper_instructions=0 chunk_wrapper_raw_cycles=0 enigma_streams=3 enigma_instructions=45764 enigma_raw_cycles=373634 enigma_output_words=2688",
             "ASM loc_128BA loads all three Forest Enigma layers"
         );
         assert_eq!(
@@ -6268,7 +6268,7 @@ mod chunk_02 {
         );
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_background_work_loc_1280a"],
-            "format=Chunked placements=48 visited=5656 copied=5656 chunk_loop_instructions=76888 chunk_loop_raw_cycles=623248 enigma_streams=0 enigma_instructions=0 enigma_raw_cycles=0 enigma_output_words=0",
+            "format=Chunked placements=48 visited=5656 copied=5656 chunk_loop_instructions=76888 chunk_loop_raw_cycles=623248 chunk_wrapper_instructions=1452 chunk_wrapper_raw_cycles=16584 enigma_streams=0 enigma_instructions=0 enigma_raw_cycles=0 enigma_output_words=0",
             "ASM loc_12830 dispatches all Swamp chunk placements and loc_12884 visits their source cells"
         );
         assert_eq!(

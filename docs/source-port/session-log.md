@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 direct background wrapper timing
+
+The Swamp destination now has complete direct-background source timing. Its
+placement dispatch and chunk setup add 16,584 raw cycles around 623,248 loop
+cycles, totalling 639,832. Variable `muls.w` timing follows the oracle core's
+source-bit transitions. Continue with block dispatcher and entry handlers,
+then theme phases and schedule composition. No Jev spend or human playtest.
+
 ## 2026-09-23 - #300 direct background loop timing
 
 The Swamp destination's `loc_12884` loop now has an exact source measurement:

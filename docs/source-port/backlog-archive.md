@@ -25907,6 +25907,18 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 direct background wrapper timing: the direct-path workload now
+measures `Load_BackgroundMappings`, each `loc_12830` placement dispatch and the
+`Load_BackgroundChunk` setup/return outside `loc_12884`. Its `muls.w
+(Background_width).w,d3` cost follows the oracle m68000 core's source-bit
+transition rule rather than r68k's known fixed-cycle approximation. Swamp
+resource 0x15 adds 1,452 instructions and 16,584 raw cycles around the existing
+623,248-cycle inner loops, for 639,832 direct background cycles. Forest
+resource 0x6E correctly records zero direct-path wrapper work. Both saved routes
+pin the values; the ignored regression remains red at frame 166 with native
+4/4 against ROM 0/0. Block entry handlers and theme phases remain. No paid Jev
+call or human playtest.
+
 2026-09-23 direct background loop timing: the live workload now follows every
 `loc_12884` bounds branch and both DBF exits using the destination layout's
 actual chunk coordinates and dimensions. Swamp resource 0x15 executes 76,888
