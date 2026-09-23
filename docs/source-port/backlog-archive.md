@@ -25907,6 +25907,16 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 rejected block-layout composition: fresh saved-route selected-PC
+traces put Forest `loc_132A6` at cycle 156,006,108 and its return
+`loc_11C6E` at 156,071,884; Swamp uses 141,297,555 and 141,411,433. Converting
+the existing aggregate visitor directly into ordered scheduler input landed
+Forest about ten scanlines late. The aggregate instruction/cycle census is
+therefore insufficient as an ordered trace. The patch was discarded. Next
+experiment: compare its emitted sequence with a full `loc_132A6..loc_134BA`
+selected-PC trace and correct the first mismatching instruction cost or
+ordering before composing later phases. No paid Jev request or human playtest.
+
 2026-09-23 composed foreground-prefix correction: fresh full-PC oracle traces
 through `loc_11C50` disproved the earlier collision-cycle total. ASM
 `loc_11C3C` executes `lsl.b #4,d3` in 14 cycles, not 8, adding six cycles per
