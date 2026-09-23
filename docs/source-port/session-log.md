@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 background scheduler composition
+
+Forest's layered Enigma mappings and Swamp's direct chunk mappings now execute
+in source order through the persistent raster scheduler. Fresh traces corrected
+the Enigma jump-table and exact-boundary branches plus the direct row-stride
+cost. Both destinations reach exact emulator `loc_11D12` cursors. A loader-only
+exact branch profile preserves frozen #416's GEMS baseline. Continue with the
+remaining caller, theme art and Murderwall. No Jev spend or human playtest.
+
 ## 2026-09-23 - #300 block-overlay scheduler composition
 
 An instruction-ordered visitor now drives every Forest and Swamp block-overlay

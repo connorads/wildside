@@ -25907,6 +25907,17 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 background scheduler composition: instruction-ordered visitors now
+drive Forest's three layered Enigma streams and Swamp's 48 direct chunk
+placements through the persistent scheduler. Fresh saved-route PC traces exposed
+three prior census omissions: the `loc_13560` jump-table BRA on every Enigma
+command, `loc_13602` on exact-boundary inline packets and the 16-cycle
+`loc_128A8` row stride. With those corrected, Forest reaches `loc_11D12` at
+cycle 156,492,304 with refresh phase 71 and Swamp at 142,092,473 with phase
+121, exactly matching the emulator. The loader-only exact branch profile leaves
+frozen #416's GEMS baseline at its committed frame-923 frontier. Continue with
+the caller, theme art and Murderwall. No paid Jev request or human playtest.
+
 2026-09-23 block-overlay scheduler composition: the decoded overlay visitor now
 emits every source instruction in execution order through `loc_11D08`, including
 data-dependent hidden insertion, terrain and ghost-fill branches. The persistent

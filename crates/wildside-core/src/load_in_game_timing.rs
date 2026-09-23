@@ -1215,6 +1215,22 @@ pub(crate) fn background_chunk_mappings_workload_loc_12830(
     background_height: u16,
     mut load_chunk: impl FnMut(u16) -> Option<Vec<u8>>,
 ) -> Option<BackgroundMappingsWorkload> {
+    visit_background_chunk_mappings_instructions_loc_12830(
+        layout,
+        background_width,
+        background_height,
+        &mut load_chunk,
+        |_| {},
+    )
+}
+
+fn visit_background_chunk_mappings_instructions_loc_12830(
+    layout: &[u8],
+    background_width: u16,
+    background_height: u16,
+    load_chunk: &mut impl FnMut(u16) -> Option<Vec<u8>>,
+    mut visit: impl FnMut(u32),
+) -> Option<BackgroundMappingsWorkload> {
     let mut offset = 0_usize;
     let mut placements = 0_u32;
     let mut cells_visited = 0_u32;
@@ -1223,23 +1239,35 @@ pub(crate) fn background_chunk_mappings_workload_loc_12830(
     let mut chunk_loop_raw_cycles = 0_u32;
     let mut chunk_wrapper_instruction_count = 0_u32;
     let mut chunk_wrapper_raw_cycles = 0_u32;
-    let mut emit = |cycles: &[u32]| {
-        chunk_loop_instruction_count += cycles.len() as u32;
-        chunk_loop_raw_cycles += cycles.iter().sum::<u32>();
-    };
-    let mut emit_wrapper = |cycles: &[u32]| {
-        chunk_wrapper_instruction_count += cycles.len() as u32;
-        chunk_wrapper_raw_cycles += cycles.iter().sum::<u32>();
-    };
+    macro_rules! emit_loop {
+        ($cycles:expr) => {{
+            let cycles: &[u32] = $cycles;
+            chunk_loop_instruction_count += cycles.len() as u32;
+            chunk_loop_raw_cycles += cycles.iter().sum::<u32>();
+            for &cycle in cycles {
+                visit(cycle);
+            }
+        }};
+    }
+    macro_rules! emit_wrapper {
+        ($cycles:expr) => {{
+            let cycles: &[u32] = $cycles;
+            chunk_wrapper_instruction_count += cycles.len() as u32;
+            chunk_wrapper_raw_cycles += cycles.iter().sum::<u32>();
+            for &cycle in cycles {
+                visit(cycle);
+            }
+        }};
+    }
     // ASM Load_BackgroundMappings: select the direct format, preserve d5-d7,
     // initialise both offsets and branch into loc_12830.
-    emit_wrapper(&[12, 12, 12, 12, 32, 4, 4, 10]);
+    emit_wrapper!(&[12, 12, 12, 12, 32, 4, 4, 10]);
     loop {
         let chunk_index = read_word(layout, offset)?;
         offset += 2;
         if chunk_index & 0x8000 != 0 {
             // ASM loc_12830/loc_12842: terminal BMI, register restore and RTS.
-            emit_wrapper(&[8, 10, 36, 16]);
+            emit_wrapper!(&[8, 10, 36, 16]);
             break;
         }
         let x = read_word(layout, offset)? as i16;
@@ -1254,7 +1282,7 @@ pub(crate) fn background_chunk_mappings_workload_loc_12830(
         // ASM loc_12830 plus Load_BackgroundChunk up to loc_12884. The MULS
         // uses Background_width as its source operand, whose bit transitions
         // determine 68000 execution time.
-        emit_wrapper(&[
+        emit_wrapper!(&[
             8,
             8,
             8,
@@ -1287,41 +1315,41 @@ pub(crate) fn background_chunk_mappings_workload_loc_12830(
         cells_visited += u32::from(width) * u32::from(height);
         for row in 0..height {
             // ASM loc_12884: reset the inner DBF counter, destination and X.
-            emit(&[4, 4, 4]);
+            emit_loop!(&[4, 4, 4]);
             for column in 0..width {
                 let target_x = x.wrapping_add_unsigned(column);
                 let target_y = y.wrapping_add_unsigned(row);
-                emit(&[4]);
+                emit_loop!(&[4]);
                 if target_x < 0 {
-                    emit(&[10]);
+                    emit_loop!(&[10]);
                 } else {
-                    emit(&[8, 12]);
+                    emit_loop!(&[8, 12]);
                     if target_x >= background_width as i16 {
-                        emit(&[10]);
+                        emit_loop!(&[10]);
                     } else {
-                        emit(&[8, 4]);
+                        emit_loop!(&[8, 4]);
                         if target_y < 0 {
-                            emit(&[10]);
+                            emit_loop!(&[10]);
                         } else {
-                            emit(&[8, 12]);
+                            emit_loop!(&[8, 12]);
                             if target_y >= background_height as i16 {
-                                emit(&[10]);
+                                emit_loop!(&[10]);
                             } else {
-                                emit(&[8, 12]);
+                                emit_loop!(&[8, 12]);
                                 cells_copied += 1;
                             }
                         }
                     }
                 }
                 // ASM loc_128A0 and the inner DBF.
-                emit(&[8, 8, 4, if column + 1 == width { 14 } else { 10 }]);
+                emit_loop!(&[8, 8, 4, if column + 1 == width { 14 } else { 10 }]);
             }
             // ASM loc_128A8 and the outer DBF.
-            emit(&[12, 4, if row + 1 == height { 14 } else { 10 }]);
+            emit_loop!(&[16, 4, if row + 1 == height { 14 } else { 10 }]);
         }
         // ASM loc_128AC/loc_12842: restore the chunk registers, return to the
         // placement caller and branch back to loc_12830.
-        emit_wrapper(&[28, 16, 10]);
+        emit_wrapper!(&[28, 16, 10]);
     }
 
     Some(BackgroundMappingsWorkload {
@@ -1340,6 +1368,26 @@ pub(crate) fn background_chunk_mappings_workload_loc_12830(
     })
 }
 
+/// Emit ASM `Load_BackgroundMappings loc_1280A..loc_12846` and each direct
+/// `Load_BackgroundChunk` instruction in execution order.
+#[cfg(test)]
+pub(crate) fn background_chunk_instruction_cycles_loc_1280a(
+    layout: &[u8],
+    background_width: u16,
+    background_height: u16,
+    mut load_chunk: impl FnMut(u16) -> Option<Vec<u8>>,
+) -> Option<Vec<u32>> {
+    let mut cycles = Vec::new();
+    visit_background_chunk_mappings_instructions_loc_12830(
+        layout,
+        background_width,
+        background_height,
+        &mut load_chunk,
+        |cycle| cycles.push(cycle),
+    )?;
+    Some(cycles)
+}
+
 /// Census the layered background path using the existing exact EniDec visitor.
 ///
 /// ASM `Load_BackgroundMappings_Layered loc_128BA` dispatches a theme-specific
@@ -1352,9 +1400,13 @@ pub(crate) fn background_layered_mappings_workload_loc_128ba(
     let mut enigma_raw_cycles = 0_u32;
     let mut enigma_output_words = 0_u32;
     for &(stream, base_tile_word) in streams {
-        let timing =
-            crate::enigma_timing::visit_enigma_instructions(stream, base_tile_word, 0, |_| {})
-                .ok()?;
+        let timing = crate::enigma_timing::visit_enigma_instructions_exact(
+            stream,
+            base_tile_word,
+            0,
+            |_| {},
+        )
+        .ok()?;
         enigma_instruction_count += timing.instruction_count;
         enigma_raw_cycles += timing.raw_cycles;
         enigma_output_words += u32::from(timing.output_words);
@@ -1373,6 +1425,37 @@ pub(crate) fn background_layered_mappings_workload_loc_128ba(
         enigma_raw_cycles,
         enigma_output_words,
     })
+}
+
+/// Emit the Forest branch of ASM `Load_BackgroundMappings loc_1280A` and
+/// `Load_BackgroundMappings_Layered loc_128BA` in execution order.
+#[cfg(test)]
+pub(crate) fn background_forest_instruction_cycles_loc_1280a(
+    streams: &[(&[u8], u16)],
+) -> Option<Vec<u32>> {
+    if streams.len() != 3 {
+        return None;
+    }
+    let mut cycles = vec![
+        // loc_1280A dispatches the non-zero Background_format to loc_128BA.
+        12, 10, 12, 20, 12, 4, 4, 18,
+        // Mountain, Hills and Desert comparisons all fall through to Forest.
+        16, 8, 16, 12, 16, 12,
+    ];
+    for (index, &(stream, base_tile_word)) in streams.iter().enumerate() {
+        // Forest selects the first base once, then loads each source pointer
+        // and destination before calling EniDec.
+        if index == 0 {
+            cycles.push(8);
+        }
+        cycles.extend_from_slice(&[12, 8, 18]);
+        crate::enigma_timing::visit_enigma_instructions_exact(stream, base_tile_word, 0, |cycle| {
+            cycles.push(cycle);
+        })
+        .ok()?;
+    }
+    cycles.extend_from_slice(&[12, 16]);
+    Some(cycles)
 }
 
 fn muls_word_absolute_short_cycles(source: u16) -> u32 {
@@ -1496,7 +1579,7 @@ mod tests {
         assert_eq!(workload.cells_visited, 4);
         assert_eq!(workload.cells_copied, 2);
         assert_eq!(workload.chunk_loop_instruction_count, 50);
-        assert_eq!(workload.chunk_loop_raw_cycles, 388);
+        assert_eq!(workload.chunk_loop_raw_cycles, 396);
         assert_eq!(muls_word_absolute_short_cycles(2), 50);
         assert_eq!(workload.chunk_wrapper_instruction_count, 42);
         assert_eq!(workload.chunk_wrapper_raw_cycles, 506);
@@ -1547,6 +1630,7 @@ pub(crate) struct ForegroundPrefixAdvanceLoc11ae4 {
     pub(crate) foreground_refresh_events: u32,
     pub(crate) block_post_guard_cursor_loc_11c7e: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) block_overlay_cursor_loc_11d0c: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) background_cursor_loc_11d12: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) cursor: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) refresh_events: u32,
 }
@@ -1560,6 +1644,7 @@ pub(crate) struct LoadLayoutScheduleInputsLoc11ae4<'a> {
     pub(crate) layered_background: bool,
     pub(crate) foreground_stream: &'a [u8],
     pub(crate) block_layout_stream: &'a [u8],
+    pub(crate) background_instruction_cycles: &'a [u32],
 }
 
 /// Visit ASM `loc_11AE4..loc_11C0E` for a teleporter `Load_InGame`.
@@ -1738,6 +1823,17 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         }
     }
     let block_overlay_cursor_loc_11d0c = scheduler.cursor();
+    // ASM loc_11D0C loads the background stream pointer and calls
+    // Load_BackgroundMappings before continuing at loc_11D12.
+    for cycles in [12, 18]
+        .into_iter()
+        .chain(inputs.background_instruction_cycles.iter().copied())
+    {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(cycles).is_some();
+        }
+    }
+    let background_cursor_loc_11d12 = scheduler.cursor();
 
     anyhow::ensure!(schedule_ok, "Load_InGame layout schedule overflow");
     Ok(ForegroundPrefixAdvanceLoc11ae4 {
@@ -1748,6 +1844,7 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         foreground_refresh_events,
         block_post_guard_cursor_loc_11c7e,
         block_overlay_cursor_loc_11d0c,
+        background_cursor_loc_11d12,
         cursor: scheduler.cursor(),
         refresh_events: scheduler.refresh_events(),
     })

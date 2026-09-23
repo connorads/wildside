@@ -30,6 +30,7 @@ fn emit_consume_bits(rolling_refill: bool, visit: &mut impl FnMut(u32), timing: 
 
 fn emit_inline_value(
     inline: EnigmaInlineValueTrace,
+    exact_branches: bool,
     visit: &mut impl FnMut(u32),
     timing: &mut EnigmaTiming,
 ) {
@@ -83,7 +84,12 @@ fn emit_inline_value(
             emit(&[4, 4, 14, 4, 8, 22, 8, 16], visit, timing);
         }
         EnigmaInlinePacketPath::ExactWordBoundary => {
-            emit(&[10, 4, 10], visit, timing);
+            emit(&[10], visit, timing);
+            if exact_branches {
+                // ASM loc_13602: the exact boundary takes BEQ to loc_13610.
+                emit(&[10], visit, timing);
+            }
+            emit(&[4, 10], visit, timing);
             emit(&[4, 4, 14, 4, 8, 22, 8, 16], visit, timing);
         }
         EnigmaInlinePacketPath::WithinBufferedWord { rolling_refill } => {
@@ -96,6 +102,7 @@ fn emit_inline_value(
 
 fn emit_command(
     command: &EnigmaCommandTrace,
+    exact_branches: bool,
     visit: &mut impl FnMut(u32),
     timing: &mut EnigmaTiming,
 ) {
@@ -112,6 +119,10 @@ fn emit_command(
     emit(&[18], visit, timing);
     emit_consume_bits(command.prefix_rolling_refill, visit, timing);
     emit(&[8, 14, 4, 14], visit, timing);
+    if exact_branches {
+        // ASM loc_13560: each jump-table entry is a taken BRA to its handler.
+        emit(&[10], visit, timing);
+    }
 
     let iterations = u16::from(command.dbf_counter) + 1;
     match command.command {
@@ -139,7 +150,7 @@ fn emit_command(
         }
         4..=6 => {
             emit(&[18], visit, timing);
-            emit_inline_value(command.inline_values[0], visit, timing);
+            emit_inline_value(command.inline_values[0], exact_branches, visit, timing);
             for iteration in 0..iterations {
                 emit(&[8], visit, timing);
                 if command.command != 4 {
@@ -161,7 +172,7 @@ fn emit_command(
             emit(&[8, 8], visit, timing);
             for (iteration, inline) in command.inline_values.iter().copied().enumerate() {
                 emit(&[18], visit, timing);
-                emit_inline_value(inline, visit, timing);
+                emit_inline_value(inline, exact_branches, visit, timing);
                 emit(
                     &[
                         8,
@@ -220,6 +231,27 @@ pub fn visit_enigma_instructions(
     data: &[u8],
     base_tile_word: u16,
     source_address: u32,
+    visit: impl FnMut(u32),
+) -> Result<EnigmaTiming> {
+    visit_enigma_instructions_with_branches(data, base_tile_word, source_address, false, visit)
+}
+
+/// Visit every source instruction selected by ASM `EniDec`, including the
+/// jump-table and exact-boundary branches used by loader raster scheduling.
+pub(crate) fn visit_enigma_instructions_exact(
+    data: &[u8],
+    base_tile_word: u16,
+    source_address: u32,
+    visit: impl FnMut(u32),
+) -> Result<EnigmaTiming> {
+    visit_enigma_instructions_with_branches(data, base_tile_word, source_address, true, visit)
+}
+
+fn visit_enigma_instructions_with_branches(
+    data: &[u8],
+    base_tile_word: u16,
+    source_address: u32,
+    exact_branches: bool,
     mut visit: impl FnMut(u32),
 ) -> Result<EnigmaTiming> {
     let trace = enigma_trace(data, base_tile_word)?;
@@ -237,7 +269,7 @@ pub fn visit_enigma_instructions(
         &mut timing,
     );
     for command in &trace.commands {
-        emit_command(command, &mut visit, &mut timing);
+        emit_command(command, exact_branches, &mut visit, &mut timing);
     }
     emit_return(&trace, source_address, &mut visit, &mut timing);
 
@@ -280,8 +312,8 @@ mod tests {
                 0,
                 0x2E77A,
                 EnigmaTiming {
-                    instruction_count: 2_481,
-                    raw_cycles: 20_678,
+                    instruction_count: 2_521,
+                    raw_cycles: 21_078,
                     output_words: 203,
                 },
             ),
@@ -290,8 +322,8 @@ mod tests {
                 0,
                 0x2FDA6,
                 EnigmaTiming {
-                    instruction_count: 1_138,
-                    raw_cycles: 9_912,
+                    instruction_count: 1_162,
+                    raw_cycles: 10_152,
                     output_words: 90,
                 },
             ),
@@ -300,14 +332,15 @@ mod tests {
                 0,
                 0x2F840,
                 EnigmaTiming {
-                    instruction_count: 615,
-                    raw_cycles: 5_602,
+                    instruction_count: 629,
+                    raw_cycles: 5_742,
                     output_words: 28,
                 },
             ),
         ] {
-            let timing = visit_enigma_instructions(data, base_tile_word, source_address, |_| {})
-                .expect("valid ROM Enigma stream");
+            let timing =
+                visit_enigma_instructions_exact(data, base_tile_word, source_address, |_| {})
+                    .expect("valid ROM Enigma stream");
             assert_eq!(
                 timing, expected,
                 "ASM EniDec timing for {source_address:#x}"
@@ -325,7 +358,7 @@ mod tests {
         ];
         let mut cycles = Vec::new();
 
-        let timing = visit_enigma_instructions(REPEATED_INTRO_ROWS, 0x413A, 0x2FDCE, |raw| {
+        let timing = visit_enigma_instructions_exact(REPEATED_INTRO_ROWS, 0x413A, 0x2FDCE, |raw| {
             cycles.push(raw);
         })
         .expect("valid Enigma command stream");
@@ -333,8 +366,8 @@ mod tests {
         assert_eq!(
             timing,
             EnigmaTiming {
-                instruction_count: 504,
-                raw_cycles: 4_672,
+                instruction_count: 516,
+                raw_cycles: 4_792,
                 output_words: 28,
             },
         );

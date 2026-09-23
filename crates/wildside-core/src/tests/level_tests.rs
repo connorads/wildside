@@ -6214,6 +6214,33 @@ mod chunk_02 {
             )),
             refresh_phase: M68kRefreshPhase::new(59).expect("oracle refresh phase"),
         };
+        let forest_background_streams = (0..3)
+            .map(|index| {
+                std::fs::read(
+                    manifest
+                        .output_root
+                        .join(format!("theme/bg_chunks/forest_eni_{index:02X}.bin")),
+                )
+                .expect("read Forest Enigma background stream")
+            })
+            .collect::<Vec<_>>();
+        let forest_background_refs = forest_background_streams
+            .iter()
+            .map(|stream| (stream.as_slice(), 0x0780))
+            .collect::<Vec<_>>();
+        let forest_background_cycles =
+            crate::load_in_game_timing::background_forest_instruction_cycles_loc_1280a(
+                &forest_background_refs,
+            )
+            .expect("visit Forest background instructions");
+        assert_eq!(
+            (
+                forest_background_cycles.len() as u32,
+                forest_background_cycles.iter().sum::<u32>()
+            ),
+            (46_328, 379_336),
+            "ASM loc_1280A/loc_128BA wrappers compose with the three exact Forest EniDec streams"
+        );
         let forest_prefix = crate::load_in_game_timing::schedule_foreground_prefix_loc_11ae4(
             forest_entry,
             &crate::load_in_game_timing::LoadLayoutScheduleInputsLoc11ae4 {
@@ -6224,6 +6251,7 @@ mod chunk_02 {
                 layered_background: true,
                 foreground_stream: &forest_foreground.bytes,
                 block_layout_stream: &forest_block.bytes,
+                background_instruction_cycles: &forest_background_cycles,
             },
         )
         .expect("schedule Forest layout, decoder and collision prefix");
@@ -6286,8 +6314,18 @@ mod chunk_02 {
             "ASM loc_11C7E..loc_11D08 schedules each Forest overlay instruction across refresh and VINT boundaries"
         );
         assert_eq!(
+            forest_prefix.background_cursor_loc_11d12,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    156_492_304
+                )),
+                refresh_phase: M68kRefreshPhase::new(71).expect("oracle refresh phase"),
+            },
+            "ASM loc_11D0C -> Load_BackgroundMappings_Layered reaches the exact Forest return cursor"
+        );
+        assert_eq!(
             frames[223].gameplay_debug_fields["teleport_background_work_loc_1280a"],
-            "format=Layered placements=0 visited=0 copied=0 chunk_loop_instructions=0 chunk_loop_raw_cycles=0 chunk_wrapper_instructions=0 chunk_wrapper_raw_cycles=0 enigma_streams=3 enigma_instructions=45764 enigma_raw_cycles=373634 enigma_output_words=2688",
+            "format=Layered placements=0 visited=0 copied=0 chunk_loop_instructions=0 chunk_loop_raw_cycles=0 chunk_wrapper_instructions=0 chunk_wrapper_raw_cycles=0 enigma_streams=3 enigma_instructions=46302 enigma_raw_cycles=379014 enigma_output_words=2688",
             "ASM loc_128BA loads all three Forest Enigma layers"
         );
         assert_eq!(
@@ -6498,6 +6536,29 @@ mod chunk_02 {
             )),
             refresh_phase: M68kRefreshPhase::new(59).expect("oracle refresh phase"),
         };
+        let swamp_background = swamp_bundle
+            .background
+            .as_ref()
+            .expect("Swamp background layout");
+        let swamp_theme = crate::level::theme_palette_basename(swamp_header.background_theme)
+            .expect("Swamp background theme")
+            .strip_suffix(".bin")
+            .expect("theme basename suffix");
+        let swamp_background_cycles =
+            crate::load_in_game_timing::background_chunk_instruction_cycles_loc_1280a(
+                &swamp_background.bytes,
+                u16::from(swamp_header.width_screens) * 10 + 0x1e,
+                u16::from(swamp_header.height_screens) * 7 + 0x15,
+                |index| {
+                    std::fs::read(
+                        manifest
+                            .output_root
+                            .join(format!("theme/bg_chunks/{swamp_theme}_{index:02X}.bin")),
+                    )
+                    .ok()
+                },
+            )
+            .expect("visit Swamp background instructions");
         let swamp_prefix = crate::load_in_game_timing::schedule_foreground_prefix_loc_11ae4(
             swamp_entry,
             &crate::load_in_game_timing::LoadLayoutScheduleInputsLoc11ae4 {
@@ -6508,6 +6569,7 @@ mod chunk_02 {
                 layered_background: false,
                 foreground_stream: &swamp_foreground.bytes,
                 block_layout_stream: &swamp_block.bytes,
+                background_instruction_cycles: &swamp_background_cycles,
             },
         )
         .expect("schedule Swamp layout, decoder and collision prefix");
@@ -6570,8 +6632,18 @@ mod chunk_02 {
             "ASM loc_11C7E..loc_11D08 schedules each Swamp overlay instruction across refresh and VINT boundaries"
         );
         assert_eq!(
+            swamp_prefix.background_cursor_loc_11d12,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    142_092_473
+                )),
+                refresh_phase: M68kRefreshPhase::new(121).expect("oracle refresh phase"),
+            },
+            "ASM loc_11D0C -> Load_BackgroundMappings reaches the exact Swamp return cursor"
+        );
+        assert_eq!(
             frames[103].gameplay_debug_fields["teleport_background_work_loc_1280a"],
-            "format=Chunked placements=48 visited=5656 copied=5656 chunk_loop_instructions=76888 chunk_loop_raw_cycles=623248 chunk_wrapper_instructions=1452 chunk_wrapper_raw_cycles=16584 enigma_streams=0 enigma_instructions=0 enigma_raw_cycles=0 enigma_output_words=0",
+            "format=Chunked placements=48 visited=5656 copied=5656 chunk_loop_instructions=76888 chunk_loop_raw_cycles=625488 chunk_wrapper_instructions=1452 chunk_wrapper_raw_cycles=16584 enigma_streams=0 enigma_instructions=0 enigma_raw_cycles=0 enigma_output_words=0",
             "ASM loc_12830 dispatches all Swamp chunk placements and loc_12884 visits their source cells"
         );
         assert_eq!(
