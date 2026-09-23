@@ -12136,7 +12136,7 @@ impl NativeRuntime {
             gameplay_debug_fields.insert(
                 "teleport_block_decode_work_loc_132a6".into(),
                 format!(
-                    "x_width={} y_width={} groups={} entries={} properties={} bit_reads={} bits={} refills={} bytes={} reader_instructions={} reader_raw_cycles={}",
+                    "x_width={} y_width={} groups={} entries={} properties={} bit_reads={} bits={} refills={} bytes={} reader_instructions={} reader_raw_cycles={} decoder_instructions={} decoder_raw_cycles={}",
                     workload.x_width,
                     workload.y_width,
                     workload.groups,
@@ -12147,7 +12147,9 @@ impl NativeRuntime {
                     workload.rolling_refills,
                     workload.bytes_consumed,
                     workload.bit_reader_instruction_count,
-                    workload.bit_reader_raw_cycles
+                    workload.bit_reader_raw_cycles,
+                    workload.decoder_instruction_count,
+                    workload.decoder_raw_cycles
                 ),
             );
         }

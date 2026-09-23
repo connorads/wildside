@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 block dispatcher and entry timing
+
+The complete `LoadBlockLayout loc_132A6` source path is now measured. Forest
+uses 69,410 raw cycles across reader and handlers; Swamp uses 114,204. Both
+saved routes pin their data-dependent entry branches, and the ignored route
+still reaches its intended frame-166 failure. Continue with theme phases and
+compose the measured loader schedule. No Jev spend or human playtest.
+
 ## 2026-09-23 - #300 direct background wrapper timing
 
 The Swamp destination now has complete direct-background source timing. Its

@@ -40,6 +40,8 @@ pub(crate) struct BlockLayoutDecodeWorkloadLoc132a6 {
     pub(crate) bytes_consumed: u32,
     pub(crate) bit_reader_instruction_count: u32,
     pub(crate) bit_reader_raw_cycles: u32,
+    pub(crate) decoder_instruction_count: u32,
+    pub(crate) decoder_raw_cycles: u32,
 }
 
 /// Trace the compressed block-layout branches selected by the ROM bit stream.
@@ -67,60 +69,102 @@ pub(crate) fn block_layout_decode_workload_loc_132a6(
     let mut groups = 0_u32;
     let mut entries = 0_u32;
     let mut property_words = 0_u32;
+    let mut decoder_instruction_count = 0_u32;
+    let mut decoder_raw_cycles = 0_u32;
+    let mut emit_decoder = |cycles: &[u32]| {
+        decoder_instruction_count += cycles.len() as u32;
+        decoder_raw_cycles += cycles.iter().sum::<u32>();
+    };
+    // ASM loc_132A6: save 14 registers (a1 and a7 excluded), initialise the
+    // reader, decode the two field widths and select the X sentinel mask.
+    emit_decoder(&[120, 4, 18, 12, 4, 18, 4, 18, 4, 4, 8, 14, 4, 18, 4]);
 
     loop {
+        emit_decoder(&[4, 18, 8, 4, 4, 18, 8]);
         reader.read(1)?;
         let block_type = reader.read(5)?;
         if block_type == 0x1f {
+            emit_decoder(&[10, 12, 12, 124, 16]);
             break;
         }
+        emit_decoder(&[12, 4, 8, 4, 14, 14]);
         groups += 1;
         loop {
+            emit_decoder(&[4, 18, 4]);
             let x = reader.read(x_width.max(1))?;
             if x == x_sentinel {
+                emit_decoder(&[8, 12, 10]);
                 break;
             }
+            emit_decoder(&[10, 8, 4, 18, 8]);
             entries += 1;
             reader.read(y_width.max(1))?;
             match block_type {
                 0 | 2 | 5 | 6 | 7 | 8 | 9 | 13 | 14 | 15 => {
+                    emit_decoder(&[4, 18, 4, 8, 4, 18, 8, 10]);
                     reader.read(4)?;
                     reader.read(1)?;
                 }
                 1 => {
+                    emit_decoder(&[4, 18, 4, 4, 8, 4, 18, 8]);
                     let count = reader.read(4)? + 1;
                     reader.read(1)?;
                     property_words += u32::from(count);
-                    for _ in 0..count {
-                        reader.read(1)?;
+                    for index in 0..count {
+                        emit_decoder(&[4, 18, 4]);
+                        let high_bit = reader.read(1)? != 0;
+                        emit_decoder(&[if high_bit { 8 } else { 10 }, 4, 18]);
                         reader.read(4)?;
+                        if high_bit {
+                            emit_decoder(&[8, 10]);
+                        }
+                        emit_decoder(&[8, if index + 1 == count { 14 } else { 10 }]);
                     }
+                    emit_decoder(&[10]);
                 }
                 10 | 12 => {
+                    emit_decoder(&[4, 18, 4, 4, 8, 4, 18, 8]);
                     let count = reader.read(4)? + 1;
                     reader.read(1)?;
                     property_words += u32::from(count);
-                    for _ in 0..count {
+                    for index in 0..count {
+                        emit_decoder(&[4, 18]);
                         reader.read(4)?;
+                        emit_decoder(&[8, if index + 1 == count { 14 } else { 10 }]);
                     }
+                    emit_decoder(&[10]);
                 }
                 3 => {
-                    for width in [3, 1, 8, 3, 8, 8] {
+                    for (index, width) in [3, 1, 8, 3, 8, 8].into_iter().enumerate() {
+                        emit_decoder(&[4, 18]);
                         reader.read(width)?;
+                        if index == 0 {
+                            emit_decoder(&[4, 8]);
+                        } else {
+                            emit_decoder(&[8]);
+                        }
                     }
+                    emit_decoder(&[10]);
                 }
                 4 => {
+                    emit_decoder(&[4, 18]);
                     reader.read(16)?;
+                    emit_decoder(&[4, 8, 4, 18]);
                     reader.read(9)?;
+                    emit_decoder(&[8, 10]);
                 }
-                11 => {}
+                11 => emit_decoder(&[10]),
                 16 => {
+                    emit_decoder(&[4, 18, 4, 4, 8, 4, 18, 8]);
                     let count = reader.read(4)? + 1;
                     reader.read(1)?;
                     property_words += u32::from(count);
-                    for _ in 0..count {
+                    for index in 0..count {
+                        emit_decoder(&[4, 18]);
                         reader.read(3)?;
+                        emit_decoder(&[8, if index + 1 == count { 14 } else { 10 }]);
                     }
+                    emit_decoder(&[10]);
                 }
                 _ => return None,
             }
@@ -139,6 +183,8 @@ pub(crate) fn block_layout_decode_workload_loc_132a6(
         bytes_consumed: reader.position as u32,
         bit_reader_instruction_count: reader.instruction_count,
         bit_reader_raw_cycles: reader.raw_cycles,
+        decoder_instruction_count,
+        decoder_raw_cycles,
     })
 }
 
@@ -537,5 +583,12 @@ mod tests {
         assert!(workload.rolling_refills > 0);
         assert!(workload.bit_reader_instruction_count > workload.bit_read_calls);
         assert!(workload.bit_reader_raw_cycles > workload.bits_requested);
+        assert_eq!(
+            (
+                workload.decoder_instruction_count,
+                workload.decoder_raw_cycles
+            ),
+            (444, 4_348)
+        );
     }
 }

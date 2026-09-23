@@ -25907,6 +25907,18 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 block dispatcher and entry timing: the ROM-format visitor now counts
+every non-reader instruction from `loc_132A6` through `loc_134BA`, including
+group dispatch, X sentinels, all seven entry-handler shapes, property loops and
+their data-dependent branches. The paired 14-register MOVEM save/restore is
+counted explicitly. Forest resource 0x6E adds 1,290 dispatcher instructions and
+12,204 raw cycles to its 57,206-cycle bit reader, totalling 69,410. Swamp
+resource 0x15 adds 1,755 instructions and 16,604 cycles to its 97,600-cycle
+reader, totalling 114,204. Both saved routes pin the values; the ignored timing
+regression remains red at frame 166 with native 4/4 against ROM 0/0. Theme
+loads and composed raster scheduling remain. No paid Jev call or human
+playtest.
+
 2026-09-23 direct background wrapper timing: the direct-path workload now
 measures `Load_BackgroundMappings`, each `loc_12830` placement dispatch and the
 `Load_BackgroundChunk` setup/return outside `loc_12884`. Its `muls.w

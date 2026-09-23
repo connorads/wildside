@@ -469,7 +469,7 @@
       "docs/source-port/backlog-archive.md#issue-300",
       "crates/wildside-core/src/level.rs:19178"
     ],
-      "next_action": "Time the LoadBlockLayout dispatcher and entry handlers, add theme-load visitors, compose the loader schedule, then re-enable the second-destination timing regression.",
+      "next_action": "Add theme-load visitors, compose the measured loader schedule, then re-enable the second-destination timing regression.",
     "scope": "Use an inter-level teleporter where map id differs; it should load the ROM destination."
   },
   {
