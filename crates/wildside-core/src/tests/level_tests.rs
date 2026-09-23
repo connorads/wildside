@@ -6154,6 +6154,22 @@ mod chunk_02 {
         let forest_header = forest_bundle.parsed_header.expect("parsed Forest header");
         let forest_foreground = forest_bundle.foreground.expect("Forest foreground stream");
         let forest_block = forest_bundle.block.expect("Forest block-layout stream");
+        assert_eq!(
+            crate::load_in_game_timing::block_overlay_workload_loc_11c7e(
+                &crate::level::decode_block_layout_loc_132A6(&forest_block.bytes)
+                    .expect("decode Forest block layout")
+            ),
+            Some(crate::load_in_game_timing::BlockOverlayWorkloadLoc11c7e {
+                groups: 6,
+                entries: 57,
+                placement_cells: 309,
+                written_cells: 310,
+                property_words: 27,
+                hidden_groups: 1,
+                handler_groups: [1, 2, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            }),
+            "ASM loc_11C7E dispatches every Forest overlay record before background loading"
+        );
         let forest_entry = crate::vdp::LoadInGameCpuRasterCursor {
             beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
                 155_878_532,
@@ -6374,6 +6390,22 @@ mod chunk_02 {
         let swamp_header = swamp_bundle.parsed_header.expect("parsed Swamp header");
         let swamp_foreground = swamp_bundle.foreground.expect("Swamp foreground stream");
         let swamp_block = swamp_bundle.block.expect("Swamp block-layout stream");
+        assert_eq!(
+            crate::load_in_game_timing::block_overlay_workload_loc_11c7e(
+                &crate::level::decode_block_layout_loc_132A6(&swamp_block.bytes)
+                    .expect("decode Swamp block layout")
+            ),
+            Some(crate::load_in_game_timing::BlockOverlayWorkloadLoc11c7e {
+                groups: 7,
+                entries: 80,
+                placement_cells: 182,
+                written_cells: 183,
+                property_words: 24,
+                hidden_groups: 0,
+                handler_groups: [1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+            }),
+            "ASM loc_11C7E dispatches every Swamp overlay record before background loading"
+        );
         let swamp_entry = crate::vdp::LoadInGameCpuRasterCursor {
             beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
                 140_517_883,

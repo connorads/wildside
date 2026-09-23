@@ -25907,6 +25907,16 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 block-overlay branch census: the decoded `loc_11C7E` stream now has
+a checked, route-independent parser for every `AddrTbl_BlockTypes` record
+shape. Forest contains six groups and 57 entries covering 309 placements, 310
+cell writes, 27 property words and one hidden group. Swamp contains seven
+groups and 80 entries covering 182 placements, 183 writes and 24 properties.
+Fresh full-PC traces bound the corresponding dispatcher/handler phase at
+156,071,910..156,106,568 for Forest and 141,411,459..141,439,601 for Swamp.
+The ignored Swamp regression still reaches only its intended frame-166 failure.
+No paid Jev request or human playtest.
+
 2026-09-23 corrected block-layout composition: full saved-route PC traces
 showed the decoder body was already exact, but the reader invented a second RTS
 after each short `ble.s sub_1364C` tail-call and omitted the inner

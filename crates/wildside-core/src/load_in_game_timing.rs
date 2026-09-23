@@ -218,6 +218,99 @@ pub(crate) struct BlockLayoutDecodeWorkloadLoc132a6 {
     pub(crate) decoder_raw_cycles: u32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
+pub(crate) struct BlockOverlayWorkloadLoc11c7e {
+    pub(crate) groups: u32,
+    pub(crate) entries: u32,
+    pub(crate) placement_cells: u32,
+    pub(crate) written_cells: u32,
+    pub(crate) property_words: u32,
+    pub(crate) hidden_groups: u32,
+    pub(crate) handler_groups: [u16; 17],
+}
+
+/// Census the `$FFFF`-terminated stream consumed by ASM `loc_11C7E` and
+/// `AddrTbl_BlockTypes` before assigning instruction timing to each handler.
+#[cfg(test)]
+pub(crate) fn block_overlay_workload_loc_11c7e(
+    words: &[u16],
+) -> Option<BlockOverlayWorkloadLoc11c7e> {
+    let mut workload = BlockOverlayWorkloadLoc11c7e {
+        groups: 0,
+        entries: 0,
+        placement_cells: 0,
+        written_cells: 0,
+        property_words: 0,
+        hidden_groups: 0,
+        handler_groups: [0; 17],
+    };
+    let mut pos = 0_usize;
+    loop {
+        let type_word = *words.get(pos)?;
+        pos += 1;
+        if type_word == 0xffff {
+            return Some(workload);
+        }
+        let hidden = type_word & 0x8000 != 0;
+        let block_type = usize::from(type_word & 0x7fff);
+        let handler_count = workload.handler_groups.get_mut(block_type)?;
+        *handler_count = handler_count.checked_add(1)?;
+        workload.groups = workload.groups.checked_add(1)?;
+        workload.hidden_groups += u32::from(hidden);
+
+        loop {
+            let x = *words.get(pos)?;
+            pos += 1;
+            if x == 0xffff {
+                break;
+            }
+            workload.entries = workload.entries.checked_add(1)?;
+            match block_type {
+                0 | 2 | 5 | 6 | 7 | 8 | 9 | 13 | 14 | 15 => {
+                    let count = u32::from(*words.get(pos + 1)?);
+                    pos = pos.checked_add(3)?;
+                    workload.placement_cells = workload.placement_cells.checked_add(count)?;
+                    let writes = if block_type == 8 {
+                        count.checked_mul(4)?
+                    } else {
+                        count
+                    };
+                    workload.written_cells = workload.written_cells.checked_add(writes)?;
+                }
+                1 | 10 | 12 | 16 => {
+                    let count = usize::from(*words.get(pos + 1)?);
+                    pos = pos.checked_add(3)?.checked_add(count)?;
+                    let count = u32::try_from(count).ok()?;
+                    workload.placement_cells = workload.placement_cells.checked_add(count)?;
+                    workload.written_cells = workload.written_cells.checked_add(count)?;
+                    workload.property_words = workload.property_words.checked_add(count)?;
+                }
+                3 => {
+                    let count = u32::from(*words.get(pos + 1)?);
+                    let priority = *words.get(pos + 4)?;
+                    pos = pos.checked_add(7)?;
+                    workload.placement_cells = workload.placement_cells.checked_add(count)?;
+                    if priority == 0 {
+                        workload.written_cells = workload.written_cells.checked_add(count)?;
+                    }
+                }
+                4 => {
+                    pos = pos.checked_add(3)?;
+                    workload.placement_cells = workload.placement_cells.checked_add(1)?;
+                    workload.written_cells = workload.written_cells.checked_add(2)?;
+                }
+                11 => {
+                    pos = pos.checked_add(1)?;
+                    workload.placement_cells = workload.placement_cells.checked_add(1)?;
+                    workload.written_cells = workload.written_cells.checked_add(1)?;
+                }
+                _ => return None,
+            }
+        }
+    }
+}
+
 /// Trace the compressed block-layout branches selected by the ROM bit stream.
 ///
 /// ASM `LoadBlockLayout loc_132A6` uses `sub_13622` for every field and
