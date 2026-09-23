@@ -6150,6 +6150,11 @@ mod chunk_02 {
             "ASM loc_132A6 preserves every source bit-read and refill boundary for resource 0x6E"
         );
         assert_eq!(
+            frames[223].gameplay_debug_fields["teleport_theme_art_work_loc_11e60"],
+            "streams=2 output_bytes=15360 decoder_calls=6 instructions=75565 raw_cycles=600634",
+            "ASM loc_11E60/loc_11EA2 decode the selected Forest theme art streams"
+        );
+        assert_eq!(
             (frames[223].kid_x_pos, frames[223].kid_y_pos),
             (Some(27_264_512), Some(138_346_496)),
             "ASM Teleport retains the departing Kid GfxObject during the first fade frame"
@@ -6275,6 +6280,11 @@ mod chunk_02 {
             frames[103].gameplay_debug_fields["teleport_block_decode_work_loc_132a6"],
             "x_width=9 y_width=5 groups=7 entries=80 properties=24 bit_reads=428 bits=2085 refills=260 bytes=262 reader_instructions=9235 reader_raw_cycles=97600 decoder_instructions=1755 decoder_raw_cycles=16604",
             "ASM loc_132A6 preserves every source bit-read and refill boundary for resource 0x15"
+        );
+        assert_eq!(
+            frames[103].gameplay_debug_fields["teleport_theme_art_work_loc_11e60"],
+            "streams=2 output_bytes=15296 decoder_calls=6 instructions=74225 raw_cycles=590578",
+            "ASM loc_11E60/loc_11EA2 decode the selected Swamp theme art streams"
         );
         assert_eq!(
             (frames[166].number_objects, frames[166].number_gfx_objects),

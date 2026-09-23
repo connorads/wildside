@@ -6,6 +6,52 @@ pub(crate) struct ForegroundCollisionExpansionTimingLoc11c34 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ThemeArtDecoderWorkloadLoc11e60 {
+    pub(crate) streams: u32,
+    pub(crate) output_bytes: u32,
+    pub(crate) decoder_calls: u32,
+    pub(crate) instruction_count: u32,
+    pub(crate) raw_cycles: u32,
+}
+
+/// Measure the data-dependent Saxman decoder work selected by the theme loads.
+///
+/// ASM `loc_11E60`, `loc_11EA2` and the conditional `loc_11EF2` calls all
+/// enter `DecompressToRAM`, whose source-dependent body is `Decompress_Chunk
+/// sub_13684`. The fixed permutation and VDP-write wrapper is deliberately
+/// outside this workload until it can be scheduled at its real VDP waits.
+pub(crate) fn theme_art_decoder_workload_loc_11e60(
+    streams: &[&[u8]],
+) -> anyhow::Result<ThemeArtDecoderWorkloadLoc11e60> {
+    let mut workload = ThemeArtDecoderWorkloadLoc11e60 {
+        streams: streams.len() as u32,
+        output_bytes: 0,
+        decoder_calls: 0,
+        instruction_count: 0,
+        raw_cycles: 0,
+    };
+    for stream in streams {
+        let mut resume = None;
+        loop {
+            let visit = crate::saxman_timing::visit_decompress_chunk_instructions_sub_13684(
+                stream,
+                resume,
+                |_| {},
+            )?;
+            workload.decoder_calls += 1;
+            workload.output_bytes += u32::from(visit.timing.output_bytes);
+            workload.instruction_count += visit.timing.instruction_count;
+            workload.raw_cycles += visit.timing.raw_cycles;
+            resume = visit.resume;
+            if resume.is_none() {
+                break;
+            }
+        }
+    }
+    Ok(workload)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BackgroundMappingsFormat {
     Chunked,
     Layered,

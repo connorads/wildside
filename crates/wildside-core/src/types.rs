@@ -4560,6 +4560,8 @@ pub(crate) struct TeleportTransitionState {
         Option<crate::load_in_game_timing::BackgroundMappingsWorkload>,
     pub(crate) block_layout_decode_workload_loc_132a6:
         Option<crate::load_in_game_timing::BlockLayoutDecodeWorkloadLoc132a6>,
+    pub(crate) theme_art_decoder_workload_loc_11e60:
+        Option<crate::load_in_game_timing::ThemeArtDecoderWorkloadLoc11e60>,
 }
 
 #[derive(Debug, Clone)]

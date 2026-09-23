@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 theme-art decoder timing
+
+Both saved destinations now record the exact selected theme-art Saxman work.
+Forest costs 600,634 raw decoder cycles and Swamp costs 590,578 across their
+foreground and background streams. Continue with the fixed permutation and
+VDP-write wrappers, then compose the loader raster schedule. No Jev spend or
+human playtest.
+
 ## 2026-09-23 - #300 block dispatcher and entry timing
 
 The complete `LoadBlockLayout loc_132A6` source path is now measured. Forest

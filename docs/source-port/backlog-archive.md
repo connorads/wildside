@@ -25907,6 +25907,16 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 theme-art decoder timing: the live transition now selects the
+destination foreground and background art streams used by ASM `loc_11E60` and
+`loc_11EA2`, then follows every data-dependent `Decompress_Chunk sub_13684`
+call and resumed window. Forest expands 15,360 bytes through six calls, 75,565
+instructions and 600,634 raw cycles. Swamp expands 15,296 bytes through six
+calls, 74,225 instructions and 590,578 cycles. Both saved routes pin these
+values. The fixed permutation and VDP-write wrapper remains outside this
+workload, so the ignored timing regression still deliberately fails at frame
+166. No paid Jev call or human playtest.
+
 2026-09-23 block dispatcher and entry timing: the ROM-format visitor now counts
 every non-reader instruction from `loc_132A6` through `loc_134BA`, including
 group dispatch, X sentinels, all seven entry-handler shapes, property loops and

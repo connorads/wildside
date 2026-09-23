@@ -15941,6 +15941,56 @@ impl NativeRuntime {
                             &block.bytes,
                         )
                     });
+                let theme_art_decoder_workload_loc_11e60 = destination_bundle
+                    .as_ref()
+                    .and_then(|bundle| bundle.parsed_header.as_ref())
+                    .and_then(|header| {
+                        let foreground =
+                            crate::level::theme_palette_basename(header.level_theme & 0x0f)?
+                                .strip_suffix(".bin")?;
+                        let background =
+                            crate::level::theme_palette_basename(header.background_theme & 0x0f)?
+                                .strip_suffix(".bin")?;
+                        let foreground = self
+                            .assets_source
+                            .read(
+                                &std::path::Path::new("theme/artcomp_fg")
+                                    .join(format!("{foreground}.bin")),
+                            )
+                            .ok()?;
+                        let background = self
+                            .assets_source
+                            .read(
+                                &std::path::Path::new("theme/artcomp_bg")
+                                    .join(format!("{background}.bin")),
+                            )
+                            .ok()?;
+                        // ASM loc_11EA2/loc_11EC4: Hills and Mountain append a
+                        // third background stream before the shared art tail.
+                        let followup_name = match header.background_theme & 0x0f {
+                            3 => Some("hill_alt"),
+                            7 if matches!(header.weather_flags, 2 | 3) => {
+                                Some("mountain_lightning")
+                            }
+                            7 => Some("cave_alt"),
+                            _ => None,
+                        };
+                        let followup = followup_name
+                            .map(|name| {
+                                self.assets_source.read(
+                                    &std::path::Path::new("theme/artcomp_bg")
+                                        .join(format!("{name}.bin")),
+                                )
+                            })
+                            .transpose()
+                            .ok()?;
+                        let mut streams = vec![foreground.as_slice(), background.as_slice()];
+                        if let Some(followup) = followup.as_ref() {
+                            streams.push(followup.as_slice());
+                        }
+                        crate::load_in_game_timing::theme_art_decoder_workload_loc_11e60(&streams)
+                            .ok()
+                    });
                 self.current_level = LevelId(dest_map);
                 self.teleport_transition = Some(TeleportTransitionState {
                     start_frame: self.frame_index,
@@ -15952,6 +16002,7 @@ impl NativeRuntime {
                     foreground_collision_timing_loc_11c34,
                     background_mappings_workload,
                     block_layout_decode_workload_loc_132a6,
+                    theme_art_decoder_workload_loc_11e60,
                 });
             }
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::Teleporter;
