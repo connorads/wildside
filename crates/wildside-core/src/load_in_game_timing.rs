@@ -6,6 +6,43 @@ pub(crate) struct ForegroundCollisionExpansionTimingLoc11c34 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ForegroundTerrainDecoderWorkloadLoc11c10 {
+    pub(crate) decoder_calls: u32,
+    pub(crate) output_bytes: u32,
+    pub(crate) instruction_count: u32,
+    pub(crate) raw_cycles: u32,
+}
+
+/// Measure each ASM `Decompress_Chunk loc_11C10` call selected by the
+/// foreground terrain stream, including resumed decoder windows.
+pub(crate) fn foreground_terrain_decoder_workload_loc_11c10(
+    stream: &[u8],
+) -> anyhow::Result<ForegroundTerrainDecoderWorkloadLoc11c10> {
+    let mut workload = ForegroundTerrainDecoderWorkloadLoc11c10 {
+        decoder_calls: 0,
+        output_bytes: 0,
+        instruction_count: 0,
+        raw_cycles: 0,
+    };
+    let mut resume = None;
+    loop {
+        let visit = crate::saxman_timing::visit_decompress_chunk_instructions_sub_13684(
+            stream,
+            resume,
+            |_| {},
+        )?;
+        workload.decoder_calls += 1;
+        workload.output_bytes += u32::from(visit.timing.output_bytes);
+        workload.instruction_count += visit.timing.instruction_count;
+        workload.raw_cycles += visit.timing.raw_cycles;
+        resume = visit.resume;
+        if resume.is_none() {
+            return Ok(workload);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ThemeArtDecoderWorkloadLoc11e60 {
     pub(crate) streams: u32,
     pub(crate) output_bytes: u32,

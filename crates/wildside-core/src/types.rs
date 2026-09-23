@@ -4556,6 +4556,8 @@ pub(crate) struct TeleportTransitionState {
     pub(crate) frozen_number_gfx_objects: u16,
     pub(crate) foreground_collision_timing_loc_11c34:
         Option<crate::load_in_game_timing::ForegroundCollisionExpansionTimingLoc11c34>,
+    pub(crate) foreground_terrain_decoder_workload_loc_11c10:
+        Option<crate::load_in_game_timing::ForegroundTerrainDecoderWorkloadLoc11c10>,
     pub(crate) background_mappings_workload:
         Option<crate::load_in_game_timing::BackgroundMappingsWorkload>,
     pub(crate) block_layout_decode_workload_loc_132a6:

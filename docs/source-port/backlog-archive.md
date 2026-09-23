@@ -25907,6 +25907,16 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 foreground terrain decoder timing: the transition now measures the
+Saxman stream before collision expansion at ASM `loc_11C10`. Forest expands
+1,120 bytes in one call, 3,116 instructions and 29,662 raw cycles. Swamp
+expands 7,280 bytes across three resumed calls, 18,754 instructions and
+184,840 cycles. Combined with collision, block and background work, the path
+to `loc_11E60` is 554,920 cycles for Forest and 1,463,826 for Swamp. Their
+908,906-cycle difference crosses eight ROM frame boundaries, matching the PC
+witness. Both routes pin the phase; the ignored hand-off regression remains
+red until raster composition. No paid Jev call or human playtest.
+
 2026-09-23 theme-art fixed wrapper timing: the measured theme workload now
 includes each caller BSR, `sub_142CC`, all 256 `loc_143CE` permutation-table
 writes, the `loc_143EA` chunk setup, every remapped VDP word at `loc_1440A`,

@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 foreground terrain decoder timing
+
+The omitted `loc_11C10` phase is now measured. Forest costs 29,662 raw cycles;
+Swamp costs 184,840 across three resumed decoder calls. Combined pre-theme work
+differs by 908,906 cycles and explains the eight-frame ROM boundary difference.
+Continue with FIFO/VINT raster composition. No Jev spend or human playtest.
+
 ## 2026-09-23 - #300 theme-art fixed wrapper timing
 
 Theme-art timing now covers the complete `DecompressToRAM` source path. Forest

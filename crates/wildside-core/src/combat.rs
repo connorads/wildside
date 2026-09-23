@@ -15875,6 +15875,15 @@ impl NativeRuntime {
                             |_| {},
                         )
                     });
+                let foreground_terrain_decoder_workload_loc_11c10 = destination_bundle
+                    .as_ref()
+                    .and_then(|bundle| bundle.foreground.as_ref())
+                    .and_then(|foreground| {
+                        crate::load_in_game_timing::foreground_terrain_decoder_workload_loc_11c10(
+                            &foreground.bytes,
+                        )
+                        .ok()
+                    });
                 let background_mappings_workload = destination_bundle.as_ref().and_then(|bundle| {
                     let header = bundle.parsed_header.as_ref()?;
                     let background = bundle.background.as_ref()?;
@@ -16000,6 +16009,7 @@ impl NativeRuntime {
                     frozen_number_objects,
                     frozen_number_gfx_objects,
                     foreground_collision_timing_loc_11c34,
+                    foreground_terrain_decoder_workload_loc_11c10,
                     background_mappings_workload,
                     block_layout_decode_workload_loc_132a6,
                     theme_art_decoder_workload_loc_11e60,

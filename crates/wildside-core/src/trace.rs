@@ -12091,6 +12091,22 @@ impl NativeRuntime {
             Some(_) => ModeLevelPlayerWorkBeforeHud::Stationary,
         };
         let mut gameplay_debug_fields = BTreeMap::new();
+        if let Some(workload) = self
+            .teleport_transition
+            .as_ref()
+            .and_then(|transition| transition.foreground_terrain_decoder_workload_loc_11c10)
+        {
+            gameplay_debug_fields.insert(
+                "teleport_foreground_decoder_work_loc_11c10".into(),
+                format!(
+                    "decoder_calls={} output_bytes={} instructions={} raw_cycles={}",
+                    workload.decoder_calls,
+                    workload.output_bytes,
+                    workload.instruction_count,
+                    workload.raw_cycles
+                ),
+            );
+        }
         if let Some(timing) = self
             .teleport_transition
             .as_ref()
