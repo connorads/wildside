@@ -6118,7 +6118,7 @@ mod chunk_02 {
             .iter()
             .map(|mask| mask.as_u64().expect("u8 input mask") as u8)
             .collect::<Vec<_>>();
-        let frames = ScriptRunner::new(manifest)
+        let frames = ScriptRunner::new(manifest.clone())
             .warp_to_level(0x1c)
             .settle_recording_warp()
             .run(&script, script.len());
@@ -6146,9 +6146,67 @@ mod chunk_02 {
         );
         assert_eq!(
             frames[223].gameplay_debug_fields["teleport_foreground_work_loc_11c34"],
-            "cells=1120 instructions=9186 raw_cycles=82214",
+            "cells=1120 instructions=9186 raw_cycles=88934",
             "ASM loc_11C34 source work must come from the destination resource dimensions"
         );
+        let forest_bundle = wildside_data::load_level_asset_bundle(&manifest, 0x51)
+            .expect("load Forest destination assets");
+        let forest_header = forest_bundle.parsed_header.expect("parsed Forest header");
+        let forest_foreground = forest_bundle.foreground.expect("Forest foreground stream");
+        let forest_entry = crate::vdp::LoadInGameCpuRasterCursor {
+            beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                155_878_532,
+            )),
+            refresh_phase: M68kRefreshPhase::new(59).expect("oracle refresh phase"),
+        };
+        let forest_prefix = crate::load_in_game_timing::schedule_foreground_prefix_loc_11ae4(
+            forest_entry,
+            20,
+            56,
+            49,
+            forest_header.murder_wall_flags,
+            true,
+            &forest_foreground.bytes,
+        )
+        .expect("schedule Forest layout, decoder and collision prefix");
+        assert_eq!(
+            forest_prefix.prelude_cursor_loc_11c10,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    155_885_278
+                ),),
+                refresh_phase: M68kRefreshPhase::new(21).expect("oracle refresh phase"),
+            },
+        );
+        assert_eq!(
+            forest_prefix.decoder_cursor_loc_11c18,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    155_915_556
+                ),),
+                refresh_phase: M68kRefreshPhase::new(91).expect("oracle refresh phase"),
+            },
+        );
+        assert_eq!(
+            forest_prefix.collision_cursor_loc_11c30,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    155_915_652
+                ),),
+                refresh_phase: M68kRefreshPhase::new(59).expect("oracle refresh phase"),
+            },
+        );
+        assert_eq!(
+            forest_prefix.cursor,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    156_005_998
+                ),),
+                refresh_phase: M68kRefreshPhase::new(37).expect("oracle refresh phase"),
+            },
+            "ASM loc_11AE4..loc_11C50 reaches the exact emulator cursor without resetting VINT or refresh state between phases"
+        );
+        assert_eq!(forest_prefix.refresh_events, 996);
         assert_eq!(
             frames[223].gameplay_debug_fields["teleport_background_work_loc_1280a"],
             "format=Layered placements=0 visited=0 copied=0 chunk_loop_instructions=0 chunk_loop_raw_cycles=0 chunk_wrapper_instructions=0 chunk_wrapper_raw_cycles=0 enigma_streams=3 enigma_instructions=45764 enigma_raw_cycles=373634 enigma_output_words=2688",
@@ -6274,7 +6332,7 @@ mod chunk_02 {
             .iter()
             .map(|mask| mask.as_u64().expect("u8 input mask") as u8)
             .collect::<Vec<_>>();
-        let frames = ScriptRunner::new(manifest)
+        let frames = ScriptRunner::new(manifest.clone())
             .warp_to_level(0x59)
             .settle_recording_warp()
             .probe_start_position(8, 170)
@@ -6294,9 +6352,67 @@ mod chunk_02 {
         );
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_foreground_work_loc_11c34"],
-            "cells=7280 instructions=58354 raw_cycles=524950",
+            "cells=7280 instructions=58354 raw_cycles=568630",
             "ASM loc_11C34 source work distinguishes the slower destination before scheduling"
         );
+        let swamp_bundle = wildside_data::load_level_asset_bundle(&manifest, 0x3e)
+            .expect("load Swamp destination assets");
+        let swamp_header = swamp_bundle.parsed_header.expect("parsed Swamp header");
+        let swamp_foreground = swamp_bundle.foreground.expect("Swamp foreground stream");
+        let swamp_entry = crate::vdp::LoadInGameCpuRasterCursor {
+            beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                140_517_883,
+            )),
+            refresh_phase: M68kRefreshPhase::new(59).expect("oracle refresh phase"),
+        };
+        let swamp_prefix = crate::load_in_game_timing::schedule_foreground_prefix_loc_11ae4(
+            swamp_entry,
+            260,
+            28,
+            35,
+            swamp_header.murder_wall_flags,
+            false,
+            &swamp_foreground.bytes,
+        )
+        .expect("schedule Swamp layout, decoder and collision prefix");
+        assert_eq!(
+            swamp_prefix.prelude_cursor_loc_11c10,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    140_531_129
+                ),),
+                refresh_phase: M68kRefreshPhase::new(121).expect("oracle refresh phase"),
+            },
+        );
+        assert_eq!(
+            swamp_prefix.decoder_cursor_loc_11c18,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    140_719_231
+                ),),
+                refresh_phase: M68kRefreshPhase::new(63).expect("oracle refresh phase"),
+            },
+        );
+        assert_eq!(
+            swamp_prefix.collision_cursor_loc_11c30,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    140_719_327
+                ),),
+                refresh_phase: M68kRefreshPhase::new(31).expect("oracle refresh phase"),
+            },
+        );
+        assert_eq!(
+            swamp_prefix.cursor,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    141_297_445
+                ),),
+                refresh_phase: M68kRefreshPhase::new(101).expect("oracle refresh phase"),
+            },
+            "ASM loc_11AE4..loc_11C50 retains the same scheduler across all three Swamp decoder windows and collision rows"
+        );
+        assert_eq!(swamp_prefix.refresh_events, 6_090);
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_background_work_loc_1280a"],
             "format=Chunked placements=48 visited=5656 copied=5656 chunk_loop_instructions=76888 chunk_loop_raw_cycles=623248 chunk_wrapper_instructions=1452 chunk_wrapper_raw_cycles=16584 enigma_streams=0 enigma_instructions=0 enigma_raw_cycles=0 enigma_output_words=0",

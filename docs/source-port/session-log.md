@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-23 - #300 composed foreground loader prefix
+
+The persistent raster scheduler now reproduces exact Forest and Swamp emulator
+cursors from `loc_11AE4` through `loc_11C50`. Composition exposed and corrected
+`loc_11C3C` from 8 to 14 cycles per terrain cell, raising the measured collision
+work to 88,934 and 568,630 raw cycles. Continue with ordered block and
+background visitors. No Jev spend or human playtest.
+
 ## 2026-09-23 - #300 level-layout prelude timing
 
 The ordered loader stream now begins at `loc_11AE4`. Exact emulator PC traces

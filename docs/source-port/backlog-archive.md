@@ -25907,6 +25907,17 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-23 composed foreground-prefix correction: fresh full-PC oracle traces
+through `loc_11C50` disproved the earlier collision-cycle total. ASM
+`loc_11C3C` executes `lsl.b #4,d3` in 14 cycles, not 8, adding six cycles per
+terrain cell. Forest collision is 88,934 raw cycles; Swamp is 568,630. Their
+pre-theme totals are therefore 561,640 and 1,507,506 cycles, a 945,866-cycle
+difference. One persistent scheduler now reproduces the independent emulator
+cursors at the prelude exit, decoder exit, collision entry and collision exit
+for both saved routes, including 996 versus 6,090 refresh events and recurring
+VINT. The ignored Swamp regression still reaches only its existing frame-166
+loader-boundary failure. No paid Jev request or human playtest.
+
 2026-09-23 foreground decoder visitor: ASM `loc_11C10` now emits the ordered
 BSR, every `Decompress_Chunk` instruction, TST and taken/final BNE rather than
 only returning aggregates. Forest adds three wrapper instructions and 30 raw

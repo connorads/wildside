@@ -661,7 +661,7 @@ pub(crate) fn visit_foreground_collision_expansion_instructions_loc_11c34(
         emit(4);
         for column in 0..width_blocks {
             // ASM loc_11C36 through the width-loop branch.
-            for cycles in [8, 14, 8, 8, 8, 4, 12] {
+            for cycles in [8, 14, 14, 8, 8, 4, 12] {
                 emit(cycles);
             }
             emit(if column + 1 == width_blocks { 8 } else { 10 });
@@ -692,10 +692,11 @@ mod tests {
 
         assert_eq!(timing.cells, 4);
         assert_eq!(timing.instruction_count, 42);
-        assert_eq!(timing.raw_cycles, 350);
+        assert_eq!(timing.raw_cycles, 374);
         assert_eq!(visited.len(), timing.instruction_count as usize);
         assert_eq!(visited.iter().copied().sum::<u32>(), timing.raw_cycles);
-        assert_eq!(visited.iter().filter(|&&cycles| cycles == 8).count(), 19);
+        assert_eq!(visited.iter().filter(|&&cycles| cycles == 8).count(), 15);
+        assert_eq!(visited.iter().filter(|&&cycles| cycles == 14).count(), 8);
         assert_eq!(visited.iter().filter(|&&cycles| cycles == 10).count(), 3);
     }
 
@@ -706,13 +707,13 @@ mod tests {
 
         assert_eq!(
             (short.cells, short.instruction_count, short.raw_cycles),
-            (1_120, 9_186, 82_214)
+            (1_120, 9_186, 88_934)
         );
         assert_eq!(
             (long.cells, long.instruction_count, long.raw_cycles),
-            (7_280, 58_354, 524_950)
+            (7_280, 58_354, 568_630)
         );
-        assert_eq!(long.raw_cycles - short.raw_cycles, 442_736);
+        assert_eq!(long.raw_cycles - short.raw_cycles, 479_696);
     }
 
     #[test]
@@ -770,6 +771,16 @@ mod tests {
 pub(crate) struct LevelLayoutPreludeWorkloadLoc11ae4 {
     pub(crate) instruction_count: u32,
     pub(crate) raw_cycles: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
+pub(crate) struct ForegroundPrefixAdvanceLoc11ae4 {
+    pub(crate) prelude_cursor_loc_11c10: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) decoder_cursor_loc_11c18: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) collision_cursor_loc_11c30: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) cursor: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) refresh_events: u32,
 }
 
 /// Visit ASM `loc_11AE4..loc_11C0E` for a teleporter `Load_InGame`.
@@ -858,4 +869,66 @@ pub(crate) fn visit_level_layout_prelude_instructions_loc_11ae4(
         instruction_count,
         raw_cycles,
     }
+}
+
+/// Schedule ASM `loc_11AE4..loc_11C50` without resetting raster state between
+/// the level-layout prelude, foreground decoder and collision expansion.
+#[cfg(test)]
+pub(crate) fn schedule_foreground_prefix_loc_11ae4(
+    entry: crate::vdp::LoadInGameCpuRasterCursor,
+    width_blocks: u16,
+    height_blocks: u16,
+    background_height: u16,
+    murder_wall_flags: u8,
+    layered_background: bool,
+    foreground_stream: &[u8],
+) -> anyhow::Result<ForegroundPrefixAdvanceLoc11ae4> {
+    let mut scheduler = crate::vdp::LoadInGameRasterScheduler::new(entry);
+    let mut schedule_ok = true;
+
+    visit_level_layout_prelude_instructions_loc_11ae4(
+        width_blocks,
+        height_blocks,
+        background_height,
+        murder_wall_flags,
+        layered_background,
+        |cycles| {
+            if schedule_ok {
+                schedule_ok = scheduler.advance_instruction(cycles).is_some();
+            }
+        },
+    );
+    let prelude_cursor_loc_11c10 = scheduler.cursor();
+    visit_foreground_terrain_decoder_instructions_loc_11c10(foreground_stream, |cycles| {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(cycles).is_some();
+        }
+    })?;
+    let decoder_cursor_loc_11c18 = scheduler.cursor();
+    // ASM loc_11C18..loc_11C2C: restore registers and select the theme's
+    // collision lookup before loc_11C30 seeds the expansion counters.
+    for cycles in [36, 12, 8, 20, 18] {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(cycles).is_some();
+        }
+    }
+    let collision_cursor_loc_11c30 = scheduler.cursor();
+    visit_foreground_collision_expansion_instructions_loc_11c34(
+        width_blocks,
+        height_blocks,
+        |cycles| {
+            if schedule_ok {
+                schedule_ok = scheduler.advance_instruction(cycles).is_some();
+            }
+        },
+    );
+
+    anyhow::ensure!(schedule_ok, "Load_InGame foreground schedule overflow");
+    Ok(ForegroundPrefixAdvanceLoc11ae4 {
+        prelude_cursor_loc_11c10,
+        decoder_cursor_loc_11c18,
+        collision_cursor_loc_11c30,
+        cursor: scheduler.cursor(),
+        refresh_events: scheduler.refresh_events(),
+    })
 }
