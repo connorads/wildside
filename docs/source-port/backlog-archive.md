@@ -29868,6 +29868,8 @@ cursor; keep the nine descriptor transitions as typed handler edges.
 <a id="issue-502"></a>
 ## #502 - Live Object pressure at Drips range checks
 
+- Parked 2026-09-26 after the saved 0x2C/0x35/0x48 routes, three paid attempts and targeted ROM-PC tracing failed to produce a live call above 20 Objects. The checker now treats a lone close-range call as insufficient: one trace must contain both `normal->close` and `close->normal` Drips call transitions, proving allocation and deletion crossings around the ROM threshold. Its self-test pins both directions. No gameplay range patch is justified until that witness exists.
+
 - Rejected 2026-09-22 level-0x4C idle variant: 1,000 settled oracle
   frames make zero Drips `Object_CheckInRange` calls. The watched
   `Number_Objects` peaks at 10 on frame 467. This route never reaches

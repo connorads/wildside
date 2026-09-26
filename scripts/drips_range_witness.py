@@ -40,6 +40,22 @@ def classify(rows):
     return calls
 
 
+def summarise(calls):
+    branches = [call["branch"] for call in calls]
+    transitions = [f"{before}->{after}" for before, after in zip(branches, branches[1:])
+                   if before != after]
+    close = [call for call in calls if call["branch"] == "close"]
+    return {
+        "drips_calls": len(calls),
+        "normal_calls": len(calls) - len(close),
+        "close_calls": len(close),
+        "transitions": transitions,
+        "first_close": close[0] if close else None,
+        "interleaved_threshold_witness":
+            "normal->close" in transitions and "close->normal" in transitions,
+    }
+
+
 def read_trace(path):
     for line in path.read_text().splitlines():
         if line.startswith("m68k_pc_trace="):
@@ -53,10 +69,9 @@ def main():
                         help=f"oracle-probe output captured with --m68k-pc-trace {targets}")
     args = parser.parse_args()
     calls = classify(read_trace(args.trace))
-    close = [call for call in calls if call["branch"] == "close"]
-    print(json.dumps({"drips_calls": len(calls), "normal_calls": len(calls) - len(close),
-                      "close_calls": len(close), "first_close": close[0] if close else None}))
-    return 0 if close else 1
+    summary = summarise(calls)
+    print(json.dumps(summary))
+    return 0 if summary["interleaved_threshold_witness"] else 1
 
 
 if __name__ == "__main__":

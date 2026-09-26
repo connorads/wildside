@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #502 pressure witness parked
+
+The saved Drips routes, offline level searches and all three paid attempts remain below the ROM's 20/21 Object threshold. The ROM-PC checker now requires both threshold-crossing directions in one trace, so a lone tight-branch call cannot be mistaken for interleaved allocation/deletion proof. #502 is parked at 0x48; continue #433 offline without more paid dispatch.
+
 ## 2026-09-26 - #300 objective closure
 
 The ordinary-input Skydragon route matches 56/56 post-clear gameplay
