@@ -3253,6 +3253,17 @@ impl LoadInGameRasterScheduler {
     /// Advance one source instruction which writes a word to the VDP data
     /// port, retaining FIFO occupancy for the following loader phase.
     pub fn write_data_word(&mut self, raw_cycles: u32) -> Option<()> {
+        self.write_data_words(raw_cycles, 1)
+    }
+
+    /// Advance one source instruction which writes a longword to the VDP data
+    /// port. The 68000 instruction enqueues both constituent words before the
+    /// next opcode can execute.
+    pub fn write_data_longword(&mut self, raw_cycles: u32) -> Option<()> {
+        self.write_data_words(raw_cycles, 2)
+    }
+
+    fn write_data_words(&mut self, raw_cycles: u32, written_words: u8) -> Option<()> {
         let mut no_external_wait = |_: M68kCycleCount, _: bool| Some(M68kCycleCount::from_raw(0));
         service_decompress_to_vram_vint_if_pending(
             &mut self.vint,
@@ -3269,7 +3280,9 @@ impl LoadInGameRasterScheduler {
             false,
             &mut no_external_wait,
         )?;
-        self.fifo.push_word();
+        for _ in 0..written_words {
+            self.fifo.push_word();
+        }
         drain_decompress_to_vram_wait(
             wait,
             &mut self.fifo,

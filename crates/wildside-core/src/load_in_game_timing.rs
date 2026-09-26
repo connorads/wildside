@@ -1636,6 +1636,10 @@ pub(crate) struct ForegroundPrefixAdvanceLoc11ae4 {
     pub(crate) shared_blocks_cursor_loc_11f08: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) shared_numbers_cursor_loc_11f16: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) shared_eyclops_cursor_loc_11f1a: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) shared_juggernaut_cursor_loc_11f1e: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) shared_flag_cursor_loc_11f22: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) shared_hitpoint_cursor_loc_11f26: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) shooter_slots_cursor_loc_11f2c: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) cursor: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) refresh_events: u32,
 }
@@ -1664,6 +1668,7 @@ pub(crate) struct LoadLayoutScheduleInputsLoc11ae4<'a> {
 enum LoadInGameTimedInstruction {
     Cpu(u32),
     VdpDataWord(u32),
+    VdpDataLongword(u32),
 }
 
 #[cfg(test)]
@@ -1770,6 +1775,63 @@ fn visit_decompress_to_vram_instructions_loc_14300(
         if resume.is_none() {
             return Ok(());
         }
+    }
+}
+
+#[cfg(test)]
+fn visit_juggernaut_art_instructions_sub_129ce(mut visit: impl FnMut(LoadInGameTimedInstruction)) {
+    macro_rules! cpu {
+        ($cycles:expr) => {
+            for &cycle in $cycles {
+                visit(LoadInGameTimedInstruction::Cpu(cycle));
+            }
+        };
+    }
+
+    // ASM sub_129CE: three 32-longword raw-art loops. Each move.l to (a6)
+    // is one 68000 instruction and two consecutive VDP data-port words.
+    for setup in [&[24, 8, 4][..], &[8, 4][..], &[24, 8, 4][..]] {
+        cpu!(setup);
+        for longword in 0..32 {
+            visit(LoadInGameTimedInstruction::VdpDataLongword(20));
+            cpu!(&[if longword == 31 { 14 } else { 10 }]);
+        }
+    }
+    cpu!(&[16]);
+}
+
+#[cfg(test)]
+fn visit_raw_32_longword_art_instructions(mut visit: impl FnMut(LoadInGameTimedInstruction)) {
+    // ASM Load_FlagBottomArt / sub_12C24: VDP command, source pointer and
+    // word-sized DBF seed precede one 32-longword transfer loop.
+    for cycles in [24, 8, 8] {
+        visit(LoadInGameTimedInstruction::Cpu(cycles));
+    }
+    for longword in 0..32 {
+        visit(LoadInGameTimedInstruction::VdpDataLongword(20));
+        visit(LoadInGameTimedInstruction::Cpu(if longword == 31 {
+            14
+        } else {
+            10
+        }));
+    }
+    visit(LoadInGameTimedInstruction::Cpu(16));
+}
+
+#[cfg(test)]
+fn visit_shooter_slot_init_instructions_sub_f06a(mut visit: impl FnMut(u32)) {
+    // ASM j_sub_F06A / sub_F06A: initialise the 19-link shooter-object free
+    // list, then clear its tail and queue pointers.
+    for cycles in [20, 10, 8, 12, 4] {
+        visit(cycles);
+    }
+    for slot in 0..19 {
+        for cycles in [8, 12, 4, if slot == 18 { 14 } else { 10 }] {
+            visit(cycles);
+        }
+    }
+    for cycles in [16, 16, 4, 12, 12, 16] {
+        visit(cycles);
     }
 }
 
@@ -2119,6 +2181,9 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
                 LoadInGameTimedInstruction::VdpDataWord(cycles) => {
                     scheduler.write_data_word(cycles).is_some()
                 }
+                LoadInGameTimedInstruction::VdpDataLongword(cycles) => {
+                    scheduler.write_data_longword(cycles).is_some()
+                }
             };
         },
     )?;
@@ -2141,6 +2206,9 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
             LoadInGameTimedInstruction::VdpDataWord(cycles) => {
                 scheduler.write_data_word(cycles).is_some()
             }
+            LoadInGameTimedInstruction::VdpDataLongword(cycles) => {
+                scheduler.write_data_longword(cycles).is_some()
+            }
         };
     })?;
     let shared_blocks_cursor_loc_11f08 = scheduler.cursor();
@@ -2161,6 +2229,9 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
             }
             LoadInGameTimedInstruction::VdpDataWord(cycles) => {
                 scheduler.write_data_word(cycles).is_some()
+            }
+            LoadInGameTimedInstruction::VdpDataLongword(cycles) => {
+                scheduler.write_data_longword(cycles).is_some()
             }
         };
     })?;
@@ -2183,9 +2254,70 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
             LoadInGameTimedInstruction::VdpDataWord(cycles) => {
                 scheduler.write_data_word(cycles).is_some()
             }
+            LoadInGameTimedInstruction::VdpDataLongword(cycles) => {
+                scheduler.write_data_longword(cycles).is_some()
+            }
         };
     })?;
     let shared_eyclops_cursor_loc_11f1a = scheduler.cursor();
+    // ASM loc_11F1A / sub_129CE: retain the same hardware state while three
+    // raw-art loops write two FIFO words per move.l instruction.
+    if schedule_ok {
+        schedule_ok = scheduler.advance_instruction(18).is_some();
+    }
+    visit_juggernaut_art_instructions_sub_129ce(|instruction| {
+        if !schedule_ok {
+            return;
+        }
+        schedule_ok = match instruction {
+            LoadInGameTimedInstruction::Cpu(cycles) => {
+                scheduler.advance_instruction(cycles).is_some()
+            }
+            LoadInGameTimedInstruction::VdpDataWord(cycles) => {
+                scheduler.write_data_word(cycles).is_some()
+            }
+            LoadInGameTimedInstruction::VdpDataLongword(cycles) => {
+                scheduler.write_data_longword(cycles).is_some()
+            }
+        };
+    });
+    let shared_juggernaut_cursor_loc_11f1e = scheduler.cursor();
+    // ASM loc_11F1E / Load_FlagBottomArt and loc_11F22 / sub_12C24 use the
+    // same 32-longword VDP transfer shape at different VRAM destinations.
+    let mut shared_flag_cursor_loc_11f22 = None;
+    for capture_flag_boundary in [true, false] {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(18).is_some();
+        }
+        visit_raw_32_longword_art_instructions(|instruction| {
+            if !schedule_ok {
+                return;
+            }
+            schedule_ok = match instruction {
+                LoadInGameTimedInstruction::Cpu(cycles) => {
+                    scheduler.advance_instruction(cycles).is_some()
+                }
+                LoadInGameTimedInstruction::VdpDataWord(cycles) => {
+                    scheduler.write_data_word(cycles).is_some()
+                }
+                LoadInGameTimedInstruction::VdpDataLongword(cycles) => {
+                    scheduler.write_data_longword(cycles).is_some()
+                }
+            };
+        });
+        if capture_flag_boundary {
+            shared_flag_cursor_loc_11f22 = Some(scheduler.cursor());
+        }
+    }
+    let shared_flag_cursor_loc_11f22 =
+        shared_flag_cursor_loc_11f22.expect("first raw-art transfer captures loc_11F22");
+    let shared_hitpoint_cursor_loc_11f26 = scheduler.cursor();
+    visit_shooter_slot_init_instructions_sub_f06a(|cycles| {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(cycles).is_some();
+        }
+    });
+    let shooter_slots_cursor_loc_11f2c = scheduler.cursor();
 
     anyhow::ensure!(schedule_ok, "Load_InGame layout schedule overflow");
     Ok(ForegroundPrefixAdvanceLoc11ae4 {
@@ -2202,6 +2334,10 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         shared_blocks_cursor_loc_11f08,
         shared_numbers_cursor_loc_11f16,
         shared_eyclops_cursor_loc_11f1a,
+        shared_juggernaut_cursor_loc_11f1e,
+        shared_flag_cursor_loc_11f22,
+        shared_hitpoint_cursor_loc_11f26,
+        shooter_slots_cursor_loc_11f2c,
         cursor: scheduler.cursor(),
         refresh_events: scheduler.refresh_events(),
     })

@@ -26678,6 +26678,15 @@ Eyclops helper costs to 8/8/10 cycles. Continue at `sub_129CE`, whose VDP
 longword writes enqueue two FIFO words per CPU instruction. No Jev request or
 campaign spend occurred.
 
+2026-09-26 longword FIFO correction: the persistent scheduler now treats each
+ASM `move.l (a1)+,(a6)` as one CPU instruction which enqueues both VDP words.
+Forest and Swamp match exact emulator cycles and refresh phases after all three
+`sub_129CE` loops, `Load_FlagBottomArt`, `sub_12C24`, and shooter free-list
+initialisation through `loc_11F2C`. This retires the raw-art portion of the
+discarded visitor's false deficit without a route-specific delay. Continue at
+`Initialize_EvanescShooterObjectSlots`. No Jev request or campaign spend
+occurred.
+
 ### #301
 
 - Filed 2026-06-11 as the bosses cluster umbrella (audits/bosses-fidelity-audit.md: 28 gaps, 13 high). The boss layer is an invented substitute: dead `sub_3A292` (collision/HP/palette), `sub_39846`+wrappers (waypoint movement), `loc_37F30`/`38012`/`380F4` (attack FSM), whole HeadyMetal `loc_37582`/`loc_3763A` handler; live heads flat-chase the player and fire on a fixed 180-frame clock; Shishkaboss heads 2/3 HP 30 vs ROM $14; HeadyMetal tracking -0xB000 vs -0x5000; boss-level flagpole suppression `loc_C03A` absent. Treat as one rewiring effort, not 28 patches. Minimum gate: 1p-playable on boss levels.

@@ -6409,6 +6409,46 @@ mod chunk_02 {
             "ASM loc_11F16 / Load_EyclopsBeamArt retains the exact Forest FIFO, refresh and VINT state"
         );
         assert_eq!(
+            forest_prefix.shared_juggernaut_cursor_loc_11f1e,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    158_344_274
+                )),
+                refresh_phase: M68kRefreshPhase::new(30).expect("oracle refresh phase"),
+            },
+            "ASM sub_129CE retains the exact Forest FIFO state across three longword art loops"
+        );
+        assert_eq!(
+            forest_prefix.shared_flag_cursor_loc_11f22,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    158_347_749
+                )),
+                refresh_phase: M68kRefreshPhase::new(30).expect("oracle refresh phase"),
+            },
+            "ASM Load_FlagBottomArt retains the exact Forest FIFO state"
+        );
+        assert_eq!(
+            forest_prefix.shared_hitpoint_cursor_loc_11f26,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    158_351_224
+                )),
+                refresh_phase: M68kRefreshPhase::new(30).expect("oracle refresh phase"),
+            },
+            "ASM sub_12C24 retains the exact Forest FIFO state"
+        );
+        assert_eq!(
+            forest_prefix.shooter_slots_cursor_loc_11f2c,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    158_352_016
+                )),
+                refresh_phase: M68kRefreshPhase::new(54).expect("oracle refresh phase"),
+            },
+            "ASM j_sub_F06A / sub_F06A reaches the exact Forest shooter-slot cursor"
+        );
+        assert_eq!(
             frames[223].gameplay_debug_fields["teleport_background_work_loc_1280a"],
             "format=Layered placements=0 visited=0 copied=0 chunk_loop_instructions=0 chunk_loop_raw_cycles=0 chunk_wrapper_instructions=0 chunk_wrapper_raw_cycles=0 enigma_streams=3 enigma_instructions=46302 enigma_raw_cycles=379014 enigma_output_words=2688",
             "ASM loc_128BA loads all three Forest Enigma layers"
@@ -6806,6 +6846,46 @@ mod chunk_02 {
                 refresh_phase: M68kRefreshPhase::new(44).expect("oracle refresh phase"),
             },
             "ASM loc_11F16 / Load_EyclopsBeamArt retains the exact Swamp FIFO, refresh and VINT state"
+        );
+        assert_eq!(
+            swamp_prefix.shared_juggernaut_cursor_loc_11f1e,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    143_973_776
+                )),
+                refresh_phase: M68kRefreshPhase::new(30).expect("oracle refresh phase"),
+            },
+            "ASM sub_129CE retains the exact Swamp FIFO state across three longword art loops"
+        );
+        assert_eq!(
+            swamp_prefix.shared_flag_cursor_loc_11f22,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    143_977_251
+                )),
+                refresh_phase: M68kRefreshPhase::new(30).expect("oracle refresh phase"),
+            },
+            "ASM Load_FlagBottomArt retains the exact Swamp FIFO state"
+        );
+        assert_eq!(
+            swamp_prefix.shared_hitpoint_cursor_loc_11f26,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    143_980_726
+                )),
+                refresh_phase: M68kRefreshPhase::new(30).expect("oracle refresh phase"),
+            },
+            "ASM sub_12C24 retains the exact Swamp FIFO state"
+        );
+        assert_eq!(
+            swamp_prefix.shooter_slots_cursor_loc_11f2c,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    143_981_518
+                )),
+                refresh_phase: M68kRefreshPhase::new(54).expect("oracle refresh phase"),
+            },
+            "ASM j_sub_F06A / sub_F06A reaches the exact Swamp shooter-slot cursor"
         );
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_background_work_loc_1280a"],

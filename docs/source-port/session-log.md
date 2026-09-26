@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #300 two-word VDP FIFO writes
+
+One 68000 VDP longword instruction now enqueues its two constituent FIFO words
+without inventing a second opcode boundary. Forest and Swamp match exact oracle
+cycles and refresh phases through the three `sub_129CE` loops, Flag and HP art,
+and shooter free-list initialisation at `loc_11F2C`. Continue through the
+Evanesc/shooter slot helper. No Jev spend or human playtest.
+
 ## 2026-09-26 - #300 shared compressed-art tail restored
 
 The persistent loader scheduler now covers the shared Blocks, HUD-number and
