@@ -15628,7 +15628,9 @@ impl NativeRuntime {
         let kid_damage_invulnerable = self.progression.invulnerable_frames != 0
             || self.recent_damage_gate_held_this_frame_loc_bc6e
             || self.kid_is_invulnerable;
-        if slice.player.on_spikes
+        let pending_spike_damage = self.pending_spike_damage_loc_91a6;
+        self.pending_spike_damage_loc_91a6 = slice.player.on_spikes;
+        if pending_spike_damage
             && normal_recent_damage_survives_invulnerability_gate_loc_1d00(kid_damage_invulnerable)
         {
             self.opening_slice = Some(*slice);

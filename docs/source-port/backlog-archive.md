@@ -498,6 +498,31 @@ these also distinguish subtraction from addition for nonzero equal velocities.
 A targeted retry of the original survivors and same-line variants catches all
 16 selected mutants. Output: `/tmp/mutants-recording-enemy-boundaries/`.
 
+<a id="issue-511"></a>
+### #511 - Spike collision damage hand-off
+
+Closed 2026-09-26. #433's second Jev attempt reached Crypt spikes instead of
+Robot contact. Its saved ordinary-input route gave a discriminating failure:
+native spent one HP on frame 620 while the emulator retained two HP until
+frame 621. Oracle PC and WRAM traces show `loc_91A6` writing collision `$28`
+on frame 620, then `Character_CheckCollision -> Check_for_recent_damge ->
+loc_B700` consuming it on frame 621. Native had applied damage directly from
+the same-frame terrain probe.
+
+The runtime now retains the spike collision for one object pass and clears the
+latch at `Load_InGame`. Red-first floor and ceiling regressions pin no damage
+on the producer frame and normal HP damage on the next frame. The Jev input is
+checked in as `issue-511-crypt-spike-handoff.json`; before the fix it first
+diverged at frame 620, while the fixed route matches all 688 emulator
+player/camera CRC frames. This closes the objective timing defect only. The
+route's state comparison passes, while visual checkpoints 635, 637 and 639
+retain 2,066 changed pixels. It never reaches Robot contact and supplies no
+#433 hurt or natural-entry evidence. #433's two attempts used 29 and 55
+requests; the ledger upper bound is $0.250016004. `verify-slice-fast` passes
+7,458 core tests with Clippy and all audits green. Full TAS keeps all 37,759
+player/camera CRC frames exact and retains the frozen 241-frame / 2,391-pixel
+and GEMS baselines.
+
 <a id="issue-510"></a>
 ### #510 - 0x4B Drips crawler lifetime after loader parity
 
@@ -27476,6 +27501,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 374 | [x] | P0 | level/render | All five named levels spawn playable with coherent art and matching emulator state. | Five saved routes; Stairway residual is only frozen #409 HUD diamond timing. |
 | 350 | [x] | P1 | render | Hills lower foliage uses foreground colours, not sky blue. | Checked-in frame-39 route: 0 lower-scene pixel diffs vs ROM; 1,334 in negative control; sampled-colour regression passes. |
 | 290 | [x] | P1 | trace/objects | Published-route exported gameplay, enemy and RNG state matches across every recorded frame. | Interval-1 37,759 checkpoints; zero authoritative/roster/RNG differences; 24 classified diamond counter sampling rows. |
+| 511 | [x] | P1 | player/combat | Spike collision damage is consumed on the object pass after the terrain probe writes collision `$28`. | Red-first floor/ceiling regressions; checked-in 688-frame Jev route matches player/camera CRCs. |
 | 510 | [x] | P2 | enemies/lifecycle | 0x4B Drips crawlers draw RNG in Object order and finish after ROM animation timing. | Frame-183 directions and frame-244 9/18 counts; 0x4B sweep pass; fast gate and full TAS pass. |
 | 509 | [x] | P2 | enemies/scheduling | Recording frame 0 holds all three 0x1F RockTanks at oracle X197/389/325. | Raw Object-slot rows, ASM turn holds, cache regression, 102/105 sweep, fast gate and full TAS pass. |
 | 508 | [x] | P1 | enemies/trace | Grounded Driller exports zero Gfx X velocity while Object patrol displacement remains internal. | ASM loc_3BE60/loc_3C026; 360 exact Driller velocity checkpoints; fast gate and full TAS pass. |

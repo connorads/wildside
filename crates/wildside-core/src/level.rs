@@ -19037,6 +19037,7 @@ impl NativeRuntime {
         let level_id = self.current_level;
         self.reload_block_grid_for_level(level_id);
         self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(level_id));
+        self.pending_spike_damage_loc_91a6 = false;
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.pending_dragon_death_children.clear();

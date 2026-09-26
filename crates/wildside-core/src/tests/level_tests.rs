@@ -15017,14 +15017,29 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         runtime.progression.invulnerable_frames = 0;
 
         for _ in 0..300 {
-            if runtime.just_received_damage {
-                break;
-            }
             runtime.step_frame(FrameInput {
                 right: true,
                 ..FrameInput::default()
             });
+            if runtime
+                .opening_slice
+                .is_some_and(|slice| slice.player.on_spikes)
+            {
+                break;
+            }
         }
+
+        assert_eq!(
+            runtime.progression.number_hitpoints,
+            PlayerForm::TheKid.max_hitpoints(),
+            "ASM loc_91A6 writes collision_type=$28 after Character_CheckCollision, so the producer frame must not spend HP"
+        );
+        assert!(!runtime.just_received_damage);
+
+        runtime.step_frame(FrameInput {
+            right: true,
+            ..FrameInput::default()
+        });
 
         assert!(
             matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
@@ -15124,8 +15139,17 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         );
         assert_eq!(
             runtime.progression.number_hitpoints,
+            PlayerForm::TheKid.max_hitpoints(),
+            "ASM loc_91A6 writes the ceiling spike collision after Character_CheckCollision"
+        );
+        assert!(!runtime.just_received_damage);
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.progression.number_hitpoints,
             PlayerForm::TheKid.max_hitpoints() - 1,
-            "ceiling spike contact should subtract one HP through loc_B700"
+            "the next object pass should subtract one HP through loc_B700"
         );
         assert!(runtime.just_received_damage);
         assert!(runtime.progression.invulnerable_frames > 0);

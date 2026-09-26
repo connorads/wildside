@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #511 spike collision hand-off closed
+
+#433's second Jev attempt missed Robot contact but exposed a one-frame Crypt
+spike defect. Oracle traces show `loc_91A6` writing collision `$28` on frame
+620 and `loc_B700` consuming it on frame 621. Native now retains that hand-off;
+floor and ceiling regressions pass and the checked-in 688-frame Jev route
+matches every emulator player/camera CRC. Three later visual checkpoints retain
+2,066 changed pixels. #433 remains open for natural hurt and entry. Its two
+attempts used 84 requests; one attempt remains. Review Jev exploration before
+the next implementation item.
+
 ## 2026-09-26 - #433 Robot raw slot reuse
 
 The checked-in settled Crypt replay pins three natural Robot shot lifecycles.

@@ -680,6 +680,9 @@ pub struct NativeRuntime {
     /// ASM Mode_Level writes Kid/object collision words near the end of the
     /// frame; Character_CheckCollision consumes them on the next object pass.
     pending_player_contact_damage: Option<PendingPlayerContactDamage>,
+    /// ASM loc_91A6/loc_92B6 writes spike collision `$28` after this frame's
+    /// Character_CheckCollision pass; the next object pass consumes it.
+    pending_spike_damage_loc_91a6: bool,
     /// Native's decomposed hidden-shell GFX pass runs before its gameplay tail.
     /// Pin the producing frame so that tail cannot consume the collision early.
     hidden_shell_contact_latched_frame_loc_1cf2: Option<usize>,
@@ -1797,6 +1800,7 @@ impl NativeRuntime {
             kid_touched_enemy_this_frame_loc_fa75: false,
             pending_stomp_bounce: None,
             pending_player_contact_damage: None,
+            pending_spike_damage_loc_91a6: false,
             hidden_shell_contact_latched_frame_loc_1cf2: None,
             delayed_player_contact_damage: None,
             shooter_barrel_damage_latched_loc_1f52: false,

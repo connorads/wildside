@@ -1,0 +1,1354 @@
+{
+  "slug": "issue-511-crypt-spike-handoff",
+  "script": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    88,
+    88,
+    88,
+    88,
+    88,
+    88,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72,
+    72
+  ],
+  "frame_count": 688,
+  "checkpoints": [
+    {
+      "frame_index": 0,
+      "label": "case-0"
+    },
+    {
+      "frame_index": 28,
+      "label": "case-28"
+    },
+    {
+      "frame_index": 29,
+      "label": "case-29"
+    },
+    {
+      "frame_index": 30,
+      "label": "case-30"
+    },
+    {
+      "frame_index": 31,
+      "label": "case-31"
+    },
+    {
+      "frame_index": 32,
+      "label": "case-32"
+    },
+    {
+      "frame_index": 33,
+      "label": "case-33"
+    },
+    {
+      "frame_index": 34,
+      "label": "case-34"
+    },
+    {
+      "frame_index": 35,
+      "label": "case-35"
+    },
+    {
+      "frame_index": 36,
+      "label": "case-36"
+    },
+    {
+      "frame_index": 37,
+      "label": "case-37"
+    },
+    {
+      "frame_index": 38,
+      "label": "case-38"
+    },
+    {
+      "frame_index": 39,
+      "label": "case-39"
+    },
+    {
+      "frame_index": 40,
+      "label": "case-40"
+    },
+    {
+      "frame_index": 41,
+      "label": "case-41"
+    },
+    {
+      "frame_index": 42,
+      "label": "case-42"
+    },
+    {
+      "frame_index": 43,
+      "label": "case-43"
+    },
+    {
+      "frame_index": 44,
+      "label": "case-44"
+    },
+    {
+      "frame_index": 45,
+      "label": "case-45"
+    },
+    {
+      "frame_index": 46,
+      "label": "case-46"
+    },
+    {
+      "frame_index": 47,
+      "label": "case-47"
+    },
+    {
+      "frame_index": 48,
+      "label": "case-48"
+    },
+    {
+      "frame_index": 49,
+      "label": "case-49"
+    },
+    {
+      "frame_index": 50,
+      "label": "case-50"
+    },
+    {
+      "frame_index": 51,
+      "label": "case-51"
+    },
+    {
+      "frame_index": 52,
+      "label": "case-52"
+    },
+    {
+      "frame_index": 53,
+      "label": "case-53"
+    },
+    {
+      "frame_index": 54,
+      "label": "case-54"
+    },
+    {
+      "frame_index": 55,
+      "label": "case-55"
+    },
+    {
+      "frame_index": 56,
+      "label": "case-56"
+    },
+    {
+      "frame_index": 57,
+      "label": "case-57"
+    },
+    {
+      "frame_index": 58,
+      "label": "case-58"
+    },
+    {
+      "frame_index": 59,
+      "label": "case-59"
+    },
+    {
+      "frame_index": 60,
+      "label": "case-60"
+    },
+    {
+      "frame_index": 61,
+      "label": "case-61"
+    },
+    {
+      "frame_index": 215,
+      "label": "case-215"
+    },
+    {
+      "frame_index": 216,
+      "label": "case-216"
+    },
+    {
+      "frame_index": 217,
+      "label": "case-217"
+    },
+    {
+      "frame_index": 218,
+      "label": "case-218"
+    },
+    {
+      "frame_index": 219,
+      "label": "case-219"
+    },
+    {
+      "frame_index": 220,
+      "label": "case-220"
+    },
+    {
+      "frame_index": 221,
+      "label": "case-221"
+    },
+    {
+      "frame_index": 222,
+      "label": "case-222"
+    },
+    {
+      "frame_index": 223,
+      "label": "case-223"
+    },
+    {
+      "frame_index": 224,
+      "label": "case-224"
+    },
+    {
+      "frame_index": 225,
+      "label": "case-225"
+    },
+    {
+      "frame_index": 226,
+      "label": "case-226"
+    },
+    {
+      "frame_index": 227,
+      "label": "case-227"
+    },
+    {
+      "frame_index": 228,
+      "label": "case-228"
+    },
+    {
+      "frame_index": 229,
+      "label": "case-229"
+    },
+    {
+      "frame_index": 230,
+      "label": "case-230"
+    },
+    {
+      "frame_index": 231,
+      "label": "case-231"
+    },
+    {
+      "frame_index": 232,
+      "label": "case-232"
+    },
+    {
+      "frame_index": 233,
+      "label": "case-233"
+    },
+    {
+      "frame_index": 234,
+      "label": "case-234"
+    },
+    {
+      "frame_index": 235,
+      "label": "case-235"
+    },
+    {
+      "frame_index": 236,
+      "label": "case-236"
+    },
+    {
+      "frame_index": 237,
+      "label": "case-237"
+    },
+    {
+      "frame_index": 238,
+      "label": "case-238"
+    },
+    {
+      "frame_index": 239,
+      "label": "case-239"
+    },
+    {
+      "frame_index": 240,
+      "label": "case-240"
+    },
+    {
+      "frame_index": 241,
+      "label": "case-241"
+    },
+    {
+      "frame_index": 242,
+      "label": "case-242"
+    },
+    {
+      "frame_index": 243,
+      "label": "case-243"
+    },
+    {
+      "frame_index": 244,
+      "label": "case-244"
+    },
+    {
+      "frame_index": 245,
+      "label": "case-245"
+    },
+    {
+      "frame_index": 246,
+      "label": "case-246"
+    },
+    {
+      "frame_index": 247,
+      "label": "case-247"
+    },
+    {
+      "frame_index": 248,
+      "label": "case-248"
+    },
+    {
+      "frame_index": 294,
+      "label": "case-294"
+    },
+    {
+      "frame_index": 295,
+      "label": "case-295"
+    },
+    {
+      "frame_index": 296,
+      "label": "case-296"
+    },
+    {
+      "frame_index": 297,
+      "label": "case-297"
+    },
+    {
+      "frame_index": 298,
+      "label": "case-298"
+    },
+    {
+      "frame_index": 299,
+      "label": "case-299"
+    },
+    {
+      "frame_index": 300,
+      "label": "case-300"
+    },
+    {
+      "frame_index": 301,
+      "label": "case-301"
+    },
+    {
+      "frame_index": 302,
+      "label": "case-302"
+    },
+    {
+      "frame_index": 303,
+      "label": "case-303"
+    },
+    {
+      "frame_index": 304,
+      "label": "case-304"
+    },
+    {
+      "frame_index": 305,
+      "label": "case-305"
+    },
+    {
+      "frame_index": 306,
+      "label": "case-306"
+    },
+    {
+      "frame_index": 307,
+      "label": "case-307"
+    },
+    {
+      "frame_index": 308,
+      "label": "case-308"
+    },
+    {
+      "frame_index": 309,
+      "label": "case-309"
+    },
+    {
+      "frame_index": 310,
+      "label": "case-310"
+    },
+    {
+      "frame_index": 311,
+      "label": "case-311"
+    },
+    {
+      "frame_index": 312,
+      "label": "case-312"
+    },
+    {
+      "frame_index": 313,
+      "label": "case-313"
+    },
+    {
+      "frame_index": 314,
+      "label": "case-314"
+    },
+    {
+      "frame_index": 315,
+      "label": "case-315"
+    },
+    {
+      "frame_index": 316,
+      "label": "case-316"
+    },
+    {
+      "frame_index": 317,
+      "label": "case-317"
+    },
+    {
+      "frame_index": 318,
+      "label": "case-318"
+    },
+    {
+      "frame_index": 319,
+      "label": "case-319"
+    },
+    {
+      "frame_index": 320,
+      "label": "case-320"
+    },
+    {
+      "frame_index": 321,
+      "label": "case-321"
+    },
+    {
+      "frame_index": 322,
+      "label": "case-322"
+    },
+    {
+      "frame_index": 323,
+      "label": "case-323"
+    },
+    {
+      "frame_index": 324,
+      "label": "case-324"
+    },
+    {
+      "frame_index": 325,
+      "label": "case-325"
+    },
+    {
+      "frame_index": 326,
+      "label": "case-326"
+    },
+    {
+      "frame_index": 327,
+      "label": "case-327"
+    },
+    {
+      "frame_index": 359,
+      "label": "case-359"
+    },
+    {
+      "frame_index": 628,
+      "label": "case-628"
+    },
+    {
+      "frame_index": 629,
+      "label": "case-629"
+    },
+    {
+      "frame_index": 630,
+      "label": "case-630"
+    },
+    {
+      "frame_index": 631,
+      "label": "case-631"
+    },
+    {
+      "frame_index": 632,
+      "label": "case-632"
+    },
+    {
+      "frame_index": 633,
+      "label": "case-633"
+    },
+    {
+      "frame_index": 634,
+      "label": "case-634"
+    },
+    {
+      "frame_index": 635,
+      "label": "case-635"
+    },
+    {
+      "frame_index": 636,
+      "label": "case-636"
+    },
+    {
+      "frame_index": 637,
+      "label": "case-637"
+    },
+    {
+      "frame_index": 638,
+      "label": "case-638"
+    },
+    {
+      "frame_index": 639,
+      "label": "case-639"
+    },
+    {
+      "frame_index": 640,
+      "label": "case-640"
+    },
+    {
+      "frame_index": 641,
+      "label": "case-641"
+    },
+    {
+      "frame_index": 642,
+      "label": "case-642"
+    },
+    {
+      "frame_index": 643,
+      "label": "case-643"
+    },
+    {
+      "frame_index": 644,
+      "label": "case-644"
+    },
+    {
+      "frame_index": 645,
+      "label": "case-645"
+    },
+    {
+      "frame_index": 646,
+      "label": "case-646"
+    },
+    {
+      "frame_index": 647,
+      "label": "case-647"
+    },
+    {
+      "frame_index": 648,
+      "label": "case-648"
+    },
+    {
+      "frame_index": 649,
+      "label": "case-649"
+    },
+    {
+      "frame_index": 650,
+      "label": "case-650"
+    },
+    {
+      "frame_index": 651,
+      "label": "case-651"
+    },
+    {
+      "frame_index": 652,
+      "label": "case-652"
+    },
+    {
+      "frame_index": 653,
+      "label": "case-653"
+    },
+    {
+      "frame_index": 654,
+      "label": "case-654"
+    },
+    {
+      "frame_index": 655,
+      "label": "case-655"
+    },
+    {
+      "frame_index": 656,
+      "label": "case-656"
+    },
+    {
+      "frame_index": 657,
+      "label": "case-657"
+    },
+    {
+      "frame_index": 658,
+      "label": "case-658"
+    },
+    {
+      "frame_index": 659,
+      "label": "case-659"
+    },
+    {
+      "frame_index": 660,
+      "label": "case-660"
+    },
+    {
+      "frame_index": 661,
+      "label": "case-661"
+    },
+    {
+      "frame_index": 662,
+      "label": "case-662"
+    },
+    {
+      "frame_index": 663,
+      "label": "case-663"
+    },
+    {
+      "frame_index": 664,
+      "label": "case-664"
+    },
+    {
+      "frame_index": 665,
+      "label": "case-665"
+    },
+    {
+      "frame_index": 666,
+      "label": "case-666"
+    },
+    {
+      "frame_index": 667,
+      "label": "case-667"
+    },
+    {
+      "frame_index": 668,
+      "label": "case-668"
+    },
+    {
+      "frame_index": 669,
+      "label": "case-669"
+    },
+    {
+      "frame_index": 670,
+      "label": "case-670"
+    },
+    {
+      "frame_index": 671,
+      "label": "case-671"
+    },
+    {
+      "frame_index": 672,
+      "label": "case-672"
+    },
+    {
+      "frame_index": 673,
+      "label": "case-673"
+    },
+    {
+      "frame_index": 674,
+      "label": "case-674"
+    },
+    {
+      "frame_index": 675,
+      "label": "case-675"
+    },
+    {
+      "frame_index": 676,
+      "label": "case-676"
+    },
+    {
+      "frame_index": 677,
+      "label": "case-677"
+    },
+    {
+      "frame_index": 678,
+      "label": "case-678"
+    },
+    {
+      "frame_index": 679,
+      "label": "case-679"
+    },
+    {
+      "frame_index": 680,
+      "label": "case-680"
+    },
+    {
+      "frame_index": 681,
+      "label": "case-681"
+    },
+    {
+      "frame_index": 682,
+      "label": "case-682"
+    },
+    {
+      "frame_index": 683,
+      "label": "case-683"
+    },
+    {
+      "frame_index": 684,
+      "label": "case-684"
+    },
+    {
+      "frame_index": 685,
+      "label": "case-685"
+    },
+    {
+      "frame_index": 686,
+      "label": "case-686"
+    },
+    {
+      "frame_index": 687,
+      "label": "case-687"
+    }
+  ],
+  "warp_to_level": 65,
+  "settle_oracle_warp": true
+}
