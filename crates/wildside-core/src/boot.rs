@@ -7810,6 +7810,19 @@ impl NativeRuntime {
                         || self
                             .title_menu_vdp_upload_frame_loc_1bb52
                             .is_some_and(|frame| self.frame_index >= frame));
+                if self.title_screen_uses_intro_return_hidden_shell
+                    && self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry
+                    && self.title_menu_cursor_pending
+                    && self.frame_index >= self.title_menu_arm_frame
+                {
+                    // ASM Obj_TitleMenu loc_1BB52 (kid.asm:30428-30455): the
+                    // intro-6 Start-skip lineage enters Title_InputLoop in the
+                    // same object pass that links the cursor. Oracle frame
+                    // 2702 therefore accepts the repeated Start edge once the
+                    // two-pass Gfx allocation completes.
+                    self.title_menu_cursor_pending = false;
+                    self.title_menu_hidden_prearm_pending = false;
+                }
 
                 if self.title_menu_selection_pending.is_some()
                     && self.title_menu_selection_delay_frames > 0
@@ -7870,6 +7883,13 @@ impl NativeRuntime {
                                     // cold frame 135 Start exposes the cursor on
                                     // frame 136 and accepts row selection at 137.
                                     1
+                                } else if self.title_screen_uses_intro_return_hidden_shell
+                                    && self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry
+                                {
+                                    // ASM loc_1BB52 links the cursor and falls
+                                    // straight into Title_InputLoop. This
+                                    // lineage has no later 15-frame setup hold.
+                                    TITLE_MENU_CURSOR_GFX_ALLOCATION_DELAY_FRAMES_LOC_1BB52
                                 } else {
                                     TITLE_MENU_ACTIVATION_DELAY_FRAMES
                                 });

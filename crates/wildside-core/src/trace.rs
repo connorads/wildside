@@ -16237,6 +16237,16 @@ impl NativeRuntime {
             // rebuild elapsed 160 while the four Object workers stay live.
             BootState::TitleScreen { .. } | BootState::IntroSequence6 { .. }
         ) {
+            if self.title_screen_uses_intro_return_hidden_shell
+                && self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry
+                && self.title_menu_active
+                && !self.title_menu_cursor_pending
+            {
+                // ASM Obj_TitleMenu loc_1BB52 links its cursor after the four
+                // resident title GfxObjects. The rapid intro-6 Start route
+                // exposes the resulting 4/5 roster on oracle frame 2702.
+                return (4, 5);
+            }
             if let Some(counts) = self.carried_wrap_intro_sequence_6_object_counts() {
                 return counts;
             }

@@ -9013,8 +9013,13 @@ mod chunk_02 {
                 runtime.set_recorded_title_card_handoff_delay(true);
             }
             let mut vdp_2717 = None;
+            let mut vdp_2703 = None;
+            let mut vdp_2708 = None;
+            let mut vdp_2709 = None;
             let mut vdp_2720 = None;
             let mut vdp_2723 = None;
+            let mut trace_2702 = None;
+            let mut trace_2704 = None;
             let mut trace_2732 = None;
             let mut trace_3000 = None;
             let mut trace_3299 = None;
@@ -9031,7 +9036,17 @@ mod chunk_02 {
                     FrameInput::default()
                 };
                 let trace = runtime.step_frame(input);
-                if frame_index == 2_717 {
+                if frame_index == 2_702 {
+                    trace_2702 = Some(trace);
+                } else if frame_index == 2_703 {
+                    vdp_2703 = runtime.vdp_state().cloned();
+                } else if frame_index == 2_704 {
+                    trace_2704 = Some(trace);
+                } else if frame_index == 2_708 {
+                    vdp_2708 = runtime.vdp_state().cloned();
+                } else if frame_index == 2_709 {
+                    vdp_2709 = runtime.vdp_state().cloned();
+                } else if frame_index == 2_717 {
                     vdp_2717 = runtime.vdp_state().cloned();
                 } else if frame_index == 2_720 {
                     vdp_2720 = runtime.vdp_state().cloned();
@@ -9046,8 +9061,33 @@ mod chunk_02 {
                 }
             }
 
+            let trace_2702 = trace_2702.expect("loc_1BB52 cursor allocation should be traced");
+            assert_eq!(
+                trace_2702.number_gfx_objects, 5,
+                "ASM Obj_TitleMenu loc_1BB52 allocates the fifth Gfx object on frame 2702 before Title_InputLoop consumes the repeated Start edge"
+            );
+            let trace_2704 = trace_2704.expect("row-select Start should complete its hand-off");
+            assert_eq!(
+                trace_2704.game_mode,
+                GameMode::LevelTransition,
+                "ASM Title_InputLoop loc_1BBD6 reaches Game_Mode=$0008 on oracle frame 2704; the intro-6 menu must not retain the generic 15-frame arm delay"
+            );
+
             let vdp_2717 =
                 vdp_2717.expect("spam route should still expose the resident title/menu VDP");
+            let vdp_2703 = vdp_2703.expect("active menu should expose its source palette");
+            let vdp_2708 = vdp_2708.expect("loc_6E2 should retain the source palette");
+            assert_eq!(
+                cram_words(&vdp_2708),
+                cram_words(&vdp_2703),
+                "ASM loc_1BBD6 -> loc_6E2 has not presented Pal_FadeOut before oracle frame 2709"
+            );
+            let vdp_2709 = vdp_2709.expect("first loc_28C6 fade frame should exist");
+            assert_eq!(
+                cram_words(&vdp_2709),
+                faded_cram_to_black(cram_words(&vdp_2703), 0x00F0),
+                "ASM Pal_FadeOut loc_28C6 first exposes `$FFFFF876=$00F0` on oracle frame 2709"
+            );
             let vdp_2720 = vdp_2720.expect("spam route should carry the resident title/menu VDP");
             assert_eq!(
                 vdp_2720.vram, vdp_2717.vram,
@@ -9055,14 +9095,14 @@ mod chunk_02 {
             );
             assert_eq!(
                 cram_words(&vdp_2720),
-                faded_cram_to_black(cram_words(&vdp_2717), 0x0020),
-                "Oracle #210 probe frame 2720 has Pal_FadeOut loc_28C6 at `$FFFFF876=$0020`, not the bright title/menu palette"
+                faded_cram_to_black(cram_words(&vdp_2703), 0x0040),
+                "Oracle #210 probe frame 2720 has Pal_FadeOut loc_28C6 at `$FFFFF876=$0040`, not the bright title/menu palette"
             );
             let vdp_2723 = vdp_2723.expect("spam route should keep the faded title/menu carry");
             assert_eq!(
                 cram_words(&vdp_2723),
-                faded_cram_to_black(cram_words(&vdp_2717), 0),
-                "Oracle #210 probe frame 2723 has completed Pal_FadeOut loc_28EA; the carried title/menu palette must stay black until Load_TitleCard replaces the VDP"
+                faded_cram_to_black(cram_words(&vdp_2703), 0x0010),
+                "Oracle #210 probe frame 2723 has the final loc_28C6 `$FFFFF876=$0010` presentation, whose quantised CRAM renders black before loc_28EA"
             );
 
             let trace_2732 = trace_2732.expect("spam route should still have a frame-2732 trace");

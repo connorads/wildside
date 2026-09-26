@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #210 rapid menu hand-off and fade
+
+The saved Jev route identified a 15-frame native menu hold where `loc_1BB52`
+accepts Start after two frames. Native now reaches the level-transition mode on
+oracle frame 2704 and follows the source-derived `Pal_FadeOut` phase. Frames
+2703 through 2723 match pixel-exactly at every checked sample. #210 remains in
+progress for the frame-2702 cursor raster and later title-card worker trace.
+
 ## 2026-09-26 - #433 parked, #210 comparison refreshed
 
 #433's source-proven natural Crypt chain remains unreachable with the saved

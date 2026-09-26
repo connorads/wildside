@@ -3424,16 +3424,20 @@ impl NativeRuntime {
         carry_start_frame: usize,
     ) -> u16 {
         let elapsed = frame_index.saturating_sub(carry_start_frame);
-        if elapsed <= 4 {
-            // ASM Obj_TitleMenu loc_1BBD6 sets `$FFFFFBCE` before jumping to
-            // loc_6E2, so Pal_FadeOut loc_28C6 has already consumed most of
-            // its fade by the recorded cold-route VDP carry. Oracle #210
-            // probes expose `$FFFFF876=$0040,$0030,...,$0000` across the
-            // carried title/menu frames.
-            0x0040u16.saturating_sub((elapsed as u16).saturating_mul(0x10))
-        } else {
-            0
+        // ASM Obj_TitleMenu loc_1BBD6 -> loc_6E2 -> Pal_FadeOut loc_28C6
+        // (kid.asm:30463,823,4827): the loader reaches the first presented
+        // fade VBlank five traced frames after Game_Mode becomes `$0008`.
+        // The first loc_28C6 pass transfers the source palette, runs sub_14C0
+        // at `$100`, then subtracts `$10`; oracle #210 therefore stays bright
+        // through frame 2708 and first exposes `$F0` on frame 2709.
+        if elapsed < 5 {
+            return 0x0100;
         }
+        0x0100u16.saturating_sub(
+            u16::try_from(elapsed.saturating_sub(4))
+                .unwrap_or(u16::MAX)
+                .saturating_mul(0x10),
+        )
     }
 
     fn intro_sequence_6_start_skip_preserves_natural_vdp_loc_1bab0_at_elapsed(

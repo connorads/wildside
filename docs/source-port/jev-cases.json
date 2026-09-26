@@ -166,7 +166,7 @@
       "crates/wildside-core/src/tests/level_tests.rs:7773",
       "docs/source-port/jev-pilot-results.md"
     ],
-    "next_action": "Resolve remaining title-window RNG, intermediate Kid state and lettering differences; the ordinary Start guard regression and restored-defect control already pass.",
+    "next_action": "Resolve the frame-2702 cursor raster and post-black title-card worker trace; frame-2704 menu hand-off and frames 2703..2723 fade samples now match the oracle.",
     "scope": "Rapidly skip intro, title, and menu with repeated Start presses; no black squares, corrupt Red Stealth/title art, or early gameplay release should appear."
   },
   {
