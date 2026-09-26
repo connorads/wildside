@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #433 parked, #210 comparison refreshed
+
+#433's source-proven natural Crypt chain remains unreachable with the saved
+ordinary-input families, and its paid window is closed. It moves to the blocked
+lane without claiming that diagnostic-warp parity proves entry or hurt recovery.
+The offline #210 Jev check passes the rapid-Start release assertion but remains
+comparison-red from frame 2700 RNG and frame 2702 title-worker pixels. Continue
+#210 from that first visual boundary. No paid request occurred.
+
 ## 2026-09-26 - #502 pressure witness parked
 
 The saved Drips routes, offline level searches and all three paid attempts remain below the ROM's 20/21 Object threshold. The ROM-PC checker now requires both threshold-crossing directions in one trace, so a lone tight-branch call cannot be mistaken for interleaved allocation/deletion proof. #502 is parked at 0x48; continue #433 offline without more paid dispatch.

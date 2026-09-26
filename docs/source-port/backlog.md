@@ -31,7 +31,7 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-09-26):** #502 is parked after its saved routes, three paid attempts and offline searches failed to reach the required interleaved 20/21-Object Drips witness. Its ROM-PC checker now requires both allocation and deletion threshold crossings. Continue #433 offline from the repaired Crypt route; its paid window is closed.
+- **Current work (2026-09-26):** #433 is parked after its saved routes and offline continuations failed to traverse the source-proven `0x2B -> 0x40 -> 0x5E -> 0x41` chain into natural Robot hurt. Continue #210 from the fresh offline Jev comparison at its first title-worker visual divergence; the reported rapid-Start release remains fixed.
 - **Selection:** Run `mise run project-status` and `mise run jev-audit`. Objective awaiting-human cases are eligible for investigation and evidence-backed closure. Coverage prerequisites come first, then P0 #210, #370 and #374 according to dependencies and available evidence.
 - **Scope:** Single-player across all playable levels, branches, forms and bosses. Preserve frozen #406/#409/#416 timing debt and its ratchets. Final package retains subjective/device checks; no human validation is claimed.
 - **Jev allowance:** $5 additional across the campaign. BLW2 used 100 requests and $0.010448214. #502 used 269 charged requests across its three allowed attempts, adding $0.045005898. #433 used 84 requests across two attempts. The ledger lifetime charged upper bound is $0.250016004, including $0.000242592 for the #344 smoke. #433 attempt two exposed #511 but did not reach Robot contact; the repaired route is emulator-exact for gameplay state. #502's window and attempts are exhausted.
@@ -60,7 +60,6 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 433 | [~] | P1 | enemies/RNG | Robot motion, shots, turns, interrupted hurt recovery and raw slot reuse verified; ROM entry graph proven. | Replay the `0x2B -> 0x40 -> 0x5E -> 0x41` route and acquire natural Robot hurt. |
 | 406 | [f] | P1 | rendering | FROZEN with #409 per ADR 0002: the lane stops accruing sessions; the march stays metered as ADR 0001 left it (frontier 995, injection ratchet). Residue authority moves to census-scoped reconstruction + raster-span-replay. | Do not extend the march; ratchets stay green; take #442-#450 instead. See ADR 0002. |
 | 409 | [f] | P1 | rendering | FROZEN per ADR 0002: the recurrence is a downward-only witness (scheduled-frames ratchet 736 / boundary 1657; tas-pixel-baseline). ADR 0003 corrected the spans; #459 found the bounded entry phase non-invertible and closed NO-GO. | Do not extend or promote the lane; keep the 2,391-pixel and scheduled-frame ratchets green. Evidence: archive #459. |
 | 416 | [f] | P2 | audio | Frontier FROZEN at frames 0..922 (decision in archive #416): `gems_frame_signature_v1` is a regression witness only; command parity (#435) supersedes it as audio authority. | Never advance `modelled_frames`; #434-#438 closed, remaining audio debt tracked via #439-#441; keep verify-tas-full green. |
