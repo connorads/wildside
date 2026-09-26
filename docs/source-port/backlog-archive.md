@@ -26687,6 +26687,15 @@ discarded visitor's false deficit without a route-specific delay. Continue at
 `Initialize_EvanescShooterObjectSlots`. No Jev request or campaign spend
 occurred.
 
+2026-09-26 common loader tail: Forest and Swamp now match exact emulator cycles
+and refresh phases through `Initialize_EvanescShooterObjectSlots`,
+`Init_SpriteAttr_HUD`, Diamond Power initialisation, the complete 2,048-word
+HUD clear, operand-dependent DIVU/MULU camera setup, and all three palette
+theme tests at `loc_11FC8`. Swamp's Diamond helper crosses and services a VINT;
+Forest's does not. The persistent scheduler preserves that route difference
+without a fixed delay. Continue through the Swamp-only `Murderwall loc_140D2`
+load. No Jev request or campaign spend occurred.
+
 ### #301
 
 - Filed 2026-06-11 as the bosses cluster umbrella (audits/bosses-fidelity-audit.md: 28 gaps, 13 high). The boss layer is an invented substitute: dead `sub_3A292` (collision/HP/palette), `sub_39846`+wrappers (waypoint movement), `loc_37F30`/`38012`/`380F4` (attack FSM), whole HeadyMetal `loc_37582`/`loc_3763A` handler; live heads flat-chase the player and fire on a fixed 180-frame clock; Shishkaboss heads 2/3 HP 30 vs ROM $14; HeadyMetal tracking -0xB000 vs -0x5000; boss-level flagpole suppression `loc_C03A` absent. Treat as one rewiring effort, not 28 patches. Minimum gate: 1p-playable on boss levels.

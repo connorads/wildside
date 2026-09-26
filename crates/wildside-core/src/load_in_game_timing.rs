@@ -1640,6 +1640,12 @@ pub(crate) struct ForegroundPrefixAdvanceLoc11ae4 {
     pub(crate) shared_flag_cursor_loc_11f22: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) shared_hitpoint_cursor_loc_11f26: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) shooter_slots_cursor_loc_11f2c: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) evanesc_slots_cursor_loc_11f32: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) hud_sprite_cursor_loc_11f36: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) diamond_slots_cursor_loc_11f3c: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) hud_clear_cursor_loc_11f48: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) hud_clear_exit_cursor_loc_11f50: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) shared_tail_cursor_loc_11fc8: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) cursor: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) refresh_events: u32,
 }
@@ -1661,6 +1667,8 @@ pub(crate) struct LoadLayoutScheduleInputsLoc11ae4<'a> {
     pub(crate) shared_blocks_stream: &'a [u8],
     pub(crate) shared_numbers_stream: &'a [u8],
     pub(crate) shared_eyclops_stream: &'a [u8],
+    pub(crate) player_start_x: u16,
+    pub(crate) player_start_y: u16,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1831,6 +1839,142 @@ fn visit_shooter_slot_init_instructions_sub_f06a(mut visit: impl FnMut(u32)) {
         }
     }
     for cycles in [16, 16, 4, 12, 12, 16] {
+        visit(cycles);
+    }
+}
+
+#[cfg(test)]
+fn visit_evanesc_shooter_slot_init_instructions(mut visit: impl FnMut(u32)) {
+    fn visit_linked_slots(visit: &mut impl FnMut(u32), count: usize) {
+        for slot in 0..count {
+            for cycles in [8, 12, 4, if slot + 1 == count { 14 } else { 10 }] {
+                visit(cycles);
+            }
+        }
+    }
+
+    // ASM j_Initialize_EvanescShooterObjectSlots / sub_EABC: initialise the
+    // auxiliary 39-slot pool called by the main helper.
+    for cycles in [20, 10, 18, 8, 12, 4] {
+        visit(cycles);
+    }
+    visit_linked_slots(&mut visit, 39);
+    for cycles in [16, 16, 16] {
+        visit(cycles);
+    }
+
+    // ASM Initialize_EvanescShooterObjectSlots loc_DF30 / loc_DF50: build the
+    // 19-slot Evanesc list and 39-slot Shooter list after sub_EABC returns.
+    for cycles in [8, 12, 4] {
+        visit(cycles);
+    }
+    visit_linked_slots(&mut visit, 19);
+    for cycles in [16, 16, 8, 12, 4] {
+        visit(cycles);
+    }
+    visit_linked_slots(&mut visit, 39);
+    for cycles in [16, 16, 16] {
+        visit(cycles);
+    }
+}
+
+#[cfg(test)]
+fn visit_hud_sprite_init_instructions_sub_14244(mut visit: impl FnMut(u32)) {
+    // ASM Init_SpriteAttr_HUD / sub_14244: copy 20 HUD sprite longwords and
+    // seed the sprite count plus timer redraw state.
+    for cycles in [18, 16, 16, 8, 12, 4] {
+        visit(cycles);
+    }
+    for longword in 0..20 {
+        for cycles in [20, if longword == 19 { 14 } else { 10 }] {
+            visit(cycles);
+        }
+    }
+    for cycles in [24, 16, 16, 16, 16] {
+        visit(cycles);
+    }
+}
+
+#[cfg(test)]
+fn visit_diamond_slot_init_instructions_sub_3f586(mut visit: impl FnMut(u32)) {
+    // ASM j_Clear_DiamondPowerObjectRAM / sub_3F586: clear 55 words, then
+    // fall through into Initialize_DiamondPowerObjectSlots' nine-link list.
+    for cycles in [20, 10, 8, 8] {
+        visit(cycles);
+    }
+    for word in 0..55 {
+        for cycles in [12, 6, if word == 54 { 8 } else { 10 }] {
+            visit(cycles);
+        }
+    }
+    for cycles in [8, 16, 4] {
+        visit(cycles);
+    }
+    for slot in 0..9 {
+        for cycles in [8, 16, 4, if slot == 8 { 14 } else { 10 }] {
+            visit(cycles);
+        }
+    }
+    for cycles in [24, 24, 24, 16] {
+        visit(cycles);
+    }
+}
+
+#[cfg(test)]
+fn divu_immediate_word_cycles(dividend: u16, divisor: u16) -> u32 {
+    let shifted_divisor = u32::from(divisor) << 16;
+    let mut dividend = u32::from(dividend);
+    let mut added_cycles = 0;
+    for _ in 0..15 {
+        let previous_msb = dividend & 0x8000_0000 != 0;
+        dividend <<= 1;
+        let subtraction_negative = dividend < shifted_divisor;
+        if previous_msb || !subtraction_negative {
+            dividend = dividend.wrapping_sub(shifted_divisor);
+        }
+        added_cycles += 2 * u32::from(!previous_msb);
+        added_cycles += 2 * u32::from(!previous_msb && subtraction_negative);
+    }
+    // ASM loc_11F54 / loc_11F6A use an immediate word source, adding four
+    // effective-address cycles to the 68000 DIVU execution time.
+    80 + added_cycles
+}
+
+#[cfg(test)]
+fn mulu_immediate_word_cycles(multiplier: u16) -> u32 {
+    // ASM loc_11F5A / loc_11F70: 38 base cycles, two per set source bit and
+    // four immediate-word effective-address cycles.
+    42 + 2 * multiplier.count_ones()
+}
+
+#[cfg(test)]
+fn visit_camera_bootstrap_instructions_loc_11f50(
+    player_start_x: u16,
+    player_start_y: u16,
+    mut visit: impl FnMut(u32),
+) {
+    for cycles in [
+        12,
+        divu_immediate_word_cycles(player_start_x, 0x0140),
+        4,
+        mulu_immediate_word_cycles(0x0140),
+        4,
+        4,
+        16,
+        12,
+        divu_immediate_word_cycles(player_start_y, 0x00E0),
+        4,
+        mulu_immediate_word_cycles(0x00E0),
+        4,
+        4,
+        16,
+        16,
+        10,
+        16,
+        10,
+        16,
+        10,
+    ] {
         visit(cycles);
     }
 }
@@ -2318,6 +2462,57 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         }
     });
     let shooter_slots_cursor_loc_11f2c = scheduler.cursor();
+    visit_evanesc_shooter_slot_init_instructions(|cycles| {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(cycles).is_some();
+        }
+    });
+    let evanesc_slots_cursor_loc_11f32 = scheduler.cursor();
+    visit_hud_sprite_init_instructions_sub_14244(|cycles| {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(cycles).is_some();
+        }
+    });
+    let hud_sprite_cursor_loc_11f36 = scheduler.cursor();
+    visit_diamond_slot_init_instructions_sub_3f586(|cycles| {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(cycles).is_some();
+        }
+    });
+    let diamond_slots_cursor_loc_11f3c = scheduler.cursor();
+    // ASM loc_11F3C..loc_11FC8: select HUD VRAM, then clear 2,048 words
+    // through the persistent FIFO/VINT scheduler.
+    for cycles in [24, 8] {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(cycles).is_some();
+        }
+    }
+    let hud_clear_cursor_loc_11f48 = scheduler.cursor();
+    for word in 0..2_048 {
+        if schedule_ok {
+            schedule_ok = scheduler.write_data_word(12).is_some();
+        }
+        if schedule_ok {
+            schedule_ok = scheduler
+                .advance_instruction(if word == 2_047 { 14 } else { 10 })
+                .is_some();
+        }
+    }
+    let hud_clear_exit_cursor_loc_11f50 = scheduler.cursor();
+    anyhow::ensure!(
+        !matches!(inputs.foreground_theme, 7 | 8) && inputs.background_theme != 4,
+        "this scheduler slice requires the non-lava/non-cave/non-island palette path"
+    );
+    visit_camera_bootstrap_instructions_loc_11f50(
+        inputs.player_start_x,
+        inputs.player_start_y,
+        |cycles| {
+            if schedule_ok {
+                schedule_ok = scheduler.advance_instruction(cycles).is_some();
+            }
+        },
+    );
+    let shared_tail_cursor_loc_11fc8 = scheduler.cursor();
 
     anyhow::ensure!(schedule_ok, "Load_InGame layout schedule overflow");
     Ok(ForegroundPrefixAdvanceLoc11ae4 {
@@ -2338,6 +2533,12 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         shared_flag_cursor_loc_11f22,
         shared_hitpoint_cursor_loc_11f26,
         shooter_slots_cursor_loc_11f2c,
+        evanesc_slots_cursor_loc_11f32,
+        hud_sprite_cursor_loc_11f36,
+        diamond_slots_cursor_loc_11f3c,
+        hud_clear_cursor_loc_11f48,
+        hud_clear_exit_cursor_loc_11f50,
+        shared_tail_cursor_loc_11fc8,
         cursor: scheduler.cursor(),
         refresh_events: scheduler.refresh_events(),
     })

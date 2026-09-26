@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #300 common loader tail exact
+
+The persistent scheduler now reaches `loc_11FC8` exactly on Forest and Swamp.
+Coverage includes Evanesc, Shooter, HUD and Diamond slot setup, the 2,048-word
+HUD clear, operand-dependent DIVU/MULU camera cycles and palette theme tests.
+Continue through the Swamp-only Murderwall art load. No Jev spend or human
+playtest.
+
 ## 2026-09-26 - #300 two-word VDP FIFO writes
 
 One 68000 VDP longword instruction now enqueues its two constituent FIFO words

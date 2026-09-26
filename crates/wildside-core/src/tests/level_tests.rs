@@ -6287,6 +6287,8 @@ mod chunk_02 {
                 shared_blocks_stream: &shared_blocks_stream,
                 shared_numbers_stream: &shared_numbers_stream,
                 shared_eyclops_stream: &shared_eyclops_stream,
+                player_start_x: forest_header.player_start_x,
+                player_start_y: forest_header.player_start_y,
             },
         )
         .expect("schedule Forest layout, decoder and collision prefix");
@@ -6447,6 +6449,66 @@ mod chunk_02 {
                 refresh_phase: M68kRefreshPhase::new(54).expect("oracle refresh phase"),
             },
             "ASM j_sub_F06A / sub_F06A reaches the exact Forest shooter-slot cursor"
+        );
+        assert_eq!(
+            forest_prefix.evanesc_slots_cursor_loc_11f32,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    158_355_630
+                )),
+                refresh_phase: M68kRefreshPhase::new(84).expect("oracle refresh phase"),
+            },
+            "ASM Initialize_EvanescShooterObjectSlots reaches the exact Forest cursor"
+        );
+        assert_eq!(
+            forest_prefix.hud_sprite_cursor_loc_11f36,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    158_356_408
+                )),
+                refresh_phase: M68kRefreshPhase::new(94).expect("oracle refresh phase"),
+            },
+            "ASM Init_SpriteAttr_HUD reaches the exact Forest cursor"
+        );
+        assert_eq!(
+            forest_prefix.diamond_slots_cursor_loc_11f3c,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    158_358_486
+                )),
+                refresh_phase: M68kRefreshPhase::new(124).expect("oracle refresh phase"),
+            },
+            "ASM j_Clear_DiamondPowerObjectRAM / sub_3F586 reaches the exact Forest cursor"
+        );
+        assert_eq!(
+            forest_prefix.hud_clear_cursor_loc_11f48,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    158_358_520
+                )),
+                refresh_phase: M68kRefreshPhase::new(30).expect("oracle refresh phase"),
+            },
+            "ASM loc_11F48 enters the Forest HUD clear with the persistent loader state"
+        );
+        assert_eq!(
+            forest_prefix.hud_clear_exit_cursor_loc_11f50,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    158_459_547
+                )),
+                refresh_phase: M68kRefreshPhase::new(106).expect("oracle refresh phase"),
+            },
+            "ASM loc_11F48..loc_11F50 retains exact Forest FIFO, refresh and VINT state"
+        );
+        assert_eq!(
+            forest_prefix.shared_tail_cursor_loc_11fc8,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    158_460_085
+                )),
+                refresh_phase: M68kRefreshPhase::new(4).expect("oracle refresh phase"),
+            },
+            "ASM loc_11F50..loc_11FC8 reaches the exact Forest camera/theme cursor"
         );
         assert_eq!(
             frames[223].gameplay_debug_fields["teleport_background_work_loc_1280a"],
@@ -6726,6 +6788,8 @@ mod chunk_02 {
                 shared_blocks_stream: &shared_blocks_stream,
                 shared_numbers_stream: &shared_numbers_stream,
                 shared_eyclops_stream: &shared_eyclops_stream,
+                player_start_x: swamp_header.player_start_x,
+                player_start_y: swamp_header.player_start_y,
             },
         )
         .expect("schedule Swamp layout, decoder and collision prefix");
@@ -6886,6 +6950,66 @@ mod chunk_02 {
                 refresh_phase: M68kRefreshPhase::new(54).expect("oracle refresh phase"),
             },
             "ASM j_sub_F06A / sub_F06A reaches the exact Swamp shooter-slot cursor"
+        );
+        assert_eq!(
+            swamp_prefix.evanesc_slots_cursor_loc_11f32,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    143_985_132
+                )),
+                refresh_phase: M68kRefreshPhase::new(84).expect("oracle refresh phase"),
+            },
+            "ASM Initialize_EvanescShooterObjectSlots reaches the exact Swamp cursor"
+        );
+        assert_eq!(
+            swamp_prefix.hud_sprite_cursor_loc_11f36,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    143_985_910
+                )),
+                refresh_phase: M68kRefreshPhase::new(94).expect("oracle refresh phase"),
+            },
+            "ASM Init_SpriteAttr_HUD reaches the exact Swamp cursor"
+        );
+        assert_eq!(
+            swamp_prefix.diamond_slots_cursor_loc_11f3c,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    143_988_104
+                )),
+                refresh_phase: M68kRefreshPhase::new(112).expect("oracle refresh phase"),
+            },
+            "ASM j_Clear_DiamondPowerObjectRAM / sub_3F586 reaches the exact Swamp cursor"
+        );
+        assert_eq!(
+            swamp_prefix.hud_clear_cursor_loc_11f48,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    143_988_138
+                )),
+                refresh_phase: M68kRefreshPhase::new(18).expect("oracle refresh phase"),
+            },
+            "ASM loc_11F48 enters the Swamp HUD clear with the persistent loader state"
+        );
+        assert_eq!(
+            swamp_prefix.hud_clear_exit_cursor_loc_11f50,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    144_073_917
+                )),
+                refresh_phase: M68kRefreshPhase::new(14).expect("oracle refresh phase"),
+            },
+            "ASM loc_11F48..loc_11F50 retains exact Swamp FIFO, refresh and VINT state"
+        );
+        assert_eq!(
+            swamp_prefix.shared_tail_cursor_loc_11fc8,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    144_074_455
+                )),
+                refresh_phase: M68kRefreshPhase::new(40).expect("oracle refresh phase"),
+            },
+            "ASM loc_11F50..loc_11FC8 reaches the exact Swamp camera/theme cursor"
         );
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_background_work_loc_1280a"],
