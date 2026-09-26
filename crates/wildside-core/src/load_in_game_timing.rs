@@ -1633,6 +1633,9 @@ pub(crate) struct ForegroundPrefixAdvanceLoc11ae4 {
     pub(crate) background_cursor_loc_11d12: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) theme_entry_cursor_loc_11e60: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) shared_art_cursor_loc_11efa: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) shared_blocks_cursor_loc_11f08: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) shared_numbers_cursor_loc_11f16: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) shared_eyclops_cursor_loc_11f1a: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) cursor: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) refresh_events: u32,
 }
@@ -1651,6 +1654,9 @@ pub(crate) struct LoadLayoutScheduleInputsLoc11ae4<'a> {
     pub(crate) foreground_theme: u16,
     pub(crate) background_theme: u16,
     pub(crate) theme_art_streams: &'a [&'a [u8]],
+    pub(crate) shared_blocks_stream: &'a [u8],
+    pub(crate) shared_numbers_stream: &'a [u8],
+    pub(crate) shared_eyclops_stream: &'a [u8],
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1699,6 +1705,55 @@ fn visit_decompress_to_ram_instructions_loc_143c0(
         for word in 0..words {
             cpu!(&[8, 14, 22, 8, 14]);
             visit(LoadInGameTimedInstruction::VdpDataWord(8));
+            cpu!(&[if word + 1 == words { 14 } else { 10 }]);
+        }
+        cpu!(&[4]);
+        if decoder.resume.is_some() {
+            cpu!(&[8, 12, 8, 8]);
+            for longword in 0..512 {
+                cpu!(&[20, if longword == 511 { 14 } else { 10 }]);
+            }
+            cpu!(&[10]);
+        } else {
+            cpu!(&[10, 16]);
+        }
+        resume = decoder.resume;
+        if resume.is_none() {
+            return Ok(());
+        }
+    }
+}
+
+#[cfg(test)]
+fn visit_decompress_to_vram_instructions_loc_14300(
+    stream: &[u8],
+    mut visit: impl FnMut(LoadInGameTimedInstruction),
+) -> anyhow::Result<()> {
+    macro_rules! cpu {
+        ($cycles:expr) => {
+            for &cycle in $cycles {
+                visit(LoadInGameTimedInstruction::Cpu(cycle));
+            }
+        };
+    }
+
+    // ASM DecompressToVRAM $142FA: initialise the VDP command and Saxman
+    // decoder before entering the repeated loc_14300 chunk/transfer loop.
+    cpu!(&[
+        18, 4, 10, 8, 8, 8, 4, 4, 16, 8, 22, 8, 12, 12, 4, 4, 16, 4, 4,
+    ]);
+    let mut resume = None;
+    loop {
+        cpu!(&[4, 18]);
+        let decoder = crate::saxman_timing::visit_decompress_chunk_instructions_sub_13684(
+            stream,
+            resume,
+            |cycles| visit(LoadInGameTimedInstruction::Cpu(cycles)),
+        )?;
+        cpu!(&[12, 4, 8, 8, 4]);
+        let words = decoder.timing.output_bytes / 2;
+        for word in 0..words {
+            visit(LoadInGameTimedInstruction::VdpDataWord(12));
             cpu!(&[if word + 1 == words { 14 } else { 10 }]);
         }
         cpu!(&[4]);
@@ -2068,6 +2123,69 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         },
     )?;
     let shared_art_cursor_loc_11efa = scheduler.cursor();
+    // ASM loc_11EFA..loc_11F08: select ArtComp_992E4_Blocks and stream it
+    // through DecompressToVRAM before loading the in-game number glyphs.
+    for cycles in [20, 8, 18] {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(cycles).is_some();
+        }
+    }
+    visit_decompress_to_vram_instructions_loc_14300(inputs.shared_blocks_stream, |instruction| {
+        if !schedule_ok {
+            return;
+        }
+        schedule_ok = match instruction {
+            LoadInGameTimedInstruction::Cpu(cycles) => {
+                scheduler.advance_instruction(cycles).is_some()
+            }
+            LoadInGameTimedInstruction::VdpDataWord(cycles) => {
+                scheduler.write_data_word(cycles).is_some()
+            }
+        };
+    })?;
+    let shared_blocks_cursor_loc_11f08 = scheduler.cursor();
+    // ASM loc_11F08..loc_11F16: stream ArtComp_99F34_IngameNumbers through
+    // the same decoder, FIFO, refresh and VINT state as the preceding art.
+    for cycles in [8, 20, 18] {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(cycles).is_some();
+        }
+    }
+    visit_decompress_to_vram_instructions_loc_14300(inputs.shared_numbers_stream, |instruction| {
+        if !schedule_ok {
+            return;
+        }
+        schedule_ok = match instruction {
+            LoadInGameTimedInstruction::Cpu(cycles) => {
+                scheduler.advance_instruction(cycles).is_some()
+            }
+            LoadInGameTimedInstruction::VdpDataWord(cycles) => {
+                scheduler.write_data_word(cycles).is_some()
+            }
+        };
+    })?;
+    let shared_numbers_cursor_loc_11f16 = scheduler.cursor();
+    // ASM loc_11F16 / Load_EyclopsBeamArt: the caller and helper select
+    // ArtComp_12D70 before tail-calling DecompressToVRAM.
+    for cycles in [18, 8, 8, 10] {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(cycles).is_some();
+        }
+    }
+    visit_decompress_to_vram_instructions_loc_14300(inputs.shared_eyclops_stream, |instruction| {
+        if !schedule_ok {
+            return;
+        }
+        schedule_ok = match instruction {
+            LoadInGameTimedInstruction::Cpu(cycles) => {
+                scheduler.advance_instruction(cycles).is_some()
+            }
+            LoadInGameTimedInstruction::VdpDataWord(cycles) => {
+                scheduler.write_data_word(cycles).is_some()
+            }
+        };
+    })?;
+    let shared_eyclops_cursor_loc_11f1a = scheduler.cursor();
 
     anyhow::ensure!(schedule_ok, "Load_InGame layout schedule overflow");
     Ok(ForegroundPrefixAdvanceLoc11ae4 {
@@ -2081,6 +2199,9 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         background_cursor_loc_11d12,
         theme_entry_cursor_loc_11e60,
         shared_art_cursor_loc_11efa,
+        shared_blocks_cursor_loc_11f08,
+        shared_numbers_cursor_loc_11f16,
+        shared_eyclops_cursor_loc_11f1a,
         cursor: scheduler.cursor(),
         refresh_events: scheduler.refresh_events(),
     })

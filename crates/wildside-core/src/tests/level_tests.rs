@@ -6257,6 +6257,18 @@ mod chunk_02 {
             .iter()
             .map(Vec::as_slice)
             .collect::<Vec<_>>();
+        let shared_blocks_stream =
+            std::fs::read(manifest.output_root.join("ingame/artcomp/Blocks.bin"))
+                .expect("read shared block art");
+        let shared_numbers_stream =
+            std::fs::read(manifest.output_root.join("ingame/artcomp/HUD_numbers.bin"))
+                .expect("read shared HUD-number art");
+        let shared_eyclops_stream = std::fs::read(
+            manifest
+                .output_root
+                .join("scenes/artcomp/Some_geometric_patterns.bin"),
+        )
+        .expect("read shared Eyclops beam art");
         let forest_prefix = crate::load_in_game_timing::schedule_foreground_prefix_loc_11ae4(
             forest_entry,
             &crate::load_in_game_timing::LoadLayoutScheduleInputsLoc11ae4 {
@@ -6272,6 +6284,9 @@ mod chunk_02 {
                 foreground_theme: u16::from(forest_header.level_theme),
                 background_theme: u16::from(forest_header.background_theme),
                 theme_art_streams: &forest_theme_art_refs,
+                shared_blocks_stream: &shared_blocks_stream,
+                shared_numbers_stream: &shared_numbers_stream,
+                shared_eyclops_stream: &shared_eyclops_stream,
             },
         )
         .expect("schedule Forest layout, decoder and collision prefix");
@@ -6362,6 +6377,36 @@ mod chunk_02 {
                 refresh_phase: M68kRefreshPhase::new(51).expect("oracle refresh phase"),
             },
             "ASM loc_11E60..loc_11EFA reaches the exact Forest shared-art cursor"
+        );
+        assert_eq!(
+            forest_prefix.shared_blocks_cursor_loc_11f08,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    158_276_993
+                )),
+                refresh_phase: M68kRefreshPhase::new(44).expect("oracle refresh phase"),
+            },
+            "ASM loc_11EFA..loc_11F08 retains the Forest FIFO and VINT state through the shared block-art transfer"
+        );
+        assert_eq!(
+            forest_prefix.shared_numbers_cursor_loc_11f16,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    158_301_746
+                )),
+                refresh_phase: M68kRefreshPhase::new(44).expect("oracle refresh phase"),
+            },
+            "ASM loc_11F08..loc_11F16 retains the Forest FIFO state through the shared HUD-number transfer"
+        );
+        assert_eq!(
+            forest_prefix.shared_eyclops_cursor_loc_11f1a,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    158_339_968
+                )),
+                refresh_phase: M68kRefreshPhase::new(122).expect("oracle refresh phase"),
+            },
+            "ASM loc_11F16 / Load_EyclopsBeamArt retains the exact Forest FIFO, refresh and VINT state"
         );
         assert_eq!(
             frames[223].gameplay_debug_fields["teleport_background_work_loc_1280a"],
@@ -6611,6 +6656,18 @@ mod chunk_02 {
             .iter()
             .map(Vec::as_slice)
             .collect::<Vec<_>>();
+        let shared_blocks_stream =
+            std::fs::read(manifest.output_root.join("ingame/artcomp/Blocks.bin"))
+                .expect("read shared block art");
+        let shared_numbers_stream =
+            std::fs::read(manifest.output_root.join("ingame/artcomp/HUD_numbers.bin"))
+                .expect("read shared HUD-number art");
+        let shared_eyclops_stream = std::fs::read(
+            manifest
+                .output_root
+                .join("scenes/artcomp/Some_geometric_patterns.bin"),
+        )
+        .expect("read shared Eyclops beam art");
         let swamp_prefix = crate::load_in_game_timing::schedule_foreground_prefix_loc_11ae4(
             swamp_entry,
             &crate::load_in_game_timing::LoadLayoutScheduleInputsLoc11ae4 {
@@ -6626,6 +6683,9 @@ mod chunk_02 {
                 foreground_theme: u16::from(swamp_header.level_theme),
                 background_theme: u16::from(swamp_header.background_theme),
                 theme_art_streams: &swamp_theme_art_refs,
+                shared_blocks_stream: &shared_blocks_stream,
+                shared_numbers_stream: &shared_numbers_stream,
+                shared_eyclops_stream: &shared_eyclops_stream,
             },
         )
         .expect("schedule Swamp layout, decoder and collision prefix");
@@ -6716,6 +6776,36 @@ mod chunk_02 {
                 refresh_phase: M68kRefreshPhase::new(83).expect("oracle refresh phase"),
             },
             "ASM loc_11E60..loc_11EFA reaches the exact Swamp shared-art cursor"
+        );
+        assert_eq!(
+            swamp_prefix.shared_blocks_cursor_loc_11f08,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    143_884_345
+                )),
+                refresh_phase: M68kRefreshPhase::new(44).expect("oracle refresh phase"),
+            },
+            "ASM loc_11EFA..loc_11F08 retains the Swamp FIFO and VINT state through the shared block-art transfer"
+        );
+        assert_eq!(
+            swamp_prefix.shared_numbers_cursor_loc_11f16,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    143_909_103
+                )),
+                refresh_phase: M68kRefreshPhase::new(44).expect("oracle refresh phase"),
+            },
+            "ASM loc_11F08..loc_11F16 retains the Swamp FIFO state through the shared HUD-number transfer"
+        );
+        assert_eq!(
+            swamp_prefix.shared_eyclops_cursor_loc_11f1a,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    143_963_334
+                )),
+                refresh_phase: M68kRefreshPhase::new(44).expect("oracle refresh phase"),
+            },
+            "ASM loc_11F16 / Load_EyclopsBeamArt retains the exact Swamp FIFO, refresh and VINT state"
         );
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_background_work_loc_1280a"],

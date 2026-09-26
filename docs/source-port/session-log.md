@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #300 shared compressed-art tail restored
+
+The persistent loader scheduler now covers the shared Blocks, HUD-number and
+Eyclops compressed-art transfers. Forest and Swamp match exact oracle cycles,
+refresh phases and FIFO state through `loc_11F1A`, disproving the discarded
+visitor's 19-cycle deficit. Continue at `sub_129CE`, preserving each VDP
+longword write as one instruction with two FIFO words. No Jev spend or human
+playtest.
+
 ## 2026-09-26 - #300 retained VINT edge correction
 
 The isolated `loc_11F48` regression had invented a second 114-cycle VINT by

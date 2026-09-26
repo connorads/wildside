@@ -26669,6 +26669,15 @@ visitor was reverted, so the gate remains green. Resume only by correcting the
 shared FIFO retry model against both entry phases; do not retry instruction
 totals or add a Swamp-only delay. No Jev request or campaign spend occurred.
 
+2026-09-26 correction: the persistent scheduler disproves that discarded
+visitor's 19-cycle `loc_11F08` deficit. Forest and Swamp are exact through the
+shared Blocks transfer at `loc_11F08`, HUD-number transfer at `loc_11F16`, and
+`Load_EyclopsBeamArt` at `loc_11F1A`, including FIFO depth, refresh phase and
+the already-serviced VINT edge. Oracle instruction traces also correct the
+Eyclops helper costs to 8/8/10 cycles. Continue at `sub_129CE`, whose VDP
+longword writes enqueue two FIFO words per CPU instruction. No Jev request or
+campaign spend occurred.
+
 ### #301
 
 - Filed 2026-06-11 as the bosses cluster umbrella (audits/bosses-fidelity-audit.md: 28 gaps, 13 high). The boss layer is an invented substitute: dead `sub_3A292` (collision/HP/palette), `sub_39846`+wrappers (waypoint movement), `loc_37F30`/`38012`/`380F4` (attack FSM), whole HeadyMetal `loc_37582`/`loc_3763A` handler; live heads flat-chase the player and fire on a fixed 180-frame clock; Shishkaboss heads 2/3 HP 30 vs ROM $14; HeadyMetal tracking -0xB000 vs -0x5000; boss-level flagpole suppression `loc_C03A` absent. Treat as one rewiring effort, not 28 patches. Minimum gate: 1p-playable on boss levels.
