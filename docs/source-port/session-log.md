@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #300 isolated HUD-clear FIFO regression
+
+The Swamp route enters ASM `loc_11F48` with an empty FIFO. Replaying its 2,048
+HUD-clear writes through the persistent scheduler matches the oracle refresh
+phase but exits 256 M68K cycles late. An ignored red regression pins both exact
+oracle boundaries, narrowing the remaining defect to FIFO-full retry timing.
+No Jev spend or human playtest.
+
 ## 2026-09-26 - #514 exact Elsewhere 19 lifecycle
 
 The last frame-253 count mismatch came from two simultaneous Dragon breath

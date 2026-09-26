@@ -16564,3 +16564,33 @@ fn load_in_game_raster_scheduler_retains_vint_edge_across_phase_boundaries() {
         "ASM V_Int $390..$3A2 runs once, then its disarmed edge survives the phase boundary"
     );
 }
+
+#[test]
+#[ignore = "#300: FIFO retry model ends the isolated ROM HUD clear 256 M68K cycles late"]
+fn load_in_game_raster_scheduler_matches_swamp_hud_clear_fifo_retries_loc_11f48() {
+    // ASM Load_InGame loc_11F48 (kid.asm): 2,048 `move.w #$780,(a6)` writes,
+    // each followed by `dbf d0,loc_11F48`. The oracle enters with an empty
+    // FIFO at cycle 143,988,138 and reaches the following instruction at
+    // cycle 144,073,917, so this isolates VDP-full retries from earlier loads.
+    let entry = LoadInGameCpuRasterCursor {
+        beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(143_988_138)),
+        refresh_phase: M68kRefreshPhase::new(18).expect("oracle entry refresh phase"),
+    };
+    let mut scheduler = LoadInGameRasterScheduler::new(entry);
+
+    for iteration in 0..2_048 {
+        scheduler.write_data_word(12).expect("HUD clear write");
+        let dbf_cycles = if iteration == 2_047 { 14 } else { 10 };
+        scheduler
+            .advance_instruction(dbf_cycles)
+            .expect("HUD clear DBF");
+    }
+
+    assert_eq!(
+        scheduler.cursor(),
+        LoadInGameCpuRasterCursor {
+            beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(144_073_917)),
+            refresh_phase: M68kRefreshPhase::new(14).expect("oracle exit refresh phase"),
+        }
+    );
+}
