@@ -6888,6 +6888,7 @@ impl OpeningSliceState {
             // when Kid's centre column is already past the cached cell.
             if (!deferred_prize_ceiling_cell
                 || deferred_prize_ceiling_phase == Some(DeferredPrizeBlockPhase::FreshSmash))
+                && rubber_ceiling_cell.is_none()
                 && block_dispatch_probe.cell.collision == terrain::CollisionKind::Solid
                 && block_dispatch_probe.cell.has_block
             {

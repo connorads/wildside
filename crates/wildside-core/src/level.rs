@@ -20473,7 +20473,28 @@ impl NativeRuntime {
         let logical_path = layout_dir.join(format!("{:02X}.blocklist.bin", level_id.0));
         let mut block_list = if self.assets_source.exists(&logical_path) {
             let data = self.assets_source.read(&logical_path).ok()?;
-            terrain::BlockList::from_raw_with_grid(&data, layout_width, Some(grid), blank_top_rows)
+            let mut dumped = terrain::BlockList::from_raw_with_grid(
+                &data,
+                layout_width,
+                Some(grid),
+                blank_top_rows,
+            );
+            if dumped.prize_blocks.is_empty()
+                && let Some(mut synthesised) =
+                    self.synthesise_block_list_for_level_loc_11C7E(level_id)
+            {
+                // ASM loc_11C7E emits records before gameplay starts. A
+                // settled RAM list can lose that leading section while the
+                // live Level_Layout still proves which records remain valid.
+                // Recover only exact cells that are still Prize blocks;
+                // consumed or overwritten records must stay absent.
+                synthesised.prize_blocks.retain(|prize| {
+                    let cell = grid.cell_at(prize.col, prize.row);
+                    cell.has_block && cell.block_type == terrain::BlockType::Prize
+                });
+                dumped.prize_blocks = synthesised.prize_blocks;
+            }
+            dumped
         } else {
             // ASM loc_11C7E reads the mapped BLOCK ROM resource, while generated
             // RAM sidecars are keyed by logical Current_LevelID. Reconstruct the

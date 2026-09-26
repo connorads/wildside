@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #514 live prize record recovery
+
+Elsewhere 19's empty settled prize section is recoverable only where the live
+grid still contains a Prize cell. This restores Micromax at `(1,18)` while
+rejecting the stale static record over Rubber `(2,18)`. Rubber contact defers
+the adjacent prize dispatcher at frame 6; the clean frame-125 hit starts the
+ROM wobble. The 300-frame replay is player/camera exact with one remaining
+Object/Gfx count boundary at frame 253. No Jev spend or human playtest.
+
 ## 2026-09-26 - #513 adjacent Rubber ceiling rebound
 
 The prior `loc_10E1A` classification was corrected: it returns from the

@@ -11,6 +11,25 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+<a id="issue-514"></a>
+### #514 - Settled Elsewhere 19 prize lifecycle
+
+2026-09-26 implementation progress `[ ]` to `[~]`. The frame-125 worker is
+`loc_100E2`, the prize-block wobble at live cell `(1,18)`, not a Micromax
+floating worker. The settled RAM block list has no prize section, while its live
+grid still contains `$E102` at `(1,18)` and `$E60C` Rubber at `(2,18)`. Whole
+section recovery was wrong because the static stream also contains a stale
+record at the Rubber cell. Native now recovers only records whose exact live
+cell remains Prize. ASM `sub_914A loc_91C0` Rubber return also defers the
+adjacent generic prize dispatcher at frame 6; the later clean hit starts the
+prize wobble at frame 125.
+
+The checked-in 300-frame replay improves from 1,648 authoritative field diffs
+and a player CRC break at frame 122 to exact player/camera CRC throughout and
+one count-only boundary: frame 253 has one extra native Object and GfxObject,
+then frame 254 matches again. Resolve that scheduler deletion boundary before
+closing. No Jev request or human playtest.
+
 <a id="issue-513"></a>
 ### #513 - Adjacent Rubber ceiling rebound
 

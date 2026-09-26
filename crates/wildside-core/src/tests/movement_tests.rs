@@ -9388,6 +9388,52 @@ mod chunk_11 {
         );
     }
 
+    /// ASM sub_914A loc_91C0 returns the Rubber result immediately. The later
+    /// sub_BBE2 prize dispatcher must not also consume an earlier prize cell
+    /// from the same head span on that contact.
+    #[test]
+    fn loc_91c0_adjacent_rubber_defers_prize_dispatch_until_a_later_hit() {
+        let w: u16 = 10;
+        let h: u16 = 10;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(2usize * usize::from(w) + 1) * 2] = 0xE1;
+        data[(2usize * usize::from(w) + 1) * 2 + 1] = 0x02;
+        data[(2usize * usize::from(w) + 2) * 2] = 0xE6;
+        data[(2usize * usize::from(w) + 2) * 2 + 1] = 0x0C;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let block_list = terrain::BlockList {
+            prize_blocks: vec![terrain::PrizeBlockEntry {
+                layout_addr: terrain::BlockList::level_layout_low_word_addr(1, 2, w),
+                col: 1,
+                row: 2,
+                content: terrain::PrizeContent::Micromax,
+                disguised: false,
+            }],
+            ghost_blocks: Vec::new(),
+            teleporters: Vec::new(),
+            hidden_blocks: Vec::new(),
+        };
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 31 << 16;
+        slice.player.y_pos = 65 << 16;
+        slice.player.y_velocity = -0x000E_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            Some(&block_list),
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(slice.rubber_block_hit, Some((2, 2)));
+        assert_eq!(slice.prize_block_hit, None);
+    }
+
     /// ASM sub_914A caches the ceiling contact cell for the later
     /// `sub_BBE2` block dispatch. Native additionally clears adjacent Smash
     /// blocks hit by the same head span after a Prize block hit; keep that scan
