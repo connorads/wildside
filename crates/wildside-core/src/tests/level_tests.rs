@@ -9018,6 +9018,7 @@ mod chunk_02 {
             let mut vdp_2709 = None;
             let mut vdp_2720 = None;
             let mut vdp_2723 = None;
+            let mut vdp_2702 = None;
             let mut trace_2702 = None;
             let mut trace_2704 = None;
             let mut trace_2732 = None;
@@ -9037,6 +9038,7 @@ mod chunk_02 {
                 };
                 let trace = runtime.step_frame(input);
                 if frame_index == 2_702 {
+                    vdp_2702 = runtime.vdp_state().cloned();
                     trace_2702 = Some(trace);
                 } else if frame_index == 2_703 {
                     vdp_2703 = runtime.vdp_state().cloned();
@@ -9065,6 +9067,19 @@ mod chunk_02 {
             assert_eq!(
                 trace_2702.number_gfx_objects, 5,
                 "ASM Obj_TitleMenu loc_1BB52 allocates the fifth Gfx object on frame 2702 before Title_InputLoop consumes the repeated Start edge"
+            );
+            let first_menu_write = vdp_2702
+                .expect("loc_1BB52 upload frame should expose the title VDP")
+                .raster_frame
+                .expect("loc_1BB52 should retain its ordered FIFO writes")
+                .vram_word_writes
+                .into_iter()
+                .next()
+                .map(|write| (write.scanline, write.pixel));
+            assert_eq!(
+                first_menu_write,
+                Some((62, 12)),
+                "ASM loc_1BB52 -> sub_1C5D0 uses the rapid IntroSequence6 CPU phase whose oracle raster exposes the menu bottom-border tail on frame 2702"
             );
             let trace_2704 = trace_2704.expect("row-select Start should complete its hand-off");
             assert_eq!(

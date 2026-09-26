@@ -2883,7 +2883,8 @@ impl NativeRuntime {
                             natural_intro_sequence_6_pre_ready_shell: true,
                             natural_intro_sequence_6_worker_elapsed: Some(title_worker_elapsed),
                             title_menu_raster_upload: self
-                                .title_menu_vdp_raster_upload_active_loc_1bb52(),
+                                .title_menu_vdp_raster_upload_active_loc_1bb52()
+                                .then_some(vdp::TitleMenuRasterUpload::LaterIntroSequence6),
                             ..vdp::TitleScreenVdpLineage::default()
                         },
                     )
@@ -3310,7 +3311,16 @@ impl NativeRuntime {
                                     .then_some(title_elapsed_frames),
                             fresh_title_worker_lineage,
                             title_menu_raster_upload: self
-                                .title_menu_vdp_raster_upload_active_loc_1bb52(),
+                                .title_menu_vdp_raster_upload_active_loc_1bb52()
+                                .then_some(
+                                    if self
+                                        .intro_sequence_6_start_skip_intro_sequence_5_pose_carry
+                                    {
+                                        vdp::TitleMenuRasterUpload::RapidIntroSequence6StartSkip
+                                    } else {
+                                        vdp::TitleMenuRasterUpload::LaterIntroSequence6
+                                    },
+                                ),
                         },
                     )
                 })
