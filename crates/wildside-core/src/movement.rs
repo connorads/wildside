@@ -2306,6 +2306,47 @@ impl NativeRuntime {
         &self,
         elapsed_frames: usize,
     ) -> Vec<NativeObjectSnapshot> {
+        self.starting_level_title_vdp_workers_loc_1ac70(elapsed_frames)
+            .into_iter()
+            .map(|worker| NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 0 },
+                x_pos: worker.x_pos,
+                y_pos: worker.y_pos,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: Some(Direction::Left),
+                on_ground: Some(true),
+                hit_points: None,
+                damage_flash: false,
+                palette_variant: 0,
+                stationary: true,
+                contact_phase: None,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                sprite_animation_phase: None,
+                wait_timer: None,
+                // ASM loc_1AC70 (kid.asm:28896-28907): each title worker
+                // stores its source glyph at `$44(a5)` and reads it back
+                // before computing the per-letter VRAM sprite offset via
+                // `off_1AC2A`.
+                debug_fields: BTreeMap::from([
+                    (
+                        String::from("gfx_slot_index"),
+                        worker.gfx_slot_index.to_string(),
+                    ),
+                    (String::from("glyph"), format!("{:#04x}", worker.glyph)),
+                ]),
+            })
+            .collect()
+    }
+
+    pub(crate) fn starting_level_title_vdp_workers_loc_1ac70(
+        &self,
+        elapsed_frames: usize,
+    ) -> Vec<crate::vdp::TitleCardWorkerSpriteLoc1AC70> {
         let cold_intro_sequence_1_title = matches!(
             self.title_screen_intro_return_lineage,
             Some(TitleScreenIntroReturnLineage::ColdIntroSequence1)
@@ -2325,7 +2366,7 @@ impl NativeRuntime {
             // there.
             return Vec::new();
         }
-        let mut objects = self
+        let mut workers = self
             .starting_level_title_workers
             .iter()
             .filter(|worker| {
@@ -2382,50 +2423,16 @@ impl NativeRuntime {
                     .saturating_sub(1);
                 let pose =
                     PlayerState::from_level_entry_title_worker(worker, visible_elapsed_frames);
-                NativeObjectSnapshot {
-                    kind: NativeObjectKind::Enemy { object_type: 0 },
+                crate::vdp::TitleCardWorkerSpriteLoc1AC70 {
+                    gfx_slot_index: worker.gfx_slot_index,
+                    glyph: worker.glyph,
                     x_pos: pose.x_pos,
                     y_pos: pose.y_pos,
-                    layout_index: None,
-                    x_velocity: None,
-                    y_velocity: None,
-                    facing: Some(Direction::Left),
-                    on_ground: Some(true),
-                    hit_points: None,
-                    damage_flash: false,
-                    palette_variant: 0,
-                    stationary: true,
-                    contact_phase: None,
-                    shared_walker_state: None,
-                    shared_walker_patrol_timer: None,
-                    shared_walker_patrol_short_next: None,
-                    walk_phase: None,
-                    sprite_animation_phase: None,
-                    wait_timer: None,
-                    // ASM loc_1AC70 (kid.asm:28896-28907): each title worker
-                    // stores its source glyph at `$44(a5)` and reads it back
-                    // before computing the per-letter VRAM sprite offset via
-                    // `off_1AC2A`. Surface the same glyph byte so the renderer
-                    // can draw the correct letter art at the worker's current
-                    // interpolated (x_pos, y_pos) during the fly-in.
-                    debug_fields: BTreeMap::from([
-                        (
-                            String::from("gfx_slot_index"),
-                            worker.gfx_slot_index.to_string(),
-                        ),
-                        (String::from("glyph"), format!("{:#04x}", worker.glyph)),
-                    ]),
                 }
             })
             .collect::<Vec<_>>();
-        objects.sort_by_key(|object| {
-            object
-                .debug_fields
-                .get("gfx_slot_index")
-                .and_then(|slot| slot.parse::<usize>().ok())
-                .unwrap_or(usize::MAX)
-        });
-        objects
+        workers.sort_by_key(|worker| worker.gfx_slot_index);
+        workers
     }
 }
 

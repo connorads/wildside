@@ -11,8 +11,8 @@ use crate::native_player::{
     background_scroll_pixel_diagnostic_loc_3050a, build_scene, build_scene_filtered,
     chunked_plane_b_row_debug_for_trace_loc_30744, eol_score_sprite_diagnostics,
     load_session_assets, render_scene, render_scene_overlay,
-    render_trace_with_vdp_latched_state_and_resident, render_vdp_trace_overlay,
-    sample_background_pixel_loc_c070, sample_scene_pixel_provenance, vdp_snapshot_from_core,
+    render_trace_with_vdp_latched_state_and_resident, sample_background_pixel_loc_c070,
+    sample_scene_pixel_provenance, vdp_snapshot_from_core,
 };
 use crate::oracle::{OracleFrame, OracleManifest, OracleState, run_jgenesis_capture_dynamic};
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
@@ -1320,7 +1320,6 @@ fn render_runtime_checkpoint_frame(
         // otherwise intro checkpoints fall back to black trace-only placeholders.
         let snapshot = vdp_snapshot_from_core(vdp);
         wildside_md::render_vdp_into(&snapshot, &mut rgb);
-        render_vdp_trace_overlay(trace, level_visuals, &mut rgb);
     } else {
         let scene = build_scene(
             trace,

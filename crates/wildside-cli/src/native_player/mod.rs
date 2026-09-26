@@ -511,7 +511,6 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
 
     if let Some(vdp) = runtime.vdp_state() {
         render_native_vdp_rgb(vdp, &mut frame);
-        render_vdp_trace_overlay(&trace, &session_assets.level_visuals, &mut frame);
     } else {
         let scene = build_scene(
             &trace,
@@ -1175,7 +1174,6 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             // Non-gameplay mode with VDP state: render directly using the
             // proven software VDP renderer for pixel-accurate output.
             render_native_vdp_rgb(vdp, &mut frame);
-            render_vdp_trace_overlay(&render_trace, &session_assets.level_visuals, &mut frame);
         } else {
             let scene = build_scene(
                 &render_trace,
@@ -3560,11 +3558,10 @@ mod tests {
     }
 
     #[test]
-    fn death_respawn_vdp_path_overlays_real_title_name_workers_loc_b8de() {
+    fn death_respawn_vdp_path_contains_real_title_name_workers_loc_b8de() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
-        let (visuals, _) = load_session_assets(&manifest, 0x00).expect("Level 0x00 visuals");
         let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
         let script = GameplayScenario::DeathRespawnLevel1.script();
         let mut previous_trace = runtime.trace_frame();
@@ -3591,18 +3588,23 @@ mod tests {
             let Some(vdp) = runtime.vdp_state() else {
                 continue;
             };
-            let mut base = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
-            render_native_vdp_rgb(vdp, &mut base);
-            let mut overlaid = base.clone();
-            render_vdp_trace_overlay(&render_trace, &visuals, &mut overlaid);
-            let changed_pixels = base
+            let mut without_sat = vdp.clone();
+            // ASM loc_A70 transfers the complete $280-byte SAT at VRAM $1000.
+            // Removing it isolates the pixels contributed by the real VDP
+            // workers without restoring the retired post-render overlay.
+            without_sat.vram[0x1000..0x1280].fill(0);
+            let mut actual = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+            render_native_vdp_rgb(vdp, &mut actual);
+            let mut no_workers = actual.clone();
+            render_native_vdp_rgb(&without_sat, &mut no_workers);
+            let changed_pixels = actual
                 .chunks_exact(3)
-                .zip(overlaid.chunks_exact(3))
+                .zip(no_workers.chunks_exact(3))
                 .filter(|(before, after)| before != after)
                 .count();
             assert!(
                 changed_pixels > 0,
-                "ASM lose_life -> loc_B8DE -> Load_TitleCard should composite loc_1AB26/loc_1AC70 title workers over the VDP shell on real death_respawn_level1 frame {frame_index}; mode={:?} boot_phase={:?} objects={:?}",
+                "ASM lose_life -> loc_B8DE -> Load_TitleCard should encode loc_1AB26/loc_1AC70 title workers in the VDP SAT on real death_respawn_level1 frame {frame_index}; mode={:?} boot_phase={:?} objects={:?}",
                 render_trace.game_mode,
                 render_trace.boot_phase,
                 render_trace.active_objects,
@@ -7973,8 +7975,8 @@ mod tests {
 
     fn render_vdp_frame_for_test(
         runtime: &NativeRuntime,
-        trace: &NativeTraceFrame,
-        level_visuals: &NativeLevelVisuals,
+        _trace: &NativeTraceFrame,
+        _level_visuals: &NativeLevelVisuals,
     ) -> Vec<u8> {
         let vdp = runtime
             .vdp_state()
@@ -7982,7 +7984,6 @@ mod tests {
         let snapshot = vdp_snapshot_from_core(vdp);
         let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
         wildside_md::render_vdp_into(&snapshot, &mut frame);
-        render_vdp_trace_overlay(trace, level_visuals, &mut frame);
         frame
     }
 

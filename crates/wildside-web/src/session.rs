@@ -14,7 +14,6 @@ use wildside_data::{AssetSource, BundleAssetSource, parse_manifest_with_source};
 use wildside_frame::{
     AudioSampleClock, FRAME_HEIGHT, FRAME_WIDTH, NativeAudioDirector, build_scene,
     load_gems_audio_engine, render_scene, render_trace_with_vdp_latched_state_and_resident,
-    render_vdp_trace_overlay,
 };
 use wildside_md::GemsAudioEngine;
 use wildside_render::{NativeLevelVisuals, load_level_visuals_with_source};
@@ -196,7 +195,6 @@ impl WebSession {
                 }),
             };
             wildside_md::render_vdp_into(&snapshot, &mut self.rgb);
-            render_vdp_trace_overlay(&render_trace, &self.visuals, &mut self.rgb);
         } else {
             let scene = build_scene(
                 &render_trace,

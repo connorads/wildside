@@ -2698,6 +2698,10 @@ impl NativeRuntime {
     /// Rebuild VDP state based on the current boot phase.
     /// Called once per frame after `step_boot_state`.
     fn update_vdp_state(&mut self) {
+        let starting_level_elapsed_frames = match self.boot_state {
+            BootState::StartingLevel { elapsed_frames, .. } => Some(elapsed_frames),
+            _ => None,
+        };
         let previous_vdp_state = self.vdp_state.clone();
         if matches!(
             self.boot_state,
@@ -3377,6 +3381,17 @@ impl NativeRuntime {
             }
             _ => None,
         };
+
+        let title_card_shell_visible = self
+            .title_menu_level_entry_vdp_carry
+            .as_ref()
+            .is_none_or(|(_, carry_until_frame)| self.frame_index >= *carry_until_frame);
+        if title_card_shell_visible && let Some(elapsed_frames) = starting_level_elapsed_frames {
+            let workers = self.starting_level_title_vdp_workers_loc_1ac70(elapsed_frames);
+            if let Some(vdp) = self.vdp_state.as_mut() {
+                vdp::overlay_title_card_worker_sat_loc_1ac70(vdp, &workers);
+            }
+        }
     }
 
     fn intro_sequence_6_hidden_shell_frame_index_loc_1b43a(&self) -> Option<u8> {

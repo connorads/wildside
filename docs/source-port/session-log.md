@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #210 objective closure
+
+Title-card workers now enter the VDP sprite table with their ROM art, mapping and priority. The saved rapid-Start route matches oracle state and pixels for all 600 checked frames; a restored early-release control fails after a verified common prefix. #210 closes without paid JEV spend or human sign-off. #254 retains the broader subjective boot-art check for the final playtest.
+
 ## 2026-09-26 - #210 title-worker seed-pose presentation
 
 The saved rapid-Start route is pixel-exact through frame 2757 after separating the visible `loc_1AD2A` hibernation pose from the frozen VDP workload pose. The remaining mismatch starts at frame 2758 when the low-priority `$7B` marker crosses high-priority Plane A. No paid request occurred.

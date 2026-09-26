@@ -8870,7 +8870,16 @@ struct TitleCardThemeData {
 #[derive(Debug, Clone)]
 pub(crate) struct TitleCardData {
     themes: Vec<Option<TitleCardThemeData>>,
+    title_letter_art_bytes: Vec<u8>,
     title_letter_palette_words: Vec<u16>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TitleCardWorkerSpriteLoc1AC70 {
+    pub(crate) gfx_slot_index: usize,
+    pub(crate) glyph: u8,
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
 }
 
 const TITLE_CARD_THEME_NAMES: [Option<&str>; 11] = [
@@ -9092,6 +9101,11 @@ fn decode_title_text_chameleon_anim_map(
 pub(crate) fn load_title_card_data(source: &dyn AssetSource) -> Result<TitleCardData> {
     let root = std::path::Path::new("theme/titlecard");
     let mut themes = vec![None; TITLE_CARD_THEME_NAMES.len()];
+    let title_letter_art_bytes = load_saxman_art(
+        source,
+        std::path::Path::new("scenes/artcomp/Title_card_letters.bin"),
+    )
+    .context("failed to load title-card letter art")?;
     let title_letter_palette_words = load_palette_words(
         source,
         std::path::Path::new("scenes/palette/Title_card_letters.bin"),
@@ -9126,6 +9140,7 @@ pub(crate) fn load_title_card_data(source: &dyn AssetSource) -> Result<TitleCard
 
     Ok(TitleCardData {
         themes,
+        title_letter_art_bytes,
         title_letter_palette_words,
     })
 }
@@ -10407,6 +10422,9 @@ pub(crate) fn build_title_card_vdp(data: &TitleCardData, theme_index: u8) -> Opt
     vdp.registers[1] = 0x74;
 
     vdp.write_vram(0x5F60, &theme.art_bytes);
+    // ASM loc_1AB26 (kid.asm:28750-28752): the shared title-letter sheet is
+    // resident at tile `$409` before any loc_1AC70 worker reaches the SAT.
+    vdp.write_vram(0x8120, &data.title_letter_art_bytes);
 
     let clear_vram = crate::level::load_title_card_clear_vram_loc_19ABE();
     for i in 0..usize::from(clear_vram.word_write_count) {
@@ -10515,6 +10533,80 @@ pub(crate) fn build_title_card_vdp(data: &TitleCardData, theme_index: u8) -> Opt
     }
 
     Some(vdp)
+}
+
+fn title_card_glyph_sat_loc_1ac70(glyph: u8) -> Option<(u16, u8, u16)> {
+    // ASM off_1AC2A -> unk_C86E8..unk_C87F8 (kid.asm:28859-28893,
+    // 49238-49272): tile offset, SAT size byte, and mapping height.
+    let (tile_offset, width_px, height_px) = match glyph {
+        b'a' => (0x000, 0x10, 0x10),
+        b'b' => (0x004, 0x10, 0x10),
+        b'c' => (0x008, 0x10, 0x10),
+        b'd' => (0x00C, 0x10, 0x10),
+        b'e' => (0x010, 0x10, 0x10),
+        b'f' => (0x014, 0x10, 0x10),
+        b'g' => (0x018, 0x10, 0x10),
+        b'h' => (0x01C, 0x10, 0x10),
+        b'i' => (0x020, 0x08, 0x10),
+        b'j' => (0x022, 0x10, 0x10),
+        b'k' => (0x026, 0x10, 0x10),
+        b'l' => (0x02A, 0x10, 0x10),
+        b'm' => (0x02E, 0x10, 0x10),
+        b'n' => (0x032, 0x10, 0x10),
+        b'o' => (0x036, 0x10, 0x10),
+        b'p' => (0x03A, 0x10, 0x10),
+        b'q' => (0x03E, 0x10, 0x10),
+        b'r' => (0x042, 0x10, 0x10),
+        b's' => (0x046, 0x10, 0x10),
+        b't' => (0x04A, 0x10, 0x10),
+        b'u' => (0x04E, 0x10, 0x10),
+        b'v' => (0x052, 0x10, 0x10),
+        b'w' => (0x056, 0x10, 0x10),
+        b'x' => (0x05A, 0x10, 0x10),
+        b'y' => (0x05E, 0x10, 0x10),
+        b'z' => (0x062, 0x10, 0x10),
+        0x7B => (0x066, 0x10, 0x20),
+        0x7C => (0x06E, 0x28, 0x10),
+        0x7D => (0x078, 0x20, 0x10),
+        0x7E => (0x080, 0x18, 0x10),
+        0x7F => (0x086, 0x18, 0x10),
+        0x80 => (0x08C, 0x60, 0x10),
+        0x81 => (0x0A4, 0x08, 0x18),
+        0x82 => (0x0A7, 0x10, 0x18),
+        0x83 => (0x0AD, 0x08, 0x08),
+        _ => return None,
+    };
+    let width_tiles = width_px / 8;
+    let height_tiles = height_px / 8;
+    let size_byte = ((width_tiles - 1) << 2) | (height_tiles - 1);
+    Some((tile_offset, size_byte as u8, height_px))
+}
+
+pub(crate) fn overlay_title_card_worker_sat_loc_1ac70(
+    vdp: &mut VdpState,
+    workers: &[TitleCardWorkerSpriteLoc1AC70],
+) {
+    let entries = workers
+        .iter()
+        .filter_map(|worker| {
+            let (tile_offset, size_byte, height_px) = title_card_glyph_sat_loc_1ac70(worker.glyph)?;
+            let x_screen = (worker.x_pos as i32) >> 16;
+            let y_screen = (worker.y_pos as i32) >> 16;
+            Some(HardwareSpriteEntry {
+                // ASM Make_SpriteFromGfxObject loc_11EA subtracts mapping
+                // height before adding the VDP sprite-coordinate bias `$80`.
+                y_pos: y_screen
+                    .wrapping_sub(i32::from(height_px))
+                    .wrapping_add(0x80) as u16,
+                size_byte,
+                // ASM loc_1AC70 writes palette line 1 and tile `$409` with
+                // no priority bit; off_1AC2A supplies the mapping offset.
+                pattern: 0x2409u16.wrapping_add(tile_offset),
+                x_pos: x_screen.wrapping_add(0x80) as u16,
+            })
+        })
+        .collect::<Vec<_>>();
+    write_sprite_table_entries(vdp, sprite_table_base_byte_addr(&vdp.registers), &entries);
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -16471,6 +16563,7 @@ mod tests {
         });
         let data = TitleCardData {
             themes,
+            title_letter_art_bytes: vec![],
             title_letter_palette_words: vec![0; 16],
         };
 
@@ -16510,12 +16603,14 @@ mod tests {
         });
         let data = TitleCardData {
             themes,
+            title_letter_art_bytes: (0x00..0x40).collect(),
             title_letter_palette_words: (0x0100..0x0110).collect(),
         };
 
         let vdp = build_title_card_vdp(&data, 1).expect("sky title-card VDP");
 
         assert_eq!(&vdp.vram[0x5F60..0x5F64], &[0xAA, 0xBB, 0xCC, 0xDD]);
+        assert_eq!(&vdp.vram[0x8120..0x8160], data.title_letter_art_bytes);
         assert_eq!(u16::from_be_bytes([vdp.cram[2], vdp.cram[3]]), 0x0222);
         assert_eq!(
             u16::from_be_bytes([vdp.cram[0x20], vdp.cram[0x21]]),

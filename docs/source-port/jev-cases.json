@@ -156,20 +156,6 @@
     "scope": "All platform physics unwired (collision / carry / landing / overlap-resolution)"
   },
   {
-    "issue": 210,
-    "readiness": "needs_comparison",
-    "active_path": "NativeRuntime title-menu carry, Pal_FadeOut and loc_1AE2E handoff; VDP render active",
-    "route": "mise run jev-case -- check --issue 210; ordinary 3300-frame cold boot, shared by #254",
-    "evidence": [
-      "docs/source-port/backlog-awaiting-human.md#issue-210",
-      "docs/source-port/backlog-archive.md#issue-210",
-      "crates/wildside-core/src/tests/level_tests.rs:7773",
-      "docs/source-port/jev-pilot-results.md"
-    ],
-    "next_action": "Apply Mega Drive high-priority plane masking to the low-priority deferred $7B marker from frame 2758, then rerun the offline check; motion, RNG and worker order are proven through frame 2757.",
-    "scope": "Rapidly skip intro, title, and menu with repeated Start presses; no black squares, corrupt Red Stealth/title art, or early gameplay release should appear."
-  },
-  {
     "issue": 211,
     "readiness": "needs_route",
     "active_path": "crates/wildside-core/src/movement.rs slope state and crates/wildside-frame/src/sprites.rs form frame selection; VDP image attribution unproven",
@@ -299,17 +285,17 @@
   },
   {
     "issue": 254,
-    "readiness": "needs_comparison",
-    "active_path": "Same active title/menu VDP transition as #210; separate art complaint unproven",
-    "route": "mise run jev-case -- check --issue 210; ordinary 3300-frame cold boot, shared by #254",
+    "readiness": "needs_route",
+    "active_path": "Title/menu VDP transition is proven on #210; separate subjective art complaint unproven",
+    "route": "The #210 ordinary 3300-frame cold boot is exact and serves as negative evidence only",
     "evidence": [
       "docs/source-port/backlog-awaiting-human.md#issue-254",
       "docs/source-port/backlog-archive.md#issue-254",
       "crates/wildside-core/src/tests/level_tests.rs:7773",
       "docs/source-port/jev-pilot-results.md"
     ],
-    "next_action": "Resolve remaining title-window RNG, intermediate Kid state and lettering differences; the ordinary Start guard regression and restored-defect control already pass.",
-    "scope": "Rapidly skip intro/title/menu and watch the Red Stealth/title-screen art; it should not corrupt with the #210 route."
+    "next_action": "Capture a distinct Red Stealth or title-screen corruption outside the pixel-exact #210 route before further code changes.",
+    "scope": "Rapidly skip intro/title/menu and watch the Red Stealth/title-screen art; it should remain coherent throughout the transition."
   },
   {
     "issue": 256,

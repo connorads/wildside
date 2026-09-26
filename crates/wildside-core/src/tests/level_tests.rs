@@ -9049,6 +9049,42 @@ mod chunk_02 {
     }
 
     #[test]
+    fn cold_boot_rapid_start_title_card_links_loc_1ac70_workers_into_vdp_sat() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let mut vdp_2760 = None;
+
+        for frame_index in 0..=2_760 {
+            let input = if frame_index == 2_400
+                || (2_700..=2_730).contains(&frame_index) && frame_index % 2 == 0
+            {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            runtime.step_frame(input);
+            if frame_index == 2_760 {
+                vdp_2760 = runtime.vdp_state().cloned();
+            }
+        }
+
+        let vdp = vdp_2760.expect("rapid-Start title-card VDP at frame 2760");
+        assert_eq!(
+            vdp_sprite_entry_words(&vdp, 13),
+            (0x013F, 0x07, 0x00, 0x246F, 0x0131),
+            "ASM loc_1AD48 -> loc_1AC70 links the low-priority `$7B` marker after the thirteen level-name workers; oracle frame 2760 exposes its exact SAT position, size and `$409+$66` pattern",
+        );
+        assert!(
+            vdp.vram[0x8120..0x8140].iter().any(|&byte| byte != 0),
+            "ASM loc_1AB26 decompresses ArtComp_19C68_TtlCardLetters to VRAM `$8120` before loc_1AC70 links title sprites",
+        );
+    }
+
+    #[test]
     fn cold_boot_intro_sequence_6_title_menu_spam_does_not_latch_loc_1ae2e_release() {
         for recorded_title_replay in [false, true] {
             let Some(mut runtime) = cached_generated_runtime() else {

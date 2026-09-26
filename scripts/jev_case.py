@@ -204,7 +204,12 @@ def negative_control(output, issue, inputs, trace, assessment, env, revision):
         raise RuntimeError("negative-control adapter did not execute")
     broken = read_json(output / "negative-bundle/trace.json")
     observed = encounter(issue, broken)
-    prefix = assessment["fatal_frame"] + 1 if issue == 370 else 2718
+    # The #210/#254 control restores the ordinary-runtime Start carry defect.
+    # Both traces stay identical through frame 2705; frame 2706 is the first
+    # causal divergence, when the mutant releases gameplay instead of entering
+    # the title-card worker shell. Prefix verification ends at that boundary;
+    # later equality would include the defect that the control must expose.
+    prefix = assessment["fatal_frame"] + 1 if issue == 370 else 2706
     prefix_equal = trace[:prefix] == broken[:prefix]
     return {"kind": "synthetic negative control" if issue == 370 else "restored ordinary-runtime Start guard defect",
             "verified": prefix_equal and source != mutant, "same_check_failed": observed["complete"] and not observed["symptom_pass"],

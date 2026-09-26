@@ -8,7 +8,7 @@ use crate::diff::BBox;
 use crate::native_player::{
     LayerSpan, NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, PlayerDynamicArtVramPageLocAd4, Scene,
     build_scene_with_layers_and_player_art, load_session_assets, render_native_vdp_rgb,
-    render_scene, render_trace_with_vdp_latched_state_and_resident, render_vdp_trace_overlay,
+    render_scene, render_trace_with_vdp_latched_state_and_resident,
 };
 use crate::oracle::{OracleFrame, OracleManifest};
 use crate::scenarios::{
@@ -704,7 +704,6 @@ fn render_source_port_frame_with_scene_and_player_art(
     );
     if let Some(vdp) = runtime.vdp_state() {
         render_native_vdp_rgb(vdp, &mut rgb);
-        render_vdp_trace_overlay(&render_trace, level_visuals, &mut rgb);
         (rgb, None)
     } else {
         let (scene, spans) = build_scene_with_layers_and_player_art(
