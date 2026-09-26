@@ -9348,6 +9348,46 @@ mod chunk_11 {
         );
     }
 
+    /// ASM sub_914A loc_9188..loc_9212 scans the full head span. A plain
+    /// solid first hit does not hide a later Rubber cell: loc_91C0 sets the
+    /// shared Rubber flag and loc_9130 reverses the saved incoming velocity.
+    #[test]
+    fn loc_9130_ceiling_rebound_uses_adjacent_rubber_selected_by_sub_914a() {
+        let w: u16 = 10;
+        let h: u16 = 10;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(2usize * usize::from(w) + 1) * 2] = 0x60;
+        data[(2usize * usize::from(w) + 2) * 2] = 0xE6;
+        data[(2usize * usize::from(w) + 2) * 2 + 1] = 0x0C;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 31 << 16;
+        slice.player.y_pos = 65 << 16;
+        slice.player.y_velocity = -0x000E_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            slice.rubber_block_hit,
+            Some((2, 2)),
+            "ASM loc_91C0 should retain the later Rubber cell from the scanned span",
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0x000E_0000,
+            "ASM loc_9130 should rebound when any scanned ceiling cell sets the Rubber flag",
+        );
+    }
+
     /// ASM sub_914A caches the ceiling contact cell for the later
     /// `sub_BBE2` block dispatch. Native additionally clears adjacent Smash
     /// blocks hit by the same head span after a Prize block hit; keep that scan

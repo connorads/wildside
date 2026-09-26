@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #513 adjacent Rubber ceiling rebound
+
+The prior `loc_10E1A` classification was corrected: it returns from the
+object-only Rubber animation worker, not a Micromax prize worker. ASM
+`sub_914A` scans the full head span and `loc_9130` rebounds when any scanned
+cell is Rubber. Native now retains that selected adjacent cell. The checked-in
+125-frame Elsewhere 19 replay matches every ROM checkpoint. A distinct missing
+Micromax Object/Gfx pair begins at frame 125 and is tracked as #514. No Jev
+spend or human playtest.
+
 ## 2026-09-26 - #512 partial sidecar recovery rejected
 
 The attempted Elsewhere 19 prize-section recovery misclassified a settled RAM

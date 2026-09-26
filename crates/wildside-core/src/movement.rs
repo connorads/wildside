@@ -6859,6 +6859,25 @@ impl OpeningSliceState {
                         cell_y: probe.cell_y,
                     }
                 };
+            let rubber_ceiling_cell =
+                ceiling_scan_cells_sub_914a
+                    .iter()
+                    .flatten()
+                    .find_map(|&(col, row, word)| {
+                        let cell = terrain::Cell::from_be_bytes((word >> 8) as u8, word as u8);
+                        (cell.collision == terrain::CollisionKind::Solid
+                            && cell.has_block
+                            && cell.block_type == terrain::BlockType::Rubber)
+                            .then_some((col, row))
+                    });
+            if let Some(cell) = rubber_ceiling_cell {
+                // ASM sub_914A loc_9188..loc_9212 scans every ceiling cell,
+                // calls loc_10DA4 for each Rubber block, and retains one
+                // shared negative return even when the first hit was plain
+                // solid. `block_dispatch_probe` selects only the later
+                // sub_BBE2 handler cell, so it cannot own this scan result.
+                self.rubber_block_hit = Some(cell);
+            }
 
             // Prize/smash/lift block headbutt: hitting from below.
             // ASM loc_BB6E (kid.asm:15085): in sub_BB54 (floor-landing block
@@ -7065,7 +7084,7 @@ impl OpeningSliceState {
                 // ASM loc_9114 (kid.asm:10524): mounted Skycutter top-boundary
                 // contact pushes downward at exactly 3 px/frame.
                 0x0003_0000
-            } else if probe.cell.block_type == terrain::BlockType::Rubber {
+            } else if rubber_ceiling_cell.is_some() {
                 -incoming_y_velocity
             } else {
                 0

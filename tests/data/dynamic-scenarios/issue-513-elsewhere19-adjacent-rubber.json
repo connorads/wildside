@@ -1,0 +1,635 @@
+{
+  "slug": "issue-513-elsewhere19-adjacent-rubber",
+  "script": [
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    0,
+    0,
+    0,
+    0,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24
+  ],
+  "frame_count": 125,
+  "checkpoints": [
+    {
+      "frame_index": 0,
+      "label": "adjacent-rubber-0"
+    },
+    {
+      "frame_index": 1,
+      "label": "adjacent-rubber-1"
+    },
+    {
+      "frame_index": 2,
+      "label": "adjacent-rubber-2"
+    },
+    {
+      "frame_index": 3,
+      "label": "adjacent-rubber-3"
+    },
+    {
+      "frame_index": 4,
+      "label": "adjacent-rubber-4"
+    },
+    {
+      "frame_index": 5,
+      "label": "adjacent-rubber-5"
+    },
+    {
+      "frame_index": 6,
+      "label": "adjacent-rubber-6"
+    },
+    {
+      "frame_index": 7,
+      "label": "adjacent-rubber-7"
+    },
+    {
+      "frame_index": 8,
+      "label": "adjacent-rubber-8"
+    },
+    {
+      "frame_index": 9,
+      "label": "adjacent-rubber-9"
+    },
+    {
+      "frame_index": 10,
+      "label": "adjacent-rubber-10"
+    },
+    {
+      "frame_index": 11,
+      "label": "adjacent-rubber-11"
+    },
+    {
+      "frame_index": 12,
+      "label": "adjacent-rubber-12"
+    },
+    {
+      "frame_index": 13,
+      "label": "adjacent-rubber-13"
+    },
+    {
+      "frame_index": 14,
+      "label": "adjacent-rubber-14"
+    },
+    {
+      "frame_index": 15,
+      "label": "adjacent-rubber-15"
+    },
+    {
+      "frame_index": 16,
+      "label": "adjacent-rubber-16"
+    },
+    {
+      "frame_index": 17,
+      "label": "adjacent-rubber-17"
+    },
+    {
+      "frame_index": 18,
+      "label": "adjacent-rubber-18"
+    },
+    {
+      "frame_index": 19,
+      "label": "adjacent-rubber-19"
+    },
+    {
+      "frame_index": 20,
+      "label": "adjacent-rubber-20"
+    },
+    {
+      "frame_index": 21,
+      "label": "adjacent-rubber-21"
+    },
+    {
+      "frame_index": 22,
+      "label": "adjacent-rubber-22"
+    },
+    {
+      "frame_index": 23,
+      "label": "adjacent-rubber-23"
+    },
+    {
+      "frame_index": 24,
+      "label": "adjacent-rubber-24"
+    },
+    {
+      "frame_index": 25,
+      "label": "adjacent-rubber-25"
+    },
+    {
+      "frame_index": 26,
+      "label": "adjacent-rubber-26"
+    },
+    {
+      "frame_index": 27,
+      "label": "adjacent-rubber-27"
+    },
+    {
+      "frame_index": 28,
+      "label": "adjacent-rubber-28"
+    },
+    {
+      "frame_index": 29,
+      "label": "adjacent-rubber-29"
+    },
+    {
+      "frame_index": 30,
+      "label": "adjacent-rubber-30"
+    },
+    {
+      "frame_index": 31,
+      "label": "adjacent-rubber-31"
+    },
+    {
+      "frame_index": 32,
+      "label": "adjacent-rubber-32"
+    },
+    {
+      "frame_index": 33,
+      "label": "adjacent-rubber-33"
+    },
+    {
+      "frame_index": 34,
+      "label": "adjacent-rubber-34"
+    },
+    {
+      "frame_index": 35,
+      "label": "adjacent-rubber-35"
+    },
+    {
+      "frame_index": 36,
+      "label": "adjacent-rubber-36"
+    },
+    {
+      "frame_index": 37,
+      "label": "adjacent-rubber-37"
+    },
+    {
+      "frame_index": 38,
+      "label": "adjacent-rubber-38"
+    },
+    {
+      "frame_index": 39,
+      "label": "adjacent-rubber-39"
+    },
+    {
+      "frame_index": 40,
+      "label": "adjacent-rubber-40"
+    },
+    {
+      "frame_index": 41,
+      "label": "adjacent-rubber-41"
+    },
+    {
+      "frame_index": 42,
+      "label": "adjacent-rubber-42"
+    },
+    {
+      "frame_index": 43,
+      "label": "adjacent-rubber-43"
+    },
+    {
+      "frame_index": 44,
+      "label": "adjacent-rubber-44"
+    },
+    {
+      "frame_index": 45,
+      "label": "adjacent-rubber-45"
+    },
+    {
+      "frame_index": 46,
+      "label": "adjacent-rubber-46"
+    },
+    {
+      "frame_index": 47,
+      "label": "adjacent-rubber-47"
+    },
+    {
+      "frame_index": 48,
+      "label": "adjacent-rubber-48"
+    },
+    {
+      "frame_index": 49,
+      "label": "adjacent-rubber-49"
+    },
+    {
+      "frame_index": 50,
+      "label": "adjacent-rubber-50"
+    },
+    {
+      "frame_index": 51,
+      "label": "adjacent-rubber-51"
+    },
+    {
+      "frame_index": 52,
+      "label": "adjacent-rubber-52"
+    },
+    {
+      "frame_index": 53,
+      "label": "adjacent-rubber-53"
+    },
+    {
+      "frame_index": 54,
+      "label": "adjacent-rubber-54"
+    },
+    {
+      "frame_index": 55,
+      "label": "adjacent-rubber-55"
+    },
+    {
+      "frame_index": 56,
+      "label": "adjacent-rubber-56"
+    },
+    {
+      "frame_index": 57,
+      "label": "adjacent-rubber-57"
+    },
+    {
+      "frame_index": 58,
+      "label": "adjacent-rubber-58"
+    },
+    {
+      "frame_index": 59,
+      "label": "adjacent-rubber-59"
+    },
+    {
+      "frame_index": 60,
+      "label": "adjacent-rubber-60"
+    },
+    {
+      "frame_index": 61,
+      "label": "adjacent-rubber-61"
+    },
+    {
+      "frame_index": 62,
+      "label": "adjacent-rubber-62"
+    },
+    {
+      "frame_index": 63,
+      "label": "adjacent-rubber-63"
+    },
+    {
+      "frame_index": 64,
+      "label": "adjacent-rubber-64"
+    },
+    {
+      "frame_index": 65,
+      "label": "adjacent-rubber-65"
+    },
+    {
+      "frame_index": 66,
+      "label": "adjacent-rubber-66"
+    },
+    {
+      "frame_index": 67,
+      "label": "adjacent-rubber-67"
+    },
+    {
+      "frame_index": 68,
+      "label": "adjacent-rubber-68"
+    },
+    {
+      "frame_index": 69,
+      "label": "adjacent-rubber-69"
+    },
+    {
+      "frame_index": 70,
+      "label": "adjacent-rubber-70"
+    },
+    {
+      "frame_index": 71,
+      "label": "adjacent-rubber-71"
+    },
+    {
+      "frame_index": 72,
+      "label": "adjacent-rubber-72"
+    },
+    {
+      "frame_index": 73,
+      "label": "adjacent-rubber-73"
+    },
+    {
+      "frame_index": 74,
+      "label": "adjacent-rubber-74"
+    },
+    {
+      "frame_index": 75,
+      "label": "adjacent-rubber-75"
+    },
+    {
+      "frame_index": 76,
+      "label": "adjacent-rubber-76"
+    },
+    {
+      "frame_index": 77,
+      "label": "adjacent-rubber-77"
+    },
+    {
+      "frame_index": 78,
+      "label": "adjacent-rubber-78"
+    },
+    {
+      "frame_index": 79,
+      "label": "adjacent-rubber-79"
+    },
+    {
+      "frame_index": 80,
+      "label": "adjacent-rubber-80"
+    },
+    {
+      "frame_index": 81,
+      "label": "adjacent-rubber-81"
+    },
+    {
+      "frame_index": 82,
+      "label": "adjacent-rubber-82"
+    },
+    {
+      "frame_index": 83,
+      "label": "adjacent-rubber-83"
+    },
+    {
+      "frame_index": 84,
+      "label": "adjacent-rubber-84"
+    },
+    {
+      "frame_index": 85,
+      "label": "adjacent-rubber-85"
+    },
+    {
+      "frame_index": 86,
+      "label": "adjacent-rubber-86"
+    },
+    {
+      "frame_index": 87,
+      "label": "adjacent-rubber-87"
+    },
+    {
+      "frame_index": 88,
+      "label": "adjacent-rubber-88"
+    },
+    {
+      "frame_index": 89,
+      "label": "adjacent-rubber-89"
+    },
+    {
+      "frame_index": 90,
+      "label": "adjacent-rubber-90"
+    },
+    {
+      "frame_index": 91,
+      "label": "adjacent-rubber-91"
+    },
+    {
+      "frame_index": 92,
+      "label": "adjacent-rubber-92"
+    },
+    {
+      "frame_index": 93,
+      "label": "adjacent-rubber-93"
+    },
+    {
+      "frame_index": 94,
+      "label": "adjacent-rubber-94"
+    },
+    {
+      "frame_index": 95,
+      "label": "adjacent-rubber-95"
+    },
+    {
+      "frame_index": 96,
+      "label": "adjacent-rubber-96"
+    },
+    {
+      "frame_index": 97,
+      "label": "adjacent-rubber-97"
+    },
+    {
+      "frame_index": 98,
+      "label": "adjacent-rubber-98"
+    },
+    {
+      "frame_index": 99,
+      "label": "adjacent-rubber-99"
+    },
+    {
+      "frame_index": 100,
+      "label": "adjacent-rubber-100"
+    },
+    {
+      "frame_index": 101,
+      "label": "adjacent-rubber-101"
+    },
+    {
+      "frame_index": 102,
+      "label": "adjacent-rubber-102"
+    },
+    {
+      "frame_index": 103,
+      "label": "adjacent-rubber-103"
+    },
+    {
+      "frame_index": 104,
+      "label": "adjacent-rubber-104"
+    },
+    {
+      "frame_index": 105,
+      "label": "adjacent-rubber-105"
+    },
+    {
+      "frame_index": 106,
+      "label": "adjacent-rubber-106"
+    },
+    {
+      "frame_index": 107,
+      "label": "adjacent-rubber-107"
+    },
+    {
+      "frame_index": 108,
+      "label": "adjacent-rubber-108"
+    },
+    {
+      "frame_index": 109,
+      "label": "adjacent-rubber-109"
+    },
+    {
+      "frame_index": 110,
+      "label": "adjacent-rubber-110"
+    },
+    {
+      "frame_index": 111,
+      "label": "adjacent-rubber-111"
+    },
+    {
+      "frame_index": 112,
+      "label": "adjacent-rubber-112"
+    },
+    {
+      "frame_index": 113,
+      "label": "adjacent-rubber-113"
+    },
+    {
+      "frame_index": 114,
+      "label": "adjacent-rubber-114"
+    },
+    {
+      "frame_index": 115,
+      "label": "adjacent-rubber-115"
+    },
+    {
+      "frame_index": 116,
+      "label": "adjacent-rubber-116"
+    },
+    {
+      "frame_index": 117,
+      "label": "adjacent-rubber-117"
+    },
+    {
+      "frame_index": 118,
+      "label": "adjacent-rubber-118"
+    },
+    {
+      "frame_index": 119,
+      "label": "adjacent-rubber-119"
+    },
+    {
+      "frame_index": 120,
+      "label": "adjacent-rubber-120"
+    },
+    {
+      "frame_index": 121,
+      "label": "adjacent-rubber-121"
+    },
+    {
+      "frame_index": 122,
+      "label": "adjacent-rubber-122"
+    },
+    {
+      "frame_index": 123,
+      "label": "adjacent-rubber-123"
+    },
+    {
+      "frame_index": 124,
+      "label": "adjacent-rubber-124"
+    }
+  ],
+  "warp_to_level": 91,
+  "settle_oracle_warp": true
+}

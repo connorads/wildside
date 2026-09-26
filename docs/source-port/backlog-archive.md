@@ -11,6 +11,24 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+<a id="issue-513"></a>
+### #513 - Adjacent Rubber ceiling rebound
+
+Closed 2026-09-26 as `[x]`. The initial `loc_10E1A` classification was
+wrong: that PC is the return after `sub_10DE4` hibernates an object-only
+Rubber animation worker. The settled Elsewhere 19 grid has Rubber at cell
+`(2,18)` beside the first plain-solid ceiling contact. ASM `sub_914A`
+`loc_9188..loc_9212` scans every cell across Kid's head, retains the Rubber
+result, and `loc_9130` reverses the saved upward velocity. Native scanned the
+span but based rebound only on the first dispatcher cell.
+
+The engine now retains the Rubber cell selected by the full scan. The focused
+regression proves a plain-solid first contact cannot hide adjacent Rubber. The
+checked-in 125-frame replay matches every native/ROM checkpoint and all
+player/camera CRCs. The longer route first diverges at frame 125 because native
+lacks a separate Micromax prize Object/Gfx pair; #514 owns that lifecycle. No
+Jev request or human playtest was used.
+
 <a id="issue-512"></a>
 ### #512 - Rejected partial block-list recovery
 
@@ -22,11 +40,11 @@ record that has left the RAM list.
 
 The proposed merge stayed oracle-exact through frames 0-5, then diverged at
 frame 6: it produced seven native Gfx objects while the ROM has six and zeroed
-Kid's upward velocity while the ROM retained `$0003A000`. The unmerged path has
-only five native Objects and omits the ROM's active `PrizeHelmetMicromax` worker
-at `loc_10E1A`. A cache-backed regression preserves the observed empty prize
-section and captured teleporter together. #513 owns the live-worker transfer;
-static record recovery is rejected. No Jev request or human playtest.
+Kid's upward velocity while the ROM retained `$0003A000`. The unmerged path has five native Objects because native misses the adjacent
+Rubber ceiling response. `loc_10E1A` is the return from the object-only Rubber
+animation worker, not a Micromax prize worker. A cache-backed regression
+preserves the observed empty prize section and captured teleporter together.
+#513 corrects the engine scan; static record recovery remains rejected. No Jev request or human playtest.
 
 <a id="issue-350"></a>
 ### #350
@@ -27528,6 +27546,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 513 | [x] | P1 | kid-physics | `sub_914A` full-span ceiling scan retains adjacent Rubber contact and `loc_9130` reverses Kid velocity. | Checked-in 125-frame route matches every checkpoint and player/camera CRC; focused adjacent-cell regression. See archive #513. |
 | 512 | [-] | P1 | level/loader | Empty sections in settled RAM block-list sidecars represent live lifecycle state and must not be rebuilt from static ROM records. | Rejected merge first diverges at frame 6; regression preserves empty prizes plus captured pad. See archive #512. |
 | 374 | [x] | P0 | level/render | All five named levels spawn playable with coherent art and matching emulator state. | Five saved routes; Stairway residual is only frozen #409 HUD diamond timing. |
 | 350 | [x] | P1 | render | Hills lower foliage uses foreground colours, not sky blue. | Checked-in frame-39 route: 0 lower-scene pixel diffs vs ROM; 1,334 in negative control; sampled-colour regression passes. |

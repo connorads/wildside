@@ -1,17 +1,16 @@
 [
   {
-    "issue": 513,
+    "issue": 514,
     "readiness": "ready_replay",
-    "active_path": "crates/wildside-core/src/scenario.rs settled recording handoff and crates/wildside-core/src/blocks.rs floating_items lifecycle",
-    "route": ".cache/debug/issue-433-level5b-collect100.json is exact through frame 5; frame 6 omits oracle PrizeHelmetMicromax loc_10E1A",
+    "active_path": "crates/wildside-core/src/blocks.rs PrizeHelmetMicromax_Init lifecycle and settled block consumption",
+    "route": "tests/data/dynamic-scenarios/issue-514-elsewhere19-micromax-lifecycle.json first diverges at frame 125 after 125 exact frames",
     "evidence": [
-      "docs/source-port/backlog-archive.md#issue-512",
-      "docs/source-port/backlog-archive.md#issue-433",
-      "crates/wildside-core/src/scenario.rs",
+      "docs/source-port/backlog-archive.md#issue-513",
+      "tests/data/dynamic-scenarios/issue-514-elsewhere19-micromax-lifecycle.json",
       "crates/wildside-core/src/blocks.rs"
     ],
-    "next_action": "Transfer the already-running Micromax prize worker at the settled recording boundary; require frame-6 Object count and Kid velocity parity before extending the route.",
-    "scope": "Elsewhere 19 settled recording handoff only; natural campaign loading remains separate."
+    "next_action": "Trace the ROM Micromax Object/Gfx spawn at frame 125 and compare native floating-item lifecycle; navigation parity alone cannot close the issue.",
+    "scope": "Elsewhere 19 Micromax prize Object/Gfx lifecycle from frame 125; adjacent Rubber rebound is closed as #513."
   },
   {
     "issue": 65,
@@ -483,7 +482,7 @@
       "docs/source-port/backlog-archive.md#issue-300",
       "crates/wildside-core/src/level.rs:19178"
     ],
-      "next_action": "Compose the measured loader phases through the existing FIFO/VINT raster scheduler, then re-enable the second-destination timing regression.",
+    "next_action": "Compose the measured loader phases through the existing FIFO/VINT raster scheduler, then re-enable the second-destination timing regression.",
     "scope": "Use an inter-level teleporter where map id differs; it should load the ROM destination."
   },
   {
