@@ -4829,6 +4829,14 @@ mod tests {
             (3, 4),
             "ASM Dragon.asm loc_3D082 observes the animation end before loc_3D09E removes the linked pair on the following object pass",
         );
+
+        runtime.active_enemies[1].dragon_script_cmd = DRAGON_WALKING_PHASE_BREATH;
+        runtime.active_enemies[1].dragon_phase_frames = 0;
+        assert_eq!(
+            runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
+            (2, 3),
+            "ASM Dragon.asm loc_3D09E has removed both linked pairs when two natural child callbacks have completed before the sampled count",
+        );
     }
 
     #[test]
@@ -16718,6 +16726,29 @@ impl NativeRuntime {
         // or loses floor support and loc_3A6DA deletes it. Native keeps the
         // children in `fire_demon_trails`, outside the active-object roster.
         let fire_demon_trail_workers = self.fire_demon_trails.len();
+        let missing_natural_phase_zero_breath_workers = self
+            .active_enemies
+            .iter()
+            .filter(|enemy| {
+                if enemy.family != EnemyFamily::DragonWalking
+                    || enemy.dragon_script_cmd != DRAGON_WALKING_PHASE_BREATH
+                    || enemy.dragon_phase_frames != 0
+                    || enemy.dragon_script_variant & DRAGON_WALKING_TRANSFORM_TIMER_ALIGNED_FLAG
+                        != 0
+                {
+                    return false;
+                }
+                let owner = EnemyProjectileOwner {
+                    segment_index: enemy.segment_index,
+                    layout_index: enemy.layout_index,
+                    token: 0,
+                };
+                !self.projectiles.iter().any(|projectile| {
+                    projectile.kind == EnemyProjectileKind::DragonWalkingBreath
+                        && projectile.owner == Some(owner)
+                })
+            })
+            .count();
         let dragon_walking_breath_workers = self
             .active_enemies
             .iter()
@@ -16749,8 +16780,10 @@ impl NativeRuntime {
                         // loc_3CE90 callback, not an additional loc_3D082
                         // child poll. Once that phase-tagged child is absent,
                         // it has already left both ROM lists at this sample.
-                        enemy.dragon_script_variant & DRAGON_WALKING_TRANSFORM_TIMER_ALIGNED_FLAG
-                            == 0
+                        missing_natural_phase_zero_breath_workers == 1
+                            && enemy.dragon_script_variant
+                                & DRAGON_WALKING_TRANSFORM_TIMER_ALIGNED_FLAG
+                                == 0
                             && enemy.dragon_phase_frames == 0
                             && *enemy_index == 0
                     }

@@ -30,6 +30,15 @@ one count-only boundary: frame 253 has one extra native Object and GfxObject,
 then frame 254 matches again. Resolve that scheduler deletion boundary before
 closing. No Jev request or human playtest.
 
+Closed 2026-09-26 as `[x]`. The final frame-253 pair was not the still-linked
+Micromax worker. Oracle Object RAM showed two Dragon breath children present at
+frame 252 and both removed by `loc_3D09E` at frame 253. Native's trace fallback
+retained one phase-zero child whenever the first Dragon's projectile record was
+absent. That fallback now represents only a sole pending natural `loc_3D082`
+boundary; two completed children contribute no pair. The published single-Dragon
+8022..8024 regression remains green. All 300 checked-in Elsewhere 19 checkpoints
+and player/camera CRCs now match. No Jev request or human playtest.
+
 <a id="issue-513"></a>
 ### #513 - Adjacent Rubber ceiling rebound
 
@@ -27565,6 +27574,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 514 | [x] | P1 | recording/prize | Settled live Prize cells recover their ROM records; adjacent Rubber defers dispatch; simultaneous completed Dragon breath children release both linked pairs. | Checked-in 300-frame route matches every state checkpoint and player/camera CRC; published single-Dragon boundary remains green. See archive #514. |
 | 513 | [x] | P1 | kid-physics | `sub_914A` full-span ceiling scan retains adjacent Rubber contact and `loc_9130` reverses Kid velocity. | Checked-in 125-frame route matches every checkpoint and player/camera CRC; focused adjacent-cell regression. See archive #513. |
 | 512 | [-] | P1 | level/loader | Empty sections in settled RAM block-list sidecars represent live lifecycle state and must not be rebuilt from static ROM records. | Rejected merge first diverges at frame 6; regression preserves empty prizes plus captured pad. See archive #512. |
 | 374 | [x] | P0 | level/render | All five named levels spawn playable with coherent art and matching emulator state. | Five saved routes; Stairway residual is only frozen #409 HUD diamond timing. |

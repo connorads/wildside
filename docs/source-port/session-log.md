@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #514 exact Elsewhere 19 lifecycle
+
+The last frame-253 count mismatch came from two simultaneous Dragon breath
+children, not Micromax. Oracle removes both through `loc_3D09E`; native's
+single-child ordered-deletion fallback retained one false pair. The fallback
+now applies only to a sole pending natural `loc_3D082` boundary. The published
+single-Dragon regression remains green and all 300 checked-in Elsewhere 19
+checkpoints plus player/camera CRCs match. #514 is closed without Jev spend or
+human playtest.
+
 ## 2026-09-26 - #514 live prize record recovery
 
 Elsewhere 19's empty settled prize section is recoverable only where the live

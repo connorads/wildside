@@ -1,19 +1,5 @@
 [
   {
-    "issue": 514,
-    "readiness": "ready_replay",
-    "active_path": "crates/wildside-core/src/trace.rs Mode_Level transient worker deletion scheduling",
-    "route": "tests/data/dynamic-scenarios/issue-514-elsewhere19-micromax-lifecycle.json matches player/camera all 300 frames and all state except Object/Gfx counts at frame 253",
-    "evidence": [
-      "docs/source-port/backlog-archive.md#issue-514",
-      "tests/data/dynamic-scenarios/issue-514-elsewhere19-micromax-lifecycle.json",
-      "crates/wildside-core/src/level.rs",
-      "crates/wildside-core/src/movement.rs"
-    ],
-    "next_action": "Compare the frame-252..254 loc_106B4/loc_100E2 deletion order and remove the one-frame native Object/Gfx overhang at frame 253.",
-    "scope": "Elsewhere 19 settled Micromax prize lifecycle; record recovery and frame-6 Rubber priority are fixed, frame-253 count timing remains."
-  },
-  {
     "issue": 65,
     "readiness": "needs_comparison",
     "active_path": "crates/wildside-core/src/blocks.rs step_shooter_blocks visibility registration",
