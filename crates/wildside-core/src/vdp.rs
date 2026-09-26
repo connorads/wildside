@@ -16566,7 +16566,6 @@ fn load_in_game_raster_scheduler_retains_vint_edge_across_phase_boundaries() {
 }
 
 #[test]
-#[ignore = "#300: FIFO retry model ends the isolated ROM HUD clear 256 M68K cycles late"]
 fn load_in_game_raster_scheduler_matches_swamp_hud_clear_fifo_retries_loc_11f48() {
     // ASM Load_InGame loc_11F48 (kid.asm): 2,048 `move.w #$780,(a6)` writes,
     // each followed by `dbf d0,loc_11F48`. The oracle enters with an empty
@@ -16577,6 +16576,10 @@ fn load_in_game_raster_scheduler_matches_swamp_hud_clear_fifo_retries_loc_11f48(
         refresh_phase: M68kRefreshPhase::new(18).expect("oracle entry refresh phase"),
     };
     let mut scheduler = LoadInGameRasterScheduler::new(entry);
+    // The persistent Load_InGame scheduler has already serviced the frame's
+    // ASM V_Int $390..$3A2 edge before reaching loc_11F48. A fresh scheduler
+    // would invent another 114-cycle interrupt at this phase-local boundary.
+    scheduler.vint.armed = false;
 
     for iteration in 0..2_048 {
         scheduler.write_data_word(12).expect("HUD clear write");

@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #300 retained VINT edge correction
+
+The isolated `loc_11F48` regression had invented a second 114-cycle VINT by
+constructing a fresh scheduler mid-`Load_InGame`. Retaining the already-serviced
+edge makes all 2,048 HUD-clear writes exact, including the 40,441 FIFO halts and
+278 refresh-wait cycles. Continue at the first earlier shared-tail divergence.
+No Jev spend or human playtest.
+
 ## 2026-09-26 - #300 isolated HUD-clear FIFO regression
 
 The Swamp route enters ASM `loc_11F48` with an empty FIFO. Replaying its 2,048

@@ -26051,15 +26051,25 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+2026-09-26 HUD-clear correction: the isolated regression originally created a
+fresh `LoadInGameRasterScheduler` at `loc_11F48`. That incorrectly armed and
+serviced a 114-cycle VINT which the persistent `Load_InGame` scheduler had
+already handled. The shifted beam then accumulated a further 142 FIFO halt
+cycles, producing the false 256-cycle deficit. Retaining the serviced VINT
+edge makes the full 2,048-write loop exact at cycle 144,073,917 and refresh
+phase 14. The ROM's 40,441 one-cycle FIFO halts and 278 refresh-wait cycles
+agree with the existing model. Resume at the first shared-tail divergence
+before `loc_11F48`; do not alter FIFO access slots. No paid Jev request or
+human playtest.
+
 2026-09-26 isolated HUD-clear FIFO regression: the Swamp oracle enters ASM
 `loc_11F48` at cycle 143,988,138, refresh phase 18, with an empty FIFO. It
 executes all 2,048 `move.w #$780,(a6)` / `dbf` iterations and reaches the next
 instruction at cycle 144,073,917, refresh phase 14. The source-ordered shared
 scheduler reproduces the refresh phase but ends 256 M68K cycles late. This
 separates the defect from inherited FIFO occupancy and earlier loader phases.
-The confirmed oracle assertion is checked in ignored and red until the retry
-model is corrected against both recorded entry phases. No paid Jev request or
-human playtest.
+The initial interpretation is superseded by the correction above. No paid Jev
+request or human playtest.
 
 2026-09-23 theme-art scheduler composition: the measured foreground and
 background Saxman streams now emit their source instructions in order, marking
