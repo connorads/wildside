@@ -6269,6 +6269,9 @@ mod chunk_02 {
                 .join("scenes/artcomp/Some_geometric_patterns.bin"),
         )
         .expect("read shared Eyclops beam art");
+        let murder_wall_stream =
+            std::fs::read(manifest.output_root.join("ingame/artcomp/Murder_wall.bin"))
+                .expect("read Murderwall art");
         let forest_prefix = crate::load_in_game_timing::schedule_foreground_prefix_loc_11ae4(
             forest_entry,
             &crate::load_in_game_timing::LoadLayoutScheduleInputsLoc11ae4 {
@@ -6289,6 +6292,8 @@ mod chunk_02 {
                 shared_eyclops_stream: &shared_eyclops_stream,
                 player_start_x: forest_header.player_start_x,
                 player_start_y: forest_header.player_start_y,
+                current_level_id: 0x51,
+                murder_wall_stream: &murder_wall_stream,
             },
         )
         .expect("schedule Forest layout, decoder and collision prefix");
@@ -6509,6 +6514,16 @@ mod chunk_02 {
                 refresh_phase: M68kRefreshPhase::new(4).expect("oracle refresh phase"),
             },
             "ASM loc_11F50..loc_11FC8 reaches the exact Forest camera/theme cursor"
+        );
+        assert_eq!(
+            forest_prefix.murder_wall_exit_cursor_loc_11fd2,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    158_460_107
+                )),
+                refresh_phase: M68kRefreshPhase::new(26).expect("oracle refresh phase"),
+            },
+            "ASM loc_11FC8 takes the exact clear Murderwall branch on Forest"
         );
         assert_eq!(
             frames[223].gameplay_debug_fields["teleport_background_work_loc_1280a"],
@@ -6770,6 +6785,9 @@ mod chunk_02 {
                 .join("scenes/artcomp/Some_geometric_patterns.bin"),
         )
         .expect("read shared Eyclops beam art");
+        let murder_wall_stream =
+            std::fs::read(manifest.output_root.join("ingame/artcomp/Murder_wall.bin"))
+                .expect("read Murderwall art");
         let swamp_prefix = crate::load_in_game_timing::schedule_foreground_prefix_loc_11ae4(
             swamp_entry,
             &crate::load_in_game_timing::LoadLayoutScheduleInputsLoc11ae4 {
@@ -6790,6 +6808,8 @@ mod chunk_02 {
                 shared_eyclops_stream: &shared_eyclops_stream,
                 player_start_x: swamp_header.player_start_x,
                 player_start_y: swamp_header.player_start_y,
+                current_level_id: 0x3E,
+                murder_wall_stream: &murder_wall_stream,
             },
         )
         .expect("schedule Swamp layout, decoder and collision prefix");
@@ -7010,6 +7030,16 @@ mod chunk_02 {
                 refresh_phase: M68kRefreshPhase::new(40).expect("oracle refresh phase"),
             },
             "ASM loc_11F50..loc_11FC8 reaches the exact Swamp camera/theme cursor"
+        );
+        assert_eq!(
+            swamp_prefix.murder_wall_exit_cursor_loc_11fd2,
+            crate::vdp::LoadInGameCpuRasterCursor {
+                beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    144_340_155
+                )),
+                refresh_phase: M68kRefreshPhase::new(12).expect("oracle refresh phase"),
+            },
+            "ASM Murderwall loc_140D2 retains exact Swamp FIFO, refresh and VINT state"
         );
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_background_work_loc_1280a"],

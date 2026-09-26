@@ -1646,6 +1646,7 @@ pub(crate) struct ForegroundPrefixAdvanceLoc11ae4 {
     pub(crate) hud_clear_cursor_loc_11f48: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) hud_clear_exit_cursor_loc_11f50: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) shared_tail_cursor_loc_11fc8: crate::vdp::LoadInGameCpuRasterCursor,
+    pub(crate) murder_wall_exit_cursor_loc_11fd2: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) cursor: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) refresh_events: u32,
 }
@@ -1669,6 +1670,8 @@ pub(crate) struct LoadLayoutScheduleInputsLoc11ae4<'a> {
     pub(crate) shared_eyclops_stream: &'a [u8],
     pub(crate) player_start_x: u16,
     pub(crate) player_start_y: u16,
+    pub(crate) current_level_id: u16,
+    pub(crate) murder_wall_stream: &'a [u8],
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -2513,6 +2516,85 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         },
     );
     let shared_tail_cursor_loc_11fc8 = scheduler.cursor();
+    // ASM loc_11FC8..loc_11FD2: ordinary destinations take the clear flag
+    // branch; Murderwall destinations retain the same FIFO/VINT state through
+    // loc_140D2's compressed-art load and palette copy.
+    for cycles in [12, if inputs.murder_wall_flags == 0 { 10 } else { 8 }] {
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(cycles).is_some();
+        }
+    }
+    if inputs.murder_wall_flags != 0 {
+        for cycles in [18, 16, 16, 24, 16] {
+            if schedule_ok {
+                schedule_ok = scheduler.advance_instruction(cycles).is_some();
+            }
+        }
+        if inputs.current_level_id == 8 {
+            for cycles in [8, 24] {
+                if schedule_ok {
+                    schedule_ok = scheduler.advance_instruction(cycles).is_some();
+                }
+            }
+        } else if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(10).is_some();
+        }
+        for cycles in [24, 12] {
+            if schedule_ok {
+                schedule_ok = scheduler.advance_instruction(cycles).is_some();
+            }
+        }
+        let camera_x = (inputs.player_start_x / 0x0140) * 0x0140;
+        for cycles in if camera_x == 0 {
+            &[10, 8][..]
+        } else {
+            &[8, 8, 10][..]
+        } {
+            if schedule_ok {
+                schedule_ok = scheduler.advance_instruction(*cycles).is_some();
+            }
+        }
+        for cycles in [12, 8, 8, 18] {
+            if schedule_ok {
+                schedule_ok = scheduler.advance_instruction(cycles).is_some();
+            }
+        }
+        visit_decompress_to_vram_instructions_loc_14300(
+            inputs.murder_wall_stream,
+            |instruction| {
+                if !schedule_ok {
+                    return;
+                }
+                schedule_ok = match instruction {
+                    LoadInGameTimedInstruction::Cpu(cycles) => {
+                        scheduler.advance_instruction(cycles).is_some()
+                    }
+                    LoadInGameTimedInstruction::VdpDataWord(cycles) => {
+                        scheduler.write_data_word(cycles).is_some()
+                    }
+                    LoadInGameTimedInstruction::VdpDataLongword(cycles) => {
+                        scheduler.write_data_longword(cycles).is_some()
+                    }
+                };
+            },
+        )?;
+        for cycles in [8, 12, 4] {
+            if schedule_ok {
+                schedule_ok = scheduler.advance_instruction(cycles).is_some();
+            }
+        }
+        for colour in 0..8 {
+            for cycles in [12, if colour == 7 { 14 } else { 10 }] {
+                if schedule_ok {
+                    schedule_ok = scheduler.advance_instruction(cycles).is_some();
+                }
+            }
+        }
+        if schedule_ok {
+            schedule_ok = scheduler.advance_instruction(16).is_some();
+        }
+    }
+    let murder_wall_exit_cursor_loc_11fd2 = scheduler.cursor();
 
     anyhow::ensure!(schedule_ok, "Load_InGame layout schedule overflow");
     Ok(ForegroundPrefixAdvanceLoc11ae4 {
@@ -2539,6 +2621,7 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         hud_clear_cursor_loc_11f48,
         hud_clear_exit_cursor_loc_11f50,
         shared_tail_cursor_loc_11fc8,
+        murder_wall_exit_cursor_loc_11fd2,
         cursor: scheduler.cursor(),
         refresh_events: scheduler.refresh_events(),
     })

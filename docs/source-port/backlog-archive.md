@@ -26696,6 +26696,14 @@ Forest's does not. The persistent scheduler preserves that route difference
 without a fixed delay. Continue through the Swamp-only `Murderwall loc_140D2`
 load. No Jev request or campaign spend occurred.
 
+2026-09-26 Murderwall branch: the same persistent scheduler now reaches
+`loc_11FD2` exactly on both routes. Forest takes the 22-cycle clear branch;
+Swamp carries its live FIFO, refresh and VINT state through `Murderwall
+loc_140D2`, the 4,608-byte compressed-art transfer and eight-colour palette
+copy to cycle 144,340,155 with refresh phase 12. The remaining defect is the
+runtime's universal 63-frame teleporter reload delay, which must consume the
+scheduled destination duration. No Jev request or campaign spend occurred.
+
 ### #301
 
 - Filed 2026-06-11 as the bosses cluster umbrella (audits/bosses-fidelity-audit.md: 28 gaps, 13 high). The boss layer is an invented substitute: dead `sub_3A292` (collision/HP/palette), `sub_39846`+wrappers (waypoint movement), `loc_37F30`/`38012`/`380F4` (attack FSM), whole HeadyMetal `loc_37582`/`loc_3763A` handler; live heads flat-chase the player and fire on a fixed 180-frame clock; Shishkaboss heads 2/3 HP 30 vs ROM $14; HeadyMetal tracking -0xB000 vs -0x5000; boss-level flagpole suppression `loc_C03A` absent. Treat as one rewiring effort, not 28 patches. Minimum gate: 1p-playable on boss levels.

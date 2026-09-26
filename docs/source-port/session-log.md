@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #300 Murderwall loader branch exact
+
+Forest and Swamp now reach `loc_11FD2` on exact oracle cycles and refresh
+phases. The scheduler covers the Swamp-only Murderwall compressed-art and
+palette load while Forest takes the 22-cycle clear branch. Next replace the
+universal teleporter reload delay with this destination work. No Jev spend or
+human playtest.
+
 ## 2026-09-26 - #300 common loader tail exact
 
 The persistent scheduler now reaches `loc_11FC8` exactly on Forest and Swamp.
