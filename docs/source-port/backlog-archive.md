@@ -599,6 +599,18 @@ already match frame-0 X after their turns. Stop #509 investigation here;
 next work needs a narrow hand-off instrumentation or scenario that compares
 the scheduler pass independently of the rest of the live frame.
 
+Follow-up isolated-pass probe 2026-09-26: a cache-backed regression forks the
+same settled native runtime into `refresh_active_roster` alone and a complete
+idle frame. At 0x07 the Lion holds X528/Y704 in both paths; the earlier X570
+handoff observation does not reproduce at the current settled boundary. At
+0x1F the isolated enemy pass moves slots 15/16/21 from X196/388/325 to
+X197/389/326, exactly matching the complete frame, while player state and RNG
+remain unchanged. This rejects a global recording-window reduction. Slots
+15/16 require the pass to reach their oracle positions, while slot 21 starts
+at its oracle X325 and has a distinct shared-walker coroutine phase that must
+hibernate. Trace its initialisation/hibernate path against ASM before changing
+the scheduler.
+
 <a id="issue-508"></a>
 ### #508
 

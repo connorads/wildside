@@ -1624,6 +1624,80 @@ mod tests {
         }
     }
 
+    #[test]
+    fn recording_handoff_enemy_pass_probe_loc_e1e() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        for (level, family, expected_before, expected_after) in [
+            (
+                LevelId(0x07),
+                EnemyFamily::Lion,
+                vec![(1, 0x0210_0000, 0x02c0_0000)],
+                vec![(1, 0x0210_0000, 0x02c0_0000)],
+            ),
+            (
+                LevelId(0x1f),
+                EnemyFamily::Tank,
+                vec![
+                    (15, 0x00c4_0000, 0x0410_0000),
+                    (16, 0x0184_0000, 0x0420_0000),
+                    (21, 0x0145_0000, 0x04c0_0000),
+                ],
+                vec![
+                    (15, 0x00c5_0000, 0x0410_0000),
+                    (16, 0x0185_0000, 0x0420_0000),
+                    (21, 0x0146_0000, 0x04c0_0000),
+                ],
+            ),
+        ] {
+            let mut runtime = NativeRuntime::with_generated_level_layout(manifest.clone());
+            runtime.boot_to_level_for_recording_oracle(level);
+            runtime.settle_recording_oracle_warp_live_window(level);
+
+            let before = runtime
+                .active_enemies
+                .iter()
+                .filter(|enemy| enemy.family == family)
+                .map(|enemy| (enemy.layout_index, enemy.x_pos, enemy.y_pos))
+                .collect::<Vec<_>>();
+            let player_before = runtime.opening_slice.map(|slice| slice.player);
+            let rng_before = runtime.rom_random.offset_word();
+
+            let mut enemy_pass = runtime.clone();
+            enemy_pass.refresh_active_roster();
+            let after = enemy_pass
+                .active_enemies
+                .iter()
+                .filter(|enemy| enemy.family == family)
+                .map(|enemy| (enemy.layout_index, enemy.x_pos, enemy.y_pos))
+                .collect::<Vec<_>>();
+
+            let mut full_frame = runtime.clone();
+            full_frame.step_frame(FrameInput::default());
+            let after_full_frame = full_frame
+                .active_enemies
+                .iter()
+                .filter(|enemy| enemy.family == family)
+                .map(|enemy| (enemy.layout_index, enemy.x_pos, enemy.y_pos))
+                .collect::<Vec<_>>();
+
+            // ASM Execute_Objects loc_E1E: isolate the enemy scheduler from
+            // Kid and the frame shell. The 0x07 Lion already holds here. The
+            // 0x1F Tank pass alone moves all three bodies one pixel, including
+            // slot 21 from its oracle-matching X325 to the wrong X326 (#509).
+            assert_eq!(before, expected_before, "pre-pass roster for {level:?}");
+            assert_eq!(after, expected_after, "isolated pass for {level:?}");
+            assert_eq!(after_full_frame, after, "full-frame roster for {level:?}");
+            assert_eq!(
+                enemy_pass.opening_slice.map(|slice| slice.player),
+                player_before
+            );
+            assert_eq!(enemy_pass.rom_random.offset_word(), rng_before);
+        }
+    }
+
     // Boot script that presses Start through the Sega/intro/title sequence,
     // exercising the VDP-shell screens where snapshot capture is active.
     // 0x80 is the Start button mask.

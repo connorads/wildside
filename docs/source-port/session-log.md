@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #509 isolated enemy-pass boundary
+
+A cache-backed fork of the settled runtime isolates `Execute_Objects loc_E1E`
+enemy scheduling from the player and RNG. The 0x07 Lion holds in both the
+isolated pass and complete frame. All three 0x1F Tanks advance one pixel in
+both, but slot 21 begins at the oracle X325 and should hibernate while slots
+15/16 need the pass. Continue #509 in the shared-walker initialisation phase;
+do not shorten the global recording window. No Jev spend or human playtest.
+
 ## 2026-09-26 - #300 shared-tail FIFO dead end
 
 An instruction-ordered `loc_11EFA..loc_11FC8` visitor matches every Forest
