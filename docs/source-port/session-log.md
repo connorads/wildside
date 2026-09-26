@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #512 Elsewhere 19 block-list recovery
+
+Elsewhere 19's direct-warp RAM sidecar retained its teleporter but omitted every
+prize and hidden record, deleting the Micromax required for the campaign route.
+The loader now fills only missing whole sections from the same ROM `loc_11C7E`
+dispatch. A red-first regression retains the captured pad and restores the
+Micromax at `(1,18)`. #433 still needs ordinary-input traversal and natural
+Robot hurt. No Jev spend or human playtest.
+
 ## 2026-09-26 - #433 natural Crypt entry graph
 
 ROM teleporter records and ASM `loc_BCD6` prove the campaign chain

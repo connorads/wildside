@@ -36594,6 +36594,31 @@ mod chunk_10 {
 mod native_level_terrain_decoder {
     use super::*;
 
+    #[derive(Debug)]
+    struct PartialElsewhere19BlockListSource {
+        inner: std::sync::Arc<dyn wildside_data::AssetSource>,
+    }
+
+    impl wildside_data::AssetSource for PartialElsewhere19BlockListSource {
+        fn read(&self, rel: &std::path::Path) -> anyhow::Result<Vec<u8>> {
+            if rel == std::path::Path::new("level-layout/5B.blocklist.bin") {
+                let mut records = vec![0; 16];
+                // Captured loc_1269C teleporter record at (37,22), followed by
+                // zeroed RAM. Prize and hidden sections are absent.
+                records.extend_from_slice(&[
+                    0xAD, 0x7C, 0x00, 0x25, 0x00, 0x16, 0x22, 0x80, 0x00, 0x07,
+                ]);
+                records.resize(2_200, 0);
+                return Ok(records);
+            }
+            self.inner.read(rel)
+        }
+
+        fn exists(&self, rel: &std::path::Path) -> bool {
+            rel == std::path::Path::new("level-layout/5B.blocklist.bin") || self.inner.exists(rel)
+        }
+    }
+
     /// The four bonus levels the direct-warp dumper never reached: they have no
     /// `Level_Layout` fixture, so the native decoder is their only terrain
     /// source. Logical ids per backlog #229. This says nothing about campaign
@@ -36603,6 +36628,31 @@ mod native_level_terrain_decoder {
     fn cached_runtime_for_decoder() -> Option<NativeRuntime> {
         let manifest = cached_generated_manifest()?;
         Some(NativeRuntime::new(manifest))
+    }
+
+    /// A direct level-skip dump can capture the layout after Load_Level while
+    /// retaining the teleporter but leaving prize and hidden sections zero. ASM
+    /// loc_11C7E still emits the Micromax that makes Elsewhere 19 completable.
+    #[test]
+    fn partial_dumped_block_list_recovers_missing_rom_sections_loc_11c7e() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let filesystem = std::sync::Arc::new(wildside_data::FsAssetSource::new(
+            manifest.output_root.clone(),
+        ));
+        let source = std::sync::Arc::new(PartialElsewhere19BlockListSource { inner: filesystem });
+        let runtime = NativeRuntime::with_generated_level_layout_with_source(manifest, source);
+
+        let block_list = runtime
+            .block_list_for_level(LevelId(0x5B))
+            .expect("Elsewhere 19 block list");
+        assert!(block_list.prize_blocks.iter().any(|prize| {
+            prize.col == 1 && prize.row == 18 && prize.content == terrain::PrizeContent::Micromax
+        }));
+        assert!(block_list.teleporters.iter().any(|teleporter| {
+            teleporter.col == 37 && teleporter.row == 22 && teleporter.dest_map_id == 0x22
+        }));
     }
 
     fn level_layout_dir() -> std::path::PathBuf {

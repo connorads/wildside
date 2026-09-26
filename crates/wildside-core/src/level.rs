@@ -20473,7 +20473,38 @@ impl NativeRuntime {
         let logical_path = layout_dir.join(format!("{:02X}.blocklist.bin", level_id.0));
         let mut block_list = if self.assets_source.exists(&logical_path) {
             let data = self.assets_source.read(&logical_path).ok()?;
-            terrain::BlockList::from_raw_with_grid(&data, layout_width, Some(grid), blank_top_rows)
+            let mut dumped = terrain::BlockList::from_raw_with_grid(
+                &data,
+                layout_width,
+                Some(grid),
+                blank_top_rows,
+            );
+            // Direct level-skip capture can settle with Level_Layout populated
+            // while one or more loc_11C7E record sections remain empty. Such a
+            // section cannot be authoritative when the same ROM dispatch emits
+            // records: Elsewhere 19 otherwise loses its required Micromax while
+            // retaining its teleporter. Recover only missing whole sections;
+            // non-empty captured sections keep their runtime authority.
+            if (dumped.prize_blocks.is_empty()
+                || dumped.ghost_blocks.is_empty()
+                || dumped.teleporters.is_empty()
+                || dumped.hidden_blocks.is_empty())
+                && let Some(synthesised) = self.synthesise_block_list_for_level_loc_11C7E(level_id)
+            {
+                if dumped.prize_blocks.is_empty() {
+                    dumped.prize_blocks = synthesised.prize_blocks;
+                }
+                if dumped.ghost_blocks.is_empty() {
+                    dumped.ghost_blocks = synthesised.ghost_blocks;
+                }
+                if dumped.teleporters.is_empty() {
+                    dumped.teleporters = synthesised.teleporters;
+                }
+                if dumped.hidden_blocks.is_empty() {
+                    dumped.hidden_blocks = synthesised.hidden_blocks;
+                }
+            }
+            dumped
         } else {
             // ASM loc_11C7E reads the mapped BLOCK ROM resource, while generated
             // RAM sidecars are keyed by logical Current_LevelID. Reconstruct the

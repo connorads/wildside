@@ -1036,15 +1036,15 @@
     "issue": 433,
     "readiness": "needs_route",
     "active_path": "crates/wildside-core/src/enemies/robot.rs parent lifecycle and projectiles.rs delayed worker",
-    "route": "Checked-in 360-frame Robot lifecycle replay plus a repaired 688-frame Jev Crypt route; neither reaches Robot contact or natural entry",
+    "route": "Checked-in 360-frame Robot lifecycle replay plus a repaired 688-frame Jev Crypt route; ROM records prove the natural 0x2B -> 0x40 -> 0x5E -> 0x41 chain, but no ordinary-input replay reaches Robot contact",
     "evidence": [
       "docs/source-port/backlog-archive.md#issue-433",
       "docs/source-port/level-inventory.md",
       "crates/wildside-data/src/lib.rs",
       "crates/wildside-cli/src/sweep/mod.rs"
     ],
-    "next_action": "Continue from a verified saved prefix to acquire natural Robot hurt; separately establish whether Crypt has a campaign entry rather than a diagnostic level-skip entry.",
-    "scope": "Robot init, grounded turns, interrupted recovery, all three shot lifecycles and raw slot reuse are verified; natural hurt and entry remain."
+    "next_action": "Continue from a verified saved prefix through Elsewhere 19's restored Micromax route, then acquire natural Robot hurt without another paid #433 dispatch.",
+    "scope": "Robot init, grounded turns, interrupted recovery, all three shot lifecycles, raw slot reuse and the ROM entry graph are verified; ordinary-input traversal and natural hurt remain."
   },
   {
     "issue": 502,
