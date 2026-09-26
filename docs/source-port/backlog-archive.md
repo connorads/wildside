@@ -26475,6 +26475,20 @@ failure. This ordered visitor supplies the shared raster seed before
 `loc_11C10`; it does not change the fixed hand-off or close #300. No paid Jev
 request was used.
 
+2026-09-26 shared-tail boundary probe: replaying the saved Forest and Swamp
+teleporter scenarios against the emulator pins the next scheduler slice without
+paid navigation. Forest enters shared art at `loc_11EFA` on cycle 157,869,436
+with refresh phase 51, reaches `loc_11FC8` on cycle 158,460,085 with phase 4,
+then takes the clear Murderwall branch and reaches `loc_11FD2` on cycle
+158,460,107 with phase 26. Swamp enters at cycle 143,456,531 with phase 83,
+reaches `loc_11FC8` on cycle 144,074,455 with phase 40, then executes
+`Murderwall loc_140D2` and reaches `loc_11FD2` on cycle 144,340,155 with phase
+12. The common `loc_11EFA..loc_11FC8` duration differs by 27,275 cycles, so it
+must remain instruction- and FIFO-ordered rather than use one calibrated delay.
+The 265,700-cycle Swamp-only interval isolates the Murderwall load. These are
+navigation and timing boundaries only; they do not prove the visible fix or
+close #300. No Jev request or campaign spend occurred.
+
 ### #301
 
 - Filed 2026-06-11 as the bosses cluster umbrella (audits/bosses-fidelity-audit.md: 28 gaps, 13 high). The boss layer is an invented substitute: dead `sub_3A292` (collision/HP/palette), `sub_39846`+wrappers (waypoint movement), `loc_37F30`/`38012`/`380F4` (attack FSM), whole HeadyMetal `loc_37582`/`loc_3763A` handler; live heads flat-chase the player and fire on a fixed 180-frame clock; Shishkaboss heads 2/3 HP 30 vs ROM $14; HeadyMetal tracking -0xB000 vs -0x5000; boss-level flagpole suppression `loc_C03A` absent. Treat as one rewiring effort, not 28 patches. Minimum gate: 1p-playable on boss levels.

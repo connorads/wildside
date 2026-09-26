@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #300 shared-tail oracle boundaries
+
+Fresh saved-route traces pin the complete shared-art tail from `loc_11EFA` to
+`loc_11FC8`. Forest reaches cycle 158,460,085 with refresh phase 4; Swamp
+reaches cycle 144,074,455 with phase 40. Forest skips Murderwall and reaches
+`loc_11FD2` 22 cycles later. Swamp executes `Murderwall loc_140D2` and reaches
+`loc_11FD2` at cycle 144,340,155 with phase 12. Schedule the common tail first,
+then the destination-only Murderwall load. No Jev spend or human playtest.
+
 ## 2026-09-23 - #300 theme art composition
 
 Foreground and background theme art now execute through the persistent
