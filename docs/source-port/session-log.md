@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #300 objective closure
+
+The ordinary-input Skydragon route matches 56/56 post-clear gameplay
+checkpoints and its first 35 destination frames pixel-exactly. The red-before
+Bloody Swamp regression now matches its +73-frame loader boundary while Forest
+retains +63. #300 is closed without paid JEV spend or human sign-off; continue
+with #502's offline evidence because its attempt allowance is exhausted.
+
+## 2026-09-26 - #300 destination reload duration
+
+Cross-level Teleport now derives its visible hand-off from the exact
+destination `Load_InGame` schedule. Forest remains +63 frames; Bloody Swamp is
++73 and passes its frame-166 empty/frame-176 visible regression. Reuse saved
+inputs before the remaining natural-route comparison. No Jev spend or human
+playtest.
+
 ## 2026-09-26 - #300 Murderwall loader branch exact
 
 Forest and Swamp now reach `loc_11FD2` on exact oracle cycles and refresh

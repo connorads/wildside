@@ -16029,9 +16029,130 @@ impl NativeRuntime {
                             .ok()?;
                         crate::load_in_game_timing::murder_wall_art_workload_loc_140d2(&stream).ok()
                     });
+                let visible_elapsed_loc_6e2 = destination_bundle
+                    .as_ref()
+                    .and_then(|bundle| {
+                        let header = bundle.parsed_header.as_ref()?;
+                        let foreground = bundle.foreground.as_ref()?;
+                        let block = bundle.block.as_ref()?;
+                        let background = bundle.background.as_ref()?;
+                        let width_blocks = u16::from(header.width_screens) * 20;
+                        let height_blocks = u16::from(header.height_screens) * 14;
+                        let background_height = u16::from(header.height_screens) * 7 + 0x15;
+                        let layered_background = matches!(header.background_theme, 3 | 5 | 7 | 9);
+                        let background_cycles = if header.background_theme == 9 {
+                            let streams = (0..3)
+                                .map(|index| {
+                                    self.assets_source
+                                        .read(&std::path::Path::new("theme/bg_chunks").join(
+                                            format!("forest_eni_{index:02X}.bin"),
+                                        ))
+                                        .ok()
+                                })
+                                .collect::<Option<Vec<_>>>()?;
+                            let refs = streams
+                                .iter()
+                                .map(|stream| (stream.as_slice(), 0x0780))
+                                .collect::<Vec<_>>();
+                            crate::load_in_game_timing::background_forest_instruction_cycles_loc_1280a(&refs)?
+                        } else if !layered_background {
+                            let theme = crate::level::theme_palette_basename(header.background_theme)?
+                                .strip_suffix(".bin")?;
+                            crate::load_in_game_timing::background_chunk_instruction_cycles_loc_1280a(
+                                &background.bytes,
+                                u16::from(header.width_screens) * 10 + 0x1e,
+                                background_height,
+                                |index| {
+                                    self.assets_source
+                                        .read(&std::path::Path::new("theme/bg_chunks").join(
+                                            format!("{theme}_{index:02X}.bin"),
+                                        ))
+                                        .ok()
+                                },
+                            )?
+                        } else {
+                            return None;
+                        };
+                        let theme_art = [
+                            ("artcomp_fg", header.level_theme),
+                            ("artcomp_bg", header.background_theme),
+                        ]
+                        .map(|(directory, theme)| {
+                            let name = crate::level::theme_palette_basename(theme & 0x0f)?
+                                .strip_suffix(".bin")?;
+                            self.assets_source
+                                .read(&std::path::Path::new("theme").join(directory).join(
+                                    format!("{name}.bin"),
+                                ))
+                                .ok()
+                        });
+                        let [Some(foreground_art), Some(background_art)] = theme_art else {
+                            return None;
+                        };
+                        let theme_art_refs = [foreground_art.as_slice(), background_art.as_slice()];
+                        let shared_blocks = self.assets_source
+                            .read(std::path::Path::new("ingame/artcomp/Blocks.bin"))
+                            .ok()?;
+                        let shared_numbers = self.assets_source
+                            .read(std::path::Path::new("ingame/artcomp/HUD_numbers.bin"))
+                            .ok()?;
+                        let shared_eyclops = self.assets_source
+                            .read(std::path::Path::new("scenes/artcomp/Some_geometric_patterns.bin"))
+                            .ok()?;
+                        let murder_wall = self.assets_source
+                            .read(std::path::Path::new("ingame/artcomp/Murder_wall.bin"))
+                            .ok()?;
+                        let map_order_id = *self.assets.map_order.get(usize::from(dest_map))?;
+                        let (player_start_x, player_start_y) = self
+                            .pending_player_start_override_loc_11bd2
+                            .unwrap_or((header.player_start_x, header.player_start_y));
+                        // Both oracle traces enter loc_11AE4 at refresh phase 59.
+                        // The Forest beam seed calibrates the existing +63
+                        // visible boundary; destination work determines any
+                        // whole-frame extension from that same raster state.
+                        let entry = crate::vdp::LoadInGameCpuRasterCursor {
+                            beam: crate::vdp::h40_beam_from_absolute_m68k_cycles(
+                                M68kCycleCount::from_raw(155_878_532),
+                            ),
+                            refresh_phase: M68kRefreshPhase::new(59)?,
+                        };
+                        let scheduled = crate::load_in_game_timing::schedule_foreground_prefix_loc_11ae4(
+                            entry,
+                            &crate::load_in_game_timing::LoadLayoutScheduleInputsLoc11ae4 {
+                                width_blocks,
+                                height_blocks,
+                                background_height,
+                                murder_wall_flags: header.murder_wall_flags,
+                                layered_background,
+                                foreground_stream: &foreground.bytes,
+                                block_layout_stream: &block.bytes,
+                                background_instruction_cycles: &background_cycles,
+                                map_order_id,
+                                foreground_theme: u16::from(header.level_theme),
+                                background_theme: u16::from(header.background_theme),
+                                theme_art_streams: &theme_art_refs,
+                                shared_blocks_stream: &shared_blocks,
+                                shared_numbers_stream: &shared_numbers,
+                                shared_eyclops_stream: &shared_eyclops,
+                                player_start_x,
+                                player_start_y,
+                                current_level_id: u16::from(dest_map),
+                                murder_wall_stream: &murder_wall,
+                            },
+                        )
+                        .ok()?;
+                        Some(crate::load_in_game_timing::teleport_visible_elapsed_loc_6e2(
+                            scheduled.elapsed_m68k_cycles,
+                        ))
+                    })
+                    // TODO(fidelity): extend the exact scheduler to the Hills
+                    // and Mountain layered-art branches before replacing their
+                    // established Forest-calibrated boundary.
+                    .unwrap_or(63);
                 self.current_level = LevelId(dest_map);
                 self.teleport_transition = Some(TeleportTransitionState {
                     start_frame: self.frame_index,
+                    visible_elapsed_loc_6e2,
                     frozen_player,
                     frozen_camera,
                     frozen_active_objects,

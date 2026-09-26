@@ -4549,6 +4549,7 @@ pub(crate) struct LevelSkipTransitionState {
 #[derive(Debug, Clone)]
 pub(crate) struct TeleportTransitionState {
     pub(crate) start_frame: usize,
+    pub(crate) visible_elapsed_loc_6e2: usize,
     pub(crate) frozen_player: PlayerState,
     pub(crate) frozen_camera: CameraState,
     pub(crate) frozen_active_objects: Vec<NativeObjectSnapshot>,

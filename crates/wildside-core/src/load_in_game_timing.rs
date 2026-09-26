@@ -620,7 +620,6 @@ pub(crate) fn block_overlay_workload_loc_11c7e(
 
 /// Emit the non-VDP source instructions executed by ASM `loc_11C7E..loc_11D08`
 /// for the block-handler families exercised by the teleporter timing routes.
-#[cfg(test)]
 pub(crate) fn block_overlay_instruction_cycles_loc_11c7e(
     words: &[u16],
     level_width_tiles: u16,
@@ -1370,7 +1369,6 @@ fn visit_background_chunk_mappings_instructions_loc_12830(
 
 /// Emit ASM `Load_BackgroundMappings loc_1280A..loc_12846` and each direct
 /// `Load_BackgroundChunk` instruction in execution order.
-#[cfg(test)]
 pub(crate) fn background_chunk_instruction_cycles_loc_1280a(
     layout: &[u8],
     background_width: u16,
@@ -1429,7 +1427,6 @@ pub(crate) fn background_layered_mappings_workload_loc_128ba(
 
 /// Emit the Forest branch of ASM `Load_BackgroundMappings loc_1280A` and
 /// `Load_BackgroundMappings_Layered loc_128BA` in execution order.
-#[cfg(test)]
 pub(crate) fn background_forest_instruction_cycles_loc_1280a(
     streams: &[(&[u8], u16)],
 ) -> Option<Vec<u32>> {
@@ -1621,7 +1618,6 @@ pub(crate) struct LevelLayoutPreludeWorkloadLoc11ae4 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg(test)]
 pub(crate) struct ForegroundPrefixAdvanceLoc11ae4 {
     pub(crate) prelude_cursor_loc_11c10: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) decoder_cursor_loc_11c18: crate::vdp::LoadInGameCpuRasterCursor,
@@ -1649,9 +1645,9 @@ pub(crate) struct ForegroundPrefixAdvanceLoc11ae4 {
     pub(crate) murder_wall_exit_cursor_loc_11fd2: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) cursor: crate::vdp::LoadInGameCpuRasterCursor,
     pub(crate) refresh_events: u32,
+    pub(crate) elapsed_m68k_cycles: u32,
 }
 
-#[cfg(test)]
 pub(crate) struct LoadLayoutScheduleInputsLoc11ae4<'a> {
     pub(crate) width_blocks: u16,
     pub(crate) height_blocks: u16,
@@ -1675,14 +1671,12 @@ pub(crate) struct LoadLayoutScheduleInputsLoc11ae4<'a> {
 }
 
 #[derive(Debug, Clone, Copy)]
-#[cfg(test)]
 enum LoadInGameTimedInstruction {
     Cpu(u32),
     VdpDataWord(u32),
     VdpDataLongword(u32),
 }
 
-#[cfg(test)]
 fn visit_decompress_to_ram_instructions_loc_143c0(
     stream: &[u8],
     mut visit: impl FnMut(LoadInGameTimedInstruction),
@@ -1740,7 +1734,6 @@ fn visit_decompress_to_ram_instructions_loc_143c0(
     }
 }
 
-#[cfg(test)]
 fn visit_decompress_to_vram_instructions_loc_14300(
     stream: &[u8],
     mut visit: impl FnMut(LoadInGameTimedInstruction),
@@ -1789,7 +1782,6 @@ fn visit_decompress_to_vram_instructions_loc_14300(
     }
 }
 
-#[cfg(test)]
 fn visit_juggernaut_art_instructions_sub_129ce(mut visit: impl FnMut(LoadInGameTimedInstruction)) {
     macro_rules! cpu {
         ($cycles:expr) => {
@@ -1811,7 +1803,6 @@ fn visit_juggernaut_art_instructions_sub_129ce(mut visit: impl FnMut(LoadInGameT
     cpu!(&[16]);
 }
 
-#[cfg(test)]
 fn visit_raw_32_longword_art_instructions(mut visit: impl FnMut(LoadInGameTimedInstruction)) {
     // ASM Load_FlagBottomArt / sub_12C24: VDP command, source pointer and
     // word-sized DBF seed precede one 32-longword transfer loop.
@@ -1829,7 +1820,6 @@ fn visit_raw_32_longword_art_instructions(mut visit: impl FnMut(LoadInGameTimedI
     visit(LoadInGameTimedInstruction::Cpu(16));
 }
 
-#[cfg(test)]
 fn visit_shooter_slot_init_instructions_sub_f06a(mut visit: impl FnMut(u32)) {
     // ASM j_sub_F06A / sub_F06A: initialise the 19-link shooter-object free
     // list, then clear its tail and queue pointers.
@@ -1846,7 +1836,6 @@ fn visit_shooter_slot_init_instructions_sub_f06a(mut visit: impl FnMut(u32)) {
     }
 }
 
-#[cfg(test)]
 fn visit_evanesc_shooter_slot_init_instructions(mut visit: impl FnMut(u32)) {
     fn visit_linked_slots(visit: &mut impl FnMut(u32), count: usize) {
         for slot in 0..count {
@@ -1881,7 +1870,6 @@ fn visit_evanesc_shooter_slot_init_instructions(mut visit: impl FnMut(u32)) {
     }
 }
 
-#[cfg(test)]
 fn visit_hud_sprite_init_instructions_sub_14244(mut visit: impl FnMut(u32)) {
     // ASM Init_SpriteAttr_HUD / sub_14244: copy 20 HUD sprite longwords and
     // seed the sprite count plus timer redraw state.
@@ -1898,7 +1886,6 @@ fn visit_hud_sprite_init_instructions_sub_14244(mut visit: impl FnMut(u32)) {
     }
 }
 
-#[cfg(test)]
 fn visit_diamond_slot_init_instructions_sub_3f586(mut visit: impl FnMut(u32)) {
     // ASM j_Clear_DiamondPowerObjectRAM / sub_3F586: clear 55 words, then
     // fall through into Initialize_DiamondPowerObjectSlots' nine-link list.
@@ -1923,7 +1910,6 @@ fn visit_diamond_slot_init_instructions_sub_3f586(mut visit: impl FnMut(u32)) {
     }
 }
 
-#[cfg(test)]
 fn divu_immediate_word_cycles(dividend: u16, divisor: u16) -> u32 {
     let shifted_divisor = u32::from(divisor) << 16;
     let mut dividend = u32::from(dividend);
@@ -1943,14 +1929,12 @@ fn divu_immediate_word_cycles(dividend: u16, divisor: u16) -> u32 {
     80 + added_cycles
 }
 
-#[cfg(test)]
 fn mulu_immediate_word_cycles(multiplier: u16) -> u32 {
     // ASM loc_11F5A / loc_11F70: 38 base cycles, two per set source bit and
     // four immediate-word effective-address cycles.
     42 + 2 * multiplier.count_ones()
 }
 
-#[cfg(test)]
 fn visit_camera_bootstrap_instructions_loc_11f50(
     player_start_x: u16,
     player_start_y: u16,
@@ -1982,7 +1966,6 @@ fn visit_camera_bootstrap_instructions_loc_11f50(
     }
 }
 
-#[cfg(test)]
 fn visit_theme_art_instructions_loc_11e60(
     streams: &[&[u8]],
     background_theme: u16,
@@ -2031,7 +2014,6 @@ fn visit_theme_art_instructions_loc_11e60(
 
 /// Visit ASM `loc_11D12..loc_11E5E`, ending at the foreground-theme
 /// `DecompressToRAM` call at `loc_11E60`.
-#[cfg(test)]
 fn visit_theme_caller_instructions_loc_11d12(
     map_order_id: u8,
     foreground_theme: u16,
@@ -2208,7 +2190,6 @@ pub(crate) fn visit_level_layout_prelude_instructions_loc_11ae4(
 /// Schedule ASM `loc_11AE4..loc_11C7E` without resetting raster state between
 /// the level-layout prelude, foreground decoder, collision expansion and block
 /// layout decoder.
-#[cfg(test)]
 pub(crate) fn schedule_foreground_prefix_loc_11ae4(
     entry: crate::vdp::LoadInGameCpuRasterCursor,
     inputs: &LoadLayoutScheduleInputsLoc11ae4<'_>,
@@ -2624,5 +2605,20 @@ pub(crate) fn schedule_foreground_prefix_loc_11ae4(
         murder_wall_exit_cursor_loc_11fd2,
         cursor: scheduler.cursor(),
         refresh_events: scheduler.refresh_events(),
+        elapsed_m68k_cycles: scheduler.elapsed_m68k_cycles(),
     })
+}
+
+/// Convert the measured `Load_InGame` scheduler duration into the first native
+/// frame that may expose the destination roster after ASM `loc_6E2`.
+pub(crate) fn teleport_visible_elapsed_loc_6e2(elapsed_m68k_cycles: u32) -> usize {
+    const FOREST_BASELINE_M68K_CYCLES: u64 = 2_581_575;
+    const FOREST_VISIBLE_ELAPSED: u64 = 63;
+    const NTSC_FRAME_MCLK: u64 = 3_420 * 262;
+    let excess_mclk = u64::from(
+        elapsed_m68k_cycles
+            .saturating_sub(u32::try_from(FOREST_BASELINE_M68K_CYCLES).expect("baseline fits u32")),
+    ) * 7;
+    usize::try_from(FOREST_VISIBLE_ELAPSED + excess_mclk.div_ceil(NTSC_FRAME_MCLK))
+        .expect("Load_InGame frame delay fits usize")
 }

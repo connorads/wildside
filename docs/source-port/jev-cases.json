@@ -460,19 +460,6 @@
     "scope": "Complete logical final level 0x33; it should enter the ending."
   },
   {
-    "issue": 300,
-    "readiness": "needs_route",
-    "active_path": "teleporter_dest_level_loc_bcd6 reverse MapOrder lookup and pending level skip",
-    "route": "missing natural cross-level teleporter route",
-    "evidence": [
-      "docs/source-port/backlog-awaiting-human.md#issue-300",
-      "docs/source-port/backlog-archive.md#issue-300",
-      "crates/wildside-core/src/level.rs:19178"
-    ],
-    "next_action": "Compose the measured loader phases through the existing FIFO/VINT raster scheduler, then re-enable the second-destination timing regression.",
-    "scope": "Use an inter-level teleporter where map id differs; it should load the ROM destination."
-  },
-  {
     "issue": 301,
     "readiness": "needs_comparison",
     "active_path": "Boss lifecycle umbrella; exact selected active gap unknown until current-code audit",

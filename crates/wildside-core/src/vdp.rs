@@ -3196,6 +3196,7 @@ pub struct LoadInGameRasterScheduler {
     vint: DecompressToVramVintTracker,
     refresh_events: u32,
     fifo_halted_ticks: u32,
+    elapsed_mclk: u64,
 }
 
 impl LoadInGameRasterScheduler {
@@ -3207,6 +3208,7 @@ impl LoadInGameRasterScheduler {
             vint: DecompressToVramVintTracker::new(u8::MAX),
             refresh_events: 0,
             fifo_halted_ticks: 0,
+            elapsed_mclk: 0,
         }
     }
 
@@ -3228,9 +3230,36 @@ impl LoadInGameRasterScheduler {
         self.fifo_halted_ticks
     }
 
+    #[must_use]
+    pub fn elapsed_m68k_cycles(&self) -> u32 {
+        debug_assert_eq!(self.elapsed_mclk % u64::from(MCLK_CYCLES_PER_M68K_CYCLE), 0);
+        u32::try_from(self.elapsed_mclk / u64::from(MCLK_CYCLES_PER_M68K_CYCLE))
+            .expect("one Load_InGame invocation fits u32 M68K cycles")
+    }
+
+    fn record_elapsed_since(&mut self, before: H40BeamPosition) {
+        let frame_mclk = u64::from(MCLK_CYCLES_PER_SCANLINE) * u64::from(NTSC_SCANLINES_PER_FRAME);
+        let index = |beam: H40BeamPosition| {
+            u64::from(beam.scanline) * u64::from(MCLK_CYCLES_PER_SCANLINE)
+                + u64::from(beam.scanline_mclk)
+        };
+        let before = index(before);
+        let after = index(self.fifo.beam);
+        let delta = if after >= before {
+            after - before
+        } else {
+            frame_mclk - before + after
+        };
+        self.elapsed_mclk = self
+            .elapsed_mclk
+            .checked_add(delta)
+            .expect("bounded Load_InGame elapsed time fits u64");
+    }
+
     /// Advance one non-VDP source instruction, servicing at most one pending
     /// ASM `V_Int $390..$3A2` edge before the opcode executes.
     pub fn advance_instruction(&mut self, raw_cycles: u32) -> Option<()> {
+        let before = self.fifo.beam;
         let mut no_external_wait = |_: M68kCycleCount, _: bool| Some(M68kCycleCount::from_raw(0));
         service_decompress_to_vram_vint_if_pending(
             &mut self.vint,
@@ -3247,6 +3276,7 @@ impl LoadInGameRasterScheduler {
             true,
             &mut no_external_wait,
         )?;
+        self.record_elapsed_since(before);
         Some(())
     }
 
@@ -3264,6 +3294,7 @@ impl LoadInGameRasterScheduler {
     }
 
     fn write_data_words(&mut self, raw_cycles: u32, written_words: u8) -> Option<()> {
+        let before = self.fifo.beam;
         let mut no_external_wait = |_: M68kCycleCount, _: bool| Some(M68kCycleCount::from_raw(0));
         service_decompress_to_vram_vint_if_pending(
             &mut self.vint,
@@ -3295,6 +3326,7 @@ impl LoadInGameRasterScheduler {
             self.refresh_phase = M68kRefreshPhase::new(0).expect("zero refresh phase");
             self.fifo_halted_ticks = self.fifo_halted_ticks.checked_add(1)?;
         }
+        self.record_elapsed_since(before);
         Some(())
     }
 }

@@ -4981,12 +4981,12 @@ impl NativeRuntime {
     fn step_teleport_fade_loc_6e2(&mut self, input: FrameInput) -> Option<NativeTraceFrame> {
         let transition = self.teleport_transition.as_ref()?;
         let elapsed = self.frame_index.saturating_sub(transition.start_frame);
+        let visible_elapsed = transition.visible_elapsed_loc_6e2;
         // Oracle PC/WRAM checkpoints on the 0x1C -> 0x51 pad: loc_6E2 clears
         // the old Kid slot at +27, clears object slots by +31, and exposes
-        // the destination Load_InGame roster at +63.
-        // TODO(fidelity): derive the hidden reload duration from ASM cycles
-        // for other destination asset sets before treating +63 as universal.
-        if elapsed >= 64 {
+        // the Forest destination Load_InGame roster at +63. Slower supported
+        // asset sets extend that boundary from the scheduled loader duration.
+        if elapsed > visible_elapsed {
             self.teleport_transition = None;
             self.teleport_render_snapshot = None;
             return None;
@@ -4996,7 +4996,7 @@ impl NativeRuntime {
             // retains the yellow outgoing palette until Load_InGame starts.
             self.teleport_warp_colour_fbcc = 0;
         }
-        if elapsed == 63 {
+        if elapsed == visible_elapsed {
             self.begin_teleport_level_entry_load_ingame_loc_bcf6(self.current_level);
             if let Some(slice) = self.opening_slice.as_mut() {
                 // ASM loc_75D4 -> sub_71E4 follows the first destination Kid

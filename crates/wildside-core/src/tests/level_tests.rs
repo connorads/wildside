@@ -6526,6 +6526,10 @@ mod chunk_02 {
             "ASM loc_11FC8 takes the exact clear Murderwall branch on Forest"
         );
         assert_eq!(
+            forest_prefix.elapsed_m68k_cycles, 2_581_575,
+            "ASM loc_11AE4..loc_11FD2 retains the exact Forest elapsed duration"
+        );
+        assert_eq!(
             frames[223].gameplay_debug_fields["teleport_background_work_loc_1280a"],
             "format=Layered placements=0 visited=0 copied=0 chunk_loop_instructions=0 chunk_loop_raw_cycles=0 chunk_wrapper_instructions=0 chunk_wrapper_raw_cycles=0 enigma_streams=3 enigma_instructions=46302 enigma_raw_cycles=379014 enigma_output_words=2688",
             "ASM loc_128BA loads all three Forest Enigma layers"
@@ -6635,7 +6639,6 @@ mod chunk_02 {
     }
 
     #[test]
-    #[ignore = "ROM loc_6E2 -> Load_InGame reaches this destination 10 frames after the current fixed native delay; derive the load duration from ASM before enabling"]
     fn issue_300_elsewhere15_telepad_waits_for_rom_reload_loc_6e2() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
@@ -7040,6 +7043,10 @@ mod chunk_02 {
                 refresh_phase: M68kRefreshPhase::new(12).expect("oracle refresh phase"),
             },
             "ASM Murderwall loc_140D2 retains exact Swamp FIFO, refresh and VINT state"
+        );
+        assert_eq!(
+            swamp_prefix.elapsed_m68k_cycles, 3_822_272,
+            "ASM loc_11AE4..loc_11FD2 retains the exact Swamp elapsed duration"
         );
         assert_eq!(
             frames[103].gameplay_debug_fields["teleport_background_work_loc_1280a"],

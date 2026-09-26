@@ -14823,7 +14823,7 @@ impl NativeRuntime {
     pub(crate) fn current_player_state(&self) -> Option<PlayerState> {
         if let Some(transition) = self.teleport_transition.as_ref() {
             let elapsed = self.frame_index.saturating_sub(transition.start_frame);
-            if elapsed < 63 {
+            if elapsed < transition.visible_elapsed_loc_6e2 {
                 return Some(if elapsed < 27 {
                     transition.frozen_player
                 } else {
@@ -15289,10 +15289,11 @@ impl NativeRuntime {
     pub(crate) fn current_camera_state(&self) -> CameraState {
         if let Some(transition) = self.teleport_transition.as_ref() {
             let elapsed = self.frame_index.saturating_sub(transition.start_frame);
-            if elapsed < 63 {
+            let loader_extension = transition.visible_elapsed_loc_6e2.saturating_sub(63);
+            if elapsed < transition.visible_elapsed_loc_6e2 {
                 return if elapsed < 31 {
                     transition.frozen_camera
-                } else if elapsed < 54 {
+                } else if elapsed < 54 + loader_extension {
                     CameraState::default()
                 } else {
                     let pose = self.level_start_pose(
@@ -15301,7 +15302,7 @@ impl NativeRuntime {
                     );
                     CameraState {
                         x_pos: pose.camera_x_pos,
-                        y_pos: if elapsed == 54 {
+                        y_pos: if elapsed == 54 + loader_extension {
                             // TODO(fidelity): identify the indirect loader write
                             // that exposes this pre-page-alignment camera seed.
                             self.pending_player_start_override_loc_11bd2
@@ -15495,7 +15496,8 @@ impl NativeRuntime {
 
     pub(crate) fn active_objects(&self) -> Vec<NativeObjectSnapshot> {
         if let Some(transition) = self.teleport_transition.as_ref()
-            && self.frame_index.saturating_sub(transition.start_frame) < 63
+            && self.frame_index.saturating_sub(transition.start_frame)
+                < transition.visible_elapsed_loc_6e2
         {
             return if self.frame_index.saturating_sub(transition.start_frame) < 31 {
                 transition.frozen_active_objects.clone()
@@ -15694,7 +15696,7 @@ impl NativeRuntime {
     ) -> (u16, u16) {
         if let Some(transition) = self.teleport_transition.as_ref() {
             let elapsed = self.frame_index.saturating_sub(transition.start_frame);
-            if elapsed == 63 {
+            if elapsed == transition.visible_elapsed_loc_6e2 {
                 // ASM Load_InGame -> Mode_Level loc_36840 allocates enemy
                 // Objects after the four base workers, while the new enemy
                 // handlers have not allocated their GfxObjects yet.
@@ -15702,13 +15704,13 @@ impl NativeRuntime {
                 // destination before treating this loader timing as universal.
                 return (4 + self.active_enemies.len() as u16, 4);
             }
-            if elapsed < 63 {
+            if elapsed < transition.visible_elapsed_loc_6e2 {
                 return if elapsed < 31 {
                     (
                         transition.frozen_number_objects,
                         transition.frozen_number_gfx_objects,
                     )
-                } else if elapsed == 62 {
+                } else if elapsed + 1 == transition.visible_elapsed_loc_6e2 {
                     // ASM Load_InGame allocates its four preload workers just
                     // before the first destination Kid slot becomes visible.
                     (4, 2)

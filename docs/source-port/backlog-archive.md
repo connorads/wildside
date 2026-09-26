@@ -26051,6 +26051,32 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 ### #300
 
+Closed 2026-09-26 as `[x]`. The checked-in Skydragon scenario reaches the
+cross-level pad with ordinary controller inputs from the settled level start.
+The pre-clear source roster retains a separate +1 Object/Gfx drift, but after
+the loader clears it, frames 254..309 match all 56 native/ROM gameplay
+checkpoints and player/camera CRCs. JEV replay pixels are exact on every frame
+254..288, covering the empty loader shell and first destination-visible frames;
+later rendering residue begins only after gameplay resumes. The Bloody Swamp
+regression was ignored because native loaded ten frames early before
+`b9ff85403`; it now passes frame 166 empty and frame 176 destination-visible.
+Forest remains exact at its prior +63 boundary. This is objective route,
+negative-control and permanent-regression evidence for the reported loader
+claim. The full JEV replay verdict remains inconclusive only because its settled
+warp starts with an unrelated RNG offset. No paid request or human sign-off.
+
+2026-09-26 destination-duration fix: cross-level Teleport now carries an exact
+`Load_InGame` duration from the persistent `loc_11AE4..loc_11FD2` raster
+scheduler into the `loc_6E2` transition. The existing Forest route remains
+visible at +63 frames. Bloody Swamp's 3,822,309-cycle schedule extends the
+boundary to +73 frames, leaving both object tables empty at recorded frame 166
+and exposing the destination roster at frame 176. The trace roster, player and
+camera shells use the same dynamic boundary, so diagnostic output cannot mask
+the runtime timing. Both checked-in #300 scenarios pass. Keep the issue open
+for its catalogue requirement: reuse saved inputs and compare a natural
+cross-level teleporter route before objective closure. No paid Jev request or
+human playtest.
+
 2026-09-26 HUD-clear correction: the isolated regression originally created a
 fresh `LoadInGameRasterScheduler` at `loc_11F48`. That incorrectly armed and
 serviced a 114-cycle VINT which the persistent `Load_InGame` scheduler had
@@ -27629,6 +27655,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 300 | [x] | P1 | level/teleporter | Cross-level Teleport exposes each destination after its scheduled `Load_InGame` work. | Red-before Bloody Swamp boundary; 56 exact post-clear gameplay checkpoints and 35 exact destination frames on ordinary Skydragon inputs. |
 | 514 | [x] | P1 | recording/prize | Settled live Prize cells recover their ROM records; adjacent Rubber defers dispatch; simultaneous completed Dragon breath children release both linked pairs. | Checked-in 300-frame route matches every state checkpoint and player/camera CRC; published single-Dragon boundary remains green. See archive #514. |
 | 513 | [x] | P1 | kid-physics | `sub_914A` full-span ceiling scan retains adjacent Rubber contact and `loc_9130` reverses Kid velocity. | Checked-in 125-frame route matches every checkpoint and player/camera CRC; focused adjacent-cell regression. See archive #513. |
 | 512 | [-] | P1 | level/loader | Empty sections in settled RAM block-list sidecars represent live lifecycle state and must not be rebuilt from static ROM records. | Rejected merge first diverges at frame 6; regression preserves empty prizes plus captured pad. See archive #512. |
