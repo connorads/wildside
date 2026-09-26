@@ -1,0 +1,783 @@
+{
+  "slug": "issue-433-robot-slot-reuse",
+  "script": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "frame_count": 360,
+  "checkpoints": [
+    {
+      "frame_index": 28,
+      "label": "robot-slot-reuse-28"
+    },
+    {
+      "frame_index": 29,
+      "label": "robot-slot-reuse-29"
+    },
+    {
+      "frame_index": 30,
+      "label": "robot-slot-reuse-30"
+    },
+    {
+      "frame_index": 31,
+      "label": "robot-slot-reuse-31"
+    },
+    {
+      "frame_index": 32,
+      "label": "robot-slot-reuse-32"
+    },
+    {
+      "frame_index": 33,
+      "label": "robot-slot-reuse-33"
+    },
+    {
+      "frame_index": 34,
+      "label": "robot-slot-reuse-34"
+    },
+    {
+      "frame_index": 35,
+      "label": "robot-slot-reuse-35"
+    },
+    {
+      "frame_index": 36,
+      "label": "robot-slot-reuse-36"
+    },
+    {
+      "frame_index": 37,
+      "label": "robot-slot-reuse-37"
+    },
+    {
+      "frame_index": 38,
+      "label": "robot-slot-reuse-38"
+    },
+    {
+      "frame_index": 39,
+      "label": "robot-slot-reuse-39"
+    },
+    {
+      "frame_index": 40,
+      "label": "robot-slot-reuse-40"
+    },
+    {
+      "frame_index": 41,
+      "label": "robot-slot-reuse-41"
+    },
+    {
+      "frame_index": 42,
+      "label": "robot-slot-reuse-42"
+    },
+    {
+      "frame_index": 43,
+      "label": "robot-slot-reuse-43"
+    },
+    {
+      "frame_index": 44,
+      "label": "robot-slot-reuse-44"
+    },
+    {
+      "frame_index": 45,
+      "label": "robot-slot-reuse-45"
+    },
+    {
+      "frame_index": 46,
+      "label": "robot-slot-reuse-46"
+    },
+    {
+      "frame_index": 47,
+      "label": "robot-slot-reuse-47"
+    },
+    {
+      "frame_index": 48,
+      "label": "robot-slot-reuse-48"
+    },
+    {
+      "frame_index": 49,
+      "label": "robot-slot-reuse-49"
+    },
+    {
+      "frame_index": 50,
+      "label": "robot-slot-reuse-50"
+    },
+    {
+      "frame_index": 51,
+      "label": "robot-slot-reuse-51"
+    },
+    {
+      "frame_index": 52,
+      "label": "robot-slot-reuse-52"
+    },
+    {
+      "frame_index": 53,
+      "label": "robot-slot-reuse-53"
+    },
+    {
+      "frame_index": 54,
+      "label": "robot-slot-reuse-54"
+    },
+    {
+      "frame_index": 55,
+      "label": "robot-slot-reuse-55"
+    },
+    {
+      "frame_index": 56,
+      "label": "robot-slot-reuse-56"
+    },
+    {
+      "frame_index": 57,
+      "label": "robot-slot-reuse-57"
+    },
+    {
+      "frame_index": 58,
+      "label": "robot-slot-reuse-58"
+    },
+    {
+      "frame_index": 59,
+      "label": "robot-slot-reuse-59"
+    },
+    {
+      "frame_index": 60,
+      "label": "robot-slot-reuse-60"
+    },
+    {
+      "frame_index": 61,
+      "label": "robot-slot-reuse-61"
+    },
+    {
+      "frame_index": 215,
+      "label": "robot-slot-reuse-215"
+    },
+    {
+      "frame_index": 216,
+      "label": "robot-slot-reuse-216"
+    },
+    {
+      "frame_index": 217,
+      "label": "robot-slot-reuse-217"
+    },
+    {
+      "frame_index": 218,
+      "label": "robot-slot-reuse-218"
+    },
+    {
+      "frame_index": 219,
+      "label": "robot-slot-reuse-219"
+    },
+    {
+      "frame_index": 220,
+      "label": "robot-slot-reuse-220"
+    },
+    {
+      "frame_index": 221,
+      "label": "robot-slot-reuse-221"
+    },
+    {
+      "frame_index": 222,
+      "label": "robot-slot-reuse-222"
+    },
+    {
+      "frame_index": 223,
+      "label": "robot-slot-reuse-223"
+    },
+    {
+      "frame_index": 224,
+      "label": "robot-slot-reuse-224"
+    },
+    {
+      "frame_index": 225,
+      "label": "robot-slot-reuse-225"
+    },
+    {
+      "frame_index": 226,
+      "label": "robot-slot-reuse-226"
+    },
+    {
+      "frame_index": 227,
+      "label": "robot-slot-reuse-227"
+    },
+    {
+      "frame_index": 228,
+      "label": "robot-slot-reuse-228"
+    },
+    {
+      "frame_index": 229,
+      "label": "robot-slot-reuse-229"
+    },
+    {
+      "frame_index": 230,
+      "label": "robot-slot-reuse-230"
+    },
+    {
+      "frame_index": 231,
+      "label": "robot-slot-reuse-231"
+    },
+    {
+      "frame_index": 232,
+      "label": "robot-slot-reuse-232"
+    },
+    {
+      "frame_index": 233,
+      "label": "robot-slot-reuse-233"
+    },
+    {
+      "frame_index": 234,
+      "label": "robot-slot-reuse-234"
+    },
+    {
+      "frame_index": 235,
+      "label": "robot-slot-reuse-235"
+    },
+    {
+      "frame_index": 236,
+      "label": "robot-slot-reuse-236"
+    },
+    {
+      "frame_index": 237,
+      "label": "robot-slot-reuse-237"
+    },
+    {
+      "frame_index": 238,
+      "label": "robot-slot-reuse-238"
+    },
+    {
+      "frame_index": 239,
+      "label": "robot-slot-reuse-239"
+    },
+    {
+      "frame_index": 240,
+      "label": "robot-slot-reuse-240"
+    },
+    {
+      "frame_index": 241,
+      "label": "robot-slot-reuse-241"
+    },
+    {
+      "frame_index": 242,
+      "label": "robot-slot-reuse-242"
+    },
+    {
+      "frame_index": 243,
+      "label": "robot-slot-reuse-243"
+    },
+    {
+      "frame_index": 244,
+      "label": "robot-slot-reuse-244"
+    },
+    {
+      "frame_index": 245,
+      "label": "robot-slot-reuse-245"
+    },
+    {
+      "frame_index": 246,
+      "label": "robot-slot-reuse-246"
+    },
+    {
+      "frame_index": 247,
+      "label": "robot-slot-reuse-247"
+    },
+    {
+      "frame_index": 248,
+      "label": "robot-slot-reuse-248"
+    },
+    {
+      "frame_index": 294,
+      "label": "robot-slot-reuse-294"
+    },
+    {
+      "frame_index": 295,
+      "label": "robot-slot-reuse-295"
+    },
+    {
+      "frame_index": 296,
+      "label": "robot-slot-reuse-296"
+    },
+    {
+      "frame_index": 297,
+      "label": "robot-slot-reuse-297"
+    },
+    {
+      "frame_index": 298,
+      "label": "robot-slot-reuse-298"
+    },
+    {
+      "frame_index": 299,
+      "label": "robot-slot-reuse-299"
+    },
+    {
+      "frame_index": 300,
+      "label": "robot-slot-reuse-300"
+    },
+    {
+      "frame_index": 301,
+      "label": "robot-slot-reuse-301"
+    },
+    {
+      "frame_index": 302,
+      "label": "robot-slot-reuse-302"
+    },
+    {
+      "frame_index": 303,
+      "label": "robot-slot-reuse-303"
+    },
+    {
+      "frame_index": 304,
+      "label": "robot-slot-reuse-304"
+    },
+    {
+      "frame_index": 305,
+      "label": "robot-slot-reuse-305"
+    },
+    {
+      "frame_index": 306,
+      "label": "robot-slot-reuse-306"
+    },
+    {
+      "frame_index": 307,
+      "label": "robot-slot-reuse-307"
+    },
+    {
+      "frame_index": 308,
+      "label": "robot-slot-reuse-308"
+    },
+    {
+      "frame_index": 309,
+      "label": "robot-slot-reuse-309"
+    },
+    {
+      "frame_index": 310,
+      "label": "robot-slot-reuse-310"
+    },
+    {
+      "frame_index": 311,
+      "label": "robot-slot-reuse-311"
+    },
+    {
+      "frame_index": 312,
+      "label": "robot-slot-reuse-312"
+    },
+    {
+      "frame_index": 313,
+      "label": "robot-slot-reuse-313"
+    },
+    {
+      "frame_index": 314,
+      "label": "robot-slot-reuse-314"
+    },
+    {
+      "frame_index": 315,
+      "label": "robot-slot-reuse-315"
+    },
+    {
+      "frame_index": 316,
+      "label": "robot-slot-reuse-316"
+    },
+    {
+      "frame_index": 317,
+      "label": "robot-slot-reuse-317"
+    },
+    {
+      "frame_index": 318,
+      "label": "robot-slot-reuse-318"
+    },
+    {
+      "frame_index": 319,
+      "label": "robot-slot-reuse-319"
+    },
+    {
+      "frame_index": 320,
+      "label": "robot-slot-reuse-320"
+    },
+    {
+      "frame_index": 321,
+      "label": "robot-slot-reuse-321"
+    },
+    {
+      "frame_index": 322,
+      "label": "robot-slot-reuse-322"
+    },
+    {
+      "frame_index": 323,
+      "label": "robot-slot-reuse-323"
+    },
+    {
+      "frame_index": 324,
+      "label": "robot-slot-reuse-324"
+    },
+    {
+      "frame_index": 325,
+      "label": "robot-slot-reuse-325"
+    },
+    {
+      "frame_index": 326,
+      "label": "robot-slot-reuse-326"
+    },
+    {
+      "frame_index": 327,
+      "label": "robot-slot-reuse-327"
+    },
+    {
+      "frame_index": 359,
+      "label": "robot-slot-reuse-359"
+    }
+  ],
+  "warp_to_level": 65,
+  "settle_oracle_warp": true
+}

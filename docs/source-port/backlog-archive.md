@@ -5192,6 +5192,23 @@ surface one row.
 
 ### #433
 
+2026-09-26 Robot raw slot reuse witness:
+
+The saved settled Crypt route fires naturally three times. Narrow oracle PC
+traces at `Enemy03_Robot_Shoot`, `Enemy03_Robot_Shot_Init` and the delayed Gfx
+worker show Object slot `$FFFF0EFC` allocated on frames 31, 218 and 297, with
+the same Robot parent `$FFFF0F70`. The corresponding Gfx allocations on frames
+41, 228 and 307 all reuse slot `$FFFF2610`. This closes the normal raw
+Object/Gfx slot-reuse evidence gap. The checked-in
+`issue-433-robot-slot-reuse.json` replay pins each allocation, flight and impact
+window and matches all 360 emulator frames.
+
+A local 13-route input batch against the existing 600-frame Kid route did not
+produce the remaining natural hurt witness. Terrain keeps Kid at least 185 px
+below the Robot; several longer routes instead reach level transition or death.
+Do not repeat this start/input family. Natural hurt and natural Crypt entry
+remain open. No Jev spend.
+
 2026-09-22 Robot shoot-turn hurt recovery:
 
 ASM establishes a defect in the live native collision path without requiring a

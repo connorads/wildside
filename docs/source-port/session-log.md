@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #433 Robot raw slot reuse
+
+The checked-in settled Crypt replay pins three natural Robot shot lifecycles.
+Oracle PC traces prove all three reuse Object slot `$FFFF0EFC` and Gfx slot
+`$FFFF2610`; the replay matches all 360 frames. A 13-route local search cannot
+reach the natural hurt case because terrain keeps Kid 185 px below the Robot.
+Continue #433 with a different saved prefix or natural entry route. No Jev
+spend or human playtest.
+
 ## 2026-09-26 - #509 RockTank handoff closed
 
 Raw oracle Object slots show `target_live` row 0 duplicates `post_title_start`.
