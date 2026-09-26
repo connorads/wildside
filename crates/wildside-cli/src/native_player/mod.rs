@@ -9830,7 +9830,9 @@ mod tests {
         trace.active_objects = vec![NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy { object_type: 0 },
             x_pos: 0x0010_0000,
-            y_pos: 0x0010_0000,
+            // ASM Make_SpriteFromGfxObject loc_11EA subtracts this glyph's
+            // 16px mapping height, placing its top row at y=16.
+            y_pos: 0x0020_0000,
             layout_index: None,
             x_velocity: None,
             y_velocity: None,
@@ -9902,7 +9904,9 @@ mod tests {
         trace.active_objects = vec![NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy { object_type: 0 },
             x_pos: 0x0010_0000,
-            y_pos: 0x0010_0000,
+            // ASM Make_SpriteFromGfxObject loc_11EA subtracts this glyph's
+            // 16px mapping height, placing its top row at y=16.
+            y_pos: 0x0020_0000,
             layout_index: None,
             x_velocity: None,
             y_velocity: None,

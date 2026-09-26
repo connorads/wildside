@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #210 title-card glyph origin
+
+The title-card renderer now applies `Make_SpriteFromGfxObject loc_11EA`'s
+mapping-height subtraction. The saved JEV check leaves only the random fly-in
+window divergent; frames 2812-3299 are pixel-exact. Continue from the oracle
+RNG ring before frame 2746. No paid request occurred.
+
 ## 2026-09-26 - #210 rapid menu hand-off and fade
 
 The saved Jev route identified a 15-frame native menu hold where `loc_1BB52`

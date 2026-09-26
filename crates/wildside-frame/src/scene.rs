@@ -2266,6 +2266,11 @@ fn push_title_card_glyph_tiles(
     }
     let palette = Arc::new(art.palette.clone());
     let tile_sheet = Arc::new(art.tile_sheet.clone());
+    // ASM Make_SpriteFromGfxObject loc_11EA (kid.asm:2205-2211) subtracts
+    // mapping height word 6(a4) from y_pos before adding each mapping row.
+    // Title-card sprite_frame_vram mappings all use ycenter=0, so their top
+    // edge is one full mapped height above the loc_1AC70 worker position.
+    let top = sy - i32::from(frame.height_px);
     for col in 0..cols {
         for row in 0..rows {
             // ASM sprite VRAM layout is column-major: tile_offset advances by
@@ -2275,7 +2280,7 @@ fn push_title_card_glyph_tiles(
             let tile_index = frame.tile_offset + (col * rows) + row;
             commands.push(DrawCommand::IndexedTile {
                 x: sx + i32::from(col) * 8,
-                y: sy + i32::from(row) * 8,
+                y: top + i32::from(row) * 8,
                 tile_sheet: tile_sheet.clone(),
                 tile: wildside_render::TileRef {
                     tile_index,
@@ -10495,16 +10500,16 @@ mod tests {
         assert_eq!(
             snapshots,
             vec![
-                (0x23, -0x10, 0x066, false),
-                (0x23, -0x08, 0x067, false),
-                (0x23, 0x00, 0x068, false),
-                (0x23, 0x08, 0x069, false),
-                (0x2B, -0x10, 0x06A, false),
-                (0x2B, -0x08, 0x06B, false),
-                (0x2B, 0x00, 0x06C, false),
-                (0x2B, 0x08, 0x06D, false),
+                (0x23, -0x30, 0x066, false),
+                (0x23, -0x28, 0x067, false),
+                (0x23, -0x20, 0x068, false),
+                (0x23, -0x18, 0x069, false),
+                (0x2B, -0x30, 0x06A, false),
+                (0x2B, -0x28, 0x06B, false),
+                (0x2B, -0x20, 0x06C, false),
+                (0x2B, -0x18, 0x06D, false),
             ],
-            "ASM loc_1AC70/off_1AC2A renders glyph $7B as a 2x4 tile sprite in column-major VRAM order"
+            "ASM Make_SpriteFromGfxObject loc_11EA subtracts the mapping height before loc_1AC70/off_1AC2A renders glyph $7B as a 2x4 tile sprite in column-major VRAM order"
         );
 
         let mut invalid_commands = Vec::new();
