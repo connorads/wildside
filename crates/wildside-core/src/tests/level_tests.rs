@@ -4313,6 +4313,51 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level_entry_title_active_objects_hold_seed_pose_for_loc_1ad2a_hibernate() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        runtime.begin_level_entry(LevelId(0));
+
+        let activation_frame = crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME;
+        runtime.maybe_seed_starting_level_title_workers(activation_frame);
+        let first_visible_frame = (0..=activation_frame + 2)
+            .find(|frame| {
+                runtime
+                    .starting_level_title_active_objects(*frame)
+                    .iter()
+                    .any(|object| {
+                        object.debug_fields.get("gfx_slot_index") == Some(&String::from("2"))
+                    })
+            })
+            .expect("first visible slot-2 title-worker frame");
+        let first_hibernate_frame = first_visible_frame + 1;
+
+        let visible = runtime
+            .starting_level_title_active_objects(first_hibernate_frame)
+            .into_iter()
+            .find(|object| object.debug_fields.get("gfx_slot_index") == Some(&String::from("2")))
+            .expect("visible slot-2 title worker");
+        let worker = runtime
+            .starting_level_title_workers
+            .iter()
+            .find(|worker| worker.gfx_slot_index == 2)
+            .expect("slot-2 level-entry title worker");
+        let motion = worker.motion.as_ref().expect("seeded worker motion");
+        assert_eq!(visible.x_pos, motion.start_x_pos);
+        assert_eq!(visible.y_pos, motion.start_y_pos);
+
+        let workload_pose = runtime
+            .starting_level_slot_2_pose(first_hibernate_frame)
+            .expect("slot-2 hardware workload pose");
+        assert_ne!(
+            (workload_pose.x_pos, workload_pose.y_pos),
+            (motion.start_x_pos, motion.start_y_pos),
+            "ASM loc_1AC70 -> loc_1AD2A presentation hibernates while the frozen VDP workload cadence retains its existing first-step pose",
+        );
+    }
+
+    #[test]
     fn boot_title_start_level_1_matches_oracle_slot_2_pose_on_frame_520() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;

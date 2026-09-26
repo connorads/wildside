@@ -2372,7 +2372,14 @@ impl NativeRuntime {
                         cold_intro_sequence_1_title,
                     )
                 };
-                let visible_elapsed_frames = elapsed_frames.saturating_sub(activation_frame);
+                // ASM loc_1AC70 seeds the position, then loc_1AD2A hibernates
+                // before loc_1AD3A applies the first step. Keep that seeded
+                // pose visible for the hibernate frame. The separate
+                // `starting_level_slot_2_pose` path retains the established
+                // VDP workload cadence used by frozen #416.
+                let visible_elapsed_frames = elapsed_frames
+                    .saturating_sub(activation_frame)
+                    .saturating_sub(1);
                 let pose =
                     PlayerState::from_level_entry_title_worker(worker, visible_elapsed_frames);
                 NativeObjectSnapshot {

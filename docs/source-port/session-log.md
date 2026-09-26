@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #210 title-worker seed-pose presentation
+
+The saved rapid-Start route is pixel-exact through frame 2757 after separating the visible `loc_1AD2A` hibernation pose from the frozen VDP workload pose. The remaining mismatch starts at frame 2758 when the low-priority `$7B` marker crosses high-priority Plane A. No paid request occurred.
+
 ## 2026-09-26 - #210 title-worker RNG and motion
 
 The saved rapid-Start route now matches the complete oracle RNG ring through both title-card worker seed batches. A seed-pose delay exposed the later `$7B` priority-masking defect but moved frozen #416 VDP timing, so it remains the next separate visual unit. No paid request occurred.

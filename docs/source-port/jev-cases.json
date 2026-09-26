@@ -166,7 +166,7 @@
       "crates/wildside-core/src/tests/level_tests.rs:7773",
       "docs/source-port/jev-pilot-results.md"
     ],
-    "next_action": "Expose loc_1AD2A seed-pose hibernation without moving frozen VDP timing, then apply high-priority plane masking to the deferred $7B marker and rerun the offline check.",
+    "next_action": "Apply Mega Drive high-priority plane masking to the low-priority deferred $7B marker from frame 2758, then rerun the offline check; motion, RNG and worker order are proven through frame 2757.",
     "scope": "Rapidly skip intro, title, and menu with repeated Start presses; no black squares, corrupt Red Stealth/title art, or early gameplay release should appear."
   },
   {
