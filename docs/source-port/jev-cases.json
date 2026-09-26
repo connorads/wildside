@@ -1,5 +1,19 @@
 [
   {
+    "issue": 513,
+    "readiness": "ready_replay",
+    "active_path": "crates/wildside-core/src/scenario.rs settled recording handoff and crates/wildside-core/src/blocks.rs floating_items lifecycle",
+    "route": ".cache/debug/issue-433-level5b-collect100.json is exact through frame 5; frame 6 omits oracle PrizeHelmetMicromax loc_10E1A",
+    "evidence": [
+      "docs/source-port/backlog-archive.md#issue-512",
+      "docs/source-port/backlog-archive.md#issue-433",
+      "crates/wildside-core/src/scenario.rs",
+      "crates/wildside-core/src/blocks.rs"
+    ],
+    "next_action": "Transfer the already-running Micromax prize worker at the settled recording boundary; require frame-6 Object count and Kid velocity parity before extending the route.",
+    "scope": "Elsewhere 19 settled recording handoff only; natural campaign loading remains separate."
+  },
+  {
     "issue": 65,
     "readiness": "needs_comparison",
     "active_path": "crates/wildside-core/src/blocks.rs step_shooter_blocks visibility registration",
@@ -1043,7 +1057,7 @@
       "crates/wildside-data/src/lib.rs",
       "crates/wildside-cli/src/sweep/mod.rs"
     ],
-    "next_action": "Continue from a verified saved prefix through Elsewhere 19's restored Micromax route, then acquire natural Robot hurt without another paid #433 dispatch.",
+    "next_action": "Continue from a verified saved prefix through the natural 0x2B -> 0x40 -> 0x5E -> 0x41 chain, then acquire natural Robot hurt without another paid #433 dispatch.",
     "scope": "Robot init, grounded turns, interrupted recovery, all three shot lifecycles, raw slot reuse and the ROM entry graph are verified; ordinary-input traversal and natural hurt remain."
   },
   {

@@ -12,22 +12,21 @@ order at split time; nothing here is re-attributed or deduplicated.
 ---
 
 <a id="issue-512"></a>
-### #512 - Partial block-list sidecars remove campaign-critical prizes
+### #512 - Rejected partial block-list recovery
 
-Closed 2026-09-26. A direct level-skip capture for Elsewhere 19 retained its
-teleporter section while leaving the prize and hidden sections empty. Native
-treated every empty section as authoritative, so the level lost both Micromax
-prizes. The ordinary route requires Micromax to climb out and reach the
-teleporter towards `0x40`.
+Closed 2026-09-26 as `[-]`. Elsewhere 19's settled RAM sidecar retains its
+teleporter while its prize section is empty. Treating that as an incomplete
+static `loc_11C7E` capture and rebuilding the missing section was wrong: the
+sidecar is a lifecycle snapshot, and an already-running prize worker may own a
+record that has left the RAM list.
 
-ASM `loc_11C7E` constructs all four block-list sections from the same decoded
-BLOCK stream before `sub_140F6` shifts their coordinates. Native now rebuilds
-that stream and fills only missing whole sections; non-empty captured sections
-remain authoritative. A cache-backed regression supplies the observed partial
-Elsewhere 19 sidecar and proves that the Micromax at `(1,18)` and captured
-teleporter at `(37,22)` coexist. The old loader fails the Micromax assertion.
-This restores the prerequisite for #433's ordinary-input traversal without
-claiming that traversal or natural Robot hurt. No Jev request or human playtest.
+The proposed merge stayed oracle-exact through frames 0-5, then diverged at
+frame 6: it produced seven native Gfx objects while the ROM has six and zeroed
+Kid's upward velocity while the ROM retained `$0003A000`. The unmerged path has
+only five native Objects and omits the ROM's active `PrizeHelmetMicromax` worker
+at `loc_10E1A`. A cache-backed regression preserves the observed empty prize
+section and captured teleporter together. #513 owns the live-worker transfer;
+static record recovery is rejected. No Jev request or human playtest.
 
 <a id="issue-350"></a>
 ### #350
@@ -27529,7 +27528,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 512 | [x] | P1 | level/loader | Partial RAM block-list captures recover ROM-emitted sections instead of deleting campaign-critical prizes. | Red-first Elsewhere 19 regression retains Micromax `(1,18)` and captured pad `(37,22)`. See archive #512. |
+| 512 | [-] | P1 | level/loader | Empty sections in settled RAM block-list sidecars represent live lifecycle state and must not be rebuilt from static ROM records. | Rejected merge first diverges at frame 6; regression preserves empty prizes plus captured pad. See archive #512. |
 | 374 | [x] | P0 | level/render | All five named levels spawn playable with coherent art and matching emulator state. | Five saved routes; Stairway residual is only frozen #409 HUD diamond timing. |
 | 350 | [x] | P1 | render | Hills lower foliage uses foreground colours, not sky blue. | Checked-in frame-39 route: 0 lower-scene pixel diffs vs ROM; 1,334 in negative control; sampled-colour regression passes. |
 | 290 | [x] | P1 | trace/objects | Published-route exported gameplay, enemy and RNG state matches across every recorded frame. | Interval-1 37,759 checkpoints; zero authoritative/roster/RNG differences; 24 classified diamond counter sampling rows. |

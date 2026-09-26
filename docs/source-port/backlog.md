@@ -31,7 +31,7 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-09-26):** #433's natural entry graph is ROM-proven: teleporters connect `0x2B -> 0x40 -> 0x5E -> Crypt 0x41`, then `0x41 -> 0x5F -> 0x41`. Elsewhere 19's partial RAM sidecar now recovers the ROM-emitted Micromax and hidden records, so the required campaign route is no longer removed at load. Ordinary-input traversal and natural Robot hurt remain open. #300 remains parked on the phase-local FIFO deficit. #502's attempts are exhausted. #433's 20-minute case window expired after two attempts; continue offline from the graph and saved routes.
+- **Current work (2026-09-26):** #513 is root-caused at #433's Elsewhere 19 handoff: frame 6 has five native Objects versus six in the ROM because native omits the already-running `PrizeHelmetMicromax` worker at `loc_10E1A`; rebuilding its static block record instead produces seven Gfx objects and the wrong collision. Transfer the live worker state at the settled recording boundary, then resume ordinary-input traversal. #300 remains parked on the phase-local FIFO deficit. #502's attempts are exhausted. #433's paid window is closed.
 - **Selection:** Run `mise run project-status` and `mise run jev-audit`. Objective awaiting-human cases are eligible for investigation and evidence-backed closure. Coverage prerequisites come first, then P0 #210, #370 and #374 according to dependencies and available evidence.
 - **Scope:** Single-player across all playable levels, branches, forms and bosses. Preserve frozen #406/#409/#416 timing debt and its ratchets. Final package retains subjective/device checks; no human validation is claimed.
 - **Jev allowance:** $5 additional across the campaign. BLW2 used 100 requests and $0.010448214. #502 used 269 charged requests across its three allowed attempts, adding $0.045005898. #433 used 84 requests across two attempts. The ledger lifetime charged upper bound is $0.250016004, including $0.000242592 for the #344 smoke. #433 attempt two exposed #511 but did not reach Robot contact; the repaired route is emulator-exact for gameplay state. #502's window and attempts are exhausted.
@@ -60,6 +60,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 513 | [~] | P1 | recording/prize | Root cause identified: Elsewhere 19 settled handoff omits the live Micromax prize worker and cannot recover it by rebuilding the consumed block record. | Frame 6 must retain ROM Object count 6, Kid Y velocity `$0003A000`, and `loc_10E1A` worker lifecycle. |
 | 502 | [ ] | P1 | enemies/scheduling | Drips range checks omit the live Object-pressure branch above 20 workers. | Acquire an interleaved allocation/deletion witness crossing 20/21 Objects. |
 | 300 | [ ] | P1 | level/teleporter | First pad route matches 25/25 gameplay frames with 31,226 changed pixels; second loads 10 frames early. | Fix the phase-local FIFO retry model before scheduling shared art. |
 | 433 | [~] | P1 | enemies/RNG | Robot motion, shots, turns, interrupted hurt recovery and raw slot reuse verified; ROM entry graph proven. | Replay the `0x2B -> 0x40 -> 0x5E -> 0x41` route and acquire natural Robot hurt. |
