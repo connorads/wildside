@@ -3088,6 +3088,39 @@ mod tests {
         );
     }
 
+    /// ASM loc_BCD6 scans MapOrder_Index from the start for each teleporter's
+    /// destination map byte. These ROM records prove the natural campaign
+    /// chain into both logical Crypt entries instead of relying on debug warp.
+    #[test]
+    fn generated_crypt_teleporters_form_a_natural_campaign_chain_loc_bcd6() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let destination = |source: u8, dest_map_id: u8| {
+            let block_list = load_inspect_block_list(&manifest, source)
+                .unwrap_or_else(|| panic!("load level 0x{source:02X} block list"));
+            assert!(
+                block_list
+                    .teleporters
+                    .iter()
+                    .any(|teleporter| teleporter.dest_map_id == dest_map_id),
+                "level 0x{source:02X} must contain a teleporter to map 0x{dest_map_id:02X}"
+            );
+            manifest
+                .map_order
+                .iter()
+                .position(|&map_id| map_id == dest_map_id)
+                .and_then(|logical| u8::try_from(logical).ok())
+        };
+
+        assert_eq!(destination(0x2B, 0x22), Some(0x40));
+        assert_eq!(destination(0x40, 0x6B), Some(0x5E));
+        assert_eq!(destination(0x5E, 0x41), Some(0x41));
+        assert_eq!(destination(0x41, 0x71), Some(0x5F));
+        assert_eq!(destination(0x5F, 0x41), Some(0x41));
+    }
+
     #[test]
     fn generated_later_level_block_lists_include_helmet_prize_entries() {
         let Some(manifest) = cached_generated_manifest() else {

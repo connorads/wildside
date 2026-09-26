@@ -5217,6 +5217,19 @@ surface one row.
 
 ### #433
 
+2026-09-26 natural Crypt entry graph:
+
+The earlier no-incoming-teleporter premise confused direct debug-warp support
+with campaign reachability. ROM block records and ASM `loc_BCD6` prove the
+natural chain `0x2B -> 0x40 -> 0x5E -> 0x41`, followed by the branch
+`0x41 -> 0x5F -> 0x41`. Each arrow resolves the teleporter destination map byte
+through the first matching `MapOrder_Index` entry. The generated-assets
+regression checks every source record and resolved logical destination. Logical
+`0x5E` remains direct-warp-undumped, not unreachable. Ordinary-input traversal
+of the chain and natural Robot hurt remain open. #433's 20-minute Jev case
+window expired after its two recorded attempts, so no third paid dispatch is
+allowed. No request or spend occurred during this investigation.
+
 2026-09-26 Robot raw slot reuse witness:
 
 The saved settled Crypt route fires naturally three times. Narrow oracle PC

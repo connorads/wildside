@@ -36594,10 +36594,11 @@ mod chunk_10 {
 mod native_level_terrain_decoder {
     use super::*;
 
-    /// The four bonus levels the level dumper never reached: they have no
+    /// The four bonus levels the direct-warp dumper never reached: they have no
     /// `Level_Layout` fixture, so the native decoder is their only terrain
-    /// source. Logical ids per backlog #229.
-    const UNREACHABLE_BONUS_LEVELS: [u8; 4] = [0x5A, 0x5D, 0x5E, 0x63];
+    /// source. Logical ids per backlog #229. This says nothing about campaign
+    /// reachability; ROM teleporters reach logical 0x5E through 0x40.
+    const DIRECT_WARP_UNDUMPED_BONUS_LEVELS: [u8; 4] = [0x5A, 0x5D, 0x5E, 0x63];
 
     fn cached_runtime_for_decoder() -> Option<NativeRuntime> {
         let manifest = cached_generated_manifest()?;
@@ -37014,7 +37015,7 @@ mod native_level_terrain_decoder {
             return;
         };
 
-        for logical in UNREACHABLE_BONUS_LEVELS {
+        for logical in DIRECT_WARP_UNDUMPED_BONUS_LEVELS {
             // The whole point: these levels must NOT have a pre-dumped fixture,
             // confirming the decoder is the live terrain source.
             let fixture_path = level_layout_dir().join(format!("{logical:02X}.bin"));
@@ -37063,7 +37064,7 @@ mod native_level_terrain_decoder {
         let Some(runtime) = cached_runtime_for_decoder() else {
             return;
         };
-        for logical in UNREACHABLE_BONUS_LEVELS {
+        for logical in DIRECT_WARP_UNDUMPED_BONUS_LEVELS {
             let grid = runtime
                 .load_block_grid_for_level(LevelId(logical))
                 .unwrap_or_else(|| {
@@ -37130,7 +37131,7 @@ mod native_level_terrain_decoder {
         let mut teleporter_count = 0;
         let mut hidden_count = 0;
 
-        for logical in UNREACHABLE_BONUS_LEVELS {
+        for logical in DIRECT_WARP_UNDUMPED_BONUS_LEVELS {
             runtime.reload_block_grid_for_level(LevelId(logical));
             let list = runtime.block_list.as_ref().unwrap_or_else(|| {
                 panic!("bonus level {logical:#04X} must synthesise its loc_11C7E block list")

@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #433 natural Crypt entry graph
+
+ROM teleporter records and ASM `loc_BCD6` prove the campaign chain
+`0x2B -> 0x40 -> 0x5E -> Crypt 0x41`, with the branch
+`0x41 -> 0x5F -> 0x41`. A generated-assets regression pins every edge through
+`MapOrder_Index`; 0x5E is direct-warp-undumped rather than unreachable. The
+ordinary-input traversal and natural Robot hurt remain open. #433's case window
+expired after two attempts, so continue offline. No Jev spend or human playtest.
+
 ## 2026-09-26 - #511 spike collision hand-off closed
 
 #433's second Jev attempt missed Robot contact but exposed a one-frame Crypt
