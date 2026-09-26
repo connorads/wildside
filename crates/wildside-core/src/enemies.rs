@@ -322,7 +322,7 @@ pub(crate) struct ActiveEnemyKey {
 }
 
 impl ActiveEnemyKey {
-    fn from_enemy(enemy: &ActiveEnemy) -> Self {
+    pub(crate) fn from_enemy(enemy: &ActiveEnemy) -> Self {
         Self {
             segment_index: enemy.segment_index,
             layout_index: enemy.layout_index,
@@ -9488,7 +9488,13 @@ pub(crate) fn step_pacer(
     }
 
     if !moving_right
-        && matches!(enemy.family, EnemyFamily::Crab | EnemyFamily::Driller)
+        && matches!(
+            enemy.family,
+            EnemyFamily::Crab
+                | EnemyFamily::Driller
+                | EnemyFamily::Tank
+                | EnemyFamily::TankShooting
+        )
         && pixel_delta > 0
         && tile_remainder < pixel_delta
         && scan.flags_d7.trailing_zeros() >= 2
@@ -9502,9 +9508,10 @@ pub(crate) fn step_pacer(
         // parks it one frame. A mid-floor crossing never fires here: the
         // following-row lead cell's `$4000` bit sets d7 bit 1 first. Oracle
         // 0x55 li=2 (census run 1786662123 t107/t108): the patroller holds
-        // at exactly x=364 for one frame before walking back right. Restrict
-        // this exact crossing arm to families with strict oracle routes. Level
-        // 0x64 frame 0 proves Crab li=5 turns here and walks back to x=333;
+        // at exactly x=364 for one frame before walking back right. Level
+        // 0x1F settle row 1/2 pins the same hold for RockTank li=16 at x=331,
+        // and rows 17/18 pin li=15 at x=155. Level 0x64 frame 0 proves Crab
+        // li=5 turns here and walks back to x=333;
         // the older aggregate sweep omitted per-enemy positions and therefore
         // misclassified that correction as a lifecycle regression.
         if matches!(enemy.family, EnemyFamily::Crab) {

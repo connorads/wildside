@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #509 RockTank handoff closed
+
+Raw oracle Object slots show `target_live` row 0 duplicates `post_title_start`.
+ASM `loc_3C152 -> loc_3C026` holds Tanks before two leftward turn steps that
+native had committed. The generic turn correction plus one typed recording
+handoff hibernate pins 0x1F frame 0 at X197/389/325. The state sweep remains
+102/105. Continue #433 while #300 and #502 remain parked. No Jev spend or
+human playtest.
+
 ## 2026-09-26 - #509 isolated enemy-pass boundary
 
 A cache-backed fork of the settled runtime isolates `Execute_Objects loc_E1E`

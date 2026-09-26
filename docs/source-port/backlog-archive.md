@@ -611,6 +611,20 @@ at its oracle X325 and has a distinct shared-walker coroutine phase that must
 hibernate. Trace its initialisation/hibernate path against ASM before changing
 the scheduler.
 
+2026-09-26 objective closure `[x]`: fresh oracle settle traces expose all
+three 0x1F RockTank Object slots through title wait, the capture-only
+`target_live` row 0 and row 59. ASM `loc_3C0FA -> loc_3C152 -> loc_3C026`
+rejects the predicted leftward X step before hibernating; native now applies
+that generic rule to Tanks as well as the already-proven Crab/Driller paths.
+The collapsed recording adapter retains one Tank Object hibernate after
+settle because it has already consumed the pass presented by oracle scenario
+frame 0. Independent Gfx animation still advances. A cache-backed regression
+pins settled X196/388/324 and the first presented pass at X197/389/325, with
+unchanged player and RNG. The existing level-0x1F regression passes. The full
+state sweep remains 102/105 with level 0x1F passing and the same three known
+failures. `verify-slice-fast` and `verify-tas-full` pass. No Jev spend or human
+playtest.
+
 <a id="issue-508"></a>
 ### #508
 
@@ -27446,6 +27460,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 350 | [x] | P1 | render | Hills lower foliage uses foreground colours, not sky blue. | Checked-in frame-39 route: 0 lower-scene pixel diffs vs ROM; 1,334 in negative control; sampled-colour regression passes. |
 | 290 | [x] | P1 | trace/objects | Published-route exported gameplay, enemy and RNG state matches across every recorded frame. | Interval-1 37,759 checkpoints; zero authoritative/roster/RNG differences; 24 classified diamond counter sampling rows. |
 | 510 | [x] | P2 | enemies/lifecycle | 0x4B Drips crawlers draw RNG in Object order and finish after ROM animation timing. | Frame-183 directions and frame-244 9/18 counts; 0x4B sweep pass; fast gate and full TAS pass. |
+| 509 | [x] | P2 | enemies/scheduling | Recording frame 0 holds all three 0x1F RockTanks at oracle X197/389/325. | Raw Object-slot rows, ASM turn holds, cache regression, 102/105 sweep, fast gate and full TAS pass. |
 | 508 | [x] | P1 | enemies/trace | Grounded Driller exports zero Gfx X velocity while Object patrol displacement remains internal. | ASM loc_3BE60/loc_3C026; 360 exact Driller velocity checkpoints; fast gate and full TAS pass. |
 | 507 | [x] | P1 | verification/enemies | Recording comparisons pair saved native and oracle enemies by the same key. | Shuffled-equivalent regression and changed-state controls; 360 tolerance-bounded state checkpoints pass; strict pixels remain red. |
 | 506 | [x] | P1 | oracle/RNG | Title cards cannot allocate gameplay enemies or consume their initialisation RNG. | ASM Mode_Standard/loc_80C; 360 exact RNG checkpoints; state sweep improves to 97/105 passes. |

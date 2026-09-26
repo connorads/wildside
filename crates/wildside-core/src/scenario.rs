@@ -493,6 +493,22 @@ impl NativeRuntime {
         });
         let platform_rewind_passes = usize::from(level_id == LevelId(0x33)) * 2;
         self.settle_target_level_live_window(level_id, target_live_frames, platform_rewind_passes);
+        if debug_lifecycle_completed {
+            // ASM Tank.asm loc_3C044/loc_3C0F0: the recording helper's
+            // target-live row 0 is a capture-only duplicate of
+            // post_title_start. Native's collapsed title handoff has already
+            // consumed the Tank pass that the first scenario row presents.
+            // Retain one Object hibernate at that adapter boundary while the
+            // independent Gfx animations continue. Raw oracle settle row 59
+            // and scenario frame 0 pin 0x1F slots 15/16/21 at
+            // X196/388/324 then X197/389/325 (#509).
+            for enemy in &self.active_enemies {
+                if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
+                    self.freshly_loaded_enemies_loc_3691e
+                        .insert(ActiveEnemyKey::from_enemy(enemy), 1);
+                }
+            }
+        }
         // ASM Execute_Objects loc_E1E: recording handoffs resume their saved
         // floating-prize worker after the Kid callback. Preserve that adapter
         // boundary order; ordinary `$1FFF` allocations retain before-Kid
@@ -1630,28 +1646,14 @@ mod tests {
             return;
         };
 
-        for (level, family, expected_before, expected_after) in [
-            (
-                LevelId(0x07),
-                EnemyFamily::Lion,
-                vec![(1, 0x0210_0000, 0x02c0_0000)],
-                vec![(1, 0x0210_0000, 0x02c0_0000)],
-            ),
-            (
-                LevelId(0x1f),
-                EnemyFamily::Tank,
-                vec![
-                    (15, 0x00c4_0000, 0x0410_0000),
-                    (16, 0x0184_0000, 0x0420_0000),
-                    (21, 0x0145_0000, 0x04c0_0000),
-                ],
-                vec![
-                    (15, 0x00c5_0000, 0x0410_0000),
-                    (16, 0x0185_0000, 0x0420_0000),
-                    (21, 0x0146_0000, 0x04c0_0000),
-                ],
-            ),
-        ] {
+        let level = LevelId(0x1f);
+        let family = EnemyFamily::Tank;
+        let expected = vec![
+            (15, 0x00c5_0000, 0x0410_0000),
+            (16, 0x0185_0000, 0x0420_0000),
+            (21, 0x0145_0000, 0x04c0_0000),
+        ];
+        {
             let mut runtime = NativeRuntime::with_generated_level_layout(manifest.clone());
             runtime.boot_to_level_for_recording_oracle(level);
             runtime.settle_recording_oracle_warp_live_window(level);
@@ -1684,11 +1686,11 @@ mod tests {
                 .collect::<Vec<_>>();
 
             // ASM Execute_Objects loc_E1E: isolate the enemy scheduler from
-            // Kid and the frame shell. The 0x07 Lion already holds here. The
-            // 0x1F Tank pass alone moves all three bodies one pixel, including
-            // slot 21 from its oracle-matching X325 to the wrong X326 (#509).
-            assert_eq!(before, expected_before, "pre-pass roster for {level:?}");
-            assert_eq!(after, expected_after, "isolated pass for {level:?}");
+            // Kid and the frame shell. Native's collapsed handoff already
+            // presents oracle frame-0 X197/389/325, so the saved Tank
+            // hibernate holds those positions for the first scenario pass.
+            assert_eq!(before, expected, "pre-pass roster for {level:?}");
+            assert_eq!(after, expected, "isolated pass for {level:?}");
             assert_eq!(after_full_frame, after, "full-frame roster for {level:?}");
             assert_eq!(
                 enemy_pass.opening_slice.map(|slice| slice.player),

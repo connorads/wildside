@@ -1056,17 +1056,5 @@
     ],
     "next_action": "Acquire a reachable Drips encounter crossing 20/21 live Objects; compare checks after an earlier allocation and an earlier deletion.",
     "scope": "Drips use the tighter unload bounds only while more than 20 Object workers are linked."
-  },
-  {
-    "issue": 509,
-    "readiness": "needs_comparison",
-    "active_path": "Load_InGame title-to-live object scheduling across RockTank and Lion",
-    "route": "Settled logical 0x1F warp with 30 neutral frames; inspect offscreen RockTank layout slots 15, 16 and 21",
-    "evidence": [
-      "docs/source-port/backlog-archive.md#issue-509",
-      "crates/wildside-core/src/tests/level_tests.rs"
-    ],
-    "next_action": "Instrument one object scheduler pass independently of player and RNG at the post_title_start to target_live row-0 hand-off; 0x07 Lion independently confirms the same extra native movement.",
-    "scope": "Native advances objects at target-live row 0 where oracle holds their positions; 0x1F RockTank slot 21 retains a one-pixel frame-0 lead."
   }
 ]
