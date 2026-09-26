@@ -4012,6 +4012,181 @@ mod chunk_01 {
     }
 
     #[test]
+    fn cold_intro_sequence_1_first_mode_standard_pass_burns_rng_at_elapsed_43_loc_e12() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 0,
+            elapsed: 43,
+            pending_title_skip: 0,
+        };
+        let mut expected = runtime.rom_random.clone();
+        let _ = expected.next_long();
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.rom_random, expected,
+            "ASM Mode_Standard -> Execute_Objects loc_E12 burns one RNG longword on the VBlank that advances IntroSequence1 elapsed 43 to 44",
+        );
+    }
+
+    #[test]
+    fn early_start_intro_sequence_1_defers_first_rng_burn_until_elapsed_44_loc_e12() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.cold_intro_sequence_1_early_start_poll = true;
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 0,
+            elapsed: 43,
+            pending_title_skip: 0,
+        };
+        let expected = runtime.rom_random.clone();
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.rom_random, expected,
+            "ASM sub_1C246 keeps the ordinary early-Start lineage RNG-idle until its elapsed-44 Mode_Standard pass",
+        );
+    }
+
+    #[test]
+    fn cold_intro_sequence_2_first_mode_standard_pass_burns_rng_at_elapsed_41_loc_e12() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 1,
+            elapsed: 41,
+            pending_title_skip: 0,
+        };
+        let mut expected = runtime.rom_random.clone();
+        let _ = expected.next_long();
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.rom_random, expected,
+            "ASM loc_1B9D0 -> Mode_Standard -> Execute_Objects loc_E12 burns one RNG longword when the IntroSequence2 loader releases at elapsed 41",
+        );
+    }
+
+    #[test]
+    fn cold_intro_sequence_3_first_mode_standard_pass_burns_rng_at_elapsed_41_loc_e12() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 2,
+            elapsed: 41,
+            pending_title_skip: 0,
+        };
+        let mut expected = runtime.rom_random.clone();
+        let _ = expected.next_long();
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.rom_random, expected,
+            "ASM sub_1B93E -> Mode_Standard -> Execute_Objects loc_E12 burns one RNG longword when the IntroSequence3 loader releases at elapsed 41",
+        );
+    }
+
+    #[test]
+    fn cold_intro_sequence_4_first_mode_standard_pass_burns_rng_at_elapsed_36_loc_e12() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 3,
+            elapsed: 36,
+            pending_title_skip: 0,
+        };
+        let mut expected = runtime.rom_random.clone();
+        let _ = expected.next_long();
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.rom_random, expected,
+            "ASM sub_1B988 -> Mode_Standard -> Execute_Objects loc_E12 burns one RNG longword when the IntroSequence4 loader releases at elapsed 36",
+        );
+    }
+
+    #[test]
+    fn cold_intro_sequence_5_first_mode_standard_pass_burns_rng_at_elapsed_56_loc_e12() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 4,
+            elapsed: 56,
+            pending_title_skip: 0,
+        };
+        let mut expected = runtime.rom_random.clone();
+        let _ = expected.next_long();
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.rom_random, expected,
+            "ASM loc_1BA28 -> Mode_Standard -> Execute_Objects loc_E12 burns one RNG longword when the IntroSequence5 loader releases at elapsed 56",
+        );
+    }
+
+    #[test]
+    fn cold_intro_sequence_5_panel_upload_stalls_rng_at_elapsed_384_loc_1bc36() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 4,
+            elapsed: INTRO_SEQUENCE_5_START_SKIP_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED,
+            pending_title_skip: 0,
+        };
+        let expected = runtime.rom_random.clone();
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.rom_random, expected,
+            "ASM loc_1BC36 -> sub_1C034 -> sub_1C0EE stretches the panel-upload VBlank without another Execute_Objects loc_E12 RNG burn",
+        );
+    }
+
+    #[test]
+    fn cold_intro_sequence_5_rng_resumes_after_panel_upload_stall_loc_e12() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 4,
+            elapsed: INTRO_SEQUENCE_5_START_SKIP_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED + 1,
+            pending_title_skip: 0,
+        };
+        let mut expected = runtime.rom_random.clone();
+        let _ = expected.next_long();
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.rom_random, expected,
+            "ASM Mode_Standard -> Execute_Objects loc_E12 resumes its RNG burn on the pass after the loc_1BC36 panel-upload stall",
+        );
+    }
+
+    #[test]
     fn cold_boot_frame_720_matches_full_rng_ring_init_rng_execute_objects_issue_381() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

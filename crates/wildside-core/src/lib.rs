@@ -4155,7 +4155,7 @@ impl NativeRuntime {
             BootState::IntroSequence {
                 segment: 0,
                 elapsed,
-                ..
+                pending_title_skip,
             } => {
                 // ASM loc_C0A -> loc_6E2 hands the timeout restart into
                 // IntroSequence1 with its first Mode_Standard object pass on
@@ -4174,8 +4174,13 @@ impl NativeRuntime {
                     // With the frame-34 native mode entry this is pre-step
                     // elapsed 34.
                     34
-                } else {
+                } else if pending_title_skip > 0
+                    || self.cold_intro_sequence_1_early_start_poll
+                    || self.start_press_count > 0
+                {
                     44
+                } else {
+                    43
                 };
                 elapsed >= first_live_elapsed
             }
@@ -4191,6 +4196,17 @@ impl NativeRuntime {
                 // before loc_1BA02 owns a live outer object pass on the
                 // timeout-restart lineage.
                 elapsed >= DEMO_AUTO_TIMEOUT_INTRO_SECOND_RNG_FIRST_LIVE_ELAPSED
+            }
+            BootState::IntroSequence {
+                segment: 1,
+                elapsed,
+                ..
+            } if self.start_press_count == 0 => {
+                // ASM loc_1B9D0 -> sub_1C204 returns to the enclosing
+                // Mode_Standard pass at local elapsed 41. Execute_Objects
+                // loc_E12 burns before the worker's initial 60-frame sleep
+                // and on every hibernating pass after it.
+                elapsed >= 41
             }
             BootState::IntroSequence {
                 segment: 2,
@@ -4209,6 +4225,16 @@ impl NativeRuntime {
                 elapsed >= DEMO_AUTO_TIMEOUT_INTRO_THIRD_RNG_FIRST_LIVE_ELAPSED
             }
             BootState::IntroSequence {
+                segment: 2,
+                elapsed,
+                ..
+            } if self.start_press_count == 0 => {
+                // ASM sub_1B93E -> sub_1C204 returns to the enclosing
+                // Mode_Standard pass at local elapsed 41. Execute_Objects
+                // loc_E12 then burns once per live or hibernating pass.
+                elapsed >= 41
+            }
+            BootState::IntroSequence {
                 segment: 3,
                 elapsed,
                 ..
@@ -4221,6 +4247,16 @@ impl NativeRuntime {
                 // Execute_Objects loc_E12 burns before sub_1B988 writes
                 // Camera_Y_pos=4, then remains live through loc_1B9B6.
                 elapsed >= DEMO_AUTO_TIMEOUT_INTRO_FOURTH_RNG_FIRST_LIVE_ELAPSED
+            }
+            BootState::IntroSequence {
+                segment: 3,
+                elapsed,
+                ..
+            } if self.start_press_count == 0 => {
+                // ASM sub_1B988 -> sub_1C204 returns to the enclosing
+                // Mode_Standard pass at local elapsed 36. Execute_Objects
+                // loc_E12 burns once per live or hibernating pass from there.
+                elapsed >= 36
             }
             BootState::IntroSequence {
                 segment: 4,
@@ -4249,6 +4285,18 @@ impl NativeRuntime {
                     INTRO_SEQUENCE_5_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED
                 };
                 elapsed >= first_live_elapsed && elapsed != panel_upload_stall_elapsed
+            }
+            BootState::IntroSequence {
+                segment: 4,
+                elapsed,
+                ..
+            } if self.start_press_count == 0 => {
+                // ASM loc_1BA28 -> sub_1C204 returns to the enclosing
+                // Mode_Standard pass at local elapsed 56. Execute_Objects
+                // loc_E12 burns once per live or hibernating pass from there,
+                // except while loc_1BC36 stretches the panel-upload VBlank.
+                elapsed >= 56
+                    && elapsed != INTRO_SEQUENCE_5_START_SKIP_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED
             }
             BootState::IntroSequence6 {
                 carry_timeout_restart_hidden_camera_wrap,
@@ -4390,13 +4438,21 @@ impl NativeRuntime {
             } else {
                 crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
             };
+            let pre_visible_burn_lead = if matches!(
+                self.title_screen_intro_return_lineage,
+                Some(TitleScreenIntroReturnLineage::ColdIntroSequence1)
+            ) {
+                3
+            } else {
+                4
+            };
             let cold_boot_titlecard_long_burn =
                     // Oracle WRAM watches keep the cold-boot mode-$0008 shell
                     // RNG-idle through the hidden carry window, then expose a
                     // single pre-visible `Execute_Objects` burn on the frame
                     // immediately before the loc_1AB26 / loc_1AD48 seed
                     // batches wake.
-                    elapsed_frames == title_first_visible_frame.saturating_sub(3)
+                    elapsed_frames == title_first_visible_frame.saturating_sub(pre_visible_burn_lead)
                         // The burn resumes on the first visible frame when
                         // Execute_Objects first runs the loc_1AB26/loc_1AD48
                         // workers, and continues every frame after.
