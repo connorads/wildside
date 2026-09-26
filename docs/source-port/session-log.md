@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-26 - #300 shared-tail FIFO dead end
+
+An instruction-ordered `loc_11EFA..loc_11FC8` visitor matches every Forest
+boundary but disproves the current FIFO model on Swamp. It is short by 19
+cycles at `loc_11F08`, 37 at `loc_11F48` and 159 at `loc_11FC8`, while refresh
+phases remain exact. Route-specific delay calibration was rejected. Park #300
+until the shared FIFO retry mechanism explains both routes; take #509 next. No
+Jev spend or human playtest.
+
 ## 2026-09-26 - #300 shared-tail oracle boundaries
 
 Fresh saved-route traces pin the complete shared-art tail from `loc_11EFA` to

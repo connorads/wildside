@@ -26489,6 +26489,22 @@ The 265,700-cycle Swamp-only interval isolates the Murderwall load. These are
 navigation and timing boundaries only; they do not prove the visible fix or
 close #300. No Jev request or campaign spend occurred.
 
+2026-09-26 shared-tail scheduler dead end: a complete source-ordered visitor
+for all three compressed streams, five raw-art loops, object-list/HUD/Diamond
+Power initialisation, the 2,048-word HUD clear, operand-dependent DIVU/MULU
+camera setup and theme branches reaches every Forest oracle boundary exactly.
+The same engine-level visitor disproves the shared FIFO approximation on
+Swamp. It is 19 cycles early at `loc_11F08`, 37 early at `loc_11F48` and 159
+early at `loc_11FC8`, while each refresh phase remains exact. Fresh selected-PC
+traces confirm the ASM cycles and show the residual accumulating in VDP-full
+waits, including 122 cycles during the HUD clear. Moving the VBlank edge by one
+access slot changes neither route. A route-specific wait ledger and calibrated
+delay were tested conceptually and rejected because they would conceal the
+missing FIFO mechanism and violate the engine-level rule. The experimental
+visitor was reverted, so the gate remains green. Resume only by correcting the
+shared FIFO retry model against both entry phases; do not retry instruction
+totals or add a Swamp-only delay. No Jev request or campaign spend occurred.
+
 ### #301
 
 - Filed 2026-06-11 as the bosses cluster umbrella (audits/bosses-fidelity-audit.md: 28 gaps, 13 high). The boss layer is an invented substitute: dead `sub_3A292` (collision/HP/palette), `sub_39846`+wrappers (waypoint movement), `loc_37F30`/`38012`/`380F4` (attack FSM), whole HeadyMetal `loc_37582`/`loc_3763A` handler; live heads flat-chase the player and fire on a fixed 180-frame clock; Shishkaboss heads 2/3 HP 30 vs ROM $14; HeadyMetal tracking -0xB000 vs -0x5000; boss-level flagpole suppression `loc_C03A` absent. Treat as one rewiring effort, not 28 patches. Minimum gate: 1p-playable on boss levels.
