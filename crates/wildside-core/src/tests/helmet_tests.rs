@@ -2091,7 +2091,7 @@ mod chunk_08 {
         );
         assert_eq!(runtime.trace_frame().game_mode, GameMode::InGame);
 
-        for _ in 0..PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES {
+        for _ in 0..runtime.death_respawn_live_handoff_frames_loc_1ae2e() {
             runtime.step_frame(FrameInput::default());
         }
 

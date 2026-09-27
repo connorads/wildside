@@ -472,7 +472,7 @@ fn release_respawn_to_alive(runtime: &mut NativeRuntime) {
         ..FrameInput::default()
     });
     runtime.step_frame(FrameInput::default());
-    for _ in 0..PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES {
+    for _ in 0..runtime.death_respawn_live_handoff_frames_loc_1ae2e() {
         runtime.step_frame(FrameInput::default());
     }
     assert_eq!(
@@ -3950,17 +3950,56 @@ mod chunk_02 {
     }
 
     #[test]
-    fn death_respawn_exposes_load_title_card_vdp_shell_loc_b8de() {
+    fn death_respawn_load_title_card_boundary_matches_loc_726_loc_1ac70() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
         };
         runtime.boot_to_level(LevelId(0));
+        runtime.recording_oracle_settle_completed = true;
         runtime.rebuild_death_respawn_title_workers_loc_b8de();
         runtime.player_lifecycle = PlayerLifecycle::Respawning {
             remaining_frames: crate::constants::PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
         };
 
-        runtime.step_frame(FrameInput::default());
+        let mut traces = vec![runtime.trace_frame()];
+        for _ in 0..crate::constants::PLAYER_DEATH_TITLE_CARD_LOAD_FRAMES {
+            runtime.step_frame(FrameInput::default());
+            traces.push(runtime.trace_frame());
+        }
+
+        let expected_counts = [
+            (0, 0),
+            (0, 0),
+            (0, 0),
+            (2, 0),
+            (2, 0),
+            (2, 0),
+            (13, 0),
+            (15, 0),
+            (15, 13),
+        ];
+        assert_eq!(traces.len(), expected_counts.len());
+        for (elapsed, (trace, expected)) in traces.iter().zip(expected_counts).enumerate() {
+            assert_eq!(
+                (trace.number_objects, trace.number_gfx_objects),
+                expected,
+                "ASM loc_726 -> Load_TitleCard -> loc_1AC70 object boundary at elapsed frame {elapsed}",
+            );
+        }
+        assert_eq!(
+            traces[3].rng_offset, traces[0].rng_offset,
+            "ASM loc_726 loader must not execute the first hidden object pass before elapsed frame 4",
+        );
+        assert_eq!(
+            traces[4].rng_offset,
+            traces[0].rng_offset.map(|offset| offset.wrapping_add(4)),
+            "ASM Mode_Standard -> Execute_Objects loc_E12 burns one RNG longword on elapsed frame 4",
+        );
+        assert_eq!(
+            runtime.death_respawn_live_handoff_frames_loc_1ae2e(),
+            PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES + 9,
+            "ASM loc_1AE2E -> loc_6E2 must retain the settled loader span before exposing Load_InGame",
+        );
 
         let vdp = runtime.vdp_state().expect(
             "ASM lose_life -> Teleport loc_B8DE -> loc_6E2 should expose the Load_TitleCard VDP shell during respawn",
@@ -3975,7 +4014,7 @@ mod chunk_02 {
             "ASM Load_TitleCard should decompress theme art for the respawn shell",
         );
 
-        let trace = runtime.trace_frame();
+        let trace = traces.last().expect("loader boundary trace");
         assert!(
             trace.active_objects.iter().any(|object| {
                 matches!(object.kind, NativeObjectKind::Enemy { object_type: 0 })
@@ -15373,7 +15412,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         assert!(resumed_trace.kid_x_pos.is_some());
         assert!(resumed_trace.kid_y_pos.is_some());
 
-        for _ in 0..PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES {
+        for _ in 0..runtime.death_respawn_live_handoff_frames_loc_1ae2e() {
             runtime.step_frame(FrameInput::default());
         }
         assert!(
@@ -15449,7 +15488,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             start: true,
             ..FrameInput::default()
         });
-        for _ in 0..PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES {
+        for _ in 0..runtime.death_respawn_live_handoff_frames_loc_1ae2e() {
             runtime.step_frame(FrameInput::default());
         }
 
@@ -15784,7 +15823,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             "continued respawn should expose a live Kid pose"
         );
 
-        for _ in 0..PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES {
+        for _ in 0..runtime.death_respawn_live_handoff_frames_loc_1ae2e() {
             runtime.step_frame(FrameInput::default());
         }
         assert_eq!(

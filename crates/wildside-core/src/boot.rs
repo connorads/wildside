@@ -8642,19 +8642,25 @@ impl NativeRuntime {
                 let respawn_elapsed =
                     PLAYER_DEATH_RESPAWN_SETTLE_FRAMES.saturating_sub(remaining_frames);
                 let loader_frames = self.death_respawn_title_card_loader_frames_loc_726();
-                if loader_frames > 0 && respawn_elapsed.saturating_add(1) == 3 {
+                if loader_frames > 0 && respawn_elapsed.saturating_add(1) == 4 {
                     // ASM Load_TitleCard -> MainGameLoop -> Mode_Standard ->
                     // Execute_Objects loc_E12 (kid.asm:854, 1636): the first
                     // hidden controller pass burns one RNG longword while
-                    // loc_1AB26 is still decompressing letter art. Bloody
-                    // Swamp's oracle trace records this on loader frame 3.
+                    // loc_1AB26 is still decompressing letter art. The
+                    // natural #370 oracle route records this on loader frame 4.
+                    let _ = self.rom_random.next_long();
+                }
+                if loader_frames > 0
+                    && respawn_elapsed.saturating_add(1) >= loader_frames
+                    && self.respawn_live_handoff_frames == 0
+                {
+                    // ASM Mode_Standard -> Execute_Objects loc_E12 burns the
+                    // pass RNG longword before running the resumed loc_1AB26
+                    // and loc_1AC70 workers. It repeats on every title-card
+                    // object pass until loc_1AE2E enters Load_InGame.
                     let _ = self.rom_random.next_long();
                 }
                 if loader_frames > 0 && respawn_elapsed.saturating_add(1) == loader_frames {
-                    // ASM Mode_Standard -> Execute_Objects loc_E12 burns the
-                    // pass RNG longword before the resumed loc_1AB26 worker
-                    // allocates and runs the loc_1AC70 letters.
-                    let _ = self.rom_random.next_long();
                     self.maybe_seed_starting_level_title_workers(
                         crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME,
                     );
@@ -8726,7 +8732,8 @@ impl NativeRuntime {
                     };
                 } else {
                     self.respawn_start_latched_frames = 0;
-                    self.respawn_live_handoff_frames = PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES;
+                    self.respawn_live_handoff_frames =
+                        self.death_respawn_live_handoff_frames_loc_1ae2e();
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: remaining_frames.saturating_sub(1),
                     };

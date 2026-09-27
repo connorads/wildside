@@ -12839,6 +12839,11 @@ impl NativeRuntime {
                 && matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. })
             {
                 self.dying_hidden_camera_still_visible()
+            } else if self.respawn_live_handoff_frames > 0 {
+                // ASM loc_1AE2E -> loc_6E2 has cleared the transition latch
+                // once Game_Mode becomes live. Keep the private native latch
+                // until loc_BC5C derives the post-respawn flash duration.
+                false
             } else {
                 self.just_received_damage
                     || (self.death_shell_snapshot.is_some()
@@ -16358,11 +16363,20 @@ impl NativeRuntime {
         if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
             return (0, 0);
         }
-        if self
-            .death_respawn_bootstrap_elapsed_frames()
-            .is_some_and(|elapsed| elapsed < self.death_respawn_title_card_loader_frames_loc_726())
+        if let Some(elapsed) = self.death_respawn_bootstrap_elapsed_frames()
+            && elapsed < self.death_respawn_title_card_loader_frames_loc_726()
         {
-            return (0, 0);
+            // ASM loc_726 -> Load_TitleCard (kid.asm:845, 28588): Object RAM
+            // rebuilds in source order while GfxObject RAM stays empty until
+            // loc_1AC70 becomes visible. Natural #370 frames 409..416 expose
+            // 0,0,0,2,2,2,13,15 Object entries and zero GfxObjects.
+            let number_objects = match elapsed {
+                0..=2 => 0,
+                3..=5 => 2,
+                6 => 13,
+                _ => 15,
+            };
+            return (number_objects, 0);
         }
         if self.death_respawn_bootstrap_elapsed_frames().is_some()
             && self.death_respawn_title_card_loader_frames_loc_726() > 0
@@ -17132,16 +17146,30 @@ impl NativeRuntime {
     }
 
     pub(crate) fn death_respawn_title_card_loader_frames_loc_726(&self) -> usize {
-        // The existing level-0/1 bootstrap profiles begin at their
-        // oracle-observed post-Load_TitleCard worker frame. Other levels enter
-        // Respawning at loc_726 and therefore retain the measured loader span.
-        // TODO(fidelity): replace both legacy pose profiles with one typed
-        // loc_726 -> Load_TitleCard lifecycle once their earlier phases move.
-        if self.death_respawn_bootstrap_profile().is_some() {
+        // ASM loc_726 -> Load_TitleCard owns a synchronous loader span before
+        // the post-load pose. Cold-boot Level 0/1 routes already absorb that
+        // work into their source-measured hidden window. A settled diagnostic
+        // entry starts from the emulator's post-warp boundary instead, so its
+        // later death exposes the eight loader frames explicitly (#370).
+        if self.death_respawn_bootstrap_profile().is_some()
+            && !self.recording_oracle_settle_completed
+        {
             0
         } else {
             PLAYER_DEATH_TITLE_CARD_LOAD_FRAMES
         }
+    }
+
+    pub(crate) fn death_respawn_live_handoff_frames_loc_1ae2e(&self) -> u8 {
+        // ASM loc_1AE2E -> loc_6E2 -> Load_InGame (kid.asm:29027, 823):
+        // settled death routes enter the live-mode loader after the explicit
+        // Load_TitleCard span. The #370 oracle keeps its level objects hidden
+        // for that span plus the loc_1AE2E hand-off frame.
+        PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES.saturating_add(
+            u8::try_from(self.death_respawn_title_card_loader_frames_loc_726())
+                .unwrap_or(u8::MAX)
+                .saturating_add(1),
+        )
     }
 }
 

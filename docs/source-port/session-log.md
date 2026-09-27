@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-27 - #370 death reload timing
+
+The saved natural Dragon-breath route now returns to live Level 0 on oracle frame 571 instead of nine frames early. Title-card RNG and worker counts match through the Start hand-off, and the cleanup negative control still fails after 303 identical frames. #370 stays open for the hidden Kid, roster and camera preload phases. No paid JEV request occurred.
+
 ## 2026-09-26 - #210 objective closure
 
 Title-card workers now enter the VDP sprite table with their ROM art, mapping and priority. The saved rapid-Start route matches oracle state and pixels for all 600 checked frames; a restored early-release control fails after a verified common prefix. #210 closes without paid JEV spend or human sign-off. #254 retains the broader subjective boot-art check for the final playtest.
