@@ -194,6 +194,21 @@
       },
       "total_frames": 128,
       "status": "verified"
+    },
+    "issue-186-lion-roar-contact": {
+      "scenario": "tests/data/dynamic-scenarios/issue-186-lion-roar-contact.json",
+      "frame_start": 0,
+      "frontier_frame": 120,
+      "checkpoint_interval": 1,
+      "expected_divergence_summary": {
+        "authoritative": 0,
+        "advisory": 0,
+        "accumulation": 0,
+        "rng": 0,
+        "oracle_limitation": 0
+      },
+      "total_frames": 120,
+      "status": "verified"
     }
   }
 }

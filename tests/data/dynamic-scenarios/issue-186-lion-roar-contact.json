@@ -1,0 +1,611 @@
+{
+  "slug": "issue-186-lion-roar-contact",
+  "script": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "frame_count": 120,
+  "checkpoints": [
+    {
+      "label": "f0",
+      "frame_index": 0
+    },
+    {
+      "label": "f1",
+      "frame_index": 1
+    },
+    {
+      "label": "f2",
+      "frame_index": 2
+    },
+    {
+      "label": "f3",
+      "frame_index": 3
+    },
+    {
+      "label": "f4",
+      "frame_index": 4
+    },
+    {
+      "label": "f5",
+      "frame_index": 5
+    },
+    {
+      "label": "f6",
+      "frame_index": 6
+    },
+    {
+      "label": "f7",
+      "frame_index": 7
+    },
+    {
+      "label": "f8",
+      "frame_index": 8
+    },
+    {
+      "label": "f9",
+      "frame_index": 9
+    },
+    {
+      "label": "f10",
+      "frame_index": 10
+    },
+    {
+      "label": "f11",
+      "frame_index": 11
+    },
+    {
+      "label": "f12",
+      "frame_index": 12
+    },
+    {
+      "label": "f13",
+      "frame_index": 13
+    },
+    {
+      "label": "f14",
+      "frame_index": 14
+    },
+    {
+      "label": "f15",
+      "frame_index": 15
+    },
+    {
+      "label": "f16",
+      "frame_index": 16
+    },
+    {
+      "label": "f17",
+      "frame_index": 17
+    },
+    {
+      "label": "f18",
+      "frame_index": 18
+    },
+    {
+      "label": "f19",
+      "frame_index": 19
+    },
+    {
+      "label": "f20",
+      "frame_index": 20
+    },
+    {
+      "label": "f21",
+      "frame_index": 21
+    },
+    {
+      "label": "f22",
+      "frame_index": 22
+    },
+    {
+      "label": "f23",
+      "frame_index": 23
+    },
+    {
+      "label": "f24",
+      "frame_index": 24
+    },
+    {
+      "label": "f25",
+      "frame_index": 25
+    },
+    {
+      "label": "f26",
+      "frame_index": 26
+    },
+    {
+      "label": "f27",
+      "frame_index": 27
+    },
+    {
+      "label": "f28",
+      "frame_index": 28
+    },
+    {
+      "label": "f29",
+      "frame_index": 29
+    },
+    {
+      "label": "f30",
+      "frame_index": 30
+    },
+    {
+      "label": "f31",
+      "frame_index": 31
+    },
+    {
+      "label": "f32",
+      "frame_index": 32
+    },
+    {
+      "label": "f33",
+      "frame_index": 33
+    },
+    {
+      "label": "f34",
+      "frame_index": 34
+    },
+    {
+      "label": "f35",
+      "frame_index": 35
+    },
+    {
+      "label": "f36",
+      "frame_index": 36
+    },
+    {
+      "label": "f37",
+      "frame_index": 37
+    },
+    {
+      "label": "f38",
+      "frame_index": 38
+    },
+    {
+      "label": "f39",
+      "frame_index": 39
+    },
+    {
+      "label": "f40",
+      "frame_index": 40
+    },
+    {
+      "label": "f41",
+      "frame_index": 41
+    },
+    {
+      "label": "f42",
+      "frame_index": 42
+    },
+    {
+      "label": "f43",
+      "frame_index": 43
+    },
+    {
+      "label": "f44",
+      "frame_index": 44
+    },
+    {
+      "label": "f45",
+      "frame_index": 45
+    },
+    {
+      "label": "f46",
+      "frame_index": 46
+    },
+    {
+      "label": "f47",
+      "frame_index": 47
+    },
+    {
+      "label": "f48",
+      "frame_index": 48
+    },
+    {
+      "label": "f49",
+      "frame_index": 49
+    },
+    {
+      "label": "f50",
+      "frame_index": 50
+    },
+    {
+      "label": "f51",
+      "frame_index": 51
+    },
+    {
+      "label": "f52",
+      "frame_index": 52
+    },
+    {
+      "label": "f53",
+      "frame_index": 53
+    },
+    {
+      "label": "f54",
+      "frame_index": 54
+    },
+    {
+      "label": "f55",
+      "frame_index": 55
+    },
+    {
+      "label": "f56",
+      "frame_index": 56
+    },
+    {
+      "label": "f57",
+      "frame_index": 57
+    },
+    {
+      "label": "f58",
+      "frame_index": 58
+    },
+    {
+      "label": "f59",
+      "frame_index": 59
+    },
+    {
+      "label": "f60",
+      "frame_index": 60
+    },
+    {
+      "label": "f61",
+      "frame_index": 61
+    },
+    {
+      "label": "f62",
+      "frame_index": 62
+    },
+    {
+      "label": "f63",
+      "frame_index": 63
+    },
+    {
+      "label": "f64",
+      "frame_index": 64
+    },
+    {
+      "label": "f65",
+      "frame_index": 65
+    },
+    {
+      "label": "f66",
+      "frame_index": 66
+    },
+    {
+      "label": "f67",
+      "frame_index": 67
+    },
+    {
+      "label": "f68",
+      "frame_index": 68
+    },
+    {
+      "label": "f69",
+      "frame_index": 69
+    },
+    {
+      "label": "f70",
+      "frame_index": 70
+    },
+    {
+      "label": "f71",
+      "frame_index": 71
+    },
+    {
+      "label": "f72",
+      "frame_index": 72
+    },
+    {
+      "label": "f73",
+      "frame_index": 73
+    },
+    {
+      "label": "f74",
+      "frame_index": 74
+    },
+    {
+      "label": "f75",
+      "frame_index": 75
+    },
+    {
+      "label": "f76",
+      "frame_index": 76
+    },
+    {
+      "label": "f77",
+      "frame_index": 77
+    },
+    {
+      "label": "f78",
+      "frame_index": 78
+    },
+    {
+      "label": "f79",
+      "frame_index": 79
+    },
+    {
+      "label": "f80",
+      "frame_index": 80
+    },
+    {
+      "label": "f81",
+      "frame_index": 81
+    },
+    {
+      "label": "f82",
+      "frame_index": 82
+    },
+    {
+      "label": "f83",
+      "frame_index": 83
+    },
+    {
+      "label": "f84",
+      "frame_index": 84
+    },
+    {
+      "label": "f85",
+      "frame_index": 85
+    },
+    {
+      "label": "f86",
+      "frame_index": 86
+    },
+    {
+      "label": "f87",
+      "frame_index": 87
+    },
+    {
+      "label": "f88",
+      "frame_index": 88
+    },
+    {
+      "label": "f89",
+      "frame_index": 89
+    },
+    {
+      "label": "f90",
+      "frame_index": 90
+    },
+    {
+      "label": "f91",
+      "frame_index": 91
+    },
+    {
+      "label": "f92",
+      "frame_index": 92
+    },
+    {
+      "label": "f93",
+      "frame_index": 93
+    },
+    {
+      "label": "f94",
+      "frame_index": 94
+    },
+    {
+      "label": "f95",
+      "frame_index": 95
+    },
+    {
+      "label": "f96",
+      "frame_index": 96
+    },
+    {
+      "label": "f97",
+      "frame_index": 97
+    },
+    {
+      "label": "f98",
+      "frame_index": 98
+    },
+    {
+      "label": "f99",
+      "frame_index": 99
+    },
+    {
+      "label": "f100",
+      "frame_index": 100
+    },
+    {
+      "label": "f101",
+      "frame_index": 101
+    },
+    {
+      "label": "f102",
+      "frame_index": 102
+    },
+    {
+      "label": "f103",
+      "frame_index": 103
+    },
+    {
+      "label": "f104",
+      "frame_index": 104
+    },
+    {
+      "label": "f105",
+      "frame_index": 105
+    },
+    {
+      "label": "f106",
+      "frame_index": 106
+    },
+    {
+      "label": "f107",
+      "frame_index": 107
+    },
+    {
+      "label": "f108",
+      "frame_index": 108
+    },
+    {
+      "label": "f109",
+      "frame_index": 109
+    },
+    {
+      "label": "f110",
+      "frame_index": 110
+    },
+    {
+      "label": "f111",
+      "frame_index": 111
+    },
+    {
+      "label": "f112",
+      "frame_index": 112
+    },
+    {
+      "label": "f113",
+      "frame_index": 113
+    },
+    {
+      "label": "f114",
+      "frame_index": 114
+    },
+    {
+      "label": "f115",
+      "frame_index": 115
+    },
+    {
+      "label": "f116",
+      "frame_index": 116
+    },
+    {
+      "label": "f117",
+      "frame_index": 117
+    },
+    {
+      "label": "f118",
+      "frame_index": 118
+    },
+    {
+      "label": "f119",
+      "frame_index": 119
+    }
+  ],
+  "warp_to_level": 7,
+  "settle_oracle_warp": true
+}

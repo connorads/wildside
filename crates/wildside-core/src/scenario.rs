@@ -1731,6 +1731,15 @@ mod tests {
             (2, false),
             "oracle frame 0 has no Lion projectile contact"
         );
+        let lion_trace = frame
+            .active_enemy_details
+            .iter()
+            .find(|enemy| enemy.layout_index == Some(1))
+            .expect("Level 0x07 lower Lion has a trace GfxObject");
+        assert_eq!(
+            lion_trace.x_pos, 0x0205_8000,
+            "ASM Enemy12_Lion_Init loc_3DF56 exposes the linked GfxObject position, not native's collision carrier"
+        );
 
         for _ in 1..19 {
             let frame = runtime.step_frame(FrameInput::default());
@@ -1745,8 +1754,27 @@ mod tests {
             1,
             "ASM Lion.asm loc_3E0DA allocates the first Lion projectile on oracle frame 19"
         );
+        assert_eq!(
+            frame_19.active_projectile_details[0].x_pos, 0x01F5_0000,
+            "ASM Lion.asm loc_3E12A/loc_3E180 places the first moved left-facing projectile at the oracle GfxObject X"
+        );
 
-        for _ in 20..46 {
+        for oracle_frame in 20..28 {
+            let frame = runtime.step_frame(FrameInput::default());
+            assert_eq!(
+                (frame.number_hitpoints, frame.just_received_damage),
+                (2, false),
+                "ASM GfxObjects_CollisionKid loc_1BCE only latches Lion projectile contact before its next object wake; oracle frame {oracle_frame} remains undamaged"
+            );
+        }
+        let frame_28 = runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            (frame_28.number_hitpoints, frame_28.just_received_damage),
+            (1, true),
+            "ASM Lion.asm loc_3E192 consumes the collision latched by GfxObjects_CollisionKid on oracle frame 28"
+        );
+
+        for _ in 29..46 {
             runtime.step_frame(FrameInput::default());
         }
         let lion_before_charge = runtime

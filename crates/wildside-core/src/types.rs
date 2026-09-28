@@ -5517,8 +5517,9 @@ pub(crate) struct EnemyProjectile {
     /// Re-aim interval in frames (Archer arrows). 0 = no re-aiming.
     /// ASM loc_342D6: arrow re-aims every `arrow_accuracy` frames toward player.
     pub(crate) reaim_interval: u16,
-    /// ASM GfxObjects_CollisionKid writes arrow contact for its next object wake.
-    pub(crate) archer_kid_contact_pending: bool,
+    /// ASM GfxObjects_CollisionKid writes contact for the projectile's next
+    /// object wake. Used by Archer.asm loc_342D6 and Lion.asm loc_3E192.
+    pub(crate) kid_contact_pending: bool,
     /// ASM GfxObjects_Collision writes wall contact for the next loc_342D6 wake.
     pub(crate) archer_level_contact_pending: bool,
     /// Countdown to next re-aim (decremented each frame).

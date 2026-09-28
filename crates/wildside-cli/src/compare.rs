@@ -1216,7 +1216,20 @@ pub(crate) fn active_enemy_states_from_native_frame(
             }
             wildside_core::NativeObjectKind::Enemy { object_type } => Some(OracleEnemyState {
                 object_type,
-                x_pos: object.x_pos,
+                x_pos: if object_type == 0x12 {
+                    // ASM Enemy12_Lion_Init loc_3DF56 links a GfxObject whose
+                    // X differs from native's collision carrier. Compare the
+                    // typed Gfx trace against the oracle's GfxObject roster.
+                    frame
+                        .active_enemy_details
+                        .iter()
+                        .find(|detail| {
+                            detail.kind == object.kind && detail.layout_index == object.layout_index
+                        })
+                        .map_or(object.x_pos, |detail| detail.x_pos)
+                } else {
+                    object.x_pos
+                },
                 y_pos: object.y_pos,
                 x_velocity: object.x_velocity.unwrap_or(0),
                 y_velocity: object.y_velocity.unwrap_or(0),
@@ -2505,6 +2518,41 @@ mod tests {
         assert_eq!(enemies[0].x_velocity, -0x0002_0000);
         assert_eq!(enemies[0].facing, EnemyFacing::Left);
         assert_eq!(enemies[0].layout_index, None);
+    }
+
+    #[test]
+    fn native_lion_enemy_state_uses_linked_gfx_x_loc_3df56() {
+        let lion = |x_pos| wildside_core::NativeObjectSnapshot {
+            kind: wildside_core::NativeObjectKind::Enemy { object_type: 0x12 },
+            x_pos,
+            y_pos: 0x02C0_0000,
+            layout_index: Some(1),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(wildside_core::physics::Direction::Left),
+            on_ground: Some(true),
+            hit_points: Some(6),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            contact_phase: None,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            sprite_animation_phase: None,
+            wait_timer: None,
+            debug_fields: BTreeMap::new(),
+        };
+        let frame = NativeTraceFrame {
+            active_objects: vec![lion(0x0210_0000)],
+            active_enemy_details: vec![lion(0x0205_8000)],
+            ..NativeTraceFrame::default()
+        };
+
+        let enemies = active_enemy_states_from_native_frame(&frame);
+
+        assert_eq!(enemies[0].x_pos, 0x0205_8000);
     }
 
     #[test]

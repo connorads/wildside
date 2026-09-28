@@ -3420,6 +3420,17 @@ impl ActiveEnemy {
         }
     }
 
+    pub(crate) fn trace_gfx_snapshot_loc_3df56(&self) -> NativeObjectSnapshot {
+        let mut snapshot = self.snapshot();
+        if matches!(self.family, EnemyFamily::Lion) && self.facing == Direction::Left {
+            // ASM Enemy12_Lion_Init loc_3DF56 allocates a distinct GfxObject.
+            // Native keeps Lion collision on a carrier centred 10.5 px to the
+            // right; oracle enemy traces expose the linked GfxObject instead.
+            snapshot.x_pos = snapshot.x_pos.wrapping_sub(0x000A_8000);
+        }
+        snapshot
+    }
+
     pub(crate) fn child_attachment_snapshot(&self) -> Option<NativeObjectSnapshot> {
         if self.death_animation_active {
             // ASM Tank.asm loc_3B480 / Tank_Shooting.asm loc_3B6E6 and

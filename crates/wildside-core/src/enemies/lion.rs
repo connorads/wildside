@@ -444,9 +444,9 @@ fn lion_projectile_x_offset_from_native_carrier_loc_3e12a(parent_facing: Directi
             // ASM Lion.asm loc_3E12A copies `x_pos` from the parent GfxObject,
             // not the enemy object carrier. Issue #289 Level 0x07 oracle frame
             // 19 has parent gfx `@517,704` and shot `@501,680` after the first
-            // `$FFFA0000` movement step; native's carrier is 12 px right of
-            // that gfx origin for the left-facing Lion.
-            tail.x_offset_pixels - 12
+            // `$FFFA0000` movement step; native's carrier word is 11 px right of
+            // that integer-word Gfx origin for the left-facing Lion.
+            tail.x_offset_pixels - 11
         }
         Direction::Right => tail.x_offset_pixels,
     }
@@ -2335,8 +2335,8 @@ mod tests {
     fn lion_projectile_left_launch_offsets_from_native_carrier_loc_3e12a() {
         assert_eq!(
             lion_projectile_x_offset_from_native_carrier_loc_3e12a(Direction::Left),
-            -22,
-            "ASM Lion.asm loc_3E12A copies parent GfxObject x, not native's carrier x; issue #289 oracle frame 19 needs native carrier x - 22 before the first movement step reaches @501"
+            -21,
+            "ASM Lion.asm loc_3E12A copies parent GfxObject x, not native's carrier x; issue #186 oracle frame 19 needs native carrier x - 21 before the first movement step reaches @501"
         );
     }
 
@@ -2435,7 +2435,7 @@ mod tests {
         assert_eq!(
             projectiles,
             vec![EnemyProjectile {
-                x_pos: 0x00EA << 16,
+                x_pos: 0x00EB << 16,
                 y_pos: 0x0068 << 16,
                 x_velocity: -LION_PROJECTILE_SPEED,
                 lifetime: 120,
@@ -2450,7 +2450,7 @@ mod tests {
                 }),
                 ..Default::default()
             }],
-            "ASM Lion.asm loc_3E12A copies parent GfxObject x; native's left carrier correction keeps the shot at x-22"
+            "ASM Lion.asm loc_3E12A copies parent GfxObject x; native's left carrier correction keeps the shot at x-21"
         );
     }
 

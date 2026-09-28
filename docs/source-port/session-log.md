@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-28 - #186 Lion roar and contact parity
+
+The checked-in settled Level 0x07 route now matches all 120 emulator gameplay and enemy checkpoints. Lion projectile position, delayed contact consumption and linked GfxObject trace coordinates follow the ROM through allocation, Kid damage and charge resume. #186 remains active for separate hurt-recoil and gravity ledge-leap witnesses. No paid JEV request occurred.
+
 ## 2026-09-28 - #186 Lion recording handoff
 
 The Level 0x07 recording adapter now retains the emulator's pre-fire Lion coroutine. Native and emulator allocate the roar projectile on frame 19 and resume charge movement on frame 46. A two-frame projectile-contact difference and the carrier-versus-GfxObject trace origin remain, so #186 stays active for those boundaries plus separate recoil and ledge-leap witnesses. No paid JEV request occurred.

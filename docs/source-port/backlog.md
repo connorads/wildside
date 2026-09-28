@@ -31,8 +31,8 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-09-28):** #186 is active. The Level 0x07 recording handoff now preserves the emulator's Lion projectile allocation at frame 19 and charge resume at frame 46. Continue from the two-frame projectile-contact divergence, then capture separate recoil and ledge-leap witnesses.
-- **Selection:** #169 remains parked on non-comparable settled starts. #186 is the next P1 objective route gap; the aligned roar boundary is one witness and does not prove recoil or ledge-leap behaviour.
+- **Current work (2026-09-28):** #186 is active. The checked-in Level 0x07 roar route matches all 120 emulator gameplay/enemy frames through projectile allocation, contact and charge resume. Capture separate hurt-recoil and gravity ledge-leap witnesses next.
+- **Selection:** #169 remains parked on non-comparable settled starts. #186 is the next P1 objective route gap; roar/contact parity does not prove recoil or ledge-leap behaviour.
 - **Scope:** Single-player across all playable levels, branches, forms and bosses. Preserve frozen #406/#409/#416 timing debt and its ratchets. Final package retains subjective/device checks; no human validation is claimed.
 - **Jev allowance:** $5 additional across the campaign. #185 used 48 requests in one attempt. The ledger lifetime charged upper bound is $0.257086284. The checked-in route and later comparisons need no further paid navigation.
 - **Jev exploration review:** Revision `cf5d84937`. #433 was the highest-priority eligible gap, but its 20-minute case window had expired. Offline ROM graph discovery replaced the false no-entry premise and found the natural Crypt chain. No request or spend occurred. Restart the three-fix cadence from this review.

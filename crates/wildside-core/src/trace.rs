@@ -12101,10 +12101,10 @@ impl NativeRuntime {
                         .tar_monster_primary_snapshot()
                         .into_iter()
                         .collect::<Vec<_>>();
-                    snapshots.push(enemy.snapshot());
+                    snapshots.push(enemy.trace_gfx_snapshot_loc_3df56());
                     snapshots
                 } else {
-                    vec![enemy.snapshot()]
+                    vec![enemy.trace_gfx_snapshot_loc_3df56()]
                 };
                 snapshots.extend(enemy.child_attachment_snapshot());
                 snapshots.extend(

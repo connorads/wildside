@@ -22410,8 +22410,12 @@ mod chunk_09 {
         rt.opening_slice = Some(slice);
 
         assert!(
+            !rt.projectile_hits_player(&slice),
+            "ASM GfxObjects_CollisionKid loc_1BCE latches the inclusive-edge Lion contact for the next object wake"
+        );
+        assert!(
             rt.projectile_hits_player(&slice),
-            "ASM GfxObjects_CollisionKid loc_1BCE rejects with strict bgt/blt misses, so Lion projectile left edge == Kid_hitbox_right is still contact"
+            "ASM Lion.asm loc_3E192 consumes the inclusive-edge contact on the following object wake"
         );
         assert_eq!(
             rt.projectiles.len(),

@@ -5454,7 +5454,7 @@ impl NativeRuntime {
         let stomp_blocked = self.stomp_registration_blocked_loc_1ce4(slice.player);
         self.projectiles.iter().any(|projectile| {
             projectile.kind == EnemyProjectileKind::ArcherArrow
-                && projectile.archer_kid_contact_pending
+                && projectile.kid_contact_pending
                 && !projectile.friendly
                 && projectile_player_contact_kind_loc_b640(
                     (projectile.y_pos >> 16) as i32 - player_y,
@@ -5576,11 +5576,16 @@ impl NativeRuntime {
             // ASM GfxObjects_CollisionKid writes `$28` for the arrow after
             // the movement pass. Enemy07_ArcherArrow_Init loc_342D6 consumes
             // that result on its next wake, as at Scorpion Isle frames 194-195.
-            if p.kind == EnemyProjectileKind::ArcherArrow && !p.archer_kid_contact_pending {
-                p.archer_kid_contact_pending = overlaps_now;
+            if matches!(
+                p.kind,
+                EnemyProjectileKind::ArcherArrow | EnemyProjectileKind::LionProjectile
+            ) && !p.kid_contact_pending
+            {
+                p.kid_contact_pending = overlaps_now;
                 return true;
             }
-            let overlaps = overlaps_now || p.archer_kid_contact_pending;
+            let contact_pending = std::mem::take(&mut p.kid_contact_pending);
+            let overlaps = overlaps_now || contact_pending;
             if overlaps {
                 let projectile_contact = if p.kind == EnemyProjectileKind::ShooterBlock {
                     // ASM Process_ShooterObjects loc_EDFA..loc_EF62 is a
