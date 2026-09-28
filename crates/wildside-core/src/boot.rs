@@ -8212,7 +8212,7 @@ impl NativeRuntime {
                         // no-title-card bootstrap through Load_InGame, so the
                         // hidden carry window must collapse back to the fresh
                         // settled respawn slice before live gameplay begins.
-                        self.reset_current_level_runtime_state_for_respawn();
+                        self.reset_current_level_runtime_state_for_respawn(false);
                         self.starting_level_title_workers.clear();
                     } else if title_card_bootstrap_active {
                         // ASM loc_1AE2E only gates the later visible
@@ -8238,7 +8238,16 @@ impl NativeRuntime {
                             // loc_11FC8 -> Murderwall before visible gameplay,
                             // so the pre-Start title shell must not carry an
                             // aged wall or hidden crush-death into Mode_Level.
-                            self.refresh_title_card_handoff_runtime_loc_1ae2e();
+                            let defer_enemy_loading_until_live = self
+                                .recording_oracle_settle_completed
+                                && matches!(
+                                    self.player_lifecycle,
+                                    PlayerLifecycle::Respawning { .. }
+                                )
+                                && self.respawn_live_handoff_frames > 0;
+                            self.refresh_title_card_handoff_runtime_loc_1ae2e(
+                                defer_enemy_loading_until_live,
+                            );
                             self.player_lifecycle = PlayerLifecycle::Alive;
                         }
                         self.starting_level_title_workers.clear();
@@ -8507,6 +8516,14 @@ impl NativeRuntime {
 
         match self.player_lifecycle {
             PlayerLifecycle::Alive => {
+                if self.respawn_live_handoff_frames > 0 {
+                    // ASM loc_1AE2E -> loc_6E2 -> Load_InGame keeps cycling
+                    // the newly loaded object and camera mirrors after Kid is
+                    // released to Mode_Level. Preserve that visible tail for
+                    // state comparison while ordinary gameplay resumes.
+                    self.respawn_live_handoff_frames =
+                        self.respawn_live_handoff_frames.saturating_sub(1);
+                }
                 // ASM loc_BC5C/loc_BC6E (kid.asm:15203/15210): the damage-flash
                 // thread hibernates 2+4 frames per cycle, 11 cycles = 66 frames.
                 // Native models this as a simple countdown. The thread is an
@@ -8623,13 +8640,11 @@ impl NativeRuntime {
                     // 2P: both have lives, switch turns
                     self.player_lifecycle = PlayerLifecycle::Alive;
                 } else {
-                    // ASM loc_BC40/loc_BC5C (kid.asm:15187-15210): only a
-                    // prior damage hit latches Just_received_damage and starts
-                    // the post-respawn 66-frame flash; pit/timer deaths do not.
-                    let respawn_damage_flash = self.just_received_damage;
                     let death_respawn_trace_profile = self.death_respawn_trace_profile_for_route();
-                    self.reset_current_level_runtime_state_for_respawn();
-                    self.just_received_damage = respawn_damage_flash;
+                    let defer_enemy_loading_until_live = self.recording_oracle_settle_completed;
+                    self.reset_current_level_runtime_state_for_respawn(
+                        defer_enemy_loading_until_live,
+                    );
                     self.death_respawn_trace_profile = death_respawn_trace_profile;
                     self.rebuild_death_respawn_title_workers_loc_b8de();
                     self.player_lifecycle = PlayerLifecycle::Respawning {
@@ -8695,7 +8710,31 @@ impl NativeRuntime {
                 if self.respawn_live_handoff_frames > 0 {
                     self.respawn_live_handoff_frames =
                         self.respawn_live_handoff_frames.saturating_sub(1);
-                    if self.respawn_live_handoff_frames == 0 {
+                    let live_release_remaining =
+                        self.death_respawn_live_release_remaining_frames_loc_1ae2e();
+                    if self.respawn_live_handoff_frames == live_release_remaining {
+                        // ASM lose_life -> loc_B8DE -> Load_InGame calls
+                        // Init_Timer_and_Bonus_Flags loc_6551 after the title
+                        // shell. FC36 is set, so it clears Time_Frames here,
+                        // immediately before the first resumed Mode_Level tail.
+                        self.time_frames_loc_3038a = 0;
+                        self.reset_and_preload_mode_level_tail_loc_720_2ffe8();
+                        // ASM loc_720 clears $FA58..$FA61, then Load_InGame
+                        // calls sub_44B0 before the first resumed Mode_Level
+                        // loc_80C HUD pass. The title shell has aged native's
+                        // resident clocks, so restore the Load_InGame state at
+                        // this measured release boundary.
+                        self.hud_animation_state =
+                            HudAnimationStateSub44DC::initialised_from_sub_44_b0();
+                        if live_release_remaining > 0 && self.active_enemies.is_empty() {
+                            self.load_settled_death_enemies_at_live_handoff_loc_368a8();
+                        }
+                        // ASM loc_1AE2E -> loc_6E2 -> Mode_Level runs the
+                        // release frame's Execute_Objects loc_E12 pass after
+                        // Load_InGame exposes Kid. Native returns from the
+                        // lifecycle hand-off below, so consume that pass's
+                        // RNG longword explicitly (#370 oracle frame 571).
+                        let _ = self.rom_random.next_long();
                         self.player_lifecycle = PlayerLifecycle::Alive;
                         // ASM loc_BC5C/loc_BC6E damage-flash duration: 11
                         // cycles of 2+4 hibernate frames = 66 frames.
@@ -8847,7 +8886,7 @@ impl NativeRuntime {
                     self.progression.diamond_count = 0;
                     self.progression.extra_hitpoint_slots = 0;
                     let death_respawn_trace_profile = self.death_respawn_trace_profile_for_route();
-                    self.reset_current_level_runtime_state_for_respawn();
+                    self.reset_current_level_runtime_state_for_respawn(false);
                     self.death_respawn_trace_profile = death_respawn_trace_profile;
                     self.rebuild_death_respawn_title_workers_loc_b8de();
                     self.player_lifecycle = PlayerLifecycle::Respawning {

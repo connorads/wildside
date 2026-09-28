@@ -1358,7 +1358,8 @@ pub(crate) struct ActiveEnemy {
     /// Dragon Flying: script variant (0, 1, 2) from layout skin byte.
     /// Dragon Walking reuses bit 7 for Dragon.asm loc_3CD16's `$5C(a5)`
     /// parent-spawned-child flag and bit 6 for Kid_Transform loc_7E90's retained
-    /// callback phase; no layout walking-dragon variant uses either bit.
+    /// callback phase. Bit 5 marks the pending loc_3E546 -> loc_3E79E initial
+    /// airborne entry; no layout walking-dragon variant uses these bits.
     /// Archer reuses bit 7 for table-selection initialisation and bit 0 for
     /// the cycle's selected vertical shooting table. Tar Monster reuses bit 0
     /// for primary GfxObject `$13(a2)` visibility from loc_32308.
@@ -1509,6 +1510,7 @@ pub(crate) struct ActiveEnemy {
 
 pub(crate) const DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG: u8 = 0x80;
 pub(crate) const DRAGON_WALKING_TRANSFORM_TIMER_ALIGNED_FLAG: u8 = 0x40;
+pub(crate) const DRAGON_WALKING_INITIAL_AIRBORNE_ENTRY_PENDING_FLAG: u8 = 0x20;
 pub(crate) const ARMADILLO_PARENT_SPAWNED_CHILD_FLAG: u8 = 0x80;
 pub(crate) const ARMADILLO_SPAWNED_CHILD_FALL_WAIT_TIMER_LOC_3C954: u16 = 0xC954;
 
@@ -10480,6 +10482,7 @@ fn dragon_walking_wall_snap_x(wall_x_px: i32, moving_right: bool) -> u32 {
 }
 
 fn step_dragon_walking_airborne(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    let prior_y_word = enemy.y_pos >> 16;
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
@@ -10517,7 +10520,7 @@ fn step_dragon_walking_airborne(enemy: &mut ActiveEnemy, block_grid: Option<&ter
 
     if floor.on_ground {
         let floor_y_fp = (floor.floor_y_px as u32) << 16;
-        if enemy.y_velocity >= 0 && enemy.y_pos >= floor_y_fp {
+        if enemy.y_velocity > 0 && enemy.y_pos >> 16 != prior_y_word && enemy.y_pos >= floor_y_fp {
             enemy.y_pos = floor_y_fp;
             enemy.y_velocity = 0;
             enemy.x_velocity = 0;
@@ -10543,6 +10546,7 @@ fn step_dragon_walking_airborne_after_x_commit(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
 ) {
+    let prior_y_word = enemy.y_pos >> 16;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
     let Some(grid) = block_grid else {
@@ -10564,7 +10568,7 @@ fn step_dragon_walking_airborne_after_x_commit(
 
     if floor.on_ground {
         let floor_y_fp = (floor.floor_y_px as u32) << 16;
-        if enemy.y_velocity >= 0 && enemy.y_pos >= floor_y_fp {
+        if enemy.y_velocity > 0 && enemy.y_pos >> 16 != prior_y_word && enemy.y_pos >= floor_y_fp {
             enemy.y_pos = floor_y_fp;
             enemy.y_velocity = 0;
             enemy.x_velocity = 0;
@@ -16079,6 +16083,11 @@ impl NativeRuntime {
                 y_pos: frame.camera_y_pos,
             };
             let window = ActivationWindow::from_camera(camera);
+            let active_before = self
+                .active_enemies
+                .iter()
+                .map(ActiveEnemyKey::from_enemy)
+                .collect::<std::collections::HashSet<_>>();
             activate_enemies_with_rng(
                 &mut self.active_enemies,
                 &enemy_layout,
@@ -16094,6 +16103,18 @@ impl NativeRuntime {
                 &mut self.enemy_status_words,
                 &mut self.rom_random,
             );
+            for enemy in self.active_enemies.iter_mut().filter(|enemy| {
+                enemy.family == EnemyFamily::DragonWalking
+                    && !active_before.contains(&ActiveEnemyKey::from_enemy(enemy))
+            }) {
+                // ASM Dragon.asm loc_3CE84 -> Lion.asm loc_3E546/loc_3E79E:
+                // the collapsed settled loader exposes a fresh walker before
+                // its first airborne terrain pass. Ordinary live and demo
+                // allocation execute this phase naturally in the scheduler.
+                enemy.on_ground = false;
+                enemy.grounded_frames = 1;
+                enemy.dragon_script_variant |= DRAGON_WALKING_INITIAL_AIRBORNE_ENTRY_PENDING_FLAG;
+            }
             self.ensure_heady_metal_breakup_slots_loc_39247();
             if frame.camera_x_pos == final_camera_x_pos
                 && (level_id != LevelId(0x1B) || frame.camera_y_pos == final_camera_y_pos)
@@ -16174,6 +16195,15 @@ impl NativeRuntime {
             }
         }
         self.rebuild_active_enemy_roster();
+    }
+
+    pub(crate) fn load_settled_death_enemies_at_live_handoff_loc_368a8(&mut self) {
+        // ASM Load_InGame -> Manage_EnemyLoading loc_368A8 runs after the
+        // visible Kid/base-worker roster. The release lifecycle returns before
+        // the allocation's first Execute_Objects pass, which supplies the ROM
+        // init delay: oracle #370 exposes the Level 1 Dragon at its layout X
+        // on frame 572 and first moves it on frame 573.
+        self.prime_respawn_settle_enemy_loading_loc_368a8(self.current_level);
     }
 
     pub(crate) fn prime_probe_camera_enemy_loading_loc_31f8e_368a8(&mut self) {
@@ -16443,6 +16473,15 @@ impl NativeRuntime {
             // sprite exits, so Mode_Level loc_80C does not resume object
             // execution or enemy loading during the visible tumble.
             self.rebuild_active_enemy_roster();
+            return;
+        }
+        if self.recording_oracle_settle_completed
+            && matches!(self.player_lifecycle, PlayerLifecycle::Respawning { .. })
+        {
+            // ASM Load_TitleCard runs Mode_Standard, so the settled death
+            // shell has no Execute_Objects enemy activation before loc_1AE2E
+            // enters Load_InGame. The #370 oracle first exposes its Dragon at
+            // the live boundary instead of ageing it under the title card.
             return;
         }
 
@@ -16797,6 +16836,11 @@ impl NativeRuntime {
         ) || self.paused
             || self.gameplay_hibernating_for_transform()
             || self.debug_level_entry_mode_level_active_loc_74e0()
+            || (self.recording_oracle_settle_completed
+                && matches!(
+                    self.player_lifecycle,
+                    PlayerLifecycle::Dying { .. } | PlayerLifecycle::Respawning { .. }
+                ))
             || !self.enemy_loading_enabled()
         {
             return;

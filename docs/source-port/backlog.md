@@ -31,12 +31,12 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-09-27):** #370 remains in progress after the first natural Dragon-breath death/reload timing unit. The saved 620-frame JEV route now reaches live Level 0 on oracle frame 571 instead of nine frames early; title-card object/RNG cadence is exact through the Start hand-off. The verified cleanup negative control fails after a 303-frame common prefix.
-- **Selection:** Continue #370 from the first remaining authoritative Load_InGame state boundary. Oracle clears Kid at frame 529, clears the title roster at 533, and begins camera preload at 559. Reuse the saved route and offline check; do not navigate again.
+- **Current work (2026-09-28):** #370 is objectively closed. The saved natural Dragon-breath death route matches emulator state and exact pixels for all 620 frames, including the hidden death loader and live hand-off; its cleanup negative control fails after a 303-frame common prefix.
+- **Selection:** With no open implementation risk, investigate the highest-priority objective awaiting-human case under the completion campaign. Start with #169's saved BLW2 Drips evidence and require a concrete placement/drop/attack witness before moving it to the open lane.
 - **Scope:** Single-player across all playable levels, branches, forms and bosses. Preserve frozen #406/#409/#416 timing debt and its ratchets. Final package retains subjective/device checks; no human validation is claimed.
 - **Jev allowance:** $5 additional across the campaign. BLW2 used 100 requests and $0.010448214. #502 used 269 charged requests across its three allowed attempts, adding $0.045005898. #433 used 84 requests across two attempts. The ledger lifetime charged upper bound is $0.250016004, including $0.000242592 for the #344 smoke. #370 checks used saved input only and spent nothing. #502's window and attempts are exhausted.
 - **Jev exploration review:** Revision `cf5d84937`. #433 was the highest-priority eligible gap, but its 20-minute case window had expired. Offline ROM graph discovery replaced the false no-entry premise and found the natural Crypt chain. No request or spend occurred. Restart the three-fix cadence from this review.
-- **#370 evidence:** `.cache/jev-cases/1790466052336068000` records fatal frame 302, title reload frame 409 and live frame 571. Replay trace matches. Oracle state remains red at the later Load_InGame WRAM phases, so navigation success does not close the issue.
+- **#370 evidence:** `.cache/jev-cases/1790566188040887000` proves the fatal frame 302, reload frame 409 and live frame 571 route with exact trace, emulator state and pixels across frames 0..619. No paid request occurred.
 - **Evidence boundary:** Published-route state/RNG gates cover one route. Frozen visual debt is 241 frames / 2,391 pixels. Neither that replay nor idle sweep checkpoints proves whole-game completion.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
@@ -59,7 +59,6 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 370 | [~] | P0 | enemy/projectile | Natural Dragon-breath death clears the projectile and resumes on the oracle frame; hidden Load_InGame WRAM phases still differ. | Saved 620-frame JEV route reaches live frame 571 with verified cleanup control; continue from Kid clear frame 529, roster clear 533 and camera preload 559. See archive #370. |
 | 406 | [f] | P1 | rendering | FROZEN with #409 per ADR 0002: the lane stops accruing sessions; the march stays metered as ADR 0001 left it (frontier 995, injection ratchet). Residue authority moves to census-scoped reconstruction + raster-span-replay. | Do not extend the march; ratchets stay green; take #442-#450 instead. See ADR 0002. |
 | 409 | [f] | P1 | rendering | FROZEN per ADR 0002: the recurrence is a downward-only witness (scheduled-frames ratchet 736 / boundary 1657; tas-pixel-baseline). ADR 0003 corrected the spans; #459 found the bounded entry phase non-invertible and closed NO-GO. | Do not extend or promote the lane; keep the 2,391-pixel and scheduled-frame ratchets green. Evidence: archive #459. |
 | 416 | [f] | P2 | audio | Frontier FROZEN at frames 0..922 (decision in archive #416): `gems_frame_signature_v1` is a regression witness only; command parity (#435) supersedes it as audio authority. | Never advance `modelled_frames`; #434-#438 closed, remaining audio debt tracked via #439-#441; keep verify-tas-full green. |

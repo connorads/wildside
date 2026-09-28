@@ -979,20 +979,6 @@
     "scope": "Capture the exact Highwater frame where the flag base is missing before cleanup."
   },
   {
-    "issue": 370,
-    "readiness": "needs_comparison",
-    "active_path": "DragonWalkingBreath projectile collision then Load_InGame respawn cleanup",
-    "route": "mise run jev-case -- check --issue 370; 620 ordinary frames, natural breath fatal hit at 302, Start at 500, living gameplay at 562",
-    "evidence": [
-      "docs/source-port/backlog-awaiting-human.md#issue-370",
-      "docs/source-port/backlog-archive.md#issue-370",
-      "crates/wildside-core/src/tests/level_tests.rs:14301",
-      "docs/source-port/jev-pilot-results.md"
-    ],
-    "next_action": "Replace the collapsed death-loader phases using ASM/oracle evidence; death-loop RNG and HUD fixes pass, but fade at 377 and loader at 409 still diverge. Continue remains separate.",
-    "scope": "Die to walking Dragon breath in Blue Lake Woods 1; after reload/continue, no stale fire should remain or damage Kid."
-  },
-  {
     "issue": 372,
     "readiness": "inactive_path",
     "active_path": "Historical build_game_scene_filtered draw ordering bypassed by gameplay VDP recording path",

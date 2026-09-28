@@ -3997,8 +3997,8 @@ mod chunk_02 {
         );
         assert_eq!(
             runtime.death_respawn_live_handoff_frames_loc_1ae2e(),
-            PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES + 9,
-            "ASM loc_1AE2E -> loc_6E2 must retain the settled loader span before exposing Load_InGame",
+            TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E,
+            "ASM loc_1AE2E -> loc_6E2 must retain the full settled Load_InGame hand-off",
         );
 
         let vdp = runtime.vdp_state().expect(
@@ -4021,6 +4021,132 @@ mod chunk_02 {
                     && object.debug_fields.contains_key("glyph")
             }),
             "ASM loc_1AB26/loc_1AC70/loc_1AD48 should expose respawn title-card workers",
+        );
+    }
+
+    #[test]
+    fn settled_death_live_handoff_matches_loc_1ae2e_wram_phases() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(1));
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0);
+        runtime.recording_oracle_settle_completed = true;
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: crate::constants::PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
+        };
+
+        let mut trace_at = |elapsed: u8| {
+            runtime.respawn_live_handoff_frames =
+                TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E.saturating_sub(elapsed);
+            runtime.trace_frame()
+        };
+
+        let title_workers = trace_at(26);
+        assert_eq!(title_workers.kid_x_pos, Some(0x0040_0000));
+        assert_eq!(
+            (
+                title_workers.number_objects,
+                title_workers.number_gfx_objects
+            ),
+            (15, 14),
+            "ASM loc_1AE2E keeps the title-card roster through death-route elapsed frame 26",
+        );
+
+        let zeroed_kid = trace_at(27);
+        assert_eq!(
+            (zeroed_kid.kid_x_pos, zeroed_kid.kid_y_pos),
+            (Some(0), Some(0))
+        );
+        assert_eq!(
+            (zeroed_kid.number_objects, zeroed_kid.number_gfx_objects),
+            (15, 14),
+            "ASM loc_6E2 clears Kid before the death route drops its carried object lists",
+        );
+
+        let zeroed_title_workers = trace_at(30);
+        assert_eq!(
+            (
+                zeroed_title_workers.number_objects,
+                zeroed_title_workers.number_gfx_objects,
+            ),
+            (15, 14),
+        );
+
+        let cleared_roster = trace_at(31);
+        assert_eq!(
+            (
+                cleared_roster.number_objects,
+                cleared_roster.number_gfx_objects
+            ),
+            (0, 0),
+            "ASM loc_6E2 clears the carried title roster before Load_InGame rebuilds it",
+        );
+
+        assert_eq!(trace_at(57).camera_y_pos, 0x00E0_0000);
+        assert_eq!(trace_at(58).camera_y_pos, 0x00C0_0000);
+        assert_eq!(trace_at(59).camera_y_pos, 0x00E0_0000);
+        let preload = trace_at(68);
+        assert_eq!((preload.number_objects, preload.number_gfx_objects), (4, 2),);
+        let visible = trace_at(69);
+        assert_eq!(
+            (visible.number_objects, visible.number_gfx_objects),
+            (5, 4),
+            "ASM Load_InGame exposes Kid on the first rebuilt level-roster frame",
+        );
+        let visible_tail = trace_at(70);
+        assert_eq!(
+            (visible_tail.number_objects, visible_tail.number_gfx_objects),
+            (5, 5),
+        );
+    }
+
+    #[test]
+    fn settled_death_releases_gameplay_at_load_ingame_visible_frame_loc_1ae2e() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(1));
+        runtime.boot_state = BootState::InGame;
+        runtime.recording_oracle_settle_completed = true;
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: crate::constants::PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
+        };
+        runtime.respawn_live_handoff_frames =
+            runtime.death_respawn_live_release_remaining_frames_loc_1ae2e() + 1;
+        let rng_before_release = runtime.trace_frame().rng_offset;
+
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(runtime.player_lifecycle, PlayerLifecycle::Alive);
+        assert_eq!(
+            runtime.respawn_live_handoff_frames,
+            runtime.death_respawn_live_release_remaining_frames_loc_1ae2e(),
+            "ASM Load_InGame releases Mode_Level while its visible WRAM hand-off tail remains active",
+        );
+        assert_eq!(
+            runtime.trace_frame().rng_offset,
+            rng_before_release.map(|offset| offset.wrapping_add(4)),
+            "ASM Mode_Level -> Execute_Objects loc_E12 consumes the release frame's RNG longword",
+        );
+        runtime.active_enemy_roster.push(level_skip_test_object());
+        assert!(
+            runtime
+                .trace_frame()
+                .active_objects
+                .iter()
+                .all(|object| { !matches!(object.kind, NativeObjectKind::Enemy { .. }) }),
+            "ASM Load_InGame must not expose the first enemy on Kid's initial visible frame",
+        );
+
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(runtime.player_lifecycle, PlayerLifecycle::Alive);
+        assert_eq!(
+            runtime.respawn_live_handoff_frames,
+            runtime.death_respawn_live_release_remaining_frames_loc_1ae2e() - 1,
+        );
+        runtime.active_enemy_roster.push(level_skip_test_object());
+        assert!(
+            runtime
+                .trace_frame()
+                .active_objects
+                .iter()
+                .any(|object| matches!(object.kind, NativeObjectKind::Enemy { .. })),
+            "ASM loc_36840 exposes the first loaded enemy on the following Mode_Level frame",
         );
     }
 
@@ -5257,6 +5383,140 @@ mod chunk_02 {
             runtime.trace_frame().level_entry_fade_progress_sub_73d0,
             None,
             "ASM loc_741E deletes the fade worker once `$FFFFF876` has passed `$0100`"
+        );
+    }
+
+    #[test]
+    fn death_live_handoff_exports_saved_route_palette_phase_sub_73d0() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(1));
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0);
+        runtime.recording_oracle_settle_completed = true;
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: 1,
+        };
+
+        let set_handoff_elapsed = |runtime: &mut NativeRuntime, elapsed: usize| {
+            runtime.respawn_live_handoff_frames =
+                TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E.saturating_sub(elapsed as u8);
+        };
+
+        set_handoff_elapsed(
+            &mut runtime,
+            TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E + 1,
+        );
+        assert_eq!(
+            runtime.trace_frame().level_entry_fade_progress_sub_73d0,
+            Some(0x0010),
+            "ASM Load_InGame -> sub_73D0 increments F876 to `$0010` after the first saved-route black presentation"
+        );
+
+        set_handoff_elapsed(
+            &mut runtime,
+            TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E + 3,
+        );
+        assert_eq!(
+            runtime.trace_frame().level_entry_fade_progress_sub_73d0,
+            Some(0x0030),
+            "ASM sub_73D0 advances F876 to `$0030` after three settled death-route presentations"
+        );
+    }
+
+    #[test]
+    fn death_load_ingame_resets_time_frames_before_first_mode_level_tail_loc_6551() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels_and_playable_spawn(1));
+        start_level(&mut runtime);
+        runtime.recording_oracle_settle_completed = true;
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: 1,
+        };
+        let release_remaining = runtime.death_respawn_live_release_remaining_frames_loc_1ae2e();
+        runtime.respawn_live_handoff_frames = release_remaining + 1;
+        runtime.time_frames_loc_3038a = 0x00A2;
+
+        let release = runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            release.time_frames_loc_3038a, 1,
+            "ASM Init_Timer_and_Bonus_Flags loc_6551 clears Time_Frames before loc_3038A increments the first resumed Mode_Level tail; #370 oracle frame 571 is one"
+        );
+        assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));
+
+        let first_tail = runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            first_tail.time_frames_loc_3038a, 2,
+            "ASM loc_3038A increments Time_Frames again on the next Mode_Level tail; #370 oracle frame 572 is two"
+        );
+    }
+
+    #[test]
+    fn death_load_ingame_reseeds_hud_animation_before_first_loc_80c_pass() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels_and_playable_spawn(1));
+        start_level(&mut runtime);
+        runtime.recording_oracle_settle_completed = true;
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: 1,
+        };
+        let release_remaining = runtime.death_respawn_live_release_remaining_frames_loc_1ae2e();
+        runtime.respawn_live_handoff_frames = release_remaining + 1;
+        runtime.hud_animation_state = HudAnimationStateSub44DC {
+            coin_countdown_fb5b: 6,
+            coin_frame_offset_fb60: 10,
+            life_countdown_fb59: 6,
+            life_frame_offset_fb5e: 6,
+            clock_countdown_fb5a: 6,
+            clock_frame_offset_fb5f: 6,
+            diamond_countdown_fb58: 6,
+            diamond_frame_offset_fb5d: 4,
+            flag_countdown_fb5c: 6,
+            flag_frame_offset_fb61: 10,
+        };
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.hud_animation_state,
+            HudAnimationStateSub44DC {
+                coin_countdown_fb5b: 2,
+                coin_frame_offset_fb60: 0,
+                life_countdown_fb59: 3,
+                life_frame_offset_fb5e: 0,
+                clock_countdown_fb5a: 4,
+                clock_frame_offset_fb5f: 0,
+                diamond_countdown_fb58: 6,
+                diamond_frame_offset_fb5d: 2,
+                flag_countdown_fb5c: 1,
+                flag_frame_offset_fb61: 0,
+            },
+            "ASM loc_720 -> sub_44B0 -> loc_80C produces the #370 oracle frame 571 HUD clocks and diamond upload"
+        );
+    }
+
+    #[test]
+    fn death_title_loader_span_requires_a_measured_settled_bootstrap_profile_loc_726() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels_and_playable_spawn(0x1c));
+
+        runtime.recording_oracle_settle_completed = true;
+        runtime.current_level = LevelId(0);
+        assert_eq!(
+            runtime.death_respawn_title_card_loader_frames_loc_726(),
+            crate::constants::PLAYER_DEATH_TITLE_CARD_LOAD_FRAMES,
+            "#370 measures the explicit loc_726 loader after settled Level 0 entry"
+        );
+
+        runtime.current_level = LevelId(0x1b);
+        assert_eq!(
+            runtime.death_respawn_title_card_loader_frames_loc_726(),
+            0,
+            "unprofiled levels retain the published TAS death presentation until their own loc_726 loader span is measured"
+        );
+
+        runtime.current_level = LevelId(0);
+        runtime.recording_oracle_settle_completed = false;
+        assert_eq!(
+            runtime.death_respawn_title_card_loader_frames_loc_726(),
+            0,
+            "cold Level 0 entry already absorbs loc_726 into its measured hidden window"
         );
     }
 
@@ -13480,6 +13740,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         start_level(&mut runtime);
         runtime.progression.number_lives = 3;
         runtime.progression.number_hitpoints = 0;
+        runtime.recording_oracle_settle_completed = true;
         runtime.begin_death_windup();
         runtime.enter_death_hidden_state();
         assert_eq!(runtime.trace_frame().number_lives, 2);
@@ -13490,11 +13751,21 @@ PlatformScript_361C:   ; relative offset: 001A\n\
                 .number_lives,
             3
         );
-        // Natural breath route, oracle frames 377..394. The first three
-        // samples retain the source palette before the first visible step.
+        // Natural breath route, oracle frames 377..394. The death hand-off
+        // retains three source-palette presentations before the first visible
+        // interpolation step. `$110` is the trace renderer's source sentinel,
+        // not an observed F876 RAM value.
+        for _ in 0..3 {
+            assert_eq!(
+                runtime.trace_frame().level_entry_fade_progress_sub_73d0,
+                Some(0x0110),
+                "ASM Pal_FadeOut has not presented its first interpolated palette during the synchronous death hand-off"
+            );
+            runtime.step_frame(FrameInput::default());
+        }
         for progress in [
-            0x100, 0x100, 0x100, 0xF0, 0xE0, 0xD0, 0xC0, 0xB0, 0xA0, 0x90, 0x80, 0x70, 0x60, 0x50,
-            0x40, 0x30, 0x20, 0x10,
+            0x100, 0xF0, 0xE0, 0xD0, 0xC0, 0xB0, 0xA0, 0x90, 0x80, 0x70, 0x60, 0x50, 0x40, 0x30,
+            0x20,
         ] {
             assert_eq!(
                 runtime.trace_frame().level_entry_fade_progress_sub_73d0,
@@ -16973,7 +17244,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         runtime.level_damage_taken = true;
         runtime.level_prize_collected = true;
 
-        runtime.reset_current_level_runtime_state_for_respawn();
+        runtime.reset_current_level_runtime_state_for_respawn(false);
 
         assert!(
             !runtime.level_damage_taken,
@@ -17000,7 +17271,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         runtime.active_enemies.push(tank);
         runtime.played_sound_commands.clear();
 
-        runtime.reset_current_level_runtime_state_for_respawn();
+        runtime.reset_current_level_runtime_state_for_respawn(false);
 
         assert!(
             runtime
@@ -17029,7 +17300,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         runtime.active_enemy_roster.clear();
         runtime.enemy_status_words.fill(0);
 
-        runtime.reset_current_level_runtime_state_for_respawn();
+        runtime.reset_current_level_runtime_state_for_respawn(false);
 
         assert!(
             !runtime.active_enemies.is_empty(),
@@ -17039,6 +17310,48 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             runtime.active_enemy_roster.len(),
             runtime.active_enemies.len(),
             "respawn loc_368A8 priming should rebuild the active roster with the spawned enemies"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn settled_death_title_shell_defers_loc_368A8_until_live_handoff() {
+        let mut manifest = manifest_with_levels(3);
+        let enemy_layout = manifest.levels[0]
+            .enemy_layout_metadata
+            .as_mut()
+            .expect("test manifest should include an enemy layout");
+        enemy_layout.objects[0].x = 0x0750;
+        enemy_layout.objects[0].y = 0x00E0;
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        start_level(&mut runtime);
+        runtime.recording_oracle_settle_completed = true;
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: crate::constants::PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
+        };
+        runtime.pending_player_contact_damage = Some(PendingPlayerContactDamage {
+            enemy_x: 0x00C8_0000,
+            enemy_family: EnemyFamily::DragonWalking,
+        });
+
+        runtime.reset_current_level_runtime_state_for_respawn(true);
+        runtime.refresh_title_card_handoff_runtime_loc_1ae2e(true);
+        runtime.refresh_active_roster();
+        runtime.manage_enemy_loading_after_execute_objects_loc_80c();
+        assert!(
+            runtime.active_enemies.is_empty(),
+            "ASM Load_TitleCard uses Mode_Standard, so its hidden object passes must not run Mode_Level Manage_EnemyLoading loc_368A8",
+        );
+        assert!(
+            runtime.pending_player_contact_damage.is_none(),
+            "ASM loc_6E2 clears Object_RAM collision words before Load_InGame rebuilds the level",
+        );
+
+        runtime.load_settled_death_enemies_at_live_handoff_loc_368a8();
+        assert!(
+            !runtime.active_enemies.is_empty(),
+            "ASM loc_1AE2E -> Load_InGame should allocate the in-window enemy at the live hand-off",
         );
     }
 

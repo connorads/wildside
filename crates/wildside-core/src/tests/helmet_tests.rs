@@ -2182,11 +2182,12 @@ mod chunk_08 {
         );
     }
 
-    /// ASM loc_BC40 (kid.asm:15187) keeps `Just_received_damage` as the source
-    /// of the post-hit flash; lose_life/reset must not erase that latch before
-    /// the respawn hand-off decides whether to seed invulnerability.
+    /// ASM loc_BC5C/loc_BC6E (kid.asm:15203-15214) clears
+    /// `Just_received_damage` before Load_InGame rebuilds the death route.
+    /// The #370 oracle changes the latch from true to false at the reset
+    /// boundary and keeps respawn invulnerability at zero.
     #[test]
-    fn damage_latched_dying_reset_preserves_respawn_invulnerability_source() {
+    fn damage_latched_dying_reset_clears_respawn_invulnerability_source() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(4));
         runtime.set_block_grid(grid_with_floor_at_row(17));
         runtime.boot_state = BootState::InGame;
@@ -2203,8 +2204,8 @@ mod chunk_08 {
             PlayerLifecycle::Respawning { .. }
         ));
         assert!(
-            runtime.just_received_damage,
-            "damage-latched lose_life reset must preserve Just_received_damage until the live respawn hand-off consumes it"
+            !runtime.just_received_damage,
+            "ASM loc_BC6E clears Just_received_damage before the death route enters Load_InGame"
         );
     }
 

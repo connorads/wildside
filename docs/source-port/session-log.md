@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-28 - #370 objective closure
+
+The saved natural Dragon-breath death route now matches emulator state and exact pixels for all 620 frames, including the hidden death loader and live hand-off. Its cleanup negative control fails after a 303-frame common prefix. #370 closes with the fast and full TAS gates green and no paid JEV request.
+
 ## 2026-09-27 - #370 death reload timing
 
 The saved natural Dragon-breath route now returns to live Level 0 on oracle frame 571 instead of nine frames early. Title-card RNG and worker counts match through the Start hand-off, and the cleanup negative control still fails after 303 identical frames. #370 stays open for the hidden Kid, roster and camera preload phases. No paid JEV request occurred.

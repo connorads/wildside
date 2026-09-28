@@ -155,7 +155,7 @@ def capture(output, spec, inputs, checkpoints, env, live=False):
 
 def mutate(issue, source):
     if issue == 370:
-        marker = "    pub(crate) fn reset_current_level_runtime_state_for_respawn(&mut self) {"
+        marker = "    pub(crate) fn reset_current_level_runtime_state_for_respawn("
         if source.count(marker) != 1:
             raise ValueError("respawn boundary changed")
         begin = source.index(marker)

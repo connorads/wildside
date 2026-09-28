@@ -2452,7 +2452,7 @@ impl NativeRuntime {
     }
 
     fn finish_pause_restart_round_loc_6c3e(&mut self) {
-        self.reset_current_level_runtime_state_for_respawn();
+        self.reset_current_level_runtime_state_for_respawn(false);
         // ASM loc_6C3E clears Game_Paused after the loc_6E2 restart shell.
         self.paused = false;
         self.pause_menu_option = 0;
@@ -2702,6 +2702,16 @@ impl NativeRuntime {
             BootState::StartingLevel { elapsed_frames, .. } => Some(elapsed_frames),
             _ => None,
         };
+        let death_respawn_elapsed_frames = self.death_respawn_bootstrap_elapsed_frames();
+        let death_title_loader_frames = self.death_respawn_title_card_loader_frames_loc_726();
+        let death_title_elapsed_frames = (death_title_loader_frames > 0)
+            .then_some(death_respawn_elapsed_frames)
+            .flatten()
+            .map(|elapsed| {
+                movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
+                    .saturating_add(1)
+                    .saturating_add(elapsed.saturating_sub(death_title_loader_frames))
+            });
         let previous_vdp_state = self.vdp_state.clone();
         if matches!(
             self.boot_state,
@@ -3374,10 +3384,30 @@ impl NativeRuntime {
                 // before Load_InGame. The hidden respawn shell therefore
                 // renders the current level's title-card VDP background, not
                 // a plain black transition frame.
-                let theme_index = self.current_level_title_card_theme_index();
-                self.title_card_data
-                    .as_ref()
-                    .and_then(|data| vdp::build_title_card_vdp(data, theme_index))
+                let respawn_elapsed = death_respawn_elapsed_frames.unwrap_or_default();
+                let live_handoff_elapsed = self.death_live_handoff_elapsed_frames_loc_1ae2e();
+                if death_title_loader_frames > 0
+                    && (respawn_elapsed < 3
+                        || live_handoff_elapsed.is_some_and(|elapsed| {
+                        (15..TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E)
+                            .contains(&elapsed)
+                    }))
+                {
+                    // ASM loc_6E2 -> loc_700/loc_70E clears VRAM before
+                    // Load_TitleCard, and repeats that clear after Start before
+                    // Load_InGame becomes visible. Saved #370 oracle frames
+                    // anchor the synchronous loader and second clear boundaries.
+                    Some(vdp::blank_vdp_state())
+                } else if live_handoff_elapsed.is_some_and(|elapsed| {
+                    elapsed >= TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E
+                }) {
+                    None
+                } else {
+                    let theme_index = self.current_level_title_card_theme_index();
+                    self.title_card_data
+                        .as_ref()
+                        .and_then(|data| vdp::build_title_card_vdp(data, theme_index))
+                }
             }
             _ => None,
         };
@@ -3391,6 +3421,30 @@ impl NativeRuntime {
             if let Some(vdp) = self.vdp_state.as_mut() {
                 vdp::overlay_title_card_worker_sat_loc_1ac70(vdp, &workers);
             }
+        }
+        if let Some(elapsed_frames) = death_title_elapsed_frames
+            && self
+                .death_live_handoff_elapsed_frames_loc_1ae2e()
+                .is_none_or(|elapsed| elapsed < 15)
+        {
+            let workers = self.starting_level_title_vdp_workers_loc_1ac70(elapsed_frames);
+            if let Some(vdp) = self.vdp_state.as_mut() {
+                vdp::overlay_title_card_worker_sat_loc_1ac70(vdp, &workers);
+            }
+        }
+        if let Some(elapsed) = self.death_live_handoff_elapsed_frames_loc_1ae2e()
+            && elapsed < 15
+            && let Some(vdp) = self.vdp_state.as_mut()
+        {
+            // ASM loc_1AE2E -> loc_6E2 runs Pal_FadeOut over the complete
+            // resident title-card VDP, including loc_1AC70 sprite workers,
+            // before loc_700 clears VRAM.
+            let progress = 0x0100u16.saturating_sub(
+                u16::try_from(elapsed.saturating_sub(1))
+                    .unwrap_or(u16::MAX)
+                    .saturating_mul(0x10),
+            );
+            vdp::apply_pal_fade_out_to_black_loc_28c6(vdp, progress);
         }
     }
 
@@ -4044,7 +4098,10 @@ impl NativeRuntime {
         if title_card_loader_completed_at_frame_start {
             // ASM Load_InGame clears the title roster and reloads the level
             // before the first live Execute_Objects pass resumes.
-            self.refresh_title_card_handoff_runtime_loc_1ae2e();
+            let defer_enemy_loading_until_live = self.recording_oracle_settle_completed
+                && matches!(self.player_lifecycle, PlayerLifecycle::Respawning { .. })
+                && self.respawn_live_handoff_frames > 0;
+            self.refresh_title_card_handoff_runtime_loc_1ae2e(defer_enemy_loading_until_live);
             // ASM Init_Animation loc_1040: apply the recorded-title Gfx
             // handoff at allocation, before the stable live window ages it.
             self.prime_recording_warp_sprite_animation_clocks(false);

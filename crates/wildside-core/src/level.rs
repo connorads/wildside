@@ -19026,7 +19026,10 @@ impl NativeRuntime {
         self.copy_helmet_palette_loc_7508(self.progression.current_form.helmet_id());
     }
 
-    pub(crate) fn reset_current_level_runtime_state_for_respawn(&mut self) {
+    pub(crate) fn reset_current_level_runtime_state_for_respawn(
+        &mut self,
+        defer_enemy_loading_until_live: bool,
+    ) {
         // ASM Load_InGame j_StopMusic resets the GEMS driver on the
         // respawn re-entry; mirror it before the bulk clears below drop the live
         // Rock Tank / clock-prize drones (the per-exit stop edge never fires
@@ -19037,7 +19040,17 @@ impl NativeRuntime {
         let level_id = self.current_level;
         self.reload_block_grid_for_level(level_id);
         self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(level_id));
+        self.stomped_this_frame = false;
+        self.kid_touched_enemy_last_frame_loc_fa74 = false;
+        self.kid_touched_enemy_this_frame_loc_fa75 = false;
+        self.pending_stomp_bounce = None;
+        self.pending_player_contact_damage = None;
         self.pending_spike_damage_loc_91a6 = false;
+        self.hidden_shell_contact_latched_frame_loc_1cf2 = None;
+        self.delayed_player_contact_damage = None;
+        self.shooter_barrel_damage_latched_loc_1f52 = false;
+        self.pending_grounded_dragon_landing_graze = None;
+        self.pending_enemy_collisions.clear();
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.pending_dragon_death_children.clear();
@@ -19123,12 +19136,17 @@ impl NativeRuntime {
         // ASM Load_InGame -> Manage_EnemyLoading loc_368A8: respawn reloads the
         // current level and runs enemy loading during the hidden settle window.
         // Native floor-snap collapses that window, so replay it after reset clears.
-        self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
+        if !defer_enemy_loading_until_live {
+            self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
+        }
     }
 
-    pub(crate) fn refresh_title_card_handoff_runtime_loc_1ae2e(&mut self) {
+    pub(crate) fn refresh_title_card_handoff_runtime_loc_1ae2e(
+        &mut self,
+        defer_enemy_loading_until_live: bool,
+    ) {
         let current_form = self.progression.current_form;
-        self.reset_current_level_runtime_state_for_respawn();
+        self.reset_current_level_runtime_state_for_respawn(defer_enemy_loading_until_live);
         // ASM loc_1AE2E writes `Game_Mode=$000C` and jumps through loc_6E2
         // into Load_InGame; unlike lose_life/Use_Continue, it does not clear
         // `Current_Helmet_ID` while refreshing the level runtime.

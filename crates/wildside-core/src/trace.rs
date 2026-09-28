@@ -9396,11 +9396,27 @@ impl NativeRuntime {
         })
     }
 
+    pub(crate) fn death_live_handoff_elapsed_frames_loc_1ae2e(&self) -> Option<usize> {
+        (self.respawn_live_handoff_frames > 0
+            && self.death_respawn_title_card_loader_frames_loc_726() > 0)
+            .then(|| {
+                usize::from(
+                    TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E
+                        .saturating_sub(self.respawn_live_handoff_frames),
+                )
+            })
+    }
+
     fn title_card_live_handoff_palette_fade_progress_sub_73d0(&self) -> Option<u16> {
         // ASM loc_1AE2E -> loc_6E2 -> Load_InGame -> sub_73D0: the normal
         // title-card hand-off keeps CRAM black through the hidden load window,
         // then advances `$FFFFF876` by `$10` per visible fade frame.
-        let elapsed = self.title_card_live_handoff_elapsed_frames_loc_1ae2e()?;
+        let (elapsed, applied_lag) =
+            if let Some(elapsed) = self.title_card_live_handoff_elapsed_frames_loc_1ae2e() {
+                (elapsed, 3)
+            } else {
+                (self.death_live_handoff_elapsed_frames_loc_1ae2e()?, 0)
+            };
         if elapsed < TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E {
             return Some(0);
         }
@@ -9408,7 +9424,7 @@ impl NativeRuntime {
             elapsed.saturating_sub(TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E);
         // Oracle frame 980 CRAM word `$0731` anchors this lag: sub_14C0
         // consumes the current fade counter before loc_741E increments it.
-        let applied_elapsed = visible_elapsed.saturating_sub(3);
+        let applied_elapsed = visible_elapsed.saturating_sub(applied_lag);
         let fade_progress = u16::try_from(applied_elapsed)
             .unwrap_or(u16::MAX)
             .saturating_mul(0x10);
@@ -9545,6 +9561,15 @@ impl NativeRuntime {
 
     fn title_card_live_handoff_player_state_loc_1ae2e(&self) -> Option<PlayerState> {
         let elapsed = self.title_card_live_handoff_elapsed_frames_loc_1ae2e()?;
+        self.load_ingame_handoff_player_state_loc_1ae2e(elapsed)
+    }
+
+    fn death_live_handoff_player_state_loc_1ae2e(&self) -> Option<PlayerState> {
+        let elapsed = self.death_live_handoff_elapsed_frames_loc_1ae2e()?;
+        self.load_ingame_handoff_player_state_loc_1ae2e(elapsed)
+    }
+
+    fn load_ingame_handoff_player_state_loc_1ae2e(&self, elapsed: usize) -> Option<PlayerState> {
         if elapsed < TITLE_CARD_LIVE_HANDOFF_TITLE_WORKER_FRAMES_LOC_1AE2E {
             return Some(PlayerState {
                 // ASM loc_1AE2E -> loc_6E2 has entered live mode, but the
@@ -9648,6 +9673,15 @@ impl NativeRuntime {
 
     fn title_card_live_handoff_camera_state_loc_1ae2e(&self) -> Option<CameraState> {
         let elapsed = self.title_card_live_handoff_elapsed_frames_loc_1ae2e()?;
+        self.load_ingame_handoff_camera_state_loc_1ae2e(elapsed)
+    }
+
+    fn death_live_handoff_camera_state_loc_1ae2e(&self) -> Option<CameraState> {
+        let elapsed = self.death_live_handoff_elapsed_frames_loc_1ae2e()?;
+        self.load_ingame_handoff_camera_state_loc_1ae2e(elapsed)
+    }
+
+    fn load_ingame_handoff_camera_state_loc_1ae2e(&self, elapsed: usize) -> Option<CameraState> {
         if elapsed + 12 == TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E {
             return Some(CameraState {
                 x_pos: 0,
@@ -9711,27 +9745,45 @@ impl NativeRuntime {
 
     fn title_card_live_handoff_object_counts_loc_1ae2e(&self) -> Option<(u16, u16)> {
         let elapsed = self.title_card_live_handoff_elapsed_frames_loc_1ae2e()?;
-        if elapsed < TITLE_CARD_LIVE_HANDOFF_TITLE_WORKER_FRAMES_LOC_1AE2E {
+        Some(Self::load_ingame_handoff_object_counts_loc_1ae2e(elapsed))
+    }
+
+    fn death_live_handoff_object_counts_loc_1ae2e(&self) -> Option<(u16, u16)> {
+        let elapsed = self.death_live_handoff_elapsed_frames_loc_1ae2e()?;
+        if (TITLE_CARD_LIVE_HANDOFF_TITLE_WORKER_FRAMES_LOC_1AE2E
+            ..TITLE_CARD_LIVE_HANDOFF_ZEROED_TITLE_WORKER_FRAMES_LOC_1AE2E)
+            .contains(&elapsed)
+        {
+            // ASM loc_1AE2E -> loc_6E2 clears Kid's object mirror before the
+            // death route's carried object lists. Oracle #370 frames 529..532
+            // retain all 14 graphics workers, then clear both lists at 533.
             return Some((15, 14));
         }
+        Some(Self::load_ingame_handoff_object_counts_loc_1ae2e(elapsed))
+    }
+
+    fn load_ingame_handoff_object_counts_loc_1ae2e(elapsed: usize) -> (u16, u16) {
+        if elapsed < TITLE_CARD_LIVE_HANDOFF_TITLE_WORKER_FRAMES_LOC_1AE2E {
+            return (15, 14);
+        }
         if elapsed < TITLE_CARD_LIVE_HANDOFF_ZEROED_TITLE_WORKER_FRAMES_LOC_1AE2E {
-            return Some((15, 0));
+            return (15, 0);
         }
         if elapsed + 1 < TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E {
-            return Some((0, 0));
+            return (0, 0);
         }
         if elapsed + 1 == TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E {
-            return Some((4, 2));
+            return (4, 2);
         }
         if elapsed == TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E {
-            return Some((5, 4));
+            return (5, 4);
         }
         let visible_elapsed =
             elapsed.saturating_sub(TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E);
         if visible_elapsed <= 16 {
-            return Some((5, 5));
+            return (5, 5);
         }
-        Some((4, 5))
+        (4, 5)
     }
 
     /// ASM Pal_FadeOut loc_28C6/loc_28EA (kid.asm): transfer before interpolation.
@@ -9741,10 +9793,22 @@ impl NativeRuntime {
             return None;
         };
         let elapsed = PLAYER_DEATH_HIDE_FRAMES.saturating_sub(remaining_frames);
+        if self.death_respawn_title_card_loader_frames_loc_726() == 0 {
+            // Unprofiled death routes retain the established two-transfer
+            // projection until their synchronous loader phase is measured.
+            return (elapsed <= 17)
+                .then(|| 0x100_u16.saturating_sub((elapsed.saturating_sub(2) as u16) * 0x10));
+        }
+        if elapsed < 3 {
+            // `$110` is a render projection sentinel, not an F876 RAM value:
+            // applying the fade blend with it preserves the source palette.
+            return Some(0x0110);
+        }
         // loc_28C6 consumes $100..$000 inclusive, then loc_28EA transfers
         // the final palette. DMA precedes interpolation, and FrameRendered
-        // precedes that VBlank transfer, retaining two source-palette samples.
-        (elapsed <= 17).then(|| 0x100_u16.saturating_sub((elapsed.saturating_sub(2) as u16) * 0x10))
+        // precedes that VBlank transfer. The death hand-off exposes the
+        // pre-loop transfer as a third source-palette presentation before `$F0`.
+        (elapsed <= 17).then(|| 0x100_u16.saturating_sub((elapsed.saturating_sub(3) as u16) * 0x10))
     }
 
     /// ASM Pal_FadeOut loc_28C6/loc_28EA: two source-palette transfers,
@@ -12070,6 +12134,7 @@ impl NativeRuntime {
         let (number_objects, number_gfx_objects) = self
             .early_start_load_ingame_object_counts()
             .or_else(|| self.title_card_live_handoff_object_counts_loc_1ae2e())
+            .or_else(|| self.death_live_handoff_object_counts_loc_1ae2e())
             .or_else(|| self.pause_restart_object_counts_loc_6e2())
             .or_else(|| self.demo_1_late_controller_sample_counts())
             .or_else(|| self.demo_1_late_title_return_controller_counts())
@@ -15037,6 +15102,9 @@ impl NativeRuntime {
                     self.title_card_live_handoff_player_state_loc_1ae2e()
                 {
                     Some(player_state)
+                } else if let Some(player_state) = self.death_live_handoff_player_state_loc_1ae2e()
+                {
+                    Some(player_state)
                 } else if let Some(player_state) = self.death_respawn_bootstrap_player_state() {
                     Some(player_state)
                 } else if matches!(
@@ -15331,6 +15399,9 @@ impl NativeRuntime {
             return camera;
         }
         if let Some(camera_state) = self.title_card_live_handoff_camera_state_loc_1ae2e() {
+            return camera_state;
+        }
+        if let Some(camera_state) = self.death_live_handoff_camera_state_loc_1ae2e() {
             return camera_state;
         }
         if let Some(camera_state) = self.early_start_load_ingame_camera_state() {
@@ -15655,6 +15726,15 @@ impl NativeRuntime {
             // loc_1AB26/loc_1AC70/loc_1AD48 workers trace-visible even on
             // levels without route-specific Kid-pose profiles, but do not
             // expose stale gameplay rosters here.
+            return objects;
+        }
+        if self.death_live_handoff_elapsed_frames_loc_1ae2e()
+            == Some(TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E)
+        {
+            // ASM Load_InGame -> loc_36840 allocates the first enemy Object
+            // after the initial visible Kid/base-worker roster has already
+            // been sampled. Oracle #370 frame 571 has no enemy snapshot;
+            // frame 572 exposes the Level 1 Dragon.
             return objects;
         }
         objects.extend(self.active_enemy_roster.iter().cloned());
@@ -17004,7 +17084,7 @@ impl NativeRuntime {
         self.visible_prize_block_worker_tails().len()
     }
 
-    fn death_respawn_bootstrap_elapsed_frames(&self) -> Option<usize> {
+    pub(crate) fn death_respawn_bootstrap_elapsed_frames(&self) -> Option<usize> {
         match self.player_lifecycle {
             PlayerLifecycle::Respawning { remaining_frames } => {
                 Some(PLAYER_DEATH_RESPAWN_SETTLE_FRAMES.saturating_sub(remaining_frames))
@@ -17152,11 +17232,11 @@ impl NativeRuntime {
         // entry starts from the emulator's post-warp boundary instead, so its
         // later death exposes the eight loader frames explicitly (#370).
         if self.death_respawn_bootstrap_profile().is_some()
-            && !self.recording_oracle_settle_completed
+            && self.recording_oracle_settle_completed
         {
-            0
-        } else {
             PLAYER_DEATH_TITLE_CARD_LOAD_FRAMES
+        } else {
+            0
         }
     }
 
@@ -17165,11 +17245,22 @@ impl NativeRuntime {
         // settled death routes enter the live-mode loader after the explicit
         // Load_TitleCard span. The #370 oracle keeps its level objects hidden
         // for that span plus the loc_1AE2E hand-off frame.
-        PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES.saturating_add(
-            u8::try_from(self.death_respawn_title_card_loader_frames_loc_726())
-                .unwrap_or(u8::MAX)
-                .saturating_add(1),
-        )
+        if self.death_respawn_title_card_loader_frames_loc_726() > 0 {
+            TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E
+        } else {
+            PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES.saturating_add(1)
+        }
+    }
+
+    pub(crate) fn death_respawn_live_release_remaining_frames_loc_1ae2e(&self) -> u8 {
+        if self.death_respawn_title_card_loader_frames_loc_726() > 0 {
+            TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E.saturating_sub(
+                u8::try_from(TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E)
+                    .unwrap_or(u8::MAX),
+            )
+        } else {
+            0
+        }
     }
 }
 

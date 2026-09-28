@@ -899,6 +899,17 @@ pub(crate) fn step_dragon_walking_with_sound(
     }
 
     if !enemy.on_ground {
+        if enemy.dragon_script_variant & DRAGON_WALKING_INITIAL_AIRBORNE_ENTRY_PENDING_FLAG != 0 {
+            // ASM Dragon.asm loc_3CE84 -> Lion.asm loc_3E546/loc_3E79E:
+            // the callback after the initial hibernate loads the saved speed
+            // and nudges Y before executing the first airborne pass.
+            enemy.dragon_script_variant &= !DRAGON_WALKING_INITIAL_AIRBORNE_ENTRY_PENDING_FLAG;
+            enemy.x_velocity = horizontal_velocity(
+                enemy.facing,
+                dragon_walking_saved_walk_speed_loc_3cdfc(enemy.enemy_level),
+            );
+            enemy.y_pos = enemy.y_pos.wrapping_add(1 << 16);
+        }
         step_dragon_walking_airborne(enemy, block_grid);
         return;
     }
@@ -1632,6 +1643,39 @@ mod tests {
             "ASM Dragon.asm loc_3CE90 reaches loc_3CF62 once the hurt-animation hibernate count is exactly zero"
         );
         assert_eq!(dragon.shared_walker_debug_branch, Some("patrol_walk"));
+    }
+
+    #[test]
+    fn fresh_left_dragon_enters_airborne_loop_after_loc_3e546_hibernate() {
+        let grid = dragon_walking_grid(32, 32, &[(12, 17)]);
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.enemy_level = 0;
+        dragon.hit_points = 1;
+        dragon.facing = Direction::Left;
+        dragon.x_pos = 200 << 16;
+        dragon.y_pos = 271 << 16;
+        dragon.on_ground = false;
+        dragon.grounded_frames = 1;
+        dragon.dragon_script_variant = DRAGON_WALKING_INITIAL_AIRBORNE_ENTRY_PENDING_FLAG;
+        let mut projectiles = Vec::new();
+
+        step_dragon_walking(&mut dragon, Some(&grid), &mut projectiles, Some(32 << 16));
+
+        assert_eq!(dragon.x_pos, 200 << 16);
+        assert_eq!(dragon.y_pos, 271 << 16);
+        assert_eq!(dragon.x_velocity, 0);
+        assert_eq!(dragon.y_velocity, 0);
+        assert!(!dragon.on_ground);
+
+        step_dragon_walking(&mut dragon, Some(&grid), &mut projectiles, Some(32 << 16));
+
+        assert_eq!(dragon.x_pos, 0x00c7_8000);
+        assert_eq!(dragon.y_pos, 0x0110_0000);
+        assert_eq!(dragon.y_velocity, 0x4000);
+        assert!(
+            !dragon.on_ground,
+            "ASM Lion.asm loc_3E812 `cmp.w d1,d3; bcc` does not land when the first airborne pass has zero vertical displacement",
+        );
     }
 
     #[test]
