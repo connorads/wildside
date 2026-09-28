@@ -16106,6 +16106,15 @@ impl NativeRuntime {
             enemy.lion_state = LionState::Roaring;
             enemy.wait_timer = 19;
             enemy.ufo_beam_segments = enemy.ufo_beam_segments.saturating_sub(1);
+            if enemy.facing == Direction::Left {
+                // ASM Lion.asm loc_3E682 falls through loc_3E77E on the
+                // ledge-entry pass. The collapsed recording settle therefore
+                // consumes one more left charge step before this loc_3E09E
+                // coroutine rewind than the oracle's visible handoff.
+                enemy.x_pos = enemy
+                    .x_pos
+                    .wrapping_sub(lion_charge_speed(enemy.hit_points) as u32);
+            }
         }
 
         self.projectiles.retain(|projectile| {
@@ -16948,13 +16957,25 @@ impl NativeRuntime {
                 .filter(|enemy| enemy.family == EnemyFamily::Tornado)
                 .map(|enemy| (enemy.segment_index, enemy.layout_index)),
         );
-        // ASM Enemy03_Robot_Init loc_3A884 enters loc_3C026/loc_3C0D2 and
-        // hibernates on its first Object pass. The trailing loader runs after
+        // ASM Enemy03_Robot_Init loc_3A884 enters a hibernating walker start
+        // on its first Object pass. The trailing loader runs after
         // Execute_Objects, so the next pass must initialise before walking.
         for enemy in &self.active_enemies[active_before_trailing_load..] {
             if enemy.family == EnemyFamily::Robot {
                 self.freshly_loaded_enemies_loc_3691e
                     .insert(ActiveEnemyKey::from_enemy(enemy), 1);
+            }
+        }
+        if self.recording_oracle_settle_completed {
+            for enemy in &mut self.active_enemies[active_before_trailing_load..] {
+                if enemy.family == EnemyFamily::Lion && enemy.facing == Direction::Left {
+                    // ASM Enemy12_Lion_Init loc_3DF56 creates the linked
+                    // GfxObject at layout X, then loc_3DFF0 keeps its Object
+                    // carrier 10.5 px right and hibernates before the first
+                    // 1.5 px left charge step. Native collapses that init,
+                    // so seed the live carrier 12 px right before it steps.
+                    enemy.x_pos = enemy.x_pos.wrapping_add(0x000C_0000);
+                }
             }
         }
         self.ensure_heady_metal_breakup_slots_loc_39247();

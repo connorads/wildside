@@ -1796,6 +1796,40 @@ mod tests {
         );
     }
 
+    #[test]
+    fn issue186_live_lion_loader_holds_spawn_then_applies_ledge_gravity_loc_3df56_3e682() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut script = vec![0x04; 35];
+        script.extend([0x38; 6]);
+        script.extend([0x18; 56]);
+        let frames = ScriptRunner::new(manifest)
+            .warp_to_level(0x07)
+            .settle_recording_warp()
+            .run(&script, script.len());
+        let lion_62 = frames[62]
+            .active_enemy_details
+            .iter()
+            .find(|enemy| enemy.layout_index == Some(0))
+            .expect("Level 0x07 upper Lion enters the live loader window");
+        assert_eq!(
+            (lion_62.x_pos, lion_62.y_pos),
+            (0x02B8_0000, 0x018F_0000),
+            "ASM Enemy12_Lion_Init loc_3DF56 exposes the linked GfxObject at its spawn position before the first walker step"
+        );
+        let lion_63 = frames[63]
+            .active_enemy_details
+            .iter()
+            .find(|enemy| enemy.layout_index == Some(0))
+            .expect("Level 0x07 upper Lion remains active after ledge entry");
+        assert_eq!(
+            (lion_63.x_pos, lion_63.y_pos, lion_63.y_velocity),
+            (0x02B6_8000, 0x0190_0000, Some(0x0000_4000)),
+            "ASM Lion.asm loc_3E682 falls through loc_3E77E and applies gravity on the first ledge-entry pass"
+        );
+    }
+
     // Boot script that presses Start through the Sega/intro/title sequence,
     // exercising the VDP-shell screens where snapshot capture is active.
     // 0x80 is the Start button mask.

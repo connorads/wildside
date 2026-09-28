@@ -59,14 +59,15 @@
     "issue": 186,
     "readiness": "needs_route",
     "active_path": "crates/wildside-core/src/enemies.rs Lion state dispatch",
-    "route": "missing natural level 0x07 Lion hurt/ledge/roar sequence",
+    "route": "Level 0x07 settled route: roar/contact frames 0..119 and live upper-Lion loader frames 0..66; recoil remains missing",
     "evidence": [
-      "docs/source-port/backlog-awaiting-human.md",
+      "docs/source-port/backlog.md",
       "docs/source-port/backlog-archive.md#issue-186",
-      "crates/wildside-core/src/enemies.rs",
-      "docs/source-port/audits/enemy-fidelity-audit.md"
+      "tests/data/dynamic-scenarios/issue-186-lion-roar-contact.json",
+      "tests/data/dynamic-scenarios/issue-186-lion-live-loader.json",
+      "crates/wildside-core/src/enemies/lion.rs"
     ],
-    "next_action": "Capture separate recoil, ledge leap and roar windup encounters with enemy-frontier comparison",
+    "next_action": "Resolve the live-loader frames 62..65 airborne schedule without changing the comparable lower Lion, then capture a surviving stomp through recoil and recovery",
     "scope": "Lion: hurt recoil, gravity ledge-leap charge, roar windup + engagement bands missing"
   },
   {

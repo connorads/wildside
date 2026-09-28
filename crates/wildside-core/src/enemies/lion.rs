@@ -1677,6 +1677,10 @@ fn step_lion_charge_movement_loc_3e11e(
             enemy.x_velocity = motion_seed.0;
             enemy.y_velocity = motion_seed.1;
             enemy.y_pos = motion_seed.2;
+            // ASM Lion.asm loc_3E682/loc_3E79E branches straight through the
+            // airborne vertical tail. With the seeded zero velocity, the
+            // position holds and loc_3E77E/loc_3E89A still applies gravity.
+            enemy.y_velocity = lion_left_charge_gravity_tail_loc_3e77e(enemy.y_velocity).y_velocity;
             enemy.shared_walker_debug_branch = Some("lion_charge_airborne_start");
             return;
         }
@@ -2737,7 +2741,10 @@ mod tests {
             "ASM Lion.asm loc_3E682 should latch the airborne charge instead of turning around at ledges"
         );
         assert_eq!(lion.x_velocity, 0x0001_8000);
-        assert_eq!(lion.y_velocity, 0);
+        assert_eq!(
+            lion.y_velocity, 0x0000_4000,
+            "ASM Lion.asm loc_3E682 falls through loc_3E6AE/loc_3E77E and applies the first gravity increment on the ledge-entry pass"
+        );
         assert_eq!(
             lion.y_pos,
             0x0021 << 16,

@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-28 - #186 live Lion loader and ledge entry
+
+The checked-in settled Level 0x07 route matches all 67 gameplay checkpoints through the upper Lion's live allocation. Its enemy frontier retains four frame 62..65 diagnostics because native stays grounded while the oracle enters the ledge fall and applies same-pass gravity. Fresh strict captures show both sides use the same `$0AA0` Lion mapping; the visible offset is the one-pixel airborne schedule, not a sprite-phase defect. A global linked-Gfx terrain-probe shift broke the comparable lower Lion and was rejected. #186 remains active for the live-loader schedule plus surviving-stomp recoil and recovery. No paid JEV request occurred.
+
 ## 2026-09-28 - #186 Lion roar and contact parity
 
 The checked-in settled Level 0x07 route now matches all 120 emulator gameplay and enemy checkpoints. Lion projectile position, delayed contact consumption and linked GfxObject trace coordinates follow the ROM through allocation, Kid damage and charge resume. #186 remains active for separate hurt-recoil and gravity ledge-leap witnesses. No paid JEV request occurred.

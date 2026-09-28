@@ -209,6 +209,21 @@
       },
       "total_frames": 120,
       "status": "verified"
+    },
+    "issue-186-lion-live-loader": {
+      "scenario": "tests/data/dynamic-scenarios/issue-186-lion-live-loader.json",
+      "frame_start": 0,
+      "frontier_frame": 67,
+      "checkpoint_interval": 1,
+      "expected_divergence_summary": {
+        "authoritative": 0,
+        "advisory": 0,
+        "accumulation": 0,
+        "rng": 0,
+        "oracle_limitation": 0
+      },
+      "total_frames": 67,
+      "status": "verified"
     }
   }
 }
