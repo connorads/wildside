@@ -56,21 +56,6 @@
     "scope": "Level 2 Drips/slime placement and drop/attack behaviour still looks wrong"
   },
   {
-    "issue": 185,
-    "readiness": "needs_comparison",
-    "active_path": "Hand state machine and post-physics grab synchronisation in enemies.rs/combat.rs",
-    "route": "tests/data/dynamic-scenarios/issue-185-hand-natural-grab.json reaches jump, contact, grab and release with ordinary input from a settled 0x03 start; all 128 gameplay/enemy frames match the oracle, without proving cold-boot entry",
-    "evidence": [
-      "tests/data/dynamic-scenarios/issue-185-hand-natural-grab.json",
-      "tests/tas_frontier.json",
-      "docs/source-port/backlog-archive.md#issue-185",
-      "crates/wildside-core/src/enemies/hand.rs",
-      "crates/wildside-core/src/combat.rs"
-    ],
-    "next_action": "Account for player-sprite pixel differences during the otherwise state-exact Hand event before closing the visual claim.",
-    "scope": "Natural Highwater Pass 2 Hand jump, contact, grab, release and live Hand frames; current residual pixels follow Kid sprite animation plus frozen HUD regions."
-  },
-  {
     "issue": 186,
     "readiness": "needs_route",
     "active_path": "crates/wildside-core/src/enemies.rs Lion state dispatch",
@@ -159,17 +144,18 @@
   },
   {
     "issue": 211,
-    "readiness": "needs_route",
+    "readiness": "needs_comparison",
     "active_path": "crates/wildside-core/src/movement.rs slope state and crates/wildside-frame/src/sprites.rs form frame selection; VDP image attribution unproven",
-    "route": "crates/wildside-cli/src/scenarios.rs level_00_slope_right_probe_*; direct seeded probes do not cover natural symptom",
+    "route": "tests/data/dynamic-scenarios/issue-185-hand-natural-grab.json supplies a current state-exact base-Kid descending-slope window in logical 0x03; prior Level 0 form probes remain incomplete",
     "evidence": [
+      "tests/data/dynamic-scenarios/issue-185-hand-natural-grab.json",
       "docs/source-port/backlog-awaiting-human.md",
       "docs/source-port/backlog-archive.md#issue-211",
       "crates/wildside-core/src/movement.rs",
       "crates/wildside-frame/src/sprites.rs",
       "crates/wildside-cli/src/scenarios.rs"
     ],
-    "next_action": "Record natural level-0 slope traversal for affected forms, including zero-speed slope pose and landing snap; compare active VDP output",
+    "next_action": "Compare oracle_kid_addroffset_sprite with native selected player frames on frames 68..83, then record Level 0 uphill, zero-speed and affected-form routes",
     "scope": "2026-05-30 playtest: live slope traversal still shows wrong-facing/diagonal animation despite green slope helper tests"
   },
   {

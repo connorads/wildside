@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-28 - #185 objective closure
+
+The checked-in Highwater Pass 2 Hand route now has a sensitive exact-parent control: the pre-fix build diverges at the live Hand encounter, while the committed build matches all 128 gameplay and enemy checkpoints through jump, grab and release. Offline JEV replay matches trace and emulator state. Remaining image bounds are the frozen HUD life icon and Kid slope frames now owned by #211, with no standalone Hand residual. #185 closes from a settled diagnostic start without claiming cold-boot entry.
+
 ## 2026-09-28 - #185 natural Hand grab gameplay parity
 
 JEV reached the first Highwater Pass 2 Hand with ordinary input from a comparable settled level start. The checked-in 128-frame route now matches every emulator gameplay/enemy frame through jump, collision, grab, follow and release. It does not prove cold-boot level entry. The comparison still exposes Kid sprite-animation pixels plus the frozen HUD life icon, so #185 remains open for visual attribution. One paid attempt used 48 requests; later work reuses the route offline.
