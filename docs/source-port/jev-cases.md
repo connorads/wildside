@@ -101,6 +101,10 @@ suffix to 1..600 six-frame decisions; the prefix does not consume that limit.
 
 Preflight compares frame zero, the prefix's existing checkpoints and each frame
 of its final 30-frame handoff window. A green result covers those checkpoints.
+Documented frozen `hud_life_icon` and `hud_diamond` pixel regions may remain red
+at preflight while trace and emulator state match; any pixel outside those exact
+regions still blocks paid collection. Final route comparison remains strict and
+reports the frozen pixels rather than treating them as proof of a gameplay fix.
 The report lists their indices. Collection preserves held controls at the
 handoff and verifies exact replay of the complete input stream. Source identity
 is checked before collection, before each paid request and after collection;

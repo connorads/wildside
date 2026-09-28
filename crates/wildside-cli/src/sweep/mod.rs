@@ -2157,9 +2157,17 @@ fn normalised_enemy_roster_for_frontier_with_peer<'a>(
         })
         .collect::<Vec<_>>();
     enemies.sort_by_key(|enemy| {
+        // ASM Hand.asm Enemy17_Hand_Init loc_32782 overwrites the parent
+        // layout pointer field after copying its coordinates. Oracle Hand
+        // snapshots therefore pair by position rather than layout identity.
+        let layout_index = if enemy.object_type == 0x17 {
+            usize::MAX
+        } else {
+            enemy.layout_index.unwrap_or(usize::MAX)
+        };
         (
             enemy.object_type,
-            enemy.layout_index.unwrap_or(usize::MAX),
+            layout_index,
             enemy.x_pos,
             enemy.y_pos,
             enemy.current_hp.unwrap_or(0),
@@ -2264,15 +2272,18 @@ fn enemy_roster_entries_match(native: &OracleEnemyState, oracle: &OracleEnemySta
 
 fn enemy_roster_layout_index_matches(native: &OracleEnemyState, oracle: &OracleEnemyState) -> bool {
     const DRAGON_FLYING_OBJECT_TYPE: u8 = 0x0C;
+    const HAND_OBJECT_TYPE: u8 = 0x17;
 
-    if native.object_type == DRAGON_FLYING_OBJECT_TYPE
-        && oracle.object_type == DRAGON_FLYING_OBJECT_TYPE
+    if native.object_type == oracle.object_type
+        && matches!(
+            native.object_type,
+            DRAGON_FLYING_OBJECT_TYPE | HAND_OBJECT_TYPE
+        )
     {
-        // ASM Dragon_Flying.asm Enemy0C_Dragon_flying_Init/loc_34BAC writes
-        // `object_meta #$C` before loc_32146 links the GfxObject collision
-        // source. In later hibernated states the oracle object slot can no
-        // longer recover the enemy layout pointer, so collision-source fallback
-        // proves the type but not the original layout index.
+        // ASM Hand.asm Enemy17_Hand_Init loc_32782 repurposes `$44(a5)` as
+        // its detection range. Like Dragon Flying's later coroutine states,
+        // the oracle can prove type through loc_32146's collision source but
+        // cannot recover the original layout index.
         return true;
     }
 
@@ -2281,15 +2292,18 @@ fn enemy_roster_layout_index_matches(native: &OracleEnemyState, oracle: &OracleE
 
 fn enemy_roster_current_hp_matches(native: &OracleEnemyState, oracle: &OracleEnemyState) -> bool {
     const DRAGON_FLYING_OBJECT_TYPE: u8 = 0x0C;
+    const HAND_OBJECT_TYPE: u8 = 0x17;
 
-    if native.object_type == DRAGON_FLYING_OBJECT_TYPE
-        && oracle.object_type == DRAGON_FLYING_OBJECT_TYPE
+    if native.object_type == oracle.object_type
+        && matches!(
+            native.object_type,
+            DRAGON_FLYING_OBJECT_TYPE | HAND_OBJECT_TYPE
+        )
     {
-        // ASM Dragon_Flying.asm Enemy0C_Dragon_flying_Init stores the script
-        // variant in `$46(a5)` and later states use nearby object/GfxObject
-        // words for coroutine handoff (`loc_348A0`, `loc_34BAC`). The oracle
-        // helper samples GfxObject+$44 as `current_hp` for normal enemies, but
-        // for flying dragons that word is not an authoritative HP counter.
+        // Hand's HP tier lives in the parent control block while its linked
+        // GfxObject `$44` remains zero. Dragon Flying similarly repurposes the
+        // sampled words during its coroutine. Neither Gfx value is an
+        // authoritative HP counter.
         return true;
     }
 
@@ -3243,6 +3257,41 @@ mod tests {
         assert!(
             enemy_roster_frontier_matches(&native, &oracle),
             "ASM Scorpion.asm loc_3DBD8 allocates the tail in GfxObject_RAM, so it is not a second Object-worker enemy"
+        );
+    }
+
+    #[test]
+    fn enemy_frontier_pairs_hands_without_parent_layout_or_gfx_hp_loc_32782() {
+        let hand = |layout_index, x: u32| OracleEnemyState {
+            object_type: 0x17,
+            x_pos: x << 16,
+            y_pos: 191 << 16,
+            x_velocity: -0x3000,
+            y_velocity: 0,
+            facing: EnemyFacing::Left,
+            collision_type: None,
+            collision_source: Some(0x17),
+            layout_index: Some(layout_index),
+            layout_ptr: None,
+            parent_object_ptr: None,
+            gfx_slot_index: None,
+            on_ground: Some(true),
+            current_hp: Some(1),
+            debug_fields: BTreeMap::new(),
+        };
+        let mut native = demo_velocity_state(0, 0);
+        native.active_enemies = vec![hand(0, 454), hand(1, 323)];
+        let mut oracle = native.clone();
+        oracle.active_enemies.reverse();
+        for enemy in &mut oracle.active_enemies {
+            enemy.layout_index = None;
+            enemy.current_hp = Some(0);
+            enemy.on_ground = None;
+        }
+
+        assert!(
+            enemy_roster_frontier_matches(&native, &oracle),
+            "ASM Hand.asm Enemy17_Hand_Init loc_32782 replaces `$44(a5)` after copying coordinates, while linked GfxObject HP stays zero"
         );
     }
 

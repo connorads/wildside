@@ -1259,6 +1259,10 @@ pub(crate) enum HandState {
     WalkingTerrainReversePendingLoc3299C,
     /// Airborne jump toward the player.
     Jumping,
+    /// `loc_32906` initialised the grab and hibernates before its first snap.
+    GrabStartingLoc32906,
+    /// `loc_3292E` entry hibernate is pending before the first follow snap.
+    GrabHibernatingLoc3292E,
     /// Grabbing: hand follows player position for 10 frames (Hand.asm loc_3292E).
     Grabbing,
 }
@@ -3347,7 +3351,12 @@ impl ActiveEnemy {
             Some(NativeContactPhase::HandJumping)
         } else if matches!(self.family, EnemyFamily::Hand)
             && !self.death_animation_active
-            && matches!(self.hand_state, HandState::Grabbing)
+            && matches!(
+                self.hand_state,
+                HandState::GrabStartingLoc32906
+                    | HandState::GrabHibernatingLoc3292E
+                    | HandState::Grabbing
+            )
         {
             // ASM Hand.asm loc_32906 installs `stru_32B50` while the live Hand
             // follows Kid during the grab coroutine.
@@ -5686,8 +5695,11 @@ fn step_active_enemies_with_rng_context(
                         block_grid,
                         player_x_pos,
                         player_y_pos,
+                        player_x_velocity,
+                        player_y_velocity,
                         player_facing,
                         player_form,
+                        rng,
                     );
                 } else if matches!(enemy.family, EnemyFamily::Lion) {
                     if enemy.damage_flash_frames > 0 {
@@ -16771,7 +16783,12 @@ impl NativeRuntime {
         // normal play is byte-identical.
         let kid_grabbed_by_hand = self.active_enemies.iter().any(|enemy| {
             matches!(enemy.family, EnemyFamily::Hand)
-                && matches!(enemy.hand_state, HandState::Grabbing)
+                && matches!(
+                    enemy.hand_state,
+                    HandState::GrabStartingLoc32906
+                        | HandState::GrabHibernatingLoc3292E
+                        | HandState::Grabbing
+                )
         });
         if let Some(slice) = self.opening_slice.as_mut() {
             slice.set_kid_grabbed_by_hand(kid_grabbed_by_hand);

@@ -65,6 +65,25 @@ class SpecificationTests(unittest.TestCase):
         self.assertTrue(jev_case.comparable(comparison, [0, 5]))
         self.assertFalse(jev_case.comparable(comparison, [0, 4, 5]))
 
+    def test_preflight_accepts_only_documented_frozen_hud_pixel_debt(self):
+        base = {"trace_match": True, "oracle_state_match": True,
+                "oracle_frame_match": False, "frame_diffs": [
+                    {"frame_index": 0, "changed_pixel_count": 84,
+                     "changed_bounds": {"min_x": 288, "min_y": 34,
+                                        "max_x": 299, "max_y": 45}},
+                    {"frame_index": 1, "changed_pixel_count": 0,
+                     "changed_bounds": None},
+                ]}
+        self.assertTrue(jev_case.preflight_comparable(base, [0, 1]))
+        broad = base | {"frame_diffs": [
+            {"frame_index": 0, "changed_pixel_count": 84,
+             "changed_bounds": {"min_x": 287, "min_y": 34,
+                                "max_x": 299, "max_y": 45}},
+            base["frame_diffs"][1],
+        ]}
+        self.assertFalse(jev_case.preflight_comparable(broad, [0, 1]))
+        self.assertFalse(jev_case.preflight_comparable(base, [0, 1, 2]))
+
     def test_source_guard_rejects_revision_patch_and_untracked_code_changes(self):
         identity = {"revision": "original", "source_patch_sha256": hashlib.sha256(b"patch").hexdigest()}
         for revision, diff, untracked, valid in (("original", b"patch", b"", True),

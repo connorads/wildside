@@ -57,16 +57,18 @@
   },
   {
     "issue": 185,
-    "readiness": "needs_route",
-    "active_path": "Hand state machine in enemies.rs; historical body-frame scene test does not establish active VDP output",
-    "route": "missing; issue361_hand_level03_probe was separated contact and out-of-phase oracle",
+    "readiness": "needs_comparison",
+    "active_path": "Hand state machine and post-physics grab synchronisation in enemies.rs/combat.rs",
+    "route": "tests/data/dynamic-scenarios/issue-185-hand-natural-grab.json reaches jump, contact, grab and release with ordinary input from a settled 0x03 start; all 128 gameplay/enemy frames match the oracle, without proving cold-boot entry",
     "evidence": [
-      "docs/source-port/backlog-awaiting-human.md#issue-185",
+      "tests/data/dynamic-scenarios/issue-185-hand-natural-grab.json",
+      "tests/tas_frontier.json",
       "docs/source-port/backlog-archive.md#issue-185",
-      "crates/wildside-cli/src/native_player/mod.rs:8240"
+      "crates/wildside-core/src/enemies/hand.rs",
+      "crates/wildside-core/src/combat.rs"
     ],
-    "next_action": "Reach a Hand naturally in 0x03, record crawl/jump then actual grab contact, and compare current VDP frames plus Hand state.",
-    "scope": "In Highwater Pass 2, approach a Hand; it should crawl/jump with solid Hand frames and still grab Kid on contact."
+    "next_action": "Account for player-sprite pixel differences during the otherwise state-exact Hand event before closing the visual claim.",
+    "scope": "Natural Highwater Pass 2 Hand jump, contact, grab, release and live Hand frames; current residual pixels follow Kid sprite animation plus frozen HUD regions."
   },
   {
     "issue": 186,

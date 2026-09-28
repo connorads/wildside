@@ -1287,9 +1287,18 @@ pub(crate) fn enemy_facing_from_native(facing: Option<NativeDirection>) -> Enemy
 
 pub(crate) fn sort_enemy_states(enemies: &mut [OracleEnemyState]) {
     enemies.sort_by_key(|enemy| {
+        // ASM Hand.asm Enemy17_Hand_Init loc_32782 copies the layout
+        // coordinates, then overwrites parent `$44(a5)` with its detection
+        // range. The oracle therefore cannot recover Hand layout identity
+        // after init. Pair multiple Hands by position on both sides.
+        let layout_index = if enemy.object_type == 0x17 {
+            usize::MAX
+        } else {
+            enemy.layout_index.unwrap_or(usize::MAX)
+        };
         (
             enemy.object_type,
-            enemy.layout_index.unwrap_or(usize::MAX),
+            layout_index,
             enemy.layout_ptr.unwrap_or(u32::MAX),
             enemy.x_pos,
             enemy.y_pos,
@@ -1723,7 +1732,7 @@ pub(crate) fn compare_enemy_snapshots_against_oracle(
                 run_dir.display()
             );
         }
-        if native.layout_index != oracle.layout_index {
+        if !enemy_layout_index_matches(native, oracle) {
             bail!(
                 "state {}@{} diverged in enemy {:02X} layout index (native {:?}, oracle {:?}); artefacts in {}",
                 label,
@@ -1737,6 +1746,18 @@ pub(crate) fn compare_enemy_snapshots_against_oracle(
     }
 
     Ok(())
+}
+
+fn enemy_layout_index_matches(native: &OracleEnemyState, oracle: &OracleEnemyState) -> bool {
+    // ASM Hand.asm Enemy17_Hand_Init loc_32782 repurposes `$44(a5)` after
+    // copying the layout coordinates. `capture_enemy_states` can still prove
+    // object type through loc_32146's collision source, but no longer has a
+    // layout pointer from which to derive the index.
+    if native.object_type == 0x17 && oracle.object_type == 0x17 {
+        return true;
+    }
+
+    native.layout_index == oracle.layout_index
 }
 
 #[cfg(test)]
@@ -2574,6 +2595,44 @@ mod tests {
                     .expect("equivalent layout-owned enemies compare independently of list order");
             }
         }
+    }
+
+    #[test]
+    fn compare_native_states_pairs_hands_by_position_when_loc_32782_reuses_layout_pointer() {
+        let run_dir = Path::new("/tmp/hand-comparison-order");
+        let mut native = driller_state_compare_fixture();
+        native.active_enemies = [(0, 454), (1, 323)]
+            .into_iter()
+            .map(|(layout_index, x)| OracleEnemyState {
+                object_type: 0x17,
+                x_pos: x << 16,
+                y_pos: 191 << 16,
+                x_velocity: -0x3000,
+                y_velocity: 0,
+                facing: EnemyFacing::Left,
+                collision_type: None,
+                collision_source: None,
+                layout_index: Some(layout_index),
+                layout_ptr: None,
+                parent_object_ptr: None,
+                gfx_slot_index: None,
+                on_ground: Some(true),
+                current_hp: Some(1),
+                debug_fields: BTreeMap::new(),
+            })
+            .collect();
+        native.number_objects = 2;
+        native.number_gfx_objects = 2;
+
+        let mut oracle = native.clone();
+        oracle.active_enemies.reverse();
+        for enemy in &mut oracle.active_enemies {
+            enemy.layout_index = None;
+        }
+
+        compare_native_states_against_oracle(run_dir, &[native], &[oracle]).expect(
+            "ASM Hand.asm Enemy17_Hand_Init loc_32782 overwrites `$44(a5)`, so the oracle pairs Hands by position after losing layout identity",
+        );
     }
 
     #[test]

@@ -179,6 +179,21 @@
       },
       "total_frames": 40,
       "status": "verified"
+    },
+    "issue-185-hand-natural-grab": {
+      "scenario": "tests/data/dynamic-scenarios/issue-185-hand-natural-grab.json",
+      "frame_start": 0,
+      "frontier_frame": 128,
+      "checkpoint_interval": 1,
+      "expected_divergence_summary": {
+        "authoritative": 0,
+        "advisory": 0,
+        "accumulation": 0,
+        "rng": 0,
+        "oracle_limitation": 0
+      },
+      "total_frames": 128,
+      "status": "verified"
     }
   }
 }

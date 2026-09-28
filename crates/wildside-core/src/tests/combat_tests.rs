@@ -343,31 +343,24 @@ fn archer_body_contact_uses_rom_zero_collision_size_row_loc_1bce() {
 }
 
 #[test]
-fn hand_body_contact_uses_rom_zero_collision_size_rows_loc_1bce() {
-    let mut slice = combat_slice();
-    slice.player.x_pos = 101 << 16;
-    slice.player.y_pos = 100 << 16;
-    slice.player.x_velocity = 0;
-    slice.player.y_velocity = 0;
-    slice.player.on_ground = true;
+fn hand_live_and_grab_frames_use_their_rom_collision_size_rows_loc_1bce() {
+    let mut hand = test_enemy(EnemyFamily::Hand, 101 << 16, 100 << 16, 1);
+    assert_eq!(
+        enemy_contact_bounds(&hand.snapshot()),
+        EnemyContactBounds {
+            left_px: -14,
+            right_px: 14,
+            top_px: -9,
+            bottom_px: 0,
+        },
+        "ASM CollisionSize_Index entries 503..508 map Hand walk/jump frames to unk_31788"
+    );
 
-    let hand = test_enemy(EnemyFamily::Hand, 101 << 16, 100 << 16, 1);
+    hand.hand_state = HandState::Grabbing;
     let bounds = enemy_contact_bounds(&hand.snapshot());
     assert!(
         bounds.left_px > bounds.right_px && bounds.top_px > bounds.bottom_px,
-        "ASM Hand.asm walk/jump/grab frames LnkTo_unk_C79AE..C7A16 index zero CollisionSize rows unk_31D58/unk_31D5A through GfxObjects_CollisionKid loc_1BCE"
-    );
-
-    assert_eq!(
-        classify_enemy_contact_with_half_width(
-            slice.player,
-            &hand.snapshot(),
-            slice.player.y_velocity,
-            slice.player.y_pos,
-            PlayerForm::TheKid.half_width() as i64,
-        ),
-        EnemyContactResult::None,
-        "the ROM Hand body uses empty CollisionSize rows; Hand.asm loc_329F8/loc_32A86 handles grab-specific collision separately"
+        "ASM CollisionSize_Index entry 509 maps Hand grab frames to empty row unk_31792"
     );
 }
 
@@ -20213,8 +20206,46 @@ mod chunk_03 {
                 hand.x_velocity,
                 hand.y_velocity
             ),
-            (HandState::Grabbing, HAND_GRAB_DURATION, 0, 0),
-            "ASM Hand.asm loc_329F8/off_32A12 routes airborne Kid-contact `$20/$24/$28` through loc_32A86 into loc_32906"
+            (
+                HandState::GrabStartingLoc32906,
+                HAND_GRAB_DURATION,
+                0x0001_0000,
+                -0x0001_8000,
+            ),
+            "ASM Hand.asm loc_329F8/off_32A12 routes airborne Kid-contact through loc_32A86 into loc_32906, which disables movement without clearing velocity storage"
+        );
+    }
+
+    #[test]
+    fn hand_live_overlap_latches_then_enters_grab_loc_1cf2_32a86() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut hand = test_enemy(EnemyFamily::Hand, 257 << 16, 168 << 16, 2);
+        hand.layout_index = 29;
+        hand.hand_state = HandState::Jumping;
+        hand.x_velocity = -4 << 16;
+        hand.y_velocity = -(5 << 15);
+        runtime.active_enemies = vec![hand];
+
+        let mut slice = combat_slice();
+        slice.player.x_pos = 249 << 16;
+        slice.player.y_pos = 185 << 16;
+        slice.player.x_velocity = 3 << 16;
+        slice.player.y_velocity = 3 << 16;
+        slice.player.on_ground = true;
+        runtime.opening_slice = Some(slice);
+
+        runtime.queue_hand_contacts_loc_1cf2(&slice);
+        assert_eq!(
+            runtime.pending_enemy_collisions.len(),
+            1,
+            "ASM GfxObjects_CollisionKid loc_1CF2 latches the live Hand overlap for the next object pass"
+        );
+
+        runtime.apply_pending_enemy_collisions();
+        assert_eq!(
+            runtime.active_enemies[0].hand_state,
+            HandState::GrabStartingLoc32906,
+            "ASM Hand.asm loc_329F8 routes the latched Kid contact through loc_32A86 into loc_32906"
         );
     }
 

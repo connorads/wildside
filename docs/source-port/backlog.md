@@ -31,12 +31,12 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-09-28):** #370 is objectively closed. The saved natural Dragon-breath death route matches emulator state and exact pixels for all 620 frames, including the hidden death loader and live hand-off; its cleanup negative control fails after a 303-frame common prefix.
-- **Selection:** With no open implementation risk, investigate the highest-priority objective awaiting-human case under the completion campaign. Start with #169's saved BLW2 Drips evidence and require a concrete placement/drop/attack witness before moving it to the open lane.
+- **Current work (2026-09-28):** #185's saved ordinary-input route from a settled Highwater Pass 2 start now matches all 128 emulator gameplay/enemy frames through Hand jump, contact, grab and release. Live Hand collision uses the ROM's mapping rows, grab entry keeps its hibernate boundary, and follow snaps use Kid's resolved post-physics position.
+- **Selection:** Finish #185 by attributing the remaining Kid-sprite pixels in the state-exact route. Do not close the visual claim from gameplay parity alone.
 - **Scope:** Single-player across all playable levels, branches, forms and bosses. Preserve frozen #406/#409/#416 timing debt and its ratchets. Final package retains subjective/device checks; no human validation is claimed.
-- **Jev allowance:** $5 additional across the campaign. BLW2 used 100 requests and $0.010448214. #502 used 269 charged requests across its three allowed attempts, adding $0.045005898. #433 used 84 requests across two attempts. The ledger lifetime charged upper bound is $0.250016004, including $0.000242592 for the #344 smoke. #370 checks used saved input only and spent nothing. #502's window and attempts are exhausted.
+- **Jev allowance:** $5 additional across the campaign. #185 used 48 requests in one attempt. The ledger lifetime charged upper bound is $0.257086284. The checked-in route and later comparisons need no further paid navigation.
 - **Jev exploration review:** Revision `cf5d84937`. #433 was the highest-priority eligible gap, but its 20-minute case window had expired. Offline ROM graph discovery replaced the false no-entry premise and found the natural Crypt chain. No request or spend occurred. Restart the three-fix cadence from this review.
-- **#370 evidence:** `.cache/jev-cases/1790566188040887000` proves the fatal frame 302, reload frame 409 and live frame 571 route with exact trace, emulator state and pixels across frames 0..619. No paid request occurred.
+- **#185 evidence:** `tests/data/dynamic-scenarios/issue-185-hand-natural-grab.json` covers frames 0..127. Strict enemy comparison reports 128 matches and zero divergences. Offline JEV replay matches trace and emulator state; residual pixels are Kid sprite animation and the documented HUD life icon, so the visual claim remains open.
 - **Evidence boundary:** Published-route state/RNG gates cover one route. Frozen visual debt is 241 frames / 2,391 pixels. Neither that replay nor idle sweep checkpoints proves whole-game completion.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
@@ -59,6 +59,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 185 | [~] | P1 | enemy/render | In Highwater Pass 2, approach a Hand; it should crawl/jump with solid Hand frames and still grab Kid on contact. | Natural jump/contact/grab/release is state-exact; account for residual Kid-sprite pixels before closure. |
 | 406 | [f] | P1 | rendering | FROZEN with #409 per ADR 0002: the lane stops accruing sessions; the march stays metered as ADR 0001 left it (frontier 995, injection ratchet). Residue authority moves to census-scoped reconstruction + raster-span-replay. | Do not extend the march; ratchets stay green; take #442-#450 instead. See ADR 0002. |
 | 409 | [f] | P1 | rendering | FROZEN per ADR 0002: the recurrence is a downward-only witness (scheduled-frames ratchet 736 / boundary 1657; tas-pixel-baseline). ADR 0003 corrected the spans; #459 found the bounded entry phase non-invertible and closed NO-GO. | Do not extend or promote the lane; keep the 2,391-pixel and scheduled-frame ratchets green. Evidence: archive #459. |
 | 416 | [f] | P2 | audio | Frontier FROZEN at frames 0..922 (decision in archive #416): `gems_frame_signature_v1` is a regression witness only; command parity (#435) supersedes it as audio authority. | Never advance `modelled_frames`; #434-#438 closed, remaining audio debt tracked via #439-#441; keep verify-tas-full green. |

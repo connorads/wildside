@@ -7870,6 +7870,30 @@ fn orca_collision_resume_loc_3d2bc(enemy: &ActiveEnemy) -> OrcaResumeBranch {
 }
 
 impl NativeRuntime {
+    fn sync_grabbing_hands_to_kid_loc_3294c(&mut self, slice: &OpeningSliceState) {
+        let mut changed = false;
+        for enemy in &mut self.active_enemies {
+            if enemy.family != EnemyFamily::Hand || enemy.hand_state != HandState::Grabbing {
+                continue;
+            }
+            // ASM Mode_Level loc_7FC walks Kid before the priority-$FFFF Hand.
+            // Hand.asm loc_3294C therefore reads Kid after sub_A4EE has resolved
+            // slopes, floors and platforms. Native's enemy pass runs earlier,
+            // so apply the snap here from that exact post-physics state.
+            let snap = hand_grab_snap_loc_3294c(
+                slice.player.x_pos,
+                slice.player.y_pos,
+                hand_x_direction_flag(enemy.facing),
+            );
+            enemy.x_pos = snap.x_pos;
+            enemy.y_pos = snap.y_pos;
+            changed = true;
+        }
+        if changed {
+            self.rebuild_active_enemy_roster();
+        }
+    }
+
     fn finish_dragon_walking_breath_child_loc_3cfda(
         projectiles: &mut [EnemyProjectile],
         enemy: &ActiveEnemy,
@@ -8090,6 +8114,42 @@ impl NativeRuntime {
             collision_type,
             target,
         });
+    }
+
+    pub(crate) fn queue_hand_contacts_loc_1cf2(&mut self, slice: &OpeningSliceState) {
+        let mut contacts = Vec::new();
+        for enemy in &self.active_enemies {
+            if !matches!(enemy.family, EnemyFamily::Hand) || !enemy.is_vulnerable() {
+                continue;
+            }
+            let snapshot = enemy.snapshot();
+            let Some(relation) = classify_enemy_contact_relation_with_half_width_inner(
+                slice.player,
+                &snapshot,
+                slice.player.y_velocity,
+                slice.player.y_pos,
+                self.progression.current_form.half_width() as i64,
+                false,
+            ) else {
+                continue;
+            };
+            let collision_type = match relation {
+                crate::trace::KidObjectRelation::Right => crate::enemies::colid::KIDRIGHT,
+                crate::trace::KidObjectRelation::Left => crate::enemies::colid::KIDLEFT,
+                crate::trace::KidObjectRelation::Below => crate::enemies::colid::KIDBELOW,
+                // ASM loc_1CE4 sends Kid-above contact through the jump path;
+                // `process_stomps` owns that path before this late latch.
+                crate::trace::KidObjectRelation::Above => continue,
+            };
+            contacts.push((*enemy, collision_type));
+        }
+
+        // ASM GfxObjects_CollisionKid loc_1CF2 writes the relation after the
+        // current Execute_Objects pass. `apply_pending_enemy_collisions` then
+        // consumes it on the next frame through Hand.asm loc_3299C/loc_329F8.
+        for (enemy, collision_type) in contacts {
+            self.queue_pending_enemy_collision(&enemy, collision_type);
+        }
     }
 
     fn apply_dragon_walking_stomp_hibernate(enemy: &mut ActiveEnemy) {
@@ -8441,10 +8501,14 @@ impl NativeRuntime {
                                     self.opening_slice.as_ref().is_some_and(|slice| {
                                         self.current_character_movement(slice.player) == 1
                                     });
-                                let kid_grabbed_by_hand = self
-                                    .active_enemies
-                                    .iter()
-                                    .any(|enemy| matches!(enemy.hand_state, HandState::Grabbing));
+                                let kid_grabbed_by_hand = self.active_enemies.iter().any(|enemy| {
+                                    matches!(
+                                        enemy.hand_state,
+                                        HandState::GrabStartingLoc32906
+                                            | HandState::GrabHibernatingLoc3292E
+                                            | HandState::Grabbing
+                                    )
+                                });
                                 if matches!(
                                     hand_kid_contact_gate_loc_32a86(
                                         character_movement_is_crawling,
@@ -8460,18 +8524,18 @@ impl NativeRuntime {
                                     // loc_32906: grabbable airborne Kid-contact
                                     // slots enter the 10-frame grab coroutine.
                                     let enemy = &mut self.active_enemies[active_idx];
-                                    enemy.hand_state = HandState::Grabbing;
+                                    enemy.hand_state = HandState::GrabStartingLoc32906;
                                     enemy.dragon_descent_frames = 0;
                                     enemy.wait_timer = HAND_GRAB_DURATION;
-                                    enemy.x_velocity = 0;
-                                    enemy.y_velocity = 0;
                                     changed_enemy_state = true;
                                 }
                             }
                             Some(HandJumpCollisionBehaviorLoc329F8::ReturnOnly) | None => {}
                         }
                     }
-                    HandState::Grabbing => {}
+                    HandState::GrabStartingLoc32906
+                    | HandState::GrabHibernatingLoc3292E
+                    | HandState::Grabbing => {}
                 }
                 continue;
             }
@@ -14461,12 +14525,22 @@ fn archer_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     empty_enemy_contact_bounds()
 }
 
-fn hand_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
-    // ASM Hand.asm walk/jump/grab/hibernation frames `LnkTo_unk_C79AE..C7A16`
-    // route through GfxObjects_CollisionKid loc_1BCE to zero rows
-    // `unk_31D58`/`unk_31D5A`. Hand-specific collision and grabbing are handled
-    // by Hand.asm loc_3299C/loc_329F8/loc_32A86, not ordinary body damage.
-    empty_enemy_contact_bounds()
+fn hand_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    if matches!(enemy.contact_phase, Some(NativeContactPhase::HandGrabbing)) {
+        // ASM Hand.asm `stru_32B50` uses mapping index 509, whose
+        // CollisionSize_Index entry is the empty row `unk_31792`.
+        return empty_enemy_contact_bounds();
+    }
+
+    // ASM Hand.asm `stru_32B6A` and `stru_32B56` use mapping indices
+    // 503..508. CollisionSize_Index maps all six to `unk_31788`:
+    // `dc.w -$E,$1C,-$9,$9`, giving inclusive edges -14..+14 and -9..0.
+    EnemyContactBounds {
+        left_px: -14,
+        right_px: 14,
+        top_px: -9,
+        bottom_px: 0,
+    }
 }
 
 fn drips_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
@@ -16180,6 +16254,8 @@ impl NativeRuntime {
             return true;
         }
 
+        self.sync_grabbing_hands_to_kid_loc_3294c(slice);
+
         // Stomp check: kill enemies by landing on them from above
         if self.process_stomps(
             slice,
@@ -16192,6 +16268,8 @@ impl NativeRuntime {
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::StompBounce;
             return true;
         }
+
+        self.queue_hand_contacts_loc_1cf2(slice);
 
         // Combat abilities: sword/axe/beam/charge damage enemies
         self.process_sword_hits(slice);

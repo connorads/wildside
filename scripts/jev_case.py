@@ -97,6 +97,36 @@ def comparable(comparison, frames=()):
 def preflight_frames(length, checkpoints):
     return sorted({0, *checkpoints, *range(max(0, length - 30), length)})
 
+
+FROZEN_PREFLIGHT_PIXEL_REGIONS = (
+    (289, 13, 304, 28),  # tas_pixels.rs hud_life_icon
+    (288, 34, 299, 45),  # tas_pixels.rs hud_diamond
+)
+
+
+def preflight_comparable(comparison, frames=()):
+    if comparable(comparison, frames):
+        return True
+    if not comparison or comparison.get("native_replay_only") \
+            or not comparison.get("trace_match") or not comparison.get("oracle_state_match") \
+            or not comparison.get("frame_diffs"):
+        return False
+    indexed = {row.get("frame_index"): row for row in comparison["frame_diffs"]}
+    if not set(frames) <= indexed.keys():
+        return False
+    for frame in frames:
+        row = indexed[frame]
+        if row.get("changed_pixel_count", 0) == 0:
+            continue
+        bounds = row.get("changed_bounds")
+        if not bounds or not any(
+            left <= bounds["min_x"] <= bounds["max_x"] <= right
+            and top <= bounds["min_y"] <= bounds["max_y"] <= bottom
+            for left, top, right, bottom in FROZEN_PREFLIGHT_PIXEL_REGIONS
+        ):
+            return False
+    return True
+
 def verdict(assessment, comparison, sensitivity):
     if assessment is None:
         return "not evaluated"
@@ -251,7 +281,7 @@ def run(output, spec, inputs, operation="check", checkpoints=()):
         command(["cargo", "run", "-q", "-p", "wildside-cli", "--", "verify-recording", "--bundle",
                  str(preflight / "bundle")], ROOT, preflight / "verify.log", env=offline_env, allowed=(0, 1))
         check = read_json(preflight / "bundle/verify/report.json")
-        if not comparable(check, expected_frames):
+        if not preflight_comparable(check, expected_frames):
             raise RuntimeError("live discovery blocked by starting-state oracle comparison; see preflight/verify.log")
         source_provenance["preflight_frames"] = expected_frames
         source_provenance["rom_sha1"] = read_json(preflight / "bundle/manifest.json")["rom_sha1"]

@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-28 - #185 natural Hand grab gameplay parity
+
+JEV reached the first Highwater Pass 2 Hand with ordinary input from a comparable settled level start. The checked-in 128-frame route now matches every emulator gameplay/enemy frame through jump, collision, grab, follow and release. It does not prove cold-boot level entry. The comparison still exposes Kid sprite-animation pixels plus the frozen HUD life icon, so #185 remains open for visual attribution. One paid attempt used 48 requests; later work reuses the route offline.
+
 ## 2026-09-28 - #370 objective closure
 
 The saved natural Dragon-breath death route now matches emulator state and exact pixels for all 620 frames, including the hidden death loader and live hand-off. Its cleanup negative control fails after a 303-frame common prefix. #370 closes with the fast and full TAS gates green and no paid JEV request.

@@ -12710,8 +12710,8 @@ mod chunk_04 {
 
         assert_eq!(
             (enemy.x_pos, enemy.y_pos, enemy.x_velocity, enemy.y_velocity),
-            (0x0066_0000, 0x00C4_0000, 0, 0),
-            "ASM Hand.asm loc_3294C drives the native grabbing step through integer X+2/Y-4 snap and velocity clear"
+            (0x0066_0000, 0x00C4_0000, 0x0003_0000, -0x0004_0000),
+            "ASM Hand.asm loc_3294C snaps integer X+2/Y-4 while loc_32906 disables movement without clearing the stored velocities"
         );
         assert_eq!(
             enemy.wait_timer, 0x0000,
@@ -12725,14 +12725,18 @@ mod chunk_04 {
         enemy.hand_state = HandState::Grabbing;
         enemy.facing = Direction::Left;
         enemy.wait_timer = HAND_GRAB_DURATION;
+        let mut rng = RomRandomState::default();
 
         step_hand_with_form(
             &mut enemy,
             None,
             Some(0x0064_8000),
             Some(0x00C8_4000),
+            None,
+            None,
             Some(Direction::Right),
             PlayerForm::Juggernaut,
+            &mut rng,
         );
 
         assert_eq!(
@@ -12830,10 +12834,10 @@ mod chunk_04 {
                 false,
                 0x0066_0000,
                 0x00C4_0000,
-                -0x0003_0000,
+                -0x0004_0000,
                 -0x0002_0000,
             ),
-            "ASM Hand.asm loc_32970 releases the grab into a loc_328AA jump with d5=2 instead of returning to patrol"
+            "ASM Hand.asm loc_32970 releases the grab into a loc_328AA jump with d5=2 and two shared Get_RandomNumber_byte samples instead of returning to patrol"
         );
     }
 
@@ -12858,6 +12862,14 @@ mod chunk_04 {
         assert!(
             enemy.x_velocity > 0,
             "ASM Hand.asm loc_328AA skips the X negation when raw x_direction is set for right-facing Hands"
+        );
+        assert_eq!(
+            (enemy.x_pos, enemy.y_pos),
+            (
+                ((60_i64 << 16) + i64::from(enemy.x_velocity)) as u32,
+                (i64::from(floor_y) + i64::from(enemy.y_velocity)) as u32,
+            ),
+            "ASM Mode_Level loc_7FC executes Hand.asm loc_328A6 before GfxObjects_MoveAndAnimate/GfxObject_Move applies the newly selected jump velocity in the same frame"
         );
     }
 
@@ -12886,7 +12898,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn hand_walking_loc_32804_integrates_subpixel_motion_before_floor_probe() {
+    fn hand_walking_loc_32804_integrates_subpixel_motion_after_object_checks() {
         let grid = grid_with_platform(3, 0, 20);
         let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, 48 << 16, 1);
         enemy.hand_state = HandState::Walking;
@@ -12899,7 +12911,7 @@ mod chunk_04 {
         assert_eq!(
             enemy.x_pos,
             (60 << 16) + (6 * HAND_WALK_SPEED[0] as u32),
-            "ASM Hand.asm loc_32804 hibernates after movement; native must accumulate the tier-1 subpixel walk delta before probes"
+            "ASM Mode_Level runs Hand.asm loc_32804 before GfxObject_Move; native must still accumulate one tier-1 subpixel walk delta per frame"
         );
         assert_eq!(enemy.facing, Direction::Right);
         assert_eq!(enemy.x_velocity, HAND_WALK_SPEED[0]);
@@ -12972,7 +12984,7 @@ mod chunk_04 {
 
     #[test]
     fn hand_walking_loc_32840_snaps_and_reverses_at_right_wall() {
-        let grid = grid_with_solid_cells(8, 6, &[(5, 3)]);
+        let grid = grid_with_solid_cells(8, 6, &[(5, 3), (3, 4), (4, 4), (5, 4)]);
         let mut enemy = test_enemy(EnemyFamily::Hand, 72 << 16, 64 << 16, 1);
         enemy.hand_state = HandState::Walking;
         enemy.facing = Direction::Right;
@@ -12988,7 +13000,7 @@ mod chunk_04 {
 
     #[test]
     fn hand_walking_loc_32840_snaps_and_reverses_at_left_wall() {
-        let grid = grid_with_solid_cells(8, 6, &[(4, 3)]);
+        let grid = grid_with_solid_cells(8, 6, &[(4, 3), (4, 4), (5, 4), (6, 4)]);
         let mut enemy = test_enemy(EnemyFamily::Hand, 88 << 16, 64 << 16, 1);
         enemy.hand_state = HandState::Walking;
         enemy.facing = Direction::Left;
