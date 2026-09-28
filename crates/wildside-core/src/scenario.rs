@@ -494,6 +494,7 @@ impl NativeRuntime {
         let platform_rewind_passes = usize::from(level_id == LevelId(0x33)) * 2;
         self.settle_target_level_live_window(level_id, target_live_frames, platform_rewind_passes);
         if debug_lifecycle_completed {
+            self.reconcile_recording_handoff_lion_fire_wait_loc_3e09e();
             // ASM Tank.asm loc_3C044/loc_3C0F0: the recording helper's
             // target-live row 0 is a capture-only duplicate of
             // post_title_start. Native's collapsed title handoff has already
@@ -1698,6 +1699,73 @@ mod tests {
             );
             assert_eq!(enemy_pass.rom_random.offset_word(), rng_before);
         }
+    }
+
+    #[test]
+    fn issue186_level07_recording_handoff_retains_lion_roar_loc_3e09e() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level_for_recording_oracle(LevelId(0x07));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x07));
+
+        let frame = runtime.step_frame(FrameInput::default());
+        let lion = runtime
+            .active_enemies
+            .iter()
+            .find(|enemy| enemy.family == EnemyFamily::Lion && enemy.layout_index == 1)
+            .expect("Level 0x07 lower Lion remains active at frame 0");
+
+        assert_eq!(
+            (lion.lion_state, lion.wait_timer),
+            (LionState::Roaring, 18),
+            "ASM Lion.asm loc_3E09E: preserve the oracle's frame-19 loc_3E0DA projectile-allocation boundary"
+        );
+        assert!(
+            frame.active_projectile_details.is_empty(),
+            "ASM Lion.asm loc_3E0DA must not allocate the projectile before the loc_3E09E fire-sprite wait completes"
+        );
+        assert_eq!(
+            (frame.number_hitpoints, frame.just_received_damage),
+            (2, false),
+            "oracle frame 0 has no Lion projectile contact"
+        );
+
+        for _ in 1..19 {
+            let frame = runtime.step_frame(FrameInput::default());
+            assert!(
+                frame.active_projectile_details.is_empty(),
+                "ASM Lion.asm loc_3E09E must retain the fire-sprite wait through oracle frame 18"
+            );
+        }
+        let frame_19 = runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            frame_19.active_projectile_details.len(),
+            1,
+            "ASM Lion.asm loc_3E0DA allocates the first Lion projectile on oracle frame 19"
+        );
+
+        for _ in 20..46 {
+            runtime.step_frame(FrameInput::default());
+        }
+        let lion_before_charge = runtime
+            .active_enemies
+            .iter()
+            .find(|enemy| enemy.family == EnemyFamily::Lion && enemy.layout_index == 1)
+            .expect("Level 0x07 lower Lion remains active before charge resumes");
+        assert_eq!(lion_before_charge.x_pos, 0x0210_0000);
+
+        runtime.step_frame(FrameInput::default());
+        let lion_after_charge = runtime
+            .active_enemies
+            .iter()
+            .find(|enemy| enemy.family == EnemyFamily::Lion && enemy.layout_index == 1)
+            .expect("Level 0x07 lower Lion remains active when charge resumes");
+        assert_ne!(
+            lion_after_charge.x_pos, 0x0210_0000,
+            "ASM Lion.asm loc_3E11E resumes the charge on oracle frame 46"
+        );
     }
 
     // Boot script that presses Start through the Sega/intro/title sequence,

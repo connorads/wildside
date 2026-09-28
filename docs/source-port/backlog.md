@@ -31,8 +31,8 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-09-28):** #185 is objectively closed. Its saved ordinary-input route from a settled Highwater Pass 2 start matches all 128 emulator gameplay/enemy frames through Hand jump, contact, grab and release; the exact pre-fix code fails the same encounter. Select the next objective campaign case with `project-status`.
-- **Selection:** No open implementation row remains after #185. Start with the highest-priority objective case reported by `project-status`; keep subjective and device checks for the final playtest.
+- **Current work (2026-09-28):** #186 is active. The Level 0x07 recording handoff now preserves the emulator's Lion projectile allocation at frame 19 and charge resume at frame 46. Continue from the two-frame projectile-contact divergence, then capture separate recoil and ledge-leap witnesses.
+- **Selection:** #169 remains parked on non-comparable settled starts. #186 is the next P1 objective route gap; the aligned roar boundary is one witness and does not prove recoil or ledge-leap behaviour.
 - **Scope:** Single-player across all playable levels, branches, forms and bosses. Preserve frozen #406/#409/#416 timing debt and its ratchets. Final package retains subjective/device checks; no human validation is claimed.
 - **Jev allowance:** $5 additional across the campaign. #185 used 48 requests in one attempt. The ledger lifetime charged upper bound is $0.257086284. The checked-in route and later comparisons need no further paid navigation.
 - **Jev exploration review:** Revision `cf5d84937`. #433 was the highest-priority eligible gap, but its 20-minute case window had expired. Offline ROM graph discovery replaced the false no-entry premise and found the natural Crypt chain. No request or spend occurred. Restart the three-fix cadence from this review.
@@ -59,6 +59,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 186 | [~] | P1 | enemy | Fight a Lion; hurt recoil, ledge leap, roar windup, and engagement range should behave like the ROM. | Capture separate Lion recoil, ledge-leap and roar witnesses; navigation alone is insufficient. |
 | 406 | [f] | P1 | rendering | FROZEN with #409 per ADR 0002: the lane stops accruing sessions; the march stays metered as ADR 0001 left it (frontier 995, injection ratchet). Residue authority moves to census-scoped reconstruction + raster-span-replay. | Do not extend the march; ratchets stay green; take #442-#450 instead. See ADR 0002. |
 | 409 | [f] | P1 | rendering | FROZEN per ADR 0002: the recurrence is a downward-only witness (scheduled-frames ratchet 736 / boundary 1657; tas-pixel-baseline). ADR 0003 corrected the spans; #459 found the bounded entry phase non-invertible and closed NO-GO. | Do not extend or promote the lane; keep the 2,391-pixel and scheduled-frame ratchets green. Evidence: archive #459. |
 | 416 | [f] | P2 | audio | Frontier FROZEN at frames 0..922 (decision in archive #416): `gems_frame_signature_v1` is a regression witness only; command parity (#435) supersedes it as audio authority. | Never advance `modelled_frames`; #434-#438 closed, remaining audio debt tracked via #439-#441; keep verify-tas-full green. |

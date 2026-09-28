@@ -16071,6 +16071,40 @@ impl NativeRuntime {
         }
     }
 
+    pub(crate) fn reconcile_recording_handoff_lion_fire_wait_loc_3e09e(&mut self) {
+        let mut rewound_owners = Vec::new();
+        for enemy in &mut self.active_enemies {
+            if enemy.family != EnemyFamily::Lion
+                || enemy.lion_state != LionState::PostFire
+                || enemy.wait_timer != 20
+                || lion_active_projectile_count(enemy) == 0
+            {
+                continue;
+            }
+
+            // ASM Lion.asm loc_3E09E: the recording oracle does not reach
+            // loc_3E0DA's projectile allocation until scenario frame 19.
+            // Native's collapsed loc_74E0 title shell has already crossed that
+            // boundary at this adapter handoff. Restore the preceding coroutine
+            // wait; ordinary gameplay never enters this reconciliation path.
+            rewound_owners.push(EnemyProjectileOwner {
+                segment_index: enemy.segment_index,
+                layout_index: enemy.layout_index,
+                token: enemy.ufo_beam_interval,
+            });
+            enemy.lion_state = LionState::Roaring;
+            enemy.wait_timer = 19;
+            enemy.ufo_beam_segments = enemy.ufo_beam_segments.saturating_sub(1);
+        }
+
+        self.projectiles.retain(|projectile| {
+            projectile.kind != EnemyProjectileKind::LionProjectile
+                || projectile
+                    .owner
+                    .is_none_or(|owner| !rewound_owners.contains(&owner))
+        });
+    }
+
     pub(crate) fn prime_respawn_settle_enemy_loading_loc_368a8(&mut self, level_id: LevelId) {
         if !self.enemy_loading_enabled() {
             return;

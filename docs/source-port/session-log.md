@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-09-28 - #186 Lion recording handoff
+
+The Level 0x07 recording adapter now retains the emulator's pre-fire Lion coroutine. Native and emulator allocate the roar projectile on frame 19 and resume charge movement on frame 46. A two-frame projectile-contact difference and the carrier-versus-GfxObject trace origin remain, so #186 stays active for those boundaries plus separate recoil and ledge-leap witnesses. No paid JEV request occurred.
+
 ## 2026-09-28 - #185 objective closure
 
 The checked-in Highwater Pass 2 Hand route now has a sensitive exact-parent control: the pre-fix build diverges at the live Hand encounter, while the committed build matches all 128 gameplay and enemy checkpoints through jump, grab and release. Offline JEV replay matches trace and emulator state. Remaining image bounds are the frozen HUD life icon and Kid slope frames now owned by #211, with no standalone Hand residual. #185 closes from a settled diagnostic start without claiming cold-boot entry.
