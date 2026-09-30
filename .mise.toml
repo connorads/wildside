@@ -36,6 +36,39 @@ run = [
 run = "git config core.hooksPath .hk-hooks"
 description = "Wire the pre-commit hook (clippy/fmt/deny/tests) for this clone/worktree"
 
+[tasks.check-harness-leak]
+# Fails if the `harness` feature of wildside-core or wildside-md reaches a
+# production build (web for wasm, frame). Fail closed: each cargo tree must
+# succeed and name the crate, so a rename or a broken resolve cannot read as
+# "no harness".
+run = """
+sh -ec '
+check() {
+  crate=$1
+  shift
+  out=$(cargo tree "$@" -e features -e normal -i "$crate") || {
+    echo "check-harness-leak: cargo tree $* -i $crate failed" >&2
+    exit 1
+  }
+  printf "%s\\n" "$out" | grep -q "^$crate v" || {
+    echo "check-harness-leak: cargo tree $* did not resolve $crate" >&2
+    exit 1
+  }
+  if printf "%s\\n" "$out" | grep -q "$crate feature \\"harness\\""; then
+    echo "check-harness-leak: $crate harness reaches a production build (cargo tree $*)" >&2
+    printf "%s\\n" "$out" >&2
+    exit 1
+  fi
+}
+for crate in wildside-core wildside-md; do
+  check "$crate" -p wildside-web --target wasm32-unknown-unknown
+  check "$crate" -p wildside-frame --features audio
+done
+echo "check-harness-leak: ok"
+'
+"""
+description = "Fail if the harness feature of core or md leaks into the web or frame production build"
+
 [tasks.check-hooks]
 run = "scripts/check-hooks.sh"
 description = "Fail closed unless the hk pre-commit hook is wired (run: mise run setup)"

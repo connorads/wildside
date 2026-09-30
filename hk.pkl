@@ -54,6 +54,12 @@ hooks {
                 glob = List("**/Cargo.toml", "Cargo.lock", "deny.toml")
                 check = "scripts/quiet-on-success.sh cargo deny check"
             }
+            // `harness` (probes, warps, ScriptRunner, GEMS teleports) is for
+            // cli and tests; it must never reach the web or frame build.
+            ["check-harness-leak"] {
+                glob = List("**/Cargo.toml", "Cargo.lock")
+                check = "scripts/quiet-on-success.sh mise run check-harness-leak"
+            }
             ["cargo-machete"] {
                 glob = List("**/Cargo.toml", "Cargo.lock")
                 check = "scripts/quiet-on-success.sh cargo machete"
