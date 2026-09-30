@@ -217,6 +217,7 @@ fn extract_native_citations(repo_root: &Path) -> Result<NativeCitationIndex> {
         repo_root.join("crates/wildside-core/src"),
         repo_root.join("crates/wildside-data/src"),
         repo_root.join("crates/wildside-md/src"),
+        repo_root.join("crates/wildside-render/src"),
     ];
     for dir in &search_dirs {
         if dir.is_dir() {

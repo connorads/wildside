@@ -2,13 +2,15 @@ use std::sync::Arc;
 
 use wildside_core::{
     GameMode, HudDmaEventSub44DC, HudRasterUploadTimingSub44DC, LevelId, NativeTraceFrame,
-    PlayerForm, hitpoint_display_art_dma_loop_loc_12C34,
+    PlayerForm,
     vdp::{
         VdpRasterVramWordWrite, try_schedule_h40_vram_dma_word_writes,
         try_schedule_h40_vram_fifo_word_writes,
     },
 };
-use wildside_render::{NativeLevelVisuals, TileRef, TileSheet};
+use wildside_render::{
+    NativeLevelVisuals, TileRef, TileSheet, hitpoint_display_art_dma_loop_loc_12C34,
+};
 
 use crate::dto::*;
 use crate::scene::*;

@@ -5,6 +5,15 @@ use crate::background::{
 };
 use crate::hud::{HudIcon, HudVisuals};
 use crate::level::{BlockVisualMapping, ForegroundLayout, LevelVisuals};
+use crate::level_load::{
+    BackgroundArtPermutationLoc11E8A, BackgroundFollowupArtPermutationLoc11EC4,
+    BackgroundFollowupArtSourceLoc11EC4, ForegroundArtPermutationLoc11E48,
+    SharedVramArtSourceLoc11EFA, background_art_decompress_loc_11E8A_11EA2,
+    background_followup_art_decompress_loc_11EA2_11EF2, flag_bottom_art_dma_loop_loc_12B9C,
+    foreground_art_decompress_loc_11E48_11E60, hitpoint_display_art_dma_loop_loc_12C34,
+    juggernaut_skull_art_dma_loop_loc_129DC, juggernaut_skull_art_dma_loop_loc_129E8,
+    juggernaut_star_art_dma_loop_loc_129FC, shared_vram_art_decompresses_loc_11EFA,
+};
 use crate::palette::{MdColour, Palette, PaletteSet};
 use crate::player::{
     AnimatedSpriteVisual, EnemyVisuals, EolHologramVisuals, EolScoreVisuals, FlagVisuals,
@@ -16,15 +25,6 @@ use crate::tiles::{Tile, TileQuad, TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
 use sha1::{Digest, Sha1};
 use std::path::Path;
-use wildside_core::{
-    BackgroundArtPermutationLoc11E8A, BackgroundFollowupArtPermutationLoc11EC4,
-    BackgroundFollowupArtSourceLoc11EC4, ForegroundArtPermutationLoc11E48,
-    SharedVramArtSourceLoc11EFA, background_art_decompress_loc_11E8A_11EA2,
-    background_followup_art_decompress_loc_11EA2_11EF2, flag_bottom_art_dma_loop_loc_12B9C,
-    foreground_art_decompress_loc_11E48_11E60, hitpoint_display_art_dma_loop_loc_12C34,
-    juggernaut_skull_art_dma_loop_loc_129DC, juggernaut_skull_art_dma_loop_loc_129E8,
-    juggernaut_star_art_dma_loop_loc_129FC, shared_vram_art_decompresses_loc_11EFA,
-};
 use wildside_data::{
     AssetFile, AssetManifest, AssetSource, DecodedAssetFile, EnemyLayout, FsAssetSource,
     decode_enigma, decode_saxman, ensure_runtime_bundle_contract_with_source,
@@ -666,8 +666,8 @@ fn parse_block_mapping_quads_loc_11d42_11d46(bytes: &[u8]) -> Result<Vec<TileQua
         );
     }
 
-    let or_mask = wildside_core::block_mapping_or_mask_loc_11D42(false);
-    let copied = wildside_core::copy_block_mappings_loc_11D46(&source_longwords, or_mask);
+    let or_mask = crate::level_load::block_mapping_or_mask_loc_11D42(false);
+    let copied = crate::level_load::copy_block_mappings_loc_11D46(&source_longwords, or_mask);
     let copied_bytes = copied
         .into_iter()
         .flat_map(u32::to_be_bytes)
@@ -1402,28 +1402,34 @@ fn layered_background_enigma_base_word_loc_128ba(
         // base planes with d0=$2780, then decodes the follow-up plane with
         // d0=$07E5 for clear weather or d0=$27E5 for storm/hail.
         ("mountain", 0..=2) => {
-            wildside_core::background_mountain_tileset_loc_12910(u16::from(weather_flags))
+            crate::level_load::background_mountain_tileset_loc_12910(u16::from(weather_flags))
                 .pattern_vram_offset
         }
         ("mountain", 3) => {
             let mountain =
-                wildside_core::background_mountain_tileset_loc_12910(u16::from(weather_flags));
+                crate::level_load::background_mountain_tileset_loc_12910(u16::from(weather_flags));
             let pattern_vram_offset = if mountain.needs_hail_overlay_at_1294_a {
-                wildside_core::background_hail_overlay_loc_1294A().pattern_vram_offset
+                crate::level_load::background_hail_overlay_loc_1294A().pattern_vram_offset
             } else {
                 MOUNTAIN_FOLLOWUP_TILE_VRAM_BASE_LOC_11EC4
             };
-            wildside_core::background_final_pattern_loc_12952(pattern_vram_offset)
+            crate::level_load::background_final_pattern_loc_12952(pattern_vram_offset)
                 .pattern_vram_offset
         }
-        ("mountain", 4) => wildside_core::background_hail_overlay_loc_1294A().pattern_vram_offset,
+        ("mountain", 4) => {
+            crate::level_load::background_hail_overlay_loc_1294A().pattern_vram_offset
+        }
         // ASM loc_1295E decodes Hill planes at $2780/$2780/$07C0.
         ("hill", 0 | 1) => {
-            wildside_core::background_hills_tileset_loc_1295E().pattern_vram_offset_1_2
+            crate::level_load::background_hills_tileset_loc_1295E().pattern_vram_offset_1_2
         }
-        ("hill", 2) => wildside_core::background_hills_tileset_loc_1295E().pattern_vram_offset_3,
+        ("hill", 2) => {
+            crate::level_load::background_hills_tileset_loc_1295E().pattern_vram_offset_3
+        }
         // ASM loc_12988 decodes all Desert planes with d0=$2780.
-        ("desert", _) => wildside_core::background_desert_tileset_loc_12988().pattern_vram_offset,
+        ("desert", _) => {
+            crate::level_load::background_desert_tileset_loc_12988().pattern_vram_offset
+        }
         // ASM loc_128BA decodes Forest planes with d0=$0780.
         ("forest", _) => BACKGROUND_TILE_VRAM_BASE,
         _ => 0,

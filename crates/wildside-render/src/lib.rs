@@ -2,6 +2,7 @@ mod background;
 mod bundle;
 mod hud;
 mod level;
+mod level_load;
 mod palette;
 mod player;
 mod tiles;
@@ -21,6 +22,7 @@ pub use hud::{HudIcon, HudVisuals};
 pub use level::{
     BlockVisualKind, BlockVisualMapping, ForegroundLayout, LevelVisuals, ResolvedBlockVisual,
 };
+pub use level_load::hitpoint_display_art_dma_loop_loc_12C34;
 pub use palette::{MdColour, Palette, PaletteSet};
 pub use player::{
     AnimatedSpriteVisual, EnemyVisuals, EolHologramVisuals, EolScoreVisuals, FlagVisuals,

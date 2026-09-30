@@ -84,7 +84,7 @@ pub fn parse_chunked_background_layout(bytes: &[u8]) -> Result<Vec<BackgroundPla
         if chunk_id == 0x8000 {
             bail!("shared background layout pointers are not supported");
         }
-        if chunk_id & 0x8000 != 0 && wildside_core::background_mappings_terminator_loc_12842() {
+        if chunk_id & 0x8000 != 0 && crate::level_load::background_mappings_terminator_loc_12842() {
             return Ok(placements);
         }
         if remaining.len() < 3 {
@@ -92,9 +92,9 @@ pub fn parse_chunked_background_layout(bytes: &[u8]) -> Result<Vec<BackgroundPla
         }
 
         let Some((chunk, next_remaining)) =
-            wildside_core::background_mappings_read_chunk_loc_12830(remaining, 0, 0)
+            crate::level_load::background_mappings_read_chunk_loc_12830(remaining, 0, 0)
         else {
-            if wildside_core::background_mappings_terminator_loc_12842() {
+            if crate::level_load::background_mappings_terminator_loc_12842() {
                 return Ok(placements);
             }
             unreachable!("ASM loc_12842 terminator helper is total")
