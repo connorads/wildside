@@ -29,3 +29,8 @@ wildside-frame = { path = "../wildside-frame", features = ["audio"] }
 wildside-md = { path = "../wildside-md", default-features = false }
 wildside-render = { path = "../wildside-render" }
 wildside-rom = { path = "../wildside-rom" }
+
+[dev-dependencies]
+# tests/parity.rs compares the session against run_script_with_warp; the
+# shipped library boots through NativeRuntime::boot only.
+wildside-core = { path = "../wildside-core", features = ["harness"] }

@@ -18767,6 +18767,7 @@ impl NativeRuntime {
         self.current_level
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// Warp to a specific level (debug feature).
     pub fn warp_to_level(&mut self, level_id: LevelId) {
         self.current_level = level_id;
@@ -18847,6 +18848,7 @@ impl NativeRuntime {
         self.starting_level_title_rng = None;
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// Enter a level through the normal title-card/loading shell for debug
     /// controls that change level while live play is running.
     pub fn enter_level_debug_title_card(&mut self, level_id: LevelId) -> NativeTraceFrame {

@@ -21,7 +21,13 @@ node = "24"
 run = "cargo fmt --all"
 
 [tasks.lint]
-run = "cargo clippy --workspace --all-targets -- -D warnings"
+# The second run resolves features for frame and web alone, so wildside-core
+# compiles without `harness` (cli enables it, and a workspace build unifies
+# features). --lib keeps web's harness dev-dependency out.
+run = [
+  "cargo clippy --workspace --all-targets -- -D warnings",
+  "cargo clippy -p wildside-frame -p wildside-web --lib -- -D warnings",
+]
 
 [tasks.setup]
 # Wire the tracked hk pre-commit shim. core.hooksPath is local git state (not

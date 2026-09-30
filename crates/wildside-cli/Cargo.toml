@@ -20,7 +20,8 @@ crc32fast.workspace = true
 # The SingleStepTests 680x0 set ships gzipped JSON (#447). Already in the tree
 # via `zip`, so this is a direct use of a vendored crate, not a new dependency.
 flate2 = "1.1"
-wildside-core = { path = "../wildside-core" }
+# The player and tools are dev harnesses: probes, warps and ScriptRunner.
+wildside-core = { path = "../wildside-core", features = ["harness"] }
 wildside-data = { path = "../wildside-data" }
 wildside-frame = { path = "../wildside-frame", features = ["audio"] }
 wildside-md = { path = "../wildside-md" }

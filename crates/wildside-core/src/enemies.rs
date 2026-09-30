@@ -16082,6 +16082,7 @@ impl NativeRuntime {
         }
     }
 
+    #[cfg(any(test, feature = "harness"))]
     pub(crate) fn reconcile_recording_handoff_lion_fire_wait_loc_3e09e(&mut self) {
         let mut rewound_owners = Vec::new();
         for enemy in &mut self.active_enemies {
@@ -16272,6 +16273,7 @@ impl NativeRuntime {
         self.prime_respawn_settle_enemy_loading_loc_368a8(self.current_level);
     }
 
+    #[cfg(any(test, feature = "harness"))]
     pub(crate) fn prime_probe_camera_enemy_loading_loc_31f8e_368a8(&mut self) {
         if !self.enemy_loading_enabled() {
             return;

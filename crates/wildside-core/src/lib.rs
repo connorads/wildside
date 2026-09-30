@@ -35,8 +35,10 @@ use constants::*;
 use enemies::*;
 use physics::{Direction, HorizontalInput, LevelBounds};
 use platforms::*;
+pub use scenario::BootOptions;
+#[cfg(any(test, feature = "harness"))]
 pub use scenario::{
-    BootOptions, ScriptRunner, run_script, run_script_with_direct_initial_title_card_handoff,
+    ScriptRunner, run_script, run_script_with_direct_initial_title_card_handoff,
     run_script_with_direct_title_card_handoff, run_script_with_physics_order,
     run_script_with_settled_warp, run_script_with_trace, run_script_with_warp,
 };
@@ -1400,6 +1402,7 @@ impl NativeRuntime {
         }
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// Reconcile the collapsed recording shell when a left-edge Driller is
     /// stomped on the same boundary pass that turns through loc_3C152.
     fn reconcile_recording_handoff_driller_boundary_turn_loc_3c026(&mut self) {
@@ -1439,6 +1442,7 @@ impl NativeRuntime {
         }
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// Reconcile Driller GfxObject animation at the recording handoff.
     fn reconcile_recording_handoff_driller_gfx_clocks_loc_142e(&mut self, child_passes: u8) {
         let mut advanced = false;
@@ -1537,6 +1541,7 @@ impl NativeRuntime {
         }
     }
 
+    #[cfg(any(test, feature = "harness"))]
     pub(crate) fn rewind_heady_metal_recording_handoff_gfx_passes_loc_142e(&mut self, passes: u16) {
         // ASM GfxObjects_MoveAndAnimate loc_142E adds each linked GfxObject's
         // FP16.16 velocity once per pass. The recording oracle adapter may
@@ -1576,6 +1581,7 @@ impl NativeRuntime {
         }
     }
 
+    #[cfg(any(test, feature = "harness"))]
     fn seed_heady_recording_handoff_hud_diamond_loc_45ee(&mut self) {
         // ASM sub_44DC loc_45EE/loc_460A drives `$FFFFFA58/$FFFFFA5D`
         // through six-tick pages 0,4,8,12. The Level 0x33 recording helper's
@@ -1954,6 +1960,7 @@ impl NativeRuntime {
         runtime
     }
 
+    #[cfg(any(test, feature = "harness"))]
     pub fn set_player_probe_position(&mut self, x_px: u16, y_px: u16) {
         // ASM loc_C4E maintains held/pressed joypad latches outside the live
         // GfxObject. Direct probe starts are WRAM seeds, so clear native's
@@ -1991,6 +1998,7 @@ impl NativeRuntime {
         }
     }
 
+    #[cfg(any(test, feature = "harness"))]
     pub fn set_player_probe_velocity(&mut self, x_velocity: i32, y_velocity: i32) {
         if let Some(slice) = self.opening_slice.as_mut() {
             slice.player.x_velocity = x_velocity;
@@ -1999,6 +2007,7 @@ impl NativeRuntime {
         }
     }
 
+    #[cfg(any(test, feature = "harness"))]
     pub fn set_camera_probe_position(&mut self, x_px: u16, y_px: u16) {
         if let Some(slice) = self.opening_slice.as_mut() {
             slice.camera.x_pos = u32::from(x_px) << 16;
@@ -2153,6 +2162,7 @@ impl NativeRuntime {
         self.mode_level_work_after_hud_sub_44dc.as_ref()
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// Seed the hardware beam and refresh state at the next live ASM
     /// `Execute_Objects sub_E12` boundary.
     ///
@@ -2163,6 +2173,7 @@ impl NativeRuntime {
         self.mode_level_raster_seed_sub_e12 = Some(seed);
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// Seed the hardware beam at ASM `Mode_Level $7C8` and advance the typed
     /// VBlank source/arbitration path to the next `Execute_Objects sub_E12`.
     pub fn seed_mode_level_raster_mode_entry(
@@ -2180,6 +2191,7 @@ impl NativeRuntime {
         true
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// Seed the VDP VINT assertion boundary and advance the sampled
     /// `WaitForVint -> V_Int -> MainGameLoop -> Mode_Level` path.
     pub fn seed_mode_level_raster_vint_assertion(
@@ -2197,6 +2209,7 @@ impl NativeRuntime {
         self.seed_mode_level_raster_mode_entry(mode_entry, work, arbitration)
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// Seed the first ASM `WaitForVint $93E` poll on a path with no
     /// asynchronous Z80 access to the 68k bus.
     pub fn seed_mode_level_raster_wait_for_vint_poll_no_z80(
@@ -2259,15 +2272,18 @@ impl NativeRuntime {
         }
     }
 
+    #[cfg(any(test, feature = "harness"))]
     pub fn set_playtest_form(&mut self, form: PlayerForm) {
         self.progression.current_form = form;
         self.progression.number_hitpoints = form.max_hitpoints();
     }
 
+    #[cfg(any(test, feature = "harness"))]
     pub fn set_probe_diamond_count(&mut self, count: u16) {
         self.progression.diamond_count = count;
     }
 
+    #[cfg(any(test, feature = "harness"))]
     pub fn set_probe_lives_count(&mut self, count: u16) {
         // ASM variables.asm: `Number_Lives` is `$FFFFFC3E`; pause menu
         // `Game_Paused_ChkStart` (kid.asm:6865) compares/decrements this word.
@@ -2545,22 +2561,30 @@ impl NativeRuntime {
         Self::new_with_source(assets, assets_source)
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// Override the physics sub-step ordering (for sweep comparison experiments).
     pub fn set_physics_order(&mut self, order: PhysicsOrder) {
         self.physics_order = order;
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// Enable sub-frame physics tracing for TAS debugging.
     pub fn set_trace_physics(&mut self, enabled: bool) {
         self.trace_physics = enabled;
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// Select oracle-recorded title-card hand-off timing for scripted replay tools.
     pub fn set_recorded_title_card_handoff_delay(&mut self, enabled: bool) {
+        self.select_recorded_title_card_handoff_delay(enabled);
+    }
+
+    fn select_recorded_title_card_handoff_delay(&mut self, enabled: bool) {
         self.recorded_title_card_handoff_delay = enabled;
         self.direct_title_card_handoff_capture = !enabled;
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// Set the block collision grid for the current level.
     /// Call after constructing the runtime, before stepping frames.
     pub fn set_block_grid(&mut self, grid: terrain::BlockGrid) {
@@ -2568,6 +2592,7 @@ impl NativeRuntime {
         self.block_grid_source = BlockGridSource::Manual;
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// Set the block collision grid during a level-entry shell and rebuild the
     /// hidden opening slice against that exact terrain.
     pub fn set_level_entry_block_grid(&mut self, grid: terrain::BlockGrid) {
@@ -4010,9 +4035,10 @@ impl NativeRuntime {
     }
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
-        self.step_frame_with_mode_level_raster_scheduler(input, &mut |_| None)
+        self.step_frame_with_raster_scheduler(input, &mut |_| None)
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// Advance one native frame while allowing the execution shell to advance
     /// the live gameplay raster owner.
     ///
@@ -4022,6 +4048,18 @@ impl NativeRuntime {
     /// existing `sub_44DC` schedulers. Synchronous `Kid_Transform sub_8E0`
     /// VBlanks invoke the callback as a heartbeat and ignore that seed.
     pub fn step_frame_with_mode_level_raster_scheduler(
+        &mut self,
+        input: FrameInput,
+        scheduler: &mut dyn FnMut(
+            ModeLevelVblankWorkBeforeSubE12,
+        ) -> Option<vdp::ModeLevelRasterSeedSubE12>,
+    ) -> NativeTraceFrame {
+        self.step_frame_with_raster_scheduler(input, scheduler)
+    }
+
+    /// Shared frame step: [`step_frame`](Self::step_frame) passes a scheduler
+    /// that never seeds the raster.
+    fn step_frame_with_raster_scheduler(
         &mut self,
         input: FrameInput,
         scheduler: &mut dyn FnMut(

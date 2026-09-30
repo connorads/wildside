@@ -4,6 +4,12 @@ edition.workspace = true
 license.workspace = true
 version.workspace = true
 
+[features]
+# Harness API: probes, seeds, warps, the raster scheduler and ScriptRunner.
+# Tools (cli) and tests drive the engine through it; production shells use
+# NativeRuntime::boot + step_frame only.
+harness = []
+
 [lints]
 workspace = true
 

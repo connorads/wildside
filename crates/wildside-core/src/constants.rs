@@ -729,6 +729,7 @@ pub(crate) const CONTINUE_FIRST_PHASE_FRAMES: usize =
     CONTINUE_INITIAL_HOLD_FRAMES + CONTINUE_FIRST_START_WINDOW_FRAMES;
 pub(crate) const CONTINUE_COUNTDOWN_FRAMES: usize =
     CONTINUE_FIRST_PHASE_FRAMES + CONTINUE_SECOND_START_WINDOW_FRAMES;
+#[cfg(any(test, feature = "harness"))]
 pub(crate) const PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES: usize = 401;
 // ASM loc_BC34 (kid.asm:15181): damage-flash thread spawned by sub_7196 at
 // priority $FFFC.  loc_BC40 waits for Just_received_damage, then loc_BC54

@@ -288,6 +288,7 @@ pub(crate) fn driller_parent_next_animation_tick_stru_3bcb2(animation_tick: u8) 
     }
 }
 
+#[cfg(any(test, feature = "harness"))]
 pub(crate) fn driller_parent_previous_animation_tick_stru_3bcb2(animation_tick: u8) -> u8 {
     // Inverse of the live 1..18 tick ring, used only when the recording
     // adapter collapses one extra parent GfxObject pass at its boundary.

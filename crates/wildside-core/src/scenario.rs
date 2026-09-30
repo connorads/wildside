@@ -3,13 +3,21 @@ use super::*;
 // the ROM level-skip path has a live title-card tail before the helper starts
 // counting stable target frames. The compatibility `boot_to_level` path skips
 // that tail, so settled full-frame traces need the oracle-observed live age.
+#[cfg(any(test, feature = "harness"))]
 const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
+#[cfg(any(test, feature = "harness"))]
 const RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 60;
+#[cfg(any(test, feature = "harness"))]
 const RECORDING_SETTLED_WARP_TIMER_SECONDS_LOC_BDC0: u16 = 179;
+#[cfg(any(test, feature = "harness"))]
 const RECORDING_SETTLED_WARP_TIMER_SUBFRAMES_LOC_BDC0: u16 = 0x08;
+#[cfg(any(test, feature = "harness"))]
 const LEVEL_ZERO_RECORDING_TIMER_SECONDS_BEFORE_FRAME_0_LOC_BE82: u16 = 180;
+#[cfg(any(test, feature = "harness"))]
 const LEVEL_ZERO_RECORDING_TIMER_SUBFRAMES_BEFORE_FRAME_0_LOC_BE82: u16 = 1;
+#[cfg(any(test, feature = "harness"))]
 const LEVEL_ZERO_RECORDING_TIME_FRAMES_BEFORE_FRAME_0_LOC_3038A: u16 = 0x003C;
+#[cfg(any(test, feature = "harness"))]
 const SETTLED_WARP_MAX_ATTEMPT_FRAMES: usize = 828;
 const RECORDING_DEBUG_TITLE_WAIT_FRAMES_LOC_1AE2E: usize = 120;
 
@@ -65,12 +73,14 @@ pub(crate) fn debug_level_entry_load_complete_step_loc_74e0(level: LevelId) -> O
 /// fixed model reproduced exactly — the anchor that fixed the mapping.
 pub(crate) const DEBUG_LEVEL_ENTRY_LEGACY_LIVE_BOUNDARY_LOC_74E0: usize = 71;
 
+#[cfg(any(test, feature = "harness"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SettleWarpMode {
     FullFrameOracle,
     RecordingOracle,
 }
 
+#[cfg(any(test, feature = "harness"))]
 fn is_live_unpaused_target_level(runtime: &NativeRuntime, level_id: LevelId) -> bool {
     let trace = runtime.trace_frame();
     trace.game_mode == GameMode::InGame
@@ -80,14 +90,17 @@ fn is_live_unpaused_target_level(runtime: &NativeRuntime, level_id: LevelId) -> 
         && trace.number_objects != 0
 }
 
+#[cfg(any(test, feature = "harness"))]
 fn settled_warp_complete(stable_target_frames: usize, target_live_frames: usize) -> bool {
     stable_target_frames >= target_live_frames && target_live_frames > 0
 }
 
+#[cfg(any(test, feature = "harness"))]
 fn oracle_warp_primes_respawn_settle_enemy_loading(level_id: LevelId) -> bool {
     level_id == LevelId(1)
 }
 
+#[cfg(any(test, feature = "harness"))]
 fn oracle_warp_target_live_frames(level_id: LevelId) -> usize {
     if level_id == LevelId(1) {
         ORACLE_SETTLED_WARP_LIVE_FRAMES + 1
@@ -98,6 +111,7 @@ fn oracle_warp_target_live_frames(level_id: LevelId) -> usize {
     }
 }
 
+#[cfg(any(test, feature = "harness"))]
 fn recording_oracle_warp_target_live_frames(
     level_id: LevelId,
     debug_lifecycle_completed: bool,
@@ -142,17 +156,20 @@ fn boot_boundary_rebuilds_pristine_level(
     !used_debug_warp || !use_recording_oracle_lifecycle
 }
 
+#[cfg(any(test, feature = "harness"))]
 fn recording_settle_primes_respawn(level_id: LevelId, debug_lifecycle_completed: bool) -> bool {
     level_id == LevelId(0)
         || (!debug_lifecycle_completed && oracle_warp_primes_respawn_settle_enemy_loading(level_id))
 }
 
+#[cfg(any(test, feature = "harness"))]
 fn recording_oracle_warp_hidden_object_passes_loc_e12(level_id: LevelId) -> usize {
     debug_level_entry_load_complete_step_loc_74e0(level_id).map_or(0, |load_complete| {
         RECORDING_DEBUG_TITLE_WAIT_FRAMES_LOC_1AE2E.saturating_sub(load_complete)
     })
 }
 
+#[cfg(any(test, feature = "harness"))]
 fn recording_oracle_lava_water_handoff_passes_loc_1223c(
     level_id: LevelId,
     reload_delay: u16,
@@ -174,6 +191,7 @@ fn recording_oracle_lava_water_handoff_passes_loc_1223c(
     }
 }
 
+#[cfg(any(test, feature = "harness"))]
 fn recording_oracle_time_frames_loc_3038a(level_id: LevelId, time_frames: u16) -> u16 {
     debug_level_entry_load_complete_step_loc_74e0(level_id).map_or(time_frames, |load_complete| {
         // ASM loc_74E0 -> Mode_Level loc_892 -> loc_3038A: level loading
@@ -187,6 +205,7 @@ fn recording_oracle_time_frames_loc_3038a(level_id: LevelId, time_frames: u16) -
     })
 }
 
+#[cfg(any(test, feature = "harness"))]
 fn should_restore_recorded_title_card_after_first_live(
     restore_after_first_live: bool,
     game_mode: GameMode,
@@ -209,12 +228,13 @@ impl NativeRuntime {
     /// Production entry point for a shell: apply `options` to a freshly
     /// constructed runtime, then drive it with [`step_frame`](Self::step_frame).
     pub fn boot(&mut self, options: BootOptions) {
-        self.set_recorded_title_card_handoff_delay(options.recorded_title_card_handoff);
+        self.select_recorded_title_card_handoff_delay(options.recorded_title_card_handoff);
         if let Some(level) = options.warp {
-            self.boot_to_level(level);
+            self.boot_to_level_with_warp_lifecycle(level, false);
         }
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// Boot through menus to level 0, then advance to `target` using the
     /// level skip mechanism. Used by sweep infrastructure to reach any level
     /// without encoding warp buttons in the input script.
@@ -225,6 +245,7 @@ impl NativeRuntime {
         self.boot_to_level_with_warp_lifecycle(target, false);
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// The settled-recording-warp bootstrap the scenario runner and the state
     /// sweep use. Public so the #442 witness gate can drive the exact same
     /// path when comparing native frame-0 state against the measured
@@ -367,6 +388,7 @@ impl NativeRuntime {
         self.allow_pausing_fade_frames = 17;
     }
 
+    #[cfg(any(test, feature = "harness"))]
     pub fn enter_level_playtest(&mut self, level_id: LevelId) -> NativeTraceFrame {
         self.warp_to_level(level_id);
         // Playtest/debug level selection is outside the ROM joypad path. Clear
@@ -389,6 +411,7 @@ impl NativeRuntime {
         self.trace_frame()
     }
 
+    #[cfg(any(test, feature = "harness"))]
     fn settle_target_level_live_window(
         &mut self,
         level_id: LevelId,
@@ -454,6 +477,7 @@ impl NativeRuntime {
         }
     }
 
+    #[cfg(any(test, feature = "harness"))]
     pub fn settle_oracle_warp_live_window(&mut self, level_id: LevelId) {
         if oracle_warp_primes_respawn_settle_enemy_loading(level_id) {
             self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
@@ -462,10 +486,12 @@ impl NativeRuntime {
         self.settle_target_level_live_window(level_id, target_live_frames, 0);
     }
 
+    #[cfg(any(test, feature = "harness"))]
     pub fn settle_recording_oracle_warp_live_window(&mut self, level_id: LevelId) {
         self.settle_recording_oracle_warp_live_window_with_target_frames(level_id, None);
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// #442: the hidden live window every settled-warp caller runs. All five
     /// harness callers route through here; `target_live_frames_override`
     /// remains as the census experiment entry point. The measured model is
@@ -614,6 +640,7 @@ impl NativeRuntime {
     }
 }
 
+#[cfg(any(test, feature = "harness"))]
 /// Builder for running scripted scenarios with configurable options.
 pub struct ScriptRunner {
     assets: AssetManifest,
@@ -632,6 +659,7 @@ pub struct ScriptRunner {
     restore_recorded_title_card_after_first_live: bool,
 }
 
+#[cfg(any(test, feature = "harness"))]
 impl ScriptRunner {
     pub fn new(assets: AssetManifest) -> Self {
         Self {
@@ -934,6 +962,7 @@ impl ScriptRunner {
     }
 }
 
+#[cfg(any(test, feature = "harness"))]
 fn script_frame_input(
     script: &[u8],
     frame_index: usize,
@@ -954,6 +983,7 @@ fn script_frame_input(
         .unwrap_or_default()
 }
 
+#[cfg(any(test, feature = "harness"))]
 fn restore_recorded_title_card_handoff_if_needed(
     runtime: &mut NativeRuntime,
     restore_title_card_handoff: &mut bool,
@@ -967,6 +997,7 @@ fn restore_recorded_title_card_handoff_if_needed(
 
 // Thin wrappers delegating to ScriptRunner to minimise caller churn.
 
+#[cfg(any(test, feature = "harness"))]
 pub fn run_script(
     assets: AssetManifest,
     script: &[u8],
@@ -975,6 +1006,7 @@ pub fn run_script(
     ScriptRunner::new(assets).run(script, frame_count)
 }
 
+#[cfg(any(test, feature = "harness"))]
 pub fn run_script_with_direct_title_card_handoff(
     assets: AssetManifest,
     script: &[u8],
@@ -985,6 +1017,7 @@ pub fn run_script_with_direct_title_card_handoff(
         .run(script, frame_count)
 }
 
+#[cfg(any(test, feature = "harness"))]
 pub fn run_script_with_direct_initial_title_card_handoff(
     assets: AssetManifest,
     script: &[u8],
@@ -995,6 +1028,7 @@ pub fn run_script_with_direct_initial_title_card_handoff(
         .run(script, frame_count)
 }
 
+#[cfg(any(test, feature = "harness"))]
 pub fn run_script_with_warp(
     assets: AssetManifest,
     script: &[u8],
@@ -1008,6 +1042,7 @@ pub fn run_script_with_warp(
     runner.run(script, frame_count)
 }
 
+#[cfg(any(test, feature = "harness"))]
 pub fn run_script_with_settled_warp(
     assets: AssetManifest,
     script: &[u8],
@@ -1021,6 +1056,7 @@ pub fn run_script_with_settled_warp(
     runner.run(script, frame_count)
 }
 
+#[cfg(any(test, feature = "harness"))]
 pub fn run_script_with_physics_order(
     assets: AssetManifest,
     script: &[u8],
@@ -1035,6 +1071,7 @@ pub fn run_script_with_physics_order(
     runner.run(script, frame_count)
 }
 
+#[cfg(any(test, feature = "harness"))]
 pub fn run_script_with_trace(
     assets: AssetManifest,
     script: &[u8],

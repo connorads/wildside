@@ -4011,6 +4011,7 @@ impl NativeRuntime {
         self.diamond_power_rain_slots = retained_slots;
     }
 
+    #[cfg(any(test, feature = "harness"))]
     /// Advance all active projectiles: move by velocity, decrement lifetime, remove expired.
     /// Homing projectiles accelerate toward `player_pos` each frame.
     /// Re-aiming projectiles (Archer arrows) adjust angle ±1 every `reaim_interval` frames.
