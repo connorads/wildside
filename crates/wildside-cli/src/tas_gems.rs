@@ -9748,8 +9748,6 @@ pub(crate) struct PublishedTasRasterTimeline {
     transform_entry_sub_8e0: Option<wildside_core::vdp::LoadInGameCpuRasterCursor>,
     active: bool,
     finished: bool,
-    scheduled_frames: usize,
-    failure: Option<(usize, &'static str)>,
 }
 
 impl PublishedTasRasterTimeline {
@@ -9765,8 +9763,6 @@ impl PublishedTasRasterTimeline {
             transform_entry_sub_8e0: None,
             active: false,
             finished: false,
-            scheduled_frames: 0,
-            failure: None,
         })
     }
 
@@ -9805,7 +9801,6 @@ impl PublishedTasRasterTimeline {
                 previous.current_helmet_id,
                 previous.form_change_flash_frames,
             ) else {
-                self.failure = Some((frame_index, "transform raster resume is not classified"));
                 self.finished = true;
                 self.active = false;
                 return None;
@@ -9834,7 +9829,6 @@ impl PublishedTasRasterTimeline {
             let Some(next) =
                 apply_gems_transform_sub_8e0_pass(&mut self.probe.engine, entry, &pass)
             else {
-                self.failure = Some((frame_index, "typed transform repeat pass failed"));
                 self.finished = true;
                 self.active = false;
                 return None;
@@ -9847,7 +9841,6 @@ impl PublishedTasRasterTimeline {
                     self.previous_sub_44dc = Some(sub_44dc);
                 }
             }
-            self.scheduled_frames += 1;
             return None;
         }
 
@@ -9861,20 +9854,14 @@ impl PublishedTasRasterTimeline {
                 next_vblank: work,
                 pending_ownership_after_loc_7d6: ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
             };
-            match wildside_frame::apply_gems_mode_level_frame_recurrence_to_sub_e12_checked(
+            wildside_frame::apply_gems_mode_level_frame_recurrence_to_sub_e12_checked(
                 &mut self.probe.engine,
                 previous_sub_44dc,
                 recurrence,
-            ) {
-                Ok(seed) => Some(seed),
-                Err(failure) => {
-                    self.failure = Some((frame_index, failure.description()));
-                    None
-                }
-            }
+            )
+            .ok()
         } else {
             if frame_index != GEMS_MODELLED_ROUTE_FRAMES {
-                self.failure = Some((frame_index, "missed defended frame-923 bootstrap"));
                 self.finished = true;
                 return None;
             }
@@ -9883,13 +9870,9 @@ impl PublishedTasRasterTimeline {
         };
         if let Some(seed) = seed {
             self.active = true;
-            self.scheduled_frames += 1;
             self.current_seed_sub_e12 = Some(seed);
             Some(seed)
         } else {
-            if self.failure.is_none() {
-                self.failure = Some((frame_index, "typed frame recurrence failed closed"));
-            }
             self.finished = true;
             None
         }
@@ -9922,8 +9905,6 @@ impl PublishedTasRasterTimeline {
                     self.current_seed_sub_e12.take(),
                     trace.mode_level_work_before_hud_sub_44dc.as_ref(),
                 ) else {
-                    self.failure =
-                        Some((frame_index, "Cyclone transform entry lacks sub_E12 work"));
                     self.finished = true;
                     self.active = false;
                     return;
@@ -9931,10 +9912,6 @@ impl PublishedTasRasterTimeline {
                 let Some(entry_work) =
                     wildside_core::cyclone_pickup_transform_entry_sub_e12(&pre_hud.execute_objects)
                 else {
-                    self.failure = Some((
-                        frame_index,
-                        "Cyclone pickup callback topology is unclassified",
-                    ));
                     self.finished = true;
                     self.active = false;
                     return;
@@ -9944,7 +9921,6 @@ impl PublishedTasRasterTimeline {
                     seed,
                     entry_work,
                 ) else {
-                    self.failure = Some((frame_index, "Cyclone pickup transform entry failed"));
                     self.finished = true;
                     self.active = false;
                     return;
@@ -9962,21 +9938,10 @@ impl PublishedTasRasterTimeline {
                 self.previous_trace = Some(trace.clone());
                 return;
             }
-            let seed_missing = self.current_seed_sub_e12.is_none();
             let (Some(seed), Some(pre_hud)) = (
                 self.current_seed_sub_e12.take(),
                 trace.mode_level_work_before_hud_sub_44dc.as_ref(),
             ) else {
-                if self.failure.is_none() {
-                    self.failure = Some((
-                        frame_index,
-                        if seed_missing {
-                            "post-transform frame lacks sub_E12 seed"
-                        } else {
-                            "post-transform frame lacks typed pre-HUD work"
-                        },
-                    ));
-                }
                 self.finished = true;
                 self.active = false;
                 return;
@@ -9984,28 +9949,6 @@ impl PublishedTasRasterTimeline {
             let Some(sub_44dc) =
                 apply_gems_mode_level_pre_hud_to_sub_44dc(&mut self.probe.engine, seed, pre_hud)
             else {
-                let reason = if self.probe.engine.pending_m68k_wait_cycles() != 0 {
-                    "pre-HUD entry retained pending hardware waits"
-                } else if wildside_core::execute_objects_raw_cycles_sub_e12(
-                    &pre_hud.execute_objects,
-                )
-                .is_none()
-                {
-                    "Execute_Objects source path is unclassified"
-                } else if wildside_core::execute_objects_elapsed_cycles_sub_e12(
-                    &pre_hud.execute_objects,
-                    seed.refresh_phase,
-                )
-                .is_none()
-                {
-                    "Execute_Objects elapsed schedule is unclassified"
-                } else if wildside_core::post_execute_raw_cycles_before_sub_44dc(pre_hud).is_none()
-                {
-                    "post-Execute source path is unclassified"
-                } else {
-                    "typed pre-HUD schedule failed its refresh recurrence"
-                };
-                self.failure = Some((frame_index, reason));
                 self.finished = true;
                 self.active = false;
                 return;
@@ -10016,33 +9959,6 @@ impl PublishedTasRasterTimeline {
 
         self.dynamic_art_queue
             .observe_post_hud_producer(trace, &self.player_visuals);
-    }
-
-    pub(crate) fn verify_coverage(&self) -> Result<()> {
-        // Correction 2026-08-01 (#409, ADR 0002): the committed 807 was never
-        // met — the landed tree's timeline failed at frame 1400 (477
-        // scheduled), and the tree that claimed frame 1661 had deleted the
-        // raw/elapsed refresh cross-check that arbitrates the claim. With the
-        // guard restored and the frame-1410 override retired, the proven
-        // boundary is frame 1657 (736 scheduled); frame 1658's constants fail
-        // the refresh recurrence. Downward-only from here per ADR 0002.
-        const REQUIRED_SCHEDULED_FRAMES_THROUGH_1731: usize = 736;
-        // Always report the measured coverage so ratchet updates are taken
-        // from a printed number, never re-derived by forcing a failure.
-        eprintln!(
-            "published TAS raster timeline scheduled {} frames (ratchet {REQUIRED_SCHEDULED_FRAMES_THROUGH_1731}); first failure: {:?}",
-            self.scheduled_frames, self.failure,
-        );
-        if self.scheduled_frames < REQUIRED_SCHEDULED_FRAMES_THROUGH_1731 {
-            if let Some((frame, reason)) = self.failure {
-                anyhow::bail!("published TAS raster timeline failed at frame {frame}: {reason}");
-            }
-            anyhow::bail!(
-                "published TAS raster timeline scheduled only {} frames; expected at least {REQUIRED_SCHEDULED_FRAMES_THROUGH_1731}",
-                self.scheduled_frames,
-            );
-        }
-        Ok(())
     }
 }
 

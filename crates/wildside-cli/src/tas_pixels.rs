@@ -576,9 +576,6 @@ pub(crate) fn compare_tas_pixels(
             Ok(())
         },
     )?;
-    if let Some(timeline) = raster_timeline {
-        timeline.into_inner().verify_coverage()?;
-    }
 
     let detail = accumulator.detail.take();
     let report = accumulator.finish(

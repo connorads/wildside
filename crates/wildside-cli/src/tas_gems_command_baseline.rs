@@ -1,10 +1,9 @@
 //! Ratchet gate for GEMS command parity (`gems_command_parity_v1`, #435) on
-//! the full published-route TAS run, cloned from `tas_gems_baseline`.
+//! the full published-route TAS run.
 //!
-//! This is the authoritative audio gate per the #416 supersession decision:
-//! unlike the frozen signature witness, the ratchet is WANTED here — fewer
-//! command mismatches and a later first mismatch both rank `Better` (exit 3
-//! Improvement prompts a baseline update). The two skew-reconciliation
+//! This is the authoritative audio gate: fewer command mismatches and a later
+//! first mismatch both rank `Better` (exit 3 Improvement prompts a baseline
+//! update). The two skew-reconciliation
 //! direction counts are pinned exactly as evidence: a real one-frame native
 //! scheduling shift converts reconciled pairs into exact pairs (or flips
 //! their direction), so any change classifies Regression-for-review rather

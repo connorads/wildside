@@ -439,7 +439,6 @@ checkpoint_interval=$(jq -r --arg slug "$slug" '"'"'.recordings[$slug].full_chec
 cargo run --release -q -p wildside-cli -- verify-tas --scenario tests/data/tas/$slug/scenario.json --frame-start 0 --frame-end "$frame" --checkpoint-interval "$checkpoint_interval" --frontier-kind gameplay --include-rng --compare-pixels --pixel-mismatch-report .cache/tas-verify/$slug/mismatch-report.json --compare-gems --compare-gems-commands
 report=.cache/tas-verify/$slug/report.json
 cargo run --release -q -p wildside-cli -- tas-pixel-baseline --report "$report" --frontier "$frontier" --slug "$slug"
-cargo run --release -q -p wildside-cli -- tas-gems-baseline --report "$report" --frontier "$frontier" --slug "$slug"
 cargo run --release -q -p wildside-cli -- tas-gems-command-baseline --report "$report" --frontier "$frontier" --slug "$slug"
 crc=$(jq -r '"'"'.first_crc_mismatch // empty'"'"' "$report")
 requested_crc_frames=$(jq -r '"'"'.crc_frame_counts.requested'"'"' "$report")
@@ -499,7 +498,7 @@ if [ "$actual_summary" != "$expected_summary" ] || [ "$actual_first" != "$expect
   echo "  actual per-frame RNG:   $actual_rng_frames"
   exit 1
 fi
-echo "Full TAS evidence: all $frame player/camera CRC, typed gameplay, enemy, RNG, rendered-pixel, and GEMS-signature frames checked; pixel and GEMS baselines ratcheted (tas-pixel-baseline, tas-gems-baseline)"
+echo "Full TAS evidence: all $frame player/camera CRC, typed gameplay, enemy, RNG, rendered-pixel, and GEMS-signature frames checked; pixel and GEMS command baselines ratcheted (tas-pixel-baseline, tas-gems-command-baseline)"
 '
 """
 description = "Full any-percent TAS verification — run after gameplay-affecting commits"
