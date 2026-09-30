@@ -8,9 +8,10 @@ The user authorises evidence-backed automated closure of objective bugs.
 Subjective and real output-device checks remain human checks and are collected
 in that final package. Preparing the package does not claim human validation.
 
-Frozen timing debt #406, #409 and #416 remains disclosed and ratcheted. Two-player
-completion is outside this campaign. No new divergence inherits a frozen exemption
-merely because it affects the same subsystem. No push, merge or deployment is
+Invisible timing parity is out of scope per [ADR 0004](../adr/0004-fidelity-floor.md);
+its numbers stay disclosed there. Two-player completion is outside this campaign.
+A visible or audible divergence is in scope even when it shares a mechanism with
+that timing debt. No push, merge or deployment is
 authorised. Verified coherent changes are committed on the current branch.
 
 ## Execution and selection
@@ -128,8 +129,8 @@ not Codex usage. Never put API keys in tracked files or reports.
 - Boot-to-credits and death, continue, game-over, pause and restart flows pass.
 - Every in-scope objective report has a supported resolution. No unresolved
   objective defect is disguised as a human check or a frozen timing exception.
-- Required gates pass, coverage has no unexplained omissions, and all retained
-  timing debt is within its documented ratchets.
+- Required gates pass, coverage has no unexplained omissions, and the pixel
+  baseline and oracle-injection ratchet hold.
 - A reproducible build and evidence report identify the tested revision and
   exact commands. One final playtest package contains only genuine subjective
   and device checks, with concrete routes and expected outcomes.

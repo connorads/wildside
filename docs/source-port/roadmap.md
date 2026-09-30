@@ -18,7 +18,7 @@ routes remain work even when narrow gates pass.
 
 Primary target: a single-player release candidate across every confirmed playable
 level, branch, form and boss, with verified objective fixes and one final human
-playtest package. Documented frozen timing debt remains disclosed and ratcheted.
+playtest package. Invisible timing parity is out of scope per ADR 0004.
 
 Out of scope for this phase's finish line, but still visible backlog epics:
 
@@ -123,7 +123,7 @@ Tracks:
 - implement framewise checksumming and structured sweep history
 - classify divergences explicitly instead of burying them in prose
 - promote repeated debug fields into typed or tracked state when they become relied on
-- audio command parity: gate the 68k→Z80 GEMS command stream (`gems_command_parity_v1`, #435) as the authoritative audio check, with the frozen per-frame signature witness (#416), mismatch census (#434), and bounded-span trace replay (#436/#437) covering timing-emergent Z80 state
+- audio command parity: gate the 68k→Z80 GEMS command stream (`gems_command_parity_v1`, #435) as the authoritative audio check, with the mismatch census (#434) and bounded-span trace replay (#436/#437) covering timing-emergent Z80 state
 
 `1p-playable` must cover at minimum:
 

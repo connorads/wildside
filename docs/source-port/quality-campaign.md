@@ -58,8 +58,7 @@ home) or explicitly rejected so the next session does not re-derive it.
 ## Rejected (with reasons, so they stay rejected)
 
 - **Continuing the persistent-raster march/recurrence to the pixel horizon**
-  — frozen and superseded by ADR 0002 (see it for the full cost argument and
-  the #416 precedent).
+  — out of scope per ADR 0004; ADR 0002 holds the cost argument.
 - **Learned/fitted timing tables committed as constants** (DiffTune-class):
   fitting can reduce error with physically-wrong parameters; a fitted
   constant is committable only when independently derivable from the M68000
@@ -67,7 +66,7 @@ home) or explicitly rejected so the next session does not re-derive it.
   for *ranking residuals* (where is the model structurally wrong), never for
   laundering guesses into green gates.
 - **r68k cycle table adoption, mid-route GEMS seeding, general 68k timing
-  model in the port** — closed in ADR 0001/#416; unchanged.
+  model in the port** — closed in ADR 0001; out of scope per ADR 0004.
 - **Global frame-local reconstruction as renderer fallback** — twice
   disproven (life icon 71→99); only the census-scoped exact variant is open
   (ADR 0002).

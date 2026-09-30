@@ -86,6 +86,7 @@ establish the complete claim. Subjective and real-device checks remain human.
 - `[x]` verified closed, with the validation method recorded in the archive.
 - `[b]` missing a concrete route, external artefact or other dependency.
 - `[f]` frozen by a standing decision. Retain its ratchets; never extend it.
+  Timing debt that ADR 0004 puts out of scope closes as `[-]` instead.
 
 Move a selected objective case to the open lane. On closure, move its row to the
 archive and record the exact evidence and verified revision. A synthetic negative

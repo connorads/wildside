@@ -27682,6 +27682,9 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 416 | [-] | P2 | audio | Closed under ADR 0004: the GEMS frame-signature frontier (frames 0..922) is a disclosed non-goal; command parity (#435) stays the audio authority. | `tas-gems-baseline` deleted; `verify-tas-full` green. See archive #416 and ADR 0004. |
+| 409 | [-] | P1 | rendering | Closed under ADR 0004: the raster recurrence and its HUD residue (241 frames / 2,391 px) are disclosed non-goals; `tas-pixel-baseline` stays as the guard. | Scheduled-frame ratchet deleted; pixel baseline green. See archive #409 and ADR 0004. |
+| 406 | [-] | P1 | rendering | Closed under ADR 0004: persistent CPU/VDP/GEMS timing (raster frontier 995) is a disclosed non-goal; the oracle-injection ratchet stays. | Injection ratchet green. See archive #406 and ADR 0004. |
 | 370 | [x] | P0 | enemy/projectile | Natural Dragon-breath death clears the projectile and reproduces the ROM death-loader, title-card and live hand-off phases. | Registered 620-frame JEV route matches trace, emulator state and every pixel; verified cleanup control fails after a 303-frame prefix. See archive #370. |
 | 210 | [x] | P0 | gameflow/render | Rapid intro/title/menu Start presses preserve the title hand-off and title-card sprite priority. | Registered 600-frame JEV route matches trace, oracle state and every frame; verified early-release control fails. |
 | 300 | [x] | P1 | level/teleporter | Cross-level Teleport exposes each destination after its scheduled `Load_InGame` work. | Red-before Bloody Swamp boundary; 56 exact post-clear gameplay checkpoints and 35 exact destination frames on ordinary Skydragon inputs. |
@@ -29930,3 +29933,16 @@ cursor; keep the nine descriptor transitions as typed handler edges.
 - Progress 2026-09-27: saved-route offline check `.cache/jev-cases/1790466052336068000` proves the natural breath fatal hit at frame 302, title reload at 409 and live Level 0 return at oracle frame 571. Native previously exposed the level at 562. `loc_726 -> Load_TitleCard` now retains eight complete loader frames, rebuilds its 0/2/13/15 Object sequence, consumes the per-pass `Execute_Objects loc_E12` RNG longwords and extends `loc_1AE2E -> loc_6E2 -> Load_InGame` by the loader span plus hand-off frame. RNG and title-worker counts match through the Start hand-off.
 - The synthetic cleanup regression remains discriminating: removing projectile cleanup fails the same symptom after 303 identical frames. No paid navigation or request occurred.
 - Closed 2026-09-28 as `[x]`. Report `.cache/jev-cases/1790566188040887000` checks the complete 620-frame saved route: fatal contact at 302, reload at 409 and live hand-off at 571. Replay trace, emulator state and all rendered frames match exactly, including Kid clear at 529, title-roster clear at 533 and camera preload from 559. The verified cleanup negative control shares 303 frames then fails the same assertion. `loc_726`, `Load_TitleCard`, `Execute_Objects loc_E12`, `loc_1AE2E`, `loc_6E2`, `Load_InGame`, `Pal_FadeOut` and Dragon `loc_3D09E` provide the ASM basis. `verify-slice-fast` passes 7,481 tests; `verify-tas-full` checks 37,759 frames with only the frozen 241-frame / 2,391-pixel HUD debt. Continue remains separate. No paid navigation or request occurred.
+
+## 2026-10-01 ADR 0004 closures (#406, #409, #416)
+
+#406, #409 and #416 close as `[-]` under
+[ADR 0004](../adr/0004-fidelity-floor.md). The fidelity floor puts gameplay,
+enemy and RNG state, level exits and visible or audible bugs in scope. The
+three lanes measured timing no player observes, so their frontiers are
+disclosed non-goals, not debt: raster frontier 995 (#406), HUD residue
+241 frames / 2,391 px (#409), GEMS frame-signature frontier 922 (#416).
+`tas-pixel-baseline` and the oracle-injection ratchet stay as regression
+guards. The #409 scheduled-frame coverage ratchet and the `tas-gems-baseline`
+frame-signature witness are deleted. A visible symptom traced to these
+mechanisms reopens as a new, narrow issue.
