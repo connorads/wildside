@@ -6,12 +6,12 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use wildside_data::AssetManifest;
 
-use crate::input_gen::{Choices, InputProfile, extend_prefix};
+use crate::input_gen::{Choices, InputProfile, extend_prefix, reduce_script};
 use crate::parity::{OracleRunner, Signature, first_divergence, route_scenario};
 use crate::scenarios::{DynamicScenario, NativeDynamicRunOptions, run_native_dynamic_scenario};
 
@@ -217,6 +217,69 @@ pub(crate) fn run_fuzz(
         .filter(|result| result.error.is_some())
         .count();
     anyhow::ensure!(errors == 0, "{errors} fuzz jobs failed; see the run report");
+    Ok(())
+}
+
+/// Shrinks a cluster's repro while it keeps the same signature, writing the
+/// minimal script in place: `tests/data/fuzz-repros/<id>.json`, else the
+/// latest run's copy.
+pub(crate) fn shrink_cluster(
+    repo_root: &Path,
+    rom: &Path,
+    manifest: &AssetManifest,
+    cluster: &str,
+) -> Result<()> {
+    let path = [
+        repo_root.join(REPRO_DIR),
+        repo_root.join(".cache/fuzz-runs/latest/repros"),
+    ]
+    .into_iter()
+    .map(|dir| dir.join(format!("{cluster}.json")))
+    .find(|path| path.is_file())
+    .with_context(|| format!("no repro for cluster {cluster}"))?;
+    let repro: DynamicScenario = serde_json::from_slice(&fs::read(&path)?)
+        .with_context(|| format!("parse {}", path.display()))?;
+    let level = repro
+        .warp_to_level
+        .context("fuzz repro has no warp level")?;
+    let oracle = OracleRunner::new(
+        repo_root,
+        rom,
+        &repo_root.join(".cache/fuzz-runs/shrink").join(cluster),
+    )?;
+    let divergence_of = |script: &[u8]| {
+        let scenario = route_scenario(repro.slug.clone(), level, script.to_vec());
+        let native = run_native_dynamic_scenario(
+            manifest.clone(),
+            &scenario,
+            NativeDynamicRunOptions::default(),
+        )?;
+        let oracle = oracle.run(&scenario, cluster)?;
+        Ok::<_, anyhow::Error>(first_divergence(&native, &oracle, level).map(|divergence| {
+            let signature = Signature::new(&divergence, &native, &oracle, script);
+            (divergence.frame, signature.id())
+        }))
+    };
+    let Some((frame, id)) = divergence_of(&repro.script)? else {
+        bail!("{} no longer diverges", path.display());
+    };
+    if id != cluster {
+        bail!("{} now diverges as cluster {id}", path.display());
+    }
+    let mut evaluations = 0;
+    let script = reduce_script(&repro.script, frame, |candidate| {
+        evaluations += 1;
+        Ok(divergence_of(candidate)?.is_some_and(|(_, id)| id == cluster))
+    })?;
+    let shrunk = route_scenario(repro.slug.clone(), level, script);
+    fs::write(&path, serde_json::to_vec_pretty(&shrunk)?)?;
+    println!(
+        "shrank {cluster} from {} to {} frames ({} nonzero inputs) in {evaluations} replays: {}",
+        repro.script.len(),
+        shrunk.script.len(),
+        shrunk.script.iter().filter(|&&mask| mask != 0).count(),
+        path.display()
+    );
     Ok(())
 }
 

@@ -1,4 +1,7 @@
-//! Deterministic random controller scripts for exploration and parity fuzzing.
+//! Controller scripts: deterministic random generation for exploration and
+//! parity fuzzing, and reduction of a failing script.
+
+use anyhow::Result;
 
 /// SplitMix64, with rejection sampling so each bounded choice is uniform.
 pub(crate) struct Choices(pub(crate) u64);
@@ -52,6 +55,50 @@ pub(crate) fn extend_prefix(
     script
 }
 
+/// Shrinks `script` while `keep` still accepts it. First truncates to
+/// `truncate_to` frames, then zeroes spans from the end back towards the
+/// start, halving the span width once a full pass changes nothing.
+pub(crate) fn reduce_script(
+    script: &[u8],
+    truncate_to: usize,
+    mut keep: impl FnMut(&[u8]) -> Result<bool>,
+) -> Result<Vec<u8>> {
+    let mut working = script.to_vec();
+    if working.len() > truncate_to && keep(&working[..truncate_to])? {
+        working.truncate(truncate_to);
+    }
+    let mut span = (working.len() / 2).max(1);
+    while span > 0 {
+        let mut changed = false;
+        let mut index = working.len();
+        while index > 0 {
+            let start = index.saturating_sub(span);
+            let mut candidate = working.clone();
+            let mut zeroed_any_input = false;
+            for slot in candidate.iter_mut().take(index).skip(start) {
+                if *slot != 0 {
+                    *slot = 0;
+                    zeroed_any_input = true;
+                }
+            }
+            if zeroed_any_input && keep(&candidate)? {
+                working = candidate;
+                changed = true;
+                index = working.len();
+                continue;
+            }
+            if start == 0 {
+                break;
+            }
+            index = start;
+        }
+        if !changed {
+            span /= 2;
+        }
+    }
+    Ok(working)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -77,6 +124,23 @@ mod tests {
         assert_eq!(first.len(), 200);
         assert_eq!(&first[..10], &prefix);
         assert!(first.iter().all(|mask| PROFILE.actions.contains(mask)));
+    }
+
+    #[test]
+    fn reduction_truncates_then_zeroes_every_input_the_predicate_ignores() {
+        let script = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        let mut calls = 0;
+        // "Fails" while frame 3 still holds a nonzero input and frame 6 holds 7.
+        let reduced = reduce_script(&script, 7, |candidate| {
+            calls += 1;
+            Ok(candidate.len() >= 7 && candidate[3] != 0 && candidate[6] == 7)
+        })
+        .unwrap();
+        assert_eq!(reduced, [0, 0, 0, 4, 0, 0, 7]);
+        assert!(calls < 40, "{calls} predicate calls");
+
+        let kept = reduce_script(&script, 4, |candidate| Ok(candidate == script)).unwrap();
+        assert_eq!(kept, script);
     }
 
     #[test]

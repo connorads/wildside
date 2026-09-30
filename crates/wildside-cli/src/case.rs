@@ -2,6 +2,7 @@ use crate::bootstrap::prepare_generated_assets;
 use crate::capture::{
     GameplayState, capture_dynamic_gameplay_scenario, capture_native_dynamic_gameplay_scenario,
 };
+use crate::input_gen::reduce_script;
 use crate::oracle::{
     OracleEnemyState, OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture_dynamic,
 };
@@ -587,60 +588,15 @@ fn reduce_case_bundle(
         )
     })?;
 
-    let mut working = loaded.continuation_script.clone();
-    // First shrink the tail to the failure frame.
     let minimum_frames = signature
         .frame_index
         .saturating_sub(loaded.frame_start)
         .saturating_add(1);
-    if working.len() > minimum_frames {
-        let candidate = working[..minimum_frames].to_vec();
-        if preserves_failure_signature(
-            repo_root, rom_path, manifest, &loaded, &candidate, &signature,
-        )? {
-            working = candidate;
-        }
-    }
-
-    // Then zero redundant spans from the end back towards the start.
-    let mut span = (working.len() / 2).max(1);
-    while span > 0 {
-        let mut changed = false;
-        let mut index = working.len();
-        while index > 0 {
-            let start = index.saturating_sub(span);
-            let mut candidate = working.clone();
-            let mut zeroed_any_input = false;
-            for slot in candidate.iter_mut().take(index).skip(start) {
-                if *slot != 0 {
-                    *slot = 0;
-                    zeroed_any_input = true;
-                }
-            }
-            if !zeroed_any_input {
-                if start == 0 {
-                    break;
-                }
-                index = start;
-                continue;
-            }
-            if preserves_failure_signature(
-                repo_root, rom_path, manifest, &loaded, &candidate, &signature,
-            )? {
-                working = candidate;
-                changed = true;
-                index = working.len();
-                continue;
-            }
-            if start == 0 {
-                break;
-            }
-            index = start;
-        }
-        if !changed {
-            span /= 2;
-        }
-    }
+    let working = reduce_script(&loaded.continuation_script, minimum_frames, |candidate| {
+        preserves_failure_signature(
+            repo_root, rom_path, manifest, &loaded, candidate, &signature,
+        )
+    })?;
 
     loaded.continuation_script.clone_from(&working);
     loaded.frame_end = loaded.frame_start + working.len();

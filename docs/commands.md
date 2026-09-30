@@ -33,6 +33,12 @@ writes `.cache/fuzz-runs/<ts>/report.json`, `clusters.md` and one repro scenario
 per cluster; `--write` also updates `docs/source-port/fuzz-summary.yaml` and
 `tests/data/fuzz-repros/<cluster-id>.json`. Same arguments give identical reports.
 
+`wildside fuzz shrink <cluster-id>` shrinks that cluster's repro in place
+(`tests/data/fuzz-repros/`, else the latest run's `repros/`) while it keeps the
+same signature: it truncates to the divergence, then zeroes input spans. It uses
+the same reducer as `wildside case reduce`, one oracle replay per candidate
+(~4 s each).
+
 ## Dev / oracle setup
 
 The native runtime, asset extraction, and the emulator oracle are wired through mise:

@@ -290,6 +290,15 @@ enum FuzzCommand {
         #[arg(long, default_value_t = false)]
         write: bool,
     },
+    /// Shrink a cluster's repro while it keeps the same signature, in place.
+    Shrink {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Cluster id from fuzz-summary.yaml or the run's clusters.md.
+        cluster: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -1671,6 +1680,15 @@ fn main() -> Result<()> {
                 frames,
             };
             fuzz::run_fuzz(&repo_root, &rom_path, &manifest, &args, jobs, write)?;
+        }
+        Commands::Fuzz {
+            command: FuzzCommand::Shrink { rom, dir, cluster },
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            fuzz::shrink_cluster(&repo_root, &rom_path, &manifest, &cluster)?;
         }
         Commands::VerifyRom { rom } => {
             let repo_root = current_dir()?;
