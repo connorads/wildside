@@ -10,13 +10,16 @@ mod cheats;
 mod compare;
 mod cpu_vectors;
 mod diff;
+mod fuzz;
 mod gems_census;
 mod gems_ring;
 mod gems_span;
 mod hypothesis;
+mod input_gen;
 mod inspect;
 mod native_player;
 mod oracle;
+mod parity;
 mod player;
 mod playtest_ingest;
 mod project_status;
@@ -262,11 +265,44 @@ enum RecordScenarioKind {
 }
 
 #[derive(Debug, Subcommand)]
+enum FuzzCommand {
+    /// Replay random routes from each level start on native and the ROM,
+    /// cluster first divergences, and write .cache/fuzz-runs/<ts>/.
+    Run {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Hex logical levels: "0x00-0x05", "00,03,0a" or "all".
+        #[arg(long, default_value = "0x00-0x05")]
+        levels: String,
+        /// Random routes per idle-clean level.
+        #[arg(long, default_value_t = 8)]
+        seeds: u64,
+        /// Frames per route.
+        #[arg(long, default_value_t = 600)]
+        frames: usize,
+        /// Parallel jobs (default: one per core).
+        #[arg(long)]
+        jobs: Option<usize>,
+        /// Also update docs/source-port/fuzz-summary.yaml and
+        /// tests/data/fuzz-repros/.
+        #[arg(long, default_value_t = false)]
+        write: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 enum Commands {
     /// Semantic case-bundle workflow for branching and reduction.
     Case {
         #[command(subcommand)]
         command: CaseCommand,
+    },
+    /// Random-route parity fuzzing: native vs ROM first divergences, clustered.
+    Fuzz {
+        #[command(subcommand)]
+        command: FuzzCommand,
     },
     VerifyRom {
         #[arg(long)]
@@ -1612,6 +1648,29 @@ fn main() -> Result<()> {
                 |rom| resolve_rom_path(&repo_root, rom),
                 |dir| resolve_upstream_dir(&repo_root, dir),
             )?;
+        }
+        Commands::Fuzz {
+            command:
+                FuzzCommand::Run {
+                    rom,
+                    dir,
+                    levels,
+                    seeds,
+                    frames,
+                    jobs,
+                    write,
+                },
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let args = fuzz::FuzzArgs {
+                levels: parity::parse_levels(&levels)?,
+                seeds,
+                frames,
+            };
+            fuzz::run_fuzz(&repo_root, &rom_path, &manifest, &args, jobs, write)?;
         }
         Commands::VerifyRom { rom } => {
             let repo_root = current_dir()?;

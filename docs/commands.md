@@ -21,6 +21,18 @@ root cause — divergence class + renderer layer + draw-command kind + palette l
 writing a ranked report and per-cluster diff composites under
 `.cache/visual-triage-runs/`. See `wildside visual-triage --help`.
 
+## Parity fuzzing
+
+`mise run fuzz` (`wildside fuzz run --levels 0x00-0x05 --seeds 8 --frames 600`)
+replays random routes from each level start on native and the ROM. It first runs
+an all-idle control per level; a level whose control diverges is recorded as
+`start_state` and gets no random routes. Each route's first blocking divergence
+is clustered by a level-agnostic signature: blocking fields, native/ROM
+`character_movement`, native on-ground and the two inputs before it. The run
+writes `.cache/fuzz-runs/<ts>/report.json`, `clusters.md` and one repro scenario
+per cluster; `--write` also updates `docs/source-port/fuzz-summary.yaml` and
+`tests/data/fuzz-repros/<cluster-id>.json`. Same arguments give identical reports.
+
 ## Dev / oracle setup
 
 The native runtime, asset extraction, and the emulator oracle are wired through mise:

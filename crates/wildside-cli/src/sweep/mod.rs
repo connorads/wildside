@@ -129,6 +129,13 @@ pub(crate) enum DivergenceCategory {
     OracleLimitation,
 }
 
+impl DivergenceCategory {
+    /// Categories that fail a comparison; the rest are context only.
+    pub(crate) fn is_blocking(self) -> bool {
+        matches!(self, Self::Authoritative | Self::Accumulation | Self::Rng)
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct DivergenceSummary {
     pub(crate) authoritative: usize,
@@ -381,6 +388,7 @@ fn is_oracle_limitation_only(result: &LevelSweepResult) -> bool {
 }
 
 fn has_blocking_divergences(summary: &DivergenceSummary) -> bool {
+    // Mirrors `DivergenceCategory::is_blocking` over the summary counts.
     summary.authoritative > 0 || summary.accumulation > 0 || summary.rng > 0
 }
 
@@ -1005,43 +1013,18 @@ fn sweep_single_scenario(
             ..SweepStateComparisonOptions::default()
         },
     );
-    // Build set of checkpoint labels where the native player died during idle
-    // but the oracle survived. Detected by: (a) native HP=0, or (b) native
-    // lives decreased between checkpoints (died and respawned before capture).
-    let first_native_lives = native_states.first().map(|s| s.number_lives);
-    let death_gap_checkpoints: std::collections::HashSet<&str> = native_states
-        .iter()
-        .zip(oracle.states.iter())
-        .filter(|(n, o)| {
-            (n.number_hitpoints == 0 && o.number_hitpoints > 0)
-                || first_native_lives.is_some_and(|first| n.number_lives < first)
-        })
-        .map(|(n, _)| n.label.as_str())
-        .collect();
-    // Detect oracle checkpoints that never reached the requested gameplay
-    // context: paused, stuck on title card (game_mode=0x0008), or still on
-    // the wrong warped level. Position/mode/pixel diffs there are about
-    // oracle bootstrap timing, not native fidelity.
-    let oracle_unreliable_checkpoints: std::collections::HashSet<&str> = oracle
-        .states
-        .iter()
-        .filter(|s| oracle_checkpoint_is_unreliable(s, scenario.warp_to_level))
-        .map(|s| s.label.as_str())
-        .collect();
     // Track how much of this level was actually verifiable: a checkpoint whose
     // oracle is unreliable contributes no authoritative comparison. A level
     // where every checkpoint is masked is UNVERIFIED, not faithful. Issue #26.
-    let total_checkpoints = oracle.states.len();
-    let masked_checkpoints = oracle
-        .states
-        .iter()
-        .filter(|s| oracle_unreliable_checkpoints.contains(s.label.as_str()))
-        .count();
-    reclassify_state_diffs(
+    let oracle_unreliable_checkpoints = mask_unreachable_checkpoints(
         &mut state_diffs,
-        &death_gap_checkpoints,
-        &oracle_unreliable_checkpoints,
+        &native_states,
+        &oracle.states,
+        scenario.warp_to_level,
+        true,
     );
+    let total_checkpoints = oracle.states.len();
+    let masked_checkpoints = oracle_unreliable_checkpoints.len();
     let divergence_summary = summarise_state_diffs(&state_diffs);
     let state_passed = !has_blocking_divergences(&divergence_summary);
 
@@ -1221,7 +1204,51 @@ fn idle_sweep_scenario_for_tier(level_id: u8, requested_tier: SweepTier) -> Dyna
     }
 }
 
-fn oracle_checkpoint_is_unreliable(state: &OracleState, warp_to_level: Option<u8>) -> bool {
+/// Reclassify diffs on checkpoints that compare nothing about native fidelity.
+///
+/// Oracle checkpoints that never reached the requested gameplay context
+/// (paused, stuck on the title card at game_mode=0x0008, or still on the wrong
+/// warped level) become `OracleLimitation`. With `mask_death_gap`, position
+/// diffs where native died during idle but the oracle survived, detected by
+/// native HP=0 or native lives below their first value, become `Advisory`.
+/// Idle sweeps want that; input-driven parity work does not, because a native
+/// death there is the divergence under investigation. Returns the
+/// oracle-unreliable checkpoint labels.
+pub(crate) fn mask_unreachable_checkpoints<'a>(
+    diffs: &mut [StateDiff],
+    native_states: &[OracleState],
+    oracle_states: &'a [OracleState],
+    warp_to_level: Option<u8>,
+    mask_death_gap: bool,
+) -> std::collections::HashSet<&'a str> {
+    let first_native_lives = native_states.first().map(|s| s.number_lives);
+    let death_gap_checkpoints: std::collections::HashSet<&str> = native_states
+        .iter()
+        .zip(oracle_states.iter())
+        .filter(|(n, o)| {
+            mask_death_gap
+                && ((n.number_hitpoints == 0 && o.number_hitpoints > 0)
+                    || first_native_lives.is_some_and(|first| n.number_lives < first))
+        })
+        .map(|(n, _)| n.label.as_str())
+        .collect();
+    let oracle_unreliable_checkpoints: std::collections::HashSet<&str> = oracle_states
+        .iter()
+        .filter(|s| oracle_checkpoint_is_unreliable(s, warp_to_level))
+        .map(|s| s.label.as_str())
+        .collect();
+    reclassify_state_diffs(
+        diffs,
+        &death_gap_checkpoints,
+        &oracle_unreliable_checkpoints,
+    );
+    oracle_unreliable_checkpoints
+}
+
+pub(crate) fn oracle_checkpoint_is_unreliable(
+    state: &OracleState,
+    warp_to_level: Option<u8>,
+) -> bool {
     state.game_paused
         || state.game_mode == 0x0008
         || warp_to_level.is_some_and(|level_id| state.current_level_id != u16::from(level_id))
@@ -1400,7 +1427,7 @@ fn first_frame_checksum_mismatch(
     first_checksum_mismatch(&native_crcs, oracle_crcs)
 }
 
-fn first_checksum_mismatch(
+pub(crate) fn first_checksum_mismatch(
     native_crcs: &[u32],
     oracle_crcs: &[u32],
 ) -> Option<FrameChecksumMismatch> {

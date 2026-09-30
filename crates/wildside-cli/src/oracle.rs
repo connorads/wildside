@@ -625,6 +625,19 @@ pub fn run_jgenesis_capture_dynamic_with_options(
 ) -> Result<OracleManifest> {
     fs::create_dir_all(out_dir)
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
+    let mut cmd = jgenesis_dynamic_command(env, rom_path, scenario_file, out_dir, options);
+    let stdout = capture_stdout(&mut cmd, None)?;
+    serde_json::from_slice(&stdout).context("failed to parse jgenesis oracle manifest")
+}
+
+/// The helper invocation for a JSON scenario file; the manifest is on stdout.
+pub(crate) fn jgenesis_dynamic_command(
+    env: &OracleEnvironment,
+    rom_path: &Path,
+    scenario_file: &Path,
+    out_dir: &Path,
+    options: &OracleRunOptions,
+) -> Command {
     let mut cmd = Command::new(&env.jgenesis_helper_bin);
     cmd.arg("--rom")
         .arg(rom_path)
@@ -681,8 +694,7 @@ pub fn run_jgenesis_capture_dynamic_with_options(
     if options.capture_rng_stream {
         cmd.arg("--capture-rng-stream");
     }
-    let stdout = capture_stdout(&mut cmd, None)?;
-    serde_json::from_slice(&stdout).context("failed to parse jgenesis oracle manifest")
+    cmd
 }
 
 fn write_helper_project(helper_dir: &Path, repo_root: &Path, jgenesis_dir: &Path) -> Result<()> {

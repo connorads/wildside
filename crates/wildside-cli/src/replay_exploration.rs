@@ -13,6 +13,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 
+use crate::input_gen::{self, Choices, InputProfile};
 use crate::oracle::OracleState;
 
 const FRAMES: usize = 420;
@@ -80,35 +81,15 @@ fn situation(state: &OracleState) -> Result<SituationKey> {
     })
 }
 
-/// SplitMix64, with rejection sampling so each bounded choice is uniform.
-struct Choices(u64);
-
-impl Choices {
-    fn index(&mut self, count: usize) -> usize {
-        let bound = u64::try_from(count).expect("choice count fits u64");
-        assert!(bound > 0);
-        loop {
-            self.0 = self.0.wrapping_add(0x9e37_79b9_7f4a_7c15);
-            let mut value = self.0;
-            value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-            value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-            value ^= value >> 31;
-            if value >= bound.wrapping_neg() % bound {
-                return usize::try_from(value % bound).expect("choice fits usize");
-            }
-        }
-    }
-}
+const PILOT_INPUT: InputProfile = InputProfile {
+    actions: &ACTIONS,
+    run_lengths: &CHUNKS,
+    switch_percent: 100,
+};
 
 fn extend_prefix(prefix: &[u8], choices: &mut Choices) -> Vec<u8> {
     assert!((PREFIX..=LAST_PREFIX).contains(&prefix.len()));
-    let mut script = prefix.to_vec();
-    while script.len() < FRAMES {
-        let length = CHUNKS[choices.index(CHUNKS.len())].min(FRAMES - script.len());
-        let mask = ACTIONS[choices.index(ACTIONS.len())];
-        script.extend(std::iter::repeat_n(mask, length));
-    }
-    script
+    input_gen::extend_prefix(prefix, FRAMES, &PILOT_INPUT, choices)
 }
 
 #[derive(Clone, Serialize)]
