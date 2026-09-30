@@ -41,8 +41,14 @@ hooks {
                 check = "typos --exclude \(generatedManifest)"
             }
             ["cargo-clippy"] {
-                glob = List("crates/**/*.rs", "tests/**/*.rs", "Cargo.toml", "Cargo.lock")
+                glob = List("crates/**/*.rs", "tests/**/*.rs", "Cargo.toml", "Cargo.lock", "**/clippy.toml")
                 check = "scripts/quiet-on-success.sh cargo clippy --workspace --all-targets -- -D warnings"
+            }
+            // A crate clippy.toml replaces the root file rather than merging
+            // with it, so core/render must repeat every root key.
+            ["clippy-conf-sync"] {
+                glob = List("**/clippy.toml", "scripts/check_clippy_conf_sync.py")
+                check = "python3 scripts/check_clippy_conf_sync.py"
             }
             ["cargo-deny"] {
                 glob = List("**/Cargo.toml", "Cargo.lock", "deny.toml")

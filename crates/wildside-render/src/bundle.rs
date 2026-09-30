@@ -268,6 +268,15 @@ fn background_palette_path_loc_11df4_11e12(map_id: u8, theme: &str) -> String {
     }
 }
 
+/// Report optional art that failed to load; the level still renders without it.
+#[expect(
+    clippy::disallowed_macros,
+    reason = "the one place render prints: a missing optional asset must stay visible to the player"
+)]
+fn warn_skipped_asset(message: std::fmt::Arguments<'_>) {
+    eprintln!("{message}");
+}
+
 /// Build the level's render visuals reading every generated-bundle byte through
 /// an injected [`AssetSource`]. [`load_level_visuals`] preserves the legacy
 /// native call sites by delegating to a default [`FsAssetSource`].
@@ -491,7 +500,9 @@ pub fn load_level_visuals_with_source(
     let juggernaut_skull =
         load_juggernaut_skull_visuals(manifest, source, &player).unwrap_or_else(|err| {
             if !cfg!(test) {
-                eprintln!("warning: Juggernaut skull art unavailable: {err}");
+                warn_skipped_asset(format_args!(
+                    "warning: Juggernaut skull art unavailable: {err}"
+                ));
             }
             None
         });
@@ -507,13 +518,13 @@ pub fn load_level_visuals_with_source(
     let flag = load_flag_visuals(manifest, source, &fg_palette)?;
     let murder_wall = load_murder_wall_visuals(manifest, source).unwrap_or_else(|err| {
         if !cfg!(test) {
-            eprintln!("warning: murder wall art unavailable: {err}");
+            warn_skipped_asset(format_args!("warning: murder wall art unavailable: {err}"));
         }
         None
     });
     let lava = load_lava_visuals(manifest, source).unwrap_or_else(|err| {
         if !cfg!(test) {
-            eprintln!("warning: lava art unavailable: {err}");
+            warn_skipped_asset(format_args!("warning: lava art unavailable: {err}"));
         }
         None
     });
@@ -525,7 +536,7 @@ pub fn load_level_visuals_with_source(
     )
     .unwrap_or_else(|err| {
         if !cfg!(test) {
-            eprintln!("warning: weather art unavailable: {err}");
+            warn_skipped_asset(format_args!("warning: weather art unavailable: {err}"));
         }
         None
     });
@@ -533,7 +544,9 @@ pub fn load_level_visuals_with_source(
         load_special_effect_unknown_visuals(manifest, source, visual_theme_header.weather_flags)
             .unwrap_or_else(|err| {
                 if !cfg!(test) {
-                    eprintln!("warning: special effect unknown art unavailable: {err}");
+                    warn_skipped_asset(format_args!(
+                        "warning: special effect unknown art unavailable: {err}"
+                    ));
                 }
                 None
             });
@@ -623,25 +636,31 @@ pub fn load_level_visuals_with_source(
         platforms,
         eol_score: load_eol_score_visuals(source).unwrap_or_else(|err| {
             if !cfg!(test) {
-                eprintln!("warning: end-of-level score art unavailable: {err}");
+                warn_skipped_asset(format_args!(
+                    "warning: end-of-level score art unavailable: {err}"
+                ));
             }
             None
         }),
         eol_hologram: load_eol_hologram_visuals(source).unwrap_or_else(|err| {
             if !cfg!(test) {
-                eprintln!("warning: end-of-level hologram art unavailable: {err}");
+                warn_skipped_asset(format_args!(
+                    "warning: end-of-level hologram art unavailable: {err}"
+                ));
             }
             None
         }),
         pause_menu: load_pause_menu_visuals(manifest, source).unwrap_or_else(|err| {
             if !cfg!(test) {
-                eprintln!("warning: pause menu art unavailable: {err}");
+                warn_skipped_asset(format_args!("warning: pause menu art unavailable: {err}"));
             }
             None
         }),
         title_card_letters: load_title_card_letters_visuals(source).unwrap_or_else(|err| {
             if !cfg!(test) {
-                eprintln!("warning: title card letter art unavailable: {err}");
+                warn_skipped_asset(format_args!(
+                    "warning: title card letter art unavailable: {err}"
+                ));
             }
             None
         }),
@@ -4215,7 +4234,10 @@ fn load_enemy_visuals(
             match load_ingame_palette_asset(manifest, source, spec.palette_path, spec.art_path) {
                 Ok(p) => p,
                 Err(e) => {
-                    eprintln!("skipping enemy 0x{:02X} sprite: {e}", spec.object_type);
+                    warn_skipped_asset(format_args!(
+                        "skipping enemy 0x{:02X} sprite: {e}",
+                        spec.object_type
+                    ));
                     continue;
                 }
             };
@@ -4228,7 +4250,10 @@ fn load_enemy_visuals(
         ) {
             Ok(f) => f,
             Err(e) => {
-                eprintln!("skipping enemy 0x{:02X} art: {e}", spec.object_type);
+                warn_skipped_asset(format_args!(
+                    "skipping enemy 0x{:02X} art: {e}",
+                    spec.object_type
+                ));
                 continue;
             }
         };
@@ -4530,10 +4555,10 @@ fn load_player_visuals(
                 bail!("missing required Kid visuals");
             }
             if !cfg!(test) {
-                eprintln!(
+                warn_skipped_asset(format_args!(
                     "skipping player form 0x{:02X}: missing {}",
                     spec.form_id, spec.palette_family
-                );
+                ));
             }
             continue;
         };
@@ -5375,6 +5400,10 @@ fn sha1_hex(bytes: &[u8]) -> String {
 }
 
 #[cfg(test)]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "tests write bundle fixtures to a temp dir"
+)]
 mod tests {
     use super::{
         FOREST_ENEMY_ART_PERMUTATION, FOREST_TAR_MONSTER_ENEMY_ART_PERMUTATION, FOREST_THEME_ID,

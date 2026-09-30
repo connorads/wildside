@@ -1,3 +1,9 @@
+#![expect(
+    clippy::disallowed_methods,
+    clippy::disallowed_types,
+    clippy::disallowed_macros,
+    reason = "tests read fixtures, time scratch dirs and log progress"
+)]
 use super::*;
 use crate::blocks::{
     FloatingPrizeFallStepLoc10C50, LiftBlockFallStepLoc1141E, LiftBlockRiseStepLoc113F4,

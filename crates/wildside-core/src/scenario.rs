@@ -1029,6 +1029,10 @@ pub fn run_script_with_trace(
 }
 
 #[cfg(test)]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "tests read opt-in environment switches"
+)]
 mod tests {
     use super::*;
     use std::path::PathBuf;

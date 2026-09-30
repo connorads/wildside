@@ -1,0 +1,45 @@
+# Clippy uses the nearest clippy.toml and does not merge it with the root one,
+# so this file repeats every root key; scripts/check_clippy_conf_sync.py fails
+# the commit when they drift. The bans below keep the engine deterministic and
+# free of device I/O (docs/architecture.md "Boundary rule").
+too-many-arguments-threshold = 7
+type-complexity-threshold = 250
+max-fn-params-bools = 3
+max-struct-bools = 3
+disallowed-names = ["foo", "bar", "baz", "quux"]
+
+disallowed-methods = [
+    { path = "std::fs::read", reason = "wildside-data / wildside-rom own file I/O; take bytes or an AssetSource" },
+    { path = "std::fs::read_to_string", reason = "wildside-data / wildside-rom own file I/O; take bytes or an AssetSource" },
+    { path = "std::fs::read_dir", reason = "wildside-data / wildside-rom own file I/O; take bytes or an AssetSource" },
+    { path = "std::fs::write", reason = "wildside-data / wildside-rom own file I/O; return the data to the caller" },
+    { path = "std::fs::create_dir_all", reason = "wildside-data / wildside-rom own file I/O; return the data to the caller" },
+    { path = "std::fs::remove_file", reason = "wildside-data / wildside-rom own file I/O" },
+    { path = "std::fs::metadata", reason = "wildside-data / wildside-rom own file I/O" },
+    { path = "std::env::var", reason = "pass configuration in FrameInput or the constructor" },
+    { path = "std::env::var_os", reason = "pass configuration in FrameInput or the constructor" },
+    { path = "std::env::vars", reason = "pass configuration in FrameInput or the constructor" },
+    { path = "std::env::args", reason = "pass configuration in FrameInput or the constructor" },
+    { path = "std::env::current_dir", reason = "pass configuration in FrameInput or the constructor" },
+    { path = "std::process::exit", reason = "the engine has no process control; return an error to wildside-cli" },
+    { path = "std::thread::spawn", reason = "the engine is single-threaded and deterministic; threads live in wildside-cli" },
+    { path = "std::thread::sleep", reason = "the engine is paced by the frame counter, not wall time" },
+]
+
+disallowed-types = [
+    { path = "std::fs::File", reason = "wildside-data / wildside-rom own file I/O; take bytes or an AssetSource" },
+    { path = "std::fs::OpenOptions", reason = "wildside-data / wildside-rom own file I/O; take bytes or an AssetSource" },
+    { path = "std::process::Command", reason = "the engine spawns no processes; that lives in wildside-cli" },
+    { path = "std::net::TcpStream", reason = "the engine has no network access; that lives in wildside-cli" },
+    { path = "std::net::TcpListener", reason = "the engine has no network access; that lives in wildside-cli" },
+    { path = "std::net::UdpSocket", reason = "the engine has no network access; that lives in wildside-cli" },
+    { path = "std::time::Instant", reason = "wall time breaks determinism; use the frame counter" },
+    { path = "std::time::SystemTime", reason = "wall time breaks determinism; use the frame counter" },
+    { path = "std::collections::HashMap", reason = "hash order is not deterministic; use BTreeMap" },
+    { path = "std::collections::HashSet", reason = "hash order is not deterministic; use BTreeSet" },
+]
+
+disallowed-macros = [
+    { path = "std::println", reason = "the engine does not print; return diagnostics to the caller" },
+    { path = "std::eprintln", reason = "the engine does not print; return diagnostics to the caller" },
+]

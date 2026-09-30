@@ -33,6 +33,11 @@ pub use player::{
 pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 
 #[cfg(test)]
+#[expect(
+    clippy::disallowed_methods,
+    clippy::disallowed_macros,
+    reason = "tests read and write asset fixtures"
+)]
 mod tests {
     use super::{BackgroundVisuals, BlockVisualKind, TileRef, load_level_visuals};
     use sha1::{Digest, Sha1};

@@ -1760,6 +1760,10 @@ fn mode_level_vertical_collision_path(
 }
 
 #[cfg(test)]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "tests write trace fixtures to a temp dir"
+)]
 mod tests {
     use super::*;
     use std::{fs, path::PathBuf};
