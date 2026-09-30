@@ -23,6 +23,20 @@ logic in `frame` is feature-free; enabling `audio` pulls in `wildside-md` for th
 real `GemsAudioEngine` sink. `wildside-web` builds with that feature on, so the
 browser hears the same GEMS output the parity gates verify.
 
+`cargo deny check bans` enforces the graph. The `[bans]` table in `deny.toml`
+names, for each crate below, the only crates allowed to depend on it; any other
+edge fails the pre-commit `cargo-deny` step.
+
+| Crate | Allowed dependents |
+| --- | --- |
+| `wildside-core` | `frame`, `web`, `cli` |
+| `wildside-render` | `frame`, `web`, `cli` |
+| `wildside-frame` | `web`, `cli` |
+| `wildside-md` | `frame`, `web`, `cli` |
+| `wildside-web` | `cli` (dev-dependency, for the pixel-parity test) |
+| `sdl2` | `cli` |
+| `ymfm-sys` | `md`, `cli` |
+
 `ymfm-sys` is a ninth, vendored crate: a BSD-3-Clause FFI wrapper around the
 [`aaronsgiles/ymfm`](https://github.com/aaronsgiles/ymfm) FM-audio core, consumed
 via `md`. It also cross-compiles to `wasm32-unknown-unknown` through zig (see

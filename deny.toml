@@ -29,3 +29,16 @@ unknown-registry = "deny"
 unknown-git = "warn"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = ["https://github.com/marhel/r68k"]
+
+# Crate graph (docs/architecture.md "Boundary rule"): each engine crate may only
+# be depended on by the listed crates. A new edge fails `cargo deny check bans`.
+[bans]
+deny = [
+    { crate = "wildside-core", wrappers = ["wildside-frame", "wildside-web", "wildside-cli"], reason = "docs/architecture.md: core is the engine; only frame, web and cli consume it" },
+    { crate = "wildside-render", wrappers = ["wildside-frame", "wildside-web", "wildside-cli"], reason = "docs/architecture.md: render depends only on data; only frame, web and cli consume it" },
+    { crate = "wildside-frame", wrappers = ["wildside-web", "wildside-cli"], reason = "docs/architecture.md: frame is shared by the native player (cli) and the browser (web)" },
+    { crate = "wildside-md", wrappers = ["wildside-frame", "wildside-web", "wildside-cli"], reason = "docs/architecture.md: emulator code never enters core or render; frame reaches it through the audio feature" },
+    { crate = "wildside-web", wrappers = ["wildside-cli"], reason = "docs/architecture.md: web is a leaf; cli uses it only as a dev-dependency for the parity test" },
+    { crate = "sdl2", wrappers = ["wildside-cli"], reason = "docs/architecture.md: SDL2 is device code and lives only in cli" },
+    { crate = "ymfm-sys", wrappers = ["wildside-md", "wildside-cli"], reason = "docs/architecture.md: the FM core is emulator code, consumed via md" },
+]
