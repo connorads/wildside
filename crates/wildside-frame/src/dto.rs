@@ -92,7 +92,6 @@ pub enum DrawCommand {
         colour: [u8; 3],
         scale: i32,
     },
-    #[allow(dead_code)]
     IndexedTile {
         x: i32,
         y: i32,
@@ -100,7 +99,6 @@ pub enum DrawCommand {
         tile: TileRef,
         palette: Arc<Palette>,
     },
-    #[allow(dead_code)]
     IndexedTileRow {
         x: i32,
         y: i32,
@@ -109,7 +107,6 @@ pub enum DrawCommand {
         palette: Arc<Palette>,
         row: u8,
     },
-    #[allow(dead_code)]
     IndexedTileSlice {
         x: i32,
         y: i32,
@@ -120,7 +117,6 @@ pub enum DrawCommand {
         start_column: u8,
         width: u8,
     },
-    #[allow(dead_code)]
     Sprite {
         x: i32,
         y: i32,

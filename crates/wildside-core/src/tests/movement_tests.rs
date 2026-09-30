@@ -695,7 +695,7 @@ mod chunk_11 {
     /// ASM loc_E58 (kid.asm:1665): a zero `Addr_FirstObjectSlot` restores the
     /// saved caller stack and returns before any hibernation counter is touched.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E58_empty_object_list_returns_without_decrementing_hibernation_counters() {
         let next_indices = [None, None];
         let haze_throttled_flags = [true, false];
@@ -10406,7 +10406,7 @@ mod chunk_11 {
     /// Verify across several x positions within a single cell to confirm the
     /// per-pixel linear ramp.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A268_slope_down_y_increases_with_x() {
         let cell_top = 48; // row 3
 
@@ -12751,7 +12751,7 @@ mod chunk_12 {
     /// EQ (no overlap) vs NE (overlap).
     /// Native: the bool return from `juggernaut_support_overlap_sub_9832`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9832_common_exit_loc_98E6_returns_false_when_no_overlap() {
         // ASM loc_98E4 → loc_98E6: moveq #0,d7 → tst.w d7 → EQ (no overlap).
         // An empty candidate list means no objects to scan → d7=0.
@@ -12762,7 +12762,7 @@ mod chunk_12 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9832_common_exit_loc_98E6_returns_true_when_overlap() {
         // ASM loc_98DE → loc_98E6: moveq #1,d7 → tst.w d7 → NE (overlap).
         // A candidate whose AABB fully contains Kid's support rect → d7=1.
@@ -12790,7 +12790,7 @@ mod chunk_12 {
     /// at off_993A. Counter $0F → d7=$0F → $0F>>3=1 → off_993A[1].
     /// Native: `skycutter_flipboard_sprite_mapping_sub_98F2(next_counter)`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_98f2_flipboard_sprite_index_loc_992A_counter_0f() {
         // Counter starts at $0D, step +2 → $0F. $0F>>3=1 → off_993A[1]
         // = LnkTo_unk_AA5B4-Data_Index.
@@ -12819,7 +12819,7 @@ mod chunk_12 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_98f2_flipboard_sprite_index_loc_992A_counter_03() {
         // Counter starts at $01, step +2 → $03. $03>>3=0 → off_993A[0]
         // = LnkTo_unk_AA3AE-Data_Index.
@@ -12846,7 +12846,7 @@ mod chunk_12 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_98f2_flipboard_sprite_index_loc_992A_counter_19() {
         // Counter starts at $17, step +2 → $19. $19>>3=3 → off_993A[3]
         // = LnkTo_unk_AA3AE-Data_Index (table wraps: 0,1,1,0).
@@ -12881,7 +12881,7 @@ mod chunk_12 {
     /// Native: `state.motion_phase = phase; state.motion_timer = timer;
     /// state.motion_script_index = next_index`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_98f2_script_data_read_loc_996A_advances_script() {
         // Timer expired (motion_timer=1, decremented to 0 → read next entry).
         // Script index 0 → reads SCRIPT[0] = (0, 6), advances to index 1.
@@ -12915,7 +12915,7 @@ mod chunk_12 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_98f2_script_data_read_loc_996A_mid_script() {
         // Script index 5 → reads SCRIPT[5] = (5, 0x0A), advances to index 6.
         let step = skycutter_visual_step_sub_98F2(
@@ -12947,7 +12947,7 @@ mod chunk_12 {
     /// `unk_96AC..unk_96D0` bounds → reset to `unk_96AC` start (SCRIPT[0]).
     /// Native: `SCRIPT.get(index)` returns None → wraps to SCRIPT[0].
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_98f2_script_data_read_loc_996A_wraps_at_end() {
         // Script index past end (e.g. 18 = SCRIPT.len()) → wraps to SCRIPT[0].
         let step = skycutter_visual_step_sub_98F2(
@@ -12980,7 +12980,6 @@ mod chunk_12 {
     /// `subq.b #1`, the routine branches to loc_9974 and does not read the
     /// next `unk_96AC` script entry.
     #[test]
-    #[allow(non_snake_case)]
     fn sub_98f2_motion_timer_loc_9942_decrements_without_advancing_script() {
         let step = skycutter_visual_step_sub_98F2(
             SkycutterVisualStateSub98F2 {
@@ -13068,7 +13067,7 @@ mod chunk_12 {
     /// then clamps motion_phase to 0..5 (phases ≥6 reset to 0).
     /// Native: `roll_accum.wrapping_add(...)` and `motion_phase.min(5)`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_98f2_rotation_accum_loc_997E_wraps() {
         // roll_accum = $F0 + $10 = $00 (wrapping u8 add).
         let step = skycutter_visual_step_sub_98F2(
@@ -13092,7 +13091,7 @@ mod chunk_12 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_98f2_rotation_accum_loc_997E_a_held_wraps() {
         // roll_accum = $F0 + $20 = $10 (wrapping u8 add with A held).
         let step = skycutter_visual_step_sub_98F2(
@@ -13119,7 +13118,7 @@ mod chunk_12 {
     /// Phase values 0-5 pass through; ≥6 resets to 0.
     /// Native: `motion_phase.min(5)`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_98f2_phase_clamp_loc_997E_in_range() {
         // motion_phase = 5 (max valid) → stays 5.
         let step = skycutter_visual_step_sub_98F2(
@@ -13147,7 +13146,7 @@ mod chunk_12 {
     /// accumulator, then three threshold checks: <$55 → $12C, <$AA → $130,
     /// else → $134. Tests the three distinct priority bands.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_98f2_priority_bands_loc_997E() {
         // Band 1: roll_accum*2 < $55 → $12C. accum=$10 → *2=$20.
         let step1 = skycutter_visual_step_sub_98F2(
@@ -13214,7 +13213,7 @@ mod chunk_12 {
     /// selected from the three bands above: $12C, $130, or $134.
     /// Native: `board_priority_word` field in `SkycutterVisualStepSub98F2`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_98f2_board_priority_store_loc_99E6() {
         // Verify the priority word is stored in the returned step — this is the
         // native equivalent of `move.w d7,$22(a2)` at loc_99E6.
@@ -13242,7 +13241,7 @@ mod chunk_12 {
     /// is offset by -$1A (26 pixels). When clear, no offset.
     /// Native: `board_y_offset_px: if state.on_board { -0x1A } else { 0 }`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_98f2_on_board_y_offset_loc_99E6() {
         // on_board = true → subi.w #$1A,$1E(a2).
         let step_on = skycutter_visual_step_sub_98F2(
@@ -13290,7 +13289,7 @@ mod chunk_12 {
     /// (through loc_99E6) and the skip path (beq.w loc_99F8) converge here.
     /// Native: return from `skycutter_visual_step_sub_98F2`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_98f2_exit_loc_99F8_on_board_path() {
         // Exercise the on_board=true path that goes through loc_99E6 → loc_99F8.
         let step = skycutter_visual_step_sub_98F2(
@@ -13322,7 +13321,7 @@ mod chunk_12 {
     /// ASM loc_99F8 (kid.asm:11553): skip path — `beq.w loc_99F8` when
     /// on_board is clear skips the y-offset subtract and exits directly.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_98f2_exit_loc_99F8_skip_path() {
         let step = skycutter_visual_step_sub_98F2(
             SkycutterVisualStateSub98F2 {
@@ -13352,7 +13351,7 @@ mod chunk_12 {
     /// Native: caller checks `PlayerForm::Skycutter` and dispatches to
     /// `update_skycutter_horizontal_velocity_sub_9A20`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a0a_skycutter_gate_loc_9A14_skycutter_uses_sub_9a20() {
         // Skycutter (helmet 1): falls through loc_9A14 to sub_9A20.
         // sub_9A20 uses fixed $2000 acceleration, not speed tables.
@@ -13376,7 +13375,7 @@ mod chunk_12 {
     /// lookup. Native: non-Skycutter helmets use `update_horizontal_velocity`
     /// with table-based acceleration instead of sub_9A20's fixed constants.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a0a_non_skycutter_gate_loc_9A14_uses_speed_tables() {
         // Non-Skycutter (e.g. TheKid, helmet 0): bne.w loc_9AE0 → speed tables.
         // The normal kid table has walk_accel = $1800 (not $2000).
@@ -13405,7 +13404,7 @@ mod chunk_12 {
     /// towards cruise speed $20000.
     /// Native: `if x_vel < 0x2_0000 { (x_vel + 0x2000).min(0x2_0000) }`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a20_forward_walk_accel_loc_9A32() {
         // Start below cruise speed, A not held — accelerate by $2000.
         let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
@@ -13426,7 +13425,7 @@ mod chunk_12 {
     /// ASM loc_9A32: acceleration clamps at cruise speed $20000.
     /// `cmpi.l #$20000,d0; ble.s return_9A54; move.l #$20000,d0`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a20_forward_walk_clamp_loc_9A32() {
         // Just below cruise speed — $2000 step would overshoot, clamp to $20000.
         let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
@@ -13445,7 +13444,7 @@ mod chunk_12 {
     /// cmpi.l #$40000,d0; ble.s return; move.l #$40000,d0`.
     /// Accelerates at $4000 per frame towards run cap $40000.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a20_forward_run_accel_loc_9A32_a_held() {
         let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
             0x1_0000,
@@ -13469,7 +13468,7 @@ mod chunk_12 {
     /// at or below run cap ($40000), decelerate by $2000 per frame.
     /// Native: `else if x_vel <= 0x4_0000 { x_vel - 0x2000 }`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a20_decel_above_cruise_loc_9A56() {
         // At $30000 (above cruise, below run cap): decelerate by $2000.
         let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
@@ -13491,7 +13490,7 @@ mod chunk_12 {
     /// `cmpi.l #$40000,d0; bgt.s loc_9A66` — $40000 is NOT greater, so
     /// falls through to the subi.l.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a20_decel_at_run_cap_loc_9A56() {
         let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
             0x4_0000,
@@ -13511,7 +13510,7 @@ mod chunk_12 {
     /// ASM loc_9A56 → loc_9A66: above run cap ($40000) — clamp to $40000.
     /// `cmpi.l #$40000,d0; bgt.s loc_9A66; ... loc_9A66: move.l #$40000,d0`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a20_clamp_above_run_cap_loc_9A56() {
         let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
             0x5_0000,
@@ -13537,7 +13536,7 @@ mod chunk_12 {
     /// Native: `Direction::Left` + `input.right` → `facing_right=true`, returns
     /// `Direction::Right`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a20_reverse_right_held_flips_direction_loc_9A84() {
         // Facing left, holding right: should flip to right and accelerate forward.
         let (vel, dir) = physics::update_skycutter_horizontal_velocity_sub_9A20(
@@ -13563,7 +13562,7 @@ mod chunk_12 {
     /// ASM loc_9A84: facing left, right NOT held → fall through to loc_9A90
     /// (reverse deceleration). `tst.b (Ctrl_Right_Held).w; beq.s loc_9A90`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a20_reverse_no_right_falls_to_decel_loc_9A84() {
         // Facing left, no direction held: should decelerate towards -$20000.
         let (vel, dir) = physics::update_skycutter_horizontal_velocity_sub_9A20(
@@ -13591,7 +13590,7 @@ mod chunk_12 {
     /// Decelerates at $2000 per frame towards cruise -$20000.
     /// Native: `x_vel > -0x2_0000 → (x_vel - 0x2000).max(-0x2_0000)`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a20_reverse_decel_towards_cruise_loc_9A90() {
         let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
             -0x1_0000,
@@ -13611,7 +13610,7 @@ mod chunk_12 {
     /// ASM loc_9A90: clamp at cruise speed -$20000 when $2000 step overshoots.
     /// `cmpi.l #$FFFE0000,d0; bge.s return; move.l #$FFFE0000,d0`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a20_reverse_decel_clamp_at_cruise_loc_9A90() {
         // Just above -$20000 — step would overshoot, clamp.
         let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
@@ -13636,7 +13635,7 @@ mod chunk_12 {
     /// Decelerates by adding $2000 (towards zero).
     /// Native: `x_vel >= -0x4_0000 → x_vel + 0x2000`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a20_reverse_above_cruise_decel_loc_9AB2() {
         // At -$30000 (between -$20000 and -$40000): add $2000.
         let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
@@ -13658,7 +13657,7 @@ mod chunk_12 {
     /// `cmpi.l #$FFFC0000,d0; blt.s loc_9AC2` — -$40000 is NOT less than
     /// -$40000, so decelerate by $2000.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a20_reverse_at_run_cap_decel_loc_9AB2() {
         let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
             -0x4_0000,
@@ -13681,7 +13680,7 @@ mod chunk_12 {
     /// `move.l #$FFFC0000,d0; rts`.
     /// Native: `-0x4_0000`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a20_reverse_clamp_below_run_cap_loc_9AC2() {
         let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
             -0x5_0000,
@@ -13705,7 +13704,7 @@ mod chunk_12 {
     /// move.l #$FFFC0000,d0`. Decelerates at $4000 per frame towards -$40000.
     /// Native: `(x_vel - 0x4000).max(-0x4_0000)`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a20_reverse_run_accel_loc_9ACA() {
         let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
             -0x1_0000,
@@ -13725,7 +13724,7 @@ mod chunk_12 {
     /// ASM loc_9ACA: A held clamp at -$40000.
     /// `cmpi.l #$FFFC0000,d0; bge.s return; move.l #$FFFC0000,d0`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn sub_9a20_reverse_run_clamp_loc_9ACA() {
         // Near -$40000 — $4000 step would overshoot, clamp.
         let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
@@ -13749,7 +13748,7 @@ mod chunk_12 {
     /// Native stores semantic block terrain, so `TerrainType::Ice` carries the
     /// ROM's code 1 into this selector and must return the `unk_9CCE` table.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn speed_table_terrain_ice_block_selects_code_one_table_loc_9AF2() {
         // Terrain code 1 → rubber table. TheKid on an ice block has walk_accel=$200
         // (unk_9CCE offset $04), distinct from normal ($1000) and ice ($2000).
@@ -13769,7 +13768,7 @@ mod chunk_12 {
     /// `cmpi.w #2,d2; bne.s loc_9AF2` (not ice) then `cmpi.w #1,d2; bne.s loc_9AFC`
     /// (not rubber) → default unk_9C0A stays.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn speed_table_terrain_normal_skips_loc_9AF2() {
         let table = PlayerForm::TheKid.ground_speed_table(TerrainType::Normal);
         assert_eq!(
@@ -13791,7 +13790,7 @@ mod chunk_12 {
     /// variant within the current terrain table.
     /// Native: `ground_speed_table(Micromax, terrain)` returns *_MICROMAX table.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn speed_table_micromax_offset_loc_9AFC() {
         // Micromax on normal terrain: walk_accel=$800 (unk_9C0A+$1C+$04).
         let table = PlayerForm::Micromax.ground_speed_table(TerrainType::Normal);
@@ -13809,7 +13808,7 @@ mod chunk_12 {
     /// ASM loc_9AFC: Micromax on rubber block terrain.
     /// loc_9AE0 d2==2 → unk_9C7A (ice), then loc_9AFC lea $1C → ice micromax.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn speed_table_micromax_rubber_block_loc_9AFC() {
         let table = PlayerForm::Micromax.ground_speed_table(TerrainType::Rubber);
         assert_eq!(
@@ -13830,7 +13829,7 @@ mod chunk_12 {
     /// $38 = 56 bytes = 14 longs = two sub-tables. Selects the Juggernaut variant.
     /// Native: `ground_speed_table(Juggernaut, terrain)` returns *_JUGGERNAUT table.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn speed_table_juggernaut_offset_loc_9B08() {
         // Juggernaut on normal terrain: walk_accel=$2000 (unk_9C0A+$38+$04).
         let table = PlayerForm::Juggernaut.ground_speed_table(TerrainType::Normal);
@@ -13848,7 +13847,7 @@ mod chunk_12 {
     /// ASM loc_9B08: Juggernaut on ice block terrain.
     /// loc_9AF2 d2==1 → unk_9CCE (rubber), then loc_9B08 lea $38 → rubber juggernaut.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn speed_table_juggernaut_ice_block_loc_9B08() {
         let table = PlayerForm::Juggernaut.ground_speed_table(TerrainType::Ice);
         assert_eq!(
@@ -13871,7 +13870,7 @@ mod chunk_12 {
     /// Native: `update_horizontal_velocity` takes `facing` and `input`, returns
     /// new facing. Facing right + left held → returns Direction::Left.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn direction_dispatch_facing_right_hold_left_flips_loc_9B14() {
         // Facing right, holding left: ASM `st x_direction(a3); bra.s loc_9B90`.
         let (_vel, dir) = physics::update_horizontal_velocity(
@@ -13895,7 +13894,7 @@ mod chunk_12 {
     /// at loc_9B7E, then `bra.s loc_9B2E` (forward acceleration right).
     /// Native: returns Direction::Right.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn direction_dispatch_facing_left_hold_right_flips_loc_9B14() {
         let (_vel, dir) = physics::update_horizontal_velocity(
             -0x1_0000,
@@ -13919,7 +13918,7 @@ mod chunk_12 {
     /// `tst.b (Ctrl_Left_Held).w; beq.s loc_9B26` → loc_9B26.
     /// `tst.b (Ctrl_Right_Held).w; beq.w loc_9BEE` → decelerate, no flip.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn direction_dispatch_facing_right_no_input_keeps_facing_loc_9B14() {
         let (_vel, dir) = physics::update_horizontal_velocity(
             0x1_0000,
@@ -13945,7 +13944,7 @@ mod chunk_12 {
     /// loc_9BEE: `sub.l 8(a0),d0` (walk_run_decel), snap to zero on sign change.
     /// Native: `decelerate(vel, table)` subtracts walk_run_decel.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn facing_right_no_direction_decelerates_loc_9B26() {
         // Facing right, moving right, no input → decelerate by walk_run_decel ($2800).
         let (vel, _) = physics::update_horizontal_velocity(
@@ -13969,7 +13968,7 @@ mod chunk_12 {
     /// loc_9B2E..loc_9B44: walking right, below walk cap, `add.l 4(a0),d0`.
     /// Native: `apply_holding_right` with walk_accel.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn facing_right_hold_right_accelerates_loc_9B26() {
         // Facing right, holding right, below walk cap → accelerate by walk_accel ($1000).
         let (vel, _) = physics::update_horizontal_velocity(
@@ -13992,7 +13991,7 @@ mod chunk_12 {
     /// `sub.l 8(a0),d0; bmi.w loc_9C06` → `moveq #0,d0; rts`.
     /// Native: `decelerate` returns 0 when decel overshoots.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn facing_right_decel_snaps_zero_loc_9B26() {
         // Small rightward velocity, decel ($2800) would overshoot → snap to 0.
         let (vel, _) = physics::update_horizontal_velocity(
@@ -14018,7 +14017,7 @@ mod chunk_12 {
     /// `cmp.l (a0),d0; bcs.w return_9B5A; move.l (a0),d0`.
     /// Native: `(vel + table.walk_accel).min(table.max_walk_speed)`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn walk_right_below_cap_accelerates_loc_9B4E() {
         // vel = $10000, walk_accel = $1000, cap = $20000 → $11000.
         let (vel, _) = physics::update_horizontal_velocity(
@@ -14042,7 +14041,7 @@ mod chunk_12 {
     /// exceed it. `cmp.l (a0),d0; bcs return_9B5A` fails → `move.l (a0),d0`.
     /// Native: `.min(table.max_walk_speed)` clamps.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn walk_right_at_cap_clamps_loc_9B4E() {
         // vel = $1F800 ($20000 - $800), walk_accel = $1000 → would be $20800,
         // clamped to $20000.
@@ -14069,7 +14068,7 @@ mod chunk_12 {
     /// moving left. `add.l $C(a0),d0; rts` — turn_brake towards zero.
     /// Native: `vel + table.turn_brake`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn walk_right_moving_left_turn_brake_loc_9B5C() {
         // vel = -$10000, turn_brake = $2000 → -$E000.
         let (vel, _) = physics::update_horizontal_velocity(
@@ -14095,7 +14094,7 @@ mod chunk_12 {
     /// left. `add.l $18(a0),d0; rts` — strong_brake towards zero.
     /// Native: `vel + table.strong_brake`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn run_right_moving_left_strong_brake_loc_9B78() {
         // vel = -$10000, strong_brake = $3000 → -$D000.
         let (vel, _) = physics::update_horizontal_velocity(
@@ -14121,7 +14120,7 @@ mod chunk_12 {
     /// `tst.b (Ctrl_Left_Held).w; beq.s loc_9BEE` — left not held → decelerate.
     /// Native: `update_horizontal_velocity` with no input → `decelerate`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn facing_left_no_input_decelerates_loc_9B8A() {
         // Facing left, moving left, no input → decelerate by walk_run_decel ($2800).
         let (vel, dir) = physics::update_horizontal_velocity(
@@ -14145,7 +14144,7 @@ mod chunk_12 {
     /// ASM loc_9B8A: left held → falls through to loc_9B90 (forward acceleration left).
     /// Native: `apply_holding_left` accelerates leftward.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn facing_left_hold_left_accelerates_loc_9B8A() {
         // Facing left, holding left, from stopped → walk_accel leftward.
         let (vel, dir) = physics::update_horizontal_velocity(
@@ -14174,7 +14173,7 @@ mod chunk_12 {
     /// fails (d1 > walk_cap) → `add.l 8(a0),d0; rts` decelerate towards walk cap.
     /// Native: `vel + table.walk_run_decel`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn walk_left_above_walk_cap_decelerates_loc_9BAC() {
         // vel = -$28000 (abs $28000 > walk_cap $20000, < run_cap $38000).
         // walk_run_decel = $2800 → vel + $2800 = -$25800.
@@ -14198,7 +14197,7 @@ mod chunk_12 {
     /// ASM loc_9BAC → loc_9BB6: below walk cap → `sub.l 4(a0),d0` accelerate
     /// leftward. Clamp at `-max_walk_speed`. Mirror of loc_9B4E.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn walk_left_below_cap_accelerates_loc_9BAC() {
         // vel = -$10000, walk_accel = $1000 → -$11000.
         let (vel, _) = physics::update_horizontal_velocity(
@@ -14225,7 +14224,7 @@ mod chunk_12 {
     /// Reached from loc_9BEE: `tst.l d0; bpl.s loc_9BFC`.
     /// Native: `decelerate(vel, table)` — vel > 0 branch.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn decelerate_moving_right_subtracts_walk_run_decel_loc_9BFC() {
         // vel = $18000, walk_run_decel = $2800 → $15800 (still positive → rts).
         let (vel, dir) = physics::update_horizontal_velocity(
@@ -14250,7 +14249,7 @@ mod chunk_12 {
     /// `sub.l 8(a0),d0; bmi.w loc_9C06` → `moveq #0,d0; rts`.
     /// Native: `decelerate` snaps to zero when next < 0.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn decelerate_moving_right_snaps_to_zero_loc_9BFC() {
         // vel = $1000, walk_run_decel = $2800 → would be -$1800, bmi → 0.
         let (vel, _) = physics::update_horizontal_velocity(
@@ -14274,7 +14273,7 @@ mod chunk_12 {
     /// vel=walk_run_decel → next=0 → stays 0 without the snap path.
     /// Native: `decelerate` returns 0 (next < 0 is false, next = 0).
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn decelerate_moving_right_exact_zero_loc_9BFC() {
         let (vel, _) = physics::update_horizontal_velocity(
             physics::NORMAL_KID.walk_run_decel,
@@ -14304,7 +14303,7 @@ mod chunk_12 {
     /// Tested indirectly via the slope velocity function which determines x_vel;
     /// the y_vel mirror is applied in the movement step.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_y_vel_mirror_slope_up_loc_9D2E() {
         // SlopeUp ($FA26=0): loc_9D22 does `neg.l d0` before loc_9D2E stores to y_vel.
         // So y_vel = -x_vel. With x_vel positive (rightward), y_vel becomes negative (upward).
@@ -14334,7 +14333,7 @@ mod chunk_12 {
     /// $FA26=$FF skips the `neg.l d0`, so y_vel = +x_vel (rightward = downward).
     /// Starting with leftward velocity (uphill on `\`), canonical = +$4000.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_y_vel_mirror_slope_down_loc_9D2E() {
         // x_vel = -$4000 (leftward = uphill on SlopeDown).
         // canonical_vel = -(-$4000) = +$4000. Uphill walk path adds accel.
@@ -14365,7 +14364,7 @@ mod chunk_12 {
     /// Micromax → `lea unk_9EE4(pc),a0` (Micromax-specific table).
     /// Native: `if matches!(form, RedStealth | Eyeclops | Maniaxe)` branch.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_helmet_dispatch_eyeclops_uses_simplified_path_loc_9D58() {
         // Eyeclops at rest on SlopeUp → loc_9E6C converges to -$1000.
         let (vel, _) = update_level_one_slope_ground_velocity(
@@ -14388,7 +14387,7 @@ mod chunk_12 {
 
     /// ASM loc_9D58: Maniaxe also branches to loc_9E6C.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_helmet_dispatch_maniaxe_uses_simplified_path_loc_9D58() {
         let (vel, _) = update_level_one_slope_ground_velocity(
             0,
@@ -14411,7 +14410,7 @@ mod chunk_12 {
     /// ASM loc_9D58: TheKid falls through to `lea unk_9EB0(pc),a0` and uses
     /// the shared slope table. Walk uphill cap = $8000, accel = $1000.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_helmet_dispatch_kid_uses_shared_table_loc_9D58() {
         // TheKid on SlopeUp, holding right (uphill), below cap.
         let (vel, _) = update_level_one_slope_ground_velocity(
@@ -14440,7 +14439,7 @@ mod chunk_12 {
     /// `lea $10(a1),a1` — A held → advance to run sub-table (4 longs further).
     /// Native: `if input.run` selects RUN vs WALK cap/accel constants.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_a_button_selects_run_table_loc_9D86() {
         // Walk uphill cap = $8000, run uphill cap = $10000.
         // At vel=$C000 (above walk cap but below run cap), walk decelerates, run accelerates.
@@ -14491,7 +14490,7 @@ mod chunk_12 {
     /// SlopeUp ($FA26=0): d1=Right, d2=Left. Neither held → loc_9E2E neutral.
     /// Native: `uphill_pressed`/`downhill_pressed` both false → neutral decel path.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_no_input_neutral_decel_loc_9DAA() {
         // No directional input on SlopeUp. Neutral target = -$8000, decel = $2000.
         // Starting at 0 → add $2000 (towards -$8000) but clamp: 0 - $2000 = -$2000.
@@ -14533,7 +14532,7 @@ mod chunk_12 {
     /// and this unit test pins the eight ASM-derived facings so the bug
     /// cannot return without being noticed.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_facing_does_not_invert_on_uphill_traversal_loc_9DC0() {
         use terrain::CollisionKind::{SlopeDown, SlopeUp};
         let neutral = HorizontalInput {
@@ -14745,7 +14744,7 @@ mod chunk_12 {
     /// ASM loc_9DAA: forward direction held → loc_9DC0 (uphill acceleration).
     /// SlopeUp + right held = uphill. d1 = Ctrl_Right_Held (non-zero) → bne.s loc_9DC0.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_forward_input_uphill_accel_loc_9DAA() {
         // SlopeUp, right held, no run. Canonical vel = +$4000. Below walk uphill cap $8000.
         let (vel, _) = update_level_one_slope_ground_velocity(
@@ -14770,7 +14769,7 @@ mod chunk_12 {
     /// ASM loc_9DAA: backward direction held → loc_9DF2 (downhill acceleration).
     /// SlopeUp + left held = downhill. d2 = Ctrl_Left_Held (non-zero) → bne.s loc_9DF2.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_backward_input_downhill_accel_loc_9DAA() {
         // SlopeUp, left held (downhill), no run. vel = 0. Canonical vel = 0.
         let (vel, _) = update_level_one_slope_ground_velocity(
@@ -15029,7 +15028,7 @@ mod chunk_12 {
     /// loc_9DD4: cmp.l (a1=$8000),d0=$10000 → bgt.s loc_9DE4.
     /// loc_9DE4: d0 = $10000 - $4000 = $C000; $C000 ≤ $40000 → skip clamp.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_uphill_above_cap_brake_loc_9DE4() {
         let (vel, _) = update_level_one_slope_ground_velocity(
             0x0001_0000,
@@ -15059,7 +15058,7 @@ mod chunk_12 {
     /// SlopeUp, right held (uphill), walk. vel=$7800, below walk_uphill_cap $8000.
     /// loc_9DD4: add.l $1000 → $8800; $8800 > $8000 → clamp to $8000. bra.s loc_9DEE.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_uphill_accel_clamp_at_cap_loc_9DEE() {
         let (vel, _) = update_level_one_slope_ground_velocity(
             0x0000_7800,
@@ -15090,7 +15089,7 @@ mod chunk_12 {
     /// loc_9E08: -$4000 ≥ -$18000 (walk_downhill_cap) → not blt.
     /// sub.l $2000 → -$6000. -$6000 ≥ -$18000 → bge → done.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_downhill_above_cap_decel_loc_9E08() {
         let (vel, _) = update_level_one_slope_ground_velocity(
             -0x4000,
@@ -15113,7 +15112,7 @@ mod chunk_12 {
     /// ASM loc_9E08: if the downhill acceleration crosses below the cap,
     /// clamp back to `8(a1)` before the shared slope tail.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_downhill_decel_crossing_clamps_to_cap_loc_9E08() {
         let (vel, _) = update_level_one_slope_ground_velocity(
             -0x0001_7000,
@@ -15143,7 +15142,7 @@ mod chunk_12 {
     /// loc_9E08: -$20000 < -$18000 (walk_downhill_cap) → blt.s loc_9E1E.
     /// loc_9E1E: -$20000 + $4000 = -$1C000. -$1C000 ≥ -$40000 → bge → done.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_downhill_below_cap_brake_loc_9E1E() {
         let (vel, _) = update_level_one_slope_ground_velocity(
             -0x0002_0000,
@@ -15174,7 +15173,7 @@ mod chunk_12 {
     /// loc_9E2E: -$10000 < -$8000 → not bge. add.l $2000 → -$E000.
     /// -$E000 ≤ -$8000 → ble.s loc_9E4C. Result: -$E000.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_neutral_below_target_accel_loc_9E4C() {
         let (vel, _) = update_level_one_slope_ground_velocity(
             -0x0001_0000,
@@ -15207,7 +15206,7 @@ mod chunk_12 {
     /// Walk uphill accel=$1000: $4000+$1000=$5000 ≤ cap $8000. Keep $5000.
     /// Unconvert: neg $5000 → -$5000. x_vel = -$5000 (leftward).
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_unconvert_stores_x_vel_slope_down_loc_9E64() {
         let (vel, _) = update_level_one_slope_ground_velocity(
             -0x0000_4000, // leftward on SlopeDown = uphill, canonical = +$4000
@@ -15233,7 +15232,7 @@ mod chunk_12 {
     /// canonical = x_vel directly. Walk uphill from $4000, accel $1000 → $5000.
     /// Store directly: x_vel = $5000.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_unconvert_stores_x_vel_slope_up_loc_9E64() {
         let (vel, _) = update_level_one_slope_ground_velocity(
             0x0000_4000, // rightward on SlopeUp = uphill, canonical = $4000
@@ -15262,7 +15261,7 @@ mod chunk_12 {
     /// `sf x_direction(a3)` (Direction::Right). `move.l d7,x_vel(a3)`.
     /// The player is already moving rightward (downhill); add $1000 accel.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_special_form_slope_down_keeps_positive_vel_loc_9E88() {
         let (vel, facing) = update_level_one_slope_ground_velocity(
             0x0000_2000, // rightward = downhill on SlopeDown
@@ -15293,7 +15292,7 @@ mod chunk_12 {
     /// d7=-$3000 + $1000 = -$2000 (negative → bpl not taken).
     /// Fall through: `move.l #$1000,d7`. Snap to minimum positive.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_special_form_slope_down_clamps_negative_to_positive_loc_9E88() {
         let (vel, facing) = update_level_one_slope_ground_velocity(
             -0x0000_3000, // leftward = uphill on SlopeDown
@@ -15325,7 +15324,7 @@ mod chunk_12 {
     /// `subi.l #$1000,d7` with d7=-$2000 → -$3000 (negative → bmi taken).
     /// `st x_direction(a3)` (Direction::Left). `move.l d7,x_vel(a3)`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_special_form_slope_up_keeps_negative_vel_loc_9EA4() {
         let (vel, facing) = update_level_one_slope_ground_velocity(
             -0x0000_2000, // leftward = downhill on SlopeUp
@@ -15356,7 +15355,7 @@ mod chunk_12 {
     /// d7=$3000 - $1000 = $2000 (positive → bmi not taken).
     /// Fall through: `move.l #$FFFFF000,d7`. Snap to -$1000.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_special_form_slope_up_clamps_positive_to_negative_loc_9E94() {
         let (vel, facing) = update_level_one_slope_ground_velocity(
             0x0000_3000, // rightward = uphill on SlopeUp
@@ -15385,7 +15384,7 @@ mod chunk_12 {
     /// ASM loc_9E94/loc_9EA4: a SlopeUp special-form step that lands exactly
     /// on zero does not take `bmi`; the ROM forces d7 to -$1000.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_special_form_slope_up_zero_crossing_forces_negative_loc_9E94() {
         let (vel, facing) = update_level_one_slope_ground_velocity(
             0x0000_1000,
@@ -15414,7 +15413,7 @@ mod chunk_12 {
     /// ASM loc_9D58 and loc_9DC0: Micromax dispatches to `unk_9EE4`, whose
     /// walk uphill acceleration is $0800 instead of Kid's shared-table $1000.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_micromax_walk_uphill_uses_small_table_accel_loc_9D58() {
         let (vel, _) = update_level_one_slope_ground_velocity(
             0x0000_3000,
@@ -15438,7 +15437,7 @@ mod chunk_12 {
     /// ASM loc_9D86: A held advances the Micromax `unk_9EE4` sub-table to its
     /// run row, whose uphill acceleration is $1000 instead of Kid's $2000.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_micromax_run_uphill_uses_small_table_accel_loc_9D86() {
         let (vel, _) = update_level_one_slope_ground_velocity(
             0x0000_6000,
@@ -15462,7 +15461,7 @@ mod chunk_12 {
     /// ASM loc_9DC0: negative canonical uphill velocity gets two acceleration
     /// steps, but exact zero uses the single-step capped branch at loc_9DD4.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_uphill_negative_and_zero_boundaries_match_loc_9DC0() {
         let uphill = HorizontalInput {
             left: false,
@@ -15500,7 +15499,7 @@ mod chunk_12 {
     /// ASM loc_9DE4: over-cap uphill velocity brakes by 8(a0), then clamps back
     /// to the table max if the braked value is still too high.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_uphill_over_max_brake_clamps_to_table_max_loc_9DE4() {
         let (vel, _) = update_level_one_slope_ground_velocity(
             0x0005_0000,
@@ -15524,7 +15523,7 @@ mod chunk_12 {
     /// ASM loc_9DE4 also clamps against Micromax's smaller table max `$20000`;
     /// the later loc_9F32 global clamp is wider, so this path must clamp here.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_micromax_uphill_over_max_clamps_before_global_cap_loc_9DE4() {
         let (vel, _) = update_level_one_slope_ground_velocity(
             0x0003_0000,
@@ -15548,7 +15547,7 @@ mod chunk_12 {
     /// ASM loc_9E1E: downhill velocity below the table cap brakes toward the
     /// negative max-speed floor and clamps there if still too negative.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_downhill_below_floor_brake_clamps_to_negative_max_loc_9E1E() {
         let (vel, _) = update_level_one_slope_ground_velocity(
             -0x0005_0000,
@@ -15572,7 +15571,7 @@ mod chunk_12 {
     /// ASM loc_9E1E mirrors loc_9DE4 for Micromax's smaller negative max
     /// floor `$FFFE0000` (-$20000), before the wider loc_9F32 global clamp.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_micromax_downhill_below_floor_clamps_before_global_cap_loc_9E1E() {
         let (vel, _) = update_level_one_slope_ground_velocity(
             -0x0003_0000,
@@ -15596,7 +15595,7 @@ mod chunk_12 {
     /// ASM loc_9E2E/loc_9E42: neutral deceleration clamps to `$10(a0)` from
     /// either side rather than crossing past the slope table's neutral target.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_neutral_target_clamps_from_both_sides_loc_9E2E_9E42() {
         let neutral = HorizontalInput {
             left: false,
@@ -15645,7 +15644,7 @@ mod chunk_12 {
     /// This test exercises the path through loc_9F32 with a velocity within bounds
     /// to confirm the clamp is a pass-through (no modification).
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_post_velocity_cap_passthrough_loc_9F32() {
         // SlopeUp, walking right (uphill) from $4000.
         // Walk uphill accel = $1000. canonical = $4000 + $1000 = $5000.
@@ -15673,7 +15672,7 @@ mod chunk_12 {
     /// ASM loc_9F32: negative post-slope velocities below -$40000 clamp to
     /// -$40000 after the positive cap check falls through.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_post_velocity_negative_cap_loc_9F32() {
         // SlopeUp with no input starts from a too-fast negative velocity.
         // loc_9E2E moves canonical velocity from -$50000 to -$4E000, then
@@ -15713,7 +15712,7 @@ mod chunk_12 {
     /// Native: apply_wall_collision + apply_floor_collision handle the equivalent
     /// snap. This test verifies the velocity state that feeds loc_9FBC.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_right_wall_y_snap_positive_vel_loc_9FBC() {
         // Walking right on SlopeUp from $6000 (below uphill_cap $8000).
         // Uphill accel $1000 → $6000 + $1000 = $7000.
@@ -15753,7 +15752,7 @@ mod chunk_12 {
     /// the +16 add, so y = (y & $FFF0) - 1. This test verifies the negative
     /// velocity state feeding the no-add branch.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_right_wall_y_snap_negative_vel_loc_9FCE() {
         // SlopeUp, no input, starting at x_vel = -$2000.
         // canonical = x_vel = -$2000 (SlopeUp: no negation).
@@ -16036,7 +16035,7 @@ mod chunk_12 {
     /// a positive x_vel identical to Kid's shared table (Micromax uses its own
     /// table). The threshold difference is position-level, not velocity-level.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_up_micromax_threshold_differs_from_kid_loc_9FE4() {
         // Kid on SlopeUp, walk right from $4000.
         let (kid_vel, _) = update_level_one_slope_ground_velocity(
@@ -16095,7 +16094,7 @@ mod chunk_12 {
     /// Test: verify that at walk cap, SlopeUp velocity is below the per-frame
     /// displacement that would exceed the 8px threshold in a single step.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_up_walk_cap_stays_within_threshold_loc_9FFE() {
         // SlopeUp walk uphill cap = $8000 (0.5 px/frame in 16.16 fixed point).
         // At cap, per-frame displacement = $8000 >> 16 = 0 whole pixels.
@@ -16134,7 +16133,7 @@ mod chunk_12 {
     /// Test: verify that run-speed slope velocity (higher than walk cap) is
     /// correctly computed, as it increases the chance of hitting the threshold.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn slope_up_run_speed_feeds_x_snap_path_loc_A036() {
         // Running right on SlopeUp from $10000. Run uphill cap = $10000,
         // accel = $2000. $10000 + $2000 = $12000 > cap → clamp to $10000.
@@ -16365,7 +16364,7 @@ mod chunk_12 {
     /// distinct from $14/$18 — confirming that individual-axis results never
     /// falsely match the compound crush values that loc_A53C/loc_A594 check.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A532_individual_collision_types_never_match_compound() {
         let right_wall_type: u16 = 0x0004;
         let left_wall_type: u16 = 0x0008;
@@ -16400,7 +16399,7 @@ mod chunk_12 {
     /// (right wall), confirming the bit composition that sub_A4EE uses to detect
     /// a crush scenario where Kid is squeezed between floor and right wall.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A53C_compound_collision_type_14_is_floor_or_rightwall() {
         let floor_bit: u16 = 0x0010;
         let right_wall_bit: u16 = 0x0004;
@@ -16435,7 +16434,7 @@ mod chunk_12 {
     ///
     /// Verify the grid-snap arithmetic: `(y & $FFF0) - 1`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_B978_y_pos_grid_snap_arithmetic() {
         // Simulate the andi.w + subq.w on various y_pos values.
         // ASM operates on the .w (pixel) part of the 32-bit position.
@@ -16473,7 +16472,7 @@ mod chunk_12 {
     /// x_vel==0 → sub_78E8 + loc_75D4 (standing still).
     /// x_vel!=0 → sub_942A + loc_8BF0 (walking animation).
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_B978_dispatch_standing_vs_walking() {
         // x_vel==0 takes the standing path (BEQ → sub_78E8 + loc_75D4)
         let x_vel_zero: i32 = 0;
@@ -16509,7 +16508,7 @@ mod chunk_12 {
     /// case: `neg.l d7; move.l d7,x_vel(a3)` sets x_vel = +$20000 (bounce
     /// right) while y_vel stays at $FFFE0000 (bounce up).
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A556_bounce_velocity_constants() {
         let bounce_vel: i32 = -0x2_0000_i32; // $FFFE0000
 
@@ -16537,7 +16536,7 @@ mod chunk_12 {
     /// #258 frame 363 reaches this through the Level 00 SlopeUp tile after the
     /// short-body wall scan keeps rightward movement live.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A556_juggernaut_compound_slopeup_bounces_issue_258() {
         let w: u16 = 60;
         let h: u16 = 20;
@@ -16592,7 +16591,7 @@ mod chunk_12 {
     /// but the ROM's pre-sub_902A compound GfxObjects collision still takes the
     /// Juggernaut bounce path instead of allowing a normal landing.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A556_juggernaut_repeated_slopeup_contact_bounces_issue_258() {
         let w: u16 = 60;
         let h: u16 = 20;
@@ -16652,7 +16651,7 @@ mod chunk_12 {
     /// to tile (47,14), even though native's broader floor probe prefers the
     /// adjacent solid landing at the feet.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A556_juggernaut_slopeup_cache_beats_solid_landing_issue_258() {
         let w: u16 = 60;
         let h: u16 = 20;
@@ -16731,7 +16730,7 @@ mod chunk_12 {
     /// This test verifies the native formula structure (abs + shift + offset)
     /// matches the ASM arithmetic.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A7B4_skycutter_b_press_slam_velocity_formula() {
         // ASM: d6 = abs(x_vel); asr.l #1,d6; addi.l #$30000,d6
         let x_vel: i32 = 0x4_0000; // moving right at 4.0 sub-pixels/frame
@@ -16758,7 +16757,7 @@ mod chunk_12 {
 
     /// ASM loc_A7B4: zero x_vel produces the minimum slam of $30000.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A7DE_zero_x_vel_gives_minimum_slam() {
         // abs(0)/2 + $30000 = $30000
         let x_vel: i32 = 0;
@@ -16786,7 +16785,7 @@ mod chunk_12 {
     /// C rising edge, and `!self.helmet.maniaxe_axe_active` as the one-at-a-time
     /// gate — matching the ASM's bclr + tst.b pattern.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A7F8_maniaxe_c_press_arms_axe_when_inactive() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
@@ -16807,7 +16806,7 @@ mod chunk_12 {
 
     /// ASM loc_A7F8: if Maniaxe already has an active axe, C press is ignored.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A7F8_maniaxe_c_press_rejected_when_active() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
@@ -16837,7 +16836,7 @@ mod chunk_12 {
     /// Native: step_cyclone_activation checks `!self.helmet.cyclone_flying`,
     /// C rising edge, and `!slice.player.on_ground` before setting the flag.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A830_cyclone_c_press_activates_flight_when_airborne() {
         let mut rt = cyclone_runtime();
         rt.previous_input = FrameInput::default(); // C was NOT held
@@ -16859,7 +16858,7 @@ mod chunk_12 {
     /// C-press dispatch. Airborne movement without a fresh C edge falls
     /// through the normal jump path and must not arm flight.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A830_cyclone_no_c_press_does_not_activate_flight_when_airborne() {
         let mut rt = cyclone_runtime();
         rt.previous_input = FrameInput::default();
@@ -16880,7 +16879,7 @@ mod chunk_12 {
     /// ASM loc_A830: Cyclone flight is not activated when already flying
     /// (ASM sub_B168 consumes the C pressed bit via bclr).
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A830_cyclone_c_press_rejected_when_already_flying() {
         let mut rt = cyclone_runtime();
         rt.helmet.cyclone_flying = true;
@@ -23020,7 +23019,7 @@ mod chunk_12 {
     ///   2. grabbed launch equals that y_vel + $20000 (weaker, less negative),
     ///      matching `initiate_jump_with_hand_grab(.., true)` and the ROM.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A466_kid_grabbed_by_hand_weakens_live_grounded_jump() {
         let bounds = LevelBounds {
             width_pixels: 120 * 16,
@@ -25241,7 +25240,7 @@ mod chunk_12 {
     /// was incorrectly zeroing `kid_y_vel`; keep the velocity until the object
     /// export timing can distinguish the ROM clear from the sampled state.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_AB4A_juggernaut_ascending_release_preserves_sampled_y_velocity_issue_258() {
         let w = 80u16;
         let h = 40u16;
@@ -26963,7 +26962,7 @@ mod chunk_12 {
     /// Snaps x to the left edge of the tile, then adds half_width.
     /// On non-solid: `st ($FFFFFA72)` (left-side approach) + wall-cling.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_BA1C_right_facing_dismount_x_alignment() {
         // Simulate the ASM arithmetic for the right-facing path:
         // d3 (swapped) = original x_pos. andi + addi snaps to right tile edge.
@@ -26996,7 +26995,7 @@ mod chunk_12 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_BAD2_left_facing_dismount_x_alignment() {
         // Left-facing mirror: andi + add (no addi #$F, no sub).
         let half_width: u16 = 8;
@@ -27028,7 +27027,7 @@ mod chunk_12 {
     /// loc_BA1C: `sf ($FFFFFA72)` — clear = approached from right.
     /// loc_BAD2: `st ($FFFFFA72)` — set ($FF) = approached from left.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_BA1C_BAD2_approach_direction_flag() {
         // Right-facing dismount: sf = 0 (false)
         let fa72_right: u8 = 0x00; // sf clears to zero
@@ -27062,7 +27061,7 @@ mod chunk_12 {
     ///   `rts`
     /// The Juggernaut bounces up-and-right away from the left-wall crush.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_BB08_juggernaut_right_dismount_velocity() {
         // Both axes set to $FFFE0000 = -$20000 as signed i32
         let vel: i32 = -0x2_0000; // $FFFE0000
@@ -27082,7 +27081,7 @@ mod chunk_12 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_BB30_juggernaut_left_dismount_velocity() {
         // x_vel = $20000 (positive, rightward)
         let x_vel: i32 = 0x2_0000;
@@ -27129,7 +27128,7 @@ mod chunk_12 {
     /// `st` is effectively always active. The A+C+Start combination at
     /// handle_start_press maps to the ASM's loc_74E0 consumption path.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_BB2_level_skip_cheat_activation() {
         // st instruction sets byte to $FF
         let cheat_flag: u8 = 0xFF;
@@ -27851,7 +27850,7 @@ mod chunk_12 {
     /// `move.l (a0)+,(a1)+; dbf d0,loc_D40A`, so all 32 longwords are backed up
     /// before the fade target is cleared.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D40A_continue_timeout_title_return_backs_up_the_full_palette() {
         let setup = crate::boot::continue_timeout_title_palette_backup_loc_D40A();
 
@@ -27874,7 +27873,7 @@ mod chunk_12 {
     /// `Palette_Buffer_3` word-by-word with `moveq #$3F,d0` and then seeds the
     /// shared fade progress word `$FFFFF876` to `$0100`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D418_continue_timeout_title_return_clears_the_full_fade_target() {
         let setup = crate::boot::continue_timeout_title_palette_clear_loc_D418();
 
@@ -27898,7 +27897,7 @@ mod chunk_12 {
     /// shadow-palette longwords to `-1`; the negative underflow frame exits
     /// without rewriting them.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D428_continue_timeout_title_fade_reseeds_masks_until_underflow() {
         let first = crate::boot::continue_timeout_title_fade_step_loc_D428(0x0100, 0, 0);
 
@@ -27968,7 +27967,7 @@ mod chunk_12 {
     /// ROM runs one final refresh/fade-helper frame, clears `$FFFFFBCC`, sets
     /// `$FFFFFC36`, and jumps to `Teleport`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D44C_continue_timeout_title_return_tail_sets_teleport_flag() {
         let tail = crate::boot::continue_timeout_title_return_loc_D44C();
 
@@ -28006,7 +28005,7 @@ mod chunk_12 {
     /// `moveq #-1,d0` into both pending palette mask longwords at `$FFFFF888`
     /// and `$FFFFF88C` before looping back to `loc_D86C`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D876_end_credits_fade_loopback_reseeds_both_palette_masks() {
         let (pending_palette_0_mask, pending_palette_1_mask) =
             crate::level::end_credits_fade_loopback_loc_D876();
@@ -28027,7 +28026,7 @@ mod chunk_12 {
     /// `$FFFFFBCE`, clears `$FFFFFBCC`, writes `Game_Mode=$30`, and jumps to
     /// the shared `loc_6E2` mode reset.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D882_end_credits_tail_enters_end_sequence_mode() {
         let tail = crate::level::end_credits_tail_loc_D882();
 
@@ -28053,7 +28052,7 @@ mod chunk_12 {
     /// flagpole object, the ROM walks `Addr_FirstObjectSlot`, skips `a5`, and
     /// clears longwords `$36`, `$3A`, and `$3E` on every other object.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D980_flagpole_cleanup_clears_collision_fields_except_current_object() {
         let mut objects = [
             crate::level::ObjectCollisionFieldsLocD980 {

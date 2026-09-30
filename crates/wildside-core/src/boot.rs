@@ -45,8 +45,8 @@ pub(crate) const VDP_GAME_INIT_VALUES: [u8; 19] = [
 /// Returns the 19 register command words written to the VDP control port.
 /// The source port does not write to real VDP hardware, but the register
 /// values inform initial VDP state (scroll addresses, display mode, etc.).
-#[allow(dead_code)]
-#[allow(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
+#[expect(non_snake_case)]
 pub(crate) fn vdp_game_init_register_commands_loc_5E6() -> [u16; 19] {
     let mut commands = [0u16; 19];
     let mut reg_base: u16 = 0x8000;
@@ -79,8 +79,8 @@ pub(crate) fn vdp_game_init_register_commands_loc_5E6() -> [u16; 19] {
 /// Returns the validated options longword.  In the native port, Rust struct
 /// initialisation zeroes all state; this function models only the options
 /// preserve-and-validate logic that survives the RAM clear.
-#[allow(dead_code)]
-#[allow(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
+#[expect(non_snake_case)]
 pub(crate) fn validate_options_after_ram_clear_loc_5FE(saved_options_longword: u32) -> u32 {
     // ASM loc_604 (kid.asm:761): `move.l d1,(a0)+; dbf d0,loc_604` clears
     // $10000 longwords (64 KB) from Sprite_Table ($FFFF0000).
@@ -96,10 +96,10 @@ pub(crate) fn validate_options_after_ram_clear_loc_5FE(saved_options_longword: u
 }
 
 /// RAM clear dimensions from loc_5FE/loc_604.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const RAM_CLEAR_START_ADDR_LOC_5FE: u32 = 0xFFFF_0000; // Sprite_Table
 /// `move.w #$3FFF,d0` + dbf = $3FFF+1 = $4000 longwords = $10000 bytes.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const RAM_CLEAR_LONGWORD_COUNT_LOC_5FE: u32 = 0x4000;
 
 /// ASM loc_61C (kid.asm:774): VRAM clear entry — `move.l #vdpComm($0000,VRAM,WRITE),4(a6)`
@@ -116,10 +116,10 @@ pub(crate) const RAM_CLEAR_LONGWORD_COUNT_LOC_5FE: u32 = 0x4000;
 ///
 /// In the native port, Rust struct initialisation zeroes all tile/scroll state;
 /// this constant documents the original dimensions for parity tests.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const VRAM_CLEAR_VRAM_ADDR_LOC_61C: u16 = 0x0000;
 /// `move.w #$3FFF,d0` + dbf = $4000 longwords = $10000 bytes (full 64 KB VRAM).
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const VRAM_CLEAR_LONGWORD_COUNT_LOC_62A: u32 = 0x4000;
 
 /// ASM loc_700 (kid.asm:832): second VRAM clear entry in the game-restart path
@@ -134,10 +134,10 @@ pub(crate) const VRAM_CLEAR_LONGWORD_COUNT_LOC_62A: u32 = 0x4000;
 ///
 /// In the native port, Rust struct initialisation handles the equivalent reset;
 /// these constants document that the second clear uses identical dimensions.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const VRAM_CLEAR_VRAM_ADDR_LOC_700: u16 = 0x0000;
 /// `move.w #$3FFF,d0` + dbf = $4000 longwords = $10000 bytes (full 64 KB VRAM).
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const VRAM_CLEAR_LONGWORD_COUNT_LOC_70E: u32 = 0x4000;
 
 /// ASM loc_720 (kid.asm:844): `move.w d1,(a0)+; dbf d0,loc_720` — Sprite_Table
@@ -149,7 +149,7 @@ pub(crate) const VRAM_CLEAR_LONGWORD_COUNT_LOC_70E: u32 = 0x4000;
 ///
 /// In the native port, Rust struct initialisation zeroes all sprite state; this
 /// constant documents the original loop dimensions for parity tests.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const SPRITE_TABLE_CLEAR_WORD_COUNT_LOC_720: u32 = 0x7DE1; // $7DE0 + 1 (dbf)
 
 /// ASM loc_A70 (kid.asm:1242): VBlank sprite-table DMA within
@@ -172,13 +172,13 @@ pub(crate) const SPRITE_TABLE_CLEAR_WORD_COUNT_LOC_720: u32 = 0x7DE1; // $7DE0 +
 /// In the native port, rendering bypasses VDP entirely — sprite attributes
 /// feed directly into the software renderer.  This constant documents the
 /// original DMA destination address for parity reference.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const SPRITE_TABLE_DMA_VRAM_DEST_LOC_A70: u16 = 0x1000;
 /// DMA transfer length in bytes at loc_A70: $280 = 640 bytes (160 sprites × 4 words).
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const SPRITE_TABLE_DMA_LENGTH_BYTES_LOC_A70: u16 = 0x0280;
 /// Kid art DMA destination in VRAM at loc_AD4 (within the loc_A70 art-upload loop).
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const KID_ART_DMA_VRAM_BASE_LOC_AD4: u16 = 0xC4A0;
 
 /// ASM loc_B42 (kid.asm:1309): empty-sprite-table early path in
@@ -192,10 +192,10 @@ pub(crate) const KID_ART_DMA_VRAM_BASE_LOC_AD4: u16 = 0xC4A0;
 /// In the native port, VDP DMA is bypassed; sprite attributes feed the
 /// software renderer directly.  This constant documents the sentinel
 /// `Addr_NextSpriteSlot` value that triggers the loc_B42 early path.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const SPRITE_TABLE_BASE_SENTINEL_LOC_B42: u32 = 0xFFFF_0000;
 /// Number of bytes cleared at loc_B42: two `clr.l` instructions = 8 bytes.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const SPRITE_TABLE_EMPTY_CLEAR_BYTES_LOC_B42: u32 = 8;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -213,8 +213,6 @@ pub(crate) struct Prize10000PointsStarCleanupLoc10BE6 {
 /// Q2: 128 <= doubled < 256 (64 <= angle < 128) → ~90° to ~180°
 /// Q3: 256 <= doubled < 384 (128 <= angle < 192) → ~180° to ~270°
 /// Q4: doubled >= 384 (angle >= 192) → ~270° to ~360°
-#[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn sin_cos_sub_40236(angle: u8) -> (i16, i16) {
     let angle = angle as u16;
     let doubled = angle.wrapping_mul(2);
@@ -281,8 +279,7 @@ pub(crate) fn sin_cos_sub_40236(angle: u8) -> (i16, i16) {
 /// ASM sub_44B0 (kid.asm:5520): initialize HUD animation frame indices.
 /// Sets 5 consecutive RAM locations for coin/heart animation frame counters.
 /// $FFFFFA58=1, $FFFFFA5C=2, $FFFFFA5B=3, $FFFFFA59=4, $FFFFFA5A=5.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn init_hud_animation_frames_sub_44B0() -> HudAnimationFramesSub44B0 {
     HudAnimationFramesSub44B0 {
         coin_1_frame: 1,
@@ -307,8 +304,8 @@ pub(crate) struct HudAnimationFramesSub44B0 {
 /// loc_44D4 (kid.asm:5536) is the inner loop body — each iteration transfers
 /// one longword from the source art pointer (a4) to the VDP data port (a6).
 /// Used for uploading animation art to VDP RAM during HUD rendering.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn vdp_upload_32_longwords_sub_44D0(data: &[u8; 128]) -> [u32; 32] {
     core::array::from_fn(|i| {
         let offset = i * 4;
@@ -398,8 +395,7 @@ pub(crate) struct FlagHudDmaUploadSub44DC {
     pub(crate) frame_table_byte_offset: u8,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn flag_hud_dma_upload_sub_5DA6(frame_table_byte_offset: u8) -> FlagHudDmaUploadSub44DC {
     // ASM loc_4680 (kid.asm:5748): read the art frame byte from `(a4)`,
     // sign-extend to word, index into `off_4668` (6 longword pointers at
@@ -442,8 +438,7 @@ pub(crate) struct HudAnimationStepSub44DC {
     pub(crate) flag_upload: Option<FlagHudDmaUploadSub44DC>,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub fn hud_timer_sprite_layout_sub_BD0A(
     mut layout: HudTimerSpriteLayoutSubBD0A,
     track_kid: bool,
@@ -517,7 +512,6 @@ pub fn hud_timer_sprite_layout_sub_BD0A(
 ///   the ROM draws all five Iron Knight pips and greys the trailing one on the
 ///   first hit.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
 pub(crate) struct HudHitpointSpriteSubBDC0 {
     pub(crate) y_pos: u16,
     pub(crate) x_pos: u16,
@@ -534,8 +528,8 @@ pub(crate) struct HudHitpointSpriteSubBDC0 {
 /// by 2 per iteration.  The first `x` is `$80 + $10 = $90` (loc_BE0C adds $10
 /// before the first sprite write).  When `hud_slide_active` ($FFFFFB49), the
 /// base `x` slides left by `min(time_frames, $50)` (loc_BE06).
-#[allow(dead_code)]
-#[allow(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
+#[expect(non_snake_case)]
 pub(crate) fn make_hud_hitpoint_layout_sub_BDC0(
     number_hitpoints: u16,
     max_hitpoint_slots: u16,
@@ -665,8 +659,8 @@ pub(crate) struct HudTimerDigitTilesLocBEE8 {
 /// Each of `Time_Minutes`, `Time_Seconds_high_digit`, `Time_Seconds_low_digit`
 /// is a single BCD-ish digit (0–9 for seconds digits, 0–5 for seconds tens,
 /// 0–9 for minutes).  The tile ID is simply `digit + $86BA`.
-#[allow(dead_code)]
-#[allow(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
+#[expect(non_snake_case)]
 pub(crate) fn hud_timer_digit_tiles_loc_BEE8(
     time_minutes: u16,
     time_seconds_high_digit: u16,
@@ -700,7 +694,6 @@ pub struct HudTimerLowTimeCheckEndDecreaseTimeLeft {
 /// moveq #1,d7; bsr.w sub_BD0A
 /// ```
 /// Returns `track_kid=true` when minutes==0 and seconds_tens<=2 (i.e. ≤29s).
-#[allow(dead_code)]
 pub fn hud_timer_low_time_check_end_decrease_time_left(
     time_minutes: u16,
     time_seconds_high_digit: u16,
@@ -735,7 +728,7 @@ pub(crate) struct HudDisplayNumberTilesCalcDisplayNumber {
 /// For values < 10: ones = `$86BA + value`, tens = `$86BA + $B` (blank tile).
 /// For values >= 10: `divu.w #$A` puts quotient in low word, remainder in
 /// high word; `add.l` adds both halves to the `$86BA86BA` base.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn calc_display_number(value: u16) -> HudDisplayNumberTilesCalcDisplayNumber {
     let base: u16 = 0x86BA;
     if value < 10 {
@@ -763,8 +756,7 @@ pub(crate) fn calc_display_number(value: u16) -> HudDisplayNumberTilesCalcDispla
 /// moveq #99,d0; move.w d0,(Number_Lives).w
 /// ```
 /// Clamps lives to 99 before display.  Returns the clamped value.
-#[allow(dead_code)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn hud_lives_clamp_loc_BF2A(number_lives: u16) -> u16 {
     // ASM loc_BF2A: cmpi.w #100,d0; blt.s life_display; moveq #99,d0
     if number_lives >= 100 {
@@ -791,8 +783,7 @@ pub(crate) fn hud_lives_clamp_loc_BF2A(number_lives: u16) -> u16 {
 /// path clears it.
 ///
 /// Boss level IDs: $10, $1E, $2A, $33.
-#[allow(dead_code)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn is_boss_level_loc_C03A(level_id: u16) -> bool {
     // ASM: Boss1_LevelID=$10, Boss2_LevelID=$1E, Boss3_LevelID=$2A, Boss4_LevelID=$33
     matches!(level_id, 0x10 | 0x1E | 0x2A | 0x33)
@@ -823,8 +814,7 @@ fn step_hud_animation_pair_table(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn step_hud_animation_sub_44DC(
     state: HudAnimationStateSub44DC,
 ) -> HudAnimationStepSub44DC {
@@ -955,8 +945,8 @@ pub(crate) fn step_hud_animation_sub_44DC(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn copy_sega_screen_palette_loc_12DFE(
     source_words: &[u16],
     palette_buffer: &mut [u16],
@@ -977,8 +967,8 @@ pub(crate) fn copy_sega_screen_palette_loc_12DFE(
     palette_buffer[start_index..end_index].copy_from_slice(&source_words[..words_to_copy]);
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn sega_screen_tile_strip_sub_12E3C(first_tile: u16) -> [u16; 12] {
     // ASM sub_12E3C / loc_12E3E (kid.asm:25476): `moveq #$B,d0` followed by the
     // `dbf` loop writes 12 successive tile words starting from d1 to the VDP
@@ -998,8 +988,8 @@ pub(crate) struct SegaScreenObjectBootstrapLoc12E48 {
     pub(crate) object_routine_label: &'static str,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn sega_screen_object_bootstrap_loc_12E48() -> SegaScreenObjectBootstrapLoc12E48 {
     // ASM loc_12E48 (kid.asm:25488): restore VDP register 1 with `$8174`,
     // lower SR back to `$2500`, call `j_Allocate_ObjectSlot` with `a0=0`, and
@@ -1019,8 +1009,8 @@ pub(crate) struct SegaScreenStartPollLoc12E6C {
     pub(crate) start_pressed: bool,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn sega_screen_start_poll_loc_12E6C(
     ctrl_1_pressed_reads: &[u8],
 ) -> SegaScreenStartPollLoc12E6C {
@@ -1060,8 +1050,8 @@ pub(crate) fn sega_screen_start_poll_loc_12E6C(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn copy_sega_screen_palette_fade_strip_loc_12ED2(
     source_words: &[u16],
     palette_buffer: &mut [u16],
@@ -1084,8 +1074,8 @@ pub(crate) struct SegaScreenPaletteFadeTickLoc12ED8 {
     pub(crate) source_byte_offset_for_copy: Option<u16>,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn sega_screen_palette_fade_tick_loc_12ED8(
     frame_delay_counter: i16,
     palette_cursor: i16,
@@ -1141,7 +1131,7 @@ pub(crate) enum PauseMenuGateLoc687C {
     PausedContinueToSpriteHide,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn pause_menu_gate_loc_687C(game_paused: u8) -> PauseMenuGateLoc687C {
     // ASM sub_6874 (kid.asm:6575-6578):
     //   tst.b (Game_Paused).w; bne.s loc_687C; rts
@@ -1159,8 +1149,7 @@ pub(crate) fn pause_menu_gate_loc_687C(game_paused: u8) -> PauseMenuGateLoc687C 
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn hide_pause_menu_overwritten_sprites_sub_6874(
     sprites: &mut [PauseMenuSpriteEntrySub6874],
 ) {
@@ -1194,7 +1183,7 @@ pub(crate) const PAUSE_MENU_ART_HEADER_WORD_LOC_690C: u16 = 0x19;
 /// (`move.w (a0)+,d0; subq.w #1,d0`), then `dbf d0,loc_690C` copies
 /// `header_word` iterations of 32 bytes each to VRAM starting at `$CEC0`
 /// (tile index `$676 × $20`).
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn pause_menu_art_total_bytes_loc_690C(header_word: u16) -> u32 {
     // loc_690C inner loop: 8 longwords (32 bytes) per iteration, `header_word`
     // iterations total (dbf with initial `subq #1` means count = header_word).
@@ -1239,7 +1228,7 @@ pub(crate) struct PauseMenuPlaneColumnLayout {
 /// branch (`$40-d0` / `$10-first` / swap-pack). Both produce identical
 /// `tile_col` and `wrap_split` values — the difference is what happens after:
 /// tile save reads from VDP, text write writes to VDP with `ori.w #$4000`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn pause_menu_plane_column_layout_loc_693A(
     camera_x_pos: u16,
 ) -> PauseMenuPlaneColumnLayout {
@@ -1293,7 +1282,7 @@ pub const PAUSE_MENU_Y_OFFSET_LOC_6948: u16 = 0x40;
 /// ```
 ///
 /// Returns the 32-bit VDP read command (`(vram_addr << 16) | 0x0000`).
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn pause_menu_tile_save_row_vdp_read_cmd_loc_695C(
     camera_y_pos: u16,
     tile_col: u16,
@@ -1326,7 +1315,7 @@ pub(crate) fn pause_menu_tile_save_row_vdp_read_cmd_loc_695C(
 ///   andi.l #$FF80FFFF,d0  ; clear bits 6-0 of high word (column byte offset)
 ///   move.l d0,4(a6)       ; set new VDP read address at column 0
 /// ```
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn pause_menu_tile_save_wrap_column_reset_loc_69AE(vdp_read_cmd: u32) -> u32 {
     // ASM loc_69AE: andi.l #$FF80FFFF,d0
     // High word bits 6-0 are the column byte offset within the 128-byte row.
@@ -1363,7 +1352,7 @@ pub(crate) struct PauseMenuTileSaveRow {
 /// - `loc_69A0`: wrapped setup — unpack d2 into (first_words, wrapped_words)
 /// - `loc_69AE`: first-segment word-read loop + column reset
 /// - `loc_69C0`: second-segment word-read loop
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn pause_menu_tile_save_plan_loc_695C(
     camera_x_pos: u16,
     camera_y_pos: u16,
@@ -1439,7 +1428,7 @@ pub fn pause_menu_text_selection_restart_text(
 /// ```
 ///
 /// Returns the 32-bit VDP write command (`((vram_addr | $4000) << 16) | 0x0000`).
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn pause_menu_text_write_row_vdp_write_cmd_loc_6A1E(
     camera_y_pos: u16,
     tile_col: u16,
@@ -1484,7 +1473,7 @@ pub struct PauseMenuTextWriteRow {
 /// - `loc_6A5A`: wrapped setup — unpack d2 into (first_words, wrapped_words)
 /// - `loc_6A64`: first-segment word-write loop + column reset (`andi.l #$FF80FFFF`)
 /// - `loc_6A76`: second-segment word-write loop
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn pause_menu_text_write_plan_loc_69D2(
     camera_x_pos: u16,
     camera_y_pos: u16,
@@ -1549,7 +1538,7 @@ pub(crate) struct PauseMenuTileRestoreRow {
 /// - `loc_6BE0`: wrapped dispatch — unpack d2 into (first_words, wrapped_words)
 /// - `loc_6BEA`: first-segment word-write loop + column reset (`andi.l #$FF80FFFF`)
 /// - `loc_6BFC`: second-segment word-write loop
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn pause_menu_tile_restore_plan_loc_6B68(
     camera_x_pos: u16,
     camera_y_pos: u16,
@@ -1620,7 +1609,7 @@ pub(crate) struct PauseMenuArrowCursorCmdsLoc6A84 {
 /// ASM loc_6A84 (kid.asm:6799-6826): both arrows share the same column
 /// (`Camera_X_pos + $68` → tile → byte offset) but differ in row:
 /// `$48` for upper, `$58` for lower.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn pause_menu_arrow_cursor_cmds_loc_6A84(
     camera_x_pos: u16,
     camera_y_pos: u16,
@@ -1690,7 +1679,7 @@ const PAUSE_ARROW_ABSENT_TILE: u16 = 0x8678;
 ///
 /// Returns `Some(move)` if the cursor moved down, `None` if the button
 /// was not pressed or the cursor was already at the bottom.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn pause_loop_down_handler_loc_6B0E(
     down_pressed: bool,
     pause_option: u8,
@@ -1855,7 +1844,7 @@ pub(crate) enum PauseMenuUnpauseExitLoc6C0A {
 ///   jsr    (a0)
 ///   rts
 /// ```
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn pause_menu_unpause_exit_loc_6C0A(game_paused: u8) -> PauseMenuUnpauseExitLoc6C0A {
     // ASM loc_6C0A: cmpi.b #3,(Game_Paused).w; bne.s loc_6C3E
     if game_paused == 3 {
@@ -1902,7 +1891,7 @@ pub(crate) fn pause_menu_unpause_exit_loc_6C0A(game_paused: u8) -> PauseMenuUnpa
 ///
 /// Layout: darkens colours 0–14 of the first palette line, skips colour 15,
 /// then darkens all 48 colours of palette lines 1–3.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn pause_darken_palette_loc_6C70(palette_buffer: &mut [u16; 0x40]) {
     // ASM loc_6C70: inner halving — each 4-bit channel is independently halved
     // via lsr.w #1 + mask.
@@ -1994,8 +1983,8 @@ pub(crate) struct IoPortFlagsSub6E24 {
     pub(crate) bit_6_set_flag: bool,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn read_io_port_a10001_flags_sub_6E24(port_value: u8) -> IoPortFlagsSub6E24 {
     // ASM sub_6E24 (kid.asm:7224): after the `$A10001` read, `btst #7,d0`
     // followed by `seq` stores `$FF` when bit 7 is clear, while `btst #6,d0`
@@ -2461,7 +2450,6 @@ pub struct Prize10000PointsStarStepLoc10B74 {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextChameleonRowWriteSub1B71A {
-    #[allow(dead_code)]
     pub(crate) vram_word_address: u16,
     pub(crate) vram_byte_address: u16,
     pub(crate) filler_word: Option<u16>,
@@ -2525,8 +2513,8 @@ impl TitleTextWordWritesSub1B7B6 {
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[expect(dead_code)]
 pub(crate) fn intro_text_initial_hibernate_loc_1C7AE() -> IntroTextInitialHibernateLoc1C7AE {
     // ASM loc_1C7A0 -> loc_1C7AE (kid.asm:31404-31414): the intro text worker
     // seeds `d0=1`, hibernates one object frame, then decrements `d0` to zero
@@ -2536,8 +2524,8 @@ pub(crate) fn intro_text_initial_hibernate_loc_1C7AE() -> IntroTextInitialHibern
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[expect(dead_code)]
 pub(crate) fn intro_text_byte_dispatch_loc_1C7B6(byte: u8) -> IntroTextByteDispatchLoc1C7B6 {
     // ASM loc_1C7B6 (kid.asm:31416-31422): clear `d6`, read the next text byte
     // from `(a1)+`, and delete the current object immediately when that byte is
@@ -2549,8 +2537,8 @@ pub(crate) fn intro_text_byte_dispatch_loc_1C7B6(byte: u8) -> IntroTextByteDispa
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[expect(dead_code)]
 pub(crate) fn intro_text_line_break_loc_1C7C4(
     header_x_pos: u16,
     current_y_pos: u16,
@@ -2565,8 +2553,8 @@ pub(crate) fn intro_text_line_break_loc_1C7C4(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[expect(dead_code)]
 pub(crate) fn intro_text_delay_loc_1C7D2(duration_byte: u8) -> IntroTextDelayLoc1C7D2 {
     // ASM loc_1C7D2 (kid.asm:31432-31436): when marker `$FE` is consumed,
     // load the following byte from `(a1)+` into `d0`, then branch back to
@@ -2577,8 +2565,7 @@ pub(crate) fn intro_text_delay_loc_1C7D2(duration_byte: u8) -> IntroTextDelayLoc
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn intro_text_buggy_substitution_loc_1C7DC(
     text_byte: u8,
     exception_vector_byte: u8,
@@ -2595,8 +2582,8 @@ pub(crate) fn intro_text_buggy_substitution_loc_1C7DC(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[expect(dead_code)]
 pub(crate) fn intro_text_glyph_step_loc_1C7E6(
     glyph_byte: u8,
     current_x_pos: u16,
@@ -2613,8 +2600,7 @@ pub(crate) fn intro_text_glyph_step_loc_1C7E6(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn title_text_burst_sprite_sub_1B652() -> TitleTextBurstSpriteSub1B652 {
     // ASM sub_1B652 (kid.asm:29882): allocate the fixed `$2010000` gfx slot,
     // seed the title-text burst sprite at `(x,y)=(#$2E,#$40)`, then hand
@@ -2654,8 +2640,7 @@ pub(crate) fn title_text_burst_sprite_sub_1B652() -> TitleTextBurstSpriteSub1B65
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn title_menu_prompt_sprite_sub_1C54A() -> TitleMenuPromptSpriteSub1C54A {
     // ASM sub_1C54A (kid.asm:31288): allocate gfx slot `$1000000`, set the
     // display flag at `$13(a1)`, then seed the fixed title prompt sprite at
@@ -2670,8 +2655,7 @@ pub(crate) fn title_menu_prompt_sprite_sub_1C54A() -> TitleMenuPromptSpriteSub1C
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn title_menu_sliding_sprites_sub_1C572() -> [TitleMenuSlidingSpriteSub1C572; 2] {
     // ASM sub_1C572 (kid.asm:31303) seeds the left title sprite, then
     // loc_1C58C seeds the mirrored right sprite. Both hibernate for `$3C`
@@ -2713,8 +2697,7 @@ pub(crate) struct TitleTextIntroSpriteLoc1BB10 {
     pub(crate) sprite_label: &'static str,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn title_text_intro_sprite_loc_1BB10() -> TitleTextIntroSpriteLoc1BB10 {
     // ASM loc_1BB10 (kid.asm:30405-30412): allocate gfx slot `$02000000`, set
     // visibility (`st $13(a3)`), set `palette_line(a3)=2`, seed `y_pos=$94`,
@@ -2731,8 +2714,7 @@ pub(crate) fn title_text_intro_sprite_loc_1BB10() -> TitleTextIntroSpriteLoc1BB1
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(counter: u16) -> i16 {
     // ASM loc_1BB36 (kid.asm:30414-30418) and loc_1BB44 (kid.asm:30420-30425):
     // The intro text sprite slides in from the left. Each frame:
@@ -2746,8 +2728,8 @@ pub(crate) fn title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(counter: u16
     0x010C_u16 as i16 - (counter * 8) as i16
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn intro_sequence_1_player_title_sprite_loc_1ADEA(
     current_player_index: u8,
 ) -> IntroSequence1PlayerTitleSpriteLoc1ADEA {
@@ -2769,8 +2751,8 @@ pub(crate) fn intro_sequence_1_player_title_sprite_loc_1ADEA(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn intro_sequence_1_left_title_sprite_step_loc_1AE10(
     current_x_pos: i16,
     target_x_pos: i16,
@@ -2785,8 +2767,8 @@ pub(crate) fn intro_sequence_1_left_title_sprite_step_loc_1AE10(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn intro_sequence_1_right_title_sprite_step_loc_1AE20(
     current_x_pos: i16,
     target_x_pos: i16,
@@ -2808,8 +2790,8 @@ pub(crate) struct IntroSequence2LayoutCopyLoc1B012 {
     pub(crate) copied_longwords: Vec<u32>,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn intro_sequence_2_layout_copy_loc_1B012(
     level_layout_longwords: &[u32],
 ) -> IntroSequence2LayoutCopyLoc1B012 {
@@ -2828,8 +2810,8 @@ pub(crate) fn intro_sequence_2_layout_copy_loc_1B012(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn intro_sequence_5_art_source_loc_1B100(title_variant: u8) -> &'static str {
     // ASM Load_IntroSequence5 -> loc_1B100 (kid.asm:29335-29351): start from
     // `byte_213D9`, switch to `byte_219C1` when `($FFFFFC82).w` is non-zero,
@@ -2841,8 +2823,8 @@ pub(crate) fn intro_sequence_5_art_source_loc_1B100(title_variant: u8) -> &'stat
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn title_screen_art_source_loc_1B2D8(title_variant: u8) -> &'static str {
     // ASM sub_1B2A4 -> loc_1B2D8 (kid.asm:29479-29484): start from
     // `byte_26E3D`, switch to `byte_2927C` when `($FFFFFC82).w == 1`, and
@@ -2868,8 +2850,8 @@ pub(crate) struct TitleScreenTileAttributeUploadLoc1B322 {
     pub(crate) words: Vec<u16>,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn title_screen_tile_attribute_upload_loc_1B322()
 -> TitleScreenTileAttributeUploadLoc1B322 {
     // ASM sub_1B2A4 -> loc_1B322 (kid.asm:29499-29503): after
@@ -2893,8 +2875,7 @@ pub(crate) struct TitleScreenLightningFlashUploadLoc1B432 {
     pub(crate) longword_write_count: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn title_screen_lightning_flash_upload_loc_1B432(
     flash_frame: u8,
 ) -> TitleScreenLightningFlashUploadLoc1B432 {
@@ -2923,8 +2904,7 @@ pub(crate) struct TitleScreenLightningSequenceLoc1B37C {
     pub(crate) steps: Vec<TitleScreenLightningFlashStepLoc1B37C>,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn title_screen_lightning_sequence_loc_1B37C() -> TitleScreenLightningSequenceLoc1B37C {
     // ASM loc_1B37C (kid.asm:29587-29635): hibernate for 3 frames before each
     // flash step, route `d0` through `sub_1B41C`, and interleave five
@@ -3028,8 +3008,8 @@ pub(crate) struct IntroSequence6LongwordFillLoc1B170 {
     pub(crate) longword_write_count: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn intro_sequence_6_longword_fill_loc_1B170() -> IntroSequence6LongwordFillLoc1B170 {
     // ASM Load_IntroSequence6 -> loc_1B170 (kid.asm:29371-29373): after
     // `move.l #vdpComm($1780,VRAM,WRITE),4(a6)`, `moveq #7,d0`, and
@@ -3049,8 +3029,7 @@ pub(crate) struct IntroSequence6WordFillLoc1B182 {
     pub(crate) word_write_count: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn intro_sequence_6_tilemap_clear_loc_1B182() -> IntroSequence6WordFillLoc1B182 {
     // ASM Load_IntroSequence6 -> loc_1B182 (kid.asm:29377-29379): after
     // `move.l #vdpComm($0000,VRAM,WRITE),4(a6)` and `move.w #$7FF,d0`, the
@@ -3064,8 +3043,8 @@ pub(crate) fn intro_sequence_6_tilemap_clear_loc_1B182() -> IntroSequence6WordFi
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn title_screen_tilemap_clear_loc_1B258() -> IntroSequence6WordFillLoc1B182 {
     // ASM Load_TitleScreen -> loc_1B258 (kid.asm:29451-29453): the title
     // screen reuses the same `move.w #$7FF,d0` / `move.w #$20BC,(a6)` clear
@@ -3081,8 +3060,7 @@ pub(crate) struct IntroSequence6ScrollBootstrapLoc1B23A {
     pub(crate) longword_write_count: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn intro_sequence_6_scroll_bootstrap_loc_1B23A(
     hidden_camera_word: u16,
     level_layout_word: u16,
@@ -3105,8 +3083,8 @@ pub(crate) struct IntroSequence6HiddenTitleShellLoc1B1E8 {
     pub(crate) object_handlers: [&'static str; 3],
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn intro_sequence_6_hidden_title_shell_loc_1B1E8(
     hidden_camera_word: u16,
     level_layout_word: u16,
@@ -3136,8 +3114,7 @@ pub(crate) struct TitleScreenHiddenShellScriptLoc1B446 {
     pub(crate) sentinel: i8,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn title_screen_hidden_shell_script_loc_1B446() -> TitleScreenHiddenShellScriptLoc1B446 {
     // ASM sub_1B43A / loc_1B446 (kid.asm:29658-29676): wait `$2A` frames,
     // then loop on a 3-frame hibernate, `move.b (a0)+,d4`, and `bsr.w
@@ -3160,8 +3137,7 @@ pub(crate) struct TitleScreenHiddenShellPaletteRestoreLoc1B45A {
     pub(crate) spawned_handlers: [&'static str; 3],
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn title_screen_hidden_shell_palette_restore_loc_1B45A()
 -> TitleScreenHiddenShellPaletteRestoreLoc1B45A {
     // ASM loc_1B45A (kid.asm:29677-29709): after the `$FF` sentinel, wait
@@ -3195,8 +3171,8 @@ pub(crate) struct TitleScreenHiddenCameraRampLoc1B51A {
     pub(crate) deletes_current_object: bool,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn title_screen_hidden_camera_ramp_loc_1B51A(
     level_layout_fp: i32,
     hidden_camera_fp: i32,
@@ -3240,8 +3216,8 @@ pub(crate) struct TitleScreenTileStripeClearLoc1B53E {
     pub(crate) longword_write_count: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn title_screen_tile_stripe_clear_loc_1B53E() -> TitleScreenTileStripeClearLoc1B53E {
     // ASM sub_1B532 -> loc_1B53E (kid.asm:29783-29790): seed VRAM write
     // `$1780`, clear `d1`, and stream eight zero longwords into the VDP data
@@ -3260,8 +3236,8 @@ pub(crate) struct TitleShellArtIndexLoc1BF3E {
     pub(crate) tile_pattern_index_nonzero: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn title_shell_art_index_loc_1BF3E() -> TitleShellArtIndexLoc1BF3E {
     // ASM sub_1BF24 -> loc_1BF3E (kid.asm:30751-30758): after conditional index
     // adjustment based on `$FFFFFC82` region flags, multiply `d4` by 6 (each
@@ -3283,8 +3259,8 @@ pub(crate) struct TitleShellArtDecompressLoc1BF54 {
     pub(crate) vram_fill_pattern: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn title_shell_art_decompress_loc_1BF54() -> TitleShellArtDecompressLoc1BF54 {
     // ASM sub_1BF24 -> loc_1BF54 (kid.asm:30760-30766): after tile pattern
     // selection, load mapping pointer from table, set `a1` to
@@ -3304,8 +3280,8 @@ pub(crate) struct TitleShellVRamFillLoc1BF70 {
     pub(crate) fill_iterations: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn title_shell_vram_fill_loc_1BF70() -> TitleShellVRamFillLoc1BF70 {
     // ASM sub_1BF24 -> loc_1BF70 (kid.asm:30768-30770): DBF loop that writes
     // pattern `$20BC` to consecutive words at `$FFFF7F82` for `d0+1` iterations
@@ -3322,8 +3298,8 @@ pub(crate) struct TitleShellRowCopyLoopLoc1BF84 {
     pub(crate) vram_row_stride_bytes: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn title_shell_row_copy_loop_loc_1BF84() -> TitleShellRowCopyLoopLoc1BF84 {
     // ASM sub_1BF24 -> loc_1BF84 (kid.asm:30775-30784): after filling VRAM work
     // RAM with 360 words of `$20BC` at loc_1BF70, the routine loads up to 20
@@ -3346,8 +3322,8 @@ pub(crate) struct TitleShellWordCopyLoopLoc1BF8A {
     pub(crate) dest: u32,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn title_shell_word_copy_loop_loc_1BF8A() -> TitleShellWordCopyLoopLoc1BF8A {
     // ASM sub_1BF24 -> loc_1BF8A (kid.asm:30780-30782): inner DBF loop that copies
     // one row of decompressed mapping words from `Decompression_Buffer` to
@@ -3368,8 +3344,8 @@ pub(crate) struct IntroTileUploadClearLoopLoc1C060 {
     pub(crate) fill_value: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn intro_tile_upload_clear_loop_loc_1C060() -> IntroTileUploadClearLoopLoc1C060 {
     // ASM sub_1C034 -> loc_1C060 (kid.asm:30862-30864): after decompressing
     // title art via `EniDec`, the routine zeros VRAM work RAM before copying
@@ -3390,8 +3366,8 @@ pub(crate) struct IntroTileUploadRowCopyLoopLoc1C07C {
     pub(crate) vram_row_stride_bytes: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn intro_tile_upload_row_copy_loop_loc_1C07C() -> IntroTileUploadRowCopyLoopLoc1C07C {
     // ASM sub_1C034 -> loc_1C07C (kid.asm:30871-30880): after zeros clearing at
     // loc_1C060, the routine copies decompressed mapping rows into VRAM work RAM.
@@ -3412,8 +3388,8 @@ pub(crate) struct IntroTileUploadWordCopyLoopLoc1C082 {
     pub(crate) dest: u32,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn intro_tile_upload_word_copy_loop_loc_1C082() -> IntroTileUploadWordCopyLoopLoc1C082 {
     // ASM sub_1C034 -> loc_1C082 (kid.asm:30876-30878): inner DBF loop that copies
     // one row of decompressed mapping words from `Decompression_Buffer` to
@@ -3434,8 +3410,8 @@ pub(crate) struct IntroTileUploadVramDmaLoopLoc1C0A4 {
     pub(crate) row_count: u8,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn intro_tile_upload_vram_dma_loop_loc_1C0A4() -> IntroTileUploadVramDmaLoopLoc1C0A4 {
     // ASM sub_1C034 -> loc_1C0A4 (kid.asm:30889-30891): inner DBF loop that streams
     // one row of tile pattern data from VRAM work RAM `$FFFF7F82` to the VDP data
@@ -3460,8 +3436,8 @@ pub(crate) struct IntroTileUploadVramDmaGroup2Loc1C0BE {
     pub(crate) row_count: u8,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn intro_tile_upload_vram_dma_group_2_loc_1C0BE() -> IntroTileUploadVramDmaGroup2Loc1C0BE
 {
     // ASM sub_1C034 -> loc_1C0BE (kid.asm:30901-30905): second VRAM DMA group
@@ -3486,8 +3462,8 @@ pub(crate) struct IntroTileUploadVramDmaGroup3Loc1C0D6 {
     pub(crate) stride_padding_bytes: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn intro_tile_upload_vram_dma_group_3_loc_1C0D6() -> IntroTileUploadVramDmaGroup3Loc1C0D6
 {
     // ASM sub_1C034 -> loc_1C0D6 (kid.asm:30912-30917): third VRAM DMA group
@@ -3511,8 +3487,8 @@ pub(crate) struct IntroDecompressionBufferZeroFillLoc1C11E {
     pub(crate) fill_value: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn intro_decompression_buffer_zero_fill_loc_1C11E()
 -> IntroDecompressionBufferZeroFillLoc1C11E {
     // ASM sub_1C112 -> loc_1C11E (kid.asm:30948-30950): zero-fills the
@@ -3534,8 +3510,8 @@ pub(crate) struct IntroSequence4PaletteMaskStartLoc1C1E2 {
     pub(crate) mask: u8,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn intro_sequence_4_palette_mask_start_loc_1C1E2(
     d3_before_lsr: u16,
 ) -> IntroSequence4PaletteMaskStartLoc1C1E2 {
@@ -3552,8 +3528,8 @@ pub(crate) fn intro_sequence_4_palette_mask_start_loc_1C1E2(
 pub(crate) const INTRO_SEQUENCE_4_PALETTE_MASK_ROWS_LOC_1C1E4: usize = 0x57 + 1;
 pub(crate) const INTRO_SEQUENCE_4_PALETTE_MASK_STRIDE_BYTES_LOC_1C1E4: usize = 0x20;
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn apply_intro_sequence_4_palette_mask_loop_loc_1C1E4(
     level_layout: &mut [u8],
     start: IntroSequence4PaletteMaskStartLoc1C1E2,
@@ -3578,8 +3554,8 @@ pub(crate) struct VdpPatternFillRowLoopLoc1C5E8 {
     pub(crate) vram_address_step: u32,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn vdp_pattern_fill_row_loop_loc_1C5E8() -> VdpPatternFillRowLoopLoc1C5E8 {
     // ASM sub_1C5D0 -> loc_1C5E8 (kid.asm:31353-31356): outer loop of the VDP
     // pattern fill routine called from multiple intro/end screen initialization
@@ -3600,8 +3576,8 @@ pub(crate) struct VdpPatternFillWordLoopLoc1C5F4 {
     pub(crate) dest_register: &'static str,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn vdp_pattern_fill_word_loop_loc_1C5F4() -> VdpPatternFillWordLoopLoc1C5F4 {
     // ASM sub_1C5D0 -> loc_1C5F4 (kid.asm:31358-31360): inner DBF loop that copies
     // one row of pattern data from source buffer to VDP data port. Each iteration
@@ -3631,8 +3607,7 @@ pub(crate) struct TitleTextKidSetupLoc1B5E4 {
     pub(crate) loops_forever: bool,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn title_text_kid_setup_loc_1B5E4() -> TitleTextKidSetupLoc1B5E4 {
     // ASM Obj_TitleTextKid / loc_1B5E4 (kid.asm:29847-29866): both title-text
     // entry points share the same visible shell here, setting palette line 2,
@@ -3659,7 +3634,7 @@ pub(crate) fn title_text_kid_setup_loc_1B5E4() -> TitleTextKidSetupLoc1B5E4 {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn title_text_kid_burst_allocation_elapseds_loc_1B5E4_sub_1B652() -> [usize; 2] {
     // ASM Load_TitleScreen -> Obj_TitleTextKid exposes its initial GfxObject
     // at local rebuild elapsed 57. loc_1B5E4 then follows the hibernation and
@@ -3685,8 +3660,8 @@ pub(crate) struct TitleTextChameleonIdleStepLoc1B6A2 {
     pub(crate) loops_forever: bool,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn title_text_chameleon_idle_step_loc_1B6A2(
     decoded_words: &[u16],
     d2: i16,
@@ -3720,8 +3695,8 @@ pub(crate) struct TitleTextChameleonRevealLoopLoc1B6CE {
     pub(crate) final_d0: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn title_text_chameleon_reveal_loop_loc_1B6CE(
     decoded_words: &[u16],
 ) -> TitleTextChameleonRevealLoopLoc1B6CE {
@@ -3766,8 +3741,8 @@ pub(crate) struct TitleTextChameleonSegaStepLoc1B6DC {
     pub(crate) loops_forever: bool,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn title_text_chameleon_sega_step_loc_1B6DC(
     decoded_words: &[u16],
     d0: u16,
@@ -3803,8 +3778,7 @@ pub(crate) struct IntroSequence6StripedTileFillLoc1B194 {
     pub(crate) word_writes: Vec<u16>,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn intro_sequence_6_striped_tile_fill_loc_1B194() -> IntroSequence6StripedTileFillLoc1B194
 {
     // ASM Load_IntroSequence6 -> loc_1B194 (kid.asm:29383-29392): after
@@ -3833,8 +3807,7 @@ pub(crate) fn intro_sequence_6_striped_tile_fill_loc_1B194() -> IntroSequence6St
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
     decoded_words: &[u16],
     d2: i16,
@@ -3919,8 +3892,7 @@ pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
     })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn title_text_word_writes_sub_1B7B6() -> Vec<TitleTextWordWritesSub1B7B6> {
     // ASM sub_1B7B6 (kid.asm:30035): iterate `unk_1B7E0` until the `$FFFF`
     // sentinel and stamp the fixed `$21AB..$21AE` 2x2 word pattern at each
@@ -3946,7 +3918,7 @@ pub(crate) fn title_text_word_writes_sub_1B7B6() -> Vec<TitleTextWordWritesSub1B
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn step_option_menu_panels_sub_1CC88(
     toggle_byte: u8,
     panel_delta: i16,
@@ -3978,8 +3950,8 @@ pub(crate) fn step_option_menu_panels_sub_1CC88(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_display_refresh_sub_1D830(
     camera_x_pos: i16,
     camera_y_pos: i16,
@@ -4005,8 +3977,8 @@ pub(crate) fn end_sequence_display_refresh_sub_1D830(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_h_scroll_upload_loc_1DA50(
     camera_x_pos: i16,
 ) -> EndSequenceHorizontalScrollUploadLoc1DA50 {
@@ -4021,8 +3993,8 @@ pub(crate) fn end_sequence_h_scroll_upload_loc_1DA50(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_tile_fill_loc_1DA6A() -> EndSequenceTileFillLoc1DA6A {
     // ASM loc_1DA6A (kid.asm:33340): `sub_1DA62` seeds `d0=#$7FF` and
     // `d1=#$94`, then `move.w d1,(a6)` executes before `dbf d0,loc_1DA6A`, so
@@ -4033,8 +4005,8 @@ pub(crate) fn end_sequence_tile_fill_loc_1DA6A() -> EndSequenceTileFillLoc1DA6A 
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_vram_zero_fill_loc_1DA7E() -> EndSequenceVramZeroFillLoc1DA7E {
     // ASM loc_1DA7E (kid.asm:33355): `sub_1DA72` first programs
     // `vdpComm($1280,VRAM,WRITE)`, then seeds `d0=#$F` and `d1=0`, so the
@@ -4046,8 +4018,8 @@ pub(crate) fn end_sequence_vram_zero_fill_loc_1DA7E() -> EndSequenceVramZeroFill
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const fn end_sequence_palette_first_bank_words_loc_1C82C() -> u16 {
     // ASM loc_1C82C (kid.asm:31483): `moveq #$F,d0` feeds the inclusive
     // `move.w (a0)+,(a1)+; dbf d0,loc_1C82C` copy from `Pal_1C8AA` into the
@@ -4055,8 +4027,8 @@ pub(crate) const fn end_sequence_palette_first_bank_words_loc_1C82C() -> u16 {
     0x000F + 1
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const fn end_sequence_palette_second_bank_byte_offset_loc_1C84E() -> u16 {
     // ASM loc_1C84E (kid.asm:31493): after the optional d1-controlled palette
     // patch, `lea (Palette_Buffer+$20).l,a1` retargets the remaining
@@ -4064,8 +4036,8 @@ pub(crate) const fn end_sequence_palette_second_bank_byte_offset_loc_1C84E() -> 
     0x0020
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const fn end_sequence_palette_second_bank_words_loc_1C856() -> u16 {
     // ASM loc_1C856 (kid.asm:31497): `moveq #$2F,d0` feeds the inclusive
     // `move.w (a0)+,(a1)+; dbf d0,loc_1C856` loop, copying the final 48
@@ -4073,8 +4045,8 @@ pub(crate) const fn end_sequence_palette_second_bank_words_loc_1C856() -> u16 {
     0x002F + 1
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_fade_loop_loc_1D270() -> EndSequenceFadeLoopLoc1D270 {
     // ASM loc_1D270 (kid.asm:32637): after `moveq #7,d0`, each loop body loads
     // `d7 = #$20`, darkens `Palette_Buffer+$20` via `sub_1C85E`, hibernates for
@@ -4091,8 +4063,8 @@ pub(crate) fn end_sequence_fade_loop_loc_1D270() -> EndSequenceFadeLoopLoc1D270 
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_panel_setup_loc_1D306() -> EndSequencePanelSetupLoc1D306 {
     // ASM loc_1D306 (kid.asm:32671): `moveq #8,d0` feeds `dbf d0,loc_1D306`,
     // so nine palette words copy from `Pal_1C92A` into `Palette_Buffer+$E`.
@@ -4116,8 +4088,8 @@ pub(crate) fn end_sequence_panel_setup_loc_1D306() -> EndSequencePanelSetupLoc1D
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_panel_scroll_loop_loc_1D3A0() -> EndSequencePanelScrollLoopLoc1D3A0 {
     // ASM loc_1D3A0 (kid.asm:32706): every active pass runs `sub_1DA24`,
     // hibernates one frame, subtracts 2 from both `Camera_Y_pos` and `d3`, and
@@ -4140,8 +4112,8 @@ pub(crate) fn end_sequence_panel_scroll_loop_loc_1D3A0() -> EndSequencePanelScro
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_hide_glyphs_loc_1D7F0() -> EndSequenceHideGlyphsLoc1D7F0 {
     // ASM loc_1D7F0 (kid.asm:33034-33037): seed `a4` from `$FFFFFB72`, load
     // each cached glyph pointer with `move.l (a4)+,a3`, clear the display flag
@@ -4155,8 +4127,8 @@ pub(crate) fn end_sequence_hide_glyphs_loc_1D7F0() -> EndSequenceHideGlyphsLoc1D
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_page_fade_outer_loop_loc_1D80C() -> EndSequencePageFadeOuterLoopLoc1D80C
 {
     // ASM loc_1D80C (kid.asm:33051-33060): after `sub_1D800` saves registers
@@ -4175,8 +4147,8 @@ pub(crate) fn end_sequence_page_fade_outer_loop_loc_1D80C() -> EndSequencePageFa
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_page_fade_inner_loop_loc_1D814() -> EndSequencePageFadeInnerLoopLoc1D814
 {
     // ASM loc_1D814 (kid.asm:33056-33060): each inner pass refreshes the end
@@ -4193,8 +4165,8 @@ pub(crate) fn end_sequence_page_fade_inner_loop_loc_1D814() -> EndSequencePageFa
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_credits_glyph_cache_loc_1D3D0() -> EndSequenceCreditsGlyphCacheLoc1D3D0 {
     // ASM loc_1D3CA / loc_1D3D0 (kid.asm:32726-32739): seed `d0 = 5`, point
     // `a4` at `$FFFFFB72`, then iterate `dbf d0,loc_1D3D0` while `sub_1D786`
@@ -4216,8 +4188,8 @@ pub(crate) fn end_sequence_credits_glyph_cache_loc_1D3D0() -> EndSequenceCredits
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_text_loop_loc_1D3F0() -> EndSequenceTextLoopLoc1D3F0 {
     // ASM loc_1D3F0 (kid.asm:32741): read the next big-endian word from `a2`.
     // Positive words are page entries, so the loop preserves `a2` via `a4`,
@@ -4246,8 +4218,8 @@ pub(crate) fn end_sequence_text_loop_loc_1D3F0() -> EndSequenceTextLoopLoc1D3F0 
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn continue_screen_optional_fade_loc_D372(
     score_object_present: bool,
     bonus_object_present: bool,
@@ -4266,8 +4238,8 @@ pub(crate) fn continue_screen_optional_fade_loc_D372(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn continue_screen_mandatory_fade_loc_D386() -> ContinueScreenMandatoryFadeLocD386 {
     // ASM loc_D386 (kid.asm:16546): the CONTINUE? text pointer `$4C(a5)` and
     // number pointer `$50(a5)` are mandatory on this path. Both are given
@@ -4284,8 +4256,8 @@ pub(crate) fn continue_screen_mandatory_fade_loc_D386() -> ContinueScreenMandato
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn continue_timeout_title_palette_backup_loc_D40A()
 -> ContinueTimeoutTitlePaletteBackupLocD40A {
     // ASM loc_D40A (kid.asm:16586): after the continue screen times out and
@@ -4299,8 +4271,8 @@ pub(crate) fn continue_timeout_title_palette_backup_loc_D40A()
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn continue_timeout_title_palette_clear_loc_D418()
 -> ContinueTimeoutTitlePaletteClearLocD418 {
     // ASM loc_D418 (kid.asm:16592): after loc_D40A's backup, `moveq #$3F,d0`
@@ -4314,8 +4286,8 @@ pub(crate) fn continue_timeout_title_palette_clear_loc_D418()
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn continue_timeout_title_fade_step_loc_D428(
     fade_progress: u16,
     pending_palette_0_mask: u32,
@@ -4346,8 +4318,8 @@ pub(crate) fn continue_timeout_title_fade_step_loc_D428(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn continue_timeout_title_return_loc_D44C() -> ContinueTimeoutTitleReturnLocD44C {
     // ASM loc_D44C (kid.asm:16614): after loc_D428 underflows the fade word,
     // the ROM performs one final VBlank/idle/palette/fade-helper refresh,
@@ -4363,8 +4335,8 @@ pub(crate) fn continue_timeout_title_return_loc_D44C() -> ContinueTimeoutTitleRe
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_page_break_dispatch_loc_1D40E() -> EndSequencePageBreakDispatchLoc1D40E {
     // ASM loc_1D40E (kid.asm:32757-32760): the page-break jump-table entry is
     // just `bra.s loc_1D412`, with a trailing `nop` padding word that keeps the
@@ -4375,8 +4347,7 @@ pub(crate) fn end_sequence_page_break_dispatch_loc_1D40E() -> EndSequencePageBre
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn end_sequence_page_break_wait_loop_loc_1D418() -> EndSequencePageBreakWaitLoopLoc1D418
 {
     // ASM loc_1D418 (kid.asm:32766-32779): after `loc_1D412` seeds `d0 = $C8`,
@@ -4403,8 +4374,8 @@ pub(crate) fn end_sequence_page_break_wait_loop_loc_1D418() -> EndSequencePageBr
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_terminator_exit_loc_1D450() -> EndSequenceTerminatorExitLoc1D450 {
     // ASM loc_1D450 (kid.asm:32784-32798): seed `d0 = $190`, then run the same
     // `sub_1D830 -> j_Hibernate_Object_1Frame -> dbf` loop for `$190 + 1 =
@@ -4437,8 +4408,8 @@ pub(crate) fn end_sequence_terminator_exit_loc_1D450() -> EndSequenceTerminatorE
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_stripe_loop_loc_1CDE4() -> EndSequenceStripeLoopLoc1CDE4 {
     // ASM sub_1CDE0 (kid.asm:31978): seed both `d0` and `d1` with `#9`
     // before entering the outer stripe loop.
@@ -4456,8 +4427,8 @@ pub(crate) fn end_sequence_stripe_loop_loc_1CDE4() -> EndSequenceStripeLoopLoc1C
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_stripe_fill_loop_loc_1CE1C() -> EndSequenceStripeFillLoopLoc1CE1C {
     // ASM sub_1CDFA (kid.asm:31994): after the `j_sub_914` Z80 guard and the
     // stripe base-address setup, the routine seeds `d7` with `#$1B`.
@@ -4472,8 +4443,8 @@ pub(crate) fn end_sequence_stripe_fill_loop_loc_1CE1C() -> EndSequenceStripeFill
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn options_menu_text_draw_loc_1CE3A(
     selected_option: u16,
     two_player_two_controllers: bool,
@@ -4497,8 +4468,8 @@ pub(crate) fn options_menu_text_draw_loc_1CE3A(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn options_menu_controls_header_loc_1CEB2(
     selected_option: u16,
 ) -> OptionsMenuControlsHeaderLoc1CEB2 {
@@ -4520,8 +4491,7 @@ pub(crate) fn options_menu_controls_header_loc_1CEB2(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn options_menu_controls_binding_loop_loc_1CEF8(
     controls_scheme: u8,
 ) -> OptionsMenuControlsBindingLoopLoc1CEF8 {
@@ -4550,8 +4520,7 @@ pub(crate) fn options_menu_controls_binding_loop_loc_1CEF8(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn draw_text_line_palette_base_loc_1D05E(highlighted: bool) -> u16 {
     // ASM loc_1D05E (kid.asm:32424): after `tst.b d3`, leave `d6 = $C000`
     // when zero and overwrite it with `$E000` when non-zero, then add that
@@ -4559,8 +4528,7 @@ pub(crate) fn draw_text_line_palette_base_loc_1D05E(highlighted: bool) -> u16 {
     if highlighted { 0xE000 } else { 0xC000 }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn draw_text_line_tile_base_loc_1D050(highlighted: bool, alternate_font: bool) -> u16 {
     // ASM DrawTextLine (kid.asm:32380): seed `d7 = $4DC`, switch to `$509`
     // when `tst.b d4` is non-zero, then fall through `loc_1D05E` to add the
@@ -4570,8 +4538,8 @@ pub(crate) fn draw_text_line_tile_base_loc_1D050(highlighted: bool, alternate_fo
     palette_base + glyph_base
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn draw_text_line_glyph_loop_loc_1D068(
     tile_base: u16,
     text_bytes: &[u8],
@@ -4599,8 +4567,8 @@ pub(crate) fn draw_text_line_glyph_loop_loc_1D068(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn draw_text_line_terminator_loc_1D07A(
     next_letter: u8,
 ) -> Option<DrawTextLineTerminatorLoc1D07A> {
@@ -4613,8 +4581,8 @@ pub(crate) fn draw_text_line_terminator_loc_1D07A(
     })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn credits_glyph_preview_entry_loc_1D0A2(
     vdp_command: u32,
     next_letter: u8,
@@ -4639,8 +4607,8 @@ pub(crate) fn credits_glyph_preview_entry_loc_1D0A2(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn credits_glyph_preview_refresh_loop_loc_1D0C2(
     vdp_command: u32,
 ) -> CreditsGlyphPreviewRefreshLoopLoc1D0C2 {
@@ -4668,8 +4636,8 @@ pub(crate) fn credits_glyph_preview_refresh_loop_loc_1D0C2(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn options_menu_controls_bindings_loc_1CED6(
     selected_option: u16,
     controls_scheme: u8,
@@ -4701,8 +4669,8 @@ pub(crate) fn options_menu_controls_bindings_loc_1CED6(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn options_menu_speed_text_loc_1CF78(
     selected_option: u16,
     speed_button_fast: bool,
@@ -4735,8 +4703,8 @@ pub(crate) fn options_menu_speed_text_loc_1CF78(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn options_menu_exit_text_loc_1CFFE(
     selected_option: u16,
 ) -> OptionsMenuExitTextLoc1CFFE {
@@ -4752,8 +4720,8 @@ pub(crate) fn options_menu_exit_text_loc_1CFFE(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn level_layout_read_pass_loc_1CCC2() -> LevelLayoutReadPassLoc1CCC2 {
     // ASM sub_1CCAE (kid.asm:31826): seed `d0` with `$45F` before entering the
     // first VRAM readback loop.
@@ -4766,8 +4734,8 @@ pub(crate) fn level_layout_read_pass_loc_1CCC2() -> LevelLayoutReadPassLoc1CCC2 
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn level_layout_copy_to_vram_loc_1CCDE() -> LevelLayoutCopyToVramLoc1CCDE {
     // ASM sub_1CCAE (kid.asm:31826): after the first readback pass the routine
     // retargets the VDP port for VRAM writes and seeds `d0` with `$117F`.
@@ -4780,8 +4748,8 @@ pub(crate) fn level_layout_copy_to_vram_loc_1CCDE() -> LevelLayoutCopyToVramLoc1
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn level_layout_delay_loc_1CCE8() -> LevelLayoutDelayLoc1CCE8 {
     // ASM loc_1CCE8 (kid.asm:31850): `move.w #$100,d0` then `dbf d0,loc_1CCE8`,
     // so this is a pure busy-wait lasting `$100 + 1 = $101` DBF iterations.
@@ -4791,8 +4759,8 @@ pub(crate) fn level_layout_delay_loc_1CCE8() -> LevelLayoutDelayLoc1CCE8 {
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn level_layout_read_pass_loc_1CCFC() -> LevelLayoutReadPassLoc1CCC2 {
     // ASM sub_1CCAE (kid.asm:31826): after the delay loop the routine reloads
     // the VDP read command, re-seeds `d0` with `$45F`, and re-enters the
@@ -4807,8 +4775,8 @@ pub(crate) fn level_layout_read_pass_loc_1CCFC() -> LevelLayoutReadPassLoc1CCC2 
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn level_layout_final_copy_to_vram_loc_1CD18() -> LevelLayoutCopyToVramLoc1CCDE {
     // ASM sub_1CCAE (kid.asm:31826): after the second readback pass the routine
     // reuses the same `lea (Level_Layout).w,a0` / `move.w #$117F,d0` setup for
@@ -4831,8 +4799,8 @@ pub(crate) struct VdpBit15ClearToDecompressionBufferLoc1CD5A {
     pub(crate) vram_word_addr: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn vdp_bit15_clear_to_decompression_buffer_loc_1CD5A()
 -> VdpBit15ClearToDecompressionBufferLoc1CD5A {
     // ASM sub_1CD44 (kid.asm:31898): clear the VDP command register first,
@@ -4857,8 +4825,8 @@ pub(crate) struct VdpUploadDecompressionBufferLoc1CD78 {
     pub(crate) source_base: u32,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn vdp_upload_decompression_buffer_loc_1CD78() -> VdpUploadDecompressionBufferLoc1CD78 {
     // ASM sub_1CD44 (kid.asm:31898): after the bit-15 clear pass, the routine
     // retargets the VDP port for VRAM writes, rewinds `a4` to
@@ -4879,8 +4847,8 @@ pub(crate) struct VdpPostUploadDelayLoc1CD82 {
     pub(crate) iterations: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn vdp_post_upload_delay_loc_1CD82() -> VdpPostUploadDelayLoc1CD82 {
     // ASM sub_1CD44 (kid.asm:31898): once the `$800`-word upload at loc_1CD78
     // completes, the routine seeds `d7` with `$100` for a final fixed delay.
@@ -4898,8 +4866,8 @@ pub(crate) struct VdpPatternStripeOuterLoopLoc1CD90 {
     pub(crate) row_iterations: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn vdp_pattern_stripe_outer_loop_loc_1CD90() -> VdpPatternStripeOuterLoopLoc1CD90 {
     // ASM sub_1CD88 (kid.asm:31931): before entering the nested write loops,
     // the routine seeds `d1` with `$1B` and points `a0` at
@@ -4926,8 +4894,8 @@ pub(crate) struct PlaneLineWordCopyLoc1CDD4 {
     pub(crate) words_copied: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn vdp_pattern_stripe_word_copy_loop_loc_1CD92() -> VdpPatternStripeWordCopyLoopLoc1CD92
 {
     // ASM loc_1CD90 (kid.asm:31935): each outer-row pass reloads `d0` with
@@ -4942,8 +4910,8 @@ pub(crate) fn vdp_pattern_stripe_word_copy_loop_loc_1CD92() -> VdpPatternStripeW
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn plane_line_word_copy_loc_1CDD4(row_index: u16) -> PlaneLineWordCopyLoc1CDD4 {
     // ASM sub_1CDA8 (kid.asm:31952): `lea (Decompression_Buffer).l,a4`
     // followed by `mulu.w #$50,d7; add.w d7,a4` picks one `$50`-byte source
@@ -4965,8 +4933,8 @@ pub(crate) struct VdpPatternStripeFillLoopLoc1CD9A {
     pub(crate) fill_iterations: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn vdp_pattern_stripe_fill_loop_loc_1CD9A() -> VdpPatternStripeFillLoopLoc1CD9A {
     // ASM loc_1CD92 (kid.asm:31938): after the 40 copied words, the routine
     // reloads `d0` with `$17` for the trailing fill segment on the same row.
@@ -4980,8 +4948,8 @@ pub(crate) fn vdp_pattern_stripe_fill_loop_loc_1CD9A() -> VdpPatternStripeFillLo
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_camera_shake_sub_1D846(
     random_x_byte: u8,
     random_y_byte: u8,
@@ -5004,8 +4972,8 @@ pub(crate) struct EndSequenceBurstPreludeLoc1D1D6 {
     pub(crate) wait_iterations: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_burst_prelude_loc_1D1D6() -> EndSequenceBurstPreludeLoc1D1D6 {
     // ASM loc_1D1D6 (kid.asm:32582-32585): load `d4 = 1`, call `sub_1D86C`,
     // then seed `d1 = 1` so the following `dbf d1,loc_1D1DE` hibernates
@@ -5028,8 +4996,8 @@ pub(crate) struct EndSequenceBurstWaitLoopLoc1D1DE {
     pub(crate) next_outer_label: &'static str,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_burst_wait_loop_loc_1D1DE() -> EndSequenceBurstWaitLoopLoc1D1DE {
     // ASM loc_1D1DE (kid.asm:32587-32590): hibernate once per inner-loop body,
     // let `dbf d1,loc_1D1DE` consume the `d1 = 1` seed from `loc_1D1D6`, then
@@ -5052,8 +5020,8 @@ pub(crate) struct EndSequenceBurstCameraLoopLoc1D1EC {
     pub(crate) per_iteration_subroutines: [&'static str; 4],
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_burst_camera_loop_loc_1D1EC() -> EndSequenceBurstCameraLoopLoc1D1EC {
     // ASM loc_1D1EC (kid.asm:32593-32599): load `d4 = 1`, then on each outer
     // loop body call `sub_1D86C`, `sub_1D846`, `sub_1DA24`, and
@@ -5072,8 +5040,8 @@ pub(crate) fn end_sequence_burst_camera_loop_loc_1D1EC() -> EndSequenceBurstCame
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_burst_sprite_init_sub_1D86C(
     random_x_byte: u8,
     random_y_byte: u8,
@@ -5095,8 +5063,8 @@ pub(crate) fn end_sequence_burst_sprite_init_sub_1D86C(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_falling_sprite_init_sub_1D8B4(
     x_pos: u16,
     y_pos: u16,
@@ -5147,8 +5115,8 @@ pub(crate) struct EndSequenceFallingSpriteSpawnLoopLoc1D226 {
     pub(crate) spawn_inputs: [EndSequenceFallingSpriteSpawnInput; 3],
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_falling_sprite_spawn_loop_loc_1D226()
 -> EndSequenceFallingSpriteSpawnLoopLoc1D226 {
     // ASM loc_1D226 (kid.asm:32611-32619): point `a4` at `word_1D83A`,
@@ -5185,8 +5153,8 @@ pub(crate) struct EndSequenceBurstLowPriorityPreludeLoc1D24A {
     pub(crate) wait_seed: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_burst_low_priority_prelude_loc_1D24A()
 -> EndSequenceBurstLowPriorityPreludeLoc1D24A {
     // ASM loc_1D24A (kid.asm:32622-32625): after `moveq #$32,d0`,
@@ -5209,8 +5177,8 @@ pub(crate) struct EndSequenceBurstLowPriorityWaitLoopLoc1D252 {
     pub(crate) next_outer_label: &'static str,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_sequence_burst_low_priority_wait_loop_loc_1D252()
 -> EndSequenceBurstLowPriorityWaitLoopLoc1D252 {
     // ASM loc_1D252 (kid.asm:32627-32630): hibernate once per inner-loop
@@ -5227,7 +5195,7 @@ pub(crate) fn end_sequence_burst_low_priority_wait_loop_loc_1D252()
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn prize_10000_points_star_spawn_loc_10B3A(
     frame_counter: u16,
     x_pos: u16,
@@ -5272,8 +5240,8 @@ pub fn prize_10000_points_star_spawn_loc_10B3A(
     })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn prize_10000_points_star_dispatch_loc_10B76(
     slot_offset: u16,
     slot_present: bool,
@@ -5297,8 +5265,7 @@ pub(crate) fn prize_10000_points_star_dispatch_loc_10B76(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn prize_10000_points_star_advance_loc_10BCE(
     slot_offset: u16,
 ) -> Prize10000PointsStarAdvanceLoc10BCE {
@@ -5311,8 +5278,8 @@ pub(crate) fn prize_10000_points_star_advance_loc_10BCE(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn prize_10000_points_star_cleanup_loc_10BE6(
     worker_slots: [u32; 5],
 ) -> Prize10000PointsStarCleanupLoc10BE6 {
@@ -5326,7 +5293,7 @@ pub(crate) fn prize_10000_points_star_cleanup_loc_10BE6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn prize_10000_points_star_latch_screen_pos_loc_10B9A(
     x_pos: i16,
     y_pos: i16,
@@ -5341,7 +5308,7 @@ pub fn prize_10000_points_star_latch_screen_pos_loc_10B9A(
     )
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn prize_10000_points_star_step_loc_10B74(
     slot_offset: u16,
     timer: u16,
@@ -6827,7 +6794,7 @@ impl NativeRuntime {
     /// Handle demo playback input override and exit conditions.
     /// Returns `Some(input)` with the (possibly overridden) input to continue,
     /// or `None` if the frame was fully handled (early return with trace).
-    #[allow(
+    #[expect(
         clippy::unnecessary_wraps,
         reason = "Option return used by test callers"
     )]
@@ -8955,7 +8922,7 @@ impl NativeRuntime {
 }
 
 #[cfg(test)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 mod tests {
     use super::*;
 

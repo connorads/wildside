@@ -1,6 +1,6 @@
 use super::*;
 
-#[allow(dead_code)] // used by ignored loses_life_and_respawns_after_opening_hazard
+#[expect(dead_code)] // used by ignored loses_life_and_respawns_after_opening_hazard
 pub(super) fn expected_level0_respawn_pose(runtime: &NativeRuntime) -> (u32, u32, u32, u32) {
     let slice = runtime.level_respawn_slice_with_floor_snap(LevelId(0));
     (

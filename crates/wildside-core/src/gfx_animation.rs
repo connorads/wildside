@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct GfxAnimationState {
     pub(crate) timer: u16,
@@ -13,7 +12,7 @@ pub(crate) enum GfxAnimationDispatchLoc1158 {
     RewindScriptPointer,
 }
 
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn decode_gfx_animation_dispatch_loc_1158(
     script: &[u8],
     script_offset: usize,
@@ -31,7 +30,7 @@ pub(crate) fn decode_gfx_animation_dispatch_loc_1158(
     Some((dispatch, script_offset.checked_add(1)?))
 }
 
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn should_stop_gfx_animation_loc_1166(
     timer: u16,
     script: &[u8],
@@ -45,7 +44,7 @@ pub(crate) fn should_stop_gfx_animation_loc_1166(
     Some(timer == 1 && next_opcode == 0)
 }
 
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn advance_gfx_animation_sub_1194(
     script: &[u8],
     script_offset: usize,
@@ -65,7 +64,7 @@ pub(crate) fn advance_gfx_animation_sub_1194(
     Some(())
 }
 
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn rewind_gfx_animation_pointer_sub_11ac(
     current_byte: u8,
     script_offset: usize,

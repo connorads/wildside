@@ -1,8 +1,5 @@
-#![allow(
-    clippy::too_many_arguments,
-    clippy::type_complexity,
-    clippy::doc_lazy_continuation
-)]
+#![expect(clippy::too_many_arguments, clippy::type_complexity)]
+#![cfg_attr(test, expect(clippy::doc_lazy_continuation))]
 mod asm_coverage;
 mod backlog;
 mod bootstrap;

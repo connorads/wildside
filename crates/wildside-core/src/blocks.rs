@@ -12,7 +12,7 @@ use crate::movement::{
     hidden_block_type4_reveal_pair_loc_E1BC, hidden_block_type4_reveal_pair_loc_E19E,
 };
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn level_layout_low_word_addr_loc_FAE2(block_col: u16, block_row: u16, width_cells: u16) -> u16 {
     let row_base_layout_addr = u32::from(terrain::BlockList::level_layout_low_word_addr(
         0,
@@ -27,7 +27,7 @@ fn level_layout_low_word_addr_loc_FAE2(block_col: u16, block_row: u16, width_cel
     address.layout_word_addr as u16
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn hidden_block_reveal_y_deltas_loc_E304() -> [i16; 8] {
     // ASM loc_E304/loc_E34C/loc_E35A (kid.asm:17775, 17796, 17802): offset
     // reveal workers use the same four-frame up/down bob as loc_E29A's
@@ -521,7 +521,7 @@ impl NativeRuntime {
         marked || (left_mark.stored_local_word != before_left)
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn shooter_direction_bits_loc_F106(cell: terrain::Cell) -> Option<u8> {
         // ASM sub_F096 loc_F106/loc_F1DE (kid.asm:19673/19789): visible
         // shooter scan accepts layout words whose block-type nibble is `$C`,
@@ -553,13 +553,13 @@ impl NativeRuntime {
         u16::from_be_bytes([bytes[0], bytes[1]])
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn lift_platform_vertical_step_sub_FD00(y_pos: u32, y_velocity: i32) -> u32 {
         // ASM sub_FD00 (kid.asm:21064): `move.l $E(a3),d7; add.l d7,6(a3)`.
         y_pos.wrapping_add_signed(y_velocity)
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn prize_collected_arc_hibernate_step_loc_FEEE(
         screen_x_fp: i32,
         screen_y_fp: i32,
@@ -580,7 +580,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn prize_collected_world_step_loc_FEFE(
         arc_step: PrizeCollectedArcHibernateStepLocFEEE,
         camera_x_word: u16,
@@ -600,7 +600,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn prize_clock_collected_world_step_loc_FF92(
         screen_x_fp: i32,
         screen_y_fp: i32,
@@ -632,7 +632,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn prize_clock_sound_refcount_loc_10792(
         active_clock_prize_sounds: u8,
     ) -> PrizeClockSoundRefcountLoc10792 {
@@ -645,7 +644,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn prize_clock_countdown_loc_10796(remaining: u16) -> PrizeClockCountdownLoc10796 {
         // ASM loc_10796 (kid.asm:22006-22014): hibernate one frame, subtract 1
         // from `d3`, delete immediately when it reaches zero, and swap to
@@ -658,7 +656,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn prize_clock_fall_gate_loc_107B0(
         integer_y: i64,
         level_height_pixels: i64,
@@ -676,7 +674,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn prize_clock_sound_cleanup_loc_107E0(
         active_clock_prize_sounds: u8,
     ) -> PrizeClockSoundCleanupLoc107E0 {
@@ -737,7 +735,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn prize_continue_countdown_loc_1080A(
         remaining: u16,
     ) -> PrizeContinueCountdownLoc1080A {
@@ -753,7 +751,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn prize_continue_delete_loc_10838() -> PrizeContinueDeleteLoc10838 {
         // ASM loc_10838 (kid.asm:22062): preserve `d0`, call `j_PlaySound`
         // with `#$6A`, restore `d0`, then jump straight to
@@ -765,7 +762,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn floating_prize_fall_step_loc_10C50(
         aligned_y: i32,
         y_pos: i64,
@@ -808,7 +805,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn floating_prize_fall_loc_103DE(
         aligned_y: i32,
         y_pos: i64,
@@ -833,7 +830,6 @@ impl NativeRuntime {
         )
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn floating_prize_row_sync_loc_10402(
         aligned_y: i32,
         y_pos: i64,
@@ -858,7 +854,6 @@ impl NativeRuntime {
         )
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn one_time_prize_init_loc_10856(
         header_word: i16,
         entries: [u32; 0x28],
@@ -882,7 +877,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn one_time_prize_scan_start_loc_1086A(
         prize_layout_addr: u16,
     ) -> OneTimePrizeScanStartLoc1086A {
@@ -896,7 +891,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn one_time_prize_entry_check_loc_10876(
         packed_entry: u32,
         prize_layout_addr: u16,
@@ -920,7 +914,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn one_time_prize_scan_step_loc_10886(
         remaining_entry_checks: u16,
         entry_byte_offset_from_table_base: u16,
@@ -937,7 +930,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn one_time_prize_store_loc_1089A(
         current_write_index: u16,
         entries: [u32; 0x28],
@@ -964,7 +957,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub fn prize_10_diamonds_init_loc_108E8() -> Prize10DiamondsInitLoc108E8 {
         // ASM Prize10Diamonds_Init -> loc_108E8 (kid.asm:22170-22173): set
         // `a0 = $44(a5)`, seed `d0 = #9`, then `clr.l (a0)+` under DBF to
@@ -975,7 +968,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub fn prize_10_diamonds_spawn_loc_108EE(
         frame_index: u16,
         spawn_x_pos: u16,
@@ -1065,7 +1058,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     pub fn prize_10_diamonds_worker_scan_start_loc_10960() -> Prize10DiamondsWorkerScanStartLoc10960
     {
         // ASM loc_10960 (kid.asm:22208) seeds `d2 = 0` before `loc_10962`
@@ -1078,7 +1070,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     pub fn prize_10_diamonds_worker_countdown_gate_loc_10984(
         lifetime_frames: u16,
     ) -> Prize10DiamondsWorkerCountdownGateLoc10984 {
@@ -1090,7 +1081,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn prize_10_diamonds_worker_init_loc_10988(
         x_pos: i32,
         y_pos: i32,
@@ -1114,7 +1104,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn prize_10_diamonds_worker_step_loc_109C0(
         camera_relative_x_pos: i32,
         camera_relative_y_pos: i32,
@@ -1139,7 +1129,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn step_lift_platform_sub_FCA6(
         lift: &mut LiftPlatform,
         level_height_pixels: u16,
@@ -1176,7 +1166,7 @@ impl NativeRuntime {
         signed_integer_y < i32::from(level_height_pixels)
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn lift_block_rise_step_loc_113F4(
         y_pos: u16,
         loop_counter: u16,
@@ -1192,7 +1182,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn lift_block_fall_step_loc_1141E(
         y_pos: u16,
         loop_counter: u16,
@@ -1210,7 +1200,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn shooter_left_support_probe_loc_11448(
         block_col: u16,
         left_support_is_empty: bool,
@@ -1227,7 +1216,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn shooter_center_worker_gate_loc_1146E(
         block_col_after_right_probe: u16,
         queued_support_worker: bool,
@@ -1243,7 +1232,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn shooter_center_worker_loc_11474(
         block_col: u16,
         block_row: u16,
@@ -1259,7 +1247,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn shooter_collision_rects_sub_F568(
         kid_hitbox: CollisionRectSub1F52,
         shooter_blocks: &[(u16, u16, u8)],
@@ -1390,7 +1378,7 @@ impl NativeRuntime {
         rects
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn shooter_collision_top_block_loc_F574(kid_hitbox_top_px: i16) -> i16 {
         // ASM loc_F574 (kid.asm:20203): `asr.w #4; subq.w #1` derives the
         // expanded top block, and negative word results are clamped to zero
@@ -1398,7 +1386,7 @@ impl NativeRuntime {
         (((i32::from(kid_hitbox_top_px)) >> 4) - 1).max(0) as i16
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn shooter_collision_right_bottom_blocks_loc_F580(
         kid_hitbox_right_px: i16,
         kid_hitbox_bottom_px: i16,
@@ -1492,7 +1480,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn start_prize_block_wobble_sub_1007A(
         grid: &mut terrain::BlockGrid,
         block_list: Option<&terrain::BlockList>,
@@ -1567,7 +1555,7 @@ impl NativeRuntime {
         Some(content)
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn lift_block_headbutt_worker_loc_FAFE(
         block_col: u16,
         block_row: u16,
@@ -1587,7 +1575,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn prize_block_headbutt_worker_loc_1002E(
         block_col: u16,
         block_row: u16,
@@ -1609,7 +1597,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn prize_block_deleted_tile_loc_101D8(
         block_col: u16,
         block_row: u16,
@@ -1631,7 +1619,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn prize_block_wobble_y_deltas_sub_1007A() -> &'static [i16; 31] {
         // ASM loc_100DA (kid.asm:21373) starts the prize-block wobble by
         // repeating `subq.w #2,y_pos(a3)` for the inclusive `dbf d0` count
@@ -1640,7 +1628,7 @@ impl NativeRuntime {
         &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn prize_block_wobble_delta_sub_1007A(elapsed: usize) -> Option<i16> {
         debug_assert_eq!(
             Self::prize_block_wobble_y_deltas_sub_1007A().len(),
@@ -1656,7 +1644,7 @@ impl NativeRuntime {
         None
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn prize_block_wobble_pass_frame_count_sub_1007A() -> usize {
         Self::prize_block_wobble_passes_sub_1007A()
             .iter()
@@ -1664,7 +1652,7 @@ impl NativeRuntime {
             .sum()
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn prize_block_wobble_passes_sub_1007A() -> [&'static [i16]; 6] {
         [
             &Self::prize_block_wobble_y_deltas_sub_1007A()[0..6],
@@ -1676,28 +1664,25 @@ impl NativeRuntime {
         ]
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn prize_block_wobble_fall_loc_100F6() -> &'static [i16] {
         // ASM loc_100F6 (kid.asm:21385): after `moveq #4,d0`, the inclusive
         // `dbf d0,loc_100F6` loop applies five `subq.w #2,y_pos(a3)` steps.
         &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A[12..17]
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn prize_block_wobble_rise_loc_10104() -> &'static [i16] {
         // ASM loc_10104 (kid.asm:21391): after `moveq #4,d1`, the inclusive
         // `dbf d1,loc_10104` loop applies five `addq.w #2,y_pos(a3)` steps.
         &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A[17..22]
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn prize_block_wobble_fall_loc_10112() -> &'static [i16] {
         // ASM loc_10112 (kid.asm:21397): after `moveq #3,d0`, the inclusive
         // `dbf d0,loc_10112` loop applies four `subq.w #2,y_pos(a3)` steps.
         &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A[22..26]
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn prize_block_wobble_rise_loc_10120() -> &'static [i16] {
         // ASM loc_10120 (kid.asm:21403): after `moveq #4,d1`, the inclusive
         // `dbf d1,loc_10120` loop applies five `addq.w #2,y_pos(a3)` steps
@@ -1705,7 +1690,6 @@ impl NativeRuntime {
         &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A[26..31]
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn deleted_tile_wobble_y_deltas_loc_10200() -> &'static [i16; 31] {
         // ASM loc_10236 (kid.asm:21493): after the opening six-frame
         // `loc_10228` rise, `moveq #5,d1` drives an inclusive `dbf` loop of
@@ -1722,7 +1706,6 @@ impl NativeRuntime {
         &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn evanescent_block_reveal_alt_branch_iterations_loc_11196() -> u16 {
         // ASM loc_11196 (kid.asm:23090): when `$4C(a5)` is non-zero, the
         // alternate branch reloads `d0` with `#3` immediately before
@@ -1731,7 +1714,6 @@ impl NativeRuntime {
         4
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn evanescent_block_reveal_alt_branch_y_deltas_loc_11198() -> &'static [i16] {
         // ASM loc_11198 (kid.asm:23093): after `loc_11196` reloads `d0`, the
         // alternate branch spends four hibernated frames on
@@ -1739,7 +1721,7 @@ impl NativeRuntime {
         &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196[..4]
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn evanescent_block_reveal_descent_y_deltas_loc_1117A() -> &'static [i16] {
         // ASM loc_1117A (kid.asm:23077): when `$4C(a5)` is zero, `moveq #3,d0`
         // drives an inclusive `dbf` loop, so the worker spends four hibernated
@@ -1747,7 +1729,6 @@ impl NativeRuntime {
         &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A[..4]
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn evanescent_block_reveal_ascent_y_deltas_loc_11188() -> &'static [i16] {
         // ASM loc_11188 (kid.asm:23083): after reloading `d0` with `#3`, the
         // worker spends four hibernated frames on `subq.w #2,y_pos(a3)` before
@@ -1755,7 +1736,7 @@ impl NativeRuntime {
         &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A[4..]
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub fn prize_block_spawn_flash_loc_102B8() -> PrizeBlockSpawnFlashLoc102B8 {
         // ASM loc_102B8 (kid.asm:21542): follow the worker's `$36(a5)` gfx
         // link, hide it via `st $13(a3)`, force palette line 0, seed
@@ -1769,7 +1750,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn helmet_cleanup_animation_sub_10D3E(
         x_pos: u16,
         y_pos: u16,
@@ -1972,7 +1953,7 @@ impl NativeRuntime {
     const IRON_KNIGHT_BLOCK_BREAKER_MIN_Y_VELOCITY_SUB_AF7A: i32 = 0x0004_8000;
     const IRON_KNIGHT_BLOCK_BREAKER_REBOUND_Y_VELOCITY_SUB_AF7A: i32 = -0x0000_8000;
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn iron_knight_block_breaker_collision_sub_AF7A(
         is_iron_knight: bool,
         current_block_breaker: bool,
@@ -2248,7 +2229,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn smash_block_destroy_effect_origin_sub_10EDA(
         direction: u16,
         x_px: u16,
@@ -2274,7 +2255,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn ice_block_destroy_effect_origin_sub_10F9C(
         direction: u16,
         x_px: u16,
@@ -2382,7 +2363,6 @@ impl NativeRuntime {
         )
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn ice_block_load_bullets_restore_direction_loc_11080(
         remapped_direction: u16,
     ) -> u16 {
@@ -2392,7 +2372,6 @@ impl NativeRuntime {
         remapped_direction ^ 2
     }
 
-    #[allow(non_snake_case)]
     fn ice_block_bullet_offsets_loc_11052(remapped_direction: u16) -> [(i32, i32); 3] {
         // ASM IceBlock_BulletPosOffset_Index (kid.asm:22990): offsets are
         // cumulative after the first centre bullet has been loaded.
@@ -2404,7 +2383,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn ice_block_bullet_velocity_loc_110AA(remapped_direction: u16) -> (i32, i32) {
         match remapped_direction & 3 {
             0 => (0, -Self::SHOOTER_PROJECTILE_SPEED),
@@ -2414,7 +2393,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn ice_block_bullets_loc_11052(
         source_col: u16,
         source_row: u16,
@@ -2600,7 +2578,7 @@ impl NativeRuntime {
             .recycle_evanescent_slots_loc_ECD8(&expired_evanescent_slot_addrs);
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn apply_evanescent_sprite_only_overlays_before_kid_loc_EDB0(&mut self) {
         let overlay_writes = self
             .block_state
@@ -2625,12 +2603,12 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn trigger_evanescent_block_loc_EB72(&mut self, col: u16, row: u16, skin: u8) {
         self.trigger_evanescent_block_loc_DF68(col, row, skin, true);
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn trigger_evanescent_block_from_shooter_loc_F04A(
         &mut self,
         col: u16,
@@ -2640,7 +2618,7 @@ impl NativeRuntime {
         self.trigger_evanescent_block_loc_DF68(col, row, skin, false);
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn trigger_evanescent_block_loc_DF68(
         &mut self,
         col: u16,
@@ -2685,7 +2663,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn evanescent_layout_writes_loc_ED04(
         &self,
         slice: &OpeningSliceState,
@@ -2792,14 +2770,14 @@ impl NativeRuntime {
             .collect()
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn evanescent_collision_overlay_enabled_loc_ED52(timer: i16, action: u8) -> bool {
         // ASM loc_ED52 takes the collision-overlay path when bit 1 remains set
         // after consuming the layout-update bit.
         action & 0x02 != 0 && timer >= EVANESCENT_COLLISION_OVERLAY_TIMER
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn evanescent_sprite_only_overlay_enabled_loc_EDB0(timer: i16, action: u8) -> bool {
         // ASM loc_EDB0 skips layout writes for `$80` sprite-only actions. Native
         // folds the evanescent hibernate cadence into this timer; the #214
@@ -2809,7 +2787,7 @@ impl NativeRuntime {
         action == 0x80 && timer >= EVANESCENT_COLLISION_OVERLAY_TIMER
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn evanescent_restored_cell_loc_ED52(
         &self,
         col: u16,
@@ -2824,7 +2802,7 @@ impl NativeRuntime {
         ))
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn evanescent_restored_layout_word_loc_ED52(
         &self,
         col: u16,
@@ -2862,7 +2840,7 @@ impl NativeRuntime {
         Some(layout_word)
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn evanescent_theme_collision_byte_loc_ED7C(
         &self,
         foreground_theme: u8,
@@ -2876,7 +2854,7 @@ impl NativeRuntime {
         collision.get(usize::from(terrain_byte)).copied()
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn evanescent_hitbox_half_width_loc_EAE4(&self) -> i32 {
         // ASM loc_EAE4 reads the live `Kid_hitbox_left/right` words. Berzerker
         // charge setup at loc_9564 changes only `addroffset_sprite(a3)` and
@@ -2884,7 +2862,7 @@ impl NativeRuntime {
         self.progression.current_form.half_width()
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn evanescent_hitbox_trigger_loc_EAE4(
         slice: &OpeningSliceState,
         grid: &terrain::BlockGrid,
@@ -3004,7 +2982,7 @@ impl NativeRuntime {
         (Some((hit.col, hit.row, skin)), Some(work))
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn fire_evanescent_block_projectiles_loc_EC76(
         &mut self,
         col: u16,
@@ -3250,7 +3228,7 @@ impl NativeRuntime {
     const SHOOTER_SLOT_COUNT: usize = 20;
     const SHOOTER_HEADBUTT_HOLD_FRAMES: u8 = 8;
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     #[cfg(test)]
     pub(crate) fn shooter_horizontal_span_loc_F808(
         camera_left_col: i16,
@@ -3302,7 +3280,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     #[cfg(test)]
     pub(crate) fn shooter_horizontal_span_columns_loc_F828(
         start_col: i16,
@@ -3316,7 +3294,7 @@ impl NativeRuntime {
             .collect::<Vec<_>>()
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     #[cfg(test)]
     pub(crate) fn shooter_horizontal_span_rejected_loc_F830(
         camera_left_col: i16,
@@ -3334,7 +3312,7 @@ impl NativeRuntime {
         !(row_visible && span_may_enter_view)
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn shooter_slot_tick_sub_F730(
         timer: u16,
         state: u16,
@@ -3387,7 +3365,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn shooter_player_in_range_sub_F536(
         player_x_pos: u32,
         player_y_pos: u32,
@@ -3418,7 +3396,7 @@ impl NativeRuntime {
         delta_y >= 0
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     #[cfg(test)]
     pub(crate) fn shooter_slot_sleep_frames_loc_F31C() -> u8 {
         // ASM loc_F31C (kid.asm:19909): the shooter slot's timer byte is
@@ -3426,7 +3404,7 @@ impl NativeRuntime {
         0x32
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn shooter_slot_restart_phase_loc_F326(player_in_range: bool) -> Option<u16> {
         // ASM loc_F326 (kid.asm:19914): `sub_F536` returns non-zero while Kid
         // remains in range; that path writes phase `$A(a0)=1`. Zero falls
@@ -3434,7 +3412,7 @@ impl NativeRuntime {
         if player_in_range { Some(1) } else { None }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn shooter_slot_freed_cell_loc_F336(skin: u8) -> terrain::Cell {
         // ASM loc_F336 (kid.asm:19921): before unlinking the active shooter
         // slot, `move.b #$EC,(a3)` restores the layout high byte and preserves
@@ -4014,7 +3992,7 @@ impl NativeRuntime {
             });
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn shifting_block_worker_gate_loc_113BA(
         source_row: u16,
         above_cell_sets_bit_6: bool,
@@ -4026,7 +4004,6 @@ impl NativeRuntime {
         source_row != 0 && !above_cell_sets_bit_6
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn shifting_block_activation_loc_11364(
         source_row: u16,
         above_cell: terrain::Cell,
@@ -4156,7 +4133,7 @@ impl NativeRuntime {
         outcome
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn lift_block_bob_frame_count_sub_FB3E() -> usize {
         // ASM sub_FB3E (kid.asm:20905): before the lift platform spawns, the
         // block bobs in three hibernating up/down passes: 6, 5, then 4/5
@@ -4168,7 +4145,7 @@ impl NativeRuntime {
         Self::lift_block_bob_deltas_sub_FB3E().len()
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn lift_block_bob_deltas_sub_FB3E() -> &'static [i16] {
         // ASM sub_FB3E (kid.asm:20905): concatenation of loc_FB94, loc_FBA2,
         // loc_FBB0, loc_FBBE, loc_FBCC, and loc_FBDA.
@@ -4178,7 +4155,7 @@ impl NativeRuntime {
         ]
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn lift_block_bob_pass_frame_count_sub_FB3E() -> usize {
         Self::lift_block_bob_passes_sub_FB3E()
             .iter()
@@ -4186,7 +4163,7 @@ impl NativeRuntime {
             .sum()
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn lift_block_bob_delta_sub_FB3E(elapsed: usize) -> Option<i16> {
         let mut remaining = elapsed;
         for pass in Self::lift_block_bob_passes_sub_FB3E() {
@@ -4198,7 +4175,7 @@ impl NativeRuntime {
         None
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn lift_block_bob_passes_sub_FB3E() -> [&'static [i16]; 6] {
         [
             Self::lift_block_bob_up_pass_loc_FB94(),
@@ -4210,7 +4187,7 @@ impl NativeRuntime {
         ]
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn lift_block_bob_up_pass_loc_FB94() -> &'static [i16] {
         // ASM loc_FB94 (kid.asm:20931): `moveq #5,d0` makes the DBF loop run
         // six times, subtracting 2px from the linked gfx object's y position
@@ -4218,7 +4195,7 @@ impl NativeRuntime {
         &[-2, -2, -2, -2, -2, -2]
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn lift_block_bob_down_pass_loc_FBA2() -> &'static [i16] {
         // ASM loc_FBA2 (kid.asm:20937): `moveq #5,d1` makes the DBF loop run
         // six times, adding 2px to the linked gfx object's y position before
@@ -4226,7 +4203,7 @@ impl NativeRuntime {
         &[2, 2, 2, 2, 2, 2]
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn lift_block_bob_up_pass_loc_FBB0() -> &'static [i16] {
         // ASM loc_FBB0 (kid.asm:20943): `moveq #4,d0` makes the DBF loop run
         // five times, subtracting 2px from the linked gfx object's y position
@@ -4234,7 +4211,7 @@ impl NativeRuntime {
         &[-2, -2, -2, -2, -2]
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn lift_block_bob_down_pass_loc_FBBE() -> &'static [i16] {
         // ASM loc_FBBE (kid.asm:20949): `moveq #4,d1` makes the DBF loop run
         // five times, adding 2px to the linked gfx object's y position before
@@ -4242,7 +4219,7 @@ impl NativeRuntime {
         &[2, 2, 2, 2, 2]
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn lift_block_bob_up_pass_loc_FBCC() -> &'static [i16] {
         // ASM loc_FBCC (kid.asm:20955): `moveq #3,d0` makes the DBF loop run
         // four times, subtracting 2px from the linked gfx object's y position
@@ -4250,7 +4227,7 @@ impl NativeRuntime {
         &[-2, -2, -2, -2]
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn lift_block_bob_down_pass_loc_FBDA() -> &'static [i16] {
         // ASM loc_FBDA (kid.asm:20961): `moveq #4,d1` makes the DBF loop run
         // five times, adding 2px to the linked gfx object's y position before
@@ -4673,7 +4650,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn hidden_block_reveal_sprite_words_loc_E07A_E082(
         block_list: &terrain::BlockList,
         entry: &terrain::HiddenBlockEntry,
@@ -4704,7 +4681,7 @@ impl NativeRuntime {
         .unwrap_or((reveal.cell.to_word(), reveal.sprite_mapping))
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn spawn_lift_platform_from_block_sub_FB3E(&mut self, col: u16, row: u16) {
         let x_px = col << 4;
         let y_px = row << 4;
@@ -5026,14 +5003,14 @@ impl NativeRuntime {
         content
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn floating_micromax_delete_exit_loc_106CC() -> bool {
         // ASM loc_106CC (kid.asm:21917): Micromax's fall loop exits by
         // jumping straight to `Delete_CurrentObject`.
         true
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn metal_block_effect_cell_words_loc_110D0(cell_x: u16, cell_y: u16) -> (u16, u16) {
         // ASM loc_110D0 (kid.asm:23019): after `j_sub_E02`, the worker stores
         // the tile coordinates unmodified in `$44(a0)` and `$46(a0)` before
@@ -5041,7 +5018,7 @@ impl NativeRuntime {
         (cell_x, cell_y)
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn metal_block_push_entry_loc_111F4(
         source_col: u16,
         direction: u16,
@@ -5060,7 +5037,6 @@ impl NativeRuntime {
         source_col.checked_sub(1)
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn metal_block_push_scan_right_loc_11208(
         row: &[terrain::Cell],
         source_col: u16,
@@ -5087,7 +5063,6 @@ impl NativeRuntime {
         None
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn metal_block_push_scan_left_loc_11230(
         row: &[terrain::Cell],
         source_col: u16,
@@ -5112,7 +5087,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn metal_block_push_mark_deleted_loc_1125C(cell: terrain::Cell) -> terrain::Cell {
         // ASM loc_1125C (kid.asm:23181): `or.b #$F,(a2)` keeps bit 15, the
         // collision nibble, and the skin byte intact while forcing the
@@ -5120,7 +5095,7 @@ impl NativeRuntime {
         terrain::Cell::from_be_bytes(0x80 | ((cell.collision as u8) << 4) | 0x0F, cell.skin)
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn start_metal_block_push_loc_111F4(
         &mut self,
         grid: &mut terrain::BlockGrid,
@@ -5168,7 +5143,7 @@ impl NativeRuntime {
         self.queue_start_sequence(QueuedSoundEffect::BerzerkerMovingBlock);
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn metal_block_push_step_right_loc_112E2(
         x_pos: u16,
         substep_counter: u16,
@@ -5184,7 +5159,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn metal_block_push_step_left_loc_112FE(
         x_pos: u16,
         substep_counter: u16,
@@ -5200,7 +5175,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn metal_block_push_left_delete_gate_loc_11328(
         source_col: u16,
         left_neighbour: terrain::Cell,
@@ -5213,7 +5187,7 @@ impl NativeRuntime {
         source_col == 0 || left_neighbour.collision == terrain::CollisionKind::Solid
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn metal_block_effect_sprite_pos_loc_1110E(cell_x: u16, cell_y: u16) -> (u16, u16) {
         let (cell_x, cell_y) = Self::metal_block_effect_cell_words_loc_110D0(cell_x, cell_y);
         // ASM loc_1110E (kid.asm:23038): copy the cached tile coordinates into
@@ -5222,7 +5196,6 @@ impl NativeRuntime {
         (cell_x << 4, cell_y << 4)
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn metal_block_push_right_delete_gate_loc_11358(
         source_col: u16,
         level_width_blocks: u16,
@@ -5237,7 +5210,7 @@ impl NativeRuntime {
             || right_neighbour.collision == terrain::CollisionKind::Solid
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn step_metal_block_push_workers_sub_1129C(&mut self) {
         let Some(grid) = self.block_grid.as_mut() else {
             self.block_state.metal_block_push_workers.clear();
@@ -5616,7 +5589,6 @@ impl NativeRuntime {
     /// Native combines these consumers after the one-frame latch handoff;
     /// grounded movement callbacks consume it before motion (#504), while
     /// airborne callbacks retain the pending form for the next wake (#420).
-    #[allow(non_snake_case)]
     pub(crate) fn award_collision_latched_prize_loc_104ae(&mut self) {
         if self.floating_items.iter().any(|f| f.collision_latched)
             && !self.latched_prize_wake_armed_loc_104ae
@@ -5837,7 +5809,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     fn age_floating_items_loc_10396(&mut self) {
         self.step_prize_worker_effects_loc_108ee_10b00();
         // #342: snapshot the live falling-clock count before any
@@ -6163,7 +6134,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn hidden_block_reveal_sprite_words_loc_E07A_E082_rescans_type1_prize_metadata() {
         let entry = terrain::HiddenBlockEntry {
             layout_addr: 0x0034,
@@ -6941,7 +6912,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn start_prize_block_wobble_sub_1007A_preserves_floor_support_cell() {
         let mut grid =
             terrain::BlockGrid::from_level_layout(&[0x00, 0x00, 0xE1, 0x02, 0x00, 0x00], 3, 1);
@@ -7008,7 +6979,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn start_prize_block_wobble_sub_1007A_requires_real_level_block_list_match_loc_10342() {
         let mut grid = terrain::BlockGrid::from_level_layout(&[0xE1, 0x02], 1, 1);
         let block_list = terrain::BlockList {
@@ -7417,7 +7388,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn shooter_direction_bits_loc_F106_requires_drill_type_and_minimum_skin() {
         // ASM sub_F096 loc_F106/loc_F1DE: visible shooter slots require block
         // type `$C` and a low byte at least `$2D`; `$EC2C` must not wrap into

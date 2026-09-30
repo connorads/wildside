@@ -405,7 +405,7 @@ mod chunk_01 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn gfx_object_alloc_loc_F9C_routes_object_kind_2_to_the_fffff86a_chain() {
         assert_eq!(
             gfx_object_alloc_special_chain_loc_F9C(1),
@@ -427,7 +427,7 @@ mod chunk_01 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn gfx_object_alloc_loc_FA6_routes_object_kind_3_to_the_fffff86e_chain() {
         assert_eq!(
             gfx_object_alloc_special_chain_loc_F9C(3),
@@ -437,7 +437,7 @@ mod chunk_01 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn gfx_object_alloc_loc_FB0_routes_object_kind_4_to_the_fffff872_chain() {
         assert_eq!(
             gfx_object_alloc_special_chain_loc_F9C(4),
@@ -447,7 +447,7 @@ mod chunk_01 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn gfx_object_alloc_loc_FB8_pushes_the_new_gfx_object_onto_the_special_chain() {
         assert_eq!(
             gfx_object_alloc_special_chain_splice_loc_FB8(Some(6), 2),
@@ -460,7 +460,7 @@ mod chunk_01 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn gfx_object_alloc_tail_loc_FBE_swaps_priority_and_increments_the_live_count() {
         assert_eq!(
             gfx_object_alloc_tail_loc_FBE(0x0201_0004, 0xFFFF, 0x00FF_8100),
@@ -475,7 +475,7 @@ mod chunk_01 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn gfx_object_alloc_loc_FD4_skips_equal_priorities_before_first_lower_priority() {
         let next_indices = [
             Some(1), // sentinel -> first live node
@@ -494,7 +494,7 @@ mod chunk_01 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn gfx_object_alloc_loc_FE6_splices_new_object_before_the_old_successor() {
         let mut next_indices = [
             Some(1), // sentinel -> first live node
@@ -1952,7 +1952,7 @@ mod chunk_01 {
     /// ASM loc_BEE8 (kid.asm:15505): timer digit 0 → tile $86BA (base).
     /// `move.w (Time_Minutes).w,d0; addi.w #$86BA,d0` for each digit.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_BEE8_timer_digits_zero_produce_base_tiles() {
         let tiles = hud_timer_digit_tiles_loc_BEE8(0, 0, 0);
         assert_eq!(
@@ -1968,7 +1968,7 @@ mod chunk_01 {
 
     /// ASM loc_BEE8: time 9:59 → minutes tile $86C3, tens tile $86BF, ones tile $86C3.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_BEE8_timer_digits_959_produce_correct_tiles() {
         let tiles = hud_timer_digit_tiles_loc_BEE8(9, 5, 9);
         assert_eq!(tiles.minutes_tile, 0x86BA + 9, "minutes digit 9");
@@ -2013,7 +2013,7 @@ mod chunk_01 {
     /// ASM loc_BF2A (kid.asm:15526): clamp 100 lives to 99.
     /// `cmpi.w #100,d0; blt.s life_display; moveq #99,d0`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_BF2A_clamps_100_lives_to_99() {
         assert_eq!(
             hud_lives_clamp_loc_BF2A(100),
@@ -2077,7 +2077,7 @@ mod chunk_01 {
     /// ASM loc_C03A (kid.asm:15628): boss levels hide the flagpole.
     /// Boss1=$10, Boss2=$1E, Boss3=$2A, Boss4=$33.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C03A_boss_levels_hide_flagpole() {
         assert!(is_boss_level_loc_C03A(0x10), "Boss1_LevelID=$10");
         assert!(is_boss_level_loc_C03A(0x1E), "Boss2_LevelID=$1E");
@@ -2088,7 +2088,7 @@ mod chunk_01 {
     /// ASM loc_C03A: non-boss levels do not hide the flagpole.
     /// `bne.s return_C046` — falls through to rts without executing loc_C03A.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C03A_non_boss_levels_do_not_hide_flagpole() {
         assert!(!is_boss_level_loc_C03A(0x00), "Level 0 is not a boss");
         assert!(!is_boss_level_loc_C03A(0x11), "Level $11 is not a boss");
@@ -2100,7 +2100,7 @@ mod chunk_01 {
     /// `CharacterCollision_TouchFlagpole` loop: `$36`, `$3A`, `$3E`.
     /// `clr.l $36(a0); clr.l $3A(a0); clr.l $3E(a0)`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C056_clear_offsets_match_asm() {
         assert_eq!(
             TOUCH_FLAGPOLE_CLEAR_OFFSETS_LOC_C056,
@@ -2113,7 +2113,7 @@ mod chunk_01 {
     /// `move.w #$8200,4(a6)` → Scroll A base $0000;
     /// `move.w #$8407,4(a6)` → Scroll B base $E000.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C070_vdp_commands_match_asm() {
         assert_eq!(
             TOUCH_FLAGPOLE_VDP_CMDS_LOC_C070,
@@ -2125,7 +2125,7 @@ mod chunk_01 {
     /// ASM loc_C070: hibernate $24 = 36 frames before gfx object cleanup.
     /// `move.w #$24,-(sp); jsr (j_Hibernate_Object).w`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C070_hibernate_duration_matches_asm() {
         assert_eq!(
             TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070, 0x24,
@@ -2142,7 +2142,7 @@ mod chunk_01 {
     ///
     /// The constant anchors the ROM address so the coverage scanner can cite it.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C0B6_gfx_cleanup_entry_address_matches_asm() {
         assert_eq!(
             TOUCH_FLAGPOLE_GFX_CLEANUP_ENTRY_LOC_C0B6, 0xC0B6,
@@ -2154,7 +2154,7 @@ mod chunk_01 {
     /// `moveq #$1B,d1` = 28 rows; `moveq #$27,d0` = 40 words per row.
     /// 40 data words + 24 zero-pad words = 64 words = 128 bytes per nametable row.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C186_holo_tilemap_row_count_matches_asm() {
         // d1=$1B → dbf iterates $1B+1 = 28 rows
         assert_eq!(
@@ -2168,7 +2168,7 @@ mod chunk_01 {
     /// ASM loc_C188 (kid.asm:15737): inner tilemap word copy loop.
     /// `move.w (a0)+,(a6); dbf d0,loc_C188` with d0=$27 = 40 words.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C188_holo_tilemap_cols_match_asm() {
         assert_eq!(
             FLAGPOLE_HOLO_TILEMAP_COLS_LOC_C188, 0x27,
@@ -2187,7 +2187,7 @@ mod chunk_01 {
     /// `move.w #0,(a6); dbf d0,loc_C190` with d0=$17 = 24 zero words.
     /// Columns 40–63 are zeroed so the full 128-byte nametable row is written.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C190_holo_tilemap_pad_matches_asm() {
         assert_eq!(
             FLAGPOLE_HOLO_TILEMAP_PAD_LOC_C190, 0x17,
@@ -2207,7 +2207,7 @@ mod chunk_01 {
     /// `moveq #$1F,d0` → 32 longword iterations = 64 words = 128 bytes.
     /// Copies the full `Palette_Buffer` into `Palette_Buffer_2`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C1AA_palette_backup_count_matches_asm() {
         assert_eq!(
             FLAGPOLE_PALETTE_BACKUP_COUNT_LOC_C1AA, 0x1F,
@@ -2225,7 +2225,7 @@ mod chunk_01 {
     /// `moveq #$E,d0` → 15 word iterations from `Pal_D00C` to
     /// `Palette_Buffer_3+$42` (word index 33).
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C1BC_holo_palette_load_matches_asm() {
         assert_eq!(
             FLAGPOLE_HOLO_PALETTE_WORD_COUNT_LOC_C1BC, 0x0E,
@@ -2251,7 +2251,7 @@ mod chunk_01 {
     /// `moveq #$1F,d0` drives 32 longword iterations from `Palette_Buffer` to
     /// `Palette_Buffer_2`, copying the complete 128-byte palette buffer.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D142_game_over_palette_backup_count_matches_asm() {
         assert_eq!(
             crate::level::GAME_OVER_PALETTE_BACKUP_COUNT_LOC_D142,
@@ -2270,7 +2270,7 @@ mod chunk_01 {
     /// `moveq #$1F,d0` drives 32 `clr.l (a1)+` iterations over
     /// `Palette_Buffer_3`, clearing the complete 128-byte fade target buffer.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D150_game_over_palette_clear_count_matches_asm() {
         assert_eq!(
             crate::level::GAME_OVER_PALETTE_CLEAR_COUNT_LOC_D150,
@@ -2289,7 +2289,7 @@ mod chunk_01 {
     /// `subi.w #$10,($FFFFF876).w; bmi.s loc_C1EE` — subtract $10 from fade
     /// progress each frame; when negative the fade is complete.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C1D0_fade_step_decrement_matches_asm() {
         assert_eq!(
             FLAGPOLE_FADE_STEP_LOC_C1D0, 0x10,
@@ -2302,7 +2302,7 @@ mod chunk_01 {
     /// the final frame where $10 - $10 = $0 is non-negative, then $0 - $10
     /// wraps to $FFF0 which is negative → done.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C1D0_fade_loop_frame_count() {
         let mut progress: u16 = 0x0100;
         let mut frames = 0u32;
@@ -2324,7 +2324,7 @@ mod chunk_01 {
     /// ASM loc_C1D0: the very last non-final step has progress $10 → $10 - $10
     /// = $0 which is non-negative, so the loop continues one more time.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C1D0_fade_step_zero_is_not_done() {
         let step = flagpole_fade_step_loc_C1D0(0x10);
         assert!(
@@ -2336,7 +2336,7 @@ mod chunk_01 {
 
     /// ASM loc_C1D0: progress $0 → $0 - $10 = $FFF0 (negative) → done.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C1D0_fade_step_underflow_is_done() {
         let step = flagpole_fade_step_loc_C1D0(0x00);
         assert!(
@@ -2350,7 +2350,7 @@ mod chunk_01 {
     /// non-final fade frame.
     /// `move.l #$8000FFFF,($FFFFF888).w` and `move.l #$FFFF0000,($FFFFF88C).w`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C1DC_fade_palette_masks_match_asm() {
         assert_eq!(
             FLAGPOLE_FADE_PALETTE_0_MASK_LOC_C1DC, 0x8000_FFFF,
@@ -2365,7 +2365,7 @@ mod chunk_01 {
     /// ASM loc_C1DC: non-final fade steps reseed both palette masks;
     /// final step (bmi taken) does not refresh them.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C1DC_masks_seeded_only_when_not_done() {
         // Non-final: masks are refreshed
         let step = flagpole_fade_step_loc_C1D0(0x0100);
@@ -2396,7 +2396,7 @@ mod chunk_01 {
     /// Camera at (0,0) → 320×224 pixels → tiles (0,0) to (19,13) → col_span=19,
     /// row_span=13. `$13F` = 319, `$DF` = 223.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C1EE_screen_offsets_match_asm() {
         assert_eq!(
             FLAGPOLE_SCREEN_WIDTH_OFFSET_LOC_C1EE, 0x013F,
@@ -2410,7 +2410,7 @@ mod chunk_01 {
 
     /// ASM loc_C1EE: camera at origin → tile bounds 0..19 cols, 0..13 rows.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C1EE_cursor_at_origin() {
         let cursor = flagpole_scoreboard_cursor_loc_C1EE(0, 0);
         // (0 + $13F) >> 4 = $13F >> 4 = 19; 19 - 0 = 19 columns
@@ -2425,7 +2425,7 @@ mod chunk_01 {
 
     /// ASM loc_C1EE: camera at pixel (256, 128) → tiles (16, 8) to (35, 21).
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C1EE_cursor_at_offset() {
         let cursor = flagpole_scoreboard_cursor_loc_C1EE(256, 128);
         // col_start = 256 >> 4 = 16
@@ -2442,7 +2442,7 @@ mod chunk_01 {
     /// ASM loc_C21E (kid.asm:15794): per-frame tile budget for scoreboard reveal.
     /// `moveq #$C,d7` = 12.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C21E_scoreboard_budget_matches_asm() {
         assert_eq!(
             FLAGPOLE_SCOREBOARD_BUDGET_PER_FRAME_LOC_C21E, 0x0C,
@@ -2455,7 +2455,7 @@ mod chunk_01 {
     /// palette-fade frames before the `loc_C21E` tile reveal can reach
     /// `Score_Board`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C0CC_pre_scoreboard_fade_duration_matches_asm() {
         assert_eq!(
             EOL_PRE_SCOREBOARD_FADE_FRAMES_LOC_C0CC, 18,
@@ -2469,7 +2469,6 @@ mod chunk_01 {
     /// the score-counter duration, while the renderer row-worker clock is
     /// normalised to the oracle-visible row fly-in frame.
     #[test]
-    #[allow(non_snake_case)]
     fn score_board_bgm_wait_stays_out_of_visible_row_clock_but_in_counter_clock() {
         assert_eq!(
             EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468,
@@ -2507,7 +2506,7 @@ mod chunk_01 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D824_ending_trace_queues_bgm_after_stop_music_pause() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         runtime.boot_state = BootState::EndingSequence {
@@ -2532,7 +2531,7 @@ mod chunk_01 {
     /// empty cells cost 2 budget units. With `d7=$C`, each outer hibernate
     /// pass reveals seven empty cells, so 280 cells take 40 frames.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C21E_empty_screen_reveal_duration_is_40_frames() {
         let grid = terrain::BlockGrid::from_level_layout(&[0; 20 * 14 * 2], 20, 14);
 
@@ -2548,7 +2547,7 @@ mod chunk_01 {
     /// cells cost six budget units in sub_C254, so 280 cells drain three per
     /// hibernated pass and require 94 frames.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C21E_live_scoreboard_reveal_uses_camera_words_and_solid_budget() {
         let mut layout = Vec::with_capacity(40 * 30 * 2);
         for row in 0..30 {
@@ -2574,7 +2573,7 @@ mod chunk_01 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C21E_foreground_reveal_visible_phase_matches_oracle_queue() {
         assert_eq!(
             EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE, 0x0F,
@@ -2586,7 +2585,7 @@ mod chunk_01 {
     /// budget exhausts or all rows are done. With budget=12, empty tiles cost 2
     /// each, so up to 6 empty tiles per frame before budget goes negative.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C228_budget_exhaustion_empty_tiles() {
         // Empty tile costs budget_delta=2 per sub_C254 step. Starting budget=12,
         // after 6 tiles: 12 - 6*2 = 0, one more step: 0 - 2 = -2 → exhausted.
@@ -2608,7 +2607,7 @@ mod chunk_01 {
     /// clocks_collected * LEVEL_TIMER_CLOCK_BONUS_SECONDS`.
     /// Zero elapsed seconds (full timer remaining, no clocks) → 0.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C0CC_completion_time_zero_elapsed() {
         // Timer still at 180, no clocks → elapsed = 0
         let remaining = 180u16;
@@ -2625,7 +2624,7 @@ mod chunk_01 {
     /// ASM loc_C0CC: partial timer consumption without clocks.
     /// remaining=120 → elapsed = 180-120 = 60.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C0CC_completion_time_partial_elapsed() {
         let remaining = 120u16;
         let clocks = 0u16;
@@ -2638,7 +2637,7 @@ mod chunk_01 {
     /// ASM loc_C0CC: clock collection adds 180 per clock to elapsed.
     /// remaining=170 (10s elapsed) + 1 clock → 10 + 180 = 190.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C0CC_completion_time_with_clocks() {
         let remaining = 170u16;
         let clocks = 1u16;
@@ -2652,7 +2651,7 @@ mod chunk_01 {
     /// move.w #$FF,d0` — cap completion time at 255.
     /// remaining=0 (180s elapsed) + 1 clock → 180+180 = 360, capped to 255.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C10A_completion_time_capped_at_255() {
         let remaining = 0u16;
         let clocks = 1u16;
@@ -2667,7 +2666,7 @@ mod chunk_01 {
     /// ASM loc_C10A: value exactly at 255 passes through unclamped.
     /// remaining=105 (75s elapsed) + 1 clock → 75+180 = 255.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C10A_completion_time_exactly_255_not_clamped() {
         let remaining = 105u16;
         let clocks = 1u16;
@@ -2826,7 +2825,7 @@ mod chunk_01 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C21E_reveal_tile_stream_preserves_sub_c254_order() {
         let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
         grid.set_cell_at(1, 0, terrain::Cell::from_be_bytes(0xE1, 0x00));
@@ -3270,7 +3269,7 @@ mod chunk_01 {
     /// completion-time digit sprites before entering the ordinary EOL object
     /// layout. `divu.w #$A,d3; swap d3` consumes ones, tens, then hundreds.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D468_level_skip_completion_time_digits_are_placed_right_to_left() {
         let sprites = level_skip_completion_time_digit_sprites_loc_D468(true, 123, 0x0200, 0x0040)
             .expect("ASM loc_D468 should allocate digit sprites when LevelSkip_Cheat is set");
@@ -3306,7 +3305,7 @@ mod chunk_01 {
     /// remaining completion time by 10 each pass, uses the previous remainder as
     /// the sprite digit, then subtracts `$C` from d2 before `dbf d6,loc_D47E`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D47E_level_skip_completion_time_loop_keeps_quotient_for_next_digit() {
         let sprites = level_skip_completion_time_digit_sprites_loc_D468(true, 7, 0x0200, 0x0040)
             .expect("ASM loc_D47E should run three allocation-loop iterations");
@@ -3326,7 +3325,7 @@ mod chunk_01 {
     /// ASM loc_D468 (kid.asm:16626): `tst.b (LevelSkip_Cheat).w; beq.s loc_D4CE`
     /// skips the three digit allocations entirely when the cheat flag is clear.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D468_level_skip_completion_time_digits_skip_when_cheat_clear() {
         assert!(
             level_skip_completion_time_digit_sprites_loc_D468(false, 99, 0x0200, 0x0040).is_none(),

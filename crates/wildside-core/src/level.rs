@@ -463,7 +463,7 @@ pub(crate) struct FlagpoleFadeStepLocC1D0 {
 /// `$36`/`$3A`/`$3E` are object-owned gfx-slot links. Clearing them detaches
 /// the visible gfx slots from non-Kid object slots before the deletion pass at
 /// loc_C070, so `Deallocate_ObjectSlot` cannot free them yet.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const TOUCH_FLAGPOLE_CLEAR_OFFSETS_LOC_C056: [u16; 3] = [0x36, 0x3A, 0x3E];
 
 /// ASM loc_C070 (kid.asm:15658): VDP register commands written during the
@@ -478,12 +478,11 @@ pub(crate) const TOUCH_FLAGPOLE_CLEAR_OFFSETS_LOC_C056: [u16; 3] = [0x36, 0x3A, 
 /// ```
 /// These two VDP writes reset the scroll plane addresses for the scoreboard
 /// reveal sequence.  The hibernate of `$24` (36) frames follows.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const TOUCH_FLAGPOLE_VDP_CMDS_LOC_C070: [u16; 2] = [0x8200, 0x8407];
 
 /// ASM loc_C070: hibernate duration (frames) before gfx object cleanup.
 /// `move.w #$24,-(sp); jsr (j_Hibernate_Object).w`.
-#[allow(dead_code)]
 pub const TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070: u16 = 0x24;
 
 /// ASM loc_C0B6 (kid.asm:15675): gfx object cleanup loop after the $24-frame
@@ -498,7 +497,7 @@ pub const TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070: u16 = 0x24;
 ///
 /// Native does not model per-slot gfx objects; the deletion pass is implicit
 /// when `LevelComplete` transitions to the next level.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const TOUCH_FLAGPOLE_GFX_CLEANUP_ENTRY_LOC_C0B6: u32 = 0xC0B6;
 
 /// Oracle-visible trace frame where the loc_C0B6 non-Kid gfx-slot cleanup has
@@ -519,20 +518,20 @@ pub const TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE: usize = 60;
 /// ```
 /// Each row copies 40 tilemap words then pads 24 zero words to fill the
 /// 64-column nametable stride (40 + 24 = 64 words = 128 bytes per row).
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const FLAGPOLE_HOLO_TILEMAP_ROWS_LOC_C186: u16 = 0x1B; // 28 rows (dbf)
 
 /// ASM loc_C188 (kid.asm:15737): inner tilemap word copy loop.
 /// `move.w (a0)+,(a6); dbf d0,loc_C188` — copies 40 decoded tilemap words
 /// per row to the VDP data port.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const FLAGPOLE_HOLO_TILEMAP_COLS_LOC_C188: u16 = 0x27; // 40 words (dbf)
 
 /// ASM loc_C190 (kid.asm:15742): zero-padding loop per tilemap row.
 /// `move.w #0,(a6); dbf d0,loc_C190` — writes 24 zero words to fill the
 /// remaining columns (64 − 40 = 24) in each nametable row, then
 /// `dbf d1,loc_C186` loops back for the next row.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const FLAGPOLE_HOLO_TILEMAP_PAD_LOC_C190: u16 = 0x17; // 24 zero words (dbf)
 
 /// ASM loc_C1AA (kid.asm:15750): palette backup before hologram screen.
@@ -540,7 +539,7 @@ pub(crate) const FLAGPOLE_HOLO_TILEMAP_PAD_LOC_C190: u16 = 0x17; // 24 zero word
 /// loc_C1AA: move.l (a0)+,(a1)+; dbf d0,loc_C1AA`.
 /// Copies 32 longwords (64 words = 128 bytes) — the full palette —
 /// from `Palette_Buffer` to `Palette_Buffer_2`.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const FLAGPOLE_PALETTE_BACKUP_COUNT_LOC_C1AA: u16 = 0x1F; // 32 longwords (dbf)
 
 /// ASM loc_C1BC (kid.asm:15757): hologram palette load.
@@ -548,11 +547,9 @@ pub(crate) const FLAGPOLE_PALETTE_BACKUP_COUNT_LOC_C1AA: u16 = 0x1F; // 32 longw
 /// loc_C1BC: move.w (a0)+,(a1)+; dbf d0,loc_C1BC`.
 /// Copies 15 words from `Pal_D00C` into `Palette_Buffer_3` at byte offset
 /// `$42` (word index 33).
-#[allow(dead_code)]
 pub(crate) const FLAGPOLE_HOLO_PALETTE_WORD_COUNT_LOC_C1BC: u16 = 0x0E; // 15 words (dbf)
 
 /// ASM loc_C1BC: destination byte offset within `Palette_Buffer_3`.
-#[allow(dead_code)]
 pub(crate) const FLAGPOLE_HOLO_PALETTE_DEST_OFFSET_LOC_C1BC: u16 = 0x42;
 
 /// ASM loc_C1D0 (kid.asm:15765): flagpole hologram fade-out loop body.
@@ -566,7 +563,6 @@ pub(crate) const FLAGPOLE_HOLO_PALETTE_DEST_OFFSET_LOC_C1BC: u16 = 0x42;
 /// progress word by `$10`. When the result goes negative the fade is
 /// complete and control falls through to `loc_C1EE` for the scoreboard
 /// tile-bounds calculation.
-#[allow(dead_code)]
 pub(crate) const FLAGPOLE_FADE_STEP_LOC_C1D0: u16 = 0x10;
 
 /// ASM loc_C1DC (kid.asm:15770): flagpole fade palette mask setup.
@@ -581,9 +577,7 @@ pub(crate) const FLAGPOLE_FADE_STEP_LOC_C1D0: u16 = 0x10;
 /// `$FFFF0000` covers the second palette half (upper 16 bits).
 /// Entered both as the initial fall-through from `loc_C1BC` setup and
 /// as the loop-back target from `loc_C1D0` while fade progress ≥ 0.
-#[allow(dead_code)]
 pub(crate) const FLAGPOLE_FADE_PALETTE_0_MASK_LOC_C1DC: u32 = 0x8000_FFFF;
-#[allow(dead_code)]
 pub(crate) const FLAGPOLE_FADE_PALETTE_1_MASK_LOC_C1DC: u32 = 0xFFFF_0000;
 
 /// ASM loc_C1EE (kid.asm:15776): post-fade screen tile bounds for
@@ -609,9 +603,7 @@ pub(crate) const FLAGPOLE_FADE_PALETTE_1_MASK_LOC_C1DC: u32 = 0xFFFF_0000;
 /// ```
 /// Converts camera pixel rectangle (320×224) into tile coordinates and
 /// stores the cursor fields that `sub_C254` walks during the reveal.
-#[allow(dead_code)]
 pub(crate) const FLAGPOLE_SCREEN_WIDTH_OFFSET_LOC_C1EE: u16 = 0x013F; // 319
-#[allow(dead_code)]
 pub(crate) const FLAGPOLE_SCREEN_HEIGHT_OFFSET_LOC_C1EE: u16 = 0x00DF; // 223
 
 /// ASM loc_C21E (kid.asm:15794): scoreboard reveal outer loop (per-frame).
@@ -623,7 +615,6 @@ pub(crate) const FLAGPOLE_SCREEN_HEIGHT_OFFSET_LOC_C1EE: u16 = 0x00DF; // 223
 /// ```
 /// Each frame reloads the queue write pointer and resets the per-frame
 /// tile budget to `$C` (12) before entering the inner loop at `loc_C228`.
-#[allow(dead_code)]
 pub(crate) const FLAGPOLE_SCOREBOARD_BUDGET_PER_FRAME_LOC_C21E: i16 = 0x0C;
 
 /// ASM loc_C228 (kid.asm:15799): scoreboard reveal inner loop (per-tile).
@@ -640,7 +631,7 @@ pub(crate) const FLAGPOLE_SCOREBOARD_BUDGET_PER_FRAME_LOC_C21E: i16 = 0x0C;
 /// via the N flag set by `sub_C254`'s final `subq.w #1,$48(a5)`.
 /// When budget `d7` exhausts, the queue slot is saved and the next frame
 /// begins at `loc_C21E`.
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub(crate) const FLAGPOLE_SCOREBOARD_INNER_ENTRY_LOC_C228: u32 = 0xC228;
 
 pub(crate) const SUB_28FC_SLOT_COUNT: usize = 6;
@@ -1097,21 +1088,21 @@ pub(crate) struct LayoutWordAddressLocFAE2 {
 
 /// ASM loc_F866 (kid.asm:20536): shift the current block row into the queue-word
 /// upper byte.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn animated_solid_block_row_hi_bits_loc_F866(block_row: u16) -> u16 {
     block_row << 8
 }
 
 /// ASM loc_F86A (kid.asm:20540): mask the shifted row to `$F00` for the VDP
 /// queue-word high nibble.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn animated_solid_block_row_hi_bits_masked_loc_F86A(block_row_hi_bits: u16) -> u16 {
     block_row_hi_bits & 0x0F00
 }
 
 /// ASM loc_F86E (kid.asm:20546): combine the masked row bits with packed x bits
 /// before queueing the FG update entry.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn animated_solid_block_row_queue_word_loc_F86E(
     masked_row_hi_bits: u16,
     packed_cell_x_bits: u16,
@@ -1119,7 +1110,7 @@ pub(crate) fn animated_solid_block_row_queue_word_loc_F86E(
     masked_row_hi_bits | packed_cell_x_bits
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn animated_solid_block_vertical_rows_loc_F872(
     queue_word: u16,
     mapping_longwords: [u32; 2],
@@ -1133,7 +1124,7 @@ pub(crate) fn animated_solid_block_vertical_rows_loc_F872(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn animated_solid_block_vertical_rows_loop_tail_loc_F87A(
     d1: u16,
     layout_addr: u32,
@@ -1151,7 +1142,7 @@ pub(crate) fn animated_solid_block_vertical_rows_loop_tail_loc_F87A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn animated_solid_block_vertical_rows_tail_loc_F890(
     swapped_d6: u32,
     swapped_d7: u32,
@@ -1700,7 +1691,7 @@ const SUB_2A4C_SPRITE_COORD_BIAS: i16 = 0x0080;
 /// The bundle exports those per-theme nibble tables to `theme/collision/<name>.bin`
 /// via the `binclude`s at kid.asm:46114-46124, so the filename order mirrors the
 /// pointer-table order exactly.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn theme_collision_filename_loc_11C30(foreground_theme: u8) -> Option<&'static str> {
     let filename = match foreground_theme & 0x0F {
         0 => "theme0.bin",
@@ -1764,7 +1755,7 @@ pub(crate) fn theme_palette_basename(theme: u8) -> Option<&'static str> {
 /// pointer-table order, then return the 256 bytes starting at this theme's base —
 /// exactly the bytes the ROM's `(a0,d2.w)` would address. Bytes 0x00 outside the
 /// last table (`city`) match the ROM reading into the adjacent mappings region.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn theme_collision_table_loc_11C36(
     source: &dyn AssetSource,
     foreground_theme: u8,
@@ -1795,7 +1786,7 @@ pub(crate) fn theme_collision_table_loc_11C36(
     Some(table)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn level_layout_row_pointer_base_loc_11AE4(level_id: LevelId, width_blocks: u16) -> u32 {
     // ASM Load_InGame (kid.asm:23679-23688) seeds `a3` with `$FFFFDD02`, but
     // branches to `loc_11AE4` for Hills of the Warrior 1 or any layout whose
@@ -1808,7 +1799,7 @@ pub(crate) fn level_layout_row_pointer_base_loc_11AE4(level_id: LevelId, width_b
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn level_layout_row_pointers_loc_11AFE(
     level_height_blocks: u16,
     level_width_tiles: u16,
@@ -1826,7 +1817,7 @@ pub(crate) fn level_layout_row_pointers_loc_11AFE(
     row_pointers
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn solid_collision_row_loc_11B12(level_width_blocks: u16) -> Vec<u16> {
     // ASM loc_11B12 (kid.asm:23704-23706) reloads `d0` with
     // `Level_width_blocks-1`, seeds `d1` with `$6000`, then writes exactly one
@@ -1834,7 +1825,7 @@ pub(crate) fn solid_collision_row_loc_11B12(level_width_blocks: u16) -> Vec<u16>
     vec![0x6000; usize::from(level_width_blocks)]
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn row_buffer_pointer_table_loc_11B1A(
     row_pointer_base: u32,
     level_width_blocks: u16,
@@ -1847,7 +1838,7 @@ pub(crate) fn row_buffer_pointer_table_loc_11B1A(
     [row_end_pointer; 8]
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn empty_collision_row_loc_11B28(level_width_blocks: u16) -> Vec<u16> {
     // ASM loc_11B28 (kid.asm:23716-23718) reloads `d0` with
     // `Level_width_blocks-1`, clears `d1`, then writes exactly one zero word
@@ -1855,7 +1846,7 @@ pub(crate) fn empty_collision_row_loc_11B28(level_width_blocks: u16) -> Vec<u16>
     vec![0; usize::from(level_width_blocks)]
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn terrain_layout_row_pointers_loc_11B40(
     level_height_blocks: u16,
     level_width_blocks: u16,
@@ -1873,7 +1864,7 @@ pub(crate) fn terrain_layout_row_pointers_loc_11B40(
     row_pointers
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_chunk_attempts_loc_11C10(status_words: &[u16]) -> usize {
     // ASM loc_11C10 (kid.asm:23803-23806) calls `Decompress_Chunk`, tests the
@@ -1886,7 +1877,7 @@ pub(crate) fn decompress_chunk_attempts_loc_11C10(status_words: &[u16]) -> usize
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn decode_block_layout_loc_132A6(layout_bytes: &[u8]) -> Result<Vec<u16>, String> {
     // ASM LoadBlockLayout/loc_132A6 (kid.asm:25557-25744) saves registers,
     // seeds the MSB-first bit reader via `sub_13618`/`sub_13622` (the same
@@ -1920,7 +1911,7 @@ pub(crate) fn decode_block_layout_loc_132A6(layout_bytes: &[u8]) -> Result<Vec<u
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn decode_enigma_eni_dec_loc_134D4(
     enigma_bytes: &[u8],
     base_tile_word: u16,
@@ -1932,7 +1923,7 @@ pub(crate) fn decode_enigma_eni_dec_loc_134D4(
     wildside_data::decode_enigma(enigma_bytes, base_tile_word).map_err(|error| error.to_string())
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn validate_enigma_control_stream_loc_134D4(
     enigma_bytes: &[u8],
     base_tile_word: u16,
@@ -2024,7 +2015,7 @@ impl<'a> EnigmaControlStreamLoc134D4<'a> {
         Ok(())
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn peek_bits_sub_1363C(&self, bit_count: u16) -> Result<u8, String> {
         if bit_count == 0 || bit_count > self.bits_remaining_d6 {
             return Err("Enigma short read exceeded buffered bits".to_owned());
@@ -2034,7 +2025,6 @@ impl<'a> EnigmaControlStreamLoc134D4<'a> {
         Ok(((self.current_word_d5 >> shift) & mask) as u8)
     }
 
-    #[allow(non_snake_case)]
     fn consume_command_prefix_loc_13504(
         &mut self,
         dispatch: BlockLayoutDispatchLoc13504,
@@ -2058,7 +2048,6 @@ impl<'a> EnigmaControlStreamLoc134D4<'a> {
         Ok(())
     }
 
-    #[allow(non_snake_case)]
     fn read_inline_value_sub_13588(
         &mut self,
         base_tile_word: u16,
@@ -2093,7 +2082,7 @@ impl<'a> EnigmaControlStreamLoc134D4<'a> {
         Ok(decoded_word.wrapping_add(packet_bits))
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn apply_high_bit_loc_1359A(
         &mut self,
         base_word: u16,
@@ -2112,7 +2101,7 @@ impl<'a> EnigmaControlStreamLoc134D4<'a> {
         Ok(result)
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn apply_second_high_bit_loc_135A8(
         &mut self,
         base_word: u16,
@@ -2131,7 +2120,7 @@ impl<'a> EnigmaControlStreamLoc134D4<'a> {
         Ok(result)
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn apply_third_high_bit_loc_135B6(
         &mut self,
         base_word: u16,
@@ -2150,7 +2139,7 @@ impl<'a> EnigmaControlStreamLoc134D4<'a> {
         Ok(result)
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn apply_fourth_high_bit_loc_135C4(
         &mut self,
         base_word: u16,
@@ -2264,7 +2253,7 @@ fn enigma_bit_mask_loc_13662(bit_count: u16) -> u16 {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn validate_first_block_layout_entry_loc_132A6(
     block_type: u16,
     layout_bytes: &[u8],
@@ -2420,7 +2409,7 @@ fn validate_first_block_layout_entry_loc_132A6(
     Ok(())
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn block_layout_x_sentinel_loc_132A6(layout_bytes: &[u8]) -> Result<u16, String> {
     // ASM loc_132A6 (kid.asm:25564-25572): after discarding the first 8 bits,
     // the next 4 bits become `a2`, and `return_13662[a2]` supplies the all-ones
@@ -2436,7 +2425,7 @@ fn block_layout_x_sentinel_loc_132A6(layout_bytes: &[u8]) -> Result<u16, String>
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_dispatch_loc_132D6(
     high_bit_set: bool,
     block_type: u16,
@@ -2451,7 +2440,7 @@ pub(crate) fn block_layout_dispatch_loc_132D6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_repeat_loop_loc_1331E(
     x_pos: u16,
     end_marker_x_pos: u16,
@@ -2467,7 +2456,7 @@ pub(crate) fn block_layout_repeat_loop_loc_1331E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_entry_words_loc_1332E(
     x_pos: u16,
     y_row: u16,
@@ -2485,7 +2474,7 @@ pub(crate) fn block_layout_entry_words_loc_1332E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_variable_repeat_loop_loc_1334C(
     x_pos: u16,
     end_marker_x_pos: u16,
@@ -2502,7 +2491,7 @@ pub(crate) fn block_layout_variable_repeat_loop_loc_1334C(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_variable_repeat_loop_loc_133A0(
     x_pos: u16,
     end_marker_x_pos: u16,
@@ -2518,7 +2507,7 @@ pub(crate) fn block_layout_variable_repeat_loop_loc_133A0(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_fixed_pattern_repeat_loop_loc_133DE(
     x_pos: u16,
     end_marker_x_pos: u16,
@@ -2551,7 +2540,7 @@ pub(crate) struct BlockLayoutEntryWordsLoc133B2 {
     pub(crate) property_word_dbf_counter: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_entry_words_loc_1335E(
     x_pos: u16,
     y_row: u16,
@@ -2571,7 +2560,7 @@ pub(crate) fn block_layout_entry_words_loc_1335E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_entry_words_loc_133B2(
     x_pos: u16,
     y_row: u16,
@@ -2591,7 +2580,7 @@ pub(crate) fn block_layout_entry_words_loc_133B2(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_entry_words_loc_133F0(
     x_pos: u16,
     y_row: u16,
@@ -2612,7 +2601,7 @@ pub(crate) fn block_layout_entry_words_loc_133F0(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_long_run_repeat_loop_loc_1342E(
     x_pos: u16,
     end_marker_x_pos: u16,
@@ -2627,7 +2616,7 @@ pub(crate) fn block_layout_long_run_repeat_loop_loc_1342E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_short_pair_repeat_loop_loc_1345E(
     x_pos: u16,
     end_marker_x_pos: u16,
@@ -2643,7 +2632,6 @@ pub(crate) fn block_layout_short_pair_repeat_loop_loc_1345E(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_layout_entry_words_loc_13470(
     x_pos: u16,
     y_row: u16,
@@ -2655,7 +2643,7 @@ pub(crate) fn block_layout_entry_words_loc_13470(
     BlockLayoutEntryWordsLoc13470 { x_pos, y_row }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_short_count_repeat_loop_loc_1347C(
     x_pos: u16,
     end_marker_x_pos: u16,
@@ -2671,7 +2659,7 @@ pub(crate) fn block_layout_short_count_repeat_loop_loc_1347C(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_short_count_property_words_loc_134AC(
     property_words: &[u16],
     dbf_counter: u16,
@@ -2687,7 +2675,7 @@ pub(crate) fn block_layout_short_count_property_words_loc_134AC(
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_terminate_loc_134BA() -> BlockLayoutTerminateLoc134BA {
     // ASM loc_134BA (kid.asm:25828-25831) writes the `$FFFF` terminator into
     // the current decode stream, then resets `a1` to `Decompression_Buffer`
@@ -2698,7 +2686,6 @@ pub(crate) fn block_layout_terminate_loc_134BA() -> BlockLayoutTerminateLoc134BA
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn decompress_to_vram_chunk_setup_loc_14300(
     buffer_start_addr: u32,
     buffer_end_addr: u32,
@@ -2716,7 +2703,6 @@ pub(crate) fn decompress_to_vram_chunk_setup_loc_14300(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn decompress_to_vram_word_transfer_loc_14314(
     buffered_words: &[u16],
     dbf_counter: u16,
@@ -2732,7 +2718,7 @@ pub(crate) fn decompress_to_vram_word_transfer_loc_14314(
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn decompress_to_vram_buffer_rollover_loc_1432C(
     buffered_longwords: &[u32],
     dbf_counter: u16,
@@ -2770,7 +2756,6 @@ pub(crate) fn decompress_to_vram_buffer_rollover_loc_1432C(
 // `decompress_to_vram_special_word_transfer_loc_14382` below, so no separate
 // native implementation is needed.
 
-#[allow(non_snake_case)]
 pub(crate) fn decompress_special_palette_row_start_loc_14348(
     row_index: u16,
 ) -> DecompressSpecialPaletteRowStartLoc14348 {
@@ -2784,7 +2769,7 @@ pub(crate) fn decompress_special_palette_row_start_loc_14348(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn decompress_special_palette_row_bytes_loc_1434A(
     permutation: &[u8; 16],
     row_index: u16,
@@ -2805,7 +2790,6 @@ pub(crate) fn decompress_special_palette_row_bytes_loc_1434A(
         .collect()
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn decompress_to_vram_special_chunk_setup_loc_14366(
     buffer_start_addr: u32,
     buffer_end_addr: u32,
@@ -2828,7 +2812,6 @@ pub(crate) fn decompress_to_vram_special_chunk_setup_loc_14366(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn decompress_to_vram_special_word_transfer_loc_14382(
     permutation_table: &[u8; 256],
     buffered_bytes: &[u8],
@@ -2852,7 +2835,7 @@ pub(crate) fn decompress_to_vram_special_word_transfer_loc_14382(
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn decompress_to_vram_special_buffer_rollover_loc_143AA(
     buffered_longwords: &[u32],
     dbf_counter: u16,
@@ -2869,7 +2852,7 @@ pub(crate) fn decompress_to_vram_special_buffer_rollover_loc_143AA(
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn decompress_to_vram_special_return_loc_143B2(
     saved_input_addr: u32,
 ) -> DecompressToVramSpecialReturnLoc143B2 {
@@ -2882,7 +2865,7 @@ pub(crate) fn decompress_to_vram_special_return_loc_143B2(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn decompress_to_ram_palette_row_start_loc_143CC(
     row_index: u16,
 ) -> DecompressToRamPaletteRowStartLoc143CC {
@@ -2896,7 +2879,7 @@ pub(crate) fn decompress_to_ram_palette_row_start_loc_143CC(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn decompress_to_ram_palette_row_bytes_loc_143CE(
     permutation: &[u8; 16],
     row_index: u16,
@@ -2916,7 +2899,7 @@ pub(crate) fn decompress_to_ram_palette_row_bytes_loc_143CE(
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn decompress_to_ram_chunk_setup_loc_143EA(
     buffer_start_addr: u32,
     buffer_end_addr: u32,
@@ -2941,7 +2924,7 @@ pub(crate) fn decompress_to_ram_chunk_setup_loc_143EA(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn decompress_to_ram_word_transfer_loc_1440A(
     permutation_table: &[u8; 256],
     buffered_bytes: &[u8],
@@ -2965,7 +2948,6 @@ pub(crate) fn decompress_to_ram_word_transfer_loc_1440A(
         .collect()
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn decompress_to_ram_buffer_rollover_loc_14430(
     buffered_longwords: &[u32],
     dbf_counter: u16,
@@ -2981,7 +2963,6 @@ pub(crate) fn decompress_to_ram_buffer_rollover_loc_14430(
         .collect()
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn indoor_rubber_block_source_words_loc_14506(
     mapping_words: &[u16],
@@ -3001,7 +2982,6 @@ pub(crate) fn indoor_rubber_block_source_words_loc_14506(
         .collect()
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn indoor_rubber_block_buffer_copy_loc_14512(
     buffered_longwords: &[u32],
@@ -3018,7 +2998,7 @@ pub(crate) fn indoor_rubber_block_buffer_copy_loc_14512(
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn indoor_rubber_block_vram_walk_loc_1451E(
     start_vram_tile: u16,
@@ -3034,7 +3014,7 @@ pub(crate) fn indoor_rubber_block_vram_walk_loc_1451E(
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn indoor_rubber_block_repack_longword_loc_1453E(
     existing_longword: u32,
@@ -3065,7 +3045,6 @@ pub(crate) fn indoor_rubber_block_repack_longword_loc_1453E(
     packed_longword
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn indoor_rubber_block_pack_selected_nibble_loc_14552(
     shifted_seed_longword: u32,
@@ -3085,7 +3064,6 @@ pub(crate) fn indoor_rubber_block_pack_selected_nibble_loc_14552(
     shifted_seed_longword | selected_nibble
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn indoor_rubber_block_repack_rows_loc_14538(
     existing_longwords: &[u32],
@@ -3113,7 +3091,7 @@ pub(crate) fn indoor_rubber_block_repack_rows_loc_14538(
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn indoor_rubber_block_upload_vram_rows_loc_1456E(
     buffered_longwords: &[u32],
@@ -3130,7 +3108,7 @@ pub(crate) fn indoor_rubber_block_upload_vram_rows_loc_1456E(
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn indoor_rubber_block_read_vram_rows_loc_1459A(
     vram_longwords: &[u32],
@@ -3147,7 +3125,6 @@ pub(crate) fn indoor_rubber_block_read_vram_rows_loc_1459A(
         .collect()
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_layout_dispatch_loc_13504(
     decoded_word: u16,
     decode_width_bits: u16,
@@ -3173,7 +3150,7 @@ pub(crate) fn block_layout_dispatch_loc_13504(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_apply_high_bit_loc_1359A(
     base_word: u16,
     property_byte: u8,
@@ -3203,7 +3180,7 @@ pub(crate) fn block_layout_apply_high_bit_loc_1359A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_apply_second_high_bit_loc_135A8(
     base_word: u16,
     property_byte: u8,
@@ -3233,7 +3210,7 @@ pub(crate) fn block_layout_apply_second_high_bit_loc_135A8(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_apply_third_high_bit_loc_135B6(
     base_word: u16,
     property_byte: u8,
@@ -3261,7 +3238,7 @@ pub(crate) fn block_layout_apply_third_high_bit_loc_135B6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_apply_fourth_high_bit_loc_135C4(
     base_word: u16,
     property_byte: u8,
@@ -3289,7 +3266,7 @@ pub(crate) fn block_layout_apply_fourth_high_bit_loc_135C4(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_finalize_word_loc_135F0(
     partial_word: u16,
     base_word: u16,
@@ -3311,7 +3288,7 @@ pub(crate) fn block_layout_finalize_word_loc_135F0(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_short_ref_tail_loc_136D0(
     copied_bytes: [u8; 2],
@@ -3328,7 +3305,7 @@ pub(crate) fn decompress_short_ref_tail_loc_136D0(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_prefix_loc_136FE(
     source_bytes: &[u8],
@@ -3345,7 +3322,6 @@ pub(crate) fn decompress_long_ref_prefix_loc_136FE(
         .collect()
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_zero_length_loc_13716() -> DecompressBp0ReturnStatus {
     // ASM loc_13716 (kid.asm:26226-26227) is the empty-length early return
@@ -3357,7 +3333,7 @@ pub(crate) fn decompress_long_ref_zero_length_loc_13716() -> DecompressBp0Return
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_too_short_loc_1371C() -> DecompressBp0ReturnStatus {
     // ASM loc_1371C (kid.asm:26231-26233) is the underflow return from
@@ -3370,7 +3346,7 @@ pub(crate) fn decompress_long_ref_too_short_loc_1371C() -> DecompressBp0ReturnSt
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_finished_loc_1372C() -> DecompressBp0ReturnStatus {
     // ASM loc_1372C (kid.asm:26243-26245) is the successful long-reference
@@ -3383,7 +3359,7 @@ pub(crate) fn decompress_long_ref_finished_loc_1372C() -> DecompressBp0ReturnSta
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_direct_copy_loc_137AE(source_byte: u8) -> DecompressDirectCopyLoc137AE {
     // ASM loc_137AE (kid.asm:26339) is the bit-position-0 direct-copy entry:
@@ -3394,7 +3370,6 @@ pub(crate) fn decompress_direct_copy_loc_137AE(source_byte: u8) -> DecompressDir
     }
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_mode_dispatch_loc_13736(
     bit_buffer: u8,
@@ -3423,7 +3398,7 @@ pub(crate) fn decompress_mode_dispatch_loc_13736(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_short_ref_finished_loc_1374A(
     copied_bytes: [u8; 2],
@@ -3440,7 +3415,7 @@ pub(crate) fn decompress_short_ref_finished_loc_1374A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_mode_dispatch_loc_137B0(
     bit_buffer: u8,
@@ -3470,7 +3445,7 @@ pub(crate) fn decompress_mode_dispatch_loc_137B0(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_mode_dispatch_loc_1382E(
     bit_buffer: u8,
@@ -3499,7 +3474,7 @@ pub(crate) fn decompress_mode_dispatch_loc_1382E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_mode_dispatch_loc_138AA(
     bit_buffer: u8,
@@ -3532,7 +3507,6 @@ pub(crate) fn decompress_mode_dispatch_loc_138AA(
     }
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_mode_dispatch_loc_13928(
     bit_buffer: u8,
@@ -3562,7 +3536,7 @@ pub(crate) fn decompress_mode_dispatch_loc_13928(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_mode_dispatch_loc_139A6(
     bit_buffer: u8,
@@ -3601,7 +3575,7 @@ pub(crate) fn decompress_mode_dispatch_loc_139A6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_mode_dispatch_loc_13A24(
     bit_buffer: u8,
@@ -3635,7 +3609,6 @@ pub(crate) fn decompress_mode_dispatch_loc_13A24(
     }
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_header_loc_13756(
     bit_buffer: u8,
@@ -3664,7 +3637,7 @@ pub(crate) fn decompress_long_ref_header_loc_13756(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_short_ref_finished_loc_137C4(
     copied_bytes: [u8; 2],
@@ -3681,7 +3654,6 @@ pub(crate) fn decompress_short_ref_finished_loc_137C4(
     }
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_short_ref_finished_loc_13842(
     copied_bytes: [u8; 2],
@@ -3698,7 +3670,7 @@ pub(crate) fn decompress_short_ref_finished_loc_13842(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_short_ref_finished_loc_1393C(
     copied_bytes: [u8; 2],
@@ -3716,7 +3688,7 @@ pub(crate) fn decompress_short_ref_finished_loc_1393C(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_short_ref_finished_loc_139BC(
     copied_bytes: [u8; 2],
@@ -3733,7 +3705,7 @@ pub(crate) fn decompress_short_ref_finished_loc_139BC(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_header_loc_1384E(
     bit_buffer: u8,
@@ -3766,7 +3738,6 @@ pub(crate) fn decompress_long_ref_header_loc_1384E(
     }
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_header_loc_13948(
     bit_buffer: u8,
@@ -3802,7 +3773,7 @@ pub(crate) fn decompress_long_ref_header_loc_13948(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_extended_loc_1376A(
     bit_buffer: u8,
@@ -3831,7 +3802,7 @@ pub(crate) fn decompress_long_ref_extended_loc_1376A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_extended_loc_137E6(
     bit_buffer: u8,
@@ -3860,7 +3831,7 @@ pub(crate) fn decompress_long_ref_extended_loc_137E6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_extended_loc_138E2(
     bit_buffer: u8,
@@ -3889,7 +3860,7 @@ pub(crate) fn decompress_long_ref_extended_loc_138E2(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_extended_loc_139DE(
     bit_buffer: u8,
@@ -3918,7 +3889,7 @@ pub(crate) fn decompress_long_ref_extended_loc_139DE(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_extended_loc_13A5A(
     bit_buffer: u8,
@@ -3947,7 +3918,6 @@ pub(crate) fn decompress_long_ref_extended_loc_13A5A(
     }
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_loop_loc_13778(
     source_bytes: &[u8],
@@ -3965,7 +3935,6 @@ pub(crate) fn decompress_long_ref_loop_loc_13778(
     }
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_loop_loc_13872(
     source_bytes: &[u8],
@@ -3984,7 +3953,7 @@ pub(crate) fn decompress_long_ref_loop_loc_13872(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_loop_loc_137F6(
     source_bytes: &[u8],
@@ -4003,7 +3972,7 @@ pub(crate) fn decompress_long_ref_loop_loc_137F6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_loop_loc_138F0(
     source_bytes: &[u8],
@@ -4022,7 +3991,7 @@ pub(crate) fn decompress_long_ref_loop_loc_138F0(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_loop_loc_1396E(
     source_bytes: &[u8],
@@ -4041,7 +4010,7 @@ pub(crate) fn decompress_long_ref_loop_loc_1396E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_loop_loc_139EC(
     source_bytes: &[u8],
@@ -4060,7 +4029,7 @@ pub(crate) fn decompress_long_ref_loop_loc_139EC(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_loop_loc_13A68(
     source_bytes: &[u8],
@@ -4079,7 +4048,7 @@ pub(crate) fn decompress_long_ref_loop_loc_13A68(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_quit_loc_1380E() -> DecompressBp0ReturnStatus {
     // ASM loc_1380E (kid.asm:26405-26406) is the `BYTE2 = 0` early return from
@@ -4091,7 +4060,7 @@ pub(crate) fn decompress_long_ref_quit_loc_1380E() -> DecompressBp0ReturnStatus 
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_quit_loc_1388A() -> DecompressBp0ReturnStatus {
     // ASM loc_1388A (kid.asm:26493-26494) is the later `BYTE2 = 0` early
@@ -4103,7 +4072,6 @@ pub(crate) fn decompress_long_ref_quit_loc_1388A() -> DecompressBp0ReturnStatus 
     }
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_quit_loc_13908() -> DecompressBp0ReturnStatus {
     // ASM loc_13908 (kid.asm:26582-26583) is the `BYTE2 = 0` early return from
@@ -4115,7 +4083,6 @@ pub(crate) fn decompress_long_ref_quit_loc_13908() -> DecompressBp0ReturnStatus 
     }
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_quit_loc_13986() -> DecompressBp0ReturnStatus {
     // ASM loc_13986 (kid.asm:26671-26672) is the `BYTE2 = 0` early return from
@@ -4127,7 +4094,7 @@ pub(crate) fn decompress_long_ref_quit_loc_13986() -> DecompressBp0ReturnStatus 
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_quit_loc_13A04() -> DecompressBp0ReturnStatus {
     // ASM loc_13A04 (kid.asm:26760-26761) is the `BYTE2 = 0` early return from
@@ -4139,7 +4106,7 @@ pub(crate) fn decompress_long_ref_quit_loc_13A04() -> DecompressBp0ReturnStatus 
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_quit_loc_13A80() -> DecompressBp0ReturnStatus {
     // ASM loc_13A80 (kid.asm:26848-26849) is the `BYTE2 = 0` early return from
@@ -4151,7 +4118,6 @@ pub(crate) fn decompress_long_ref_quit_loc_13A80() -> DecompressBp0ReturnStatus 
     }
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_quit_loc_13790() -> DecompressBp0ReturnStatus {
     // ASM loc_13790 (kid.asm:26316-26317) is the `BYTE2 = 0` early return from
@@ -4163,7 +4129,6 @@ pub(crate) fn decompress_long_ref_quit_loc_13790() -> DecompressBp0ReturnStatus 
     }
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_tail_loc_13878(
     copied_bytes: [u8; 5],
@@ -4180,7 +4145,7 @@ pub(crate) fn decompress_long_ref_tail_loc_13878(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_tail_loc_138F6(
     copied_bytes: [u8; 5],
@@ -4198,7 +4163,7 @@ pub(crate) fn decompress_long_ref_tail_loc_138F6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_tail_loc_139F2(
     copied_bytes: [u8; 5],
@@ -4216,7 +4181,7 @@ pub(crate) fn decompress_long_ref_tail_loc_139F2(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_tail_loc_13A6E(
     copied_bytes: [u8; 5],
@@ -4234,7 +4199,7 @@ pub(crate) fn decompress_long_ref_tail_loc_13A6E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_tail_loc_1387A(
     copied_bytes: [u8; 4],
@@ -4251,7 +4216,7 @@ pub(crate) fn decompress_long_ref_tail_loc_1387A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_tail_loc_137FC(
     copied_bytes: [u8; 5],
@@ -4268,7 +4233,6 @@ pub(crate) fn decompress_long_ref_tail_loc_137FC(
     }
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_flush_loc_13814() -> DecompressBp0ReturnStatus {
     // ASM loc_13814 (kid.asm:26410-26412) is the `0 < BYTE2 < 6` underflow
@@ -4281,7 +4245,6 @@ pub(crate) fn decompress_long_ref_flush_loc_13814() -> DecompressBp0ReturnStatus
     }
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_flush_loc_13890() -> DecompressBp0ReturnStatus {
     // ASM loc_13890 (kid.asm:26498-26500) is the `0 < BYTE2 < 6` underflow
@@ -4294,7 +4257,7 @@ pub(crate) fn decompress_long_ref_flush_loc_13890() -> DecompressBp0ReturnStatus
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_flush_loc_1398C() -> DecompressBp0ReturnStatus {
     // ASM loc_1398C (kid.asm:26676-26678) is the `0 < BYTE2 < 6` underflow
@@ -4307,7 +4270,7 @@ pub(crate) fn decompress_long_ref_flush_loc_1398C() -> DecompressBp0ReturnStatus
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_flush_loc_13A0A() -> DecompressBp0ReturnStatus {
     // ASM loc_13A0A (kid.asm:26765-26767) is the `0 < BYTE2 < 6` underflow
@@ -4320,7 +4283,7 @@ pub(crate) fn decompress_long_ref_flush_loc_13A0A() -> DecompressBp0ReturnStatus
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_flush_loc_13A86() -> DecompressBp0ReturnStatus {
     // ASM loc_13A86 (kid.asm:26853-26855) is the `0 < BYTE2 < 6` underflow
@@ -4333,7 +4296,7 @@ pub(crate) fn decompress_long_ref_flush_loc_13A86() -> DecompressBp0ReturnStatus
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_flush_loc_1390E() -> DecompressBp0ReturnStatus {
     // ASM loc_1390E (kid.asm:26587-26589) is the `0 < BYTE2 < 6` underflow
@@ -4346,7 +4309,6 @@ pub(crate) fn decompress_long_ref_flush_loc_1390E() -> DecompressBp0ReturnStatus
     }
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_flush_loc_13796() -> DecompressBp0ReturnStatus {
     // ASM loc_13796 (kid.asm:26321-26323) is the `0 < BYTE2 < 6` underflow
@@ -4359,7 +4321,7 @@ pub(crate) fn decompress_long_ref_flush_loc_13796() -> DecompressBp0ReturnStatus
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_finished_loc_137A6() -> DecompressBp0ReturnStatus {
     // ASM loc_137A6 (kid.asm:26333-26335) is the successful return after the
@@ -4372,7 +4334,6 @@ pub(crate) fn decompress_long_ref_finished_loc_137A6() -> DecompressBp0ReturnSta
     }
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_finished_loc_13916() -> DecompressBp0ReturnStatus {
     // ASM loc_13916 (kid.asm:26593-26595) is the successful return after the
@@ -4385,7 +4346,7 @@ pub(crate) fn decompress_long_ref_finished_loc_13916() -> DecompressBp0ReturnSta
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_finished_loc_1399C() -> DecompressBp0ReturnStatus {
     // ASM loc_1399C (kid.asm:26684-26686) is the successful return after the
@@ -4398,7 +4359,7 @@ pub(crate) fn decompress_long_ref_finished_loc_1399C() -> DecompressBp0ReturnSta
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_finished_loc_13A8E() -> DecompressBp0ReturnStatus {
     // ASM loc_13A8E (kid.asm:26859-26861) is the successful return after the
@@ -4411,7 +4372,7 @@ pub(crate) fn decompress_long_ref_finished_loc_13A8E() -> DecompressBp0ReturnSta
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn decompress_long_ref_tail_loc_1377E(
     copied_bytes: [u8; 5],
@@ -4427,7 +4388,7 @@ pub(crate) fn decompress_long_ref_tail_loc_1377E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn level_layout_cell_loc_11C36(terrain_byte: u8, theme_collision_index: &[u8]) -> u16 {
     // ASM loc_11C36 (kid.asm:23818-23822) reads one terrain byte through `d2`,
     // loads the matching theme-collision nibble through `d3`, shifts that
@@ -4437,7 +4398,7 @@ pub(crate) fn level_layout_cell_loc_11C36(terrain_byte: u8, theme_collision_inde
     u16::from_be_bytes([collision_byte, terrain_byte])
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn level_layout_cells_loc_11C34(
     terrain_layout: &[u8],
     theme_collision_index: &[u8],
@@ -4489,7 +4450,7 @@ pub(crate) const TERRAIN_LAYOUT_LENGTH_TOLERANCE: usize = 5;
 /// whatever follows `Level_terrain_layout` in RAM, not 0; there is no oracle for
 /// levels normal play never loads, so this mirrors the render's zero-pad. Larger
 /// shortfalls (e.g. blank-top-row inflation) still return None.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn resolve_terrain_to_expected_cells_loc_11C34(
     terrain_bytes: Vec<u8>,
     expected_cells: usize,
@@ -4524,7 +4485,7 @@ pub(crate) fn resolve_terrain_to_expected_cells_loc_11C34(
 /// table holds `Level_Layout + Y*Level_width_tiles` and `Level_width_tiles =
 /// width_blocks*2`. Working in word/cell-index space, `cell(X,Y) = Y*width + X`;
 /// horizontal advance `+1`, vertical advance (`Level_width_tiles` bytes) `+width`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn apply_block_overlay_loc_11C7E(
     cells: &mut [u16],
     block_layout_words: &[u16],
@@ -4966,7 +4927,7 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
     block_list
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn level_layout_row_pointer_offsets_for_overlay_loc_11AFE(
     rows: u16,
     width_blocks: u16,
@@ -4980,7 +4941,7 @@ fn level_layout_row_pointer_offsets_for_overlay_loc_11AFE(
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn terrain_layout_row_pointer_offsets_for_overlay_loc_11B40(
     rows: u16,
     width_blocks: u16,
@@ -4994,7 +4955,7 @@ fn terrain_layout_row_pointer_offsets_for_overlay_loc_11B40(
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn initialise_level_row_buffers_for_load_loc_11AEA(level_id: LevelId, width_blocks: u16) {
     // ASM loc_11AEA..loc_11B28 (kid.asm:23690-23718): level load stores the
     // selected row-buffer base twice, fills one solid sentinel row, stores
@@ -5020,7 +4981,7 @@ fn initialise_level_row_buffers_for_load_loc_11AEA(level_id: LevelId, width_bloc
     debug_assert!(empty_row.iter().all(|word| *word == 0));
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn reconcile_prize_block_cells_loc_123DC(
     grid: &mut terrain::BlockGrid,
     block_list: &terrain::BlockList,
@@ -5096,7 +5057,6 @@ pub(crate) fn reconcile_prize_block_cells_loc_123DC(
 /// terminator); loc_122DA reads `d2=Y`, `d3=count`, then a stride flag word.
 /// `subq.w #1,d3` then `dbf` runs the body `count` times. Horizontal (stride==0)
 /// advances X by 1 per cell; vertical (stride!=0) advances Y by 1 per cell.
-#[allow(non_snake_case)]
 fn run_loop_122c0(
     words: &[u16],
     pos: &mut usize,
@@ -5151,7 +5111,6 @@ fn run_loop_122c0(
     }
 }
 
-#[allow(non_snake_case)]
 fn run_loop_type6_1233c(
     words: &[u16],
     pos: &mut usize,
@@ -5218,7 +5177,6 @@ fn run_loop_type6_1233c(
 
 /// loc_123DC (type 1): like loc_122C0 but each cell consumes one extra property
 /// word from the stream (`move.w (a1)+,d5`). (kid.asm:24604-24640)
-#[allow(non_snake_case)]
 fn run_loop_with_property_123dc(
     words: &[u16],
     pos: &mut usize,
@@ -5283,7 +5241,6 @@ fn run_loop_with_property_123dc(
 
 /// loc_125A6 (types 10,12): identical run shape to loc_123DC (one property word
 /// per cell). (kid.asm:24811-24875)
-#[allow(non_snake_case)]
 fn run_loop_with_property_125a6(
     words: &[u16],
     pos: &mut usize,
@@ -5369,7 +5326,6 @@ fn run_loop_with_property_125a6(
 /// loc_124A6 (type 3): each entry is a fixed 8-word record (`$10` bytes). Word 5
 /// (`$A(a1)`) gates the `$E304` fill; word 2 (`4(a1)`) is the count; word 3
 /// (`6(a1)`) is the stride flag. (kid.asm:24691-24755)
-#[allow(non_snake_case)]
 fn run_loop_type3_124a6(
     words: &[u16],
     pos: &mut usize,
@@ -5423,7 +5379,6 @@ fn run_loop_type3_124a6(
 
 /// loc_1263C (type 4): one cell pair per entry (no count loop). loc_122C0-style
 /// X/Y read, then directly writes `$E407`/`$E408`. (kid.asm:24640-24697)
-#[allow(non_snake_case)]
 fn run_loop_pair_1263c(
     words: &[u16],
     pos: &mut usize,
@@ -5478,7 +5433,6 @@ fn run_loop_pair_1263c(
 /// loc_1253A (type 8, shooter): loc_122C0-style X/Y/count/stride run; each cell
 /// writes a 2x2 `$B811..$B814` block. Horizontal advances X by 2 cells; vertical
 /// advances Y by 2 cells. (kid.asm:24758-24799)
-#[allow(non_snake_case)]
 fn run_loop_shooter_1253a(
     words: &[u16],
     pos: &mut usize,
@@ -5522,7 +5476,6 @@ fn run_loop_shooter_1253a(
 
 /// loc_126BA (type 11): single cell per entry, no count loop. loc_122C0-style
 /// X/Y read. (kid.asm:24948-24977)
-#[allow(non_snake_case)]
 fn run_loop_single_126ba(
     words: &[u16],
     pos: &mut usize,
@@ -5564,7 +5517,6 @@ fn run_loop_single_126ba(
 /// `addq.b #1`, then sub_127A8 (which writes `$20` high byte + skin low byte)
 /// and finally `move.b d5,(a4)` overwrites the high byte with the class nibble+1.
 /// Net cell = `[(class_nibble<<4)+1, skin]`. (kid.asm:24913-25062)
-#[allow(non_snake_case)]
 fn run_loop_corner_126f2(
     cells: &mut [u16],
     words: &[u16],
@@ -5636,7 +5588,6 @@ fn run_loop_corner_126f2(
 /// byte. Class `$40` marks the right + below neighbours; class `$50` marks the
 /// left + below neighbours. sub_12792 skips a neighbour that is out of bounds or
 /// already solid (high byte bit 7 set), matching `tst.b (a4); bmi`.
-#[allow(non_snake_case)]
 fn mark_corner_neighbour_sub_12792(
     cells: &mut [u16],
     width: usize,
@@ -5685,7 +5636,7 @@ fn mark_corner_neighbour_sub_12792(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_type_base_cell_loc_122B8(block_type: u16) -> u16 {
     // ASM loc_122B8 (kid.asm:24405-24408): dispatches block types that are
     // routed through AddrTbl_BlockTypes to this handler. The routine:
@@ -5718,7 +5669,7 @@ pub(crate) fn block_type_base_cell_loc_122B8(block_type: u16) -> u16 {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_parse_entry_loc_122C0(
     layout_word: u16,
 ) -> Option<BlockLayoutEntryLoc122C0> {
@@ -5736,7 +5687,7 @@ pub(crate) fn block_layout_parse_entry_loc_122C0(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_read_coords_loc_122DA(
     layout_words: &[u16],
 ) -> Option<(BlockLayoutSetupLoc122DA, usize)> {
@@ -5770,7 +5721,7 @@ pub(crate) fn block_layout_read_coords_loc_122DA(
     ))
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_place_cells_loc_122F6(
     cell_addr: u32,
     cell_word: u16,
@@ -5816,7 +5767,6 @@ pub(crate) struct BlockPlaceRowByRowResultLoc12320 {
     pub(crate) block_type: i16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_place_row_by_row_hidden_loc_12320(
     cell_addr: u32,
     x_pos: u16,
@@ -5847,7 +5797,6 @@ pub(crate) struct BlockPlaceRowByRowAdvanceLoc12332 {
     pub(crate) next_cell_addr: u32,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_place_row_by_row_advance_loc_12332(
     cell_addr: u32,
     level_width_tiles: u16,
@@ -5869,7 +5818,6 @@ pub(crate) struct BlockType6CellResultLoc12372 {
     pub(crate) cell_word: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_6_cell_value_loc_12372(
     block_type: i16,
     terrain_byte: u8,
@@ -5908,7 +5856,6 @@ pub(crate) struct BlockType7AdvanceLoc1239A {
     pub(crate) next_terrain_addr: u32,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_7_horizontal_advance_loc_1239a(
     cell_addr: u32,
     terrain_addr: u32,
@@ -5932,7 +5879,6 @@ pub(crate) struct BlockType7VerticalCellLoc123B6 {
     pub(crate) cell_word: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_7_vertical_write_loc_123b6(
     cell_addr: u32,
     terrain_byte: u8,
@@ -5964,7 +5910,6 @@ pub(crate) struct BlockType7AdvanceLoc123CC {
     pub(crate) next_terrain_addr: u32,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_7_vertical_advance_loc_123cc(
     cell_addr: u32,
     terrain_addr: u32,
@@ -5990,7 +5935,7 @@ pub(crate) struct BlockLayoutEntryLoc1233E {
     pub(crate) x_pos: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_layout_read_entry_loc_1233E(
     layout_word: u16,
 ) -> Option<BlockLayoutEntryLoc1233E> {
@@ -6016,7 +5961,6 @@ pub(crate) struct BlockType1InitLoc123DC {
     pub(crate) already_initialized: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_1_init_list_loc_123dc(
     existing_list_addr: u32,
     prize_list_addr: u32,
@@ -6047,7 +5991,6 @@ pub(crate) struct BlockLayoutEntryLoc123E6 {
     pub(crate) x_pos: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_layout_read_x_pos_loc_123e6(
     layout_word: u16,
 ) -> Option<BlockLayoutEntryLoc123E6> {
@@ -6075,7 +6018,6 @@ pub(crate) struct BlockType1CellSetupLoc123EC {
     pub(crate) words_consumed: usize,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_1_cell_coords_loc_123ec(
     layout_words: &[u16],
     row_pointer_table: &[u16],
@@ -6129,7 +6071,6 @@ pub(crate) struct BlockType1CellValueLoc12408 {
     pub(crate) cell_word: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_1_cell_value_loc_12408(
     cell_addr: u32,
     property_word: u16,
@@ -6177,7 +6118,6 @@ pub(crate) struct BlockType1RowByRowValueLoc12454 {
     pub(crate) block_type: i16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_1_row_by_row_read_property_loc_12454(
     cell_addr: u32,
     property_word: u16,
@@ -6207,7 +6147,6 @@ pub(crate) struct BlockType1DisguisedLoc12468 {
     pub(crate) cell_word: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_1_row_by_row_disguised_cell_loc_12468(
     cell_addr: u32,
 ) -> BlockType1DisguisedLoc12468 {
@@ -6231,7 +6170,7 @@ pub(crate) struct BlockType1HiddenLoc1246E {
     pub(crate) block_type: i16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn block_type_1_row_by_row_hidden_loc_1246E(
     cell_addr: u32,
     x_pos: u16,
@@ -6263,7 +6202,6 @@ pub(crate) struct BlockType1FinalizeLoc12480 {
     pub(crate) next_list_index: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_1_row_by_row_finalize_loc_12480(
     cell_addr: u32,
     list_index: u16,
@@ -6293,7 +6231,7 @@ pub(crate) fn block_type_1_row_by_row_finalize_loc_12480(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn hidden_block_copy_setup_loc_11C96(
     hidden_block_count: u16,
     copied_list_addr: u32,
@@ -6313,7 +6251,7 @@ pub(crate) fn hidden_block_copy_setup_loc_11C96(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn copy_hidden_block_entries_loc_11CA8(
     temp_entries: &[[u32; 2]],
     dbf_counter: u16,
@@ -6328,7 +6266,7 @@ pub(crate) fn copy_hidden_block_entries_loc_11CA8(
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn copied_hidden_block_entries_for_runtime_loc_11C96(
     hidden_blocks: &[terrain::HiddenBlockEntry],
 ) -> Option<CopiedHiddenBlockEntriesLoc11C96> {
@@ -6373,7 +6311,7 @@ fn fg_queue_guard_low_word_loc_11_cb6(base_addr: u32, span_words: u16) -> bool {
     guarded_end < 0x43BC
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn prize_block_list_guard_loc_11CB6(
     prize_block_list_addr: u32,
     prize_block_count: u16,
@@ -6385,7 +6323,7 @@ pub(crate) fn prize_block_list_guard_loc_11CB6(
     fg_queue_guard_low_word_loc_11_cb6(prize_block_list_addr, prize_block_count << 3)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn hidden_block_list_guard_loc_11CCA(
     hidden_block_list_addr: u32,
     hidden_block_count: u16,
@@ -6402,7 +6340,6 @@ pub(crate) struct BlockType3InitLoc124A6 {
     pub(crate) hidden_block_list_addr: u32,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_3_init_list_loc_124a6(list_addr: u32) -> BlockType3InitLoc124A6 {
     // ASM loc_124A6 (kid.asm:24691-24692): block type 3 (solid ghost) entry point.
     // Stores the hidden block list pointer for subsequent entries:
@@ -6435,7 +6372,6 @@ pub(crate) struct BlockType3ReadEntryLoc124AA {
     pub(crate) words_consumed: usize,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_3_read_entry_loc_124aa(
     layout_words: &[u16],
 ) -> BlockType3ReadEntryLoc124AA {
@@ -6492,7 +6428,6 @@ pub(crate) struct BlockType3CellAddrLoc124BE {
     pub(crate) y_row: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_3_cell_addr_loc_124be(
     row_pointer_table: &[u16],
     x_pos: u16,
@@ -6521,7 +6456,6 @@ pub(crate) struct BlockType3WriteEntryLoc124BE {
     pub(crate) words_written: usize,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_3_write_entry_loc_124be(
     priority_raw: u16,
 ) -> BlockType3WriteEntryLoc124BE {
@@ -6557,7 +6491,6 @@ pub(crate) struct BlockType3HiddenBlockEntryLoc124E8 {
     pub(crate) byte7: u8,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_3_hidden_block_entry_loc_124e8(
     entry: &BlockType3Entry,
     cell_addr: u32,
@@ -6593,7 +6526,6 @@ pub(crate) struct BlockType3HorizontalFillLoc12516 {
     pub(crate) cell_addrs: Vec<u32>,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_3_horizontal_fill_loc_12516(
     cell_addr: u32,
     count: u16,
@@ -6617,7 +6549,6 @@ pub(crate) struct BlockType3AdvanceEntryLoc12520 {
     pub(crate) next_entry_offset: usize,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_3_advance_entry_loc_12520() -> BlockType3AdvanceEntryLoc12520 {
     // ASM loc_12520 (kid.asm:24745-24747): advance to next hidden block entry.
     // After filling (or skipping fill when priority is non-zero), advance:
@@ -6635,7 +6566,6 @@ pub(crate) struct BlockType3VerticalFillLoc12526 {
     pub(crate) cell_addrs: Vec<u32>,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_3_vertical_fill_loc_12526(
     cell_addr: u32,
     count: u16,
@@ -6688,7 +6618,6 @@ pub(crate) struct BlockType8PlacementResult {
     pub(crate) next_column_offset: u32,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_8_read_x_pos_loc_1253a(
     layout_words: &[u16],
 ) -> Option<BlockType8ReadEntryLoc1253a> {
@@ -6710,7 +6639,6 @@ pub(crate) fn block_type_8_read_x_pos_loc_1253a(
     })
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_8_parse_coords_loc_12540(
     layout_words: &[u16],
     x_pos: u16,
@@ -6751,7 +6679,6 @@ pub(crate) fn block_type_8_parse_coords_loc_12540(
     })
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_8_narrow_placement_loc_1255c(
     cell_addr: u32,
     height: u16,
@@ -6801,7 +6728,6 @@ pub(crate) fn block_type_8_narrow_placement_loc_1255c(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_8_wide_placement_loc_1257e(
     cell_addr: u32,
     height: u16,
@@ -6858,7 +6784,6 @@ pub(crate) struct BlockType1012ReadXPosLoc125A6 {
     pub(crate) bytes_consumed: usize,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_1012_read_x_pos_loc_125a6(
     layout_words: &[u16],
 ) -> Option<BlockType1012ReadXPosLoc125A6> {
@@ -6890,7 +6815,6 @@ pub(crate) struct BlockType1012ParseCoordsLoc125AC {
     pub(crate) bytes_consumed: usize,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_1012_parse_coords_loc_125ac(
     layout_words: &[u16],
     row_pointer_table: &[u16],
@@ -6937,7 +6861,6 @@ pub(crate) struct BlockType1012TileResultLoc125C8 {
     pub(crate) is_hidden: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_1012_tile_value_loc_125c8(
     property_byte: u16,
     block_type: i16,
@@ -6987,7 +6910,6 @@ pub(crate) struct BlockType1012HorizontalPlaceLoc125C8 {
     pub(crate) next_addr: u32,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_1012_horizontal_place_loc_125c8(
     cell_addr: u32,
     count: u16,
@@ -7040,7 +6962,6 @@ pub(crate) struct BlockType1012HiddenEntryLoc1261E {
     pub(crate) property_byte: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_1012_vertical_place_loc_12600(
     cell_addr: u32,
     count: u16,
@@ -7117,7 +7038,6 @@ pub(crate) struct BlockType4InitListLoc1263C {
     pub(crate) hidden_block_list_addr: u32,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_4_init_list_loc_1263c(
     existing_list_addr: u32,
     prize_list_addr: u32,
@@ -7147,7 +7067,6 @@ pub(crate) struct BlockType4ReadXPosLoc12646 {
     pub(crate) words_consumed: usize,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_4_read_x_pos_loc_12646(
     layout_words: &[u16],
 ) -> Option<BlockType4ReadXPosLoc12646> {
@@ -7178,7 +7097,6 @@ pub(crate) struct BlockType4ParseCoordsLoc1264C {
     pub(crate) is_hidden: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_4_parse_coords_loc_1264c(
     layout_words: &[u16],
     row_pointer_table: &[u16],
@@ -7230,7 +7148,6 @@ pub(crate) struct BlockType4HiddenEntryLoc12670 {
     pub(crate) flag_byte: u8,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_4_hidden_entry_loc_12670(
     cell_addr: u32,
     x_pos: u16,
@@ -7276,7 +7193,7 @@ pub(crate) struct KidHitboxSolidScanSetupLoc1FB2 {
     pub(crate) col_count: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn kid_hitbox_solid_scan_setup_loc_1FB2(
     scan_disabled_fa64: bool,
@@ -7318,7 +7235,7 @@ pub(crate) struct KidHitboxSolidScanHitLoc1FEE {
     pub(crate) col_index: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn kid_hitbox_solid_scan_loc_1FEE(
     level_layout_words: &[u16],
@@ -7352,7 +7269,6 @@ pub(crate) fn kid_hitbox_solid_scan_loc_1FEE(
     None
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn palette_to_vram0_blocks_solid_scan_loc_2198(tile_word: u16) -> u16 {
     // ASM j_Palette_to_VRAM0 / loc_2198 (kid.asm:3978-3989): return zero only
     // when bit 15 was set before `bclr #$F,d0` and the remaining palette nibble
@@ -7379,7 +7295,7 @@ pub(crate) struct KidHitboxSolidScanRightSeedLoc201C {
     pub(crate) right_px: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn kid_hitbox_solid_scan_expand_right_loc_201C(
     solid_scan_locked_faa6: bool,
@@ -7415,7 +7331,6 @@ pub(crate) struct KidHitboxSolidScanLeftSeedLoc2040 {
     pub(crate) left_px: u16,
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn kid_hitbox_solid_scan_expand_left_loc_2040(
     rewind_index: usize,
@@ -7444,7 +7359,6 @@ pub(crate) struct KidHitboxSolidScanUpSeedLoc2050 {
     pub(crate) vertical_end_px: u16,
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn kid_hitbox_solid_scan_expand_up_loc_2050(
     start_index_after_left_blocker: usize,
@@ -7480,7 +7394,7 @@ pub(crate) struct KidHitboxSolidScanResolveUpLoc20C6 {
     pub(crate) object_y_velocity: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn kid_hitbox_solid_scan_resolve_up_loc_20C6(
     upward_overlap_px: u16,
@@ -7510,7 +7424,7 @@ pub(crate) struct KidHitboxSolidScanResolveRightLoc20DC {
     pub(crate) object_x_velocity: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn kid_hitbox_solid_scan_resolve_right_loc_20DC(
     rightward_overlap_px: u16,
@@ -7540,7 +7454,6 @@ pub(crate) struct KidHitboxSolidScanResolveLeftLoc2106 {
     pub(crate) object_x_velocity: u16,
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn kid_hitbox_solid_scan_resolve_left_loc_2106(
     leftward_overlap_px: u16,
@@ -7567,7 +7480,6 @@ pub(crate) struct BlockType11ReadXPosLoc126BA {
     pub(crate) bytes_consumed: usize,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_11_read_x_pos_loc_126ba(
     layout_words: &[u16],
 ) -> Option<BlockType11ReadXPosLoc126BA> {
@@ -7597,7 +7509,6 @@ pub(crate) struct BlockType11ParseCoordsLoc126C0 {
     pub(crate) is_hidden: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_11_parse_coords_loc_126c0(
     layout_words: &[u16],
     row_pointer_table: &[u16],
@@ -7642,7 +7553,6 @@ pub(crate) struct BlockType11VisibleTileLoc126C0 {
     pub(crate) tile_word: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_11_visible_tile_loc_126c0() -> BlockType11VisibleTileLoc126C0 {
     // ASM loc_126C0 (kid.asm:24963-24966): visible tile value for block type 11.
     //   tst.w d0              ; test block_type
@@ -7661,7 +7571,6 @@ pub(crate) struct BlockType11HiddenEntryLoc126DE {
     pub(crate) block_type: i16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_11_hidden_entry_loc_126de(
     cell_addr: u32,
     x_pos: u16,
@@ -7693,7 +7602,6 @@ pub(crate) struct BlockType16ReadXPosLoc126F2 {
     pub(crate) bytes_consumed: usize,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_16_read_x_pos_loc_126f2(
     layout_words: &[u16],
 ) -> Option<BlockType16ReadXPosLoc126F2> {
@@ -7722,7 +7630,6 @@ pub(crate) struct BlockType16ParseCoordsLoc126F8 {
     pub(crate) y_row: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_16_parse_coords_loc_126f8(
     layout_words: &[u16],
     row_pointer_table: &[u16],
@@ -7756,7 +7663,6 @@ pub(crate) struct BlockType16SetupLoc126FE {
     pub(crate) is_row_by_row: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_16_read_count_stride_loc_126fe(
     layout_words: &[u16],
 ) -> Option<BlockType16SetupLoc126FE> {
@@ -7781,7 +7687,6 @@ pub(crate) struct BlockType16PropertyLookupLoc12714 {
     pub(crate) tile_index: u8,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn block_type_16_property_lookup_loc_12714(
     property_word: u16,
 ) -> BlockType16PropertyLookupLoc12714 {
@@ -7813,7 +7718,6 @@ pub(crate) struct HandlePropertyCode40Loc12752 {
     pub(crate) marks_diagonal_right: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn handle_property_code_40_loc_12752(property_byte: u8) -> HandlePropertyCode40Loc12752 {
     // ASM sub_12752 (kid.asm:25037-25050): handle property code $40.
     //   cmpi.b  #$40,d5
@@ -7841,7 +7745,6 @@ pub(crate) struct HandlePropertyCode50Loc12772 {
     pub(crate) marks_diagonal_left: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn handle_property_code_50_loc_12772(property_byte: u8) -> HandlePropertyCode50Loc12772 {
     // ASM loc_12772 (kid.asm:25053-25068): handle property code $50.
     //   cmpi.b  #$50,d5
@@ -7870,7 +7773,6 @@ pub(crate) struct BoundsCheckMarkLoc12792 {
     pub(crate) should_mark: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn bounds_check_mark_loc_12792(
     x_pos: u16,
     y_row: u16,
@@ -7901,7 +7803,6 @@ pub(crate) struct HiddenBlockFindInsertionLoc127DA {
     pub(crate) insertion_index: usize,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hidden_block_find_insertion_loc_127da(
     cell_addrs: &[u16],
     target_addr: u16,
@@ -7926,7 +7827,6 @@ pub(crate) struct HiddenBlockShiftInsertLoc127E2 {
     pub(crate) shifted_addrs: Vec<u16>,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hidden_block_shift_insert_loc_127e2(
     cell_addrs: &[u16],
     insert_index: usize,
@@ -7953,7 +7853,6 @@ pub(crate) fn hidden_block_shift_insert_loc_127e2(
     HiddenBlockShiftInsertLoc127E2 { shifted_addrs }
 }
 
-#[allow(non_snake_case)]
 fn sort_hidden_blocks_by_rom_insertion_loc_127ce(block_list: &mut terrain::BlockList) {
     if block_list.hidden_blocks.len() <= 1 {
         return;
@@ -7980,7 +7879,6 @@ pub(crate) struct BackgroundMappingsCrossLevelLoc12824 {
     pub(crate) source_layout_addr: u32,
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn background_mappings_cross_level_loc_12824(
     layout_words: &[u16],
@@ -8017,14 +7915,12 @@ pub struct BackgroundChunkCopiedTileLoc12884 {
     pub target_column: usize,
 }
 
-#[allow(non_snake_case)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BackgroundChunkCopyLoc12884 {
     pub tiles_copied: usize,
     pub copied_tiles: Vec<BackgroundChunkCopiedTileLoc12884>,
 }
 
-#[allow(non_snake_case)]
 pub fn background_chunk_row_loop_loc_12884(
     chunk_width: u16,
     chunk_height: u16,
@@ -8090,7 +7986,7 @@ pub(crate) struct TitleCardVramWordFillLoop {
     pub(crate) word_write_count: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn load_title_card_clear_vram_loc_19ABE() -> TitleCardVramWordFillLoop {
     // ASM loc_19ABE (kid.asm:28595-28598): after `move.l
     // #vdpComm($1400,VRAM,WRITE),4(a6)` and `move.w #$DF,d1`, the loop writes
@@ -8104,7 +8000,7 @@ pub(crate) fn load_title_card_clear_vram_loc_19ABE() -> TitleCardVramWordFillLoo
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn load_title_card_tilemap_clear_loc_19B58() -> TitleCardVramWordFillLoop {
     // ASM loc_19B58 (kid.asm:28636-28637): after `move.l
     // #vdpComm($E000,VRAM,WRITE),4(a6)`, `move.w #$7FF,d0`, and
@@ -8118,7 +8014,7 @@ pub(crate) fn load_title_card_tilemap_clear_loc_19B58() -> TitleCardVramWordFill
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn load_title_card_name_table_clear_loc_19B6A() -> TitleCardVramWordFillLoop {
     // ASM loc_19B6A (kid.asm:28643-28644): after `move.l
     // #vdpComm($1280,VRAM,WRITE),4(a6)`, `moveq #$F,d0`, and `moveq #0,d1`,
@@ -8132,7 +8028,7 @@ pub(crate) fn load_title_card_name_table_clear_loc_19B6A() -> TitleCardVramWordF
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn load_title_card_palette_copy_word_count_loc_19B80() -> u16 {
     // ASM loc_19B80 (kid.asm:28651-28652): after loading the title-card
     // palette pointer into `a0`, `Palette_Buffer` into `a1`, and seeding
@@ -8141,7 +8037,7 @@ pub(crate) fn load_title_card_palette_copy_word_count_loc_19B80() -> u16 {
     0x000F + 1
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn level_entry_title_letter_palette_copy_word_count_loc_1AB40() -> u16 {
     // ASM loc_1AB40 (kid.asm:28758-28760): after `lea Pal_19C48(pc),a0`,
     // `lea (Palette_Buffer+$20).l,a1`, and `moveq #$F,d0`, the loop copies one
@@ -8157,7 +8053,7 @@ pub(crate) struct TitleCardTopPaddingLoc19BC2 {
     pub(crate) row_count: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn load_title_card_top_padding_loc_19BC2(
     title_card_height_tiles: u16,
 ) -> Option<TitleCardTopPaddingLoc19BC2> {
@@ -8179,7 +8075,7 @@ pub(crate) fn load_title_card_top_padding_loc_19BC2(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn load_title_card_left_padding_loc_19BD4(
     horizontal_padding_words: u16,
 ) -> Option<TitleCardVramWordFillLoop> {
@@ -8198,7 +8094,7 @@ pub(crate) fn load_title_card_left_padding_loc_19BD4(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn load_title_card_row_copy_seed_loc_19BDA(title_card_width_tiles: u16) -> Option<u16> {
     // ASM loc_19BDA (kid.asm:28692-28693): `move.w d0,d5` followed by
     // `subq.w #1,d5` primes the following `dbf d5,loc_19BDE` loop with an
@@ -8207,7 +8103,7 @@ pub(crate) fn load_title_card_row_copy_seed_loc_19BDA(title_card_width_tiles: u1
     title_card_width_tiles.checked_sub(1)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn load_title_card_row_copy_word_count_loc_19BDE(row_copy_seed: u16) -> u16 {
     // ASM loc_19BDE (kid.asm:28696-28697): the `move.w (a0)+,(a6)` transfer
     // happens before `dbf d5,loc_19BDE` tests for `-1`, so a seed of
@@ -8215,7 +8111,7 @@ pub(crate) fn load_title_card_row_copy_word_count_loc_19BDE(row_copy_seed: u16) 
     row_copy_seed + 1
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn load_title_card_right_padding_loc_19BEE(
     horizontal_padding_words: u16,
     title_card_width_tiles: u16,
@@ -8240,7 +8136,7 @@ pub(crate) fn load_title_card_right_padding_loc_19BEE(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn load_title_card_bottom_padding_row_width_loc_19C02() -> u16 {
     // ASM loc_19C02 (kid.asm:28713): each bottom-padding row reloads
     // `d4=#$3F` immediately before `loc_19C04`, so the following inclusive
@@ -8248,7 +8144,7 @@ pub(crate) fn load_title_card_bottom_padding_row_width_loc_19C02() -> u16 {
     0x003F + 1
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn load_title_card_bottom_padding_loc_19C04(
     title_card_height_tiles: u16,
 ) -> Option<TitleCardTopPaddingLoc19BC2> {
@@ -8274,7 +8170,7 @@ pub(crate) fn load_title_card_bottom_padding_loc_19C04(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
     fg_plane_custom_write_addr: u32,
     fg_plane_custom_write_count: u16,
@@ -8286,7 +8182,7 @@ pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
     fg_queue_guard_low_word_loc_11_cb6(fg_plane_custom_write_addr, fg_plane_custom_write_count * 10)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn background_tile_guard_loc_11CF6(
     background_tile_addr: u32,
     background_tile_count: u16,
@@ -8299,7 +8195,7 @@ pub(crate) fn background_tile_guard_loc_11CF6(
     fg_queue_guard_low_word_loc_11_cb6(background_tile_addr, background_tile_count << 3)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn adjust_8_byte_block_list_entries_for_blank_top_rows_loc_141EE(
     entries: &[[u16; 4]],
     blank_top_rows: u16,
@@ -8321,7 +8217,7 @@ pub(crate) fn adjust_8_byte_block_list_entries_for_blank_top_rows_loc_141EE(
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn adjust_8_byte_block_list_entries_for_blank_top_rows_loc_141F6(
     entries: &[[u16; 4]],
     entry_count: u16,
@@ -8342,7 +8238,6 @@ pub(crate) fn adjust_8_byte_block_list_entries_for_blank_top_rows_loc_141F6(
     adjusted
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn adjust_16_byte_hidden_block_entries_for_blank_top_rows_loc_14204(
     entries: &[[u16; 8]],
     blank_top_rows: u16,
@@ -8365,7 +8260,6 @@ pub(crate) fn adjust_16_byte_hidden_block_entries_for_blank_top_rows_loc_14204(
         .collect()
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn adjust_16_byte_hidden_block_entries_for_blank_top_rows_loc_14210(
     entries: &[[u16; 8]],
     entry_count: u16,
@@ -8386,7 +8280,7 @@ pub(crate) fn adjust_16_byte_hidden_block_entries_for_blank_top_rows_loc_14210(
     adjusted
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn adjust_10_byte_custom_write_entries_for_blank_top_rows_loc_1421E(
     entries: &[[u16; 5]],
     blank_top_rows: u16,
@@ -8409,7 +8303,6 @@ pub(crate) fn adjust_10_byte_custom_write_entries_for_blank_top_rows_loc_1421E(
         .collect()
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn adjust_10_byte_custom_write_entries_for_blank_top_rows_loc_14228(
     entries: &[[u16; 5]],
     entry_count: u16,
@@ -8430,7 +8323,6 @@ pub(crate) fn adjust_10_byte_custom_write_entries_for_blank_top_rows_loc_14228(
     adjusted
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn adjust_8_byte_hidden_block_entries_for_blank_top_rows_loc_14236(
     entries: &[[u16; 4]],
     blank_top_rows: u16,
@@ -8453,7 +8345,7 @@ pub(crate) fn adjust_8_byte_hidden_block_entries_for_blank_top_rows_loc_14236(
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn adjust_8_byte_hidden_block_entries_for_blank_top_rows_loc_1423E(
     entries: &[[u16; 4]],
     entry_count: u16,
@@ -8474,7 +8366,7 @@ pub(crate) fn adjust_8_byte_hidden_block_entries_for_blank_top_rows_loc_1423E(
     adjusted
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn level_load_pointers_loc_11D0C(
     theme_mapping_index: &[u32],
@@ -8501,7 +8393,7 @@ pub(crate) fn level_load_pointers_loc_11D0C(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn enemy_layout_reset_and_seek_loc_31F8E(
     input: EnemyLayoutResetAndSeekInputLoc31F8E,
@@ -8573,7 +8465,7 @@ pub(crate) struct ManageEnemyLoadingSetupLoc3682C {
     pub(crate) enemy_status_index: usize,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn manage_enemy_loading_setup_loc_3682C(
     enemy_layout_addr: u32,
@@ -8604,7 +8496,6 @@ pub(crate) enum ManageEnemyLoadingStatusBranchLoc36840 {
     ForceReloadLoc368A6,
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn manage_enemy_loading_status_branch_loc_36840(
     enemy_status_word: u16,
@@ -8636,7 +8527,7 @@ pub(crate) struct ManageEnemyLoadingCountDownActiveLoc3685E {
     pub(crate) decremented_status_word: Option<u16>,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn manage_enemy_loading_count_down_active_loc_3685E(
     enemy_status_word: u16,
@@ -8656,7 +8547,6 @@ pub(crate) fn manage_enemy_loading_count_down_active_loc_3685E(
     }
 }
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn manage_enemy_loading_status_word_loc_36900(
     enemy_status_word: u16,
@@ -8672,7 +8562,7 @@ pub(crate) fn manage_enemy_loading_status_word_loc_36900(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn manage_enemy_loading_allocate_slot_hint_loc_3690A(enemy_id: u8) -> u16 {
     // ASM loc_3690A (kid.asm:38056-38063) seeds `a0` with `1` before sign-
@@ -8691,7 +8581,7 @@ pub(crate) struct ManageEnemyLoadingSpawnObjectLoc3691E {
     pub(crate) enemy_status_word: Option<u16>,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn manage_enemy_loading_spawn_object_loc_3691E(
     enemy_id: u8,
@@ -8727,7 +8617,7 @@ pub(crate) fn manage_enemy_loading_spawn_object_loc_3691E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn enemy_layout_status_word_loc_3200A(entry_status_byte: u8) -> u16 {
     // ASM loc_3200A (kid.asm:37413): clear `d0`, read byte `1(a1)`, and
     // branch to loc_32044 for empty slots, where `clr.w (a2)+` writes the
@@ -8754,7 +8644,6 @@ pub(crate) fn enemy_layout_status_word_loc_3200A(entry_status_byte: u8) -> u16 {
     u16::from(slot_index).rotate_right(4) | lookup | 0xC000
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn enemy_layout_status_word_with_negative_sentinel_loc_32036(
     entry_status_byte: u8,
 ) -> u16 {
@@ -8768,7 +8657,7 @@ pub(crate) fn enemy_layout_status_word_with_negative_sentinel_loc_32036(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn enemy_layout_finish_loc_3204E() -> bool {
     // ASM loc_3204E (kid.asm:37443-37445) always calls
@@ -8785,7 +8674,7 @@ pub(crate) struct ObjectOutOfRangePositiveSlotLoc320A6 {
     pub(crate) should_delete_current_object: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn object_out_of_range_positive_slot_loc_320A6(
     object_status_slot: u8,
 ) -> ObjectOutOfRangePositiveSlotLoc320A6 {
@@ -8800,7 +8689,7 @@ pub(crate) fn object_out_of_range_positive_slot_loc_320A6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn object_out_of_range_delete_tail_loc_320B4() -> bool {
     // ASM loc_320B4 (kid.asm:37493) is the shared out-of-range tail used by
     // both the negative-slot and positive-slot paths: it jumps straight to
@@ -8808,7 +8697,7 @@ pub(crate) fn object_out_of_range_delete_tail_loc_320B4() -> bool {
     true
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn object_check_in_range_normal_x_loc_320C0(
     object_x_pos: i16,
     camera_x_pos: i16,
@@ -8820,7 +8709,7 @@ pub(crate) fn object_check_in_range_normal_x_loc_320C0(
     (-0x01A4..=0x02E4).contains(&relative_x)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn object_check_in_range_normal_y_loc_320D8(
     object_y_pos: i16,
     camera_y_pos: i16,
@@ -8838,7 +8727,7 @@ pub(crate) struct ObjectCheckInRangeActiveCountGateLoc320E2 {
     pub(crate) reaches_loc_32102: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn object_check_in_range_active_count_gate_loc_320E2(
     number_objects: u16,
     object_x_pos: i16,
@@ -8859,7 +8748,6 @@ pub(crate) fn object_check_in_range_active_count_gate_loc_320E2(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn object_check_in_range_wide_load_x_loc_32122(
     object_x_pos: i16,
     camera_x_pos: i16,
@@ -8872,7 +8760,6 @@ pub(crate) fn object_check_in_range_wide_load_x_loc_32122(
     (-0x01A4..=0x02E4).contains(&relative_x)
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn object_check_in_range_wide_load_y_loc_32140(
     object_y_pos: i16,
     camera_y_pos: i16,
@@ -8885,7 +8772,7 @@ pub(crate) fn object_check_in_range_wide_load_y_loc_32140(
     (-0x01A4..=0x0284).contains(&relative_y)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn background_dimensions_loc_11B40(
     level_width_tiles: u16,
     level_height_tiles: u16,
@@ -8899,7 +8786,7 @@ pub fn background_dimensions_loc_11B40(
     )
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn background_row_pointers_loc_11B7A(
     background_height: u16,
     background_width: u16,
@@ -8917,7 +8804,7 @@ pub fn background_row_pointers_loc_11B7A(
     row_pointers
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn player_start_position_loc_11BE4(header_player_start: (u16, u16)) -> (u16, u16) {
     // ASM loc_11BE4 (kid.asm:23785-23788): when `loc_11BD2` leaves the header
     // pointer at the player-start words, `move.w (a0)+` loads exactly the X
@@ -8925,7 +8812,7 @@ pub(crate) fn player_start_position_loc_11BE4(header_player_start: (u16, u16)) -
     header_player_start
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn decode_spawn_positions_loc_11BD2(
     preserve_existing_player_start: bool,
     existing_player_start: (u16, u16),
@@ -8944,7 +8831,7 @@ pub(crate) fn decode_spawn_positions_loc_11BD2(
     (player_start, flag_position_loc_11BEC(flag_position), false)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn flag_position_loc_11BEC(flag_position: (u16, u16)) -> (u16, u16) {
     // ASM loc_11BEC (kid.asm:23789-23792): regardless of whether `loc_11BD2`
     // skipped the player-start pair, the next two header words always become
@@ -8961,7 +8848,7 @@ pub(crate) enum ForegroundPaletteOverrideLoc11D8E {
     LateAlternativePalette,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn classify_foreground_palette_override_loc_11D8E(
     map_id: u8,
 ) -> ForegroundPaletteOverrideLoc11D8E {
@@ -8995,7 +8882,7 @@ pub(crate) enum LateForegroundPaletteOverrideLoc11DA0 {
     AlternativeAlienPalette,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn classify_late_foreground_palette_override_loc_11DA0(
     map_id: u8,
 ) -> LateForegroundPaletteOverrideLoc11DA0 {
@@ -9009,7 +8896,7 @@ pub(crate) fn classify_late_foreground_palette_override_loc_11DA0(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn apply_foreground_palette_override_loc_11D9E(
     selected_theme_palette: u16,
     override_kind: ForegroundPaletteOverrideLoc11D8E,
@@ -9026,7 +8913,7 @@ pub(crate) fn apply_foreground_palette_override_loc_11D9E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn apply_foreground_palette_override_loc_11DAC(
     selected_theme_palette: u16,
     late_alternative_palette: u16,
@@ -9041,7 +8928,7 @@ pub(crate) fn apply_foreground_palette_override_loc_11DAC(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn copy_foreground_palette_loc_11DB0(
     foreground_palette: &[u16; 15],
     palette_buffer: &mut [u16; 0x40],
@@ -9059,7 +8946,7 @@ pub(crate) enum BackgroundPaletteOverrideLoc11DF4 {
     AlternativeCave,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn classify_background_palette_override_loc_11DF4(
     map_id: u8,
 ) -> BackgroundPaletteOverrideLoc11DF4 {
@@ -9079,7 +8966,7 @@ pub(crate) enum BackgroundPaletteFollowupLoc11DF8 {
     LateAlternativePalette,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn classify_background_palette_followup_loc_11DF8(
     map_id: u8,
 ) -> BackgroundPaletteFollowupLoc11DF8 {
@@ -9102,7 +8989,7 @@ pub(crate) enum LateBackgroundPaletteOverrideLoc11E06 {
     AlternativeAlienPalette,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn classify_late_background_palette_override_loc_11E06(
     map_id: u8,
 ) -> LateBackgroundPaletteOverrideLoc11E06 {
@@ -9115,7 +9002,7 @@ pub(crate) fn classify_late_background_palette_override_loc_11E06(
     LateBackgroundPaletteOverrideLoc11E06::None
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn apply_background_palette_override_loc_11E04(
     selected_theme_palette: u16,
     override_kind: BackgroundPaletteFollowupLoc11DF8,
@@ -9131,7 +9018,7 @@ pub(crate) fn apply_background_palette_override_loc_11E04(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn apply_background_palette_override_loc_11E12(
     selected_theme_palette: u16,
     alternative_alien_palette: u16,
@@ -9145,7 +9032,7 @@ pub(crate) fn apply_background_palette_override_loc_11E12(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn copy_background_palette_loc_11E16(
     background_palette: &[u16; 8],
     palette_buffer: &mut [u16; 0x40],
@@ -9232,7 +9119,7 @@ pub(crate) fn island_shore_art_source_label_loc_1220e(frame_index: u16) -> &'sta
     ISLAND_SHORE_ART_SOURCE_LABELS_LOC_1220E[usize::from(frame_index)]
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn initialise_camera_bootstrap_loc_11F48(
     player_start_x_pos: u16,
     player_start_y_pos: u16,
@@ -9257,7 +9144,7 @@ pub(crate) fn initialise_camera_bootstrap_loc_11F48(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn classify_post_load_object_routine_loc_11F96(
     foreground_theme: u16,
     background_theme: u16,
@@ -9291,7 +9178,7 @@ pub(crate) fn classify_post_load_object_routine_loc_11F96(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn classify_island_background_object_loc_11FB0(background_theme: u16) -> bool {
     const BACKGROUND_THEME_ISLAND_LOC_11FB0: u16 = 0x0004;
 
@@ -9302,7 +9189,7 @@ pub(crate) fn classify_island_background_object_loc_11FB0(background_theme: u16)
     background_theme == BACKGROUND_THEME_ISLAND_LOC_11FB0
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn select_level_start_music_loc_11FD2(
     murder_wall_flag: bool,
     foreground_theme: u16,
@@ -9323,7 +9210,6 @@ pub(crate) fn select_level_start_music_loc_11FD2(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn select_foreground_theme_music_loc_12004(
     foreground_theme: u16,
 ) -> ForegroundThemeMusicLoc12004 {
@@ -9339,7 +9225,6 @@ pub(crate) fn select_foreground_theme_music_loc_12004(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn step_island_palette_cycle_primary_band_loc_12098(
     countdown_44: u16,
     phase_d3: u16,
@@ -9371,7 +9256,6 @@ pub(crate) fn step_island_palette_cycle_primary_band_loc_12098(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn step_island_palette_cycle_mid_band_loc_12110(
     countdown_46: u16,
     phase_d2: u16,
@@ -9403,7 +9287,6 @@ pub(crate) fn step_island_palette_cycle_mid_band_loc_12110(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn step_island_palette_cycle_lower_band_loc_12188(
     countdown_48: u16,
     phase_d1: u16,
@@ -9447,7 +9330,7 @@ pub(crate) struct RotatePaletteLavaWaterDelayLoc1223A {
     pub(crate) delay_frames: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn compute_rotate_palette_delay_loc_1223A(
     foreground_theme: u16,
 ) -> RotatePaletteLavaWaterDelayLoc1223A {
@@ -9467,7 +9350,7 @@ pub(crate) fn compute_rotate_palette_delay_loc_1223A(
 
 pub(crate) const PALETTE_BUFFER_ROTATE_START_LOC_1223C: usize = 0x07;
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn rotate_palette_lava_water_loc_1223C(palette_buffer: &mut [u16; 0x40]) {
     // ASM loc_1223C (kid.asm:24373): after the hibernate loop drains `d0`,
     // the routine rotates four palette words downward:
@@ -9487,8 +9370,8 @@ pub(crate) fn rotate_palette_lava_water_loc_1223C(palette_buffer: &mut [u16; 0x4
     palette_buffer[PALETTE_BUFFER_ROTATE_START_LOC_1223C] = saved;
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
     // ASM sub_B52 (kid.asm:1319): clear `Number_Sprites`, point
     // `Addr_NextSpriteSlot` at `Sprite_Table`, and reset the dynamic-art
@@ -9500,7 +9383,7 @@ pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn gfx_object_sprite_build_order_loc_14A4(
     first_gfx_object_index: Option<usize>,
     next_indices: &[Option<usize>],
@@ -9520,8 +9403,8 @@ pub(crate) fn gfx_object_sprite_build_order_loc_14A4(
     sprite_build_order
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn initialise_scratch_queue_sub_28FC() -> ScratchQueueSub28FC {
     // ASM sub_28FC / loc_2906 (kid.asm:4854): `move.w #$7A,d7` and the
     // `dbf d7,loc_2906` loop clear 123 longwords starting at `$FFFFF01E`,
@@ -9534,7 +9417,7 @@ pub(crate) fn initialise_scratch_queue_sub_28FC() -> ScratchQueueSub28FC {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn initialise_evanesc_object_slots_sub_EABC() -> EvanescShooterObjectSlotsSubEABC {
     // ASM sub_EABC (kid.asm:18834): seed the evanescent-object free list at
     // `$FFFFEBDA` as 40 contiguous `$0C`-byte slots whose `$A(a0)` word points
@@ -9564,7 +9447,7 @@ pub(crate) fn initialise_evanesc_object_slots_sub_EABC() -> EvanescShooterObject
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn initialise_evanesc_object_slots_loc_DF30() -> EvanescShooterObjectSlotsSubEABC {
     // ASM loc_DF30 (kid.asm:17258): after `Initialize_EvanescShooterObjectSlots`
     // seeds `a0=EvanescObject_RAM` and `d0=$12`, the inclusive DBF loop writes
@@ -9593,7 +9476,7 @@ pub(crate) fn initialise_evanesc_object_slots_loc_DF30() -> EvanescShooterObject
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shooter_object_next_link_loc_F074(slot_addr: u32) -> LinkedObjectSlotInit {
     // ASM loc_F074 (kid.asm:19600): `lea $E(a0),a1; move.w a1,$C(a0)`.
     LinkedObjectSlotInit {
@@ -9605,7 +9488,7 @@ pub(crate) fn shooter_object_next_link_loc_F074(slot_addr: u32) -> LinkedObjectS
 /// ASM loc_F14C (kid.asm:19698): `lsr.w #1,d6` consumes the next evanescent
 /// shooter direction bit. If carry is set and `tst.b 3(a1)` sees a non-zero
 /// right-neighbour low byte, `loc_F170` subtracts `$8000` from `$6(a3)`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_shooter_right_neighbour_mark_loc_F14C(
     stored_local_word: u16,
     direction_bits_after_up_check: u16,
@@ -9628,7 +9511,7 @@ pub(crate) fn evanescent_shooter_right_neighbour_mark_loc_F14C(
 /// shooter direction bit. If carry is set, the ROM adds `Level_width_tiles` to
 /// `a1`; a non-zero low byte at `1(a1+Level_width_tiles)` falls through to
 /// `loc_F170`, subtracting `$8000` from `$6(a3)`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_shooter_below_neighbour_mark_loc_F156(
     stored_local_word: u16,
     direction_bits_after_right_check: u16,
@@ -9653,7 +9536,7 @@ pub(crate) fn evanescent_shooter_below_neighbour_mark_loc_F156(
 /// ASM loc_F176 (kid.asm:19721): both the clear-left-neighbour branch and the
 /// `loc_F170` marked path then write `$0100` and `0` as the tile tail before
 /// advancing to the next row at `loc_F17C`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_shooter_left_neighbour_mark_loc_F166(
     stored_local_word: u16,
     direction_bits_after_below_check: u16,
@@ -9675,7 +9558,7 @@ pub(crate) fn evanescent_shooter_left_neighbour_mark_loc_F166(
 /// ASM loc_F17C (kid.asm:19725): after finishing one active shooter row, add
 /// `Level_width_tiles` to `a1`, increment the block row in `d4`, then DBF the
 /// row counter back to `loc_F106` until it wraps to `$FFFF`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_shooter_row_scan_tail_loc_F17C(
     layout_addr: u32,
     block_row: u16,
@@ -9695,7 +9578,7 @@ pub(crate) fn evanescent_shooter_row_scan_tail_loc_F17C(
 /// ASM loc_F1A8 (kid.asm:19745): when the current shooter scan row is above
 /// the previous row marker, seed the top row from `d1-5`; negative word results
 /// are clamped to zero before entering the shared scan setup at `loc_F1B0`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_shooter_upward_window_top_row_loc_F1A8(camera_block_row: u16) -> u16 {
     let candidate = camera_block_row.wrapping_sub(5);
     if (candidate as i16) >= 0 {
@@ -9708,7 +9591,7 @@ pub(crate) fn evanescent_shooter_upward_window_top_row_loc_F1A8(camera_block_row
 /// ASM loc_F1B0 (kid.asm:19751): seed the shooter scan's left block column
 /// from `d0-3`; if the signed word result is negative, clamp `d3` to zero
 /// before `loc_F1B8` computes the right edge.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_shooter_window_left_col_loc_F1B0(camera_block_col: u16) -> u16 {
     let candidate = camera_block_col.wrapping_sub(3);
     if (candidate as i16) >= 0 {
@@ -9722,7 +9605,7 @@ pub(crate) fn evanescent_shooter_window_left_col_loc_F1B0(camera_block_col: u16)
 /// ROM subtracts left `d3` from right `d5` for DBF's inclusive column counter,
 /// doubles row `d4` into the `$FFFF4A04` row-pointer table, then doubles left
 /// column `d3` before adding it to that row base.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_shooter_scan_start_loc_F1C8(
     left_col: u16,
     right_col: u16,
@@ -9744,7 +9627,7 @@ pub(crate) fn evanescent_shooter_scan_start_loc_F1C8(
 /// type bits are `$C00`; if the free-slot head is zero the scan continues.
 /// Otherwise the ROM pops that free slot, stores `(a1)`, `d3`, `d4`, and the
 /// low layout byte minus `$2D`, then shifts once to test the upward bit.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_shooter_cell_scan_loc_F1DE(
     layout_word_addr: u32,
     block_col: u16,
@@ -9773,7 +9656,7 @@ pub(crate) fn evanescent_shooter_cell_scan_loc_F1DE(
 /// `lsr.w #1,d6` consumes the right-facing bit. If carry is set and
 /// `tst.b 3(a1)` sees a non-zero right-neighbour low byte, `loc_F248`
 /// subtracts `$8000` from the stored direction word at `$6(a3)`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn evanescent_shooter_second_scan_right_neighbour_mark_loc_F224(
     stored_local_word: u16,
@@ -9799,7 +9682,7 @@ pub(crate) fn evanescent_shooter_second_scan_right_neighbour_mark_loc_F224(
 /// active-list scan entirely when `$FFFFF8C2` is zero.
 /// ASM loc_F2B0 (kid.asm:19864): that empty-list branch enters `sub_F568`
 /// directly without committing active-scan render pointers first.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_frame_scan_start_loc_F25C(
     camera_x_word: u16,
@@ -9825,7 +9708,7 @@ pub(crate) fn shooter_frame_scan_start_loc_F25C(
 /// at `$8(a0)` is decremented before any other branch; zero dispatches the
 /// update jump table, a negative `$6(a0)` direction word enters sprite
 /// compilation, and a non-zero `$C(a0)` link continues the scan.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_active_slot_scan_step_loc_F28C(
     current_slot_addr: u32,
@@ -9870,7 +9753,7 @@ pub(crate) fn shooter_active_slot_scan_step_loc_F28C(
 /// ASM loc_F2A2 (kid.asm:19858): after the active shooter scan, write the low
 /// byte of `a5` back to `Number_Sprites`, then persist the advanced cell-update
 /// and sprite-slot pointers before falling through to `sub_F568`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_frame_commit_loc_F2A2(
     sprite_link_word: u16,
@@ -9887,7 +9770,7 @@ pub(crate) fn shooter_frame_commit_loc_F2A2(
 /// ASM loc_F2EE (kid.asm:19889): state 0 of the expired shooter-slot jump
 /// table loads the layout-word pointer from `(a0)` and writes byte `$ED` to
 /// `(a3)`, leaving the low byte of that block word untouched before `loc_F386`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_expired_slot_erase_cell_loc_F2EE(
     layout_word_before: u16,
@@ -9899,7 +9782,7 @@ pub(crate) fn shooter_expired_slot_erase_cell_loc_F2EE(
 
 /// ASM loc_F2F8 (kid.asm:19895): state 1 of the expired shooter-slot jump
 /// table seeds byte `$9(a0)` with ten frames before returning to `loc_F386`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_expired_slot_seed_range_delay_loc_F2F8() -> u8 {
     0x0A
@@ -9909,7 +9792,7 @@ pub(crate) fn shooter_expired_slot_seed_range_delay_loc_F2F8() -> u8 {
 /// range it immediately resumes `loc_F386`. When Kid is in range, byte `$9(a0)`
 /// is decremented; zero also resumes the frame, while non-zero rewinds `$A(a0)`
 /// to state 2 for the next expired-slot dispatch.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_expired_slot_range_countdown_loc_F302(
     player_in_range: bool,
@@ -9933,7 +9816,7 @@ pub(crate) fn shooter_expired_slot_range_countdown_loc_F302(
 /// ASM loc_F350 (kid.asm:19932): when an expired visible shooter slot is not
 /// the active-list head, walk `$C(a3)` links until the successor equals `a0`;
 /// the matching `a3` predecessor is then spliced by `loc_F35E`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_expired_slot_predecessor_scan_loc_F350(
     active_slots: &[LinkedObjectSlotInit],
@@ -9965,7 +9848,7 @@ pub(crate) fn shooter_expired_slot_predecessor_scan_loc_F350(
 /// ASM loc_F35E (kid.asm:19940): after `loc_F350` finds the predecessor in
 /// `a3`, unlink the expired visible shooter slot by copying `$C(a0)` into
 /// `$C(a3)`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_expired_slot_splice_predecessor_loc_F35E(
     active_slots: &[LinkedObjectSlotInit],
@@ -9990,7 +9873,7 @@ pub(crate) fn shooter_expired_slot_splice_predecessor_loc_F35E(
 /// `loc_F28C` only when the saved active successor in `d0` is non-zero.
 /// ASM loc_F374 (kid.asm:19949): saved `d0 == 0` falls through to the shared
 /// frame commit at `loc_F2A2`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_expired_slot_push_free_list_loc_F364(
     active_slots: &[LinkedObjectSlotInit],
@@ -10016,7 +9899,7 @@ pub(crate) fn shooter_expired_slot_push_free_list_loc_F364(
 /// been consumed, shift the direction word once more. Carry set falls through
 /// to the right-neighbour update at `loc_F3BC`; carry clear skips to
 /// `loc_F3CC`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_visible_right_gate_loc_F3B2(
     direction_bits_after_up_check: u16,
@@ -10030,7 +9913,7 @@ pub(crate) fn shooter_visible_right_gate_loc_F3B2(
 /// ASM loc_F3BC (kid.asm:19992): right-neighbour visible shooter cells use
 /// `d2=d1+1` when the state-table word is non-zero, then write `d2` to
 /// `2(a3)` and enqueue `(2(a0)+1, 4(a0), d2)` in `FGPlane_UpdateQueueCell`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_visible_right_cell_update_loc_F3BC(
     layout_word_addr: u32,
@@ -10056,7 +9939,7 @@ pub(crate) fn shooter_visible_right_cell_update_loc_F3BC(
 /// ASM loc_F3CC (kid.asm:19999): after the right visible-neighbour bit has
 /// been consumed, shift the direction word once more. Carry set enters the
 /// down-neighbour update at `loc_F3D6`; carry clear skips to `loc_F3EA`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_visible_down_gate_loc_F3CC(
     direction_bits_after_right_check: u16,
@@ -10070,7 +9953,7 @@ pub(crate) fn shooter_visible_down_gate_loc_F3CC(
 /// ASM loc_F3F4 (kid.asm:20022): left-neighbour visible shooter cells use
 /// `d2=d1+3` when the state-table word is non-zero, then write `d2` to
 /// `-2(a3)` and enqueue `(2(a0)-1, 4(a0), d2)` in `FGPlane_UpdateQueueCell`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_visible_left_cell_update_loc_F3F4(
     layout_word_addr: u32,
@@ -10096,7 +9979,7 @@ pub(crate) fn shooter_visible_left_cell_update_loc_F3F4(
 /// ASM loc_F404 (kid.asm:20029): after visible-neighbour writes, load the
 /// active slot's `$C(a0)` successor. A non-zero link resumes the active-slot
 /// loop at `loc_F28C`; zero commits the frame through `loc_F2A2`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_visible_scan_tail_loc_F404(
     next_slot_addr: u32,
@@ -10113,7 +9996,7 @@ pub(crate) fn shooter_visible_scan_tail_loc_F404(
 /// `d1*4+$2AB`, consumes one direction bit from negative `$6(a0)`, checks the
 /// source column and `row-1` against the visible block window, then emits
 /// `(y, ++a5, tile, x)` screen words biased by `$80`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_visible_up_sprite_loc_F41E(
     input: ShooterVisibleUpSpriteInputLocF41E,
@@ -10162,7 +10045,7 @@ pub(crate) fn shooter_visible_up_sprite_loc_F41E(
 /// ASM loc_F4A4 (kid.asm:20099): after the right visible-sprite check, shift
 /// the direction word once more. Carry set emits the down-neighbour sprite at
 /// `(col,row+1)` using tile word `d1+$1000`; carry clear skips the emit path.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_visible_down_sprite_loc_F4A4(
     input: ShooterVisibleDownSpriteInputLocF4A4,
@@ -10209,7 +10092,7 @@ pub(crate) fn shooter_visible_down_sprite_loc_F4A4(
 /// ASM loc_F4E6 (kid.asm:20127): after the down visible-sprite check, shift
 /// the direction word once more. Carry set emits the left-neighbour sprite at
 /// `(col-1,row)` using tile word `d1+$814`; carry clear skips the emit path.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_visible_left_sprite_loc_F4E6(
     input: ShooterVisibleLeftSpriteInputLocF4E6,
@@ -10256,7 +10139,7 @@ pub(crate) fn shooter_visible_left_sprite_loc_F4E6(
 /// ASM loc_F528 (kid.asm:20155): after the negative-direction visible sprite
 /// checks, load the active slot's `$C(a0)` successor. A non-zero link resumes
 /// the active-slot loop; zero commits the frame through the shared tail.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_visible_negative_scan_tail_loc_F528(
     next_slot_addr: u32,
@@ -10271,7 +10154,7 @@ pub(crate) fn shooter_visible_negative_scan_tail_loc_F528(
 /// ASM loc_F836 (kid.asm:20508): after the horizontal animated-solid block
 /// writer finishes, swap `d6/d7` back so `loc_F9BA` sees the active-object
 /// counter and sprite-link word in the low halves again.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn animated_solid_block_horizontal_tail_loc_F836(
     swapped_d6: u32,
@@ -10289,7 +10172,7 @@ pub(crate) fn animated_solid_block_horizontal_tail_loc_F836(
 /// path precomputes `(d0 << 2) & $7C` for the per-row custom queue entries.
 /// ASM loc_F886 (kid.asm:20559): rejected vertical spans still write `$E304`
 /// down the layout rows, but skip the foreground update queue.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn animated_solid_block_vertical_setup_loc_F83E(
     start_col: u16,
@@ -10319,7 +10202,7 @@ pub(crate) fn animated_solid_block_vertical_setup_loc_F83E(
 /// `$E304` to each Level_Layout row, emits a custom foreground-plane queue
 /// entry only for rows inside `[camera_y, camera_y+$E]`, then increments `d1`
 /// and advances `a4` by `Level_width_tiles` before DBF repeats.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn animated_solid_block_vertical_rows_loc_F85A(
     input: AnimatedSolidBlockVerticalRowsInputLocF85A,
 ) -> AnimatedSolidBlockVerticalRowsLocF85A {
@@ -10378,8 +10261,8 @@ pub(crate) fn animated_solid_block_vertical_rows_loc_F85A(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(clippy::too_many_arguments)]
+#[expect(non_snake_case)]
+#[expect(clippy::too_many_arguments)]
 pub(crate) fn animated_solid_block_horizontal_rows_loc_F8CA(
     source_cells: &[u8],
     source_cells_start: usize,
@@ -10465,7 +10348,7 @@ pub(crate) fn animated_solid_block_horizontal_rows_loc_F8CA(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn animated_solid_block_horizontal_queue_cell_loc_F90A(
     source_cell: u8,
     source_cell_col: u16,
@@ -10496,7 +10379,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_cell_loc_F90A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn animated_solid_block_horizontal_queue_layout_only_col_loc_F9A4(
     source_cells: &[u8],
     source_cells_start: usize,
@@ -10521,7 +10404,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_layout_only_col_loc_F9A4(
     )
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn animated_solid_block_horizontal_queue_layout_only_culled_col_loc_F9A6(
     source_cells: &[u8],
     source_cells_start: usize,
@@ -10574,7 +10457,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_layout_only_culled_col_loc_F
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn animated_solid_block_horizontal_queue_gate_loc_F94E(
     source_cell_col: u16,
@@ -10607,7 +10490,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_gate_loc_F94E(
     Some((source_cell_col << 2) & 0x007C)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn animated_solid_block_horizontal_queue_cell_loc_F96A(
     source_cell: u8,
@@ -10640,7 +10523,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_cell_loc_F96A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn animated_solid_block_horizontal_queue_walk_tail_loc_F994(
     source_cell_row: u16,
@@ -10663,7 +10546,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_walk_tail_loc_F994(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn animated_solid_block_horizontal_queue_layout_word_loc_F93E(source_cell: u8) -> u16 {
     // ASM loc_F93E (kid.asm:20646): restore a single layout byte into the
@@ -10671,7 +10554,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_layout_word_loc_F93E(source_
     u16::from(source_cell)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn animated_solid_block_horizontal_queue_skip_rows_loc_F93C(
     source_cells: &[u8],
@@ -10721,7 +10604,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_skip_rows_loc_F93C(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn animated_solid_block_horizontal_queue_loop_tail_loc_F934(
     source_cell_col: u16,
     remaining_count: u16,
@@ -10736,7 +10619,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_loop_tail_loc_F934(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn animated_solid_block_horizontal_queue_tail_loc_F946(
     swapped_d6: u32,
     swapped_d7: u32,
@@ -10749,7 +10632,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_tail_loc_F946(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn animated_solid_block_horizontal_queue_tail_loc_F9B6(
     swapped_d6: u32,
     swapped_d7: u32,
@@ -10759,7 +10642,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_tail_loc_F9B6(
     animated_solid_block_horizontal_queue_tail_loc_F946(swapped_d6, swapped_d7)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn animated_solid_block_scan_advance_loc_F9C0(
     slot_addr: u32,
@@ -10784,7 +10667,7 @@ pub(crate) fn animated_solid_block_scan_advance_loc_F9C0(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn animated_solid_block_vertical_scan_advance_loc_FA40(
     slot_addr: u32,
@@ -10796,7 +10679,7 @@ pub(crate) fn animated_solid_block_vertical_scan_advance_loc_FA40(
     animated_solid_block_scan_advance_loc_F9C0(slot_addr, dbf_counter)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn animated_solid_block_negative_sprites_loc_F9CC(
     input: AnimatedSolidBlockNegativeSpritesInputLocF9CC,
@@ -10877,7 +10760,7 @@ pub(crate) fn animated_solid_block_negative_sprites_loc_F9CC(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn animated_solid_block_vertical_sprites_loc_FA4C(
     input: AnimatedSolidBlockNegativeSpritesInputLocF9CC,
@@ -10964,7 +10847,7 @@ pub(crate) fn animated_solid_block_vertical_sprites_loc_FA4C(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn level_layout_word_address_loc_FAE2(
     block_col: u16,
     block_row: u16,
@@ -10979,7 +10862,7 @@ pub(crate) fn level_layout_word_address_loc_FAE2(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn initialise_shooter_object_slots_sub_F06A() -> ShooterObjectSlotsSubF06A {
     // ASM sub_F06A (kid.asm:19595): seed the shooter-object free list at
     // `$FFFFE7F2`; loc_F074 links 19 contiguous `$0E`-byte slots through
@@ -11010,7 +10893,7 @@ pub(crate) fn initialise_shooter_object_slots_sub_F06A() -> ShooterObjectSlotsSu
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn initialise_shooter_object_slots_loc_DF50() -> ShooterObjectSlotsLocDF50 {
     // ASM loc_DF50 (kid.asm:17269): after `Initialize_EvanescShooterObjectSlots`
     // seeds `a0=ShooterObject_RAM` and `d0=$26`, the inclusive DBF loop writes
@@ -11043,7 +10926,7 @@ pub(crate) fn initialise_shooter_object_slots_loc_DF50() -> ShooterObjectSlotsLo
 /// `$FFFFF8D4`, copy the current layout word pointer from `a2` into `d4`, then
 /// subtract 8 from `a0` so the following scan pre-increments onto the
 /// first 8-byte metadata record before comparing `(a0)` with `d4`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn hidden_block_evanescent_scan_start_loc_E07A(
     hidden_block_list_base_addr: u32,
     layout_word_addr: u16,
@@ -11060,7 +10943,7 @@ pub(crate) fn hidden_block_evanescent_scan_start_loc_E07A(
 /// matched, `tst.w 6(a0)` leaves the existing reveal sprite words alone for a
 /// non-negative control word, or replaces them with `$E101/$1058` when that
 /// word is negative.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn hidden_block_evanescent_metadata_scan_loc_E082(
     hidden_block_list_base_addr: u32,
     layout_word_addr: u16,
@@ -11083,7 +10966,7 @@ pub(crate) fn hidden_block_evanescent_metadata_scan_loc_E082(
 /// the layout byte at `(a2)`, allocate a `$2001` object slot, install handler
 /// `$E29A`, then copy the block column/row, layout pointer, and selected sprite
 /// words into object fields `$44/$46/$48/$4C/$4E`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn hidden_block_reveal_worker_loc_E096(
     block_col: u16,
     block_row: u16,
@@ -11108,7 +10991,7 @@ pub(crate) fn hidden_block_reveal_worker_loc_E096(
 /// row by incrementing `d5`, adding `Level_width_tiles` to `a2`, and looping
 /// back to `sub_E446` while the DBF post-decrement counter has not reached
 /// `$FFFF`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn hidden_block_prize_reveal_scan_tail_loc_E48E(
     block_col: u16,
     layout_word_addr: u16,
@@ -11128,7 +11011,7 @@ pub(crate) fn hidden_block_prize_reveal_scan_tail_loc_E48E(
 /// `$8(a2)`. Only the exact `1 -> 0` transition restores the timer to one and
 /// inspects the pointed Level_Layout byte; removal continues to `loc_EA5A`
 /// only when that byte is negative and its low nibble is less than `$D`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn evanescent_block_removal_gate_loc_EA3E(
     timer: u16,
@@ -11156,7 +11039,7 @@ pub(crate) fn evanescent_block_removal_gate_loc_EA3E(
 /// skips the erase but still continues to `loc_EA72`; a match calls
 /// `EraseBlockFromLevelLayout` with the object's column/row and then writes
 /// byte `$20` back to `(a1)`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn evanescent_block_erase_match_loc_EA5A(
     layout_cell_word: u16,
@@ -11186,7 +11069,7 @@ pub(crate) fn evanescent_block_erase_match_loc_EA5A(
 /// `$A(a2)` next link in `d0`, unlink `a2` from `Addr_FirstEvanescObjectSlot`,
 /// push `a2` onto `Addr_NextFreeEvanescObjectSlot`, and use the saved `d0` as
 /// the next active object to process.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_object_move_active_to_free_loc_EA72(
     active_slots: &[LinkedObjectSlotInit],
     target_slot_addr: u32,
@@ -11233,7 +11116,7 @@ pub(crate) fn evanescent_object_move_active_to_free_loc_EA72(
 /// `Addr_FirstEvanescObjectSlot`, start at the active-list head and follow each
 /// `$A(a0)` next link until it equals `a2`; the current `a0` is the predecessor
 /// whose link is spliced by the next block.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_object_predecessor_scan_loc_EA86(
     active_slots: &[LinkedObjectSlotInit],
     target_slot_addr: u32,
@@ -11261,7 +11144,7 @@ pub(crate) fn evanescent_object_predecessor_scan_loc_EA86(
 
 /// ASM loc_EA92 (kid.asm:18809): after the predecessor scan, copy the removed
 /// evanescent object's `$A(a2)` next link into the predecessor's `$A(a0)` link.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_object_splice_predecessor_loc_EA92(
     active_slots: &[LinkedObjectSlotInit],
     predecessor_slot_addr: u32,
@@ -11283,7 +11166,7 @@ pub(crate) fn evanescent_object_splice_predecessor_loc_EA92(
 /// ASM loc_EA98 (kid.asm:18812): push the removed evanescent object onto
 /// `Addr_NextFreeEvanescObjectSlot` by writing the old free-list head to
 /// `$A(a2)`, then continue active processing only when saved `d0` is non-zero.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_object_push_free_list_loc_EA98(
     active_slots: &[LinkedObjectSlotInit],
     target_slot_addr: u32,
@@ -11307,7 +11190,7 @@ pub(crate) fn evanescent_object_push_free_list_loc_EA98(
 /// ASM loc_EAB2 (kid.asm:18824): when the evanescent object scan reaches the
 /// null active-list link, copy the live sprite cursor in `a3` and count byte in
 /// `d3` back to `Addr_NextSpriteSlot` and `Number_Sprites` before returning.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn evanescent_sprite_scan_return_loc_EAB2(
     sprite_cursor_addr: u32,
@@ -11324,7 +11207,7 @@ pub(crate) fn evanescent_sprite_scan_return_loc_EAB2(
 /// convert to inclusive tile rows/columns, and scan for bit-15 block cells
 /// whose block type is `$A` before falling through to `loc_EB6E`, the shared
 /// bullet-loader entry.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_hitbox_scan_loc_EAE4(
     input: EvanescentBulletHitboxScanInputLocEAE4,
     grid: &terrain::BlockGrid,
@@ -11378,7 +11261,7 @@ pub(crate) fn evanescent_bullet_hitbox_scan_loc_EAE4(
 /// ASM loc_EAF8 (kid.asm:18866): expand Kid's bottom hitbox edge by one
 /// pixel, then clamp it to `Level_height_pixels - 1` before the row conversion
 /// at `loc_EB0C`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_bottom_clamp_loc_EAF8(
     kid_hitbox_bottom: u16,
     level_height_pixels: u16,
@@ -11394,7 +11277,7 @@ pub(crate) fn evanescent_bullet_bottom_clamp_loc_EAF8(
 /// pixel edges by four to get tile rows, subtract top from bottom for the
 /// inclusive DBF row counter, then double the top row for the `$FFFF4A04`
 /// row-pointer table lookup.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_vertical_rows_loc_EB0C(
     top_px: u16,
     bottom_px: u16,
@@ -11414,7 +11297,7 @@ pub(crate) fn evanescent_bullet_vertical_rows_loc_EB0C(
 /// If the expanded word is strictly below `Level_width_pixels`, keep it;
 /// otherwise clamp to `Level_width_pixels - 1` before the horizontal tile
 /// conversion at `loc_EB3E`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_right_clamp_loc_EB2A(
     kid_hitbox_right: u16,
     level_width_pixels: u16,
@@ -11433,7 +11316,7 @@ pub(crate) fn evanescent_bullet_right_clamp_loc_EB2A(
 /// pixel edges by four to get tile columns, subtract left from right for the
 /// inclusive DBF column counter, then double the left column before adding it
 /// into the current row pointer.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_horizontal_columns_loc_EB3E(
     left_px: u16,
     right_px: u16,
@@ -11453,7 +11336,7 @@ pub(crate) fn evanescent_bullet_horizontal_columns_loc_EB3E(
 /// horizontal DBF counter from `d2` to `d3` and the row pointer from `a0` to
 /// `a1`, so every row starts at the same left column before `loc_EB4C` walks
 /// rightward through the inclusive column span.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_scan_rows_loc_EB48(
     grid: &terrain::BlockGrid,
     top_row: u16,
@@ -11491,7 +11374,7 @@ pub(crate) fn evanescent_bullet_scan_rows_loc_EB48(
 /// ASM loc_EB62 (kid.asm:18913): after `bclr #$F,d0`, cells with no block
 /// flag and block-flagged cells whose masked type is not `$A00` both continue
 /// the inclusive column/row DBF scan instead of triggering an evanescent block.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_cell_scan_loc_EB62(
     level_layout_word: u16,
 ) -> EvanescentBulletCellScanLocEB62 {
@@ -11510,7 +11393,7 @@ pub(crate) fn evanescent_bullet_cell_scan_loc_EB62(
 /// when its age word `$8(a0)` is zero. The ROM converts stored block col/row at
 /// `$2/$4(a0)` to centred pixel coordinates via `lsl #4; addq #8`, then hands
 /// `$6(a0)` direction bits to the bullet allocation loop.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_load_candidate_loc_EC52(
     layout_word_addr: u16,
     block_col: u16,
@@ -11537,7 +11420,7 @@ pub(crate) fn evanescent_bullet_load_candidate_loc_EC52(
 /// `Addr_NextFreeShooterObjectSlot`, pushes it to `Addr_FirstShooterObjectSlot`,
 /// copies source layout/x/y/direction words, writes state `$FFFE`, and exits
 /// early when the free-list head is zero.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_direction_load_loc_EC76(
     candidate: EvanescentBulletLoadCandidateLocEC52,
     free_slots: &[LinkedObjectSlotInit],
@@ -11593,7 +11476,7 @@ pub(crate) fn evanescent_bullet_direction_load_loc_EC76(
 /// ASM loc_EC9E (kid.asm:19143): after either a clear direction bit or a
 /// loaded shooter object, `dbf d4,loc_EC76` decrements the direction counter
 /// and loops while it has not wrapped to `$FFFF`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_direction_loop_tail_loc_EC9E(
     direction_counter: u16,
 ) -> EvanescentBulletDirectionLoopTailLocEC9E {
@@ -11607,7 +11490,7 @@ pub(crate) fn evanescent_bullet_direction_loop_tail_loc_EC9E(
 /// ASM loc_ECC4 (kid.asm:19162): when the aged evanescent object is not the
 /// active-list head, walk `$A(a3)` links from `Addr_FirstEvanescObjectSlot`
 /// until the successor equals the current `a0` slot.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_recycle_predecessor_scan_loc_ECC4(
     active_slots: &[LinkedObjectSlotInit],
     target_slot_addr: u32,
@@ -11637,7 +11520,7 @@ pub(crate) fn evanescent_bullet_recycle_predecessor_scan_loc_ECC4(
 /// ASM loc_ECD2 (kid.asm:19170): after `loc_ECC4` finds the predecessor in
 /// `a3`, splice the aged evanescent object out by copying `$A(a0)` into
 /// `$A(a3)`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_recycle_splice_predecessor_loc_ECD2(
     active_slots: &[LinkedObjectSlotInit],
     predecessor_slot_addr: u32,
@@ -11661,7 +11544,7 @@ pub(crate) fn evanescent_bullet_recycle_splice_predecessor_loc_ECD2(
 /// `Addr_NextFreeEvanescObjectSlot`. The saved `$A(a0)` value in `d0` decides
 /// whether the active evanescent scan continues at `loc_EC52` or falls through
 /// to `Process_ShooterObjects`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_recycle_free_list_push_loc_ECD8(
     active_slots: &[LinkedObjectSlotInit],
     target_slot_addr: u32,
@@ -11691,7 +11574,7 @@ pub(crate) const EVANESCENT_BULLET_ACTION_TABLE_UNK_ECEC: [u8; 24] = [
 /// `unk_ECEC` by the pre-increment age word still in `d0`. A non-zero byte
 /// dispatches to `loc_ED16`; a zero byte skips work and follows `$A(a0)` to
 /// either the next active evanescent object or `Process_ShooterObjects`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_action_dispatch_loc_ED04(
     age_before_increment: u16,
     next_active_slot_addr: u32,
@@ -11715,7 +11598,7 @@ pub(crate) fn evanescent_bullet_action_dispatch_loc_ED04(
 /// camera block window, then `loc_ED52` uses bit 0 to decide whether to rewrite
 /// the level-layout word and bit 1 to choose the collision-overlay path.
 /// Positive action bytes branch immediately to `loc_EDBC`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_action_loc_ED16(
     input: EvanescentBulletActionInputLocED16,
 ) -> EvanescentBulletActionLocED16 {
@@ -11757,7 +11640,7 @@ pub(crate) fn evanescent_bullet_action_loc_ED16(
 /// `Foreground_theme` to select a theme collision table, read one byte using
 /// the terrain byte in `d1` as the index, `ror.w #4` that byte, then OR the
 /// rotated word back into `d1` before the shared layout write.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_collision_overlay_loc_ED7C(
     terrain_layout_byte: u8,
     theme_collision_byte: u8,
@@ -11769,7 +11652,7 @@ pub(crate) fn evanescent_bullet_collision_overlay_loc_ED7C(
 /// the saved `(a0)` level-layout pointer, append `$2(a0)`, `$4(a0)`, and `d1`
 /// to `FGPlane_UpdateQueueCell`, then either continue the active evanescent
 /// scan when `$A(a0)` is non-zero or fall through to shooter-object handling.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn evanescent_bullet_layout_write_loc_ED98(
     layout_word_addr: u16,
     block_col: u16,
@@ -11800,7 +11683,7 @@ pub(crate) fn evanescent_bullet_layout_write_loc_ED98(
 /// the current level-layout word. Bit 14 gates the interaction test; ages two
 /// and three interact immediately, while ages zero/one interact only when
 /// bits `$3000` are also present.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shooter_object_moving_right_gate_loc_EE2A(
     age_after_increment: u16,
     current_layout_word_addr: u16,
@@ -11825,7 +11708,7 @@ pub(crate) fn shooter_object_moving_right_gate_loc_EE2A(
 /// ASM loc_EE38 (kid.asm:19338): `btst #$E,d1` skips clear bit-14 cells; if bit
 /// 14 is set, age words two and above interact immediately, while younger ages
 /// only interact when `andi.w #$3000,d1` leaves a non-zero value.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shooter_object_moving_right_collision_gate_loc_EE38(
     state_word: u16,
     current_layout_word: u16,
@@ -11843,7 +11726,7 @@ pub(crate) fn shooter_object_moving_right_collision_gate_loc_EE38(
 
 /// ASM loc_EE52 (kid.asm:19348): `addq.w #4,2(a0)` advances the moving-right
 /// shooter, then `d1=0`, `d2=-4`, and `d3=$8A96` feed the shared sprite maker.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shooter_object_moving_right_sprite_tail_loc_EE52(
     x_pos: u16,
 ) -> ShooterObjectSpriteTailLocEE52 {
@@ -11859,7 +11742,7 @@ pub(crate) fn shooter_object_moving_right_sprite_tail_loc_EE52(
 /// clear `$8(a0)` and subtract `Level_width_tiles` from the layout pointer.
 /// The following collision gate interacts for bit-14 cells while age is below
 /// two; older ages require the moving-up `$2000` directional bit.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shooter_object_moving_up_gate_loc_EE80(
     age_after_increment: u16,
     current_layout_word_addr: u16,
@@ -11888,7 +11771,7 @@ pub(crate) fn shooter_object_moving_up_gate_loc_EE80(
 /// ASM loc_EEAC (kid.asm:19385): every non-interacting branch continues the
 /// moving-up shooter by subtracting four from `$4(a0)` before emitting sprite
 /// tile `$8295`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shooter_object_moving_up_collision_gate_loc_EE92(
     state_word: u16,
     selected_layout_word: u16,
@@ -11905,7 +11788,7 @@ pub(crate) fn shooter_object_moving_up_collision_gate_loc_EE92(
 /// ASM loc_EED6 (kid.asm:19403): moving-left shooters reset `$8(a0)` to zero
 /// every fourth positive age and subtract two from the layout pointer before the
 /// following collision gate reads `(a0)`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shooter_object_moving_left_gate_loc_EED6(
     age_after_increment: u16,
     current_layout_word_addr: u16,
@@ -11926,7 +11809,7 @@ pub(crate) fn shooter_object_moving_left_gate_loc_EED6(
 /// ASM loc_EEE4 (kid.asm:19410): moving-left collision first requires bit 14.
 /// Ages two and above interact immediately; younger ages interact unless the
 /// moving-left `$1000` direction bit is still present.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shooter_object_moving_left_collision_gate_loc_EEE4(
     state_word: u16,
     selected_layout_word: u16,
@@ -11942,7 +11825,7 @@ pub(crate) fn shooter_object_moving_left_collision_gate_loc_EEE4(
 
 /// ASM loc_EEFE (kid.asm:19420): `subq.w #4,2(a0)` advances the moving-left
 /// shooter, then `d1=-8`, `d2=-4`, and `d3=$8296` feed the shared sprite maker.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shooter_object_moving_left_sprite_tail_loc_EEFE(
     x_pos: u16,
 ) -> ShooterObjectSpriteTailLocEE52 {
@@ -11958,7 +11841,7 @@ pub(crate) fn shooter_object_moving_left_sprite_tail_loc_EEFE(
 /// every fourth positive age and add `Level_width_tiles` to the layout pointer.
 /// The following collision gate interacts for bit-14 cells when age is two or
 /// above, or for younger ages only when the moving-down `$2000` bit remains set.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shooter_object_moving_down_gate_loc_EF2E(
     age_after_increment: u16,
     current_layout_word_addr: u16,
@@ -11984,7 +11867,7 @@ pub(crate) fn shooter_object_moving_down_gate_loc_EF2E(
 /// ASM loc_EF40 (kid.asm:19449): after moving-down has selected the current
 /// layout word, bit 14 gates collision; age words two and above interact
 /// immediately, while younger ages require the moving-down `$2000` bit.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shooter_object_moving_down_collision_gate_loc_EF40(
     state_word: u16,
     selected_layout_word: u16,
@@ -12000,7 +11883,7 @@ pub(crate) fn shooter_object_moving_down_collision_gate_loc_EF40(
 
 /// ASM loc_EF56 (kid.asm:19459): `addq.w #4,4(a0)` advances the moving-down
 /// shooter, then `d1=-4`, `d2=0`, and `d3=$9295` feed the shared sprite maker.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shooter_object_moving_down_sprite_tail_loc_EF56(
     y_pos: u16,
 ) -> ShooterObjectMovingDownSpriteTailLocEF56 {
@@ -12015,7 +11898,7 @@ pub(crate) fn shooter_object_moving_down_sprite_tail_loc_EF56(
 /// ASM loc_EF94 (kid.asm:19488): the shared shooter sprite epilogue reads the
 /// slot's `$A(a0)` link; a non-zero link resumes `Process_ShooterObjects_Loop`,
 /// while a zero tail falls through to `loc_F05A`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_object_sprite_tail_next_loc_EF94(
     next_active_slot_addr: u32,
@@ -12032,7 +11915,7 @@ pub(crate) fn shooter_object_sprite_tail_next_loc_EF94(
 /// ASM loc_EFB4 (kid.asm:19504): for non-head shooter removals, walk `$A(a3)`
 /// links from `Addr_FirstShooterObjectSlot` until the successor equals the
 /// current shooter object in `a0`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_object_predecessor_scan_loc_EFB4(
     active_slots: &[LinkedObjectSlotInit],
@@ -12064,7 +11947,7 @@ pub(crate) fn shooter_object_predecessor_scan_loc_EFB4(
 /// ASM loc_EFC2 (kid.asm:19511): after `loc_EFB4` finds the predecessor in
 /// `a3`, splice the current shooter object out by copying `$A(a0)` into
 /// `$A(a3)`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_object_splice_predecessor_loc_EFC2(
     active_slots: &[LinkedObjectSlotInit],
@@ -12087,7 +11970,7 @@ pub(crate) fn shooter_object_splice_predecessor_loc_EFC2(
 /// ASM loc_EFC8 (kid.asm:19514): push the removed shooter object onto
 /// `Addr_NextFreeShooterObjectSlot`, then use the signed high byte of the
 /// current level-layout word to dispatch the shooter block interaction table.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn shooter_object_free_list_push_loc_EFC8(
     active_slots: &[LinkedObjectSlotInit],
@@ -12123,7 +12006,7 @@ pub(crate) fn shooter_object_free_list_push_loc_EFC8(
 /// walk `Addr_FirstObjectSlot` while the new caller word (`d6`, copied from
 /// incoming `a0`) is strictly higher than the current slot's `$E(a1)` word.
 /// Equal caller words stop the scan, so the new slot inserts before equal keys.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn allocate_object_slot_insert_index_loc_DE0(
     active_slots: &[ObjectSlotOrderLocDE0],
@@ -12138,7 +12021,7 @@ pub(crate) fn allocate_object_slot_insert_index_loc_DE0(
 /// ASM loc_DF2 (kid.asm:1611): splice the allocated object after the
 /// predecessor found by `loc_DE0`. The ROM copies the predecessor link into
 /// `0(a0)`, then stores `a0` through the predecessor link slot.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn allocate_object_slot_splice_loc_DF2(
     active_slots: &[ObjectSlotOrderLocDE0],
@@ -12171,8 +12054,7 @@ pub(crate) fn allocate_object_slot_splice_loc_DF2(
 /// `Addr_FirstObjectSlot`, then repeatedly loads the predecessor link word. A
 /// null link exits without deallocating; a link equal to `a5` identifies the
 /// predecessor whose `0(a0)` will be spliced over the removed object.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn deallocate_object_slot_predecessor_loc_EA2(
     active_slots: &[LinkedObjectSlotInit],
     target_slot_addr: u32,
@@ -12205,8 +12087,8 @@ pub(crate) fn deallocate_object_slot_predecessor_loc_EA2(
 /// `Addr_FirstObjectSlot`, push it onto `Addr_NextFreeObjectSlot`, decrement
 /// `Number_Objects`, deallocate each non-null gfx child at `$36/$3A/$3E`, and
 /// resume with `a5` set to the predecessor link address in `a0`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn deallocate_object_slot_body_loc_EB0(
     active_slots: &[LinkedObjectSlotInit],
     target_slot_addr: u32,
@@ -12247,7 +12129,7 @@ pub(crate) fn deallocate_object_slot_body_loc_EB0(
 /// ASM loc_EF0 (kid.asm:1755): if the deallocation scan reaches a null list
 /// link before finding `a5`, restore `a5` from `Addr_CurrentObject` and return
 /// without touching object or gfx free lists.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn deallocate_object_slot_not_found_loc_EF0(current_object_addr: u32) -> u32 {
     current_object_addr
@@ -12256,7 +12138,7 @@ pub(crate) fn deallocate_object_slot_not_found_loc_EF0(current_object_addr: u32)
 /// ASM loc_EFE (kid.asm:1768): `Delete_AllButCurrentObject` starts every pass
 /// from `Addr_FirstObjectSlot`, preserving `Addr_CurrentObject` only for the
 /// later `cmp.l` in loc_F02.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn delete_all_but_current_start_loc_EFE(
     active_slots: &[LinkedObjectSlotInit],
@@ -12274,7 +12156,7 @@ pub(crate) fn delete_all_but_current_start_loc_EFE(
 /// other object before looping from the predecessor returned by deallocation.
 /// ASM loc_F14 (kid.asm:1781): when `0(a5)` is null, restore the saved
 /// registers and return with only the current object left in the active list.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn delete_all_but_current_loop_loc_F02(
     active_slots: &[LinkedObjectSlotInit],
@@ -12319,8 +12201,7 @@ pub(crate) fn delete_all_but_current_loop_loc_F02(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn spawn_block_debris_loc_2928(
     queue: &mut ScratchQueueSub28FC,
     x_pos_px: u16,
@@ -12332,8 +12213,8 @@ pub(crate) fn spawn_block_debris_loc_2928(
     spawn_block_debris_common_sub_292E(queue, x_pos_px, y_pos_px, direction, 0xFF);
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn spawn_block_debris_sub_292E(
     queue: &mut ScratchQueueSub28FC,
     x_pos_px: u16,
@@ -12345,7 +12226,7 @@ pub(crate) fn spawn_block_debris_sub_292E(
     spawn_block_debris_common_sub_292E(queue, x_pos_px, y_pos_px, direction, 0x00);
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn spawn_block_debris_common_sub_292E(
     queue: &mut ScratchQueueSub28FC,
     x_pos_px: u16,
@@ -12410,8 +12291,8 @@ fn spawn_block_debris_common_sub_292E(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn scratch_debris_pieces_sub_292E(
     queue: &ScratchQueueSub28FC,
     slot_index: usize,
@@ -12428,7 +12309,7 @@ pub(crate) fn scratch_debris_pieces_sub_292E(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn scratch_debris_slot_piece_long_sub_2A4C(
     slot: &[u8; SUB_28FC_SLOT_STRIDE_BYTES],
     piece_index: usize,
@@ -12439,7 +12320,7 @@ fn scratch_debris_slot_piece_long_sub_2A4C(
     i32::from_be_bytes([slot[base], slot[base + 1], slot[base + 2], slot[base + 3]])
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn set_scratch_debris_slot_piece_long_sub_2A4C(
     slot: &mut [u8; SUB_28FC_SLOT_STRIDE_BYTES],
     piece_index: usize,
@@ -12451,8 +12332,8 @@ fn set_scratch_debris_slot_piece_long_sub_2A4C(
     slot[base..base + 4].copy_from_slice(&value.to_be_bytes());
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn compile_block_debris_sprites_sub_2A4C(
     queue: &mut ScratchQueueSub28FC,
     number_sprites: u8,
@@ -12539,8 +12420,8 @@ pub(crate) fn compile_block_debris_sprites_sub_2A4C(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn swap_forest_background_palette_entries_sub_129AE(
     header: Option<&wildside_data::LevelHeader>,
     palette_buffer: &mut [u16],
@@ -12556,8 +12437,8 @@ pub(crate) fn swap_forest_background_palette_entries_sub_129AE(
     palette_buffer.swap(0x18, 0x1A);
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn initialise_palette_fade_out_loc_28A6(
     palette_buffer: [u16; 0x40],
     fill_colour: u16,
@@ -12575,8 +12456,8 @@ pub(crate) fn initialise_palette_fade_out_loc_28A6(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn step_palette_fade_out_loc_28C6(
     fade_progress: u16,
     pending_palette_0_mask: u32,
@@ -12606,7 +12487,7 @@ pub(crate) fn step_palette_fade_out_loc_28C6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn initialise_fullscreen_palette_fade_sub_73D0(
     palette_buffer: [u16; 0x40],
     fill_colour: u16,
@@ -12626,7 +12507,7 @@ pub(crate) fn initialise_fullscreen_palette_fade_sub_73D0(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn step_fullscreen_palette_fade_sub_73D0(
     state: &mut FullscreenPaletteFadeSub73D0,
 ) -> bool {
@@ -12645,7 +12526,6 @@ pub(crate) fn step_fullscreen_palette_fade_sub_73D0(
     false
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn blend_palette_entry_loc_1538(
     palette_word_2: u16,
     palette_word_3: u16,
@@ -12687,7 +12567,6 @@ pub(crate) fn blend_palette_entry_loc_1538(
     assembled_word.rotate_right(8)
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn blend_selected_palette_entries_sub_1536(
     palette_buffer_2: &[u16],
     palette_buffer_3: &[u16],
@@ -12724,7 +12603,7 @@ pub(crate) fn blend_selected_palette_entries_sub_1536(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn build_palette_fade_curve_sub_14C0(fade_progress: u16) -> [u8; 15] {
     // ASM sub_14C0 / loc_14CE / loc_14EE (kid.asm:2583): build the 15-byte
     // signed fade curve in $FFFFF878 from the shared fade progress word at
@@ -12741,7 +12620,7 @@ pub(crate) fn build_palette_fade_curve_sub_14C0(fade_progress: u16) -> [u8; 15] 
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn blend_palette_word_sub_14C0(fade_progress: u16, source_word: u16, target_word: u16) -> u16 {
     // ASM sub_14C0 -> sub_1536 -> loc_1538 (kid.asm:2583,2636,2639):
     // render-only callers need the same per-word blend as the live CRAM fade
@@ -12750,7 +12629,7 @@ pub fn blend_palette_word_sub_14C0(fade_progress: u16, source_word: u16, target_
     blend_palette_entry_loc_1538(source_word, target_word, &fade_curve)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn apply_pending_palette_fade_sub_14C0(
     fade_progress: u16,
     pending_palette_0_mask: &mut u32,
@@ -12816,8 +12695,8 @@ pub(crate) fn apply_pending_palette_fade_sub_14C0(
     );
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn should_process_fg_update_queue_cell_loc_15D2(
     next_slot: u32,
     fg_plane_update_queue_cell_addr: u16,
@@ -13251,8 +13130,7 @@ pub struct BackgroundScrollDesertHeatRippleSetupLoc306D4 {
     pub ripple_data_byte_offset: usize,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn reset_fg_update_queues_loc_1680(
     fg_plane_update_queue_custom_addr: u32,
     fg_plane_update_queue_cell_addr: u32,
@@ -13268,8 +13146,8 @@ pub(crate) fn reset_fg_update_queues_loc_1680(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_upper_pass_loc_2FFE8(
     camera_x_pos: i16,
     camera_y_pos: i16,
@@ -13298,8 +13176,7 @@ pub(crate) fn background_scroll_upper_pass_loc_2FFE8(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_upper_pass_resume_loc_30014(
     prologue: BackgroundScrollUpperPassLoc2FFE8,
 ) -> BackgroundScrollUpperPassResumeLoc30014 {
@@ -13312,8 +13189,8 @@ pub(crate) fn background_scroll_upper_pass_resume_loc_30014(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_lower_pass_setup_loc_3001E(
     resume: BackgroundScrollUpperPassResumeLoc30014,
     level_height_pixels: i16,
@@ -13339,8 +13216,7 @@ pub(crate) fn background_scroll_lower_pass_setup_loc_3001E(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_lower_pass_resume_loc_30054(
     setup: BackgroundScrollLowerPassSetupLoc3001E,
 ) -> BackgroundScrollLowerPassResumeLoc30054 {
@@ -13364,8 +13240,7 @@ pub(crate) fn background_scroll_lower_pass_resume_loc_30054(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_lower_pass_loop_loc_30066(
     resume: BackgroundScrollLowerPassResumeLoc30054,
     background_format: u8,
@@ -13400,8 +13275,8 @@ pub(crate) fn background_scroll_lower_pass_loop_loc_30066(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn transfer_scroll_data_vsram_setup_loc_300BA(
     camera_y_pos: i16,
     background_no_scroll_flag: bool,
@@ -13421,8 +13296,8 @@ pub(crate) fn transfer_scroll_data_vsram_setup_loc_300BA(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn transfer_scroll_data_prelude_loc_3038A(
     level_special_effects: u16,
     game_mode: u16,
@@ -13444,8 +13319,8 @@ pub(crate) fn transfer_scroll_data_prelude_loc_3038A(
     Some(TransferScrollDataPreludeLoc3038A { next_time_frames })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn transfer_scroll_data_dispatch_loc_3039C(
     background_upload_busy_flag: u8,
     background_format: u8,
@@ -13470,8 +13345,8 @@ pub(crate) fn transfer_scroll_data_dispatch_loc_3039C(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_piece_row_dispatch_loc_3079A(
     row_selector_byte: u8,
     background_scroll_longword: i32,
@@ -13519,8 +13394,8 @@ pub(crate) fn background_scroll_piece_row_dispatch_loc_3079A(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_piece_row_upload_loc_307B2(
     background_scroll_longword: u32,
     vdp_row_seed: u16,
@@ -13552,8 +13427,8 @@ pub(crate) fn background_scroll_piece_row_upload_loc_307B2(
     })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_piece_refresh_seed_loc_3081A(
     current_camera_row: i16,
     cached_previous_camera_row: i16,
@@ -13599,8 +13474,6 @@ pub(crate) fn background_scroll_piece_refresh_seed_loc_3081A(
     })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn background_scroll_piece_refresh_wrap_loc_30836(
     coarse_scroll_word: u16,
     background_width: i16,
@@ -13622,8 +13495,8 @@ pub(crate) fn background_scroll_piece_refresh_wrap_loc_30836(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_piece_refresh_window_split_loc_3086A(
     reduced_scroll_word: i16,
     background_width: i16,
@@ -13657,8 +13530,7 @@ pub(crate) fn background_scroll_piece_refresh_window_split_loc_3086A(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_piece_refresh_vdp_seed_loc_30884(
     coarse_scroll_word: u16,
     row_sequence_offset: u16,
@@ -13677,8 +13549,8 @@ pub(crate) fn background_scroll_piece_refresh_vdp_seed_loc_30884(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_piece_refresh_linear_copy_loc_308A6(
     layout_row: &[u8],
     block_mappings: &[u16],
@@ -13699,8 +13571,7 @@ pub(crate) fn background_scroll_piece_refresh_linear_copy_loc_308A6(
     })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn background_scroll_piece_refresh_wrap_counter_setup_loc_308B6(
     wrapped_row_window_end: i16,
 ) -> BackgroundScrollPieceRefreshWrapCounterSetupLoc308B6 {
@@ -13717,8 +13588,8 @@ pub(crate) fn background_scroll_piece_refresh_wrap_counter_setup_loc_308B6(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_piece_refresh_wrapped_copy_loc_308C4(
     layout_row: &[u8],
     current_layout_row_offset: i16,
@@ -13764,8 +13635,7 @@ pub(crate) fn background_scroll_piece_refresh_wrapped_copy_loc_308C4(
     })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn background_scroll_piece_refresh_tile_wrap_counter_setup_loc_308DE(
     wrapped_tile_window_span: u16,
 ) -> BackgroundScrollPieceRefreshTileWrapCounterSetupLoc308DE {
@@ -13783,8 +13653,8 @@ pub(crate) fn background_scroll_piece_refresh_tile_wrap_counter_setup_loc_308DE(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_piece_refresh_tile_wrapped_copy_loc_308E8(
     layout_row: &[u8],
     current_layout_row_offset: i16,
@@ -13827,8 +13697,7 @@ pub(crate) fn background_scroll_piece_refresh_tile_wrapped_copy_loc_308E8(
     })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_piece_refresh_dual_wrap_branch_loc_30904(
     wrapped_tile_window_span: u16,
     wrapped_row_window_end: i16,
@@ -13850,8 +13719,7 @@ pub(crate) fn background_scroll_piece_refresh_dual_wrap_branch_loc_30904(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_piece_refresh_row_wrap_first_copy_loc_30942(
     layout_row: &[u8],
     current_layout_row_offset: i16,
@@ -13881,8 +13749,7 @@ pub(crate) fn background_scroll_piece_refresh_row_wrap_first_copy_loc_30942(
     })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_piece_refresh_row_wrap_second_copy_loc_30954(
     layout_row: &[u8],
     current_layout_row_offset: i16,
@@ -13916,8 +13783,7 @@ pub(crate) fn background_scroll_piece_refresh_row_wrap_second_copy_loc_30954(
     })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_piece_refresh_row_wrap_final_copy_loc_30968(
     layout_row: &[u8],
     current_layout_row_offset: i16,
@@ -13944,8 +13810,7 @@ pub(crate) fn background_scroll_piece_refresh_row_wrap_final_copy_loc_30968(
     })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_piece_refresh_tile_wrap_first_copy_loc_30988(
     layout_row: &[u8],
     current_layout_row_offset: i16,
@@ -13976,8 +13841,8 @@ pub(crate) fn background_scroll_piece_refresh_tile_wrap_first_copy_loc_30988(
     })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_piece_refresh_tile_wrap_wrapped_copy_loc_3099E(
     layout_row: &[u8],
     current_layout_row_offset: i16,
@@ -14022,8 +13887,7 @@ pub(crate) fn background_scroll_piece_refresh_tile_wrap_wrapped_copy_loc_3099E(
     })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn background_scroll_enigma_row_table_lookup_loc_303EA(
     tile_row: u16,
     background_theme: u16,
@@ -14047,8 +13911,6 @@ pub(crate) fn background_scroll_enigma_row_table_lookup_loc_303EA(
     })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn background_scroll_enigma_primary_copy_setup_loc_30426()
 -> BackgroundScrollEnigmaPrimaryCopySetupLoc30426 {
     // ASM loc_30426 (kid.asm:34048): both source-selection paths converge here
@@ -14059,8 +13921,7 @@ pub(crate) fn background_scroll_enigma_primary_copy_setup_loc_30426()
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_enigma_primary_longword_copy_loc_30428(
     source_longwords: &[u32],
     dbf_counter: u16,
@@ -14076,8 +13937,7 @@ pub(crate) fn background_scroll_enigma_primary_longword_copy_loc_30428(
         .collect()
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_enigma_secondary_longword_copy_loc_30432(
     source_longwords: &[u32],
     dbf_counter: u16,
@@ -14093,8 +13953,7 @@ pub(crate) fn background_scroll_enigma_secondary_longword_copy_loc_30432(
         .collect()
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_shift_data_slot_loc_30452(
     phase_word: u16,
     previous_scroll_word: u16,
@@ -14120,8 +13979,7 @@ pub(crate) fn background_scroll_shift_data_slot_loc_30452(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_shift_data_unchanged_loc_30476(
     previous_scroll_word: u16,
     updated_scroll_word: u16,
@@ -14137,8 +13995,8 @@ pub(crate) fn background_scroll_shift_data_unchanged_loc_30476(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_shift_data_second_pass_slot_loc_3048C(
     next_scroll_word: u16,
     previous_scroll_word: u16,
@@ -14154,8 +14012,8 @@ pub(crate) fn background_scroll_shift_data_second_pass_slot_loc_3048C(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_shift_data_second_pass_unchanged_loc_304A4(
     next_scroll_word: u16,
     previous_scroll_word: u16,
@@ -14170,8 +14028,8 @@ pub(crate) fn background_scroll_shift_data_second_pass_unchanged_loc_304A4(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_shift_data_second_pass_advance_loc_304A8(
     swapped_phase_accumulator: u32,
     phase_step_fp: u32,
@@ -14205,8 +14063,7 @@ fn reduce_background_scroll_phase(seed_phase_row: i16, background_width: i16) ->
     (reduced_phase_row, subtraction_count)
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn background_scroll_shift_data_wrap_loop_body_loc_304E0(
     seeded_phase_row: i16,
     background_width: i16,
@@ -14224,8 +14081,8 @@ pub(crate) fn background_scroll_shift_data_wrap_loop_body_loc_304E0(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_shift_data_wrap_loop_loc_304C2(
     updated_scroll_word: u16,
     background_width: i16,
@@ -14245,8 +14102,8 @@ pub(crate) fn background_scroll_shift_data_wrap_loop_loc_304C2(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_shift_data_wrap_store_loc_304CA(
     seeded_phase_row: i16,
     reduced_phase_row: i16,
@@ -14263,8 +14120,8 @@ pub(crate) fn background_scroll_shift_data_wrap_store_loc_304CA(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_shift_data_wrap_loop_loc_304D8(
     updated_scroll_word: u16,
     background_width: i16,
@@ -14284,8 +14141,7 @@ pub(crate) fn background_scroll_shift_data_wrap_loop_loc_304D8(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_shift_layers_no_scroll_fill_loc_30502(
     camera_x_pos: i16,
 ) -> BackgroundScrollShiftLayersNoScrollFillLoc30502 {
@@ -14301,8 +14157,8 @@ pub(crate) fn background_scroll_shift_layers_no_scroll_fill_loc_30502(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_shift_layers_setup_loc_3050A(
     current_level_id: u16,
     map_order_index: &[u8],
@@ -14354,7 +14210,6 @@ pub(crate) fn background_scroll_shift_layers_setup_loc_3050A(
     })
 }
 
-#[allow(non_snake_case)]
 pub fn background_scroll_shift_layers_leading_partial_fill_loc_30562(
     negated_camera_x_longword: u32,
     background_scroll_word: i16,
@@ -14377,7 +14232,6 @@ pub fn background_scroll_shift_layers_leading_partial_fill_loc_30562(
     })
 }
 
-#[allow(non_snake_case)]
 pub fn background_scroll_shift_layers_trailing_partial_fill_loc_30592(
     negated_camera_x_longword: u32,
     background_scroll_word: i16,
@@ -14398,7 +14252,6 @@ pub fn background_scroll_shift_layers_trailing_partial_fill_loc_30592(
     })
 }
 
-#[allow(non_snake_case)]
 pub fn background_scroll_theme_dispatch_loc_30598(
     background_theme: u16,
 ) -> BackgroundScrollThemeDispatchLoc30598 {
@@ -14418,7 +14271,7 @@ pub fn background_scroll_theme_dispatch_loc_30598(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn background_scroll_forest_water_ripple_visible_band_loc_305D4(
     start_scanline: i16,
 ) -> Option<BackgroundScrollForestWaterRippleVisibleBandLoc305D4> {
@@ -14438,7 +14291,7 @@ pub fn background_scroll_forest_water_ripple_visible_band_loc_305D4(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn background_scroll_forest_water_ripple_setup_loc_305E6(
     horiz_scroll_buffer: &[u32],
     start_scanline: u16,
@@ -14468,7 +14321,7 @@ pub fn background_scroll_forest_water_ripple_setup_loc_305E6(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn background_scroll_forest_water_ripple_loop_loc_3060A(
     horiz_scroll_buffer: &[u32],
     start_scanline: u16,
@@ -14500,7 +14353,7 @@ pub fn background_scroll_forest_water_ripple_loop_loc_3060A(
     Some(updated_scroll_buffer)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn background_scroll_desert_heat_ripple_visible_band_loc_306C2(
     map_header_row_count: u8,
     camera_y_pos: i16,
@@ -14540,7 +14393,7 @@ pub fn background_scroll_desert_heat_ripple_visible_band_loc_306C2(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn background_scroll_desert_heat_ripple_setup_loc_306D4(
     horiz_scroll_buffer: &[u32],
     start_scanline: u16,
@@ -14570,7 +14423,7 @@ pub fn background_scroll_desert_heat_ripple_setup_loc_306D4(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn background_scroll_desert_heat_ripple_loop_loc_306F4(
     horiz_scroll_buffer: &[u32],
     start_scanline: u16,
@@ -14602,8 +14455,8 @@ pub fn background_scroll_desert_heat_ripple_loop_loc_306F4(
     Some(updated_scroll_buffer)
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_enigma_row_transfer_loc_303D4(
     tile_row: u16,
     background_theme: u16,
@@ -14655,8 +14508,8 @@ pub(crate) fn background_scroll_enigma_row_transfer_loc_303D4(
     })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn transfer_scroll_data_dma_tail_loc_300D2(
     second_vsram_word: i16,
 ) -> TransferScrollDataDmaTailLoc300D2 {
@@ -14671,8 +14524,6 @@ pub(crate) fn transfer_scroll_data_dma_tail_loc_300D2(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn transfer_scroll_data_storm_loc_30110(
     camera_x_pos: i16,
     camera_y_pos: i16,
@@ -14695,8 +14546,7 @@ pub(crate) fn transfer_scroll_data_storm_loc_30110(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn transfer_scroll_data_storm_loop_loc_30130(
     camera_x_pos: i16,
     storm_scroll_offset: i16,
@@ -14711,8 +14561,7 @@ pub(crate) fn transfer_scroll_data_storm_loop_loc_30130(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn transfer_scroll_data_storm_setup_loc_30158(
     camera_x_pos: i16,
     storm_scroll_offset: i16,
@@ -14727,8 +14576,7 @@ pub(crate) fn transfer_scroll_data_storm_setup_loc_30158(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn transfer_scroll_data_storm_loop_loc_30172(
     camera_x_pos: i16,
     camera_y_pos: i16,
@@ -14755,8 +14603,8 @@ pub(crate) struct BackgroundScrollStripeRowSelectionLoc301CE {
     pub(crate) block_mapping_longword_offset: usize,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_stripe_row_selection_loc_301CE(
     tile_row: u16,
 ) -> BackgroundScrollStripeRowSelectionLoc301CE {
@@ -14785,8 +14633,8 @@ pub(crate) struct BackgroundScrollStripeLayoutSeedLoc301D8 {
     pub(crate) initial_column_bias: Option<i16>,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_stripe_layout_seed_loc_301D8(
     row_pointer_table: &[u16],
     row_pair_index: u16,
@@ -14819,8 +14667,8 @@ pub(crate) struct BackgroundScrollStripeRightWindowLoc301F6 {
     pub(crate) initial_column_bias: i16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_stripe_right_window_loc_301F6(
     half_column_mod32: u16,
 ) -> BackgroundScrollStripeRightWindowLoc301F6 {
@@ -14841,8 +14689,8 @@ pub(crate) struct BackgroundScrollStripeVerticalPassLoc301FE {
     pub(crate) second_pass_vdp_command: Option<u32>,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_stripe_vertical_pass_loc_301FE(
     tile_row: u16,
     half_column_mod32: u16,
@@ -14865,8 +14713,8 @@ pub(crate) fn background_scroll_stripe_vertical_pass_loc_301FE(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_stripe_restore_camera_column_loc_3023A(
     saved_camera_tile_column: u16,
 ) -> u16 {
@@ -14884,8 +14732,8 @@ pub(crate) struct BackgroundScrollStripeHorizontalGateLoc3023C {
     pub(crate) latched_camera_y_pos: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_stripe_horizontal_gate_loc_3023C(
     current_camera_tile_column: u16,
     saved_camera_tile_column: u16,
@@ -14928,8 +14776,8 @@ pub(crate) struct BackgroundScrollStripeHorizontalLayoutSeedLoc3026C {
     pub(crate) initial_row_bias: Option<i16>,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_stripe_horizontal_layout_seed_loc_3026C(
     row_pointer_table: &[u16],
     camera_tile_row: u16,
@@ -14966,8 +14814,8 @@ pub(crate) struct BackgroundScrollStripeHorizontalLowerWindowLoc3028E {
     pub(crate) initial_row_bias: i16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_stripe_horizontal_lower_window_loc_3028E(
     half_row_mod16: u16,
 ) -> BackgroundScrollStripeHorizontalLowerWindowLoc3028E {
@@ -14989,8 +14837,7 @@ pub(crate) struct BackgroundScrollStripeHorizontalPassLoc30296 {
     pub(crate) second_pass_vdp_command: Option<u32>,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_stripe_horizontal_pass_loc_30296(
     camera_tile_row: u16,
     render_column: u16,
@@ -15023,8 +14870,7 @@ pub(crate) struct BackgroundScrollStripeVerticalColumnTransferLoc30354 {
     pub(crate) tile_longword: u32,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_stripe_vertical_column_transfer_loc_30354(
     layout_word: u16,
     mapping_mask: u16,
@@ -15041,8 +14887,8 @@ pub(crate) fn background_scroll_stripe_vertical_column_transfer_loc_30354(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_stripe_vertical_column_transfer_loc_3036A(
     primary_mapping_longword: u32,
 ) -> u32 {
@@ -15058,8 +14904,8 @@ pub(crate) struct BackgroundScrollStripeVerticalColumnTransferLoc3037C {
     pub(crate) tile_longword: u32,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_stripe_vertical_column_transfer_loc_3037C(
     layout_word: u16,
     mapping_mask: u16,
@@ -15081,8 +14927,7 @@ pub(crate) struct BackgroundScrollStripeHorizontalRowTransferLoc3031A {
     pub(crate) tile_words: [u16; 2],
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn background_scroll_stripe_horizontal_row_transfer_loc_3031A(
     mapping_words: [u16; 2],
 ) -> BackgroundScrollStripeHorizontalRowTransferLoc3031A {
@@ -15108,8 +14953,8 @@ pub(crate) struct BackgroundScrollStripeHorizontalRowTransferLoc302FE {
     pub(crate) next_row_pointer: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn background_scroll_stripe_horizontal_row_transfer_loc_302FE(
     layout_word: u16,
     mapping_mask: u16,
@@ -15149,7 +14994,6 @@ pub(crate) fn background_scroll_stripe_horizontal_row_transfer_loc_302FE(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(
     cell_x: u16,
     cell_y: u16,
@@ -15173,7 +15017,7 @@ pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(
     Some((((cell_y << 8) & 0x0F00) | ((cell_x << 2) & 0x007C)).wrapping_add(0x4000))
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn fg_update_queue_cell_mapping_longwords_loc_165E(
     cell_word: u16,
@@ -15193,7 +15037,7 @@ pub(crate) fn fg_update_queue_cell_mapping_longwords_loc_165E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn fg_update_queue_culled_entry_advance_loc_167A(
     queue_tail_words_from_cell: &[u16],
 ) -> FgUpdateQueueCullAdvanceLoc167A {
@@ -15208,8 +15052,7 @@ pub(crate) fn fg_update_queue_culled_entry_advance_loc_167A(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn drain_fg_update_queue_custom_sub_1596(
     pending_queue: &mut Option<Vec<FgUpdateQueueCustomEntrySub1596>>,
 ) -> Vec<FgPlaneCustomWriteSub1596> {
@@ -15237,8 +15080,7 @@ pub(crate) fn drain_fg_update_queue_custom_sub_1596(
     writes
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn flagpole_fade_step_loc_C1D0(fade_progress: u16) -> FlagpoleFadeStepLocC1D0 {
     // ASM loc_C1D0 (kid.asm:15765): subtract $10 from $FFFFF876. If the
     // result is negative (bmi), the fade is complete and we branch to
@@ -15265,8 +15107,7 @@ pub(crate) fn flagpole_fade_step_loc_C1D0(fade_progress: u16) -> FlagpoleFadeSte
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn flagpole_scoreboard_cursor_loc_C1EE(
     camera_x: u16,
     camera_y: u16,
@@ -15296,8 +15137,7 @@ pub(crate) fn flagpole_scoreboard_cursor_loc_C1EE(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn flagpole_scoreboard_step_sub_C254(
     grid: &terrain::BlockGrid,
     cursor: FlagpoleScoreboardCursorSubC254,
@@ -15369,7 +15209,7 @@ pub(crate) fn flagpole_scoreboard_step_sub_C254(
 /// ASM loc_C21E (kid.asm:15794): the flagpole scoreboard reveal hibernates
 /// once per outer pass, then calls `sub_C254` until either the per-frame tile
 /// budget is negative or the `loc_C1EE` screen rectangle has been exhausted.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn flagpole_scoreboard_reveal_duration_loc_C21E(
     grid: &terrain::BlockGrid,
     camera_x: u16,
@@ -15395,7 +15235,7 @@ pub(crate) fn flagpole_scoreboard_reveal_duration_loc_C21E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn flagpole_scoreboard_reveal_tiles_loc_C21E(
     grid: &terrain::BlockGrid,
     camera_x: u16,
@@ -15447,13 +15287,13 @@ pub fn flagpole_scoreboard_reveal_tiles_loc_C21E(
 ///
 /// The 3 base-column values correspond to tile indices for the three
 /// scoreboard digit regions; `d2=$10E` = 270 tile rows per region.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const SCOREBOARD_DIGIT_CLEAR_STEP_COUNT_LOC_C2F2: u16 = 8;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const SCOREBOARD_DIGIT_CLEAR_HIBERNATE_FRAMES_LOC_C2F4: u16 = 4;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const SCOREBOARD_DIGIT_CLEAR_BASES_LOC_C2F4: [u16; 3] = [0x02FB, 0x0409, 0x0517];
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const SCOREBOARD_DIGIT_CLEAR_ROW_COUNT_LOC_C2F4: u16 = 0x010E;
 
 /// ASM loc_C326 (kid.asm:15946): bonus-stage digit-clear entry.
@@ -15465,14 +15305,13 @@ pub(crate) const SCOREBOARD_DIGIT_CLEAR_ROW_COUNT_LOC_C2F4: u16 = 0x010E;
 ///
 /// The bonus stage has a single digit region rather than the main scoreboard's
 /// three; `$48` rows vs `$10E` reflects the smaller tile area.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const BONUS_DIGIT_CLEAR_BASE_LOC_C328: u16 = 0x0625;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const BONUS_DIGIT_CLEAR_ROW_COUNT_LOC_C328: u16 = 0x0048;
 
 /// A single VDP VRAM-write command generated by `sub_C346`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
 pub(crate) struct VdpVramWriteCmd {
     /// 32-bit value written to VDP control port 4(a6).
     pub(crate) control: u32,
@@ -15497,8 +15336,8 @@ pub(crate) struct VdpVramWriteCmd {
 ///   addi.w #$20,d1        ; next row (+32 bytes = one 8×8 tile)
 ///   dbf    d2,loc_C34E
 /// ```
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn scoreboard_digit_vdp_clear_sub_C346(
     base_col: u16,
     step: u16,
@@ -15531,24 +15370,23 @@ pub(crate) fn scoreboard_digit_vdp_clear_sub_C346(
 ///
 /// `loc_C3BA` (kid.asm:16009): unrolled write — 8 longwords per iteration,
 /// `$80` iterations = `$400` longwords = `$1000` bytes.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const TILE_FADE_VRAM_ADDRESS_SUB_C378: u32 = 0xF000;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const TILE_FADE_BUFFER_LONGWORDS_LOC_C38A: u16 = 0x0400;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const TILE_FADE_STEP_COUNT_LOC_C392: u16 = 16;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const TILE_FADE_HIBERNATE_FRAMES_LOC_C392: u16 = 2;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const TILE_FADE_MASK_COLUMNS_SUB_C3DA: u16 = 0x0080;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const TILE_FADE_WRITE_ITERATIONS_LOC_C3BA: u16 = 0x0080;
 
 /// ASM unk_C418 (kid.asm:16064): column-offset table for `sub_C3DA`.
 /// Each entry encodes a byte offset within a tile row; the low bit selects
 /// which nibble to mask (even → high nibble cleared via `$0F`, odd → low
 /// nibble cleared via `$F0`).
-#[allow(dead_code)]
 pub(crate) const TILE_FADE_COLUMN_TABLE_UNK_C418: [u8; 16] = [
     0x00, 0x12, 0x02, 0x10, 0x09, 0x1B, 0x0B, 0x19, 0x01, 0x13, 0x03, 0x11, 0x08, 0x1A, 0x0A, 0x18,
 ];
@@ -15571,8 +15409,7 @@ pub(crate) const TILE_FADE_COLUMN_TABLE_UNK_C418: [u8; 16] = [
 ///   addi.w #$20,a0     ; next tile row
 ///   dbf    d2,loc_C408
 /// ```
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn tile_fade_mask_column_sub_C3F6(buf: &mut [u8], col_selector: u16, row_count: u16) {
     let byte_offset = (col_selector >> 1) as usize;
     let mask: u8 = if col_selector & 1 != 0 { 0xF0 } else { 0x0F };
@@ -15605,8 +15442,8 @@ pub(crate) fn tile_fade_mask_column_sub_C3F6(buf: &mut [u8], col_selector: u16, 
 ///   addq.w #4,d3         ; +4 (total +$24 from base)
 ///   ; falls through to sub_C3F6
 /// ```
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn tile_fade_mask_step_sub_C3DA(buf: &mut [u8], step: u16, row_count: u16) {
     let dbf_count = row_count.wrapping_sub(1);
     let base = u16::from(TILE_FADE_COLUMN_TABLE_UNK_C418[step as usize]);
@@ -15656,22 +15493,19 @@ pub(crate) fn tile_fade_mask_step_sub_C3DA(buf: &mut [u8], step: u16, row_count:
 ///   bne.s  loc_C428
 ///   jmp    (j_Delete_CurrentObject).w
 /// ```
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const SPRITE_SCATTER_TABLE_X_OFFSET_LOC_C428: u32 = 0xFFFF_0006;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const SPRITE_SCATTER_ENTRY_COUNT_LOC_C428: u16 = 10;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const SPRITE_SCATTER_ENTRY_STRIDE_LOC_C428: u16 = 8;
 /// ASM loc_C436: lower visible bound — `cmpi.w #$70,d2; ble.s loc_C452`.
-#[allow(dead_code)]
 pub(crate) const SPRITE_SCATTER_VISIBLE_MIN_LOC_C436: u16 = 0x0070;
 /// ASM loc_C436: upper visible bound — `cmpi.w #$1D0,d2; bge.s loc_C452`.
-#[allow(dead_code)]
 pub(crate) const SPRITE_SCATTER_VISIBLE_MAX_LOC_C436: u16 = 0x01D0;
 /// ASM loc_C436: screen centre threshold — `cmpi.w #$120,d2; bge.s loc_C450`.
 /// Sprites left of centre are nudged left (subq), right of centre nudged right
 /// (addq at loc_C450).
-#[allow(dead_code)]
 pub(crate) const SPRITE_SCATTER_CENTRE_LOC_C436: u16 = 0x0120;
 
 /// Pure function modelling one pass of the sprite scatter loop (loc_C436–
@@ -15681,8 +15515,8 @@ pub(crate) const SPRITE_SCATTER_CENTRE_LOC_C436: u16 = 0x0120;
 ///
 /// Each visible sprite (`$71`–`$1CF` exclusive of bounds) is nudged ±1 from
 /// centre (`$120`). Out-of-range sprites are skipped.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn sprite_scatter_step_loc_C436(x_positions: &mut [u16; 10]) -> bool {
     // ASM loc_C436: d1 tracks whether any sprite was nudged this pass.
     let mut any_nudged = false;
@@ -15735,40 +15569,38 @@ pub(crate) fn sprite_scatter_step_loc_C436(x_positions: &mut [u16; 10]) -> bool 
 ///   move.w #$517,$24(a1)
 ///   dbf    d7,loc_C466
 /// ```
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_NUMBER_DIGIT_COUNT_LOC_C466: u16 = 7;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_NUMBER_GFX_SPEC_LOC_C466: u32 = 0x0200_0004;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_NUMBER_DISPLAY_FLAG_LOC_C466: u8 = 0xFF;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_NUMBER_PRIORITY_LOC_C466: u8 = 2;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_NUMBER_PALETTE_LOC_C466: u8 = 1;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_NUMBER_INITIAL_PATTERN_LOC_C466: u16 = 0x0517;
 /// Offset within the parent object (`a5`) where slot pointers start.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_NUMBER_SLOT_ARRAY_OFFSET_LOC_C466: u16 = 0x0044;
 
 /// ASM loc_C48C (kid.asm:16128): maximum displayable value — `cmpi.l #9999999,d6`.
 /// If `$60(a5)` exceeds this, the display loop clamps to this ceiling.
-#[allow(dead_code)]
 pub(crate) const EOL_NUMBER_MAX_VALUE_LOC_C48C: u32 = 9_999_999;
 
 /// ASM loc_C48C (kid.asm:16128): number of digits in the display (7 powers-of-ten
 /// entries from 1_000_000 down to 1, matching `cmpi.w #7,d7` at loc_C4E2+10).
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_NUMBER_DIGIT_COUNT_LOC_C48C: u16 = 7;
 
 /// ASM loc_C4E2 (kid.asm:16171): per-digit horizontal spacing —
 /// `mulu.w #$C,d0` multiplies digit index by 12 pixels.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_NUMBER_DIGIT_SPACING_LOC_C4E2: u16 = 0x000C;
 
 /// ASM PowersOfTen (kid.asm:16196): divisor table for 7-digit extraction.
 /// loc_C4AE (kid.asm:16139) walks this array left-to-right, one entry per digit.
-#[allow(dead_code)]
 pub(crate) const POWERS_OF_TEN_LOC_C48C: [u32; 7] = [1_000_000, 100_000, 10_000, 1_000, 100, 10, 1];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15794,8 +15626,8 @@ pub(crate) struct LevelSkipCompletionTimeDigitSpriteLocD468 {
 /// Sprites are placed right-to-left at camera X + `$11C`, `$110`, `$104` and
 /// share camera Y + `$D4`, display flag `$FF`, priority `$02`, palette `$01`,
 /// and VRAM tile `$517`.
-#[allow(dead_code)]
-#[allow(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
+#[expect(non_snake_case)]
 pub(crate) fn level_skip_completion_time_digit_sprites_loc_D468(
     level_skip_cheat: bool,
     level_completion_time: u8,
@@ -15860,8 +15692,7 @@ pub(crate) fn level_skip_completion_time_digit_sprites_loc_D468(
 ///   bpl.s  loc_C4D2
 ///   add.l  d0,d6                      ; restore remainder
 /// ```
-#[allow(dead_code)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn eol_number_digit_loc_C4AE(
     remainder: u32,
     power: u32,
@@ -15892,8 +15723,7 @@ pub(crate) fn eol_number_digit_loc_C4AE(
 /// ASM loc_C4CE/loc_C4D2 (kid.asm:16159–16166): extract digit value and
 /// return `(digit, new_remainder)`. Uses the original repeated-subtraction
 /// algorithm: `d1 = -1; loop: d1++, d6 -= d0, bpl loop; d6 += d0`.
-#[allow(dead_code)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn eol_extract_digit_loc_C4CE(remainder: u32, power: u32) -> (u8, u32) {
     // ASM loc_C4CE: moveq #-1,d1
     // ASM loc_C4D2: addq.w #1,d1; sub.l d0,d6; bpl.s loc_C4D2; add.l d0,d6
@@ -15905,8 +15735,8 @@ pub(crate) fn eol_extract_digit_loc_C4CE(remainder: u32, power: u32) -> (u8, u32
 /// ASM loc_C48C–loc_C4E2 (kid.asm:16128–16182): decompose a clamped number
 /// into 7 display digits, with leading-zero suppression. Returns an array of
 /// `Option<u8>` per digit position (millions → ones). `None` = blank.
-#[allow(dead_code)]
-#[allow(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
+#[expect(non_snake_case)]
 pub(crate) fn eol_number_digits_loc_C48C(raw_value: u32) -> [Option<u8>; 7] {
     // ASM loc_C48C: cmpi.l #9999999,d6; ble.s loc_C4AE; move.l #9999999,d6
     let mut d6 = raw_value.min(EOL_NUMBER_MAX_VALUE_LOC_C48C);
@@ -15942,9 +15772,9 @@ pub(crate) fn eol_number_digits_loc_C48C(raw_value: u32) -> [Option<u8>; 7] {
 ///   move.w #$409,vram_tile(a3)     ; VRAM tile base
 ///   bra.s  loc_C592                ; fall through to common init
 /// ```
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_NUMBER_VARIANT_PALETTE_LOC_C564: u8 = 1;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_NUMBER_VARIANT_VRAM_TILE_LOC_C564: u16 = 0x0409;
 
 /// ASM Object_EOL_Text (kid.asm:16227): standard EOL text sprite object.
@@ -15957,9 +15787,9 @@ pub(crate) const EOL_NUMBER_VARIANT_VRAM_TILE_LOC_C564: u16 = 0x0409;
 ///   move.b #2,palette_line(a3)     ; palette 2
 ///   move.w #$517,vram_tile(a3)     ; VRAM tile base
 /// ```
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_TEXT_PALETTE_LOC_C57C: u8 = 2;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_TEXT_VRAM_TILE_LOC_C57C: u16 = 0x0517;
 
 /// ASM loc_C592 (kid.asm:16233): common EOL object init shared by loc_C564
@@ -15971,9 +15801,9 @@ pub(crate) const EOL_TEXT_VRAM_TILE_LOC_C57C: u16 = 0x0517;
 ///   move.b #1,priority(a3)         ; priority 1
 ///   move.w $44(a5),addroffset_sprite(a3)  ; sprite link from parent
 /// ```
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_COMMON_DISPLAY_FLAG_LOC_C592: u8 = 0xFF;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_COMMON_PRIORITY_LOC_C592: u8 = 1;
 
 /// ASM loc_C5A2 (kid.asm:16238): EOL object position-update loop.
@@ -16003,8 +15833,8 @@ pub(crate) const EOL_COMMON_PRIORITY_LOC_C592: u8 = 1;
 ///
 /// Pure model of one frame's position update (no hibernation/camera).
 /// Returns `(new_x, new_y, new_timer, velocity_cleared)`.
-#[allow(dead_code)]
-#[allow(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
+#[expect(non_snake_case)]
 pub(crate) fn eol_object_position_step_loc_C5A2(
     x: i16,
     y: i16,
@@ -16042,19 +15872,19 @@ pub(crate) fn eol_object_position_step_loc_C5A2(
 ///   moveq  #2,d2                  ; x_vel = 2
 ///   moveq  #4,d3                  ; y_vel = 4
 /// ```
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_EXTRA_LIFE_PALETTE_LOC_C5DE: u8 = 2;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_EXTRA_LIFE_PRIORITY_LOC_C5DE: u8 = 1;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_EXTRA_LIFE_VRAM_TILE_LOC_C5DE: u16 = 0x0517;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_EXTRA_LIFE_INITIAL_X_LOC_C5DE: i16 = -0x40;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_EXTRA_LIFE_INITIAL_Y_LOC_C5DE: i16 = 0;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_EXTRA_LIFE_INITIAL_X_VEL_LOC_C5DE: i16 = 2;
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const EOL_EXTRA_LIFE_INITIAL_Y_VEL_LOC_C5DE: i16 = 4;
 
 /// ASM loc_C60C–loc_C644 (kid.asm:16270–16299): bouncing-ball loop for the
@@ -16087,8 +15917,8 @@ pub(crate) const EOL_EXTRA_LIFE_INITIAL_Y_VEL_LOC_C5DE: i16 = 4;
 /// ```
 ///
 /// Pure model of one bounce frame. Returns `(new_x, new_y, new_x_vel, new_y_vel)`.
-#[allow(dead_code)]
-#[allow(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
+#[expect(non_snake_case)]
 pub(crate) fn eol_extra_life_bounce_step_loc_C60C(
     x: i16,
     y: i16,
@@ -16145,17 +15975,17 @@ pub(crate) fn eol_extra_life_bounce_step_loc_C60C(
 
 /// ASM loc_D0C0 (kid.asm:16368): VRAM target for TtlCrdLetters decompress.
 /// `move.w #$8120,d0; jsr (j_DecompressToVRAM).l`
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub(crate) const GAME_OVER_VRAM_LETTERS_LOC_D0C0: u16 = 0x8120;
 
 /// ASM loc_D0C0 (kid.asm:16382): VRAM target for unk_E06B5 decompress.
 /// `move.w #$A2E0,d0; jsr (j_DecompressToVRAM).l`
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub(crate) const GAME_OVER_VRAM_DIGITS_LOC_D0C0: u16 = 0xA2E0;
 
 /// ASM loc_D0C0 (kid.asm:16351): hibernate $24 frames before GFX cleanup.
 /// `move.w #$24,-(sp); jsr (j_Hibernate_Object).w`
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub(crate) const GAME_OVER_FADEOUT_HIBERNATE_FRAMES_LOC_D074: u16 = 0x24;
 
 // ── loc_D11C / loc_D12E: score screen palette copy loops ────────────────
@@ -16164,23 +15994,23 @@ pub(crate) const GAME_OVER_FADEOUT_HIBERNATE_FRAMES_LOC_D074: u16 = 0x24;
 /// `moveq #$E,d0` → dbf loops $E+1 = 15 times.  Writes 15 colours into
 /// palette line 2 starting at colour index 1 (byte offset $42 = line 2 base
 /// $40 + 2 bytes).
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub(crate) const GAME_OVER_PAL_LINE2_WORD_COUNT_LOC_D11C: u16 = 15;
 
 /// ASM loc_D11C: destination byte offset within Palette_Buffer.
 /// `lea (Palette_Buffer+$42).l,a1`
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub(crate) const GAME_OVER_PAL_LINE2_DEST_OFFSET_LOC_D11C: u16 = 0x42;
 
 /// ASM loc_D12E (kid.asm:16396): word count for Pal_D048 → Palette_Buffer+$22.
 /// `moveq #4,d0` → dbf loops $4+1 = 5 times.  Writes 5 colours into palette
 /// line 1 starting at colour index 1 (byte offset $22 = line 1 base $20 + 2).
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub(crate) const GAME_OVER_PAL_LINE1_WORD_COUNT_LOC_D12E: u16 = 5;
 
 /// ASM loc_D12E: destination byte offset within Palette_Buffer.
 /// `lea (Palette_Buffer+$22).l,a1`
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub(crate) const GAME_OVER_PAL_LINE1_DEST_OFFSET_LOC_D12E: u16 = 0x22;
 
 /// ASM loc_D142 (kid.asm:16403): game-over palette backup loop.
@@ -16188,7 +16018,7 @@ pub(crate) const GAME_OVER_PAL_LINE1_DEST_OFFSET_LOC_D12E: u16 = 0x22;
 /// loc_D142: move.l (a0)+,(a1)+; dbf d0,loc_D142`.
 /// Copies 32 longwords (64 words = 128 bytes) from `Palette_Buffer` to
 /// `Palette_Buffer_2` before the fade target buffer is cleared at `loc_D150`.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const GAME_OVER_PALETTE_BACKUP_COUNT_LOC_D142: u16 = 0x1F;
 
 /// ASM loc_D150 (kid.asm:16409): game-over fade target clear loop.
@@ -16196,7 +16026,7 @@ pub(crate) const GAME_OVER_PALETTE_BACKUP_COUNT_LOC_D142: u16 = 0x1F;
 /// loc_D150: clr.l (a1)+; dbf d0,loc_D150`.
 /// Clears 32 longwords (64 words = 128 bytes) in `Palette_Buffer_3` before
 /// seeding the fade progress word at `$FFFFF876`.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const GAME_OVER_PALETTE_CLEAR_COUNT_LOC_D150: u16 = 0x1F;
 
 /// ASM loc_D702 (kid.asm:16818): after the EOL bonus-object setup, hibernate
@@ -16206,8 +16036,8 @@ pub(crate) const GAME_OVER_PALETTE_CLEAR_COUNT_LOC_D150: u16 = 0x1F;
 /// loc_D718: move.l (a0)+,(a1)+; dbf d0,loc_D718`.
 /// Copies 32 longwords (64 words = 128 bytes) from `Palette_Buffer` to
 /// `Palette_Buffer_2` before the fade target buffer is cleared.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn eol_title_return_palette_backup_loc_D718(palette_buffer: [u16; 0x40]) -> [u16; 0x40] {
     palette_buffer
 }
@@ -16217,8 +16047,8 @@ pub(crate) fn eol_title_return_palette_backup_loc_D718(palette_buffer: [u16; 0x4
 /// loc_D726: move.w #0,(a0)+; dbf d0,loc_D726`.
 /// Clears all 64 words in `Palette_Buffer_3` before seeding `$FFFFF876` with
 /// `$0100` for the title-return fade.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn eol_title_return_palette_clear_loc_D726(palette_buffer_3: &mut [u16; 0x40]) {
     palette_buffer_3.fill(0);
 }
@@ -16233,8 +16063,8 @@ pub(crate) struct EolTitleReturnFadeLocD734 {
 /// ASM loc_D734 (kid.asm:16836): the title-return fade waits one frame,
 /// writes `$7C7F` to the shared fade mask, subtracts `$10` from `$FFFFF876`,
 /// and loops until the progress word reaches `$0080`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn eol_title_return_fade_loc_D734(initial_progress: u16) -> EolTitleReturnFadeLocD734 {
     let mut progress = initial_progress;
     let mut hibernate_frames = 0;
@@ -16268,7 +16098,7 @@ pub(crate) fn eol_title_return_fade_loc_D734(initial_progress: u16) -> EolTitleR
 /// `$FFFFF876 == $0080`, the selected score-room CRAM words are the result of
 /// `sub_14C0` blending from `Palette_Buffer_2` toward cleared
 /// `Palette_Buffer_3`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn eol_title_return_faded_palette_word_loc_D734(palette_word: u16) -> u16 {
     let fade_curve = build_palette_fade_curve_sub_14C0(0x0080);
     blend_palette_entry_loc_1538(palette_word, 0, &fade_curve)
@@ -16278,8 +16108,8 @@ pub fn eol_title_return_faded_palette_word_loc_D734(palette_word: u16) -> u16 {
 /// `moveq #$1F,d0` followed by `move.l (a0)+,(a1)+; dbf d0,loc_D84E`
 /// copies 32 longwords, i.e. the full 128-byte `Palette_Buffer`, into
 /// `Palette_Buffer_2`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_credits_palette_backup_loc_D84E(palette_buffer: [u16; 0x40]) -> [u16; 0x40] {
     palette_buffer
 }
@@ -16288,8 +16118,8 @@ pub(crate) fn end_credits_palette_backup_loc_D84E(palette_buffer: [u16; 0x40]) -
 /// `moveq #$3F,d0; moveq #0,d1` followed by
 /// `move.w d1,(a0)+; dbf d0,loc_D85E` clears all 64 words in
 /// `Palette_Buffer_3`, then seeds `$FFFFF876` with `$0100`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_credits_palette_clear_loc_D85E(palette_buffer_3: &mut [u16; 0x40]) -> u16 {
     palette_buffer_3.fill(0);
     0x0100
@@ -16309,8 +16139,8 @@ pub(crate) struct EndCreditsFadeStepLocD86C {
 /// to the end-sequence tail only after the word underflows negative.
 /// Non-negative frames fall through the loop-back path, which writes `-1` to
 /// both pending palette masks.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_credits_fade_step_loc_D86C(
     fade_progress: u16,
     pending_palette_0_mask: u32,
@@ -16339,8 +16169,8 @@ pub(crate) fn end_credits_fade_step_loc_D86C(
 /// ASM loc_D876 (kid.asm:16951): the final-level end-credits fade loop-back
 /// writes `-1` to both pending palette mask longwords before returning to the
 /// one-frame hibernate/subtract loop at `loc_D86C`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_credits_fade_loopback_loc_D876() -> (u32, u32) {
     (u32::MAX, u32::MAX)
 }
@@ -16356,8 +16186,8 @@ pub(crate) struct EndCreditsTailLocD882 {
 /// ASM loc_D882 (kid.asm:16958): once the end-credits fade progress underflows,
 /// set `$FFFFFBCE`, clear `$FFFFFBCC`, switch `Game_Mode` to `$30`, and jump
 /// through the shared `loc_6E2` mode-reset tail.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_credits_tail_loc_D882() -> EndCreditsTailLocD882 {
     EndCreditsTailLocD882 {
         enters_end_sequence: true,
@@ -16379,8 +16209,7 @@ pub(crate) struct ObjectCollisionFieldsLocD980 {
 /// `Addr_FirstObjectSlot`, skip the current object in `a5`, and clear the
 /// three collision/contact longwords at `$36`, `$3A`, and `$3E` on every other
 /// object before the later `Delete_AllButCurrentObject` tail.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn flagpole_clear_other_object_collision_loc_D980(
     objects: &mut [ObjectCollisionFieldsLocD980],
     current_object_addr: u32,
@@ -16398,8 +16227,8 @@ pub(crate) fn flagpole_clear_other_object_collision_loc_D980(
 
 /// ASM loc_D984 (kid.asm:17010): loop over `Addr_FirstObjectSlot`, skip the
 /// current object in `a5`, and clear `$36/$3A/$3E` on every other object.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_credits_clear_other_object_collision_loc_D984(
     objects: &mut [ObjectCollisionFieldsLocD980],
     current_object_addr: u32,
@@ -16422,8 +16251,7 @@ pub(crate) struct EndCreditsCleanupSetupLocD99E {
 /// non-current objects, set `$FFFFFB6A`, reset the scroll-plane VDP registers,
 /// clear `Level_Special_Effects`, allocate the `loc_C2F2` fade worker, and
 /// hibernate for `$24` frames before the GFX cleanup loop at `loc_D9D4`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn end_credits_cleanup_setup_loc_D99E() -> EndCreditsCleanupSetupLocD99E {
     EndCreditsCleanupSetupLocD99E {
         deletes_all_but_current_object: true,
@@ -16439,8 +16267,8 @@ pub(crate) fn end_credits_cleanup_setup_loc_D99E() -> EndCreditsCleanupSetupLocD
 /// ASM loc_D9D4 (kid.asm:17036): walk `Addr_FirstGfxObjectSlot`, stash each
 /// next pointer before deletion, preserve `Addr_GfxObject_Kid`, and call
 /// `j_loc_1078` for every other GFX object.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_credits_deleted_gfx_objects_loc_D9D4(
     gfx_object_addrs: &[u32],
     kid_gfx_object_addr: u32,
@@ -16455,8 +16283,8 @@ pub(crate) fn end_credits_deleted_gfx_objects_loc_D9D4(
 /// ASM loc_D9E6 (kid.asm:17044): after either deleting the current GFX object
 /// or skipping `Addr_GfxObject_Kid`, pop the saved next pointer and branch
 /// back to `loc_D9D4` only when that pointer is non-zero.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_credits_gfx_cleanup_next_loc_D9E6(
     saved_next_gfx_object_addr: u32,
 ) -> Option<u32> {
@@ -16476,8 +16304,7 @@ pub(crate) struct EndCreditsHundredKTripSetupLocD9EA {
 /// allocate the `sub_C378` worker, set `$FFFFFB49`, and seed `d0=$3F` with
 /// `a0/a1/a2` pointing at the three palette buffers before falling into
 /// `loc_DA16`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn end_credits_hundred_k_trip_setup_loc_D9EA() -> EndCreditsHundredKTripSetupLocD9EA {
     EndCreditsHundredKTripSetupLocD9EA {
         hibernates_one_frame: true,
@@ -16498,8 +16325,7 @@ pub(crate) struct EndCreditsHundredKTripPaletteSetupLocDA16 {
 /// ASM loc_DA16 (kid.asm:17059): copy each of the 64 `Palette_Buffer` words
 /// into `Palette_Buffer_2`, subtract `$0888` from the copied word, store that
 /// darkened word into `Palette_Buffer_3`, then seed `$FFFFF876` with `$0100`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn end_credits_hundred_k_trip_palette_setup_loc_DA16(
     palette_buffer: [u16; 0x40],
 ) -> EndCreditsHundredKTripPaletteSetupLocDA16 {
@@ -16526,8 +16352,7 @@ pub(crate) struct EndCreditsHundredKTripFadeStepLocDA30 {
 /// ASM loc_DA30 (kid.asm:17070): each Hundred K Trip fade frame hibernates
 /// once, subtracts `$0011` from `$FFFFF876`, decrements `d0`, and exits to
 /// `loc_DA4A` only when the post-decrement `d0` is zero.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn end_credits_hundred_k_trip_fade_step_loc_DA30(
     fade_progress: u16,
     countdown: u16,
@@ -16553,8 +16378,7 @@ pub(crate) struct EndCreditsHundredKTripFadeLoopbackLocDA3E {
 /// ASM loc_DA3E (kid.asm:17076): write `-1` to both pending palette masks
 /// (`$FFFFF888` and `$FFFFF88C`) before branching back to `loc_DA30` for the
 /// next hibernating fade frame.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn end_credits_hundred_k_trip_fade_loopback_loc_DA3E()
 -> EndCreditsHundredKTripFadeLoopbackLocDA3E {
     EndCreditsHundredKTripFadeLoopbackLocDA3E {
@@ -16580,8 +16404,7 @@ pub(crate) struct EndCreditsHundredKTripTeleportLocDA4A {
 /// ASM loc_DA4A (kid.asm:17083): once the Hundred K Trip fade countdown ends,
 /// seed the score and destination state, clear the current helmet, set the
 /// continue latch, and branch through the shared `Teleport` tail.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn end_credits_hundred_k_trip_teleport_loc_DA4A() -> EndCreditsHundredKTripTeleportLocDA4A
 {
     EndCreditsHundredKTripTeleportLocDA4A {
@@ -16611,8 +16434,7 @@ pub(crate) struct LevelSpriteStripForwardSetupLocE650 {
 /// ASM loc_E650 (kid.asm:18321): derive the sprite-strip span from `d7`,
 /// advance the forward-facing screen X by twice that span plus `$20`, and
 /// reject the strip when the adjusted sprite X reaches `$1C0`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn level_sprite_strip_forward_setup_loc_E650(
     screen_x: i16,
     d7_width_seed: i16,
@@ -16642,8 +16464,7 @@ pub(crate) struct LevelSpriteStripReverseSetupLocE67E {
 /// ASM loc_E67E (kid.asm:18342): reversed strip setup subtracts the doubled
 /// span and `$20` from `d0`, uses that adjusted X for `a1`, sets bit `$0800`
 /// in the sprite tile word, and rejects positions at or left of `$60`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn level_sprite_strip_reverse_setup_loc_E67E(
     screen_x: i16,
     d3_span_word: i16,
@@ -16685,8 +16506,7 @@ pub(crate) struct LevelSpriteStripFirstWriteLocE692 {
 /// ASM loc_E692 (kid.asm:18350): seed `d5/d6` from the adjusted vertical
 /// span, convert `d3` into the remaining piece counter, then write the leading
 /// sprite entry at `(a2)+` with tile `$E676 | d4`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn level_sprite_strip_first_write_loc_E692(
     base_y: i16,
     link: u8,
@@ -16727,8 +16547,8 @@ pub(crate) struct LevelSpriteStripMiddleLoopLocE6BC {
 /// ASM loc_E6BC (kid.asm:18368): subtract eight from the remaining strip
 /// counter before each test. Non-negative results emit a full middle sprite
 /// with size `$0F`, tile `$E67E | d4`, then advance `d1` by `$20`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn level_sprite_strip_middle_loop_loc_E6BC(
     mut remaining_span_counter: u16,
     mut y_pos: i16,
@@ -16787,8 +16607,8 @@ pub(crate) struct LevelSpriteStripRemainderLocE6D8 {
 /// middle chunks ended exactly on a `$20` boundary. Other negative counters
 /// are shifted left twice, added into `d1`, then emitted as one size `$0F`
 /// sprite with tile `$E67E | d4`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn level_sprite_strip_remainder_loc_E6D8(
     remainder_counter: u16,
     y_pos: i16,
@@ -16828,8 +16648,8 @@ pub(crate) struct LevelSpriteStripTailLocE6F8 {
 
 /// ASM loc_E6F8 (kid.asm:18396): write the trailing cap sprite at the current
 /// `d1`, using size `$0D`, the next sprite link, and tile `$F676 | d4`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn level_sprite_strip_tail_loc_E6F8(
     y_pos: i16,
     link: u8,
@@ -16876,8 +16696,7 @@ pub(crate) struct LevelSpriteStripCollisionColumnInputLocE70A {
 /// commit `a2/d2` to the sprite globals, convert `a1` from biased screen X to
 /// a level tile column, reject columns outside `Level_width_blocks`, then
 /// unbias the vertical probe span and clamp the top row at zero.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn level_sprite_strip_collision_column_loc_E70A(
     input: LevelSpriteStripCollisionColumnInputLocE70A,
 ) -> LevelSpriteStripCollisionColumnLocE70A {
@@ -16910,8 +16729,7 @@ pub(crate) fn level_sprite_strip_collision_column_loc_E70A(
 /// ASM loc_E738 (kid.asm:18423): clamp the already non-negative top terrain
 /// probe row to `Level_height_blocks - 1` when it reaches or passes the level
 /// height.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn level_sprite_strip_top_row_upper_clamp_loc_E738(
     top_tile_row: i16,
     level_height_blocks: i16,
@@ -16926,8 +16744,7 @@ pub(crate) fn level_sprite_strip_top_row_upper_clamp_loc_E738(
 /// ASM loc_E744 (kid.asm:18429): convert the bottom terrain probe from world
 /// pixels to a tile row with arithmetic shift, then clamp negative rows to
 /// zero before the bottom upper-bound check.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn level_sprite_strip_bottom_row_lower_clamp_loc_E744(bottom_world_y: i16) -> i16 {
     (bottom_world_y >> 4).max(0)
 }
@@ -16935,8 +16752,7 @@ pub(crate) fn level_sprite_strip_bottom_row_lower_clamp_loc_E744(bottom_world_y:
 /// ASM loc_E74A (kid.asm:18434): cap the already non-negative bottom terrain
 /// probe row to `Level_height_blocks - 1` before seeding the vertical collision
 /// scan at `loc_E756`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn level_sprite_strip_bottom_row_upper_clamp_loc_E74A(
     bottom_tile_row: i16,
     level_height_blocks: i16,
@@ -16959,8 +16775,8 @@ pub(crate) struct LevelSpriteStripCollisionScanLocE756 {
 /// ASM loc_E756 (kid.asm:18440): convert the clamped top/bottom rows into the
 /// inclusive `sub_E446` DBF counter, load the top row pointer from `$FFFF4A04`,
 /// then advance by `tile_column * 2` bytes to seed the first collision cell.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn level_sprite_strip_collision_scan_seed_loc_E756(
     top_tile_row: i16,
     bottom_tile_row: i16,
@@ -16987,8 +16803,7 @@ pub(crate) struct LevelSpriteStripRightAdjacentColumnLocE786 {
 /// ASM loc_E786 (kid.asm:18460): when `$FFFFFABE` selects the reversed strip
 /// path, scan the right-adjacent terrain column by incrementing `d1`, rejecting
 /// columns at `Level_width_blocks`, then advancing `a2` by one collision word.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn level_sprite_strip_right_adjacent_column_loc_E786(
     tile_column: i16,
     collision_cell_addr: u16,
@@ -17008,8 +16823,7 @@ pub(crate) fn level_sprite_strip_right_adjacent_column_loc_E786(
 /// ASM loc_E790 (kid.asm:18466): once the adjacent terrain column pointer has
 /// been selected, compare `$FFFFFAB8` with `#3`; values below three skip the
 /// second `sub_E446`, while values three or higher scan that adjacent column.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn level_sprite_strip_should_scan_adjacent_column_loc_E790(
     strip_scan_counter: u16,
 ) -> bool {
@@ -17018,8 +16832,8 @@ pub(crate) fn level_sprite_strip_should_scan_adjacent_column_loc_E790(
 
 /// ASM loc_E79C (kid.asm:18471): every accepted terrain sprite strip advances
 /// `$FFFFFAB8` by one with word wrapping, then falls through to `loc_E7A8`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn level_sprite_strip_advance_scan_counter_loc_E79C(strip_scan_counter: u16) -> u16 {
     strip_scan_counter.wrapping_add(1)
 }
@@ -17027,8 +16841,8 @@ pub(crate) fn level_sprite_strip_advance_scan_counter_loc_E79C(strip_scan_counte
 /// ASM loc_E7A4 (kid.asm:18476): rejected terrain sprite strips reset the
 /// adjacent-column scan counter `$FFFFFAB8` before falling through to
 /// `loc_E7A8`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn level_sprite_strip_reset_scan_counter_loc_E7A4() -> u16 {
     0
 }
@@ -17041,8 +16855,8 @@ pub(crate) enum LevelSpriteStripExitLocE7A8 {
 /// ASM loc_E7A8 (kid.asm:18479): all rejected strip paths branch directly to
 /// `loc_E99C`, leaving the current sprite globals to seed the visible object
 /// sprite pass.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn level_sprite_strip_exit_loc_E7A8() -> LevelSpriteStripExitLocE7A8 {
     LevelSpriteStripExitLocE7A8::ContinueToVisibleObjectSpritePass
 }
@@ -17067,8 +16881,7 @@ pub(crate) struct EyeclopsHardBeamGateLocE7AC {
 /// Non-zero low bits skip allocation; exactly `$8000` allocates the beam GFX
 /// object pair, stores their cross-links through `$FFFFFABA`, then spends two
 /// diamonds before falling through to `loc_E7E0`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_hard_beam_gate_loc_E7AC(
     beam_counter: u16,
     diamonds: u16,
@@ -17109,8 +16922,7 @@ pub(crate) struct EyeclopsHardBeamZeroWidthDirectionLocE7F4 {
 /// ASM loc_E7F4 (kid.asm:18508): the non-zero `$FFFFFABE` hard-beam latch
 /// flips the zero-width strip by subtracting `$10` from `d0`, copying that
 /// adjusted X into `d6`, and ORing `$0800` into each sprite tile word.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_hard_beam_zero_width_direction_loc_E7F4(
     source_x: i16,
     direction_latch_nonzero: bool,
@@ -17134,8 +16946,7 @@ pub(crate) fn eyeclops_hard_beam_zero_width_direction_loc_E7F4(
 /// ASM loc_E7FE (kid.asm:18513): write the zero-width hard-beam sprite triplet
 /// at `d1 - 8`, `d1`, and `d1 + 8`, each with size `$04`, sequential links,
 /// and tile words `$868E`, `$8692`, `$968E` ORed with the direction mask.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_hard_beam_zero_width_writer_loc_E7FE(
     sprite_x: i16,
     base_y: i16,
@@ -17184,8 +16995,7 @@ pub(crate) fn eyeclops_hard_beam_zero_width_writer_loc_E7FE(
 /// ASM loc_E7E0 (kid.asm:18497): for the zero-width hard beam, adjust `d0/d6`
 /// from the direction latch, set `d5` to `d1 - 4`, then emit three size-4
 /// sprites at `d1 - 8`, `d1`, and `d1 + 8`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_hard_beam_zero_width_sprites_loc_E7E0(
     source_x: i16,
     base_y: i16,
@@ -17221,8 +17031,7 @@ pub(crate) struct EyeclopsHardBeamOneWidthDirectionLocE858 {
 /// ASM loc_E858 (kid.asm:18554): the non-zero `$FFFFFABE` one-width beam
 /// branch rewinds `d0` by `$18`, copies that X into `d6`, and ORs `$0800`
 /// into each emitted sprite tile word.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_hard_beam_one_width_flipped_direction_loc_E858(
     source_x: i16,
 ) -> EyeclopsHardBeamOneWidthDirectionLocE858 {
@@ -17237,8 +17046,7 @@ pub(crate) fn eyeclops_hard_beam_one_width_flipped_direction_loc_E858(
 /// ASM loc_E862 (kid.asm:18559): subtract six from `d1` for `d5`, write the
 /// three one-width beam sprites at `d1 - 8`, `d1`, and `d1 + 8`, each with
 /// size `$08` and tile words `$868E/$8692/$968E | d4`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_hard_beam_one_width_writer_loc_E862(
     sprite_x: i16,
     base_y: i16,
@@ -17288,8 +17096,7 @@ pub(crate) fn eyeclops_hard_beam_one_width_writer_loc_E862(
 /// branch. The direction latch chooses either `d6=d0+$18` or `d0=d0-$18`,
 /// then the shared write block emits three size-8 sprites at `d1 - 8`, `d1`,
 /// and `d1 + 8`; other `d7` values fall through to the wider-beam path.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_hard_beam_one_width_sprites_loc_E842(
     beam_counter: u16,
     source_x: i16,
@@ -17336,8 +17143,7 @@ pub(crate) struct EyeclopsHardBeamWideSetupLocE8A6 {
 /// ASM loc_E988 (kid.asm:18685): either off-screen rejection clears the beam
 /// counter and deletes the linked beam object; native reports that rejection as
 /// `None` so the caller can skip the hard-beam sprite/object commit path.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_hard_beam_wide_setup_loc_E8A6(
     beam_counter: u16,
     source_x: i16,
@@ -17387,8 +17193,7 @@ pub(crate) struct EyeclopsHardBeamWideFirstWriteLocE8DE {
 /// ASM loc_E8DE (kid.asm:18613): wider hard beams double `d7`, back `d1`
 /// up by four plus that doubled width, store this as `d5`, then emit the
 /// leading size-`$0C` sprite with tile `$868E | d4`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_hard_beam_wide_first_write_loc_E8DE(
     beam_counter: u16,
     base_y: i16,
@@ -17429,8 +17234,7 @@ pub(crate) struct EyeclopsHardBeamWideMiddleLocE902 {
 /// size-`$0C` `$8692 | d4` sprite for each `DBF` pass, so the `(d7 >> 1) - 1`
 /// counter emits `counter + 1` sprites. Odd `d7` then backs `d1` up four
 /// pixels and writes one extra middle tile before the tail cap.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_hard_beam_wide_middle_loc_E902(
     middle_loop_counter: u16,
     beam_counter: u16,
@@ -17487,8 +17291,7 @@ pub(crate) struct EyeclopsHardBeamWideTailLocE936 {
 /// ASM loc_E936 (kid.asm:18653): the wide hard-beam strip always finishes at
 /// the current `d1` with one size-`$0C` tail cap using tile `$968E | d4` and
 /// the next sprite-table link.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_hard_beam_wide_tail_loc_E936(
     y_pos: i16,
     link: u8,
@@ -17516,8 +17319,7 @@ pub(crate) fn eyeclops_hard_beam_wide_tail_loc_E936(
 /// ASM loc_E972 (kid.asm:18676): the same tail masks off bit 0 of `d7`,
 /// doubles it, caps the result at `$20`, then stores `$1160 + d7` into the
 /// beam object's `$22` mapping word.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_hard_beam_object_mapping_loc_E972(beam_counter: u16) -> u16 {
     let doubled_even_counter = (beam_counter & 0xFFFE).wrapping_mul(2);
     0x1160 + doubled_even_counter.min(0x0020)
@@ -17536,8 +17338,7 @@ pub(crate) struct EyeclopsHardBeamObjectLocE948 {
 /// as the companion object's screen-space collision probe. The shared tail
 /// stores camera-adjusted object coordinates, writes the mapping word via
 /// loc_E972, and advances `$FFFFFAB8`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_hard_beam_object_loc_E948(
     beam_counter: u16,
     source_x: i16,
@@ -17634,8 +17435,8 @@ pub(crate) struct TimedBlockVisibleSlotLocE9CA {
 /// object IDs `$127..=$12C` whose block column/row lie inside the camera tile
 /// window. The six-entry table offsets the end caps by four pixels and gives
 /// the middle four entries VDP size byte `$05`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn timed_block_visible_slot_sprite_loc_E9CA(
     object_id: u16,
     block_col: i16,
@@ -17698,8 +17499,8 @@ pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
 /// ASM loc_DA7A (kid.asm:17096): hibernate the object for four frames, call
 /// `sub_C346` with `(d1,d2)=($00BC,$0644)` and `($0780,$0080)`, repeat until
 /// the post-increment counter reaches eight, then delete the current object.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn end_credits_hundred_k_trip_tile_upload_loc_DA7A()
 -> EndCreditsHundredKTripTileUploadLocDA7A {
     EndCreditsHundredKTripTileUploadLocDA7A {
@@ -17741,8 +17542,8 @@ fn platform_probe_rom_half_width_sub_daa6(current_form: PlayerForm) -> i32 {
 /// ASM loc_DAD6 (kid.asm:17130): build the Kid-vs-platform ceiling probe
 /// rectangle from `y_pos(a3)`, `x_pos(a3)`, the `unk_B408` half-width, and
 /// `d5=$0F` for Juggernaut/Micromax or `$1F` for every other helmet.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn platform_ceiling_probe_hitbox_loc_DAD6(
     current_form: PlayerForm,
     x_pos_px: i32,
@@ -17778,8 +17579,8 @@ pub(crate) struct PlatformBoundsLocDAE8 {
 /// `loc_DAD6` probe rectangle.
 /// ASM loc_DB1A (kid.asm:17160): if the scan reaches the zero link sentinel,
 /// restore the saved registers and return `d7=0`; native returns `None`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn first_platform_ceiling_overlap_loc_DAE8(
     kid_probe: PlatformCeilingProbeHitboxLocDAD6,
     platform_slots: &[Option<PlatformBoundsLocDAE8>],
@@ -17813,8 +17614,7 @@ pub(crate) fn first_platform_ceiling_overlap_loc_DAE8(
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eol_score_counter_transfer_chunk_loc_D770(
     remaining_amount: u32,
     transfer_chunk: u32,
@@ -17831,8 +17631,7 @@ pub(crate) struct EolScoreCounterApplyLocD77E {
 /// ASM loc_D79E (kid.asm:16872): compare old/new `divu.w #50000`
 /// quotients after the EOL score-counter add. Any quotient change awards one
 /// life and spawns one `loc_C5DE` extra-life icon.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eol_score_counter_awards_life_loc_D79E(old_score: u32, new_score: u32) -> bool {
     old_score / SCORE_EXTRA_LIFE_INTERVAL != new_score / SCORE_EXTRA_LIFE_INTERVAL
 }
@@ -17841,8 +17640,7 @@ pub(crate) fn eol_score_counter_awards_life_loc_D79E(old_score: u32, new_score: 
 /// `(Score).w`, clamp to `9_999_999`, then compare old/new `divu #50000`
 /// quotients. The EOL loop issues one `addq.w #1,(Number_Lives).w` when the
 /// quotient changes, not one life per crossed boundary.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eol_score_counter_apply_loc_D77E(
     current_score: u32,
     transfer_chunk: u32,
@@ -17872,8 +17670,7 @@ pub(crate) struct EolScoreCounterDrainLocD7CE {
 /// ASM loc_D7F4 (kid.asm:16905): when that decrement exhausts the final active
 /// number, stop the counter sound, hibernate for `d0`, then route to the next
 /// level or `End_Credits`.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eol_score_counter_drain_current_number_loc_D7CE(
     score: u32,
     remaining_amount: u32,
@@ -17971,8 +17768,7 @@ pub struct EolScoreCounterSnapshotLocD770 {
 /// ASM loc_D7E4 (kid.asm:16896): after each score-counter transfer, decrement
 /// the frame-delay word `d1`. A non-zero result loops with the same chunk;
 /// zero resets `d1` to `$78` and quadruples `d2` before looping.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eol_score_counter_loop_tail_loc_D7E4(
     frame_delay: u16,
     transfer_chunk: u32,
@@ -17996,8 +17792,7 @@ pub(crate) fn eol_score_counter_loop_tail_loc_D7E4(
 /// ASM loc_D770-loc_D7F4 (kid.asm:16855-16916): run one score-counter
 /// transfer per hibernated frame, quadrupling the transfer chunk every `$78`
 /// frames, then hibernate for `d0` before routing to Teleport/End_Credits.
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn eol_score_counter_duration_loc_D770(
     initial_score: u32,
     bonus_amounts: &[u32],
@@ -18068,7 +17863,7 @@ pub(crate) fn eol_score_counter_duration_loc_D770(
 /// the render-facing sibling of `eol_score_counter_duration_loc_D770`: it
 /// preserves the live score display and each EOL number object's remaining
 /// `$60` amount while the ROM drains bonus rows into `(Score).w`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn eol_score_counter_snapshot_loc_D770(
     initial_score: u32,
     bonus_amounts: &[u32],
@@ -18133,7 +17928,7 @@ pub fn eol_score_counter_snapshot_loc_D770(
 /// the ROM's many EOL worker objects into one lifecycle, so trace/render code
 /// subtracts those observed scheduler stalls before replaying the pure ASM
 /// transfer loop.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn eol_score_counter_transfer_frames_from_trace_loc_D770(
     elapsed_counter_frames: usize,
 ) -> usize {
@@ -18144,8 +17939,7 @@ pub fn eol_score_counter_transfer_frames_from_trace_loc_D770(
     elapsed_counter_frames.saturating_sub(stalls)
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offset: u16) {
     // ASM sub_1C85E (kid.asm:31507): starting at Palette_Buffer+`d7`, darken
     // 16 palette words by subtracting 2 from each non-zero low channel nibble,
@@ -19438,14 +19232,14 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn blank_top_rows_for_level_sub_140F6(&self, level_id: LevelId) -> u16 {
         self.level_header(level_id).map_or(0, |header| {
             terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits)
         })
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn blank_top_rows_for_unshifted_loaded_grid_sub_140F6(
         &self,
         level_id: LevelId,
@@ -19466,7 +19260,7 @@ impl NativeRuntime {
         // bakes the offset into its cell count (no extra shift), while an
         // unrecognised height falls back to 0 as the safe default. Kept apart to
         // document the recognised-shifted case explicitly.
-        #[allow(clippy::if_same_then_else)]
+        #[expect(clippy::if_same_then_else)]
         if loaded_height_cells == base_height_blocks {
             blank_top_rows
         } else if loaded_height_cells == shifted_height_blocks {
@@ -19576,7 +19370,6 @@ impl NativeRuntime {
         Some(grid.with_blank_top_rows_sub_140F6(fixture_blank_top_rows))
     }
 
-    #[allow(non_snake_case)]
     fn erase_words_for_level_loc_11542(
         &self,
         level_id: LevelId,
@@ -19775,7 +19568,7 @@ impl NativeRuntime {
     /// custom-FG/teleporter, and sorted hidden records to their RAM lists.
     /// Generated RAM sidecars capture those lists for oracle-reachable levels;
     /// decoder-only resources must derive them from this authoritative stream.
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn synthesise_block_list_for_level_loc_11C7E(
         &self,
         level_id: LevelId,
@@ -20091,7 +19884,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(clippy::unused_self, reason = "semantically a method")]
+    #[expect(clippy::unused_self, reason = "semantically a method")]
     pub(crate) fn try_settle_on_spawn_support(
         &self,
         slice: &mut OpeningSliceState,

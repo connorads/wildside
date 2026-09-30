@@ -590,7 +590,7 @@ fn indexed_tile_row_pixel_write(
     )
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn indexed_tile_slice_pixel_write(
     command_index: usize,
     tile_x: i32,
@@ -869,7 +869,7 @@ pub fn draw_sprite(
 /// ASM Make_SpritesFromGfxObjects (kid.asm:2558-2576) writes a linked SAT in
 /// GfxObject priority order. The VDP retains the first non-transparent sprite
 /// pixel it sees, independently from whether a plane later hides that pixel.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn draw_sat_sprite_first_opaque(
     rgb: &mut [u8],
     high_priority_pixels: &mut [bool],
@@ -964,7 +964,7 @@ pub fn draw_indexed_tile_row(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn draw_indexed_tile_slice(
     rgb: &mut [u8],
     high_priority_pixels: &mut [bool],

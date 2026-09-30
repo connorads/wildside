@@ -688,7 +688,7 @@ pub(crate) fn tile_pixel_rgb(
     tile_pixel_rgb_from_parts(vdp, tile_index, palette, tile_x, tile_y)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(crate) fn tile_pixel_sample(
     vdp: &VdpSnapshot,
     layer: &'static str,

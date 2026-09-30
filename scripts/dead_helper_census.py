@@ -2,7 +2,8 @@
 """Dead-helper census extractor.
 
 Scans wildside-core (and optionally wildside-cli) Rust sources for items carrying
-`#[allow(dead_code)]` or `#[cfg_attr(not(test), allow(dead_code))]`, captures the
+`#[expect(dead_code)]` or `#[cfg_attr(not(test), expect(dead_code))]` (or the
+legacy `allow` spelling), captures the
 item name/kind/line, the ASM labels cited in its doc comment (or embedded in its
 name), and a crate-wide call-site count split by test vs non-test context.
 
@@ -17,7 +18,9 @@ import sys
 from pathlib import Path
 
 SRC = Path("crates/wildside-core/src")
-ATTR_RE = re.compile(r"#\[(cfg_attr\(not\(test\),\s*allow\(dead_code\)\)|allow\(dead_code\))\]")
+ATTR_RE = re.compile(
+    r"#\[(cfg_attr\(not\(test\),\s*(?:allow|expect)\(dead_code\)\)|(?:allow|expect)\(dead_code\))\]"
+)
 ITEM_RE = re.compile(
     r"^\s*(?:pub(?:\([^)]*\))?\s+)?"
     r"(?P<kind>fn|struct|enum|const|static|impl|trait|type|mod)\s+"

@@ -1,4 +1,4 @@
-#[allow(unused_imports)]
+#[cfg_attr(not(test), expect(unused_imports))]
 use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -8,7 +8,7 @@ pub(crate) struct SphereWallBounceTrapLoc35FC4 {
     pub(crate) traps_forever: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn sphere_wall_bounce_trap_loc_35FC4() -> SphereWallBounceTrapLoc35FC4 {
     // ASM Sphere.asm loc_35FC4: `jmp loc_35FC4(pc)` is a self-loop trap after
@@ -58,7 +58,7 @@ pub(crate) enum SphereChildLoopStepLoc360F4 {
     Continue { frames_until_collision_check: u16 },
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn sphere_child_loop_step_loc_360F4(
     delete_flag_set: bool,
@@ -102,7 +102,7 @@ pub(crate) struct SphereChildDeleteTailLoc3610E {
     pub(crate) deletes_current_object: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn sphere_child_delete_tail_loc_3610E() -> SphereChildDeleteTailLoc3610E {
     // ASM Sphere.asm loc_3610E: both the `$19(a3)` flag route and non-zero
@@ -136,7 +136,7 @@ pub(crate) struct SphereVerticalBounceLoc35FF4Loc36142 {
     pub(crate) resumes_sphere_loop: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn sphere_vertical_bounce_loc_35FF4_36142(
     y_velocity: i32,
 ) -> SphereVerticalBounceLoc35FF4Loc36142 {

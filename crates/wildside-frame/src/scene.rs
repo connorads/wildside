@@ -4042,7 +4042,7 @@ impl ChunkedPlaneBRowsLoc307D8 {
         )
     }
 
-    #[allow(
+    #[expect(
         clippy::unused_self,
         reason = "semantically a method on the plane-B row renderer"
     )]
@@ -4103,7 +4103,7 @@ impl ChunkedPlaneBRowsLoc307D8 {
         true
     }
 
-    #[allow(
+    #[expect(
         clippy::unused_self,
         reason = "semantically a method on the plane-B row renderer"
     )]
@@ -7315,7 +7315,7 @@ fn push_eol_hologram_room(
     });
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn push_eol_hologram_tile_clipped(
     commands: &mut Vec<DrawCommand>,
     hologram: &wildside_render::EolHologramVisuals,

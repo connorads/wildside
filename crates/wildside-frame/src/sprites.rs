@@ -3245,7 +3245,7 @@ struct PlatformSpriteCellLoc24AC {
     mapping_tile_offset: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn platform_sprite_cells_loc_24AC(
     variant: PlatformSpriteVariantLoc244C,
     dispatch: PlatformSpriteDispatchLoc244C,
@@ -3310,7 +3310,6 @@ fn platform_cell(
     }
 }
 
-#[allow(non_snake_case)]
 fn platform_sprite_entry_cell_loc_2548(
     dispatch: PlatformSpriteDispatchLoc244C,
     sprite: PlatformSpriteEntryLoc2548,
@@ -3334,7 +3333,6 @@ fn platform_sprite_entry_cell_loc_2548(
     )
 }
 
-#[allow(non_snake_case)]
 fn platform_cell_tiles_loc_2548(frame: &SpriteFrame, mapping_tile_offset: u16) -> Vec<SpriteTile> {
     let first_tile = frame.tile_base_index.saturating_add(mapping_tile_offset);
     vec![
@@ -3407,7 +3405,6 @@ fn platform_snapshot_u16(object: &NativeObjectSnapshot, key: &str) -> Option<u16
         .and_then(|value| value.parse::<u16>().ok())
 }
 
-#[allow(non_snake_case)]
 struct PlatformArtSourceLoc2548 {
     frame: SpriteFrame,
     palette: Palette,
@@ -3415,7 +3412,6 @@ struct PlatformArtSourceLoc2548 {
 
 const PLATFORM_BLOCK_ART_VRAM_BASE_LOC_E0E4E: u16 = 0x0220;
 
-#[allow(non_snake_case)]
 fn platform_art_for_mapping_word_loc_2548(
     object: &NativeObjectSnapshot,
     level_visuals: &NativeLevelVisuals,

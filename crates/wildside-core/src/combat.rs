@@ -16,7 +16,7 @@ pub(crate) struct Prize10000PointsInitLoc10Ae0 {
     pub(crate) worker_index_d3: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn prize_10000_points_init_loc_10AE0(
     x_pos: u32,
     y_pos: u32,
@@ -31,7 +31,7 @@ pub(crate) fn prize_10000_points_init_loc_10AE0(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn prize_10000_points_clear_slots_loc_10AFA(_worker_slots: [u32; 5]) -> [u32; 5] {
     // ASM loc_10AFA (kid.asm:22393): `moveq #4,d0` enters a `clr.l (a0)+;
     // dbf d0,loc_10AFA` loop, so exactly five longwords at `$44(a5)` are
@@ -458,7 +458,6 @@ pub(crate) struct EnemyDeathBurstCleanupLoc370C2 {
     pub(crate) delete_current_object: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn enemy_death_burst_init_sub_37002(
     x_pos: u16,
     y_pos: u16,
@@ -484,7 +483,6 @@ pub(crate) fn enemy_death_burst_init_sub_37002(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn enemy_death_burst_loop_gate_loc_37054(
     collision_type: i16,
     chase_frames: u16,
@@ -515,7 +513,7 @@ pub(crate) fn enemy_death_burst_loop_gate_loc_37054(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn enemy_death_burst_cleanup_loc_370C2() -> EnemyDeathBurstCleanupLoc370C2 {
     // ASM loc_370C2 (kid.asm:38961): clear `collision_type(a3)`,
     // `x_vel(a3)`, and `y_vel(a3)`, then jump to `j_Delete_CurrentObject`.
@@ -527,7 +525,6 @@ pub(crate) fn enemy_death_burst_cleanup_loc_370C2() -> EnemyDeathBurstCleanupLoc
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn enemy_death_burst_homing_step_sub_37002(
     effect_x: u16,
     effect_y: u16,
@@ -2680,7 +2677,7 @@ pub const HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266: [(i16, i16); 12] =
     (0x000C, -0x0006),
 ];
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_death_burst_init_sub_370D2(
     x_pos: u16,
     y_pos: u16,
@@ -2711,14 +2708,13 @@ pub(crate) fn boss_death_burst_init_sub_370D2(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_death_burst_fall_step_sub_370D2(y_velocity: i32) -> i32 {
     // ASM loc_3712E (kid.asm:38995): after each hibernate, add `$2710` to
     // `y_vel(a3)` until the grounded byte `$18(a3)` becomes non-zero.
     y_velocity.saturating_add(0x0000_2710)
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boss_death_burst_loop_gate_loc_37148(
     collision_type: i16,
     chase_frames: u16,
@@ -2749,7 +2745,7 @@ pub(crate) fn boss_death_burst_loop_gate_loc_37148(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_death_burst_collision_finish_loc_371B6() -> BossDeathBurstCollisionFinishLoc371B6
 {
     // ASM loc_371B6 (kid.asm:39048): clear `collision_type(a3)`, both velocity
@@ -2765,7 +2761,7 @@ pub(crate) fn boss_death_burst_collision_finish_loc_371B6() -> BossDeathBurstCol
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_death_burst_homing_step_sub_370D2(
     effect_x: u16,
     effect_y: u16,
@@ -2799,7 +2795,7 @@ pub(crate) fn boss_death_burst_homing_step_sub_370D2(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_death_burst_timeout_loop_gate_loc_3720A(
     collision_type: i16,
 ) -> BossDeathBurstTimeoutLoopGateLoc3720A {
@@ -2821,7 +2817,6 @@ pub(crate) fn boss_death_burst_timeout_loop_gate_loc_3720A(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boss_death_burst_timeout_face_kid_loc_37246(effect_x: u16, kid_x: u16) -> u8 {
     // ASM loc_3720A/loc_37246 (kid.asm:39094-39103): `cmp.w d5,d3; bgt.s`
     // only clears `x_direction(a3)` at loc_37246 when the burst is strictly
@@ -2833,7 +2828,7 @@ pub(crate) fn boss_death_burst_timeout_face_kid_loc_37246(effect_x: u16, kid_x: 
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_death_burst_timeout_ground_gate_loc_3724A(
     grounded: bool,
     x_direction: u8,
@@ -2865,7 +2860,7 @@ pub(crate) fn boss_death_burst_timeout_ground_gate_loc_3724A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_death_burst_finish_sub_3728C() -> BossDeathBurstFinishSub3728C {
     // ASM sub_3728C (kid.asm:39131): switch to `stru_37BFC`, hibernate until
     // that animation ends, then delete the current object.
@@ -2876,7 +2871,7 @@ pub(crate) fn boss_death_burst_finish_sub_3728C() -> BossDeathBurstFinishSub3728
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_eye_pop_effect_init_sub_3729E(
     x_pos: u16,
     y_pos: u16,
@@ -2903,7 +2898,7 @@ pub(crate) fn boss_eye_pop_effect_init_sub_3729E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_eye_pop_effect_face_kid_sub_3729E(effect_x: u16, kid_x: u16) -> u8 {
     // ASM loc_37300..loc_3731A (kid.asm:39170): if the effect is to the right
     // of Kid, ASM loc_37316 clears `x_direction(a3)`; otherwise loc_37300
@@ -2915,7 +2910,7 @@ pub(crate) fn boss_eye_pop_effect_face_kid_sub_3729E(effect_x: u16, kid_x: u16) 
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_eye_pop_effect_finish_sub_3729E() -> BossEyePopEffectFinishSub3729E {
     // ASM loc_3731C (kid.asm:39187): play `stru_37BFC`, hibernate until the
     // animation ends, decrement `$FFFFFB4F`, then delete the object.
@@ -2927,7 +2922,6 @@ pub(crate) fn boss_eye_pop_effect_finish_sub_3729E() -> BossEyePopEffectFinishSu
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boss_eye_attack_init_sub_37332(
     x_pos: u16,
     y_pos: u16,
@@ -2982,14 +2976,13 @@ const BOSS_EYE_ATTACK_SPRITES_OFF_37AE0: [&str; 8] = [
     "LnkTo_unk_C84C0-Data_Index",
 ];
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_eye_attack_sprite_mapping_loc_37B7C(table_index: usize) -> &'static str {
     // ASM loc_37B7C (kid.asm:40106): copy selected `d2` to `d7`, double it
     // as a word offset, then load the mapping word from `off_37AE0`.
     BOSS_EYE_ATTACK_SPRITES_OFF_37AE0[table_index]
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boss_eye_attack_sprite_sub_37332(
     diamond_power_active: bool,
     v_int_counter_fff809: u8,
@@ -3051,7 +3044,6 @@ pub(crate) fn boss_eye_attack_sprite_sub_37332(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boss_eye_attack_step_sub_37332(
     y_velocity: i32,
     inputs: BossEyeAttackFrameInputsSub37332,
@@ -3073,7 +3065,7 @@ pub(crate) fn boss_eye_attack_step_sub_37332(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_eye_refresh_attack_sprites_sub_37ABC(
     mut slots: [Option<BossEyeSpriteRefreshSlotSub37ABC>; 12],
     diamond_power_active: bool,
@@ -3102,7 +3094,7 @@ pub(crate) fn boss_eye_refresh_attack_sprites_sub_37ABC(
     slots
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_eye_detach_step_sub_393B2(
     sprite_word_y_adjust: u16,
 ) -> BossEyeDetachStepSub393B2 {
@@ -3121,7 +3113,7 @@ const BOSS_EYE_ORBIT_X_OFFSETS_RIGHT_SUB_393C8: [i16; 5] = [-12, -20, -24, -24, 
 const BOSS_EYE_COUNTER_ORBIT_X_OFFSETS_LEFT_SUB_39420: [i16; 5] = [12, 20, 24, 24, 24];
 const BOSS_EYE_COUNTER_ORBIT_X_OFFSETS_RIGHT_SUB_39420: [i16; 5] = [12, 0, -13, -13, -13];
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_eye_orbit_placement_sub_393C8(
     parent_x: u16,
     parent_y: u16,
@@ -3168,7 +3160,6 @@ pub(crate) fn boss_eye_orbit_placement_sub_393C8(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boss_eye_counter_orbit_placement_sub_39420(
     parent_x: u16,
     parent_y: u16,
@@ -3214,7 +3205,7 @@ pub(crate) fn boss_eye_counter_orbit_placement_sub_39420(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_head_projectile_spawn_sub_397E4(
     parent_x: u16,
     parent_y: u16,
@@ -3255,7 +3246,7 @@ pub(crate) fn boss_head_projectile_spawn_sub_397E4(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_init_loc_37F30(
     anchor_x_44: u16,
     anchor_y_46: u16,
@@ -3282,7 +3273,6 @@ pub(crate) fn boomerang_boss_head_1_init_loc_37F30(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn shishka_bagel_head_1_init_loc_39478(
     anchor_x_44: u16,
     anchor_y_46: u16,
@@ -3325,7 +3315,6 @@ pub(crate) fn shishka_bagel_head_1_init_loc_39478(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn shishka_bagel_head_2_init_loc_39598(
     anchor_x_44: u16,
     anchor_y_46: u16,
@@ -3371,7 +3360,7 @@ pub(crate) fn shishka_bagel_head_2_init_loc_39598(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shishka_bagel_head_2_wait_loop_loc_3960E(
     variant_d2: u16,
     movement_status_d7: u16,
@@ -3399,7 +3388,7 @@ pub(crate) fn shishka_bagel_head_2_wait_loop_loc_3960E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shishka_bagel_head_2_activation_window_loc_3962C(
     kid_x: u16,
     kid_y: u16,
@@ -3445,7 +3434,7 @@ pub(crate) fn shishka_bagel_head_2_activation_window_loc_3962C(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shishka_bagel_head_2_attack_wait_loop_loc_3966E(
     variant_d2: u16,
     movement_status_d7: u16,
@@ -3475,7 +3464,7 @@ pub(crate) fn shishka_bagel_head_2_attack_wait_loop_loc_3966E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shishka_bagel_head_2_attack_anim_gate_loc_3968C(
     animation_done_byte_18: u8,
 ) -> ShishkaBagelHead2AttackAnimGateLoc3968C {
@@ -3496,7 +3485,6 @@ pub(crate) fn shishka_bagel_head_2_attack_anim_gate_loc_3968C(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn shishka_bagel_head_2_post_projectile_wait_loop_loc_39696(
     variant_d2: u16,
     movement_status_d7: u16,
@@ -3528,7 +3516,7 @@ pub(crate) fn shishka_bagel_head_2_post_projectile_wait_loop_loc_39696(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shishka_bagel_head_2_post_projectile_anim_gate_loc_396B4(
     animation_done_byte_18: u8,
 ) -> ShishkaBagelHead2PostProjectileAnimGateLoc396B4 {
@@ -3547,7 +3535,7 @@ pub(crate) fn shishka_bagel_head_2_post_projectile_anim_gate_loc_396B4(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shishka_bagel_head_3_init_loc_396BE(
     anchor_x_44: u16,
     anchor_y_46: u16,
@@ -3593,7 +3581,6 @@ pub(crate) fn shishka_bagel_head_3_init_loc_396BE(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn shishka_bagel_head_3_wait_loop_loc_39734(
     variant_d2: u16,
     movement_status_d7: u16,
@@ -3621,7 +3608,6 @@ pub(crate) fn shishka_bagel_head_3_wait_loop_loc_39734(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn shishka_bagel_head_3_activation_window_loc_39752(
     kid_x: u16,
     kid_y: u16,
@@ -3667,7 +3653,6 @@ pub(crate) fn shishka_bagel_head_3_activation_window_loc_39752(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn shishka_bagel_head_3_attack_wait_loop_loc_39794(
     variant_d2: u16,
     movement_status_d7: u16,
@@ -3697,7 +3682,6 @@ pub(crate) fn shishka_bagel_head_3_attack_wait_loop_loc_39794(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn shishka_bagel_head_3_post_projectile_wait_loop_loc_397bc(
     variant_d2: u16,
     movement_status_d7: u16,
@@ -3729,7 +3713,6 @@ pub(crate) fn shishka_bagel_head_3_post_projectile_wait_loop_loc_397bc(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn shishka_bagel_head_3_post_projectile_anim_gate_loc_397da(
     animation_done_byte_18: u8,
 ) -> ShishkaBagelHead3PostProjectileAnimGateLoc397DA {
@@ -3748,7 +3731,7 @@ pub(crate) fn shishka_bagel_head_3_post_projectile_anim_gate_loc_397da(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shishka_bagel_head_1_wait_loop_loc_394E8(
     variant_d2: u16,
     movement_status_d7: u16,
@@ -3776,7 +3759,6 @@ pub(crate) fn shishka_bagel_head_1_wait_loop_loc_394E8(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn shishka_bagel_head_1_activation_window_loc_39506(
     kid_x: u16,
     kid_y: u16,
@@ -3822,7 +3804,6 @@ pub(crate) fn shishka_bagel_head_1_activation_window_loc_39506(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn shishka_bagel_head_1_attack_wait_loop_loc_39548(
     variant_d2: u16,
     movement_status_d7: u16,
@@ -3852,7 +3833,6 @@ pub(crate) fn shishka_bagel_head_1_attack_wait_loop_loc_39548(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn shishka_bagel_head_1_attack_anim_gate_loc_39566(
     animation_done_byte_18: u8,
 ) -> ShishkaBagelHead1AttackAnimGateLoc39566 {
@@ -3873,7 +3853,6 @@ pub(crate) fn shishka_bagel_head_1_attack_anim_gate_loc_39566(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn shishka_bagel_head_1_post_projectile_wait_loop_loc_39570(
     variant_d2: u16,
     movement_status_d7: u16,
@@ -3905,7 +3884,7 @@ pub(crate) fn shishka_bagel_head_1_post_projectile_wait_loop_loc_39570(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shishka_bagel_head_1_post_projectile_anim_gate_loc_3958E(
     animation_done_byte_18: u8,
 ) -> ShishkaBagelHead1PostProjectileAnimGateLoc3958E {
@@ -3924,7 +3903,7 @@ pub(crate) fn shishka_bagel_head_1_post_projectile_anim_gate_loc_3958E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_wait_loop_loc_37F80(
     movement_status_d7: u16,
 ) -> BoomerangBossHeadWaitLoopLoc37F80 {
@@ -3943,7 +3922,7 @@ pub(crate) fn boomerang_boss_head_1_wait_loop_loc_37F80(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_activation_loc_37F94(
     kid_x: u16,
     kid_y: u16,
@@ -3986,7 +3965,7 @@ pub(crate) fn boomerang_boss_head_1_activation_loc_37F94(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_attack_wait_loop_loc_37FD6(
     movement_status_d7: u16,
 ) -> BoomerangBossHeadAttackWaitLoopLoc37FD6 {
@@ -4005,7 +3984,7 @@ pub(crate) fn boomerang_boss_head_1_attack_wait_loop_loc_37FD6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_attack_animation_gate_loc_37FEA(
     animation_done_byte_18: u8,
 ) -> BoomerangBossHeadAttackAnimationGateLoc37FEA {
@@ -4024,7 +4003,7 @@ pub(crate) fn boomerang_boss_head_1_attack_animation_gate_loc_37FEA(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_post_projectile_wait_loop_loc_37FF4(
     movement_status_d7: u16,
 ) -> BoomerangBossHeadPostProjectileWaitLoopLoc37FF4 {
@@ -4043,7 +4022,6 @@ pub(crate) fn boomerang_boss_head_1_post_projectile_wait_loop_loc_37FF4(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_post_projectile_animation_gate_loc_38008(
     animation_done_byte_18: u8,
 ) -> BoomerangBossHeadPostProjectileAnimationGateLoc38008 {
@@ -4062,7 +4040,6 @@ pub(crate) fn boomerang_boss_head_1_post_projectile_animation_gate_loc_38008(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_init_loc_38012(
     anchor_x_44: u16,
     anchor_y_46: u16,
@@ -4089,7 +4066,7 @@ pub(crate) fn boomerang_boss_head_2_init_loc_38012(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_init_loc_380F4(
     anchor_x_44: u16,
     anchor_y_46: u16,
@@ -4116,7 +4093,6 @@ pub(crate) fn boomerang_boss_head_3_init_loc_380F4(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_wait_loop_loc_38144(
     movement_status_d7: u16,
 ) -> BoomerangBossHead3WaitLoopLoc38144 {
@@ -4135,7 +4111,6 @@ pub(crate) fn boomerang_boss_head_3_wait_loop_loc_38144(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_activation_window_loc_38158(
     kid_x: u16,
     kid_y: u16,
@@ -4180,7 +4155,7 @@ pub(crate) fn boomerang_boss_head_3_activation_window_loc_38158(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_attack_wait_loop_loc_3819A(
     movement_status_d7: u16,
 ) -> BoomerangBossHead3AttackWaitLoopLoc3819A {
@@ -4199,7 +4174,7 @@ pub(crate) fn boomerang_boss_head_3_attack_wait_loop_loc_3819A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_attack_animation_gate_loc_381AE(
     animation_done_byte_18: u8,
 ) -> BoomerangBossHead3AttackAnimationGateLoc381AE {
@@ -4218,7 +4193,7 @@ pub(crate) fn boomerang_boss_head_3_attack_animation_gate_loc_381AE(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_post_projectile_wait_loop_loc_381B8(
     movement_status_d7: u16,
 ) -> BoomerangBossHead3PostProjectileWaitLoopLoc381B8 {
@@ -4237,7 +4212,7 @@ pub(crate) fn boomerang_boss_head_3_post_projectile_wait_loop_loc_381B8(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_post_projectile_animation_gate_loc_381CC(
     animation_done_byte_18: u8,
 ) -> BoomerangBossHead3PostProjectileAnimationGateLoc381CC {
@@ -4255,7 +4230,6 @@ pub(crate) fn boomerang_boss_head_3_post_projectile_animation_gate_loc_381CC(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_1_init_loc_38494(
     anchor_x: u16,
     anchor_y: u16,
@@ -4280,7 +4254,7 @@ pub(crate) fn boomerang_boss_skewer_piece_1_init_loc_38494(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_1_wait_loop_loc_384D6(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece1WaitLoopLoc384D6 {
@@ -4298,7 +4272,7 @@ pub(crate) fn boomerang_boss_skewer_piece_1_wait_loop_loc_384D6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_1_launch_loc_384E8()
 -> BoomerangBossSkewerPiece1LaunchLoc384E8 {
     // ASM loc_384E8 (kid.asm:40728): set y_vel to `$FFF9` (word = -7) and
@@ -4317,7 +4291,6 @@ pub(crate) fn boomerang_boss_skewer_piece_1_launch_loc_384E8()
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_2_init_loc_38512(
     anchor_x: u16,
     anchor_y: u16,
@@ -4343,7 +4316,6 @@ pub(crate) fn boomerang_boss_skewer_piece_2_init_loc_38512(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_2_wait_loop_loc_38554(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece2WaitLoopLoc38554 {
@@ -4362,7 +4334,6 @@ pub(crate) fn boomerang_boss_skewer_piece_2_wait_loop_loc_38554(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_2_launch_loc_38566()
 -> BoomerangBossSkewerPiece2LaunchLoc38566 {
     // ASM loc_38566 (kid.asm:40770): set y_vel to `$FFF9` (word = -7) and
@@ -4381,7 +4352,6 @@ pub(crate) fn boomerang_boss_skewer_piece_2_launch_loc_38566()
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_3_init_loc_38590(
     anchor_x: u16,
     anchor_y: u16,
@@ -4407,7 +4377,7 @@ pub(crate) fn boomerang_boss_skewer_piece_3_init_loc_38590(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_3_wait_loop_loc_385D2(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece3WaitLoopLoc385D2 {
@@ -4426,7 +4396,7 @@ pub(crate) fn boomerang_boss_skewer_piece_3_wait_loop_loc_385D2(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_3_launch_loc_385E4()
 -> BoomerangBossSkewerPiece3LaunchLoc385E4 {
     // ASM loc_385E4 (kid.asm:40812): set y_vel to `$FFF9` (word = -7) and
@@ -4445,7 +4415,7 @@ pub(crate) fn boomerang_boss_skewer_piece_3_launch_loc_385E4()
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_4_init_loc_3860E(
     anchor_x: u16,
     anchor_y: u16,
@@ -4471,7 +4441,6 @@ pub(crate) fn boomerang_boss_skewer_piece_4_init_loc_3860E(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_4_wait_loop_loc_38650(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece4WaitLoopLoc38650 {
@@ -4490,7 +4459,6 @@ pub(crate) fn boomerang_boss_skewer_piece_4_wait_loop_loc_38650(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_4_launch_loc_38662()
 -> BoomerangBossSkewerPiece4LaunchLoc38662 {
     // ASM loc_38662 (kid.asm:40854): set y_vel to `$FFF9` (word = -7) and
@@ -4509,7 +4477,7 @@ pub(crate) fn boomerang_boss_skewer_piece_4_launch_loc_38662()
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_5_init_loc_3868C(
     anchor_x: u16,
     anchor_y: u16,
@@ -4535,7 +4503,7 @@ pub(crate) fn boomerang_boss_skewer_piece_5_init_loc_3868C(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_5_wait_loop_loc_386CE(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece5WaitLoopLoc386CE {
@@ -4554,7 +4522,7 @@ pub(crate) fn boomerang_boss_skewer_piece_5_wait_loop_loc_386CE(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_5_launch_loc_386E0()
 -> BoomerangBossSkewerPiece5LaunchLoc386E0 {
     // ASM loc_386E0 (kid.asm:40896): set y_vel to `$FFF9` (word = -7) and
@@ -4574,7 +4542,7 @@ pub(crate) fn boomerang_boss_skewer_piece_5_launch_loc_386E0()
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_6_init_loc_3870A(
     anchor_x: u16,
     anchor_y: u16,
@@ -4600,7 +4568,7 @@ pub(crate) fn boomerang_boss_skewer_piece_6_init_loc_3870A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_6_wait_loop_loc_3874C(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece6WaitLoopLoc3874C {
@@ -4619,7 +4587,7 @@ pub(crate) fn boomerang_boss_skewer_piece_6_wait_loop_loc_3874C(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_6_launch_loc_3875E()
 -> BoomerangBossSkewerPiece6LaunchLoc3875E {
     // ASM loc_3875E (kid.asm:40938): set y_vel to `$FFF9` (word = -7) and
@@ -4639,7 +4607,6 @@ pub(crate) fn boomerang_boss_skewer_piece_6_launch_loc_3875E()
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_7_init_loc_38788(
     anchor_x: u16,
     anchor_y: u16,
@@ -4665,7 +4632,7 @@ pub(crate) fn boomerang_boss_skewer_piece_7_init_loc_38788(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_7_wait_loop_loc_387CA(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece7WaitLoopLoc387CA {
@@ -4684,7 +4651,7 @@ pub(crate) fn boomerang_boss_skewer_piece_7_wait_loop_loc_387CA(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_7_launch_loc_387DC()
 -> BoomerangBossSkewerPiece7LaunchLoc387DC {
     // ASM loc_387DC (kid.asm:40980): set y_vel to `$FFF9` (word = -7) and
@@ -4704,7 +4671,6 @@ pub(crate) fn boomerang_boss_skewer_piece_7_launch_loc_387DC()
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_8_init_loc_38806(
     anchor_x: u16,
     anchor_y: u16,
@@ -4730,7 +4696,6 @@ pub(crate) fn boomerang_boss_skewer_piece_8_init_loc_38806(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_8_wait_loop_loc_38848(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece8WaitLoopLoc38848 {
@@ -4749,7 +4714,7 @@ pub(crate) fn boomerang_boss_skewer_piece_8_wait_loop_loc_38848(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_8_launch_loc_3885A()
 -> BoomerangBossSkewerPiece8LaunchLoc3885A {
     // ASM loc_3885A (kid.asm:41022): set y_vel to `$FFF8` (word = -8) and
@@ -4769,7 +4734,6 @@ pub(crate) fn boomerang_boss_skewer_piece_8_launch_loc_3885A()
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_9_init_loc_38884(
     anchor_x: u16,
     anchor_y: u16,
@@ -4795,7 +4759,7 @@ pub(crate) fn boomerang_boss_skewer_piece_9_init_loc_38884(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_9_wait_loop_loc_388C6(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece9WaitLoopLoc388C6 {
@@ -4814,7 +4778,7 @@ pub(crate) fn boomerang_boss_skewer_piece_9_wait_loop_loc_388C6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_skewer_piece_9_launch_loc_388D8()
 -> BoomerangBossSkewerPiece9LaunchLoc388D8 {
     // ASM loc_388D8 (kid.asm:41064): set y_vel to `$FFFA` (word = -6) and
@@ -4834,7 +4798,6 @@ pub(crate) fn boomerang_boss_skewer_piece_9_launch_loc_388D8()
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_eye_piece_1_init_loc_38902(
     anchor_x: u16,
     anchor_y: u16,
@@ -4859,7 +4822,7 @@ pub(crate) fn boomerang_boss_eye_piece_1_init_loc_38902(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_eye_piece_1_tracking_loop_loc_3893E(
     breakup_trigger_fb72: u16,
 ) -> BoomerangBossEyePiece1TrackingLoopLoc3893E {
@@ -4882,7 +4845,6 @@ pub(crate) fn boomerang_boss_eye_piece_1_tracking_loop_loc_3893E(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_eye_piece_1_launch_loc_38962() -> BoomerangBossEyePiece1LaunchLoc38962
 {
     // ASM loc_38962 (kid.asm:41109): call `sub_393B2` (detach step — sound
@@ -4904,7 +4866,7 @@ pub(crate) fn boomerang_boss_eye_piece_1_launch_loc_38962() -> BoomerangBossEyeP
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_eye_piece_2_init_loc_3899A(
     anchor_x: u16,
     anchor_y: u16,
@@ -4929,7 +4891,7 @@ pub(crate) fn boomerang_boss_eye_piece_2_init_loc_3899A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_eye_piece_2_tracking_loop_loc_389D6(
     breakup_trigger_fb72: u16,
 ) -> BoomerangBossEyePiece2TrackingLoopLoc389D6 {
@@ -4952,7 +4914,7 @@ pub(crate) fn boomerang_boss_eye_piece_2_tracking_loop_loc_389D6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_eye_piece_2_launch_loc_389FA() -> BoomerangBossEyePiece2LaunchLoc389FA
 {
     // ASM loc_389FA (kid.asm:41157): call `sub_393B2` (detach step — sound
@@ -4974,7 +4936,7 @@ pub(crate) fn boomerang_boss_eye_piece_2_launch_loc_389FA() -> BoomerangBossEyeP
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_1_init_loc_38A32(
     anchor_x: u16,
     anchor_y: u16,
@@ -5000,7 +4962,7 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_1_init_loc_38A32(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_1_tracking_loop_loc_38A6E(
     breakup_trigger_fb74: u16,
 ) -> BoomerangBossHead2EyePiece1TrackingLoopLoc38A6E {
@@ -5023,7 +4985,7 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_1_tracking_loop_loc_38A6E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_1_launch_loc_38A92()
 -> BoomerangBossHead2EyePiece1LaunchLoc38A92 {
     // ASM loc_38A92 (kid.asm:41205): call `sub_393B2` (detach step — sound
@@ -5045,7 +5007,7 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_1_launch_loc_38A92()
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_2_init_loc_38ACA(
     anchor_x: u16,
     anchor_y: u16,
@@ -5071,7 +5033,7 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_2_init_loc_38ACA(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_2_tracking_loop_loc_38B06(
     breakup_trigger_fb74: u16,
 ) -> BoomerangBossHead2EyePiece2TrackingLoopLoc38B06 {
@@ -5094,7 +5056,7 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_2_tracking_loop_loc_38B06(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_2_launch_loc_38B2A()
 -> BoomerangBossHead2EyePiece2LaunchLoc38B2A {
     // ASM loc_38B2A (kid.asm:41253): call `sub_393B2` (detach step — sound
@@ -5116,7 +5078,7 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_2_launch_loc_38B2A()
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_eye_piece_1_init_loc_38B62(
     anchor_x: u16,
     anchor_y: u16,
@@ -5142,7 +5104,7 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_1_init_loc_38B62(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_eye_piece_1_tracking_loop_loc_38B9E(
     breakup_trigger_fb76: u16,
 ) -> BoomerangBossHead3EyePiece1TrackingLoopLoc38B9E {
@@ -5165,7 +5127,7 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_1_tracking_loop_loc_38B9E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_eye_piece_1_launch_loc_38BC2()
 -> BoomerangBossHead3EyePiece1LaunchLoc38BC2 {
     // ASM loc_38BC2 (kid.asm:41301): call `sub_393B2` (detach step — sound
@@ -5187,7 +5149,7 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_1_launch_loc_38BC2()
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_eye_piece_2_init_loc_38BFA(
     anchor_x: u16,
     anchor_y: u16,
@@ -5213,7 +5175,7 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_2_init_loc_38BFA(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_eye_piece_2_tracking_loop_loc_38C36(
     breakup_trigger_fb76: u16,
 ) -> BoomerangBossHead3EyePiece2TrackingLoopLoc38C36 {
@@ -5236,7 +5198,7 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_2_tracking_loop_loc_38C36(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_eye_piece_2_launch_loc_38C5A()
 -> BoomerangBossHead3EyePiece2LaunchLoc38C5A {
     // ASM loc_38C5A (kid.asm:41349): call `sub_393B2` (detach step — sound
@@ -5258,7 +5220,7 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_2_launch_loc_38C5A()
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_eye_piece_3_init_loc_38C92(
     anchor_x: u16,
     anchor_y: u16,
@@ -5285,7 +5247,7 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_3_init_loc_38C92(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_eye_piece_3_tracking_loop_loc_38CCE(
     breakup_trigger_fb72: u16,
 ) -> BoomerangBossHead1EyePiece3TrackingLoopLoc38CCE {
@@ -5308,7 +5270,7 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_3_tracking_loop_loc_38CCE(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_eye_piece_3_launch_loc_38CF2()
 -> BoomerangBossHead1EyePiece3LaunchLoc38CF2 {
     // ASM loc_38CF2 (kid.asm:41397): call `sub_393B2` (detach step — sound
@@ -5331,7 +5293,7 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_3_launch_loc_38CF2()
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_eye_piece_4_init_loc_38D2A(
     anchor_x: u16,
     anchor_y: u16,
@@ -5359,7 +5321,7 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_4_init_loc_38D2A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_eye_piece_4_tracking_loop_loc_38D66(
     breakup_trigger_fb72: u16,
 ) -> BoomerangBossHead1EyePiece4TrackingLoopLoc38D66 {
@@ -5383,7 +5345,7 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_4_tracking_loop_loc_38D66(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_eye_piece_4_launch_loc_38D8A()
 -> BoomerangBossHead1EyePiece4LaunchLoc38D8A {
     // ASM loc_38D8A (kid.asm:41445): call `sub_393B2` (detach step — sound
@@ -5406,7 +5368,7 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_4_launch_loc_38D8A()
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_3_init_loc_38DC2(
     anchor_x: u16,
     anchor_y: u16,
@@ -5433,7 +5395,7 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_3_init_loc_38DC2(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_3_tracking_loop_loc_38DFE(
     breakup_trigger_fb74: u16,
 ) -> BoomerangBossHead2EyePiece3TrackingLoopLoc38DFE {
@@ -5456,7 +5418,7 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_3_tracking_loop_loc_38DFE(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_3_launch_loc_38E22()
 -> BoomerangBossHead2EyePiece3LaunchLoc38E22 {
     // ASM loc_38E22 (kid.asm:41493): call `sub_393B2` (detach step — sound
@@ -5479,7 +5441,7 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_3_launch_loc_38E22()
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_4_init_loc_38E5A(
     anchor_x: u16,
     anchor_y: u16,
@@ -5507,7 +5469,7 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_4_init_loc_38E5A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_4_tracking_loop_loc_38E96(
     breakup_trigger_fb74: u16,
 ) -> BoomerangBossHead2EyePiece4TrackingLoopLoc38E96 {
@@ -5531,7 +5493,7 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_4_tracking_loop_loc_38E96(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_4_launch_loc_38EBA()
 -> BoomerangBossHead2EyePiece4LaunchLoc38EBA {
     // ASM loc_38EBA (kid.asm:41541): call `sub_393B2` (detach step — sound
@@ -5554,7 +5516,7 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_4_launch_loc_38EBA()
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_eye_piece_3_init_loc_38EF2(
     anchor_x: u16,
     anchor_y: u16,
@@ -5582,7 +5544,7 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_3_init_loc_38EF2(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_eye_piece_3_tracking_loop_loc_38F2E(
     breakup_trigger_fb76: u16,
 ) -> BoomerangBossHead3EyePiece3TrackingLoopLoc38F2E {
@@ -5605,7 +5567,7 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_3_tracking_loop_loc_38F2E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_eye_piece_3_launch_loc_38F52()
 -> BoomerangBossHead3EyePiece3LaunchLoc38F52 {
     // ASM loc_38F52 (kid.asm:41589): call `sub_393B2` (detach step — sound
@@ -5628,7 +5590,7 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_3_launch_loc_38F52()
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_eye_piece_4_tracking_loop_loc_38FC6(
     breakup_trigger_fb76: u16,
 ) -> BoomerangBossHead3EyePiece4TrackingLoopLoc38FC6 {
@@ -5652,7 +5614,7 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_4_tracking_loop_loc_38FC6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_eye_piece_4_launch_loc_38FEA()
 -> BoomerangBossHead3EyePiece4LaunchLoc38FEA {
     // ASM loc_38FEA (kid.asm:41637): call `sub_393B2` (detach step — sound
@@ -5675,7 +5637,6 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_4_launch_loc_38FEA()
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_eye_piece_5_init_loc_39022(
     anchor_x: u16,
     anchor_y: u16,
@@ -5702,7 +5663,7 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_5_init_loc_39022(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_eye_piece_5_tracking_loop_loc_3905E(
     breakup_trigger_fb72: u16,
 ) -> BoomerangBossHead1EyePiece5TrackingLoopLoc3905E {
@@ -5725,7 +5686,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_5_tracking_loop_loc_3905E(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_eye_piece_5_launch_loc_39082()
 -> BoomerangBossHead1EyePiece5LaunchLoc39082 {
     // ASM loc_39082 (kid.asm:41685): call `sub_393B2` (detach step — sound
@@ -5748,7 +5708,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_5_launch_loc_39082()
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_eye_piece_6_init_loc_390ba(
     anchor_x: u16,
     anchor_y: u16,
@@ -5775,7 +5734,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_6_init_loc_390ba(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_eye_piece_6_tracking_loop_loc_390f6(
     breakup_trigger_fb72: u16,
 ) -> BoomerangBossHead1EyePiece6TrackingLoopLoc390F6 {
@@ -5798,7 +5756,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_6_tracking_loop_loc_390f6(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_head_1_eye_piece_6_launch_loc_3911a()
 -> BoomerangBossHead1EyePiece6LaunchLoc3911A {
     // ASM loc_3911A (kid.asm:41733): call `sub_393B2` (detach step — sound
@@ -5821,7 +5778,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_6_launch_loc_3911a()
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_5_init_loc_39152(
     anchor_x: u16,
     anchor_y: u16,
@@ -5849,7 +5805,7 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_5_init_loc_39152(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_5_tracking_loop_loc_3918E(
     breakup_trigger_fb74: u16,
 ) -> BoomerangBossHead2EyePiece5TrackingLoopLoc3918E {
@@ -5873,7 +5829,7 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_5_tracking_loop_loc_3918E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_5_launch_loc_391B2()
 -> BoomerangBossHead2EyePiece5LaunchLoc391B2 {
     // ASM loc_391B2 (kid.asm:41781): call `sub_393B2` (detach step — sound
@@ -5896,7 +5852,7 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_5_launch_loc_391B2()
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_6_init_loc_391EA(
     anchor_x: u16,
     anchor_y: u16,
@@ -5924,7 +5880,6 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_6_init_loc_391EA(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_6_tracking_loop_loc_39226(
     breakup_trigger_fb74: u16,
 ) -> BoomerangBossHead2EyePiece6TrackingLoopLoc39226 {
@@ -5948,7 +5903,7 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_6_tracking_loop_loc_39226(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_eye_piece_6_launch_loc_3924A()
 -> BoomerangBossHead2EyePiece6LaunchLoc3924A {
     // ASM loc_3924A (kid.asm:41829): call `sub_393B2` (detach step — sound
@@ -5971,7 +5926,6 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_6_launch_loc_3924A()
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_eye_piece_5_init_loc_39282(
     anchor_x: u16,
     anchor_y: u16,
@@ -5999,7 +5953,7 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_5_init_loc_39282(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_eye_piece_5_tracking_loop_loc_392BE(
     breakup_trigger_fb76: u16,
 ) -> BoomerangBossHead3EyePiece5TrackingLoopLoc392BE {
@@ -6023,7 +5977,7 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_5_tracking_loop_loc_392BE(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_eye_piece_5_launch_loc_392E2()
 -> BoomerangBossHead3EyePiece5LaunchLoc392E2 {
     // ASM loc_392E2 (kid.asm:41877): call `sub_393B2` (detach step — sound
@@ -6046,7 +6000,6 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_5_launch_loc_392E2()
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_eye_piece_6_tracking_loop_loc_39356(
     breakup_trigger_fb76: u16,
 ) -> BoomerangBossHead3EyePiece6TrackingLoopLoc39356 {
@@ -6070,7 +6023,7 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_6_tracking_loop_loc_39356(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_3_eye_piece_6_launch_loc_3937A()
 -> BoomerangBossHead3EyePiece6LaunchLoc3937A {
     // ASM loc_3937A (kid.asm:41925): call `sub_393B2` (detach step — sound
@@ -6093,7 +6046,6 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_6_launch_loc_3937A()
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_wait_loop_loc_38062(
     movement_status_d7: u16,
 ) -> BoomerangBossHead2WaitLoopLoc38062 {
@@ -6112,7 +6064,6 @@ pub(crate) fn boomerang_boss_head_2_wait_loop_loc_38062(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_activation_window_loc_38076(
     kid_x: u16,
     kid_y: u16,
@@ -6157,7 +6108,7 @@ pub(crate) fn boomerang_boss_head_2_activation_window_loc_38076(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_attack_wait_loop_loc_380B8(
     movement_status_d7: u16,
 ) -> BoomerangBossHead2AttackWaitLoopLoc380B8 {
@@ -6176,7 +6127,7 @@ pub(crate) fn boomerang_boss_head_2_attack_wait_loop_loc_380B8(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_attack_animation_gate_loc_380CC(
     animation_done_byte_18: u8,
 ) -> BoomerangBossHead2AttackAnimationGateLoc380CC {
@@ -6195,7 +6146,7 @@ pub(crate) fn boomerang_boss_head_2_attack_animation_gate_loc_380CC(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_post_projectile_wait_loop_loc_380D6(
     movement_status_d7: u16,
 ) -> BoomerangBossHead2PostProjectileWaitLoopLoc380D6 {
@@ -6214,7 +6165,7 @@ pub(crate) fn boomerang_boss_head_2_post_projectile_wait_loop_loc_380D6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boomerang_boss_head_2_post_projectile_animation_gate_loc_380EA(
     animation_done_byte_18: u8,
 ) -> BoomerangBossHead2PostProjectileAnimationGateLoc380EA {
@@ -6232,7 +6183,6 @@ pub(crate) fn boomerang_boss_head_2_post_projectile_animation_gate_loc_380EA(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boss_head_movement_step_sub_39846(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6511,7 +6461,7 @@ const BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39D80: [(i16, i16, i16); 51] = [
     (0x0064, 0, 1),
 ];
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_head_movement_wrapper_sub_398BC(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6531,7 +6481,7 @@ pub(crate) fn boss_head_movement_wrapper_sub_398BC(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_head_movement_step_sub_398C4(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6554,7 +6504,6 @@ pub(crate) fn boss_head_movement_step_sub_398C4(
     )
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boss_head_movement_wrapper_sub_39952(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6573,7 +6522,7 @@ pub(crate) fn boss_head_movement_wrapper_sub_39952(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_head_movement_step_sub_3995C(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6594,7 +6543,7 @@ pub(crate) fn boss_head_movement_step_sub_3995C(
     )
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_head_movement_wrapper_sub_399E4(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6613,7 +6562,7 @@ pub(crate) fn boss_head_movement_wrapper_sub_399E4(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_head_movement_step_sub_399EE(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6635,7 +6584,7 @@ pub(crate) fn boss_head_movement_step_sub_399EE(
     )
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_head_movement_wrapper_sub_39A7C(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6654,7 +6603,7 @@ pub(crate) fn boss_head_movement_wrapper_sub_39A7C(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_head_movement_step_sub_39A86(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6676,7 +6625,7 @@ pub(crate) fn boss_head_movement_step_sub_39A86(
     )
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_head_movement_wrapper_sub_39BF8(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6695,7 +6644,7 @@ pub(crate) fn boss_head_movement_wrapper_sub_39BF8(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_head_movement_step_sub_39C02(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6716,7 +6665,7 @@ pub(crate) fn boss_head_movement_step_sub_39C02(
     )
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_head_movement_wrapper_sub_39D4A(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6735,7 +6684,7 @@ pub(crate) fn boss_head_movement_wrapper_sub_39D4A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_head_movement_step_sub_39D54(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6756,7 +6705,7 @@ pub(crate) fn boss_head_movement_step_sub_39D54(
     )
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_head_movement_wrapper_sub_39EB4(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6775,7 +6724,6 @@ pub(crate) fn boss_head_movement_wrapper_sub_39EB4(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn boss_head_movement_step_for_family_sub_39846(
     family: EnemyFamily,
     boss_head_index: u8,
@@ -6892,7 +6840,7 @@ pub(crate) fn boss_head_movement_step_for_family_sub_39846(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_death_timeout_sound_sub_370D2(v_int_counter_fff809: u8) -> &'static str {
     // ASM loc_371D4..loc_37200 (kid.asm:39060): choose the timeout sound from
     // bit 0 of `$FFFFF809`. The odd branch queues `sfx_Plethora_x` but the ROM
@@ -6906,7 +6854,7 @@ pub(crate) fn boss_death_timeout_sound_sub_370D2(v_int_counter_fff809: u8) -> &'
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn fire_demon_fragment_collision_step_sub_3A172(
     collision_type: i16,
 ) -> FireDemonFragmentCollisionStep {
@@ -6936,7 +6884,7 @@ pub(crate) fn fire_demon_fragment_collision_step_sub_3A172(
     result
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn fire_demon_fragment_collision_step_sub_3A1A6(
     collision_type: i16,
 ) -> FireDemonFragmentCollisionStep {
@@ -6964,7 +6912,7 @@ pub(crate) fn fire_demon_fragment_collision_step_sub_3A1A6(
     result
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_collision_palette_sub_3A292(
     collision_type: u16,
     berzerker_charging: bool,
@@ -7034,7 +6982,7 @@ pub(crate) fn boss_collision_palette_sub_3A292(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_head_death_anim_sequence_loc_39EE2() -> BossHeadDeathAnimSequenceLoc39EE2 {
     // ASM loc_39EE2 (kid.asm:43004): boss head death animation — plays 8
     // animation scripts with `j_Hibernate_UntilAnimFinished` between each.
@@ -7059,7 +7007,7 @@ pub(crate) fn boss_head_death_anim_sequence_loc_39EE2() -> BossHeadDeathAnimSequ
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn boss_head_death_spin_loop_loc_39F7A(
     loop_counter_d0: u16,
 ) -> BossHeadDeathSpinLoopLoc39F7A {
@@ -7081,7 +7029,7 @@ pub(crate) fn boss_head_death_spin_loop_loc_39F7A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn fire_demon_fragment_movement_step_loc_3A134(
     horizontal_counter_40: u16,
 ) -> FireDemonFragmentMovementStepLoc3A134 {
@@ -7114,7 +7062,7 @@ pub(crate) fn fire_demon_fragment_movement_step_loc_3A134(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn fire_demon_fragment_fade_step_loc_3A14E(
     fade_counter_42: u16,
 ) -> FireDemonFragmentFadeStepLoc3A14E {
@@ -7144,7 +7092,7 @@ pub(crate) fn fire_demon_fragment_fade_step_loc_3A14E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn fire_demon_fragment_decel_step_loc_3A24C(
     direction_byte_d0: u8,
     horizontal_counter_40: u16,
@@ -7222,7 +7170,6 @@ pub(crate) fn fire_demon_fragment_decel_step_loc_3A24C(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn heady_metal_init_enemy20_loc_39247(
     anchor_x: u16,
     anchor_y: u16,
@@ -7257,7 +7204,7 @@ pub(crate) fn heady_metal_init_enemy20_loc_39247(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn heady_metal_sprite_init_sub_3764A(
     x_pos: u16,
     y_pos: u16,
@@ -7277,7 +7224,6 @@ pub(crate) fn heady_metal_sprite_init_sub_3764A(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn heady_metal_sprite_init_sub_37680(
     x_pos: u16,
     y_pos: u16,
@@ -7297,7 +7243,7 @@ pub(crate) fn heady_metal_sprite_init_sub_37680(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn heady_metal_sprite_init_sub_376B6(
     x_pos: u16,
     y_pos: u16,
@@ -7317,7 +7263,7 @@ pub(crate) fn heady_metal_sprite_init_sub_376B6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn heady_metal_apply_piece_velocities_sub_376EC(
     mut slots: [Option<HeadyMetalSpriteVelocitySub376EC>; 17],
     x_velocity: i32,
@@ -7390,7 +7336,7 @@ pub(crate) fn heady_metal_tracking_velocity_loc_37582(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn heady_metal_spawn_animation_loc_3761E(
     piece_counter_before_spawn: u16,
 ) -> HeadyMetalSpawnAnimationLoc3761E {
@@ -7424,7 +7370,7 @@ pub(crate) fn heady_metal_spawn_animation_loc_3761E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn heady_metal_scatter_step_sub_3787C(
     mut velocities: HeadyMetalScatterVelocities,
     d6_x_velocity_delta: i32,
@@ -7441,7 +7387,7 @@ pub(crate) fn heady_metal_scatter_step_sub_3787C(
     velocities
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn heady_metal_scatter_step_sub_378A2(
     mut velocities: HeadyMetalScatterVelocities,
     d6_x_velocity_delta: i32,
@@ -7463,7 +7409,7 @@ const HEADY_METAL_PALETTE_WAVE_SUB_379E8: [u16; 32] = [
     0x0206, 0x0206, 0x0204, 0x0204, 0x0202, 0x0202, 0x0200, 0x0200,
 ];
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn heady_metal_palette_cycle_sub_379E8(
     phase_counter: u16,
 ) -> HeadyMetalPaletteCycleSub379E8 {
@@ -7491,14 +7437,14 @@ const HEADY_METAL_PIECE_SPRITES_OFF_37AE0: [&str; 8] = [
     "LnkTo_unk_C84C0-Data_Index",
 ];
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn heady_metal_piece_sprite_mapping_loc_37AAE(table_index: usize) -> &'static str {
     // ASM loc_37AAE (kid.asm:39979): copy selected `d2` to `d7`, double it
     // as a word offset, then load the mapping word from `off_37AE0`.
     HEADY_METAL_PIECE_SPRITES_OFF_37AE0[table_index]
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn heady_metal_piece_sprite_sub_37A22(
     diamond_power_active: bool,
     v_int_counter_fff809: u8,
@@ -7560,7 +7506,7 @@ pub(crate) fn heady_metal_piece_sprite_sub_37A22(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn heady_metal_piece_sprite_index_sub_37A22(
     diamond_power_active: bool,
     v_int_counter_fff809: u8,
@@ -7596,10 +7542,9 @@ const HEADY_METAL_BREAKUP_SEQUENCE_SUB_37708: [usize; 37] = [
     6, 3, 10, 5, 8, 11, 12,
 ];
 
-#[allow(non_snake_case)]
 // piece_slots is a Copy POD array moved straight into the returned result; by-ref
 // would only add deref noise since the array is copied into `result` regardless.
-#[allow(clippy::large_types_passed_by_value)]
+#[expect(clippy::large_types_passed_by_value)]
 pub(crate) fn heady_metal_breakup_step_sub_37708(
     anchor_present: bool,
     collision_type: i16,
@@ -7737,7 +7682,7 @@ pub(crate) fn heady_metal_breakup_step_sub_37708(
     result
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn heady_metal_cleanup_sub_378C8(
     global_hit_latch_fb4e: bool,
     countdown_42: u16,
@@ -7921,7 +7866,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn level_complete_scoreboard_reveal_frames_loc_C21E(&self) -> usize {
         let camera = self.current_camera_state();
         self.block_grid.as_ref().map_or(0, |grid| {
@@ -7933,7 +7878,7 @@ impl NativeRuntime {
         })
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn level_completion_bonus_tally_loc_D468(&self) -> LevelCompletionBonusTallyLocD468 {
         let mut tally = LevelCompletionBonusTallyLocD468::default();
 
@@ -7974,7 +7919,7 @@ impl NativeRuntime {
         tally
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn level_complete_sequence_frames_loc_D770(&self) -> usize {
         // Known fixed waits before the score counter starts:
         // loc_C070 #$24, loc_C21E scoreboard reveal, Score_Board #$14,
@@ -7993,7 +7938,7 @@ impl NativeRuntime {
             + counter.total_frames
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn level_complete_live_score_loc_D770(&self, elapsed_counter_frames: usize) -> u32 {
         let tally = self.level_completion_bonus_tally_loc_D468();
         let transfer_frames = crate::level::eol_score_counter_transfer_frames_from_trace_loc_D770(
@@ -8014,7 +7959,7 @@ impl NativeRuntime {
     /// drain start (kid.asm:16850-16852). The transfer-frame count is derived
     /// from `eol_score_counter_duration_loc_D770` so the boundary stays in lock
     /// step with the live score the renderer already replays.
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn level_complete_score_counter_drained_loc_D7F4(
         &self,
         elapsed_counter_frames: usize,
@@ -11297,7 +11242,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn apply_dragon_flying_death_status_route_loc_3492C(
         &mut self,
         status_route: DragonFlyingDeathStatusRouteLoc3492C,
@@ -11336,7 +11281,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn apply_deactivation_status_action_loc_3C4C0(
         &mut self,
         status_action: DeactivationStatusActionLoc3C4C0,
@@ -11360,7 +11305,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn apply_emo_rock_death_status_route_loc_3639A(
         &mut self,
         status_route: EmoRockDeathStatusRouteLoc3639A,
@@ -11384,7 +11329,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn apply_archer_death_status_route_loc_3414A(
         &mut self,
         status_route: ArcherDeathStatusRouteLoc3414A,
@@ -11408,7 +11353,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn apply_cloud_death_status_route_loc_35C0E(
         &mut self,
         status_route: CloudDeathStatusRouteLoc35C0E,
@@ -11432,7 +11377,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn apply_hand_death_status_route_loc_32AA2(
         &mut self,
         status_route: HandDeathStatusRouteLoc32AA2,
@@ -11456,7 +11401,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn apply_tar_monster_death_status_route_loc_3243A(
         &mut self,
         status_route: TarMonsterDeathStatusRouteLoc3243A,
@@ -11480,7 +11425,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn apply_tornado_hit_status_route_loc_359b2(
         &mut self,
         status_route: TornadoHitStatusRouteLoc359B2,
@@ -12492,7 +12436,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn play_thunderstorm_sound_sub_1B36C(&mut self, d0: u16) -> u16 {
         // ASM sub_1B36C (kid.asm:29577-29583) saves d0 on the stack, plays
         // `sfx_Thunderstorm`, then restores d0 before returning.
@@ -12500,7 +12444,7 @@ impl NativeRuntime {
         d0
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn play_navigate_jingle_sub_1BC26(&mut self, d0: u16) -> u16 {
         // ASM sub_1BC26 (kid.asm:30506-30512) saves d0 on the stack, plays
         // `sfx_Navigate_jingle`, then restores d0 before returning.
@@ -12567,7 +12511,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn prize_10000_points_setup_loc_10AE0(x_pos: u32, y_pos: u32) {
         // ASM Prize10000Points_Init loc_10AE0/loc_10AFA (kid.asm:22384-22395):
         // after score/life/timer side effects, cache the collected prize object's
@@ -12716,7 +12660,7 @@ impl NativeRuntime {
         })
     }
 
-    #[allow(clippy::unused_self, reason = "semantically a method on game state")]
+    #[expect(clippy::unused_self, reason = "semantically a method on game state")]
     pub(crate) fn fell_below_level(&self, slice: &OpeningSliceState) -> bool {
         if slice.player.y_velocity < 0 {
             return false;
@@ -12779,7 +12723,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn clear_flagpole_deleted_objects_loc_C070(&mut self) {
         // ASM CharacterCollision_TouchFlagpole loc_C056 clears collision
         // fields on every object except Kid, then loc_C070 calls
@@ -12801,7 +12745,7 @@ impl NativeRuntime {
         self.enemy_death_effects.clear();
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn build_flagpole_stale_gfx_snapshot_loc_C056(
         &self,
         slice: &OpeningSliceState,
@@ -12824,7 +12768,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn initialise_flagpole_hologram_fade_loc_C1AA_C1BC(&mut self) -> (u16, u32, u32) {
         // ASM loc_C1AA/C1BC/C1DC (kid.asm:15750): copy the live
         // `Palette_Buffer` into `Palette_Buffer_2`, copy 15 Pal_D00C score
@@ -13245,7 +13189,7 @@ impl NativeRuntime {
         };
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn sprite_vertical_extent_loc_11EA(
         use_alternate_extent: bool,
         default_extent_px: i32,
@@ -13262,7 +13206,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn sprite_visibility_window_loc_11EE(
         sprite_x_px: i32,
         sprite_y_px: i32,
@@ -13287,7 +13231,6 @@ impl NativeRuntime {
             .contains(&x_screen_px)
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn sprite_priority_bit_loc_1234(
         priority_byte: u8,
         high_priority_hw_flag: bool,
@@ -13315,7 +13258,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn sprite_tile_id_loc_1238(
         base_tile_id: u16,
         sprite_offset_word: u16,
@@ -13346,7 +13288,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     #[cfg(test)]
     pub(crate) fn sprite_dma_upload_loc_141A(
         size_code: u8,
@@ -13376,7 +13318,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn sprite_special_y_offset_loc_1286(sprite_offset: u16, y_screen_px: i32) -> i32 {
         const MANIAXE_AXE_FRAME_3_SPRITE_OFFSET_LOC_1286: u16 = 0x00B0;
 
@@ -13391,7 +13332,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
     pub(crate) fn sprite_uses_x_flip_loc_1292(x_direction: u8) -> bool {
         // ASM loc_1292 (kid.asm:2273): `tst.b x_direction(a3)` branches to the
         // x-flipped renderer at `loc_132A` for any non-zero byte and reaches
@@ -13399,7 +13339,7 @@ impl NativeRuntime {
         x_direction != 0
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn sprite_normal_orientation_chunks_loc_12B8(
         base_x_screen_px: i16,
         base_y_screen_px: i16,
@@ -13498,7 +13438,7 @@ impl NativeRuntime {
         emitted
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn sprite_x_flipped_chunks_loc_134A(
         base_x_screen_px: i16,
         base_y_screen_px: i16,
@@ -13906,7 +13846,7 @@ pub(crate) struct CollisionSizeEntrySub21F8 {
     pub(crate) height_px: i16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn kid_hitbox_from_collision_size_sub_21F8(
     previous_hitbox: CollisionRectSub1F52,
     x_anchor_px: i16,
@@ -13962,7 +13902,6 @@ pub(crate) struct ShooterPointSub219C {
     pub(crate) y_px: i16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn kid_hitbox_point_loc_2252(
     x_anchor_px: i16,
     y_anchor_px: i16,
@@ -14012,7 +13951,7 @@ pub(crate) struct ShooterProjectileRecycleLoc22FE {
 }
 
 #[cfg(test)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shooter_projectile_recycle_loc_22FE(
     predecessor_slot_addr: u16,
     current_slot_addr: u16,
@@ -14033,7 +13972,7 @@ pub(crate) fn shooter_projectile_recycle_loc_22FE(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn next_shooter_point_loc_226E(
     shooter_points: &[ShooterPointSub219C],
     cursor: usize,
@@ -14047,7 +13986,7 @@ pub(crate) fn next_shooter_point_loc_226E(
         .map(|point| (cursor, point))
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn first_shooter_hit_sub_219C(
     kid_hitbox: CollisionRectSub1F52,
     shooter_points: &[ShooterPointSub219C],
@@ -14112,7 +14051,6 @@ fn projectile_hitbox_sub_226a(
     })
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn next_projectile_hitbox_loc_2286(
     projectiles: &[KidProjectileHitboxCandidateSub226A],
     cursor: usize,
@@ -14131,7 +14069,7 @@ pub(crate) fn next_projectile_hitbox_loc_2286(
         })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn first_shooter_projectile_overlap_sub_226A(
     shooter_points: &[ShooterPointSub219C],
     projectiles: &[KidProjectileHitboxCandidateSub226A],
@@ -14166,7 +14104,6 @@ pub(crate) fn first_shooter_projectile_overlap_sub_226A(
     None
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn juggernaut_support_overlap_sub_9832(
     x_px: i16,
     y_px: i16,
@@ -14365,7 +14302,7 @@ fn solid_overlap_resolution_sub_201c(
 }
 
 #[cfg(test)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn first_solid_overlap_action_sub_1FA2(
     kid_hitbox: CollisionRectSub1F52,
     solid_tiles: &[SolidOverlapTileSub1FA2],
@@ -14400,7 +14337,7 @@ pub(crate) fn first_solid_overlap_action_sub_1FA2(
 }
 
 #[cfg(test)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn first_solid_overlap_resolution_sub_1FA2(
     kid_hitbox: CollisionRectSub1F52,
     solid_tiles: &[CollisionRectSub1F52],
@@ -14421,7 +14358,7 @@ pub(crate) fn first_solid_overlap_resolution_sub_1FA2(
     Some(solid_overlap_resolution_sub_201c(kid_hitbox, solid))
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn support_overlap_detected_sub_1F52(
     kid_hitbox: CollisionRectSub1F52,
     overlap_candidates: &[CollisionRectSub1F52],

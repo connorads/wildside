@@ -19,7 +19,7 @@ const CXX_ALIGN: usize = 16;
 
 // The header cast is sound: cxx_alloc allocates with CXX_ALIGN (16), which
 // exceeds usize's alignment.
-#[allow(clippy::cast_ptr_alignment)]
+#[expect(clippy::cast_ptr_alignment)]
 fn cxx_alloc(payload_size: usize) -> *mut u8 {
     let total = payload_size
         .max(1)
@@ -46,7 +46,7 @@ fn cxx_alloc(payload_size: usize) -> *mut u8 {
 /// [`cxx_alloc`] (C++ guarantees delete only sees pointers from new).
 // The header cast is sound: the base pointer came from a CXX_ALIGN (16)
 // allocation, which exceeds usize's alignment.
-#[allow(clippy::cast_ptr_alignment)]
+#[expect(clippy::cast_ptr_alignment)]
 unsafe fn cxx_dealloc(payload: *mut u8) {
     if payload.is_null() {
         // C++ delete of nullptr is a no-op.

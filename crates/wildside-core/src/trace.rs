@@ -9243,7 +9243,7 @@ pub(crate) struct KidObjectTypeFourCollisionLoc1D5A {
     pub(crate) branches_to_invulnerability_gate: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn kid_object_collision_writeback_loc_1CF2(
     relation: KidObjectRelation,
     object_collision_flags: u16,
@@ -9262,7 +9262,7 @@ pub(crate) fn kid_object_collision_writeback_loc_1CF2(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn kid_object_stomp_object_writeback_loc_1D46() -> KidObjectStompObjectWritebackLoc1D46 {
     // ASM loc_1D46 (kid.asm:3512): when `loc_1CE4` sees
     // `Character_Movement == MoveID_Jump`, the stomp path first writes
@@ -9273,7 +9273,7 @@ pub(crate) fn kid_object_stomp_object_writeback_loc_1D46() -> KidObjectStompObje
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn kid_object_stomp_player_writeback_loc_1D4C(
     object_collision_flags: u16,
 ) -> KidObjectStompPlayerWritebackLoc1D4C {
@@ -9289,7 +9289,7 @@ pub(crate) fn kid_object_stomp_player_writeback_loc_1D4C(
 }
 
 #[cfg(test)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn kid_object_type_four_collision_loc_1D5A(
     object_collision_flags: u16,
 ) -> KidObjectTypeFourCollisionLoc1D5A {
@@ -9318,7 +9318,7 @@ pub(crate) fn kid_object_type_four_collision_loc_1D5A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn kid_object_invulnerability_gate_loc_1D00(
     kid_is_invulnerable: bool,
     player_collision_type: u16,
@@ -13762,7 +13762,7 @@ impl NativeRuntime {
     // slots is a Copy POD array forwarded by value into
     // boss_eye_refresh_attack_sprites_sub_37ABC; by-ref would only add deref noise
     // since that call copies the array regardless.
-    #[allow(clippy::large_types_passed_by_value)]
+    #[expect(clippy::large_types_passed_by_value)]
     fn refreshed_heady_metal_body_pieces_sub_37abc(
         &self,
         slots: [Option<BossEyeSpriteRefreshSlotSub37ABC>; 12],

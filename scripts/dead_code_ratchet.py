@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Downward-only dead-code marker ratchet — the #32 scoreboard.
 
-The `#[cfg_attr(not(test), allow(dead_code))]` markers are not junk and not
+The `#[cfg_attr(not(test), expect(dead_code))]` markers are not junk and not
 missing features: each is a faithful, unit-tested, per-`loc_XXXX` ASM model that
 is simply not yet wired into the live path — the "faithful-but-dark shadow".
 Incorporating the rest of the port means promoting those models to first-class
@@ -42,10 +42,11 @@ ROOT = Path(__file__).resolve().parent.parent
 CRATES = ROOT / "crates"
 BASELINE = ROOT / "docs/source-port/dead-code-baseline.yaml"
 
-# Matches the canonical `#[cfg_attr(not(test), allow(dead_code))]` and tolerates
-# whitespace drift after the comma. This is the dark-shadow marker only; a plain
-# `#[allow(dead_code)]` is a different (broader) suppression and is not counted.
-ATTR_RE = re.compile(r"#\[cfg_attr\(not\(test\),\s*allow\(dead_code\)\)\]")
+# Matches the dark-shadow marker `#[cfg_attr(not(test), expect(dead_code))]`
+# (and the legacy `allow` spelling), tolerating rustfmt's multi-line layout and a
+# trailing `reason = ".."`. A plain `#[expect(dead_code)]` is dead in every build,
+# a different suppression, and is not counted.
+ATTR_RE = re.compile(r"#\[cfg_attr\(\s*not\(test\),\s*(?:allow|expect)\(\s*dead_code\b")
 # `max_count:` line in the YAML baseline; rewritten in place so the header
 # comment survives a ratchet-down.
 MAX_COUNT_RE = re.compile(r"^(?P<pre>\s*max_count\s*:\s*)(?P<n>\d+)(?P<post>.*)$", re.MULTILINE)
@@ -81,7 +82,7 @@ def main(argv: list[str]) -> int:
     if count > baseline:
         print(
             f"error: dead-code markers rose to {count} (baseline {baseline}). "
-            "A new `#[cfg_attr(not(test), allow(dead_code))]` is fresh dark code "
+            "A new `#[cfg_attr(not(test), expect(dead_code))]` is fresh dark code "
             "— wire the model into the live path, or keep a test-only helper "
             "behind `#[cfg(test)]`. The ratchet only falls.",
             file=sys.stderr,

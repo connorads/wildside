@@ -539,7 +539,7 @@ struct ClusterArt {
     worst: (usize, usize, Vec<u8>, Vec<u8>),
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn record_region(
     frames: &mut Vec<FrameTriage>,
     cluster_art: &mut BTreeMap<String, ClusterArt>,

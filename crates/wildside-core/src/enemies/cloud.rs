@@ -6,7 +6,7 @@ use super::*;
 /// flying immediately on the next frame instead of idling.
 const CLOUD_CONTROL_SCRIPT_WORDS_LOC_35BAC: [u16; 5] = [0x7800, 0x0004, 0x1E00, 0x0008, 0xFFFF];
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn cloud_control_script_words_loc_35BAC() -> &'static [u16] {
     // ASM Cloud.asm loc_35BAC: `lea (unk_35BC4).l,a0` restarts the command
     // stream before the dispatcher fetches the next big-endian word.
@@ -23,7 +23,7 @@ pub(crate) enum CloudControlDispatchLoc35BB2 {
     Unknown { table_offset: u8 },
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn cloud_control_script_dispatch_loc_35BB2(
     command_word: u16,
 ) -> CloudControlDispatchLoc35BB2 {
@@ -55,7 +55,7 @@ pub(crate) struct CloudWaitLoopLoc35C56 {
     pub(crate) resumes_control_script: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn cloud_wait_loop_loc_35C56(command_word: u16) -> CloudWaitLoopLoc35C56 {
     // ASM Cloud.asm loc_35C54 shifts the command word down by one byte; loc_35C56
     // then hibernates, range-checks, polls collision, idles/attacks, and DBFs.
@@ -79,7 +79,7 @@ pub(crate) struct CloudControlScriptTickLoc35BAC {
     pub(crate) next_wait_frames: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn cloud_control_script_tick_loc_35BAC(
     command_index: u8,
     wait_frames: u16,
@@ -153,7 +153,7 @@ pub(crate) struct CloudStatusLatchLoc35C72 {
     pub(crate) resumes_control_script: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn cloud_status_latch_loc_35C72() -> CloudStatusLatchLoc35C72 {
     // ASM Cloud.asm loc_35C72: `st $44(a5)` writes `$FF`, then branches back
     // to the command dispatcher at loc_35BB2.
@@ -169,7 +169,7 @@ pub(crate) struct CloudStatusLatchLoc35C7A {
     pub(crate) resumes_control_script: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn cloud_status_latch_loc_35C7A() -> CloudStatusLatchLoc35C7A {
     // ASM Cloud.asm loc_35C7A: `sf $44(a5)` writes `$00`, then branches back
     // to the command dispatcher at loc_35BB2.
@@ -186,7 +186,7 @@ pub(crate) struct CloudTransitionLoc35C82 {
     pub(crate) restarts_control_script: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn cloud_transition_loc_35C82() -> CloudTransitionLoc35C82 {
     // ASM Cloud.asm loc_35C82: initialise `stru_35EC8`, hibernate until that
     // animation completes, then branch to loc_35BAC to reload the command stream.
@@ -233,7 +233,7 @@ pub(crate) struct CloudIdleSpriteGateLoc35CA2 {
     pub(crate) reaches_countdown_reload: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn cloud_idle_sprite_gate_loc_35CA2(
     object_44: u8,
     object_45: u8,
@@ -280,7 +280,7 @@ pub(crate) struct CloudIdleSpriteResetLoc35CD2 {
     pub(crate) d2: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn cloud_idle_sprite_reset_loc_35CD2() -> CloudIdleSpriteResetLoc35CD2 {
     // ASM Cloud.asm loc_35CD2: every elapsed idle-sprite attempt reloads the
     // d2 countdown with five frames before returning to the wait loop.
@@ -347,7 +347,7 @@ fn cloud_diagonal_attack_start_loc_35cd8(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn cloud_diagonal_attack_setup_loc_35CD8(
     input: CloudDiagonalAttackInputLoc35CD8,
 ) -> CloudDiagonalAttackSetupLoc35CD8 {
@@ -438,7 +438,7 @@ pub(crate) struct CloudAttackProjectileLoopLoc35E8A {
     pub(crate) route: CloudAttackProjectileRouteLoc35E8A,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn cloud_attack_projectile_loop_loc_35E8A(
     collision_type: u16,
     animation_flag_19: bool,
@@ -462,7 +462,7 @@ pub(crate) struct CloudAttackProjectileDeleteTailLoc35E9C {
     pub(crate) deletes_current_object: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn cloud_attack_projectile_delete_tail_loc_35E9C()
 -> CloudAttackProjectileDeleteTailLoc35E9C {
     // ASM Cloud.asm loc_35E9C: spawned attack projectile tail-calls
@@ -498,7 +498,7 @@ pub(crate) struct CloudDeleteTailLoc35C50 {
     pub(crate) deletes_current_object: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn cloud_delete_tail_loc_35C50() -> CloudDeleteTailLoc35C50 {
     // ASM Cloud.asm loc_35C50: every death-status route converges on
     // `jmp (j_Delete_CurrentObject).w`.
@@ -507,7 +507,7 @@ pub(crate) fn cloud_delete_tail_loc_35C50() -> CloudDeleteTailLoc35C50 {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn cloud_respawn_marker_loc_35C42(object_status_slot: u8) -> CloudRespawnMarkerLoc35C42 {
     // ASM Cloud.asm loc_35C42: positive `$42(a5)` is doubled as an
     // EnemyStatus_Table word offset, then `$2168` is written as the respawn marker.
@@ -517,7 +517,7 @@ pub(crate) fn cloud_respawn_marker_loc_35C42(object_status_slot: u8) -> CloudRes
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn cloud_death_sequence_loc_35C0E(object_status_slot: u8) -> CloudDeathSequenceLoc35C0E {
     // ASM Cloud.asm loc_35C0E: clear `x_vel(a3)`, run `stru_35EBA` to
     // completion, apply the `$42(a5)` status route, then delete the object.

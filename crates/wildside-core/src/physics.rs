@@ -557,7 +557,7 @@ pub fn update_horizontal_velocity(
 /// ASM sub_9A20 (kid.asm:11588): unlike the shared loc_9B2E walker tables,
 /// Skycutter uses fixed walk/run caps of `$20000/$40000` with `$2000/$4000`
 /// steps and keeps the current facing as the primary branch selector.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn update_skycutter_horizontal_velocity_sub_9A20(
     x_vel: i32,
     facing: Direction,
@@ -1140,7 +1140,7 @@ pub(crate) fn forward_murder_wall_camera_push_loc_7346(
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
-#[allow(clippy::assertions_on_constants, clippy::identity_op)]
+#[expect(clippy::assertions_on_constants)]
 mod tests {
     use super::*;
 
@@ -2460,7 +2460,7 @@ mod tests {
     /// mulu.w; lsl.l #4; neg.l` computes the upward launch velocity.
     /// This test verifies a concrete running-jump scenario end-to-end.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A44A_abs_x_vel_jump_height_scaling() {
         // x_vel = -0x2_0000 (moving left at walk speed)
         // After neg: abs = 0x2_0000
@@ -2485,7 +2485,7 @@ mod tests {
     /// by adding $20000 (making the negative value less negative → lower jump).
     /// This test verifies the delta: grabbed jump = ungrabbed jump + $20000.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A466_grabbed_by_hand_weakens_jump() {
         let (_, y_vel_normal) = initiate_jump(0x2_0000, JUMP_HEIGHTS[0]);
         let (_, y_vel_ungrabbed) = initiate_jump_with_hand_grab(0x2_0000, JUMP_HEIGHTS[0], false);
@@ -2517,7 +2517,7 @@ mod tests {
     /// jump reduces x_vel to 3/4 of its original value via arithmetic shift.
     /// Verify exact values for representative speeds.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A480_x_vel_three_quarter_reduction() {
         // Walking speed: 0x2_0000
         // asr #1 → 0x1_0000; asr #1 → 0x8000; sum = 0x1_8000
@@ -2605,7 +2605,6 @@ mod tests {
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
-#[allow(clippy::assertions_on_constants)]
 mod proptests {
     use super::*;
     use proptest::prelude::*;

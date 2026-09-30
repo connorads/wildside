@@ -26,11 +26,9 @@ pub(crate) const SPECIAL_EFFECT_UNKNOWN_PLANE_VDP_COMMAND_LOC_14E42: u32 = 0x400
 pub(crate) const SPECIAL_EFFECT_UNKNOWN_FOREGROUND_PLANE_REGISTER_LOC_14E42: u16 = 0x8218;
 pub(crate) const SPECIAL_EFFECT_UNKNOWN_BACKGROUND_PLANE_REGISTER_LOC_14E42: u16 = 0x8400;
 
-#[allow(dead_code)]
 const MURDER_WALL_PATTERN_SUB_5E02: [u16; 4] = [0xA2FB, 0xA31F, 0xA343, 0xA367];
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn copy_murder_wall_palette_loc_140EE(
     source_palette: &[u16; 8],
     palette_buffer: &mut [u16; 0x40],
@@ -41,7 +39,7 @@ pub(crate) fn copy_murder_wall_palette_loc_140EE(
     palette_buffer[0x10..0x18].copy_from_slice(source_palette);
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn copy_lava_geyser_palette_loc_14C86(
     source_palette: &[u16; 8],
     palette_buffer: &mut [u16; 0x40],
@@ -85,7 +83,7 @@ pub struct MurderWallWarningRenderSub5E02 {
     pub sprites: Vec<MurderWallWarningSpriteSub5E02>,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn compile_murder_wall_warning_sprites_sub_5E02(
     input: MurderWallWarningInputSub5E02,
 ) -> MurderWallWarningRenderSub5E02 {
@@ -201,14 +199,11 @@ pub fn compile_murder_wall_warning_sprites_sub_5E02(
     render
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LevelSpecialEffectsRoutineSub6034 {
     WeatherSub6048,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn dispatch_level_special_effects_sub_6034(
     level_special_effects: u16,
 ) -> Option<LevelSpecialEffectsRoutineSub6034> {
@@ -224,7 +219,6 @@ pub(crate) fn dispatch_level_special_effects_sub_6034(
     None
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum StormArtAssetLoc14CCE {
     Rain,
@@ -240,8 +234,7 @@ impl StormArtAssetLoc14CCE {
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn select_storm_art_loc_14CCE(background_theme_is_ice: bool) -> StormArtAssetLoc14CCE {
     // ASM Init_SpecialEffect_Storm -> loc_14CCE (kid.asm:28339-28346): Ice
     // backgrounds branch away from the default rain art and load the hail art
@@ -253,7 +246,6 @@ pub(crate) fn select_storm_art_loc_14CCE(background_theme_is_ice: bool) -> Storm
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct StormArtUploadLoc14CD8 {
     pub(crate) asset: StormArtAssetLoc14CCE,
@@ -261,8 +253,7 @@ pub(crate) struct StormArtUploadLoc14CD8 {
     pub(crate) vram_word: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn upload_storm_art_loc_14CD8(asset: StormArtAssetLoc14CCE) -> StormArtUploadLoc14CD8 {
     // ASM loc_14CD8 (kid.asm:28347-28348): both the rain and hail branches
     // converge here and always decompress the previously selected art into
@@ -274,7 +265,6 @@ pub(crate) fn upload_storm_art_loc_14CD8(asset: StormArtAssetLoc14CCE) -> StormA
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum StormPaletteAssetLoc14CEC {
     Rain,
@@ -306,7 +296,6 @@ pub(crate) struct StormPaletteCopyLoc14CF2 {
     pub(crate) copied_words: usize,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum StormSavedPaletteAssetLoc14D82 {
     RainPalette7B85C,
@@ -320,8 +309,7 @@ impl StormSavedPaletteAssetLoc14D82 {
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn select_saved_storm_palette_loc_14D82(
     level_special_effects: u16,
 ) -> StormSavedPaletteAssetLoc14D82 {
@@ -336,8 +324,7 @@ pub(crate) fn select_saved_storm_palette_loc_14D82(
     StormSavedPaletteAssetLoc14D82::RainPalette7B85C
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn select_storm_palette_loc_14CEC(
     background_theme_is_ice: bool,
 ) -> StormPaletteAssetLoc14CEC {
@@ -351,8 +338,7 @@ pub(crate) fn select_storm_palette_loc_14CEC(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn copy_storm_palette_loc_14CF2(
     source_palette: &[u16; 8],
     palette_buffer: &mut [u16; 0x40],
@@ -365,7 +351,7 @@ pub(crate) fn copy_storm_palette_loc_14CF2(
         .copy_from_slice(source_palette);
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn record_storm_palette_copy_loc_14CF2(
     asset: StormPaletteAssetLoc14CEC,
 ) -> StormPaletteCopyLoc14CF2 {
@@ -380,7 +366,6 @@ pub(crate) fn record_storm_palette_copy_loc_14CF2(
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum StormPatternAssetLoc14D1E {
     Rain,
@@ -396,7 +381,6 @@ impl StormPatternAssetLoc14D1E {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct StormPatternUploadSetupLoc14D1E {
     pub(crate) vram_tile_addend: u32,
@@ -404,8 +388,7 @@ pub(crate) struct StormPatternUploadSetupLoc14D1E {
     pub(crate) skipped_header_longwords: usize,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn select_storm_pattern_upload_loc_14D1E(
     background_theme_is_ice: bool,
 ) -> StormPatternUploadSetupLoc14D1E {
@@ -424,7 +407,6 @@ pub(crate) fn select_storm_pattern_upload_loc_14D1E(
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct StormPatternUploadLoc14D32 {
     pub(crate) vdp_command: u32,
@@ -440,23 +422,21 @@ pub struct StormPatternRuntimeUploadLoc14D32 {
     pub written_longword_count: usize,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn storm_pattern_outer_pass_count_loc_14D3C() -> usize {
     // ASM loc_14D3C (kid.asm:28390): `moveq #3,d2` falls through to the shared
     // upload loop, and `dbf d2,loc_14D3C` runs inclusively from 3 down to -1.
     4
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn storm_pattern_group_repeat_count_loc_14D3E() -> usize {
     // ASM loc_14D3E (kid.asm:28393): `moveq #7,d1` selects eight passes through
     // the group loop before `dbf d1,loc_14D3E` stops at -1.
     8
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn storm_pattern_written_longword_count_loc_14D32() -> usize {
     // ASM loc_14D32/loc_14D3C/loc_14D3E/loc_14D40 (kid.asm:28387-28409):
     // four outer passes, eight source groups, eight repeats per group, four
@@ -467,7 +447,7 @@ pub(crate) fn storm_pattern_written_longword_count_loc_14D32() -> usize {
         * 4
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn record_storm_pattern_upload_loc_14D32(
     setup: StormPatternUploadSetupLoc14D1E,
 ) -> StormPatternRuntimeUploadLoc14D32 {
@@ -483,8 +463,7 @@ pub(crate) fn record_storm_pattern_upload_loc_14D32(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn storm_pattern_emit_group_loc_14D40(
     source_group: &[u32; 4],
     vram_tile_addend: u32,
@@ -495,8 +474,8 @@ pub(crate) fn storm_pattern_emit_group_loc_14D40(
     source_group.map(|word| word.wrapping_add(vram_tile_addend))
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn upload_storm_pattern_blocks_loc_14D32(
     source_longwords: &[u32; 32],
     vram_tile_addend: u32,
@@ -529,7 +508,6 @@ pub(crate) fn upload_storm_pattern_blocks_loc_14D32(
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum StormSharedArtAssetLoc14D8A {
     ArtComp9A7D2,
@@ -549,7 +527,6 @@ pub struct StormSharedArtRuntimeUploadLoc14D8A {
     pub vram_word: u16,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct StormSlotFillSetupLoc14D8A {
     pub(crate) loop_count: u16,
@@ -558,7 +535,6 @@ pub(crate) struct StormSlotFillSetupLoc14D8A {
     pub(crate) impact_slot_sentinel: u32,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct StormInitSetupLoc14D8A {
     pub(crate) art_asset: StormSharedArtAssetLoc14D8A,
@@ -566,8 +542,7 @@ pub(crate) struct StormInitSetupLoc14D8A {
     pub(crate) fill_setup: StormSlotFillSetupLoc14D8A,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn initialise_storm_setup_loc_14D8A() -> StormInitSetupLoc14D8A {
     // ASM loc_14D8A (kid.asm:28423-28433): load the shared `LnkTo_ArtComp_9A7D2`
     // weather art, decompress it to VRAM word `$76A0`, then seed the later
@@ -584,7 +559,7 @@ pub(crate) fn initialise_storm_setup_loc_14D8A() -> StormInitSetupLoc14D8A {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn record_storm_shared_art_upload_loc_14D8A(
     setup: StormInitSetupLoc14D8A,
 ) -> StormSharedArtRuntimeUploadLoc14D8A {
@@ -596,20 +571,17 @@ pub(crate) fn record_storm_shared_art_upload_loc_14D8A(
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct FallingWeatherInitSlotLoc14DAC {
     pub(crate) sentinel_long: u32,
     pub(crate) y_word: u16,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct WeatherImpactInitSlotLoc14DAC {
     pub(crate) sentinel_words: [u32; 3],
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct StormSlotInitLoc14DAC {
     pub(crate) falling_slots: [FallingWeatherInitSlotLoc14DAC; 5],
@@ -623,8 +595,7 @@ pub(crate) struct StormSlotInitLoc14DAC {
     pub(crate) fb54_word: u16,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn initialise_storm_slots_loc_14DAC(
     setup: StormSlotFillSetupLoc14D8A,
 ) -> StormSlotInitLoc14DAC {
@@ -654,7 +625,6 @@ pub(crate) fn initialise_storm_slots_loc_14DAC(
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SpecialEffectUnknownArtUploadLoc14DF6 {
     pub(crate) written_longwords: Vec<u32>,
@@ -668,8 +638,8 @@ pub struct SpecialEffectUnknownRuntimeArtUploadLoc14DF6 {
     pub written_longword_count: usize,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn upload_special_effect_unknown_art_loc_14DF6(
     source_longwords: &[u32],
     dbf_counter: u16,
@@ -685,7 +655,7 @@ pub(crate) fn upload_special_effect_unknown_art_loc_14DF6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn record_special_effect_unknown_art_upload_loc_14DF6()
 -> SpecialEffectUnknownRuntimeArtUploadLoc14DF6 {
     // ASM Init_SpecialEffect_Unknown loc_14DE4/loc_14DF6 (kid.asm:28452):
@@ -700,7 +670,6 @@ pub(crate) fn record_special_effect_unknown_art_upload_loc_14DF6()
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SpecialEffectUnknownPlaneFillOuterPassLoc14E42 {
     pub(crate) written_longwords: Vec<u32>,
@@ -724,8 +693,7 @@ fn special_effect_unknown_plane_seed_pair() -> (u32, u32) {
     (0x8380_8381, 0x8382_8383)
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn special_effect_unknown_group_count_loc_14E42() -> usize {
     // ASM loc_14E42 (kid.asm:28484): `moveq #3,d1` seeds the middle loop, so an
     // outer pass emits four consecutive 16-pair groups before the later
@@ -733,15 +701,14 @@ pub(crate) fn special_effect_unknown_group_count_loc_14E42() -> usize {
     4
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn special_effect_unknown_outer_pass_count_loc_14E42() -> usize {
     // ASM loc_14E42 (kid.asm:28482): `moveq #7,d2` makes the outer DBF loop
     // run eight passes over the four middle groups before restoring planes.
     8
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn special_effect_unknown_inner_repeat_count_loc_14E44() -> usize {
     // ASM loc_14E44 (kid.asm:28487): `moveq #$F,d0` reloads the innermost loop
     // counter, so each group writes the current `d6/d7` pair 16 times before
@@ -749,8 +716,8 @@ pub(crate) fn special_effect_unknown_inner_repeat_count_loc_14E44() -> usize {
     16
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn special_effect_unknown_pair_write_loc_14E46() -> [u32; 2] {
     // ASM loc_14E46 (kid.asm:28490): the innermost loop body writes the
     // current `d6` seed first, then the current `d7` seed, before `dbf d0`
@@ -759,8 +726,8 @@ pub(crate) fn special_effect_unknown_pair_write_loc_14E46() -> [u32; 2] {
     [d6, d7]
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn special_effect_unknown_group_loc_14E44() -> Vec<u32> {
     let (d6, d7) = special_effect_unknown_plane_seed_pair();
     let mut written_longwords =
@@ -774,8 +741,8 @@ pub(crate) fn special_effect_unknown_group_loc_14E44() -> Vec<u32> {
     written_longwords
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn special_effect_unknown_outer_pass_loc_14E42(
     inner_repeat_count: usize,
 ) -> SpecialEffectUnknownPlaneFillOuterPassLoc14E42 {
@@ -795,7 +762,7 @@ pub(crate) fn special_effect_unknown_outer_pass_loc_14E42(
     SpecialEffectUnknownPlaneFillOuterPassLoc14E42 { written_longwords }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn record_special_effect_unknown_plane_fill_loc_14E42()
 -> SpecialEffectUnknownPlaneFillRuntimeLoc14E42 {
     // ASM loc_14E42/loc_14E44/loc_14E46 (kid.asm:28480-28501): fill the
@@ -815,7 +782,6 @@ pub(crate) fn record_special_effect_unknown_plane_fill_loc_14E42()
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum WeatherPaletteOpSub6048 {
     /// ASM loc_607A (kid.asm:6062): `move.w (a0)+,(a1)+; dbf d0,loc_607A`
@@ -840,7 +806,6 @@ pub(crate) const WEATHER_IMPACT_SLOT_COUNT_SUB_61CA: usize = 10;
 const FALLING_WEATHER_SPRITES_SUB_61CA: [u16; 6] = [0xA3B5, 0xA3B9, 0xA3BD, 0xA3C1, 0xA3C5, 0xA3C9];
 const IMPACT_WEATHER_SPRITES_SUB_61CA: [u16; 2] = [0xA3CD, 0xA3D1];
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct FallingWeatherSlotSub61CA {
     pub(crate) y_px: i16,
@@ -850,7 +815,6 @@ pub(crate) struct FallingWeatherSlotSub61CA {
 }
 
 impl FallingWeatherSlotSub61CA {
-    #[allow(dead_code)]
     pub(crate) const fn inactive(animation_cooldown: u8, animation_frame: u8) -> Self {
         Self {
             y_px: -1,
@@ -878,7 +842,6 @@ impl Default for FallingWeatherSlotSub61CA {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct WeatherImpactSlotSub61CA {
     pub(crate) y_px: i16,
@@ -888,7 +851,6 @@ pub(crate) struct WeatherImpactSlotSub61CA {
 }
 
 impl WeatherImpactSlotSub61CA {
-    #[allow(dead_code)]
     pub(crate) const fn inactive(animation_cooldown: u8, animation_frame: u8) -> Self {
         Self {
             y_px: -1,
@@ -911,7 +873,6 @@ impl Default for WeatherImpactSlotSub61CA {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct WeatherCollisionRowsSub61CA {
     pub(crate) rows: Vec<Vec<u16>>,
@@ -986,7 +947,6 @@ pub(crate) struct WeatherSpriteSub61CA {
     pub(crate) x: u16,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct WeatherWorkerInputSub61CA {
     pub(crate) camera_x_px: i16,
@@ -1005,7 +965,6 @@ pub(crate) struct WeatherWorkerInputSub61CA {
     pub(crate) starting_number_sprites: u8,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct WeatherWorkerOutputSub61CA {
     pub(crate) spawn_cooldown: u8,
@@ -1054,9 +1013,8 @@ pub(crate) fn hail_projectiles_from_falling_slots_sub_61ca(
         .collect()
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
-#[allow(clippy::needless_pass_by_value, reason = "test callers pass by value")]
+#[expect(non_snake_case)]
+#[expect(clippy::needless_pass_by_value, reason = "test callers pass by value")]
 pub(crate) fn step_weather_worker_sub_61CA(
     input: WeatherWorkerInputSub61CA,
 ) -> WeatherWorkerOutputSub61CA {
@@ -1368,7 +1326,6 @@ pub(crate) fn step_weather_worker_sub_61CA(
     output
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct WeatherSpecialEffectsStepSub6048 {
     pub(crate) frame_counter: u16,
@@ -1391,8 +1348,6 @@ pub(crate) struct WeatherSpecialEffectsStepSub6048 {
     pub(crate) palette_ops: Vec<WeatherPaletteOpSub6048>,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn step_level_special_effects_sub_6048(
     mut state: WeatherSpecialEffectsStepSub6048,
     saved_storm_palette: [u16; 8],
@@ -1669,7 +1624,7 @@ pub(crate) struct LavaGeyserHitboxWindowLoc14AAA {
     pub(crate) bottom_px: i32,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_geyser_hitbox_window_loc_14AAA(
     geyser_x_px: u16,
     geyser_base_y_px: u16,
@@ -1693,7 +1648,7 @@ pub(crate) fn lava_geyser_hitbox_window_loc_14AAA(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn lava_geyser_hits_kid_sub_14A58(geyser: &LavaGeyser, slice: &OpeningSliceState) -> bool {
     let Some(hitbox_window) =
         lava_geyser_hitbox_window_loc_14AAA(geyser.x_px, geyser.y_px, geyser.current_height)
@@ -1725,7 +1680,7 @@ pub struct LavaGeyserSpriteChunkLoc14BE8 {
     pub screen_x_px: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn lava_geyser_sprite_chunks_loc_14BE8(
     base_x_world_px: u16,
     camera_x_px: u16,
@@ -1769,7 +1724,7 @@ pub(crate) struct LavaFireballVerticalWindowLoc14AFC {
     pub(crate) bottom_px: i32,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_fireball_vertical_window_loc_14AFC(
     baseline_y_px: u16,
     sprite_kind: LavaFireballSpriteKind,
@@ -1790,7 +1745,7 @@ pub(crate) fn lava_fireball_vertical_window_loc_14AFC(
     LavaFireballVerticalWindowLoc14AFC { top_px, bottom_px }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_fireball_rejects_kid_loc_14B22(
     kid_left_px: i32,
     kid_right_px: i32,
@@ -1808,7 +1763,7 @@ pub(crate) fn lava_fireball_rejects_kid_loc_14B22(
         || kid_bottom_px < vertical_window.top_px
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_fireball_overlap_gate_loc_14B06(
     kid_left_px: i32,
     kid_right_px: i32,
@@ -1832,7 +1787,7 @@ pub(crate) fn lava_fireball_overlap_gate_loc_14B06(
     )
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_fireball_hitbox_x_window_loc_14AB0(fireball_x_px: u16) -> (i32, i32) {
     // ASM sub_14AB0 (kid.asm:28151-28157): `move.w $44(a5),d6; subi.w #$80,d6;
     // addq.w #1,d6` shapes the inclusive left column after the shared sprite
@@ -1844,7 +1799,7 @@ pub(crate) fn lava_fireball_hitbox_x_window_loc_14AB0(fireball_x_px: u16) -> (i3
     (left, right)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn lava_fireball_hits_kid_sub_14AB0(
     fireball: &LavaFireball,
     slice: &OpeningSliceState,
@@ -1866,7 +1821,6 @@ fn lava_fireball_hits_kid_sub_14AB0(
     )
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn lava_geyser_initial_delay_frames_loc_14772(encoded_height_word: u16) -> u16 {
     // ASM Obj_Lava_Geyser -> loc_14772 (kid.asm:27810-27820): the low nibble of
     // the encoded height indexes `word_14710`, whose entries are `0, 10, 20,
@@ -1875,14 +1829,13 @@ pub(crate) fn lava_geyser_initial_delay_frames_loc_14772(encoded_height_word: u1
     (encoded_height_word & 0xF) * 10
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserPaletteLoopLoc14B2A {
     pub(crate) hibernation_frames: u16,
     pub(crate) reloaded_delay_counter: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn rotate_lava_geyser_palette_loc_14B2A(
     palette_buffer: &mut [u16; 0x40],
 ) -> LavaGeyserPaletteLoopLoc14B2A {
@@ -1904,7 +1857,6 @@ pub(crate) fn rotate_lava_geyser_palette_loc_14B2A(
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaFireballInitStateLoc1499C {
     pub(crate) startup_delay_frames: u16,
@@ -1913,7 +1865,7 @@ pub(crate) struct LavaFireballInitStateLoc1499C {
     pub(crate) biased_y_px: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn initialise_lava_fireball_state_loc_1499C(
     x_px: u16,
     y_px: u16,
@@ -1932,7 +1884,6 @@ pub(crate) fn initialise_lava_fireball_state_loc_1499C(
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaFireballScriptStartLoc149CC {
     pub(crate) script_name: &'static str,
@@ -1941,7 +1892,7 @@ pub(crate) struct LavaFireballScriptStartLoc149CC {
     pub(crate) sprite_top_y_px: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn initialise_lava_fireball_script_loc_149CC(
     biased_x_px: u16,
     biased_y_px: u16,
@@ -1960,7 +1911,6 @@ pub(crate) fn initialise_lava_fireball_script_loc_149CC(
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaFireballSegmentLoc149E4 {
     pub(crate) dbf_counter: u16,
@@ -1969,14 +1919,12 @@ pub(crate) struct LavaFireballSegmentLoc149E4 {
     pub(crate) sprite_script_word: u16,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LavaFireballScriptStepLoc149E4 {
     CooldownAndRestart,
     EmitSegment(LavaFireballSegmentLoc149E4),
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaFireballLoopResumeLoc149FC {
     pub(crate) hibernation_frames: u16,
@@ -1985,7 +1933,7 @@ pub(crate) struct LavaFireballLoopResumeLoc149FC {
     pub(crate) next_baseline_y_px: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn decode_lava_fireball_script_step_loc_149E4(
     script_words: &[u16],
 ) -> Option<LavaFireballScriptStepLoc149E4> {
@@ -2017,13 +1965,13 @@ struct LavaFireballLiveSegmentLoc149E4 {
     sprite_kind: LavaFireballSpriteKind,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn lava_fireball_script_words_at_segment_loc_149E4(segment_index: u8) -> Option<&'static [u16]> {
     let start = usize::from(segment_index) * LAVA_FIREBALL_SCRIPT_WORDS_PER_SEGMENT_LOC_149E4;
     LAVA_FIREBALL_SCRIPT_WORDS_LOC_146CC.get(start..)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_fireball_sprite_kind_for_script_word_loc_149E4(
     sprite_script_word: u16,
 ) -> Option<LavaFireballSpriteKind> {
@@ -2042,7 +1990,7 @@ pub(crate) fn lava_fireball_sprite_kind_for_script_word_loc_149E4(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn lava_fireball_live_segment_loc_149E4(
     segment_index: u8,
 ) -> Option<LavaFireballLiveSegmentLoc149E4> {
@@ -2061,7 +2009,7 @@ fn lava_fireball_live_segment_loc_149E4(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_fireball_loop_resume_loc_149FC(
     baseline_y_px: u16,
     delta_y: i16,
@@ -2078,7 +2026,6 @@ pub(crate) fn lava_fireball_loop_resume_loc_149FC(
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaFireballSegmentBackEdgeLoc14A46 {
     pub(crate) next_dbf_counter: u16,
@@ -2086,7 +2033,7 @@ pub(crate) struct LavaFireballSegmentBackEdgeLoc14A46 {
     pub(crate) advances_to_next_script_step: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_fireball_segment_back_edge_loc_14A46(
     dbf_counter: u16,
 ) -> LavaFireballSegmentBackEdgeLoc14A46 {
@@ -2103,7 +2050,6 @@ pub(crate) fn lava_fireball_segment_back_edge_loc_14A46(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn lava_geyser_startup_script_loc_14788() -> &'static str {
     // ASM loc_14788 (kid.asm:27825): after the initial hibernation and optional
     // `sfx_Lava_Geyser_starting`, the very first eruption seeds `a0` from
@@ -2111,7 +2057,6 @@ pub(crate) fn lava_geyser_startup_script_loc_14788() -> &'static str {
     "unk_146B6"
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn lava_geyser_start_sound_loc_14772(sound_suppressed: bool) -> Option<&'static str> {
     // ASM loc_14772 (kid.asm:27820): after the initial per-geyser hibernate,
     // the first eruption plays `sfx_Lava_Geyser_starting` only when `$19(a3)`
@@ -2120,7 +2065,7 @@ pub(crate) fn lava_geyser_start_sound_loc_14772(sound_suppressed: bool) -> Optio
     (!sound_suppressed).then_some("sfx_Lava_Geyser_starting")
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_geyser_repeat_sound_loc_1478E(sound_suppressed: bool) -> Option<&'static str> {
     // ASM loc_1478E (kid.asm:27830): the repeat-cycle path plays
     // `sfx_Lava_Geyser` only when `$19(a3)` is clear; non-zero skips the sound
@@ -2128,7 +2073,7 @@ pub(crate) fn lava_geyser_repeat_sound_loc_1478E(sound_suppressed: bool) -> Opti
     (!sound_suppressed).then_some("sfx_Lava_Geyser")
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_geyser_repeat_script_loc_1479C() -> &'static str {
     // ASM loc_1479C (kid.asm:27836): repeat eruptions reload `a0` from
     // `unk_146A0`, the steady-state geyser script that runs after the optional
@@ -2151,7 +2096,7 @@ const LAVA_GEYSER_REPEAT_SCRIPT_TEMPLATES_LOC_146A0: [&str; 5] = [
     "unk_14602",
 ];
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_geyser_script_template_label_loc_147BA(
     phase: u8,
     timer: u16,
@@ -2184,7 +2129,6 @@ pub(crate) fn lava_geyser_script_template_label_loc_147BA(
     labels.get(label_index).copied()
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserFullHeightStateLoc147A0 {
     pub(crate) x_px: u16,
@@ -2193,7 +2137,7 @@ pub(crate) struct LavaGeyserFullHeightStateLoc147A0 {
     pub(crate) sprite_top_y_px: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn initialise_lava_geyser_full_height_state_loc_147A0(
     biased_x_px: u16,
     biased_y_px: u16,
@@ -2212,14 +2156,12 @@ pub(crate) fn initialise_lava_geyser_full_height_state_loc_147A0(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn lava_geyser_peak_row_target_loc_14966(sprite_row_target: u16) -> u16 {
     // ASM loc_14966 (kid.asm:28018): when the alternating top-cap frame wraps
     // back to zero, the worker grows `$4A(a5)` by 2 before reloading `d3`.
     sprite_row_target.wrapping_add(2)
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserPeakHoldStepLoc1496C {
     pub(crate) sprite_row_index: u16,
@@ -2228,7 +2170,7 @@ pub(crate) struct LavaGeyserPeakHoldStepLoc1496C {
     pub(crate) descending: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_geyser_peak_hold_step_loc_1496C(
     sprite_row_target: u16,
     hold_frames_remaining: u16,
@@ -2246,7 +2188,6 @@ pub(crate) fn lava_geyser_peak_hold_step_loc_1496C(
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserCollapseStepLoc1498C {
     pub(crate) next_sprite_row_index: u16,
@@ -2254,7 +2195,7 @@ pub(crate) struct LavaGeyserCollapseStepLoc1498C {
     pub(crate) restart_startup_script: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_geyser_collapse_step_loc_1498C(
     sprite_row_index: u16,
 ) -> LavaGeyserCollapseStepLoc1498C {
@@ -2270,7 +2211,6 @@ pub(crate) fn lava_geyser_collapse_step_loc_1498C(
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LavaGeyserScriptStepLoc147BA {
     HoldAtFullHeight,
@@ -2281,7 +2221,7 @@ pub(crate) enum LavaGeyserScriptStepLoc147BA {
     },
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn decode_lava_geyser_script_step_loc_147BA(
     script_words: &[u16],
 ) -> Option<LavaGeyserScriptStepLoc147BA> {
@@ -2301,7 +2241,6 @@ pub(crate) fn decode_lava_geyser_script_step_loc_147BA(
     })
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserDisableStepLoc1483A {
     pub(crate) sound: &'static str,
@@ -2309,7 +2248,7 @@ pub(crate) struct LavaGeyserDisableStepLoc1483A {
     pub(crate) resumes_at_repeat_loop: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_geyser_disable_step_loc_1483A() -> LavaGeyserDisableStepLoc1483A {
     // ASM loc_1483A (kid.asm:27900): the `$FFFE` script sentinel falls here,
     // queues `sfx_Lava_Geyser`, hibernates for `$3C` frames, then resumes at
@@ -2321,7 +2260,6 @@ pub(crate) fn lava_geyser_disable_step_loc_1483A() -> LavaGeyserDisableStepLoc14
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserRiseResetLoc1484E {
     pub(crate) sprite_row_index: u16,
@@ -2329,7 +2267,7 @@ pub(crate) struct LavaGeyserRiseResetLoc1484E {
     pub(crate) sprite_frame_within_row: u8,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_geyser_rise_reset_loc_1484E() -> LavaGeyserRiseResetLoc1484E {
     // ASM loc_1484E (kid.asm:27908): the upward-motion path restarts the row
     // cursor in `d3`, seeds the raw DBF counter `$48(a5)=2`, and clears
@@ -2341,7 +2279,6 @@ pub(crate) fn lava_geyser_rise_reset_loc_1484E() -> LavaGeyserRiseResetLoc1484E 
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserPreLoopHibernateLoc1485E {
     pub(crate) hibernation_frames: u16,
@@ -2349,7 +2286,7 @@ pub(crate) struct LavaGeyserPreLoopHibernateLoc1485E {
     pub(crate) falls_through_to_shared_loop: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_geyser_pre_loop_hibernate_loc_1485E() -> LavaGeyserPreLoopHibernateLoc1485E {
     // ASM loc_1485E (kid.asm:27915): before reloading `$48(a5)` into `d2` at
     // `loc_14866`, the worker hibernates exactly one frame, re-runs
@@ -2361,7 +2298,6 @@ pub(crate) fn lava_geyser_pre_loop_hibernate_loc_1485E() -> LavaGeyserPreLoopHib
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserLoopBackEdgeLoc1486C {
     pub(crate) hibernation_frames: u16,
@@ -2369,7 +2305,7 @@ pub(crate) struct LavaGeyserLoopBackEdgeLoc1486C {
     pub(crate) reenters_shared_loop: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_geyser_loop_back_edge_loc_1486C() -> LavaGeyserLoopBackEdgeLoc1486C {
     // ASM loc_1486C (kid.asm:27924): each taken `dbf d2,loc_1486C` back-edge
     // hibernates one frame, re-runs `sub_14A58`, then re-enters the shared
@@ -2381,7 +2317,6 @@ pub(crate) fn lava_geyser_loop_back_edge_loc_1486C() -> LavaGeyserLoopBackEdgeLo
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LavaGeyserCameraWindowInputLoc147D6 {
     pub x_px: u16,
@@ -2390,7 +2325,7 @@ pub struct LavaGeyserCameraWindowInputLoc147D6 {
     pub camera_y_px: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn lava_geyser_is_inside_camera_window_loc_147D6(
     input: LavaGeyserCameraWindowInputLoc147D6,
 ) -> bool {
@@ -2412,7 +2347,6 @@ pub fn lava_geyser_is_inside_camera_window_loc_147D6(
     x_px >= min_x && x_px <= max_x && y_px >= min_y && y_px <= max_y
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserTopSpriteWindowInputLoc14874 {
     pub(crate) x_px: u16,
@@ -2430,7 +2364,6 @@ pub struct LavaGeyserFullHeightRowLoc14874 {
     pub source_label: &'static str,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LavaGeyserTopSpriteWindowResultLoc14874 {
     Culled,
@@ -2438,7 +2371,6 @@ pub(crate) enum LavaGeyserTopSpriteWindowResultLoc14874 {
     BuildTopSprite { sprite_row_y_px: u16 },
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn lava_geyser_top_sprite_window_loc_14874(
     input: LavaGeyserTopSpriteWindowInputLoc14874,
 ) -> LavaGeyserTopSpriteWindowResultLoc14874 {
@@ -2476,7 +2408,7 @@ pub(crate) fn lava_geyser_top_sprite_window_loc_14874(
     LavaGeyserTopSpriteWindowResultLoc14874::BuildTopSprite { sprite_row_y_px }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_geyser_top_sprite_script_loc_148CE(sprite_frame_within_row: u8) -> &'static str {
     // ASM loc_148CE (kid.asm:27959): when `$4C(a5)` is non-zero the geyser uses
     // `dword_14636` for the top sprite-row template; zero keeps `unk_14624`.
@@ -2487,7 +2419,7 @@ pub(crate) fn lava_geyser_top_sprite_script_loc_148CE(sprite_frame_within_row: u
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_geyser_store_top_sprite_y_loc_148D4(
     sprite_screen_y_with_bias: u16,
     camera_y_px: u16,
@@ -2501,7 +2433,6 @@ pub(crate) fn lava_geyser_store_top_sprite_y_loc_148D4(
         .wrapping_add(camera_y_px)
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LavaGeyserMiddleSpriteRowResultLoc148F8 {
     SkipAboveWindow,
@@ -2509,7 +2440,7 @@ pub(crate) enum LavaGeyserMiddleSpriteRowResultLoc148F8 {
     CulledBelowWindow,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_geyser_middle_sprite_row_window_loc_148F8(
     sprite_row_y_px: u16,
     camera_y_px: u16,
@@ -2532,7 +2463,6 @@ pub(crate) fn lava_geyser_middle_sprite_row_window_loc_148F8(
     LavaGeyserMiddleSpriteRowResultLoc148F8::BuildSpriteRow
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserMiddleRowAdvanceResultLoc14914 {
     pub(crate) next_sprite_row_y_px: u16,
@@ -2540,7 +2470,6 @@ pub(crate) struct LavaGeyserMiddleRowAdvanceResultLoc14914 {
     pub(crate) continue_middle_rows: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn lava_geyser_middle_row_advance_loc_14914(
     sprite_row_y_px: u16,
     middle_row_index: u16,
@@ -2564,7 +2493,6 @@ pub(crate) struct LavaGeyserFullHeightRenderStateLoc14940 {
     pub(crate) top_sprite_frame_within_row: u8,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn lava_geyser_full_height_render_state_loc_14940(
     phase: u8,
     timer: u16,
@@ -2623,7 +2551,6 @@ pub(crate) fn lava_geyser_full_height_render_state_loc_14940(
     }
 }
 
-#[allow(non_snake_case)]
 pub fn lava_geyser_full_height_rows_for_sprite_row_loc_14874(
     x_px: u16,
     base_y_px: u16,
@@ -2644,7 +2571,6 @@ pub fn lava_geyser_full_height_rows_for_sprite_row_loc_14874(
     )
 }
 
-#[allow(non_snake_case)]
 pub fn lava_geyser_full_height_rows_loc_14874(
     x_px: u16,
     base_y_px: u16,
@@ -2672,7 +2598,6 @@ pub fn lava_geyser_full_height_rows_loc_14874(
     )
 }
 
-#[allow(non_snake_case)]
 fn lava_geyser_full_height_rows_from_sprite_row_loc_14874(
     x_px: u16,
     base_y_px: u16,
@@ -2751,7 +2676,6 @@ fn lava_geyser_full_height_rows_from_sprite_row_loc_14874(
     rows
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn lava_geyser_inter_row_hibernations_loc_14804(sprite_rows_minus_one: u16) -> u16 {
     // ASM loc_14804 (kid.asm:27876): the `dbf d2,loc_14804` back-edge runs only
     // between sprite rows. With `d2` seeded from the "rows minus one" script
@@ -2760,7 +2684,7 @@ pub(crate) fn lava_geyser_inter_row_hibernations_loc_14804(sprite_rows_minus_one
     sprite_rows_minus_one
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_geyser_sprite_top_y_loc_1480C(
     sprite_screen_y_with_bias: u16,
     camera_y_px: u16,
@@ -2812,7 +2736,7 @@ pub(crate) struct LavaGeyserInitLoc14C6A {
     pub(crate) startup_delay_frames: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn lava_geyser_position_table_loc_14C5E(
     resource_level_id: u8,
 ) -> LavaGeyserPositionTableLoc14C5E {
@@ -2827,7 +2751,7 @@ pub(crate) fn lava_geyser_position_table_loc_14C5E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn initialise_lava_geyser_loc_14C6A(
     x_px: u16,
     y_px: u16,
@@ -2888,7 +2812,7 @@ fn advance_lava_fireball(fireball: &mut LavaFireball) {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn restart_lava_fireball_script_loc_149CC(fireball: &mut LavaFireball) {
     let script_start = initialise_lava_fireball_script_loc_149CC(
         fireball.x_px.wrapping_add(0x80),
@@ -2900,19 +2824,18 @@ fn restart_lava_fireball_script_loc_149CC(fireball: &mut LavaFireball) {
     fireball.current_y_px = script_start.sprite_top_y_px;
 }
 
-#[allow(non_snake_case)]
 fn start_lava_geyser_startup_script_loc_14788(geyser: &mut LavaGeyser) {
     let script_name = lava_geyser_startup_script_loc_14788();
     start_lava_geyser_script_loc_147BA(geyser, script_name);
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn start_lava_geyser_repeat_script_loc_1479C(geyser: &mut LavaGeyser) {
     let script_name = lava_geyser_repeat_script_loc_1479C();
     start_lava_geyser_script_loc_147BA(geyser, script_name);
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn start_lava_geyser_script_loc_147BA(geyser: &mut LavaGeyser, script_name: &str) {
     // ASM loc_147BA walks the script selected by loc_14788/loc_1479C. Startup
     // entries use `d2=0` (one visible frame each); repeat entries use `d2=2`
@@ -2936,7 +2859,7 @@ fn start_lava_geyser_script_loc_147BA(geyser: &mut LavaGeyser, script_name: &str
     geyser.current_height = LAVA_GEYSER_ROW_HEIGHT_PX;
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn start_lava_geyser_rise_loc_1484E(geyser: &mut LavaGeyser) {
     let reset = lava_geyser_rise_reset_loc_1484E();
     geyser.phase = LAVA_GEYSER_PHASE_RISING_LOC_1484E;

@@ -47,7 +47,7 @@ pub(crate) struct EyeclopsBeamSpritesLocE51A {
     pub(crate) collision_bottom_y_word: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_beam_render_setup_loc_E4B2(
     beam_counter: u16,
     latched_x_direction: u8,
@@ -79,7 +79,7 @@ fn kid_projectile_hit_spark_loc_1_f08(x_pos: u32, y_pos: u32) -> KidProjectileHi
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_beam_screen_origin_loc_E4C4(
     kid_x_word: u16,
     kid_y_word: u16,
@@ -104,7 +104,7 @@ pub(crate) fn eyeclops_beam_screen_origin_loc_E4C4(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_beam_mirrored_anchor_loc_E50A(
     screen_x_word: u16,
     beam_segment_index: u16,
@@ -118,7 +118,7 @@ pub(crate) fn eyeclops_beam_mirrored_anchor_loc_E50A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_beam_table_dispatch_loc_E512(
     beam_segment_index: u16,
 ) -> Option<EyeclopsBeamTableDispatchLocE512> {
@@ -138,7 +138,7 @@ pub(crate) fn eyeclops_beam_table_dispatch_loc_E512(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn eyeclops_beam_sprites_loc_E51A(
     table_label: &str,
     screen_x_word: u16,
@@ -404,7 +404,7 @@ fn u16_bits_as_i16(value: u16) -> i16 {
     i16::from_ne_bytes(value.to_ne_bytes())
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn eyeclops_beam_world_strip_sub_E49A(
     beam_counter: u16,
     kid_x_word: u16,
@@ -467,7 +467,7 @@ fn eyeclops_beam_world_strip_sub_E49A(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn eyeclops_beam_collision_probe_loc_E70A(
     beam_segment_index: u16,
     screen_x_word: u16,
@@ -549,7 +549,7 @@ fn replace_long_high_word(long: u32, hi: u16) -> u32 {
     (u32::from(hi) << 16) | (long & 0xFFFF)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn red_stealth_swing_anchor_sub_868E(player: &PlayerState) -> (u32, u32) {
     // ASM sub_868E (kid.asm:9522): the spawned sword worker copies Kid's
     // position, subtracts 10px from Y, then offsets X by 28px toward the
@@ -573,7 +573,7 @@ pub(crate) fn red_stealth_swing_anchor_sub_868E(player: &PlayerState) -> (u32, u
     (x_px << 16, y_px << 16)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn red_stealth_sword_collision_size_sub_868E_loc_31D84() -> CollisionSizeEntrySub21F8 {
     // ASM sub_868E (kid.asm:9536): the sword worker uses `LnkTo1_NULL`.
     // Data_Index row `LnkTo1_NULL` maps through `CollisionSize_Index` to
@@ -604,7 +604,7 @@ pub(crate) struct RedStealthFloorImpactSubB000 {
     pub(crate) bounce_y_velocity: i32,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn red_stealth_floor_impact_sub_B000(
     current_form: PlayerForm,
     sword_swing_active: bool,
@@ -701,7 +701,7 @@ pub(crate) struct JuggernautCompanionStepSub975C {
     pub(crate) visual: JuggernautCompanionVisualSub975C,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn juggernaut_companion_step_sub_975C(
     state: JuggernautCompanionStateSub975C,
     wall_scan_blocked: bool,
@@ -806,7 +806,7 @@ fn juggernaut_support_candidate_from_snapshot_sub_9832(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn juggernaut_skull_spawn_anchor_sub_87B0(player: &PlayerState) -> (u32, u32, i32) {
     // ASM sub_87B0 (kid.asm:9625): the spawned skull starts 8px above Kid and
     // 26px toward the current facing, with `x_vel=±4px/frame`.
@@ -833,7 +833,7 @@ pub(crate) fn juggernaut_skull_spawn_anchor_sub_87B0(player: &PlayerState) -> (u
     (x_px << 16, y_px << 16, x_vel)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn juggernaut_skull_spawn_blocked_loc_87EC(
     grid: &terrain::BlockGrid,
     x_pos: u32,
@@ -906,7 +906,7 @@ pub(crate) struct KidAirborneVisualStepSubB270 {
     pub(crate) queued_sound: Option<QueuedSoundEffect>,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn red_stealth_downward_slash_swing_loc_B380(current_swing: u8) -> u8 {
     // ASM loc_B350 -> loc_B380 (kid.asm:14230): load the byte sword counter,
     // add `$10` as a word, then clamp values above `$7F` to `$7F` before
@@ -919,7 +919,7 @@ fn red_stealth_downward_slash_swing_loc_B380(current_swing: u8) -> u8 {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn kid_airborne_visual_sub_B270(
     input: KidAirborneVisualInputSubB270,
 ) -> KidAirborneVisualStepSubB270 {
@@ -1095,7 +1095,7 @@ pub(crate) struct IronKnightClimbVisualSubA3BC {
     pub(crate) sprite_mapping: &'static str,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn skycutter_visual_step_sub_98F2(
     mut state: SkycutterVisualStateSub98F2,
     a_held: bool,
@@ -1214,7 +1214,7 @@ pub(crate) fn skycutter_visual_step_sub_98F2(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn iron_knight_climb_visual_sub_A3BC(
     pose_accum: u16,
     y_velocity: i32,
@@ -1365,7 +1365,6 @@ pub(crate) fn diamond_power_duration(power: DiamondPowerType) -> u16 {
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn juggernaut_five_way_shot_ready_sub_7428(
     current_form: PlayerForm,
     input: FrameInput,
@@ -1393,7 +1392,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn step_juggernaut_companion_visual_sub_975C(&mut self) {
         if self.progression.current_form != PlayerForm::Juggernaut {
             return;
@@ -1976,7 +1975,7 @@ pub(crate) fn write_rain_slot_raw_loc_3fdfe(
     raw.write_word(0x003E, slot.tracking_word_3e);
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn diamond_power_object_clear_ram_sub_3F586(
     mut lists: DiamondPowerObjectListsSub3F5E8,
 ) -> DiamondPowerObjectListsSub3F5E8 {
@@ -1992,7 +1991,7 @@ pub(crate) fn diamond_power_object_clear_ram_sub_3F586(
     lists
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn diamond_power_object_initialize_sub_3F596(
     mut lists: DiamondPowerObjectListsSub3F5E8,
 ) -> DiamondPowerObjectListsSub3F5E8 {
@@ -2006,7 +2005,7 @@ pub(crate) fn diamond_power_object_initialize_sub_3F596(
     lists
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn diamond_power_object_allocate_sub_3F5BC(
     mut lists: DiamondPowerObjectListsSub3F5E8,
 ) -> (
@@ -2037,7 +2036,7 @@ pub(crate) fn diamond_power_object_allocate_sub_3F5BC(
     )
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn diamond_power_object_remove_sub_3F5E8(
     mut lists: DiamondPowerObjectListsSub3F5E8,
     remove_slot: u16,
@@ -2075,7 +2074,7 @@ pub(crate) fn diamond_power_object_remove_sub_3F5E8(
     lists
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn diamond_power_object_reset_sub_3F63C(
     mut lists: DiamondPowerObjectListsSub3F5E8,
 ) -> DiamondPowerObjectListsSub3F5E8 {
@@ -2112,7 +2111,7 @@ pub(crate) struct CompiledDpSprite {
 ///   `andi.w #$7FFF,d0; move.w d0,(a2)+` masks pattern bit 15;
 ///   `move.w (a1)+,(a2)+` copies X;
 ///   loops until a1 reaches a0 (buffer end).
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn diamond_power_compile_sprites_sub_3F798(
     buffer: &[[u16; 4]],
     initial_sprite_count: u8,
@@ -2173,7 +2172,7 @@ pub(crate) struct CircleOfDoomSlot {
 ///   `move.l d3,$42(a0)` stores angle;
 ///   `add.l d2,d3` advances angle by step;
 ///   `dbf d1,loc_3F7E6` loops 8 times (d1=7 after subq).
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn diamond_power_init_circle_of_doom_sub_3F7D0() -> Vec<CircleOfDoomSlot> {
     let count: u16 = 8;
     // ASM: divu.w d1,d2 → $10000 / 8 = $2000; lsl.l #8,d2 → $200000
@@ -2203,7 +2202,6 @@ pub(crate) const CIRCLE_OF_DOOM_SIZE_TABLE: [u8; 28] = [
 
 /// ASM word_4020E (kid.asm:45605): sprite size/tile pairs used by
 /// DiamondPower_Main_CircleOfDoom loc_3F880 after the half-size lookup.
-#[allow(non_snake_case)]
 pub(crate) const CIRCLE_OF_DOOM_SPRITE_ATTRS_WORD_4020E: [(u16, u16); 10] = [
     (0x0000, 0x86EA),
     (0x0000, 0x86EB),
@@ -2250,7 +2248,6 @@ pub(crate) struct CircleOfDoomSpriteResult {
 ///     if $3E < 0 → remove slot;
 ///   angle -= 4 ($42 subq.w #4);
 ///   next slot via 4(a0).
-#[allow(non_snake_case)]
 pub(crate) fn diamond_power_main_circle_of_doom_slot(
     slot: &mut CircleOfDoomSlot,
     kid_x: i16,
@@ -2401,7 +2398,6 @@ pub(crate) const SNAKE_INIT_DATA_DEATH: [u16; 6] = [6, 6, 5, 4, 3, 2];
 ///   init_data = 6-entry size table
 ///   power_timer = value for (Diamond_power_timer).w
 ///   kid_x, kid_y = Kid's current position
-#[allow(non_snake_case)]
 pub(crate) fn diamond_power_init_snake(
     wander_speed: u16,
     movement_speed: u16,
@@ -2621,7 +2617,7 @@ pub(crate) struct DiamondPowerRainSpawnSlotLoc3FDFE {
     pub(crate) y_velocity: i32,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn diamond_power_rain_spawn_gate_loc_3FDFE(
     diamond_power_timer: i16,
     active_rain_count: usize,
@@ -2635,7 +2631,7 @@ pub(crate) fn diamond_power_rain_spawn_gate_loc_3FDFE(
         && time_frames.is_multiple_of(16)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn diamond_power_rain_spawn_slot_loc_3FDFE(
     camera_x_pos: u32,
     camera_y_pos: u32,
@@ -2967,7 +2963,6 @@ pub(crate) struct WallOfDeathInitResult {
 ///
 /// loc_40006 (kid.asm:45384): `dbf d1,loc_3FFEA` — loop 10 times.
 ///   `move.w #$4B0,(Diamond_power_timer).w` — set timer to 1200.
-#[allow(non_snake_case)]
 pub(crate) fn diamond_power_init_wall_of_death() -> WallOfDeathInitResult {
     // ASM: moveq #9,d1 — 10 slots via dbf
     let count = 10u16;
@@ -3097,7 +3092,6 @@ fn diamond_power_rects_overlap_loc_1d84(
 ///
 /// loc_4006E: sprite compilation — screen coords from d0 + camera, centre
 ///   by size_index, VRAM attr = size_index*4 + $1144, compile into buffer.
-#[allow(non_snake_case)]
 pub(crate) fn diamond_power_main_wall_of_death_slot(
     slot: &mut WallOfDeathSlot,
     camera_x: i16,
@@ -3252,7 +3246,6 @@ pub(crate) struct FiveWayShotInitResult {
 ///   `move.w (a5)+,$2A(a0)` — y_vel high word
 ///   `dbf d1,loc_400F4` — loop 5 times
 ///   `move.w #$50,(Diamond_power_timer).w` — timer = 80.
-#[allow(non_snake_case)]
 pub(crate) fn diamond_power_init_five_way_shot(
     kid_x: i16,
     kid_y: i16,
@@ -3349,7 +3342,6 @@ pub(crate) enum FiveWayShotSlotAction {
 ///
 /// loc_401BA: sprite compilation — world coords = screen + camera, centre by
 ///   size_index, VRAM attr = size_index*4 + $1144, compile into buffer.
-#[allow(non_snake_case)]
 pub(crate) fn diamond_power_main_five_way_shot_slot(
     slot: &mut FiveWayShotSlot,
     camera_x: i16,
@@ -4917,7 +4909,6 @@ pub(crate) struct ExtraHPLifeInitResult {
 ///   `move.w #0,$22(a0)` — clear field $22
 ///   `dbf d1,loc_3FB9A` — loop 10 times
 ///   `clr.w (Diamond_power_timer).w` — reset timer to 0
-#[allow(non_snake_case)]
 pub(crate) fn diamond_power_init_extra_hp_life(is_extra_life: bool) -> ExtraHPLifeInitResult {
     // ASM loc_3FB90/loc_3FB94: d2 = 8 (ExtraHP) or 7 (ExtraLife)
     let d2: u16 = if is_extra_life { 7 } else { 8 };
@@ -4977,7 +4968,6 @@ pub(crate) struct InvulnHazeInitResult {
 ///   `move.w #0,$22(a0)` — clear field $22
 ///   `dbf d1,loc_3FC8C` — loop 10 times
 ///   `move.w #$1E0,(Diamond_power_timer).w` — timer = 480
-#[allow(non_snake_case)]
 pub(crate) fn diamond_power_init_invuln_haze(is_invulnerability: bool) -> InvulnHazeInitResult {
     // ASM DiamondPower_InitData_Invulnerability (kid.asm:45043) /
     //     DiamondPower_InitData_SamuraiHaze (kid.asm:45030):
@@ -5089,7 +5079,6 @@ pub(crate) enum ExtraHPLifeSlotAction {
 ///   Timer >= $40 (loc_3FC2A): `addq.w #1,$42(a0); subq.w #6,$3E(a0)`
 ///     if radius < 0: award HP/life, bra.w sub_3F63C (remove)
 ///   loc_3FC56: compile sprite from word_4020E
-#[allow(non_snake_case)]
 pub(crate) fn diamond_power_main_extra_hp_life_slot(
     slot: &mut ExtraHPLifeSlot,
     kid_x: i16,
@@ -5269,7 +5258,6 @@ pub(crate) const INVULN_HAZE_SIZE_TABLE: [u8; 12] = [1, 1, 2, 2, 3, 3, 3, 3, 4, 
 ///   - Centre by subtracting d6 from both x and y.
 ///   - d6 * 4 → index into word_4020E:
 ///     < $C → SmallSprite (a4 buffer); >= $C → LargeSprite (a2 buffer).
-#[allow(non_snake_case)]
 pub(crate) fn diamond_power_invuln_haze_slot_sprite(
     slot: &mut InvulnHazeSlot,
     fade: u16,
@@ -6236,7 +6224,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
         // ASM sub_DB22 (kid.asm:17170): grounded/default-pose recovery clears
         // the per-form transient action flags: Cyclone flight, Skycutter's
@@ -6267,7 +6255,7 @@ impl NativeRuntime {
         self.helmet.iron_knight_climb_pose_accum = 0;
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn refresh_grounded_helmet_state_with_phase_sub_78E8(
         &mut self,
         walk_visual_accumulator: &mut u16,
@@ -6288,7 +6276,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn refresh_grounded_helmet_state_sub_78E8(&mut self) {
         // ASM sub_78E8 (kid.asm:7973): grounded frames reset the default
         // helmet pose unless the form-specific grounded action is still live.
@@ -7951,7 +7939,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn process_eyeclops_beam_enemy_hits_sub_E49A(&mut self, slice: &OpeningSliceState) {
         let Some(strip) = eyeclops_beam_world_strip_sub_E49A(
             self.helmet.eyeclops_beam_counter,
@@ -8002,7 +7990,7 @@ impl NativeRuntime {
         self.projectiles.extend(pending_damage_effects);
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn reveal_eyeclops_beam_hidden_blocks_loc_E70A(&mut self, slice: &OpeningSliceState) {
         let Some(block_list) = self.block_list.as_ref() else {
             return;
@@ -8236,7 +8224,7 @@ impl NativeRuntime {
     // subsequent evanescent-shooter scans in the stacked Highwater columns.
     const BERZERKER_CHARGE_POSE_FRAMES_LOC_9564: u8 = 6;
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn berzerker_regular_walk_visual_accumulator_loc_95DA(
         current_accumulator: u16,
         x_velocity: i32,

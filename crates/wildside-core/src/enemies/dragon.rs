@@ -241,7 +241,7 @@ pub(crate) enum DragonTerrainDispatchLoc349DE {
     },
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn dragon_terrain_dispatch_loc_349DE(
     collision_type: u16,
 ) -> DragonTerrainDispatchLoc349DE {
@@ -469,7 +469,7 @@ pub(crate) enum DragonDownSlideFrameLoc34A6E {
     },
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn dragon_down_slide_frame_loc_34A6E(
     y_velocity: i32,
     collision_type: u16,
@@ -516,7 +516,7 @@ pub(crate) struct DragonFlyingSnapBackCoordsLoc34B96 {
     pub(crate) snap_y_pos: u32,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn dragon_flying_snap_back_coords_loc_34B96(
     x_pos: u32,
     y_pos: u32,
@@ -531,7 +531,7 @@ pub(crate) fn dragon_flying_snap_back_coords_loc_34B96(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn dragon_flying_rebound_start_loc_34A88(
     x_pos: u32,
     y_pos: u32,
@@ -557,7 +557,7 @@ pub(crate) fn dragon_flying_rebound_start_loc_34A88(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn dragon_flying_right_rebound_start_loc_34ADC(
     x_pos: u32,
     y_pos: u32,
@@ -595,7 +595,7 @@ pub(crate) enum DragonFlyingReboundFrameLoc34AC2 {
     },
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn dragon_flying_rebound_frame_loc_34AC2(
     y_velocity: i32,
     collision_type: u16,
@@ -621,7 +621,7 @@ pub(crate) fn dragon_flying_rebound_frame_loc_34AC2(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn dragon_flying_right_rebound_frame_loc_34B16(
     y_velocity: i32,
     collision_type: u16,
@@ -637,7 +637,7 @@ pub(crate) enum DragonFlyingReboundCollisionRouteLoc34B30 {
     RestartScript,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn dragon_flying_rebound_collision_route_loc_34B30(
     collision_type: u16,
 ) -> DragonFlyingReboundCollisionRouteLoc34B30 {
@@ -665,7 +665,7 @@ pub(crate) struct DragonFlyingDescentFireSetupLoc34BE6 {
     pub(crate) first_animation_counter: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn dragon_flying_descent_fire_setup_loc_34BE6(
     dragon_x_pos: u32,
     dragon_y_pos: u32,
@@ -718,7 +718,7 @@ pub(crate) enum DragonFlyingDescentFireFirstLoopLoc34C26 {
     },
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn dragon_flying_descent_fire_first_loop_loc_34C26(
     d0_before_dbf: u16,
     collision_type: u16,
@@ -764,7 +764,7 @@ pub(crate) enum DragonFlyingDescentFireTravelLoopLoc34C3A {
     },
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn dragon_flying_descent_fire_travel_loop_loc_34C3A(
     collision_type: u16,
     animation_done_flag_19: bool,
@@ -805,7 +805,7 @@ pub(crate) struct DragonFlyingDescentFireCleanupLoc34C4A {
     pub(crate) deletes_current_object: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn dragon_flying_descent_fire_cleanup_loc_34C4A()
 -> DragonFlyingDescentFireCleanupLoc34C4A {
     // ASM Dragon_Flying.asm loc_34C4A: clear level collision and both velocity
@@ -846,7 +846,7 @@ pub(crate) struct DragonFlyingDeleteTailLoc349A6 {
     pub(crate) deletes_current_object: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn dragon_flying_delete_tail_loc_349A6() -> DragonFlyingDeleteTailLoc349A6 {
     // ASM Dragon_Flying.asm loc_349A6: all death-status routes converge on the
     // `j_Delete_CurrentObject` tail after the explosion animation finishes.
@@ -880,7 +880,7 @@ pub(crate) struct DragonFlyingDeathSequenceLoc3492C {
     pub(crate) delete_tail: DragonFlyingDeleteTailLoc349A6,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn dragon_flying_death_sequence_loc_3492C(
     parent_x_pos: u32,
     parent_y_pos: u32,
@@ -920,7 +920,7 @@ pub(crate) fn dragon_flying_death_sequence_loc_3492C(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn dragon_flying_death_animation_loc_3492C(
     parent: &ActiveEnemy,
 ) -> PendingDragonDeathAnimation {
@@ -942,7 +942,7 @@ pub(crate) fn dragon_flying_death_animation_loc_3492C(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> ActiveEnemy {
     let sequence = dragon_flying_death_sequence_loc_3492C(
         parent.x_pos,

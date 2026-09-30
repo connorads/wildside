@@ -842,7 +842,7 @@ impl Default for BlockInteractionState {
 }
 
 impl BlockInteractionState {
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn reset_evanescent_state_loc_DF30(&mut self) {
         // ASM Initialize_EvanescShooterObjectSlots: sub_EABC precedes loc_DF30
         // and seeds the wider `$FFFFEBDA` evanescent-object free list.
@@ -863,7 +863,7 @@ impl BlockInteractionState {
         self.evanescent_next_free_slot_addr != 0
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn allocate_evanescent_slot_loc_DF68(&mut self) -> Option<u32> {
         let allocated_slot_addr = self.evanescent_next_free_slot_addr;
         if allocated_slot_addr == 0 {
@@ -880,7 +880,7 @@ impl BlockInteractionState {
         Some(allocated_slot_addr)
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn recycle_evanescent_slots_loc_ECD8(&mut self, recycled_slot_addrs: &[u32]) {
         for &slot_addr in recycled_slot_addrs {
             let slots_before_recycle = self.evanescent_slot_links.clone();
@@ -948,7 +948,7 @@ impl BlockInteractionState {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn reset_shooter_state_sub_F06A(&mut self) {
         // ASM Initialize_EvanescShooterObjectSlots: loc_DF50 seeds the shooter
         // list after loc_DF30 before later sub_F06A resets the scan cache.
@@ -3735,22 +3735,22 @@ impl Default for NativeTraceFrame {
     }
 }
 
-#[allow(clippy::trivially_copy_pass_by_ref)]
+#[expect(clippy::trivially_copy_pass_by_ref)]
 fn is_zero_u8(value: &u8) -> bool {
     *value == 0
 }
 
-#[allow(clippy::trivially_copy_pass_by_ref)]
+#[expect(clippy::trivially_copy_pass_by_ref)]
 fn is_zero_u16(value: &u16) -> bool {
     *value == 0
 }
 
-#[allow(clippy::trivially_copy_pass_by_ref)]
+#[expect(clippy::trivially_copy_pass_by_ref)]
 fn is_zero_usize(value: &usize) -> bool {
     *value == 0
 }
 
-#[allow(
+#[expect(
     clippy::trivially_copy_pass_by_ref,
     reason = "serde skip_serializing_if requires a reference predicate"
 )]
@@ -4453,7 +4453,7 @@ pub(crate) enum BootState {
     OptionsMenu {
         cursor: u8,
     },
-    #[allow(dead_code)]
+    #[cfg_attr(not(test), expect(dead_code))]
     SoundTest {
         track: u8,
     },
@@ -5634,7 +5634,7 @@ impl EnemyProjectile {
             || self.boss_death_burst_state != BossDeathBurstState::AllocatedLoc375De
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn shooter_block_from_centre_loc_EC76(
         source_col: u16,
         source_row: u16,

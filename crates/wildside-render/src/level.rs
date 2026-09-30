@@ -184,7 +184,7 @@ impl BlockVisualMapping {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn block_mapping_overread_quad_loc_3037C(skin: usize, terrain_layout_bytes: &[u8]) -> TileQuad {
     let tail_offset = skin
         .saturating_mul(8)

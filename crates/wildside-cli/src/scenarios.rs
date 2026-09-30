@@ -354,7 +354,7 @@ pub struct DynamicStartVelocity {
     pub y: i32,
 }
 
-#[allow(
+#[expect(
     clippy::trivially_copy_pass_by_ref,
     reason = "serde skip_serializing_if requires a reference predicate"
 )]

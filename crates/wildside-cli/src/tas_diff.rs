@@ -12,8 +12,8 @@ use crate::sweep::{
 use crate::tas::{first_crc_mismatch_from_frame, reclassify_crc_clean_lion_projectile_count_diffs};
 
 /// Run native and oracle side-by-side, print per-frame divergences.
-#[allow(clippy::too_many_arguments)]
-#[allow(
+#[expect(clippy::too_many_arguments)]
+#[expect(
     clippy::fn_params_excessive_bools,
     reason = "game engine API with multiple independent toggles"
 )]

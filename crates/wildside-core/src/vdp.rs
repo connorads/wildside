@@ -63,7 +63,7 @@ const DECOMPRESS_FIRST_CHUNK_BYTES: usize = 0x1000;
 const DECOMPRESS_RESUMED_CHUNK_BYTES: usize = 0x0800;
 const DECOMPRESS_ROLLOVER_LONGWORD_DBF: u16 = 0x01FF;
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn decode_enigma_tilemap_loc_134D4(data: &[u8], base_tile_word: u16) -> Result<Vec<u16>> {
     crate::level::decode_enigma_eni_dec_loc_134D4(data, base_tile_word).map_err(anyhow::Error::msg)
 }
@@ -888,7 +888,6 @@ pub(crate) fn build_intro_sequence_5_fade_hold_vdp_at_elapsed(
     vdp
 }
 
-#[allow(non_snake_case)]
 fn apply_intro_sequence_5_loc_1ba90_fade_to_aaa(vdp: &mut VdpState, fade_elapsed: usize) {
     let clamped_elapsed = fade_elapsed.min(INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS);
     let fade_progress = 0x0100u16.saturating_sub((clamped_elapsed as u16).saturating_mul(0x20));
@@ -1354,7 +1353,7 @@ fn vdp_cram_words(vdp: &VdpState) -> [u16; 0x40] {
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn overlay_intro_sequence_1_prompt_sprite_sub_1C54A(vdp: &mut VdpState, _elapsed: usize) {
     let mut sprite_entries = Vec::new();
     append_intro_sequence_prompt_sprite_sub_1C54A(&mut sprite_entries);
@@ -1365,7 +1364,7 @@ fn overlay_intro_sequence_1_prompt_sprite_sub_1C54A(vdp: &mut VdpState, _elapsed
     );
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn append_intro_sequence_prompt_sprite_sub_1C54A(entries: &mut Vec<HardwareSpriteEntry>) {
     let mut objects = Vec::new();
     push_intro_sequence_prompt_sprite_sub_1C54A(&mut objects);
@@ -1378,7 +1377,7 @@ fn append_intro_sequence_prompt_sprite_sub_1C54A(entries: &mut Vec<HardwareSprit
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn push_intro_sequence_prompt_sprite_sub_1C54A(
     objects: &mut Vec<IntroGfxObjectForSpriteTableWithOrder>,
 ) {
@@ -1407,7 +1406,7 @@ fn push_intro_sequence_prompt_sprite_sub_1C54A(
     });
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn overlay_intro_sequence_2_sky_reveal_loc_1BA02(
     vdp: &mut VdpState,
     data: &IntroSub1B850Data,
@@ -1554,7 +1553,7 @@ fn schedule_intro_sequence_2_trailing_field_sky_reveal_fifo_with_visible_slots_l
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn intro_sequence_2_sky_reveal_upload_sub_1C180(
     data: &IntroSub1B850Data,
     loop_frames: usize,
@@ -1624,7 +1623,7 @@ fn intro_sequence_3_sprite_frame_vram(addroffset_sprite: u16) -> Option<IntroSpr
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn overlay_intro_sequence_3_sprite_table_loc_1AEEC(
     vdp: &mut VdpState,
     roster_index: usize,
@@ -1679,7 +1678,7 @@ fn overlay_intro_sequence_3_sprite_table_loc_1AEEC(
     write_sprite_table_entries(vdp, sprite_table_base, &sprite_entries);
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn intro_gfx_objects_in_alloc_chain_order_loc_FD4_FE6(
     objects: &[IntroGfxObjectForSpriteTableWithOrder],
 ) -> Vec<IntroGfxObjectForSpriteTableWithOrder> {
@@ -1711,7 +1710,7 @@ fn intro_gfx_objects_in_alloc_chain_order_loc_FD4_FE6(
     ordered
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn push_intro_sequence_3_sliding_sprites_sub_1C572(
     objects: &mut Vec<IntroGfxObjectForSpriteTableWithOrder>,
     visible_elapsed: usize,
@@ -1762,7 +1761,7 @@ fn push_intro_sequence_3_sliding_sprites_sub_1C572(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn intro_sliding_sprites_in_special_chain_order_loc_F9C_FB8(
     sprites: [crate::boot::TitleMenuSlidingSpriteSub1C572; 2],
 ) -> Vec<crate::boot::TitleMenuSlidingSpriteSub1C572> {
@@ -1853,7 +1852,7 @@ impl IntroSequence5ParticleLineage {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(
     vdp: &mut VdpState,
     title_variant: u8,
@@ -1971,7 +1970,7 @@ struct IntroSequence5ParticleLoc1BE3C {
     frame: IntroSpriteFrameVram,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn append_intro_sequence_5_particles_loc_1BE3C(
     entries: &mut Vec<HardwareSpriteEntry>,
     particle_elapsed: usize,
@@ -2039,7 +2038,7 @@ fn append_intro_sequence_5_particles_loc_1BE3C(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn append_intro_sequence_5_center_particle_loc_1BE88(
     entries: &mut Vec<HardwareSpriteEntry>,
     title_variant: u8,
@@ -2137,7 +2136,7 @@ impl From<crate::movement::IntroSequence3GfxObjectLoc1AEEC> for IntroGfxObjectFo
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
     entries: &mut Vec<HardwareSpriteEntry>,
     gfx: impl Into<IntroGfxObjectForSpriteTable>,
@@ -2590,7 +2589,6 @@ fn build_intro_sub_1b850_vdp(data: &IntroSub1B850Data, segment: usize) -> VdpSta
     vdp
 }
 
-#[allow(non_snake_case)]
 fn write_decompress_to_vram_art_loc_14300_14314(
     vdp: &mut VdpState,
     vram_byte_addr: usize,
@@ -2800,7 +2798,7 @@ fn build_intro_sequence_4_vdp(data: &IntroSub1B850Data) -> VdpState {
     vdp
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn intro_sequence_2_special_sky_art_loc_1B00A(art: &[u8]) -> Vec<u8> {
     // ASM Load_IntroSequence2 loc_1B00A enters DecompressToVRAM_Special with
     // `a3 = unk_1C336`, so loc_1434A maps each packed 4bpp nibble through this
@@ -2812,7 +2810,7 @@ fn intro_sequence_2_special_sky_art_loc_1B00A(art: &[u8]) -> Vec<u8> {
     remap_4bpp_art_via_decompress_to_vram_special_loc_14348_14382(&PERMUTATION, art)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn intro_sequence_5_text_art_loc_1B0F4(art: &[u8]) -> Vec<u8> {
     // ASM Load_IntroSequence5 (kid.asm:29352): before `j_DecompressToRAM`,
     // `a3 = unk_1C3F0`, so DecompressToRAM's loc_143CE/loc_1440A path maps
@@ -2825,7 +2823,7 @@ fn intro_sequence_5_text_art_loc_1B0F4(art: &[u8]) -> Vec<u8> {
     remap_4bpp_art_via_decompress_to_ram_loc_143CC_1440A(&PERMUTATION, art)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn title_text_chameleon_art_loc_1B4F4(art: &[u8]) -> Vec<u8> {
     // ASM Load_TitleArt (kid.asm:29816): `a3 = unk_1B4F4` before
     // `j_DecompressToRAM`, so the RAM-staged Chameleon logo remaps each
@@ -2837,7 +2835,6 @@ fn title_text_chameleon_art_loc_1B4F4(art: &[u8]) -> Vec<u8> {
     remap_4bpp_art_via_decompress_to_ram_loc_143CC_1440A(&PERMUTATION, art)
 }
 
-#[allow(non_snake_case)]
 fn remap_4bpp_art_via_decompress_to_vram_special_loc_14348_14382(
     permutation: &[u8; 16],
     art: &[u8],
@@ -2856,7 +2853,7 @@ fn remap_4bpp_art_via_decompress_to_vram_special_loc_14348_14382(
     remap_4bpp_art_words_via_table_loc_14382(&table, art)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn remap_4bpp_art_via_decompress_to_ram_loc_143CC_1440A(
     permutation: &[u8; 16],
     art: &[u8],
@@ -2875,7 +2872,6 @@ fn remap_4bpp_art_via_decompress_to_ram_loc_143CC_1440A(
     remap_4bpp_art_words_via_table_loc_1440A(&table, art)
 }
 
-#[allow(non_snake_case)]
 fn remap_4bpp_art_words_via_table_loc_14382(permutation_table: &[u8; 256], art: &[u8]) -> Vec<u8> {
     let mut remapped = Vec::with_capacity(art.len());
     for DecompressChunkSpan {
@@ -2916,7 +2912,7 @@ fn remap_4bpp_art_words_via_table_loc_14382(permutation_table: &[u8; 256], art: 
     remapped
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn remap_4bpp_art_words_via_table_loc_1440A(permutation_table: &[u8; 256], art: &[u8]) -> Vec<u8> {
     let mut remapped = Vec::with_capacity(art.len());
     for DecompressChunkSpan {
@@ -8404,7 +8400,7 @@ impl IntroSequence5WorkerLineage {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn intro_sequence_5_raster_upload_loc_1BC36(
     elapsed: usize,
     lineage: IntroSequence5WorkerLineage,
@@ -8531,7 +8527,7 @@ fn intro_sequence_5_frame_index_loc_1_bc36(
         })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn overlay_intro_sequence_5_tile_worker_loc_1BC36(
     vdp: &mut VdpState,
     data: &IntroSub1B850Data,
@@ -8660,7 +8656,7 @@ pub fn try_schedule_h40_vram_dma_word_writes(
     )
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn apply_intro_sequence_5_sub_1C034_frame(
     vdp: &mut VdpState,
     data: &IntroSub1B850Data,
@@ -8699,7 +8695,7 @@ fn apply_intro_sequence_5_sub_1C034_frame(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn intro_sequence_5_sub_1C034_word_writes(
     data: &IntroSub1B850Data,
     frame_index: u16,
@@ -8726,7 +8722,7 @@ fn intro_sequence_5_sub_1C034_word_writes(
     writes
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn intro_sequence_5_panel_word_writes_sub_1C0EE(
     data: &IntroSub1B850Data,
     plane_cell_x: u16,
@@ -8749,7 +8745,7 @@ fn intro_sequence_5_panel_word_writes_sub_1C0EE(
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn apply_intro_sequence_5_panel_sub_1C0EE(
     vdp: &mut VdpState,
     data: &IntroSub1B850Data,
@@ -8768,7 +8764,7 @@ fn apply_intro_sequence_5_panel_sub_1C0EE(
     );
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 fn apply_intro_sequence_5_blank_panel_sub_1C112(
     vdp: &mut VdpState,
@@ -9931,7 +9927,6 @@ pub(crate) fn intro_sequence_6_title_raster_upload(
     })
 }
 
-#[allow(non_snake_case)]
 fn write_title_menu_tilemap_loc_1bb52(vdp: &mut VdpState, tilemap_words: &[u16]) {
     // ASM Obj_TitleMenu loc_1BB52 (kid.asm:30428): decode `unk_2EAAE` with
     // base `$451B`, then call sub_1C5D0 with d4=$04,d5=$04,d6=$0D,d7=$05.
@@ -9981,7 +9976,6 @@ fn title_menu_tilemap_buffer_loc_1bb52(menu_words: &[u16]) -> Vec<u16> {
     words
 }
 
-#[allow(non_snake_case)]
 fn write_title_text_chameleon_anim_loc_1b71a(
     vdp: &mut VdpState,
     data: &TitleScreenData,
@@ -10050,7 +10044,6 @@ fn write_title_text_chameleon_anim_loc_1b71a(
     vdp.title_text_chameleon_d3_sub_1b71a = Some(d3);
 }
 
-#[allow(non_snake_case)]
 fn apply_title_text_chameleon_upload_sub_1b71a(
     vdp: &mut VdpState,
     upload: crate::boot::TitleTextChameleonFrameUploadSub1B71A,
@@ -10069,7 +10062,7 @@ fn apply_title_text_chameleon_upload_sub_1b71a(
 
 /// Apply the final title worker pass before `Obj_TitleMenu loc_1BB02` enters
 /// demo mode.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn advance_title_text_chameleon_before_demo_sub_1B71A(
     vdp: &mut VdpState,
     data: &TitleScreenData,
@@ -10102,7 +10095,6 @@ fn title_text_chameleon_anim_map_index(elapsed: usize) -> usize {
     }
 }
 
-#[allow(non_snake_case)]
 fn append_title_text_kid_sprite_loc_1b5e4(entries: &mut Vec<HardwareSpriteEntry>, _elapsed: usize) {
     // ASM Obj_TitleTextKid / loc_1B5CE / loc_1B5E4 (kid.asm:29834-29875):
     // the main title KID text sprite uses `LnkTo_unk_E10FE`, tile `$4D3`,
@@ -10114,7 +10106,6 @@ fn append_title_text_kid_sprite_loc_1b5e4(entries: &mut Vec<HardwareSpriteEntry>
     append_title_text_kid_sprite_loc_1b5e4_with_y(entries, 0x00A5);
 }
 
-#[allow(non_snake_case)]
 fn append_title_text_kid_sprite_loc_1b5e4_with_y(
     entries: &mut Vec<HardwareSpriteEntry>,
     y_pos: u16,
@@ -10142,7 +10133,6 @@ fn append_title_text_kid_sprite_loc_1b5e4_with_y(
     entries.splice(0..0, object_entries);
 }
 
-#[allow(non_snake_case)]
 fn append_title_text_burst_sprites_sub_1b652(
     entries: &mut Vec<HardwareSpriteEntry>,
     elapsed: usize,
@@ -10214,7 +10204,6 @@ fn append_title_text_burst_sprites_sub_1b652(
     }
 }
 
-#[allow(non_snake_case)]
 fn append_title_intro_text_sprite_loc_1bb10(
     entries: &mut Vec<HardwareSpriteEntry>,
     elapsed: usize,
@@ -10227,7 +10216,6 @@ fn append_title_intro_text_sprite_loc_1bb10(
     append_title_intro_text_sprite_loc_1bb10_with_x(entries, x_pos as u16);
 }
 
-#[allow(non_snake_case)]
 fn append_title_intro_text_sprite_loc_1bb10_with_x(
     entries: &mut Vec<HardwareSpriteEntry>,
     x_pos: u16,
@@ -10256,7 +10244,6 @@ fn append_title_intro_text_sprite_loc_1bb10_with_x(
     entries.splice(0..0, object_entries);
 }
 
-#[allow(non_snake_case)]
 fn append_title_menu_cursor_sprite_loc_1bb52(entries: &mut Vec<HardwareSpriteEntry>, cursor: u8) {
     // ASM Obj_TitleMenu loc_1BB52/loc_1BC0E (kid.asm:30438-30467) loads a
     // visible gfx slot on palette line 2, VRAM tile `$54B`, frame
@@ -12931,7 +12918,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     fn intro_sequence_5_fade_hold_uses_loc_1ba90_worker_elapsed_and_palette_fade() {
         let mut source = [0u16; 0x40];
         source[0] = 0x0EEE;
@@ -13072,7 +13058,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_3_loc_1AEEC_writes_rom_roster_sprite_table() {
         let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &empty_intro_data(),
@@ -13093,7 +13079,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_3_loc_1AEEC_uses_active_roster_index() {
         let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &empty_intro_data(),
@@ -13110,7 +13096,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_3_loc_1AEEC_is_hidden_before_visible_elapsed() {
         let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &empty_intro_data(),
@@ -13128,7 +13114,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_3_sub_1C204_keeps_palette_black_until_post_roster_fade() {
         let data = IntroSub1B850Data {
             palette_segment_0: vec![0x0EEE; 0x40],
@@ -13176,7 +13162,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_4_sub_1C204_keeps_palette_black_before_visible_elapsed() {
         let data = IntroSub1B850Data {
             palette_segment_1: vec![0x0EEE; 0x40],
@@ -13211,7 +13197,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     fn intro_sequence_4_introtext4_matches_oracle_first_visible_cadence() {
         let data = IntroSub1B850Data {
             palette_segment_1: vec![0x0EEE; 0x40],
@@ -13245,7 +13230,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     fn intro_sequence_5_introtext5_matches_oracle_frame_1980_cadence() {
         let data = IntroSub1B850Data {
             palette_segment_1: vec![0x0EEE; 0x40],
@@ -13269,7 +13253,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_5_fc82_two_delays_introtext5_one_outer_pass_loc_1C7A0() {
         let data = empty_intro_data();
         let first_t = wildside_data::title_intro_glyph_write_sub_1C7F6(0, 0xC7D3, 0x19, 3, 0x13);
@@ -13292,7 +13276,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_5_loc_1BA28_keeps_vdp_blank_before_visible_elapsed() {
         let data = IntroSub1B850Data {
             palette_segment_2: vec![0x0EEE; 0x40],
@@ -13345,7 +13329,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_3_sub_1C54A_keeps_wild_side_door_sprite_visible() {
         let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &empty_intro_data(),
@@ -13362,7 +13346,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     fn intro_sequence_3_sprite_order_follows_gfx_slot_order() {
         let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &empty_intro_data(),
@@ -13397,7 +13380,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_3_sub_1C572_draws_and_slides_door_halves() {
         let initial = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &empty_intro_data(),
@@ -13437,7 +13420,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_1_sub_1C54A_writes_wild_side_door_sprite_table() {
         let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &empty_intro_data(),
@@ -13470,7 +13453,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_1_sub_1C54A_is_hidden_before_controller_exposes_it() {
         let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &empty_intro_data(),
@@ -13488,7 +13471,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_5_loc_1BCD0_writes_five_static_gfx_slots_to_sprite_table() {
         let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &empty_intro_data(),
@@ -13516,7 +13499,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_5_loc_1BE3C_particles_spawn_after_loc_1BCD0_hibernate() {
         let visible_particle_start = INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0
             + INTRO_SEQUENCE_5_PARTICLE_VISIBLE_DELAY_LOC_1BCD0;
@@ -13561,7 +13544,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_5_loc_1BE3C_fc82_two_presents_particles_after_one_sat_latch() {
         let visible_particle_start = INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0
             + INTRO_SEQUENCE_5_PARTICLE_VISIBLE_DELAY_LOC_1BCD0;
@@ -13605,7 +13588,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_5_loc_1BE3C_deletes_short_lived_particles_by_dbf_count() {
         let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &empty_intro_data(),
@@ -13625,7 +13608,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_5_loc_1BE3C_particles_move_on_first_visible_frame() {
         let mut entries = Vec::new();
         append_intro_sequence_5_particles_loc_1BE3C(
@@ -13657,7 +13640,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_5_loc_1BE3C_keeps_short_particles_through_dbf_zero() {
         let mut entries = Vec::new();
         append_intro_sequence_5_particles_loc_1BE3C(
@@ -13674,7 +13657,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_5_loc_1BE88_centre_particle_uses_post_hibernate_gravity_order() {
         let mut entries = Vec::new();
         append_intro_sequence_5_center_particle_loc_1BE88(&mut entries, 0, 0x40);
@@ -14356,7 +14339,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     fn write_decompress_to_vram_loc_14300_preserves_base_offset_chunks_and_odd_tail() {
         let mut vdp = VdpState::new();
         let art = (0..0x1005).map(|byte| byte as u8).collect::<Vec<_>>();
@@ -14578,7 +14560,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_2_loc_1BA02_reveals_sky_art_after_negative_selector_preroll() {
         let data = IntroSub1B850Data {
             intro_sequence_2_sky_castle_art: vec![0xFF; 0x0B00],
@@ -14613,7 +14595,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_2_loc_1BA02_cold_boot_reveal_starts_at_elapsed_151() {
         let data = IntroSub1B850Data {
             intro_sequence_2_sky_castle_art: vec![0xFF; 0x0B00],
@@ -14638,7 +14620,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_2_sub_1C180_retains_previous_art_until_fifo_crosses_scanout() {
         let data = IntroSub1B850Data {
             intro_sequence_2_sky_castle_art: vec![0xFF; 0x0B00],
@@ -14771,7 +14753,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_2_loc_1BA02_clamps_sky_reveal_after_rom_loop_length() {
         let data = IntroSub1B850Data {
             intro_sequence_2_sky_castle_art: (0..0x0B00).map(|byte| byte as u8).collect(),
@@ -14805,7 +14787,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn intro_sequence_2_loc_1B00A_applies_special_sky_art_nibble_permutation() {
         assert_eq!(
             intro_sequence_2_special_sky_art_loc_1B00A(&[0x01, 0x23, 0xF0]),
@@ -15753,7 +15735,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     fn title_screen_vdp_obj_title_menu_loc_1bb52_writes_menu_and_cursor() {
         let mut menu_words = vec![0u16; 13 * 5];
         for row in 0..5u16 {
@@ -15804,7 +15785,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     fn title_menu_cursor_loc_1bb52_uses_all_three_rom_rows() {
         let mut entries = Vec::new();
 
@@ -16312,7 +16292,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     fn title_screen_vdp_direct_return_only_suppresses_loc_1bb10_on_first_object_frame() {
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],

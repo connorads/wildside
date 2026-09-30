@@ -216,7 +216,7 @@ impl TitleScreenRegionVariantSub1B2A4 {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn advance_title_screen_region_byte_sub_1C278(region_byte: u8) -> u8 {
     // ASM sub_1C278 (kid.asm:31143): increment ($FFFFFC82).w as a byte and
     // wrap the title-screen region selector back to zero once it reaches 3.
@@ -1318,7 +1318,7 @@ pub fn parse_level_header(bytes: &[u8]) -> Result<LevelHeader> {
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn decode_foreground_theme_flags_loc_11B92(
     raw_foreground_theme_flags: u8,
 ) -> (u16, bool, bool) {
@@ -1336,7 +1336,7 @@ pub fn decode_foreground_theme_flags_loc_11B92(
     )
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn decode_background_theme_flags_loc_11B9A(
     raw_background_theme_flags: u8,
     background_width: u16,
@@ -2041,7 +2041,7 @@ pub fn load_ingame_asset_with_source(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn load_juggernaut_skull_and_star_art_sub_129CE(
     manifest: &AssetManifest,
 ) -> Result<[IngameVramUpload; 3]> {
@@ -2063,7 +2063,7 @@ pub fn load_juggernaut_skull_and_star_art_sub_129CE(
     ])
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn load_hitpoint_display_art_sub_12C24(manifest: &AssetManifest) -> Result<IngameVramUpload> {
     // ASM sub_12C24 (kid.asm:25409): upload Hitpoint_display art to VRAM
     // $45A0.
@@ -2073,7 +2073,7 @@ pub fn load_hitpoint_display_art_sub_12C24(manifest: &AssetManifest) -> Result<I
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn title_screen_load_plan_sub_1B2A4(region_byte: u8) -> TitleScreenLoadPlanSub1B2A4 {
     // ASM sub_1B2A4 + loc_1C4B2 (kid.asm:29472-29505, 31197-31222): queue four
     // title-screen VRAM uploads, decode one Enigma tilemap to VRAM $20C1, push
@@ -2130,7 +2130,7 @@ pub fn title_screen_load_plan_sub_1B2A4(region_byte: u8) -> TitleScreenLoadPlanS
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn title_intro_load_plan_sub_1B850(
     decoded_row_words: &[u16],
 ) -> Result<TitleIntroLoadPlanSub1B850> {
@@ -2182,7 +2182,7 @@ pub fn title_intro_load_plan_sub_1B850(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn title_intro_palette_load_sub_1C4EA() -> SymbolicPaletteBuffer2Load {
     // ASM sub_1C4EA (kid.asm:31227): copy 0x33 words from `Pal_1C28A` into
     // Palette_Buffer_2 starting at word offset 0.
@@ -2193,7 +2193,7 @@ pub fn title_intro_palette_load_sub_1C4EA() -> SymbolicPaletteBuffer2Load {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn title_intro_palette_load_sub_1C4FE() -> SymbolicPaletteBuffer2Load {
     // ASM sub_1C4FE (kid.asm:31242): copy 0x23 words from `Pal_1C2F0` into
     // Palette_Buffer_2 starting at word offset 0.
@@ -2204,7 +2204,7 @@ pub fn title_intro_palette_load_sub_1C4FE() -> SymbolicPaletteBuffer2Load {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn title_character_palette_load_sub_1C512(
     region_byte: u8,
 ) -> TitleCharacterPaletteLoadSub1C512 {
@@ -2234,7 +2234,7 @@ pub fn title_character_palette_load_sub_1C512(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn title_intro_glyph_write_sub_1C7F6(
     base_vram_word_address: u16,
     base_tile_word: u16,
@@ -2260,7 +2260,7 @@ pub fn title_intro_glyph_write_sub_1C7F6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn decompress_to_vram_setup_sub_142CC(
     compressed_bytes: &[u8],
     vram_word_address: u16,
@@ -2287,7 +2287,7 @@ pub fn decompress_to_vram_setup_sub_142CC(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn ending_sequence_palette_load_sub_1C820(
     region_variant: u16,
 ) -> EndingSequencePaletteLoadSub1C820 {
@@ -2319,7 +2319,7 @@ pub fn ending_sequence_palette_load_sub_1C820(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn damage_flash_palette_clear_sub_80BC() -> PaletteWordOverlaySub80BC {
     // ASM sub_80BC (kid.asm:8817): fill 12 words at Palette_Buffer+$62 with
     // `$0FFF`.
@@ -2329,7 +2329,7 @@ pub fn damage_flash_palette_clear_sub_80BC() -> PaletteWordOverlaySub80BC {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn damage_flash_helmet_palette_load_sub_80D0(
     helmet_id: u16,
 ) -> Option<SymbolicPaletteLoadSub1B2A4> {
@@ -2358,7 +2358,6 @@ pub fn damage_flash_helmet_palette_load_sub_80D0(
         })
 }
 
-#[allow(non_snake_case)]
 pub fn helmet_pose_palette_load_sub_8106(helmet_id: u16) -> Option<SymbolicPaletteLoadSub1B2A4> {
     // ASM sub_8106 (kid.asm:8864): index `off_8128` by `Current_Helmet` and
     // copy 15 words from the selected palette into Palette_Buffer+$62.
@@ -2385,7 +2384,7 @@ pub fn helmet_pose_palette_load_sub_8106(helmet_id: u16) -> Option<SymbolicPalet
         })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn helmet_accent_palette_load_sub_813C(helmet_id: u16) -> Option<SymbolicPaletteLoadSub1B2A4> {
     // ASM sub_813C (kid.asm:8895): index `off_8162` by `Current_Helmet` and
     // copy 3 words from the selected palette into Palette_Buffer+$7A.
@@ -2412,7 +2411,6 @@ pub fn helmet_accent_palette_load_sub_813C(helmet_id: u16) -> Option<SymbolicPal
         })
 }
 
-#[allow(non_snake_case)]
 pub fn grounded_walk_sprite_mapping_sub_8446(helmet_id: u16, phase: u16) -> Option<&'static str> {
     // ASM sub_8446 (kid.asm:9205): add the high-byte walk phase to the
     // `off_84A2` table indexed by `Current_Helmet`, then write the selected
@@ -2469,7 +2467,7 @@ pub fn grounded_walk_sprite_mapping_sub_8446(helmet_id: u16, phase: u16) -> Opti
         .flatten()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn helmet_motion_sprite_mapping_sub_942A(helmet_id: u16, phase: u16) -> Option<&'static str> {
     // ASM sub_942A (kid.asm:10877): for the non-Skycutter/non-Juggernaut path
     // indexed through `off_9618`, use `Current_Helmet` to select one of the
@@ -2550,7 +2548,7 @@ pub fn helmet_motion_sprite_mapping_sub_942A(helmet_id: u16, phase: u16) -> Opti
         .flatten()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn slope_walk_sprite_mapping_loc_A13A(
     helmet_id: u16,
     reverse_bank: bool,
@@ -2715,7 +2713,7 @@ pub fn slope_walk_sprite_mapping_loc_A13A(
         .copied()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn skycutter_flipboard_sprite_mapping_sub_98F2(counter: u8) -> Option<&'static str> {
     // ASM sub_98F2 (kid.asm:11454): while `$FFFFFA69` is non-zero, add 2 to
     // the flipboard counter, bucket it by `counter >> 3`, and pick one of the
@@ -2730,7 +2728,7 @@ pub fn skycutter_flipboard_sprite_mapping_sub_98F2(counter: u8) -> Option<&'stat
     SPRITE_TABLE.get(usize::from(counter >> 3)).copied()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn skycutter_board_sprite_mapping_sub_98F2(phase: u16, crawling: bool) -> Option<&'static str> {
     // ASM sub_98F2 loc_998A..loc_99A6 (kid.asm:11491): once the transient
     // flipboard pose ends, the helper sprite uses `off_99FE[d6]`, except the
@@ -2752,7 +2750,7 @@ pub fn skycutter_board_sprite_mapping_sub_98F2(phase: u16, crawling: bool) -> Op
     SPRITE_TABLE.get(usize::from(phase)).copied()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn airborne_helmet_sprite_mapping_sub_B270(
     helmet_id: u16,
     state_index: u16,
@@ -2828,7 +2826,7 @@ pub fn airborne_helmet_sprite_mapping_sub_B270(
         .copied()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn cyclone_flight_sprite_mapping_sub_B270(phase_index: u16) -> Option<&'static str> {
     // ASM sub_B270 loc_B2A0..loc_B2DC (kid.asm:14151): the Cyclone flight
     // accumulator buckets `$FFFFF8F0 >> 8` into three spinning sprite frames.
@@ -2841,7 +2839,7 @@ pub fn cyclone_flight_sprite_mapping_sub_B270(phase_index: u16) -> Option<&'stat
     SPRITE_TABLE.get(usize::from(phase_index)).copied()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn red_stealth_downward_slash_sprite_mapping_sub_B270(
     sword_swing_counter: u8,
 ) -> Option<&'static str> {
@@ -2860,7 +2858,7 @@ pub fn red_stealth_downward_slash_sprite_mapping_sub_B270(
         .copied()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn juggernaut_spin_sprite_mapping_sub_942A(phase: u16) -> Option<&'static str> {
     // ASM sub_942A (kid.asm:10877): Juggernaut indexes `off_94E6` with
     // `($FFFFF8F0).w >> 8` and stores the selected mapping unless animation
@@ -2879,7 +2877,7 @@ pub fn juggernaut_spin_sprite_mapping_sub_942A(phase: u16) -> Option<&'static st
     SPRITE_TABLE.get(usize::from(phase)).copied()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn berzerker_charge_sprite_mapping_sub_942A(phase: u16) -> Option<&'static str> {
     // ASM sub_942A (kid.asm:10877): the Berzerker charge-overflow branch
     // indexes `off_9688` with `($FFFFF8F0).w >> 8` after setting
@@ -2896,7 +2894,7 @@ pub fn berzerker_charge_sprite_mapping_sub_942A(phase: u16) -> Option<&'static s
     SPRITE_TABLE.get(usize::from(phase)).copied()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn option_menu_palette_load_sub_1C896() -> SymbolicPaletteLoadSub1B2A4 {
     // ASM sub_1C896 (kid.asm:31542): copy 0x40 words from `Pal_1C97C`
     // straight into `Palette_Buffer` starting at word offset 0.
@@ -2907,7 +2905,7 @@ pub fn option_menu_palette_load_sub_1C896() -> SymbolicPaletteLoadSub1B2A4 {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn option_menu_tile_split_upload_sub_1CCAE(
     source_words: &[u16],
 ) -> Result<OptionMenuTileSplitUploadSub1CCAE> {
@@ -2948,7 +2946,7 @@ pub fn option_menu_tile_split_upload_sub_1CCAE(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn clear_bit15_vram_upload_sub_1CD44(
     source_words: &[u16],
 ) -> Result<ClearBit15VramUploadSub1CD44> {
@@ -2972,7 +2970,7 @@ pub fn clear_bit15_vram_upload_sub_1CD44(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn decompression_buffer_rows_upload_sub_1CD88(
     decoded_words: &[u16],
 ) -> Result<DecompressionBufferRowsUploadSub1CD88> {
@@ -3004,7 +3002,7 @@ pub fn decompression_buffer_rows_upload_sub_1CD88(
     Ok(DecompressionBufferRowsUploadSub1CD88 { rows })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn zero_longword_vram_write_plan_sub_C346(
     column_index: u16,
     base_vram_word_address: u16,
@@ -3041,7 +3039,7 @@ const NIBBLE_MASK_PATTERN_OFFSETS_SUB_C3DA: [u8; 16] = [
     0x00, 0x12, 0x02, 0x10, 0x09, 0x1B, 0x0B, 0x19, 0x01, 0x13, 0x03, 0x11, 0x08, 0x1A, 0x0A, 0x18,
 ];
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn nibble_mask_longwords_sub_C3DA(
     source_longwords: &[u32],
     pattern_index: u16,
@@ -3063,7 +3061,7 @@ pub fn nibble_mask_longwords_sub_C3DA(
     be_bytes_to_longwords_sub_C3DA(&bytes)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn nibble_mask_animation_sub_C378(
     source_longwords: &[u32],
 ) -> Result<NibbleMaskAnimationSubC378> {
@@ -3099,7 +3097,7 @@ pub fn nibble_mask_animation_sub_C378(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn apply_row_nibble_mask_sub_C3F6(
     bytes: &mut [u8],
     nibble_offset: u8,
@@ -3142,7 +3140,7 @@ fn longwords_to_be_bytes(source_longwords: &[u32]) -> Vec<u8> {
         .collect()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn be_bytes_to_longwords_sub_C3DA(bytes: &[u8]) -> Result<Vec<u32>> {
     ensure!(
         bytes.len().is_multiple_of(4),
@@ -3169,7 +3167,7 @@ fn dma_source_register_words(source_address: u32) -> [u16; 3] {
     ]
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn diamond_hud_dma_transfer_sub_5D4A(
     frame_table_byte_offset: u16,
 ) -> Result<DiamondHudDmaTransferSub5D4A> {
@@ -3208,7 +3206,7 @@ pub fn diamond_hud_dma_transfer_sub_5D4A(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn plane_line_upload_sub_1CDA8(
     decoded_words: &[u16],
     source_row_index: u16,
@@ -3244,7 +3242,7 @@ pub fn plane_line_upload_sub_1CDA8(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn filled_plane_line_upload_sub_1CDFA(row_index: u16) -> FilledPlaneLineUploadSub1CDFA {
     // ASM sub_1CDFA (kid.asm:31999): build a VRAM write command for
     // `d0*$80 - $2000 + $000C`, then stamp exactly 28 `$94` fill words.
@@ -3262,7 +3260,7 @@ pub fn filled_plane_line_upload_sub_1CDFA(row_index: u16) -> FilledPlaneLineUplo
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn end_sequence_plane_clear_plan_sub_1CDE0() -> EndSequencePlaneClearPlanSub1CDE0 {
     // ASM sub_1CDE0 (kid.asm:31981): refresh the display via sub_1DA24 ten
     // times while filling rows 9 through 28 inclusive with sub_1CDFA.
@@ -3274,7 +3272,7 @@ pub fn end_sequence_plane_clear_plan_sub_1CDE0() -> EndSequencePlaneClearPlanSub
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn title_panel_line_upload_sub_1D990(
     decoded_words: &[u16],
     row_index: u16,
@@ -3319,7 +3317,7 @@ pub fn title_panel_line_upload_sub_1D990(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn title_panel_load_plan_sub_1D944(
     panel_selector_with_flags: u16,
     decoded_words: &[u16],
@@ -3377,7 +3375,7 @@ pub fn title_panel_load_plan_sub_1D944(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn vdp_data_fill_sub_1DA62() -> VdpDataFillSub1DA62 {
     // ASM sub_1DA62 (kid.asm:33336): write the constant word `$94` to the VDP
     // data port for `$7FF+1` iterations of the `dbf` loop.
@@ -3387,7 +3385,7 @@ pub fn vdp_data_fill_sub_1DA62() -> VdpDataFillSub1DA62 {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn vram_zero_fill_sub_1DA72() -> VramZeroFillSub1DA72 {
     // ASM sub_1DA72 (kid.asm:33350): point the VDP at VRAM byte `$1280`, then
     // stream 16 zero words via `moveq #$F,d0` / `dbf d0`.
@@ -3398,7 +3396,7 @@ pub fn vram_zero_fill_sub_1DA72() -> VramZeroFillSub1DA72 {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn level_layout_address_to_cell_sub_1F8E(
     level_layout_address: u16,
     level_layout_base_address: u16,
@@ -3420,7 +3418,7 @@ pub fn level_layout_address_to_cell_sub_1F8E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn end_sequence_text_render_plan_sub_1D080(
     text_bytes: &[u8],
 ) -> Result<EndSequenceTextRenderPlanSub1D080> {
@@ -3462,7 +3460,7 @@ pub fn end_sequence_text_render_plan_sub_1D080(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn end_sequence_holo_background_load_plan_sub_1D0EC()
 -> EndSequenceHoloBackgroundLoadPlanSub1D0EC {
     // ASM sub_1D0EC (kid.asm:32496): decompress `ArtComp_C65A_HoloBG` to RAM
@@ -3484,7 +3482,7 @@ pub fn end_sequence_holo_background_load_plan_sub_1D0EC()
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn title_screen_character_load_plan_sub_1BF24(
     frame_index: u16,
     region_byte: u8,
@@ -3574,7 +3572,7 @@ pub fn title_screen_character_load_plan_sub_1BF24(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn intro_sequence_5_frame_load_plan_sub_1C034(
     frame_index: u16,
 ) -> Result<IntroSequence5FrameLoadPlanSub1C034> {
@@ -3627,7 +3625,7 @@ pub fn intro_sequence_5_frame_load_plan_sub_1C034(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn intro_sequence_5_panel_load_plan_sub_1C0EE(
     plane_cell_x: u16,
     plane_cell_y: u16,
@@ -3651,7 +3649,7 @@ pub fn intro_sequence_5_panel_load_plan_sub_1C0EE(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn intro_sequence_5_blank_panel_load_plan_sub_1C112(
     plane_cell_x: u16,
     plane_cell_y: u16,
@@ -3670,7 +3668,7 @@ pub fn intro_sequence_5_blank_panel_load_plan_sub_1C112(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn level_layout_xor_vram_upload_sub_1C180(
     level_layout: &[u8],
     shadow_layout: &[u8],
@@ -3719,7 +3717,7 @@ pub fn level_layout_xor_vram_upload_sub_1C180(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn mapped_longword_sub_3034A(
     cell: u16,
     row_half_word_offset: usize,
@@ -3744,7 +3742,7 @@ fn mapped_longword_sub_3034A(
     Ok((u32::from(word_0 | priority_mask) << 16) + u32::from(word_1 | priority_mask))
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn mapped_word_pair_sub_302F6(
     cell: u16,
     column_half_word_offset: usize,
@@ -3777,7 +3775,7 @@ fn plane_column_word_address_sub_30194(tile_row_even: u16, tile_column: u16) -> 
     ((tile_row_even & 0x001F) << 6).wrapping_add(tile_column & 0x003F)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn longwords_from_bytes_sub_303BA(
     bytes: &[u8],
     byte_offset: usize,
@@ -3799,7 +3797,7 @@ fn longwords_from_bytes_sub_303BA(
         .collect())
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn background_row_upload_sub_303BA(
     camera_y_pos: i16,
     previous_camera_chunk: i16,
@@ -3863,7 +3861,7 @@ pub fn background_row_upload_sub_303BA(
     }))
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn background_scroll_update_sub_304B4(
     current_scroll_pixels: i16,
     background_width: u16,
@@ -3899,7 +3897,6 @@ pub fn background_scroll_update_sub_304B4(
     })
 }
 
-#[allow(non_snake_case)]
 fn background_tile_word_sub_30744(background_chunk_id: u8) -> u16 {
     // ASM sub_30744 reads `unk_309B8(background_chunk_id*2)`, which is the
     // word table `$2780..$27FF,$2F80..$2FFF`. Bit 7 of the chunk byte is the
@@ -3913,7 +3910,6 @@ fn background_tile_word_sub_30744(background_chunk_id: u8) -> u16 {
         }
 }
 
-#[allow(non_snake_case)]
 pub fn background_tile_uploads_sub_30744(
     camera_y_pos: i16,
     background_width: u16,
@@ -3984,7 +3980,7 @@ pub fn background_tile_uploads_sub_30744(
     Ok(uploads)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn background_row_uploads_sub_307D8(
     camera_y_pos: i16,
     previous_camera_row_chunk: i16,
@@ -4110,7 +4106,7 @@ pub fn background_row_uploads_sub_307D8(
     Ok(segments)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn background_preload_row_uploads_loc_2FFE8(
     camera_y_pos: i16,
     level_height_pixels: i16,
@@ -4155,7 +4151,6 @@ pub fn background_preload_row_uploads_loc_2FFE8(
     Ok(uploads)
 }
 
-#[allow(non_snake_case)]
 pub fn level_plane_scroll_update_plan_sub_30194(
     inputs: LevelPlaneScrollUpdateInputsSub30194<'_>,
 ) -> Result<LevelPlaneScrollUpdatePlanSub30194> {
@@ -4359,7 +4354,7 @@ pub fn level_plane_scroll_update_plan_sub_30194(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn mask_level_layout_column_sub_1C1A2(level_layout: &mut [u8], selector: i16) {
     // ASM sub_1C1A2 (kid.asm:31014): increment the signed selector, reject any
     // value outside `0..$3F`, then map that 6-bit column id through
@@ -4386,7 +4381,7 @@ pub fn mask_level_layout_column_sub_1C1A2(level_layout: &mut [u8], selector: i16
     apply_level_layout_nibble_mask_sub_1C1D2(level_layout, encoded_offset);
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn apply_level_layout_nibble_mask_sub_1C1D2(level_layout: &mut [u8], encoded_offset: u16) {
     let byte_mask = if encoded_offset & 0x0001 == 0 {
         0x0F
@@ -4404,7 +4399,7 @@ fn apply_level_layout_nibble_mask_sub_1C1D2(level_layout: &mut [u8], encoded_off
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn thunder_animation_frame_upload_sub_1B41C(
     frame_index: u16,
     art: &[u8],
@@ -4438,7 +4433,7 @@ pub fn thunder_animation_frame_upload_sub_1B41C(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn title_text_chameleon_tilemap_upload_sub_1B532(
     decoded_words: &[u16],
 ) -> Result<TitleTextChameleonTilemapUploadSub1B532> {
@@ -4977,7 +4972,7 @@ pub enum BlockLayoutDecodeWordsLoc1354E {
     ContinueLoc13554 { words: Vec<u16> },
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn block_layout_decode_word_run_loc_1354E(
     decoded_words: &[u16],
     dbf_counter: u16,
@@ -5018,7 +5013,7 @@ fn block_layout_rewind_input_addr_loc_13570(mut next_input_addr: u16, bits_remai
     block_layout_align_rewound_input_addr_loc_1357A(next_input_addr)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn block_layout_align_rewound_input_addr_loc_1357A(mut next_input_addr: u16) -> u16 {
     // ASM loc_1357A (kid.asm:25941-25944) copies `a0` into `d0`, shifts right
     // one bit, and uses the carry from that shift to detect odd addresses. If
@@ -5030,7 +5025,6 @@ pub fn block_layout_align_rewound_input_addr_loc_1357A(mut next_input_addr: u16)
     next_input_addr
 }
 
-#[allow(non_snake_case)]
 pub fn block_layout_return_input_addr_loc_13582(next_input_addr: u16) -> u16 {
     // ASM loc_13582 (kid.asm:25946-25947) only restores `d0-d7/a1-a5` from the
     // stack and returns, so the aligned `a0` from `loc_1357A` passes through
@@ -5050,7 +5044,6 @@ pub struct BlockLayoutRepeatWordsLoc1351E {
     pub next_word: u16,
 }
 
-#[allow(non_snake_case)]
 pub fn block_layout_repeat_words_loc_13514(
     start_word: u16,
     dbf_counter: u16,
@@ -5069,7 +5062,7 @@ pub fn block_layout_repeat_words_loc_13514(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn block_layout_repeat_words_loc_1351E(
     repeated_word: u16,
     dbf_counter: u16,
@@ -5085,7 +5078,7 @@ pub fn block_layout_repeat_words_loc_1351E(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn block_layout_repeat_current_word_loc_1352A(
     current_word: u16,
     dbf_counter: u16,
@@ -5101,7 +5094,6 @@ pub fn block_layout_repeat_current_word_loc_1352A(
     }
 }
 
-#[allow(non_snake_case)]
 pub fn block_layout_repeat_decoded_word_loc_13526(
     decoded_word: u16,
     dbf_counter: u16,
@@ -5112,7 +5104,6 @@ pub fn block_layout_repeat_decoded_word_loc_13526(
     block_layout_repeat_current_word_loc_1352A(decoded_word, dbf_counter)
 }
 
-#[allow(non_snake_case)]
 pub fn block_layout_increment_decoded_word_loc_13532(
     decoded_word: u16,
     dbf_counter: u16,
@@ -5123,7 +5114,6 @@ pub fn block_layout_increment_decoded_word_loc_13532(
     block_layout_repeat_words_loc_13514(decoded_word, dbf_counter)
 }
 
-#[allow(non_snake_case)]
 pub fn block_layout_decrement_words_loc_13544(
     start_word: u16,
     dbf_counter: u16,
@@ -5142,7 +5132,6 @@ pub fn block_layout_decrement_words_loc_13544(
     }
 }
 
-#[allow(non_snake_case)]
 pub fn block_layout_decrement_decoded_word_loc_13540(
     decoded_word: u16,
     dbf_counter: u16,
@@ -5159,7 +5148,6 @@ pub struct BlockLayoutPropertyWordLoc1337C {
     pub low_nibble: u16,
 }
 
-#[allow(non_snake_case)]
 pub fn block_layout_store_property_word_loc_13398(property_word: u16) -> u16 {
     // ASM loc_13398 (kid.asm:25678-25681) is the shared store/loop tail after
     // either loc_13392 leaves `d1` as the raw 4-bit property word or
@@ -5168,7 +5156,7 @@ pub fn block_layout_store_property_word_loc_13398(property_word: u16) -> u16 {
     property_word
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn block_layout_property_words_loc_1337C(
     property_words: &[BlockLayoutPropertyWordLoc1337C],
     dbf_counter: u16,
@@ -10072,7 +10060,7 @@ PlatformScript_3F7E:   ; relative offset: 097C
         assert!(plan.vertical_uploads.is_empty());
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn be_bytes_from_longwords_sub_303BA(longwords: &[u32]) -> Vec<u8> {
         longwords
             .iter()

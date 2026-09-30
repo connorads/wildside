@@ -19451,7 +19451,7 @@ mod chunk_03 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn shared_deactivation_status_action_updates_native_enemy_status_table_loc_3C4C0() {
         let mut runtime = NativeRuntime::new(manifest());
 
@@ -19904,7 +19904,7 @@ mod chunk_03 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn hand_death_status_route_updates_native_enemy_status_table_loc_32AA2() {
         let mut runtime = NativeRuntime::new(manifest());
 
@@ -20287,7 +20287,7 @@ mod chunk_03 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn tar_monster_death_status_route_updates_native_enemy_status_table_loc_3243A() {
         let mut runtime = NativeRuntime::new(manifest());
 
@@ -20524,7 +20524,7 @@ mod chunk_03 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn cloud_death_status_route_updates_native_enemy_status_table_loc_35C0E() {
         let mut runtime = NativeRuntime::new(manifest());
 
@@ -20655,7 +20655,7 @@ mod chunk_03 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn archer_death_status_route_updates_native_enemy_status_table_loc_3414A() {
         let mut runtime = NativeRuntime::new(manifest());
 
@@ -20771,7 +20771,7 @@ mod chunk_03 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn emo_rock_death_status_route_updates_native_enemy_status_table_loc_3639A() {
         let mut runtime = NativeRuntime::new(manifest());
 
@@ -22058,7 +22058,7 @@ mod chunk_03 {
     /// and shifted Kid's horizontal jump probe, the ROM clamps a negative
     /// start column to zero before computing the inclusive scan count.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E000_hidden_block_jump_scan_clamps_negative_start_and_counts_from_zero() {
         let scan = hidden_block_jump_horizontal_scan_loc_DFEE(0x0003, 0x0010, 0x001F, 0x0020);
 
@@ -22080,7 +22080,7 @@ mod chunk_03 {
     /// `Level_width_blocks`, the ROM subtracts the start column from `d1`; an
     /// equal-width edge remains uncapped but a greater edge becomes width-1.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E00E_hidden_block_jump_scan_preserves_equal_width_and_counts_after_cap() {
         let equal_width =
             hidden_block_jump_horizontal_scan_loc_DFEE(0x00F1, 0x0001, 0x0010, 0x0010);
@@ -22126,7 +22126,7 @@ mod chunk_03 {
     /// layout byte, index `unk_E11E` by byte 7, allocate four `loc_E304`
     /// workers, and set `$50/$52` offsets on workers 2-4 after allocation.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E0C2_hidden_block_reveal_spawns_four_offset_burst_workers() {
         let workers = hidden_block_reveal_workers_loc_E0C2(0x0007, 0x0002, 0x0003, 0x00FF_4A48);
 
@@ -22171,7 +22171,7 @@ mod chunk_03 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E19E_hidden_block_type4_spawns_previous_then_current_workers() {
         let pair = hidden_block_type4_reveal_pair_loc_E19E(0x0008, 0x0003, 0x00FF_4A50, 0x1114);
 
@@ -22217,7 +22217,7 @@ mod chunk_03 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E1BC_hidden_block_type4_spawns_current_then_next_workers() {
         let pair = hidden_block_type4_reveal_pair_loc_E1BC(0x0008, 0x0003, 0x00FF_4A50, 0x1114);
 
@@ -23427,7 +23427,7 @@ mod chunk_05 {
     // pins the exact truth table so the `&`, `&&`, `!=`, and `>=` operators in
     // `evanescent_collision_overlay_enabled_loc_ED52` cannot be mutated silently.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn evanescent_collision_overlay_enabled_loc_ED52_matches_asm_action_bit1_and_timer() {
         // bit 1 set AND timer at the overlay threshold -> collision overlay.
         assert!(NativeRuntime::evanescent_collision_overlay_enabled_loc_ED52(0x10, 0x02));
@@ -23452,7 +23452,7 @@ mod chunk_05 {
     // `shooter_object_direction_from_velocity_loc_EDFA`). This pins the exact
     // per-bit (xv,yv) tuples and their order so the table signs cannot be mutated.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn fire_evanescent_block_projectiles_loc_EC76_direction_table_matches_asm_bit_order() {
         let grid = grid_with_evanescent(2, 3, 0x2B);
         let mut runtime = runtime_with_evanescent_grid(grid);
@@ -34648,7 +34648,7 @@ mod chunk_05 {
     /// climb B-press jump-off uses the same jump routine as grounded launch, so
     /// `KidGrabbedByHand` weakens the climb launch by `addi.l #$20000,d0`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A426_iron_knight_climb_b_press_honours_kid_grabbed_by_hand_loc_A466() {
         let mut ungrabbed_rt = iron_knight_runtime_with_wall();
         ungrabbed_rt.helmet.iron_knight_climbing = true;
@@ -34831,7 +34831,7 @@ mod chunk_05 {
     /// Also validates loc_A328 (kid.asm:12628): sub_902A returned d7!=0
     /// (floor hit), so `bne.w loc_A338` branches into the landing check.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A338_floor_landing_dismounts_wall_climb() {
         let mut rt = iron_knight_runtime_with_wall();
         rt.helmet.iron_knight_climbing = true;
@@ -34866,7 +34866,7 @@ mod chunk_05 {
     /// Native: wall still present + not on_ground → ResumeClimb, which
     /// advances the sub_A3BC pose accumulator and loops the climb state.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A330_no_collision_continues_climb_with_animation() {
         let mut rt = iron_knight_runtime_with_wall();
         rt.helmet.iron_knight_climbing = true;
@@ -34904,7 +34904,7 @@ mod chunk_05 {
     /// ASM loc_A30A (kid.asm:12618): when the climb wall probe no longer finds
     /// `$6000`, the ROM seeds `y_vel=$FFFC0000` before leaving wall-climb state.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A30A_wall_gone_releases_with_upward_pop_velocity() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::IronKnight;
@@ -34949,7 +34949,7 @@ mod chunk_05 {
     /// Knight climb loop through the platform-walking path instead of applying
     /// another climb-acceleration frame.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A9AA_platform_landing_exits_iron_knight_climb_same_frame() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::IronKnight;
@@ -35006,7 +35006,7 @@ mod chunk_05 {
     ///
     /// Native: iron_knight_climb_accel capped at IRON_KNIGHT_MAX_SLIDE_ACCEL.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A382_passive_slide_cap_at_1800() {
         let mut rt = iron_knight_runtime_with_wall();
         rt.helmet.iron_knight_climbing = true;
@@ -35031,7 +35031,7 @@ mod chunk_05 {
     /// ASM loc_A382 complement: when accel is already below $1800 and drift
     /// doesn't push it over, the cap is not applied (ble branch taken).
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A382_below_cap_drift_not_clamped() {
         let mut rt = iron_knight_runtime_with_wall();
         rt.helmet.iron_knight_climbing = true;
@@ -35057,7 +35057,7 @@ mod chunk_05 {
     /// Iron Knight wall climb.  After many frames of passive sliding, the
     /// integrated y_vel must not exceed this ceiling.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A3A6_downward_velocity_capped_at_40000() {
         let mut rt = iron_knight_runtime_with_wall();
         rt.helmet.iron_knight_climbing = true;
@@ -35083,7 +35083,7 @@ mod chunk_05 {
     /// bounds, it is stored as-is (no clamping).  This test also verifies
     /// the upward cap path (loc_A38E..loc_A3A6 at $FFFE8000).
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A3B4_store_velocity_within_bounds() {
         let mut rt = iron_knight_runtime_with_wall();
         rt.helmet.iron_knight_climbing = true;
@@ -35108,7 +35108,7 @@ mod chunk_05 {
     /// ASM loc_A3B4 upward cap: when C-press boost drives velocity past
     /// -$18000, clamp kicks in (loc_A38E path).
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A3B4_upward_velocity_capped_at_FFFE8000() {
         let mut rt = iron_knight_runtime_with_wall();
         rt.helmet.iron_knight_climbing = true;
@@ -35137,7 +35137,7 @@ mod chunk_05 {
     /// accumulator underflows (goes negative from a large upward y_vel delta),
     /// it wraps to $BF so the animation cycle is seamless.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A3DA_pose_accumulator_wraps_negative_to_BF() {
         // pose_accum=2, y_vel=-0x8_0000 → delta = -0x8_0000 >> 13 = -64
         // next = 2 + (-64) = -62 → negative → wrap to $BF
@@ -35157,7 +35157,7 @@ mod chunk_05 {
     /// Accumulator >> 2 buckets into three zones: 0..15 → pose C (bottom),
     /// 16..31 → pose B (mid), 32..47 → pose A (top).
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_A3DE_sprite_lookup_three_buckets() {
         // Bottom bucket: pose_accum=0x20 → 0x20>>2=8 → entry in 0..15
         let bottom = iron_knight_climb_visual_sub_A3BC(0x20, 0);

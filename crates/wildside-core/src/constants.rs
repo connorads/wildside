@@ -447,7 +447,7 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES: usize = 17 + 0x01
 // fills Palette_Buffer_3 with 64 words of `$AAA` for the fade-to-black.
 // The palette fill uses `moveq #$3F,d0` (63) and `dbf d0,loc_1BA82`,
 // writing $AAA to each of the 64 palette entries.
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const INTRO_SEQUENCE_5_FADE_PALETTE_FILL_WORDS: usize = 64;
 // ASM loc_1BA90 / loc_1BAA0 together implement a fade counter decrement loop.
 // After loc_1BA82 sets `$FFFFF876 = $100` (256), loc_1BAA0 seeds d0=$FF and
@@ -457,7 +457,6 @@ pub(crate) const INTRO_SEQUENCE_5_FADE_PALETTE_FILL_WORDS: usize = 64;
 // (`bmi.s loc_1BAAC`), at which point `j_loc_6E2` returns the object.
 // The fade runs 9 iterations: $100→$E0→$C0→$A0→$80→$60→$40→$20→$00, then
 // the next subtraction yields $FFE0 and bmi branches to exit.
-#[allow(dead_code)]
 pub(crate) const INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS: usize = 9;
 // The later Start-skip intro-return lineage revisits the timeout-restart copy
 // of intro sequence 5 one shared sub_1C204 fade window earlier than the plain
@@ -1110,7 +1109,6 @@ pub(crate) const LEVEL_ONE_SKIP_RESUME_ENTRY_CAMERA_Y_FP: [u32; LEVEL_SKIP_RESUM
 /// ASM word_402B0 (kid.asm:45677): 65-entry sine table for angles 0-90 degrees.
 /// Entry i contains sin(π/2 × i/64) × $4000, clamped at $FFFF for i >= 65.
 /// ASM sub_40236 (kid.asm:45620) uses this table for angle-to-sin/cos conversion.
-#[allow(dead_code)]
 pub(crate) const SINE_TABLE_WORD_402B0: [u16; 65] = [
     0x0000, 0x0192, 0x0324, 0x04B5, 0x0646, 0x07D5, 0x0964, 0x0AF1, 0x0C7C, 0x0E06, 0x0F8D, 0x1112,
     0x1294, 0x1413, 0x158F, 0x1707, 0x187D, 0x19EF, 0x1B5D, 0x1CC7, 0x1E2B, 0x1F8B, 0x20E7, 0x223C,

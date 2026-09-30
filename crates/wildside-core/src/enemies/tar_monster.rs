@@ -418,7 +418,6 @@ pub(crate) fn tar_monster_loc_32248() -> &'static [u8] {
     &TAR_MONSTER_CONTROL_BYTES_LOC_32248
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_loc_3224e() -> TarMonsterLoc3224EReturn {
     // ASM loc_3224E: clear `collision_type(a3)` and preload `off_32290` into `a1`.
     TarMonsterLoc3224EReturn {
@@ -427,7 +426,6 @@ pub(crate) fn tar_monster_loc_3224e() -> TarMonsterLoc3224EReturn {
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_loc_32256(raw_command: i16) -> TarMonsterLoc32256Return {
     // ASM loc_32256: read one signed word; negative -> restart script at loc_32248;
     // otherwise `move.b d0,d7` indexes `off_32290` by low-byte byte offset.
@@ -498,7 +496,6 @@ pub(crate) fn tar_monster_script_step_loc_32256(offset: u8) -> TarMonsterScriptS
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_wait_loop_loc_322aa(
     d0_after_loc_322a8: u16,
 ) -> TarMonsterWaitLoopLoc322AA {
@@ -512,7 +509,6 @@ pub(crate) fn tar_monster_wait_loop_loc_322aa(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_appear_sound_loc_322c0() -> TarMonsterAppearSoundLoc322C0 {
     // ASM loc_322C0: call `j_PlaySound` with `sfx_Tar_Monster_appears`, then
     // restore the script command from the stack before animation setup.
@@ -522,7 +518,6 @@ pub(crate) fn tar_monster_appear_sound_loc_322c0() -> TarMonsterAppearSoundLoc32
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_appear_animation_loc_322c8() -> TarMonsterAppearAnimationLoc322C8 {
     // ASM loc_322C8: load `stru_3272E`, initialise animation, hibernate until
     // it finishes, then branch back to the control-script dispatcher.
@@ -534,7 +529,6 @@ pub(crate) fn tar_monster_appear_animation_loc_322c8() -> TarMonsterAppearAnimat
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_third_attack_wait_loc_3235e() -> TarMonsterThirdAttackWaitLoc3235E {
     // ASM loc_3235E seeds d0 with 8, then the following loop hibernates,
     // range-checks, and polls collision once per inclusive DBF iteration before restoring
@@ -549,7 +543,6 @@ pub(crate) fn tar_monster_third_attack_wait_loc_3235e() -> TarMonsterThirdAttack
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_collision_gate_loc_3237a(
     collision_type: i16,
 ) -> TarMonsterCollisionGateLoc3237A {
@@ -567,7 +560,7 @@ pub(crate) fn tar_monster_collision_gate_loc_3237a(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_berzerker_collision_loc_323AA(
     berzerker_charging: bool,
 ) -> TarMonsterBerzerkerCollisionLoc323AA {
@@ -587,7 +580,7 @@ pub(crate) fn tar_monster_berzerker_collision_loc_323AA(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_hurt_collision_loc_323C0(
     current_hitpoints: u16,
     child_visible: bool,
@@ -610,7 +603,7 @@ pub(crate) fn tar_monster_hurt_collision_loc_323C0(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_hurt_animation_loc_323D6(
     saved_child_visible: bool,
 ) -> TarMonsterHurtAnimationLoc323D6 {
@@ -624,7 +617,7 @@ pub(crate) fn tar_monster_hurt_animation_loc_323D6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_respawn_marker_loc_3242C(
     object_status_slot: u8,
 ) -> TarMonsterRespawnMarkerLoc3242C {
@@ -636,7 +629,7 @@ pub(crate) fn tar_monster_respawn_marker_loc_3242C(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_death_status_update_loc_3243A(
     object_status_slot: u8,
 ) -> TarMonsterDeathStatusUpdateLoc3243A {
@@ -662,7 +655,6 @@ pub(crate) fn tar_monster_death_status_update_loc_3243A(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_shot_sound_loc_32468() -> TarMonsterShotSoundLoc32468 {
     // ASM loc_32468: preserve d0 around `j_PlaySound`, play
     // `sfx_Tar_Monster_shoots`, then load a `$3000003` GfxObject slot.
@@ -673,7 +665,7 @@ pub(crate) fn tar_monster_shot_sound_loc_32468() -> TarMonsterShotSoundLoc32468 
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_shot_spawn_loc_3247E(
     source_x_pos: u32,
     source_y_pos: u32,
@@ -706,7 +698,7 @@ pub(crate) fn tar_monster_shot_spawn_loc_3247E(
     })
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_retaliation_entry_loc_325AC(
     source_x_pos: u32,
     source_y_pos: u32,
@@ -722,7 +714,7 @@ pub(crate) fn tar_monster_retaliation_entry_loc_325AC(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_seeded_shot_loc_325B6(
     source_x_word: u16,
     source_y_word: u16,
@@ -749,7 +741,7 @@ pub(crate) fn tar_monster_seeded_shot_loc_325B6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_burst_child_entry_loc_325E6(
     source_visual_x_pos: u32,
     source_visual_y_pos: u32,
@@ -771,7 +763,6 @@ pub(crate) fn tar_monster_burst_child_entry_loc_325E6(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_burst_child_meta_loc_32618() -> TarMonsterBurstChildMetaLoc32618 {
     // ASM loc_32618 seeds d0 with object_meta `$0005` for the burst child and
     // falls through to the shared Tar Monster projectile setup.
@@ -781,7 +772,7 @@ pub(crate) fn tar_monster_burst_child_meta_loc_32618() -> TarMonsterBurstChildMe
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_projectile_setup_loc_3261C(
     object_meta: u16,
 ) -> TarMonsterProjectileSetupLoc3261C {
@@ -799,7 +790,6 @@ pub(crate) fn tar_monster_projectile_setup_loc_3261C(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_projectile_dispatch_seed_loc_32698(
     collision_type: u16,
     collision_response_budget: u16,
@@ -821,28 +811,28 @@ pub(crate) fn tar_monster_projectile_dispatch_seed_loc_32698(
     )
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_projectile_reflect_x_loc_326AA(x_velocity: i32) -> i32 {
     // ASM loc_326AA: copy x_vel(a3), arithmetic-shift it right by one, negate
     // the halved value, and write it back to x_vel(a3).
     (x_velocity >> 1).wrapping_neg()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_projectile_reflect_y_loc_326B8(y_velocity: i32) -> i32 {
     // ASM loc_326B8: copy y_vel(a3), arithmetic-shift it right by one, negate
     // the halved value, then fall through to the shared y_vel(a3) writeback.
     tar_monster_projectile_write_y_velocity_loc_326C0((y_velocity >> 1).wrapping_neg())
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_projectile_write_y_velocity_loc_326C0(y_velocity_d7: i32) -> i32 {
     // ASM loc_326C0: `move.l d7,y_vel(a3); rts` writes the prepared d7 long
     // directly to the projectile's y_vel field.
     y_velocity_d7
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_projectile_negated_velocity_swap_loc_326C6(
     x_velocity: i32,
     y_velocity: i32,
@@ -855,7 +845,7 @@ pub(crate) fn tar_monster_projectile_negated_velocity_swap_loc_326C6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_projectile_velocity_swap_loc_326DC(
     x_velocity: i32,
     y_velocity: i32,
@@ -868,7 +858,6 @@ pub(crate) fn tar_monster_projectile_velocity_swap_loc_326DC(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_projectile_collision_loc_32682(
     collision_type: i16,
     collision_response_budget: u16,
@@ -924,7 +913,7 @@ pub(crate) fn tar_monster_projectile_collision_loc_32682(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn tar_monster_projectile_collision_deletes_current_object_loc_3263C(
     collision: TarMonsterProjectileCollisionLoc32682,
 ) -> bool {
@@ -937,7 +926,7 @@ fn tar_monster_projectile_collision_deletes_current_object_loc_3263C(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_projectile_loop_loc_3263C(
     y_velocity: i32,
     collision_type: i16,
@@ -970,7 +959,7 @@ pub(crate) fn tar_monster_projectile_loop_loc_3263C(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_shot_motion_loc_324D0(
     x_pos_after_spawn_setup: u32,
     copied_x_direction: Direction,
@@ -989,7 +978,7 @@ pub(crate) fn tar_monster_shot_motion_loc_324D0(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_shot_wait_loc_324E6(
     collision_type: u16,
     byte_19_nonzero: bool,
@@ -1008,7 +997,7 @@ pub(crate) fn tar_monster_shot_wait_loc_324E6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn tar_monster_burst_cleanup_loc_324F8() -> TarMonsterBurstCleanupLoc324F8 {
     // ASM loc_324F8 hides the impacted glob, clears both velocity longs, spawns
     // two fixed-velocity children, then falls through loc_32534 for the final
@@ -1023,7 +1012,6 @@ pub(crate) fn tar_monster_burst_cleanup_loc_324F8() -> TarMonsterBurstCleanupLoc
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_burst_tail_loc_32534() -> TarMonsterBurstTailLoc32534 {
     // ASM loc_32534 allocates the final three burst workers with fixed `$44/$48`
     // velocity pairs, hibernates once, then deletes the source glob.
@@ -1035,7 +1023,6 @@ pub(crate) fn tar_monster_burst_tail_loc_32534() -> TarMonsterBurstTailLoc32534 
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_collision_dispatch_loc_32386(
     collision_type: u16,
     berzerker_charging: bool,
@@ -1062,7 +1049,6 @@ pub(crate) struct TarMonsterInitLoc321C6 {
     pub(crate) y_pos: u32,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_init_loc_321c6(
     queued_x_word: u16,
     queued_y_word: u16,
@@ -1086,7 +1072,6 @@ pub(crate) struct TarMonsterInitLoc321E4 {
     pub(crate) y_pos: u32,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_init_loc_321e4(
     queued_x_word: u16,
     queued_y_word: u16,
@@ -1122,7 +1107,6 @@ pub(crate) struct TarMonsterChildInitLoc32200 {
     pub(crate) vram_tile: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_child_init_loc_32200(
     parent_init: TarMonsterInitLoc321E4,
     sprite_frame_link: u16,

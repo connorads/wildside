@@ -3220,7 +3220,7 @@ mod chunk_06 {
     // --- sub_868E sword worker lifecycle: loc_86CE, loc_86D8, loc_86E8, loc_86EC ---
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_86CE (kid.asm:9541): `add.w $1A(a0),d7; move.w d7,x_pos(a3)` — the
     /// common x-position store after the facing branch. d7=$1C when x_direction==0
     /// (Right in native), d7=-$1C when flipped. Verifies the offset sign matches.
@@ -3251,7 +3251,7 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_86D8 (kid.asm:9546): `moveq #3,d0` then `dbf d0,loc_86D8` = 4
     /// iterations. Each iteration hibernates one frame and checks collision_type.
     /// Native models this as RED_STEALTH_ACTIVE_FRAMES=4 ticks of sword_is_active().
@@ -3274,7 +3274,7 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_86E8 (kid.asm:9552): `jmp Delete_CurrentObject` — reached when the
     /// dbf loop falls through (d0=-1, no collision). In native, the timer reaches 0
     /// and sword_is_active() returns false, ending all hit processing.
@@ -3299,7 +3299,7 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_86EC (kid.asm:9556): `collision_type(a3)` non-zero → play
     /// sfx_Red_Stealth_hitting_a_target → bra.s loc_86E8 (delete). In native,
     /// process_sword_hits detects the overlap and deals damage. The hit sound is
@@ -3324,7 +3324,7 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_86EC_sword_collision_plays_hit_sound() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::RedStealth;
@@ -3344,7 +3344,7 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_86EC → loc_86E8: after the hit sound, the sword object is deleted.
     /// A native hit must consume the swing timer so the sword cannot damage
     /// again after the first contact.
@@ -3367,7 +3367,7 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_86EC branches directly to loc_86E8 after the first collision, so
     /// one swing cannot damage multiple overlapped enemies in a single frame.
     fn loc_86EC_hit_consumes_before_second_overlap() {
@@ -5818,7 +5818,7 @@ mod chunk_06 {
     /// seeds `d0=$12` and `d1=-$0F`, then negates `d0` only when the latched
     /// `$FFFFFABE` direction byte is non-zero.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E4B2_eyeclops_beam_render_setup_decrements_counter_and_latches_side() {
         let right = helmets::eyeclops_beam_render_setup_loc_E4B2(0x8001, 0);
         assert_eq!(
@@ -5850,7 +5850,7 @@ mod chunk_06 {
     /// position plus the signed setup offset, minus camera word position, plus
     /// the `$80` sprite coordinate bias on both axes.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E4C4_eyeclops_beam_screen_origin_applies_camera_and_sprite_bias() {
         let right_setup = helmets::eyeclops_beam_render_setup_loc_E4B2(3, 0);
         let right = helmets::eyeclops_beam_screen_origin_loc_E4C4(
@@ -5893,7 +5893,7 @@ mod chunk_06 {
     /// segment span from the already biased screen X and set bit `$0800` on
     /// every tile word emitted by the following sprite table loop.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E50A_eyeclops_beam_mirrored_anchor_subtracts_segment_span_and_sets_flip() {
         let anchor = helmets::eyeclops_beam_mirrored_anchor_loc_E50A(0x00C0, 3);
 
@@ -5911,7 +5911,7 @@ mod chunk_06 {
     /// the `< 4` gate, the ROM shifts it left by two and reads the matching
     /// longword from `off_E560`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E512_eyeclops_beam_dispatches_through_four_longword_table_entries() {
         let dispatches = [
             helmets::eyeclops_beam_table_dispatch_loc_E512(0),
@@ -5942,7 +5942,7 @@ mod chunk_06 {
     /// byte, and mirrors X by subtracting both the table X offset and the
     /// width bucket derived from the size word.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E51A_eyeclops_beam_sprite_loop_emits_table_entries_and_mirrors_x() {
         let right = helmets::eyeclops_beam_sprites_loc_E51A("unk_E570", 0x00B2, 0x0091, 0, 0, 0)
             .expect("ASM loc_E512 dispatches d7=0 to unk_E570 before loc_E51A");
@@ -5984,7 +5984,7 @@ mod chunk_06 {
     /// ASM loc_E54E (kid.asm:18078): when `$FFFFFABE` is clear, the short
     /// Eyeclops beam stores `d0 + table_x_offset` directly as each sprite X.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E54E_eyeclops_beam_non_mirrored_x_adds_table_offset_without_width_bias() {
         let right = helmets::eyeclops_beam_sprites_loc_E51A("unk_E570", 0x00B2, 0x0091, 0, 0, 0)
             .expect("ASM loc_E512 dispatches d7=0 to unk_E570 before loc_E51A");
@@ -6004,7 +6004,7 @@ mod chunk_06 {
     /// two signed Y offsets. The ROM adds both to d1 and carries them into
     /// the bounds path as d5/d6 for the beam's vertical collision band.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E554_eyeclops_beam_sentinel_prepares_vertical_collision_band() {
         let render = helmets::eyeclops_beam_sprites_loc_E51A("unk_E570", 0x00B2, 0x0091, 0, 0, 0)
             .expect("ASM loc_E512 dispatches d7=0 to unk_E570 before loc_E51A");
@@ -6371,7 +6371,7 @@ mod chunk_06 {
     /// blocks inside the vertical collision band, and queues the `$12C` worker
     /// plus foreground update for each revealed cell.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn eyeclops_beam_loc_E70A_reveals_hidden_blocks_in_scanned_column() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Eyeclops;
@@ -6872,7 +6872,7 @@ mod chunk_06 {
     // --- loc_874C: Juggernaut skull worker position tracking (sub_86FA) ---
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_874C (kid.asm:9591): `move.l $1A(a2),x_pos(a3); move.l $1E(a2),y_pos(a3);
     /// move.b $16(a2),x_direction(a3)` — copies Kid's position and facing to the skull
     /// GFX object. Native reads player position at spawn time (delay reaching 0).
@@ -6930,7 +6930,7 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_874C (kid.asm:9594): `move.b $16(a2),x_direction(a3)` — skull inherits
     /// Kid's facing. When facing left, x_velocity is negative and offset is mirrored.
     fn loc_874C_skull_direction_mirrors_kid_facing() {
@@ -6967,7 +6967,7 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_874C (kid.asm:9591-9597): `moveq #3,d0` — the skull worker uses
     /// a 3-frame counter before spawning sub_87B0. Native models this via
     /// `juggernaut_skull_delay_frames = JUGGERNAUT_SKULL_STARTUP_FRAMES (3)`.
@@ -7019,7 +7019,7 @@ mod chunk_06 {
     // --- loc_876A: Juggernaut skull worker per-frame tick (sub_86FA active loop) ---
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_876A (kid.asm:9599): `jsr Hibernate_Object_1Frame; subq.w #1,d0;
     /// bne.w loc_879A` — each frame of the 3-frame delay decrements the counter.
     /// When d0 reaches 0, the skull worker allocates a sub_87B0 projectile at Kid's
@@ -7071,7 +7071,7 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_876A (kid.asm:9603-9608): after counter reaches 0, the skull worker
     /// copies `x_pos(a3), y_pos(a3), x_direction(a3)` to the new sub_87B0 object's
     /// $44/$46/$48 fields. Verify the spawned projectile inherits Kid's position.
@@ -7110,7 +7110,7 @@ mod chunk_06 {
     // --- loc_87A0: Skull worker post-spawn visual tracking (visual-only) ---
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_87A0 (kid.asm:9614): `move.l $1E(a2),y_pos(a3); tst.b $18(a3);
     /// beq.s loc_876A; jmp Delete_CurrentObject` — after spawning sub_87B0, the
     /// skull worker continues copying Kid y_pos each frame until animation completes.
@@ -7153,7 +7153,7 @@ mod chunk_06 {
     // --- loc_87EC: sub_87B0 initial position + velocity setup ---
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_87EC (kid.asm:9641): `move.w d7,x_vel(a3); add.w d6,x_pos(a3)` —
     /// after direction branch, d7=4 (right) or -4 (left), d6=$1A (right) or -$1A
     /// (left). Stores x_vel and adds facing-dependent x offset to x_pos.
@@ -7189,7 +7189,7 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_87EC (kid.asm:9638-9641): left-facing branch sets d7=-4, d6=-$1A.
     /// `move.w d7,x_vel(a3)` → x_vel=-4px, `add.w d6,x_pos(a3)` → x_pos -= 26px.
     fn loc_87EC_left_facing_skull_initial_velocity_and_offset() {
@@ -7223,7 +7223,7 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_87EC (kid.asm:9645): the freshly spawned sub_87B0 projectile
     /// probes `sub_B55C` at offset (0,0) before `Init_Animation`; if
     /// `d5 == $6000`, it branches straight to loc_899C and deletes itself
@@ -7254,7 +7254,7 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_87EC only deletes on `cmpi.w #$6000,d5`; hidden blocks, slopes
     /// and spikes must not trigger the immediate spawn delete.
     fn loc_87EC_skull_spawn_probe_ignores_non_6000_collision_classes() {
@@ -7288,7 +7288,6 @@ mod chunk_06 {
     // --- loc_8810: Skull projectile main loop (gravity + collision checks) ---
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM loc_8810 (kid.asm:9659): `addi.l #$1000,y_vel(a3)` — gravity applied
     /// every frame of the skull main loop. Verify cumulative gravity over 3 frames.
     fn loc_8810_skull_gravity_accumulates_each_frame() {
@@ -7326,7 +7325,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM loc_8810 (kid.asm:9660-9663): `move.w x_pos(a3),d6; move.w d6,d5;
     /// move.w x_vel(a3),d7; bmi.w loc_887A` — horizontal movement dispatches based
     /// on x_vel sign: positive → right-moving path, negative → left-moving path.
@@ -7356,7 +7354,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM loc_8810 (kid.asm:9659+): without a level loaded, sub_87B0 still
     /// runs the linear `add.l x_vel(a3),x_pos(a3); add.l y_vel(a3),y_pos(a3)`
     /// step. The Rust no-grid let-else fallback in `step_juggernaut_skull_sub_87B0`
@@ -7394,7 +7391,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM sub_1D78 -> Is_Juggernaut_Skull_Active gate: the skull main loop
     /// (loc_8810) only runs when the helmet is actually Juggernaut and the
     /// projectile carries the skull's `$1000/frame` gravity tag. A friendly
@@ -7880,7 +7876,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM sub_B55C (probed at loc_8852/loc_8916 with `cmpi.w #$6000,d5`):
     /// the skull's tile-boundary collision check only fires when the cell
     /// reports a solid-class collision. Native `solid_terrain_at` mirrors
@@ -7949,7 +7944,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM loc_8852 (kid.asm:9674) probes `sub_B55C` then branches only when
     /// `d5 == $6000`. Hidden blocks, slopes and spikes must fall through to
     /// loc_88E6 without snapping or consuming a bounce.
@@ -7995,7 +7989,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM loc_8916 (kid.asm:9755) uses the same `cmpi.w #$6000,d5` gate for
     /// the downward floor probe. Non-solid collision classes keep the raw
     /// y-motion and do not enter loc_897C's 3/4 rebound.
@@ -8042,7 +8035,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM Lion.asm sub_3E2CE / loc_3E1B4 (release path on owner-token match):
     /// the lion's `$5B(a5)` active-shot count is decremented only when the
     /// owning enemy is actually a Lion. Native `release_lion_projectile_owners`
@@ -8078,7 +8070,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM Lion.asm sub_3E2CE: the release decrements the lion's segment count
     /// only when *all* of family/segment_index/layout_index/ufo_beam_interval
     /// match. A live Lion sharing the same segment/token but a different
@@ -8111,7 +8102,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM Lion.asm sub_3E2CE: the camera-box check converts world positions to
     /// screen-space by `screen = (pos>>16) - (camera>>16)` and demands both
     /// axes sit in [-$40, $X]. The published off-screen test parks the camera
@@ -8367,7 +8357,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM Lion.asm sub_3E2CE: the camera box reaches negative screen offsets
     /// down to -$40 on both axes (the lion's "still on screen" margin).
     /// Stripping the leading `-` from either lower bound (`(-$40..=$X)`)
@@ -8414,7 +8403,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM Lion.asm sub_3E2CE (kid.asm: via Lion.asm:287): `cmp.b $71(a0),d6;
     /// bne.s loc_3E314` deletes the projectile immediately when the owner's
     /// token no longer matches. The mismatch branch skips loc_3E30E, so a
@@ -8474,7 +8462,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM Lion.asm sub_3E2CE called from loc_3E2A8: every wall-bounce
     /// iteration ends with `bsr.w sub_3E2CE` re-running the on-screen test
     /// before the next `dbf d0`. Native mirrors the call inline at the end
@@ -8552,7 +8539,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM Lion.asm sub_3E2CE called from loc_3E2A8: the post-bounce
     /// re-check must delete the projectile when the post-bounce x falls
     /// outside the camera band even if y stays inside. Replacing `&&`
@@ -8618,7 +8604,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM Lion.asm sub_3E2CE called from loc_3E2A8: mirror of the
     /// horizontal-bounce off-screen test on the y axis to pin the
     /// `replace - with /` mutation on `screen_y`. The horizontal version
@@ -8681,7 +8666,6 @@ mod chunk_06 {
     // --- loc_8852: Right-moving tile-boundary wall snap + bounce ---
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM loc_8852 (kid.asm:9674): `add.w d5,d7; move.w d7,x_pos(a3)` — moves
     /// x_pos by x_vel. `bsr.w sub_B55C; cmpi.w #$6000,d5` probes for solid.
     /// If solid: `andi.w #$FFF0,d7; subq.w #1,d7` snaps to (tile_left - 1).
@@ -8726,7 +8710,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM loc_8890 (kid.asm:9700): left-moving mirror of loc_8852.
     /// `sub.w d7,d5; move.w d5,x_pos(a3)` → probe → if solid:
     /// `andi.w #$FFF0,d7; addi.w #$10,d7` snaps to tile right edge.
@@ -8766,7 +8749,6 @@ mod chunk_06 {
     // --- loc_8864: Not-solid branch skips wall snap → y-axis movement ---
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM loc_8864 (kid.asm:9682): `bne.w loc_88E6` — after sub_B55C probe,
     /// if terrain is NOT solid ($6000), skip wall snap entirely and fall through
     /// to loc_88E6 (y-axis movement). x_pos keeps the raw (x + x_vel) value.
@@ -8809,7 +8791,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM loc_8864 (kid.asm:9682): left-moving mirror — `bne.w loc_88E6` at
     /// loc_8890's equivalent position. No solid terrain → x_pos keeps raw value.
     fn loc_8864_left_moving_not_solid_skips_wall_snap() {
@@ -8844,7 +8825,7 @@ mod chunk_06 {
     // --- loc_88D2/loc_88DC: Bounce velocity decay + direction reversal ---
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_88D2 (kid.asm:9725): negative x_vel decay.
     /// `cmpi.w #$FFFF,d7; beq.w loc_88DC; addq.w #1,d7` — when x_vel < -1 (word),
     /// reduce magnitude by 1 before negation. At x_vel == -1, skip decay.
@@ -8878,7 +8859,7 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_88B6/loc_88DC: positive x_vel == 1 decay.
     /// `cmpi.w #1,d7; beq.w loc_88DC; subq.w #1,d7` — at x_vel == 1 (word),
     /// skip decay, then loc_88DC negates → -1.
@@ -8910,7 +8891,7 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_88D2 (kid.asm:9725): negative x_vel with magnitude > 1.
     /// `cmpi.w #$FFFF,d7; bne → addq.w #1,d7` — d7 = -3 (word $FFFD), add 1 → $FFFE (-2).
     /// loc_88DC: neg → $0002 (+2). Confirms decay by 1 for |x_vel| > 1.
@@ -8942,7 +8923,7 @@ mod chunk_06 {
     // --- loc_88E6: Y-axis movement with gravity ---
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_88E6 (kid.asm:9735): y-axis movement.
     /// `move.l y_pos(a3),d7; move.l y_vel(a3),d4; add.l d4,d6; move.l d6,y_pos(a3)`
     /// — applies y_vel to y_pos. When no tile-boundary crossing detected,
@@ -8982,7 +8963,7 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     /// ASM loc_88E6 (kid.asm:9735): upward movement (y_vel < 0).
     /// `bmi.w loc_893C` branches to the upward tile-crossing check.
     /// No ceiling → y_pos updated normally, loops back to loc_8810.
@@ -9021,7 +9002,6 @@ mod chunk_06 {
     // --- loc_8916: Downward floor collision snap + ¾ rebound ---
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM loc_8916 (kid.asm:9755): downward floor collision.
     /// `bsr.w sub_B55C; cmpi.w #$6000,d5` — probes terrain at new y position.
     /// If solid: `andi.w #$FFF0,d7; subq.w #1,d7` snaps y_pos to tile top - 1.
@@ -9075,7 +9055,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     /// ASM loc_8958 (kid.asm:9782): upward ceiling collision — mirror of loc_8916.
     /// `andi.w #$FFF0,d7; addi.w #$10,d7` snaps to tile bottom edge.
     /// Same ¾ rebound via loc_897C but direction reverses (ceiling → downward).
@@ -9673,7 +9652,7 @@ mod chunk_06 {
     /// `abs(x_vel)`, then `swap; rol.l #5`; velocity `$20000` therefore adds
     /// `$40` to `$FFFFF8F0`, unlike loc_9564's charge-overflow `$28` delta.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn berzerker_regular_walk_visual_accumulator_advances_loc_95DA() {
         assert_eq!(
             NativeRuntime::berzerker_regular_walk_visual_accumulator_loc_95DA(0x0100, 0x2_0000),

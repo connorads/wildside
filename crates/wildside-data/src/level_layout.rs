@@ -1,4 +1,4 @@
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn mark_background_corner_neighbours_sub_12752(
     level_layout: &mut [u8],
     width_blocks: u16,
@@ -69,7 +69,6 @@ fn mark_background_neighbour_sub_12792(
     *hi_byte |= 0x01;
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BackgroundLayoutRecord {
     pub(crate) layout_word_offset: u16,
@@ -80,7 +79,7 @@ pub(crate) struct BackgroundLayoutRecord {
 }
 
 impl BackgroundLayoutRecord {
-    #[allow(dead_code)]
+    #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) const fn new(
         layout_word_offset: u16,
         col: u16,
@@ -98,8 +97,8 @@ impl BackgroundLayoutRecord {
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn prepare_background_layout_cell_sub_127A8(
     level_layout: &mut [u8],
     terrain_layout: &[u8],
@@ -118,8 +117,8 @@ pub(crate) fn prepare_background_layout_cell_sub_127A8(
     cell[1] = terrain_byte;
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn insert_background_layout_record_sub_127CE(
     records: &mut Vec<BackgroundLayoutRecord>,
     record: BackgroundLayoutRecord,

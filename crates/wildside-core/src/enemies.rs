@@ -117,10 +117,8 @@ pub(crate) use drips::*;
 mod dragon;
 pub(crate) use dragon::*;
 mod fireball;
-#[allow(unused_imports)]
 pub(crate) use fireball::*;
 mod sphere;
-#[allow(unused_imports)]
 pub(crate) use sphere::*;
 
 // MiniHoppingSkull hopper constants recovered from the enemy module.
@@ -1058,7 +1056,7 @@ pub(crate) const ARCHER_PHASE_INITIAL_HIBERNATE_LOC_33FDA: u8 = 2;
 pub(crate) const ARCHER_PHASE_INITIAL_HIBERNATE_SEEDED_LOC_33FDA: u8 = 3;
 pub(crate) const ARCHER_PHASE_AIM_HIBERNATE_LOC_3408C: u8 = 4;
 pub(crate) const ARCHER_PHASE_FIRE_HOLD_LOC_34248: u8 = 5;
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) const fn archer_shooting_cycle_delay_frames_loc_341BE() -> u16 {
     // ASM Archer.asm loc_341BE walks three delay words before the zero fire
     // sentinel. Each delay enters loc_34248 and is consumed by `dbf d3`, so
@@ -1121,7 +1119,7 @@ pub(crate) enum EnemyFamily {
     TankShooting,
     Crab,
     Orca,
-    #[allow(clippy::upper_case_acronyms)]
+    #[expect(clippy::upper_case_acronyms)]
     UFO,
     Ninja,
     Lion,
@@ -2212,7 +2210,7 @@ fn enemy_spawn_inside_visible_inner_window_loc_36900(
     (-0x20..=0x160).contains(&dx) && (-0x20..=0x100).contains(&dy)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn enemy_layout_object_in_load_window_loc_368A8(
     object_x_word: u16,
     object_y_word: u16,
@@ -4064,7 +4062,7 @@ pub(crate) fn build_enemy_roster(
 
 /// Activate enemies that enter the camera window and deactivate those that leave.
 /// Newly activated enemies start at their layout position.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 #[cfg(test)]
 pub(crate) fn activate_enemies(
     active: &mut Vec<ActiveEnemy>,
@@ -4096,7 +4094,7 @@ pub(crate) fn activate_enemies(
     );
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(crate) fn activate_enemies_with_rng(
     active: &mut Vec<ActiveEnemy>,
     layout: &EnemyLayout,
@@ -4130,7 +4128,7 @@ pub(crate) fn activate_enemies_with_rng(
     );
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn allocate_enemies_after_execute_objects_loc_3691e(
     active: &mut Vec<ActiveEnemy>,
     layout: &EnemyLayout,
@@ -4170,7 +4168,6 @@ enum ExistingEnemyLoaderAction {
     Preserve,
 }
 
-#[allow(clippy::too_many_arguments)]
 fn retain_active_enemies_before_execute_objects_loc_3c46e(
     active: &mut Vec<ActiveEnemy>,
     view: &EnemyLayoutView<'_>,
@@ -4193,7 +4190,7 @@ fn retain_active_enemies_before_execute_objects_loc_3c46e(
     });
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn activate_enemies_with_rng_inner(
     active: &mut Vec<ActiveEnemy>,
     layout: &EnemyLayout,
@@ -4994,7 +4991,7 @@ enum ManageEnemyLoadingSpawnStateLoc36840 {
 
 /// Advance one ASM `Manage_EnemyLoading loc_36840..loc_368A8` status word.
 /// `None` means this entry skips the spatial load window on this pass.
-#[allow(clippy::verbose_bit_mask)] // Keep the ASM `andi.w #$3FF` tests literal.
+#[expect(clippy::verbose_bit_mask)] // Keep the ASM `andi.w #$3FF` tests literal.
 fn manage_enemy_loading_status_step_loc_36840(
     status_word: &mut u16,
 ) -> Option<ManageEnemyLoadingSpawnStateLoc36840> {
@@ -5032,7 +5029,7 @@ fn manage_enemy_loading_status_step_loc_36840(
 
 /// Step all active enemies: apply movement, gravity, and terrain collision.
 #[cfg(test)]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(crate) fn step_active_enemies(
     active: &mut [ActiveEnemy],
     block_grid: Option<&terrain::BlockGrid>,
@@ -5067,7 +5064,7 @@ pub(crate) fn step_active_enemies(
     );
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 #[cfg(test)]
 pub(crate) fn step_active_enemies_with_rng(
     active: &mut [ActiveEnemy],
@@ -5122,7 +5119,7 @@ pub(crate) struct BossFireFrameContext {
     pub(crate) heady_metal_eye_anchor_loc_375de: Option<HeadyMetalEyeAnchorLoc375De>,
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn step_active_enemies_with_rng_context(
     active: &mut [ActiveEnemy],
     block_grid: Option<&terrain::BlockGrid>,
@@ -7915,7 +7912,7 @@ pub(crate) fn enemy_should_remain_active(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shared_enemy_should_remain_active_sub_3C3CE(
     x_pos: u32,
     y_pos: u32,
@@ -9958,7 +9955,6 @@ fn fixed_position_integer_word(position: u32) -> u16 {
     u16::from_be_bytes([high_a, high_b])
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_init_y_snap_loc_32aea(y_pos_word: u16) -> u16 {
     // ASM Hand.asm loc_32AEA: after init and blank-row adjustment, snap the
     // integer y word to `((y - 8) & $FFF0) + $F`.
@@ -9969,7 +9965,6 @@ fn asr4_word(value: u16) -> i16 {
     i16::from_be_bytes(value.to_be_bytes()) >> 4
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_initial_motion_loc_327f2(
     enemy_level: u8,
     x_direction_flag: bool,
@@ -10122,7 +10117,6 @@ pub(crate) const ORCA_LUNGE_COOLDOWN: u16 = 300;
 /// HP lookup table for TarMonster init (`Hitpoints_Enemy_05`, Tar_Monster.asm).
 pub(crate) const TAR_MONSTER_HITPOINTS_BY_LEVEL: [u8; 4] = [2, 4, 6, 0];
 
-#[allow(non_snake_case)]
 pub(crate) fn tar_monster_hit_points_loc_321c6(enemy_level: u8) -> u8 {
     // ASM loc_321C6 indexes `dc.b Hitpoints_Enemy_05(pc,d3.w),d3`.
     TAR_MONSTER_HITPOINTS_BY_LEVEL[usize::from(enemy_level.min(3))]
@@ -12144,19 +12138,19 @@ pub(crate) fn spawn_x_pos(_family: EnemyFamily, object_x: u32) -> u32 {
     object_x << 16
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub(crate) fn spawn_y_pos(family: EnemyFamily, object_y: u32) -> u32 {
     spawn_y_pos_sub_36FF4(family, object_y, 0)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn enemy_spawn_y_adjustment_sub_36FF4(blank_top_rows: u16) -> u32 {
     // ASM sub_36FF4 (kid.asm:38882): load `Number_blank_top_rows`, shift left
     // by 4, and add that pixel offset to `y_pos(a3)`.
     u32::from(blank_top_rows) << 4
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn spawn_y_pos_sub_36FF4(
     family: EnemyFamily,
     object_y: u32,
@@ -15218,7 +15212,7 @@ pub(crate) struct EnemyArtPaletteEntryLoc36D16 {
     pub(crate) enemy_load_index_offset: u16,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn enemy_art_palette_entry_loc_36D16(
     raw_slot: u16,
 ) -> Option<EnemyArtPaletteEntryLoc36D16> {
@@ -15239,8 +15233,7 @@ pub(crate) fn enemy_art_palette_entry_loc_36D16(
     })
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub(crate) fn enemy_palette_variant_addend_loc_36D4E(palette_variant: u8) -> u16 {
     // ASM loc_36D4E (kid.asm:38623): variant 1 branches directly here for a
     // single `addi.w #4,d2`; variants 2 and 3 run the preceding add first,
@@ -15252,8 +15245,8 @@ pub(crate) fn enemy_palette_variant_addend_loc_36D4E(palette_variant: u8) -> u16
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn enemy_palette_data_index_offset_loc_36D52(
     enemy_load_palette_offset: u16,
     palette_variant: u8,
@@ -15277,8 +15270,8 @@ pub(crate) struct EnemyArtLoadTailLoc36E3E {
     pub(crate) finished: bool,
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn enemy_art_decompress_route_loc_36E24(
     slot_index: u16,
     background_is_forest: bool,
@@ -15305,8 +15298,8 @@ pub(crate) fn enemy_art_decompress_route_loc_36E24(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn enemy_art_load_tail_loc_36E3E(slot_index: u16) -> EnemyArtLoadTailLoc36E3E {
     // ASM loc_36E3E/loc_36E42 (kid.asm:38733-38739): restore the saved
     // `d7/a1`, increment the restored slot index, and loop back to loc_36D16
@@ -15397,7 +15390,7 @@ pub(crate) struct SharedEnemyDriveSoundResultSub3C352 {
 // ASM loc_3C18A (kid.asm:43648-43651): identical attachment check in the
 // leftward walking loop — reached via loc_3C25E after gravity update,
 // runs once per frame before hibernate at loc_3C194.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shared_enemy_attachment_sub_3BF72(
     input: SharedEnemyAttachmentInputSub3BF72,
 ) -> SharedEnemyAttachmentLayoutSub3BF72 {
@@ -15477,7 +15470,7 @@ pub(crate) fn shared_enemy_attachment_sub_3BF72(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shared_enemy_drive_sound_sub_3C352(
     family: EnemyFamily,
     motion_active: bool,
@@ -15575,7 +15568,7 @@ pub(crate) struct DeactivationDriveSoundResultLoc3C494 {
 ///
 /// In both `$19` states the gate is the same: `$6A != 0` → skip sound.
 /// So the deactivation sound cleanup runs iff `$6A(a5) == 0`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn deactivation_drive_sound_cleanup_loc_3C494(
     family: EnemyFamily,
     motion_active: bool,
@@ -15647,7 +15640,7 @@ pub(crate) enum DeactivationStatusActionLoc3C4C0 {
 ///   subi.w #$400,(a0,d0.w)` decrements the spawn counter.
 ///
 /// - Bit 7 set + bit 6 clear → falls straight to loc_3C4F4 (delete).
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn deactivation_status_update_loc_3C4C0(
     object_status_slot: u8,
 ) -> DeactivationStatusActionLoc3C4C0 {
@@ -15717,7 +15710,7 @@ pub(crate) struct SharedEnemyRobotHelperResultSub3C4F8 {
     pub(crate) branch_to_robot_shoot: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn shared_enemy_robot_helper_sub_3C4F8(
     input: SharedEnemyRobotHelperInputSub3C4F8,
 ) -> SharedEnemyRobotHelperResultSub3C4F8 {
@@ -15852,8 +15845,8 @@ pub(crate) fn shared_enemy_robot_helper_sub_3C4F8(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn enemy_art_slot_assignment_sub_36E84(
     enemy_type_slots: &[u16],
     enemy_id: u16,
@@ -15892,8 +15885,7 @@ pub(crate) fn enemy_art_slot_assignment_sub_36E84(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn boss_enemy_art_slot_assignment_loc_32146(
     enemy_type_slots: &[u16],
     enemy_id: u16,
@@ -15926,8 +15918,7 @@ pub(crate) fn boss_enemy_art_slot_assignment_loc_32146(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn enemy_gfx_slot_link_loc_32188(
     free_slot_address: u32,
     next_free_slot_address: u32,
@@ -15944,8 +15935,8 @@ pub(crate) fn enemy_gfx_slot_link_loc_32188(
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) fn enemy_gfx_slot_init_loc_3219E(
     allocated_slot_address: u32,
     number_gfx_objects: u16,

@@ -18,11 +18,7 @@
 
 // Faithful 68k translations carry wide signatures and complex tuple/closure
 // types; same crate-level posture the native player used before the move.
-#![allow(
-    clippy::too_many_arguments,
-    clippy::type_complexity,
-    clippy::doc_lazy_continuation
-)]
+#![expect(clippy::too_many_arguments, clippy::type_complexity)]
 
 pub mod audio;
 mod dto;

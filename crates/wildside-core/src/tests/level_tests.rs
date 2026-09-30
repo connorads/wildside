@@ -16969,7 +16969,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D770_level_complete_trace_reports_live_score_counter() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         runtime.set_block_grid(grid_with_floor_at_row(48));
@@ -17003,7 +17003,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// sound is reached only after the final active number drains. Pin the
     /// live facade on both sides of that exact transfer boundary.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D7F4_live_score_counter_drained_flips_after_final_transfer() {
         let runtime = NativeRuntime::new(manifest_with_levels(3));
         let tally = runtime.level_completion_bonus_tally_loc_D468();
@@ -17040,7 +17040,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D754_level_complete_trace_starts_score_counter_on_oracle_handoff() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         runtime.set_block_grid(grid_with_floor_at_row(48));
@@ -17089,7 +17089,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C238_level_complete_trace_queues_score_board_bgm_at_asm_frame() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         runtime.set_block_grid(grid_with_floor_at_row(48));
@@ -17129,7 +17129,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D774_initial_oracle_stalls_hold_visible_score_counter() {
         assert_eq!(
             crate::level::eol_score_counter_transfer_frames_from_trace_loc_D770(4),
@@ -17284,7 +17284,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_368A8_respawn_reset_primes_enemy_loading_window() {
         let mut manifest = manifest_with_levels(3);
         let enemy_layout = manifest.levels[0]
@@ -17314,7 +17314,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn settled_death_title_shell_defers_loc_368A8_until_live_handoff() {
         let mut manifest = manifest_with_levels(3);
         let enemy_layout = manifest.levels[0]
@@ -17447,7 +17447,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// loc_D60E`; flag zero falls through and allocates a 5000-point
     /// "No Prize" bonus before continuing to the path-bonus branch.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D5D2_no_prize_flag_zero_awards_5000() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         start_level(&mut runtime);
@@ -17496,7 +17496,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// skips the speed bonus only when Level_completion_time is greater than
     /// SpeedBonus_Values[level]. Equality still awards the 10,000-point bonus.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D660_speed_bonus_awards_on_threshold_equality() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         start_level(&mut runtime);
@@ -17519,7 +17519,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// fade backs up `Palette_Buffer` into `Palette_Buffer_2` via 32 longword
     /// copies, preserving the complete 128-byte CRAM staging buffer.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D718_eol_title_return_backs_up_the_full_palette() {
         let palette_buffer = core::array::from_fn(|index| 0x0100_u16.wrapping_add(index as u16));
 
@@ -17540,7 +17540,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// title-return fade clears `Palette_Buffer_3` with an inclusive 64-word DBF
     /// loop and then seeds the shared fade progress word to `$0100`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D726_eol_title_return_clears_the_full_fade_target() {
         let mut palette_buffer_3 =
             core::array::from_fn(|index| 0x0200_u16.wrapping_add(index as u16));
@@ -17561,7 +17561,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// the title-return fade hibernates once per `$10` decrement and exits only
     /// when the progress word reaches `$0080`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D734_eol_title_return_fade_runs_eight_one_frame_steps() {
         let fade = crate::level::eol_title_return_fade_loc_D734(0x0100);
 
@@ -17583,7 +17583,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// `sub_14C0` has blended selected score-room palette words halfway toward
     /// the cleared `Palette_Buffer_3` target before the EOL score counter runs.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D734_eol_title_return_fades_score_room_palette_words() {
         assert_eq!(
             crate::level::eol_title_return_faded_palette_word_loc_D734(0x0866),
@@ -17601,7 +17601,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// `Palette_Buffer_2` as 32 longwords before clearing the end-credits fade
     /// target.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D84E_end_credits_backs_up_the_full_palette() {
         let mut palette = [0_u16; 0x40];
         for (index, word) in palette.iter_mut().enumerate() {
@@ -17625,7 +17625,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// stores, then seed `$FFFFF876` to `$0100` before the end-credits fade
     /// loop.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D85E_end_credits_clears_the_full_fade_target() {
         let mut fade_target = [0x0EEE_u16; 0x40];
 
@@ -17650,7 +17650,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// one frame, decrements `$FFFFF876`, and only exits when that word becomes
     /// negative.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D86C_end_credits_fade_reseeds_masks_until_underflow() {
         let first = crate::level::end_credits_fade_step_loc_D86C(0x0100, 0, 0);
 
@@ -17722,7 +17722,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// remaining amount, then is clamped down to `d2` unless it is already
     /// smaller before the score update at `loc_D77E`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D770_eol_score_counter_clamps_transfer_to_remaining_or_chunk() {
         assert_eq!(
             crate::level::eol_score_counter_transfer_chunk_loc_D770(0x80, 0x28),
@@ -17740,7 +17740,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// new score by 50,000 and awards exactly one extra life if the quotients
     /// differ.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D79E_eol_score_counter_compares_50k_quotients_for_one_life_award() {
         assert!(
             crate::level::eol_score_counter_awards_life_loc_D79E(49_990, 50_010),
@@ -17760,7 +17760,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// `(Score).w`, caps at 9,999,999, and awards a single life when the old
     /// and new `score / 50000` quotients differ.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D77E_eol_score_counter_applies_cap_and_single_life_boundary() {
         let crossed = crate::level::eol_score_counter_apply_loc_D77E(49_990, 20);
         assert_eq!(
@@ -17797,7 +17797,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// object's `$60`, subtract the full `d2` chunk from the active number, and
     /// only advance `a1` when the signed remainder is not positive.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D7CE_eol_score_counter_stores_score_and_drains_current_number() {
         let still_active =
             crate::level::eol_score_counter_drain_current_number_loc_D7CE(12_345, 0x80, 0x28, 3);
@@ -17841,7 +17841,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// frame moves one transfer chunk from the current EOL number object into
     /// the live score display before the row can advance.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D770_eol_score_counter_trace_export_replays_visible_drain_state() {
         let start = crate::level::eol_score_counter_snapshot_loc_D770(1_000, &[100, 80], 0);
         assert_eq!(start.score, 1_000);
@@ -17875,7 +17875,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// each loop, preserving `d2` until the delay reaches zero; then it resets
     /// the delay to `$78` and doubles `d2` twice.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D7E4_eol_score_counter_delay_quadruples_transfer_chunk_on_rollover() {
         let waiting = crate::level::eol_score_counter_loop_tail_loc_D7E4(3, 0x28);
         assert_eq!(
@@ -17910,7 +17910,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// from the linked list, skip the current `a5` object and clear only the
     /// `$36/$3A/$3E` longwords on the other objects.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D984_end_credits_cleanup_clears_other_object_collision_fields() {
         let mut objects = [
             crate::level::ObjectCollisionFieldsLocD980 {
@@ -17969,7 +17969,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// clear level special effects, allocate `loc_C2F2`, and wait `$24` frames
     /// before entering the GFX cleanup loop.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D99E_end_credits_cleanup_sets_up_fade_worker_and_gfx_pass() {
         let setup = crate::level::end_credits_cleanup_setup_loc_D99E();
 
@@ -18008,7 +18008,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// possible deletion, skip `Addr_GfxObject_Kid`, and delete all other GFX
     /// objects via `j_loc_1078` until the saved next pointer is null.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D9D4_end_credits_gfx_cleanup_preserves_kid_and_continues_scan() {
         let deleted = crate::level::end_credits_deleted_gfx_objects_loc_D9D4(
             &[0x0100_0000, 0x0200_0000, 0x0300_0000, 0x0400_0000],
@@ -18026,7 +18026,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// restored from the stack and the cleanup loop continues only while it is
     /// non-zero.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D9E6_end_credits_gfx_cleanup_branches_on_saved_next_pointer() {
         assert_eq!(
             crate::level::end_credits_gfx_cleanup_next_loc_D9E6(0x0300_0000),
@@ -18044,7 +18044,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// hibernate one frame, allocate `sub_C378`, set `$FFFFFB49`, and prepare
     /// the full 64-word palette setup loop at `loc_DA16`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D9EA_end_credits_hundred_k_trip_seeds_palette_setup() {
         let setup = crate::level::end_credits_hundred_k_trip_setup_loc_D9EA();
 
@@ -18074,7 +18074,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// `Palette_Buffer_2`, store each word minus `$0888` into
     /// `Palette_Buffer_3`, then seed the shared fade progress word to `$0100`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_DA16_end_credits_hundred_k_trip_copies_and_darkens_full_palette() {
         let palette = std::array::from_fn(|index| {
             if index == 0 {
@@ -18111,7 +18111,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// `$20` pixels farther right via `a1`, and resets the loader when the
     /// adjusted X reaches `$1C0`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E650_forward_strip_setup_expands_width_and_checks_right_edge() {
         let setup = crate::level::level_sprite_strip_forward_setup_loc_E650(0x0100, 6)
             .expect("ASM loc_E650 should accept adjusted d0 below `$1C0`");
@@ -18145,7 +18145,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// in `a1`, sets the tile attribute mask to `$0800`, and rejects strips at
     /// or left of screen X `$60`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E67E_reverse_strip_setup_flips_tiles_and_checks_left_edge() {
         let setup = crate::level::level_sprite_strip_reverse_setup_loc_E67E(0x0120, 24)
             .expect("ASM loc_E67E should accept adjusted d0 greater than `$60`");
@@ -18178,7 +18178,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// shared strip emitter computes `d5/d6`, halves `d3` for the remaining
     /// span counter, and writes the leading sprite entry with tile `$E676|d4`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E692_first_strip_sprite_write_seeds_probe_bounds_and_link() {
         let write =
             crate::level::level_sprite_strip_first_write_loc_E692(0x0080, 5, 0x0130, 24, 0x0800);
@@ -18220,7 +18220,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// testing the counter. Each non-negative pass writes a size `$0F` sprite
     /// with tile `$E67E|d4`, advances `d1` by `$20`, then repeats.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E6BC_middle_strip_loop_emits_full_32px_chunks() {
         let write =
             crate::level::level_sprite_strip_middle_loop_loc_E6BC(14, 0x0068, 6, 0x0130, 0x0800);
@@ -18280,7 +18280,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// skips the partial middle sprite. Other negative counters are shifted
     /// left twice and added into `d1` before writing a size `$0F` sprite.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E6D8_remainder_strip_emits_partial_chunk_unless_exact_boundary() {
         let partial =
             crate::level::level_sprite_strip_remainder_loc_E6D8(0xFFFE, 0x0088, 7, 0x0130, 0x0800);
@@ -18322,7 +18322,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// writing a trailing size `$0D` sprite with tile `$F676|d4` and the next
     /// sprite-table link.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E6F8_tail_strip_emits_final_cap_sprite() {
         let tail = crate::level::level_sprite_strip_tail_loc_E6F8(0x00A0, 8, 0x0130, 0x0800);
 
@@ -18348,7 +18348,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// screen X to a level tile column, rejects out-of-range columns, and
     /// unbiases/clamps the top vertical probe row at zero.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E70A_commits_sprite_globals_and_seeds_collision_column() {
         let setup = crate::level::level_sprite_strip_collision_column_loc_E70A(
             crate::level::LevelSpriteStripCollisionColumnInputLocE70A {
@@ -18439,7 +18439,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_E738 (kid.asm:18423): the top probe row has already been
     /// clamped to zero; this label only caps rows at `Level_height_blocks - 1`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E738_caps_top_probe_row_to_last_level_row() {
         assert_eq!(
             crate::level::level_sprite_strip_top_row_upper_clamp_loc_E738(0x0004, 0x0010),
@@ -18461,7 +18461,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_E744 (kid.asm:18429): bottom probe rows use the same arithmetic
     /// pixel-to-tile conversion, then negative rows are clamped to zero.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E744_converts_bottom_probe_row_and_clamps_negative() {
         assert_eq!(
             crate::level::level_sprite_strip_bottom_row_lower_clamp_loc_E744(0x0040),
@@ -18483,7 +18483,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_E74A (kid.asm:18434): the bottom probe row has already been
     /// clamped to zero; this label only caps rows at `Level_height_blocks - 1`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E74A_caps_bottom_probe_row_to_last_level_row() {
         assert_eq!(
             crate::level::level_sprite_strip_bottom_row_upper_clamp_loc_E74A(0x0006, 0x0010),
@@ -18507,7 +18507,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// and uses `bottom_row - top_row` as the inclusive DBF counter for
     /// `sub_E446`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E756_seeds_current_column_collision_scan_from_row_pointer() {
         let row_pointers = [0x8000, 0x8040, 0x8080, 0x80C0, 0x8100];
         let scan =
@@ -18537,7 +18537,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// the collision pointer by one word before `loc_E790` decides whether to
     /// call `sub_E446` again.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E786_reversed_strip_selects_right_adjacent_column() {
         assert_eq!(
             crate::level::level_sprite_strip_right_adjacent_column_loc_E786(7, 0x808E, 16),
@@ -18559,7 +18559,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// prepared, `$FFFFFAB8 < 3` skips the second collision scan, while
     /// `$FFFFFAB8 >= 3` calls `sub_E446` for that adjacent column.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E790_scans_adjacent_column_only_after_third_strip() {
         assert!(
             !crate::level::level_sprite_strip_should_scan_adjacent_column_loc_E790(2),
@@ -18574,7 +18574,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_E79C (kid.asm:18471): the accepted strip tail increments
     /// `$FFFFFAB8` with 16-bit word wrapping before branching to `loc_E7A8`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E79C_advances_strip_scan_counter_with_word_wrapping() {
         assert_eq!(
             crate::level::level_sprite_strip_advance_scan_counter_loc_E79C(2),
@@ -18592,7 +18592,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// `$FFFFFAB8`, so the next accepted strip starts the adjacent-column
     /// cadence from zero.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E7A4_resets_strip_scan_counter_after_rejected_setup() {
         assert_eq!(
             crate::level::level_sprite_strip_reset_scan_counter_loc_E7A4(),
@@ -18605,7 +18605,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// allocate anything here; they branch straight into the shared visible
     /// object sprite pass at `loc_E99C`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E7A8_exits_to_visible_object_sprite_pass() {
         assert_eq!(
             crate::level::level_sprite_strip_exit_loc_E7A8(),
@@ -18618,7 +18618,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// `d7`. If any low bit remains, it skips allocation; exactly `$8000`
     /// allocates the companion GFX/object pair and spends two diamonds.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E7AC_masks_hard_beam_counter_and_allocates_only_at_zero_width() {
         let zero_width = crate::level::eyeclops_hard_beam_gate_loc_E7AC(0x8000, 7);
         assert_eq!(
@@ -18653,7 +18653,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// sprite X and probes collision at `d0 + $10`; a set latch subtracts
     /// `$10` from `d0`, probes there, and ORs `$0800` into each tile word.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E7E0_emits_zero_width_hard_beam_sprite_strip() {
         let clear =
             crate::level::eyeclops_hard_beam_zero_width_sprites_loc_E7E0(0x0120, 0x0080, 4, false);
@@ -18708,7 +18708,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_E7F4 (kid.asm:18508): the flipped zero-width hard beam rewinds
     /// `d0` by `$10`, copies that to `d6`, and sets tile attr bit `$0800`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E7F4_flips_zero_width_hard_beam_direction_setup() {
         let clear = crate::level::eyeclops_hard_beam_zero_width_direction_loc_E7F4(0x0120, false);
         assert_eq!(
@@ -18737,7 +18737,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// three size-4 sprites, increments `d2` before each link byte, and carries
     /// `d5 = d1 - 4` into the shared collision-object tail.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E7FE_writes_zero_width_hard_beam_sprite_triplet() {
         let strip = crate::level::eyeclops_hard_beam_zero_width_writer_loc_E7FE(
             0x0110, 0x0080, 4, 0x0800, 0x0110,
@@ -18779,7 +18779,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_E842 (kid.asm:18543): exactly `d7 == 1` writes a one-width hard
     /// beam strip; other counters continue into the wider-beam path.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E842_writes_one_width_hard_beam_sprite_triplet() {
         let strip = crate::level::eyeclops_hard_beam_one_width_sprites_loc_E842(
             1, 0x0120, 0x0080, 4, false,
@@ -18846,7 +18846,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// `$18` from `d0`, copies that adjusted X into `d6`, and seeds `d4`
     /// with `$0800` before falling through to the size-8 writer.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E858_flips_one_width_hard_beam_direction_setup() {
         let direction =
             crate::level::eyeclops_hard_beam_one_width_flipped_direction_loc_E858(0x0120);
@@ -18866,7 +18866,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// emits three size-8 sprites at `d1-$8`, `d1`, and `d1+$8`, and
     /// increments the sprite link before every link byte write.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E862_writes_size_8_one_width_hard_beam_triplet() {
         let strip = crate::level::eyeclops_hard_beam_one_width_writer_loc_E862(
             0x0108, 0x0080, 4, 0x0800, 0x0108,
@@ -18910,7 +18910,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// then choose either the forward `d6=d0+span+$10` setup or the flipped
     /// `d0=d0-span-$10; d6=d0; d4=$0800` setup before the off-screen checks.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E8A6_sets_up_wide_hard_beam_direction_and_bounds() {
         let forward = crate::level::eyeclops_hard_beam_wide_setup_loc_E8A6(4, 0x0120, false)
             .expect(
@@ -18957,7 +18957,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// backs `d1` up by four plus that doubled value, stores `d5`, and emits
     /// the first size-`$0C` sprite before seeding the middle `DBF` counter.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E8DE_writes_wide_hard_beam_leading_sprite() {
         let first = crate::level::eyeclops_hard_beam_wide_first_write_loc_E8DE(
             4, 0x0080, 7, 0x0130, 0x0800,
@@ -18989,7 +18989,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// `(d7 >> 1)` middle sprites with tile `$8692|d4`. Odd beam widths then
     /// subtract four from `d1` and write one additional middle sprite.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E902_emits_wide_hard_beam_middle_sprites_and_odd_spacer() {
         let even =
             crate::level::eyeclops_hard_beam_wide_middle_loc_E902(1, 4, 0x007C, 8, 0x0130, 0x0800);
@@ -19043,7 +19043,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// writes one final size-`$0C` sprite at the current `d1` with tile
     /// `$968E|d4` and the next link byte.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E936_writes_wide_hard_beam_tail_cap() {
         let tail = crate::level::eyeclops_hard_beam_wide_tail_loc_E936(0x008C, 10, 0x0130, 0x0800);
 
@@ -19067,7 +19067,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_E972 (kid.asm:18676): the beam-object mapping word uses the
     /// even, doubled `d7` value capped at `$20`, then adds base tile `$1160`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E972_clamps_hard_beam_object_mapping_word() {
         assert_eq!(
             crate::level::eyeclops_hard_beam_object_mapping_loc_E972(0x000F),
@@ -19085,7 +19085,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// IDs `$127..=$12C` inside the 28-tile camera window, then build one
     /// `$8692` sprite using the overlapping `unk_EA26`/`unk_EA29` tables.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E9CA_builds_visible_timed_block_sprite_from_slot_table() {
         let middle = crate::level::timed_block_visible_slot_sprite_loc_E9CA(
             0x0128, 0x0012, 0x0008, 0x0100, 0x0040, 6,
@@ -19190,7 +19190,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_DA30_end_credits_hundred_k_trip_steps_fade_countdown() {
         let continuing = crate::level::end_credits_hundred_k_trip_fade_step_loc_DA30(0x0100, 2);
         assert!(
@@ -19225,7 +19225,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// writes `-1` to both pending palette masks before branching back to
     /// `loc_DA30` for the hibernating frame.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_DA3E_end_credits_hundred_k_trip_marks_both_palette_halves_dirty() {
         let loopback = crate::level::end_credits_hundred_k_trip_fade_loopback_loc_DA3E();
 
@@ -19250,7 +19250,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// destination level load, resets Kid to The Kid, sets the continue latch,
     /// and branches through `Teleport`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_DA4A_end_credits_hundred_k_trip_seeds_teleport_state() {
         let teleport = crate::level::end_credits_hundred_k_trip_teleport_loc_DA4A();
 
@@ -19293,7 +19293,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// four-frame chunks, calls `sub_C346` twice with fixed `(d1,d2)` pairs,
     /// loops until `d0 == 8`, then deletes itself.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_DA7A_end_credits_hundred_k_trip_uploads_two_tile_spans_eight_times() {
         let upload = crate::level::end_credits_hundred_k_trip_tile_upload_loc_DA7A();
 
@@ -19320,7 +19320,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// half-width and top offset, Kid's platform-ceiling probe is
     /// `(x-d7)..(x+d7)` and `(y-d5)..y`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_DAD6_platform_ceiling_probe_uses_rom_half_width_and_height() {
         let kid = crate::level::platform_ceiling_probe_hitbox_loc_DAD6(
             PlayerForm::TheKid,
@@ -19376,7 +19376,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// until a zero word, skips signed separating misses, and treats edge
     /// contact as overlap because it only skips on `bgt`/`blt`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_DAE8_platform_ceiling_scan_stops_on_sentinel_and_finds_first_overlap() {
         let probe = crate::level::platform_ceiling_probe_hitbox_loc_DAD6(
             PlayerForm::TheKid,
@@ -19483,7 +19483,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// advances past slots with lower caller words only. Equal keys stop the
     /// scan, so the newest slot is inserted before earlier equal-priority slots.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_DE0_allocate_object_slot_walk_stops_before_equal_or_higher_order() {
         let active_slots = [
             crate::level::ObjectSlotOrderLocDE0 {
@@ -19516,7 +19516,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// allocated slot and then point the predecessor at that slot. When the
     /// predecessor is `Addr_FirstObjectSlot`, this updates the list head.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_DF2_allocate_object_slot_splices_after_the_found_predecessor() {
         let active_slots = [
             crate::level::ObjectSlotOrderLocDE0 {
@@ -19583,7 +19583,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_EA2 (kid.asm:1720): deallocation walks predecessor links from
     /// `Addr_FirstObjectSlot` until `0(a0)` equals the current object in `a5`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EA2_finds_deallocate_object_predecessor_link() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -19628,7 +19628,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// object free list, decrements `Number_Objects`, and deallocates each
     /// non-null gfx child at `$36/$3A/$3E`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EB0_splices_the_target_object_to_the_free_list_and_releases_gfx_children() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -19679,7 +19679,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EB0_handles_head_object_removal_through_the_first_object_sentinel() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -19725,7 +19725,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// active object list without finding `a5`, it restores `a5` from
     /// `Addr_CurrentObject` and returns with no list mutation.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EF0_restores_current_object_when_deallocate_scan_misses() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -19757,7 +19757,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_EFE (kid.asm:1768): `Delete_AllButCurrentObject` reloads `a5`
     /// from `Addr_FirstObjectSlot`, so every scan starts from the sentinel link.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EFE_delete_all_but_current_starts_from_first_object_sentinel() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -19791,7 +19791,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_F02 (kid.asm:1771): each loop reads `0(a5)`, skips the current
     /// object when it is encountered, and otherwise deallocates the loaded slot.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F02_delete_all_but_current_keeps_only_the_current_object() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -19824,7 +19824,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F02_delete_all_but_current_deallocates_everything_when_current_is_missing() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -19853,7 +19853,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// `d0=$12`, so the inclusive DBF loop links 19 evanescent slots, clears
     /// the 20th slot's link word, and clears `Addr_FirstEvanescObjectSlot`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_DF30_initialise_evanescent_slots_links_the_full_free_list() {
         let slots = crate::level::initialise_evanesc_object_slots_loc_DF30();
 
@@ -19892,7 +19892,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// combined init seeds `d0=$26`, links 39 shooter slots at `$A(a0)`, clears
     /// the 40th slot's link word, and clears `Addr_FirstShooterObjectSlot`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_DF50_initialise_shooter_slots_links_the_full_free_list() {
         let slots = crate::level::initialise_shooter_object_slots_loc_DF50();
 
@@ -19930,7 +19930,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_F074 (kid.asm:19600): each `sub_F06A` DBF iteration writes the
     /// next `$0E`-byte shooter slot address into `$C(a0)` before advancing `a0`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F074_links_one_sub_F06A_shooter_slot_to_the_next_stride() {
         assert_eq!(
             crate::level::shooter_object_next_link_loc_F074(0xFFFF_E7F2),
@@ -19960,7 +19960,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// once more; when the carry is set, a non-zero right-neighbour low byte at
     /// `3(a1)` marks the just-stored `$6(a3)` word by subtracting `$8000`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F14C_marks_the_evanescent_shooter_when_the_right_neighbour_exists() {
         let marked =
             crate::level::evanescent_shooter_right_neighbour_mark_loc_F14C(0x000A, 0b0011, 0x2D);
@@ -19992,7 +19992,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// once more; when the carry is set, the ROM adds `Level_width_tiles` to
     /// `a1` and marks `$6(a3)` only for a non-zero below-neighbour low byte.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F156_marks_the_evanescent_shooter_when_the_below_neighbour_exists() {
         let marked =
             crate::level::evanescent_shooter_below_neighbour_mark_loc_F156(0x000A, 0b0011, 0x41);
@@ -20024,7 +20024,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// once more; when the carry is set, `tst.b -1(a1)` marks `$6(a3)` only
     /// for a non-zero left-neighbour low byte.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F166_marks_the_evanescent_shooter_when_the_left_neighbour_exists() {
         let marked =
             crate::level::evanescent_shooter_left_neighbour_mark_loc_F166(0x000A, 0b0011, 0x52);
@@ -20056,7 +20056,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// cursor by `Level_width_tiles`, increments `d4`, and uses DBF's wrapped
     /// `$FFFF` terminal value to leave the row scan.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F17C_advances_to_the_next_shooter_scan_row_until_dbf_exits() {
         let next = crate::level::evanescent_shooter_row_scan_tail_loc_F17C(
             0xFFFF_A652,
@@ -20094,7 +20094,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_F1A8 (kid.asm:19745): the upward-camera path subtracts five
     /// block rows from `d1`, then clamps the signed word result to zero.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F1A8_clamps_the_upward_shooter_scan_top_row() {
         assert_eq!(
             crate::level::evanescent_shooter_upward_window_top_row_loc_F1A8(0x0004),
@@ -20117,7 +20117,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// three block columns from `d0`, then clamps the signed word result to
     /// zero before the right-edge setup at `loc_F1B8`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F1B0_clamps_the_shooter_scan_left_column() {
         assert_eq!(
             crate::level::evanescent_shooter_window_left_col_loc_F1B0(0x0002),
@@ -20141,7 +20141,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// the row for `$FFFF4A04`, and doubles the left column before adding it
     /// to the selected row pointer.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F1C8_seeds_the_shooter_scan_cell_pointer_and_column_counter() {
         assert_eq!(
             crate::level::evanescent_shooter_scan_start_loc_F1C8(
@@ -20164,7 +20164,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// are queued; the stored direction word is the low layout byte minus `$2D`,
     /// and the first `lsr.w #1,d6` exposes the upward-neighbour carry.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F1DE_queues_only_shooter_cells_when_a_free_slot_exists() {
         assert_eq!(
             crate::level::evanescent_shooter_cell_scan_loc_F1DE(
@@ -20233,7 +20233,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// again; when carry is set, the ROM tests the right-neighbour low byte
     /// at `3(a1)` and marks `$6(a3)` by subtracting `$8000` only if occupied.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F224_marks_the_second_scan_shooter_when_the_right_neighbour_exists() {
         let marked = crate::level::evanescent_shooter_second_scan_right_neighbour_mark_loc_F224(
             0x000F, 0b0011, 0x2D,
@@ -20269,7 +20269,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// block-space camera window from `Camera_X/Y_pos`, seeds the sprite link
     /// word as `$0500 | Number_Sprites`, and only scans when `$FFFFF8C2` is set.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F25C_seeds_the_visible_shooter_scan_window_and_sprite_counter() {
         assert_eq!(
             crate::level::shooter_frame_scan_start_loc_F25C(0x0123, 0x00B7, 0x2A, 0xFFFF_E7F2,),
@@ -20296,7 +20296,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// timer first, then either dispatches the expired slot, compiles a visible
     /// negative direction word, follows `$C(a0)`, or falls through to `loc_F2A2`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F28C_decrements_timer_before_choosing_the_next_active_slot_branch() {
         assert_eq!(
             crate::level::shooter_active_slot_scan_step_loc_F28C(
@@ -20371,7 +20371,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// byte of `a5` as `Number_Sprites`, then writes back the advanced FG-cell
     /// update queue and sprite-slot pointers before running collision rects.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F2A2_commits_sprite_count_and_advanced_render_pointers() {
         assert_eq!(
             crate::level::shooter_frame_commit_loc_F2A2(0x052A, 0xFFFF_47D6, 0xFFFF_01A0,),
@@ -20395,7 +20395,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// marks the source layout word with high byte `$ED` before returning to
     /// the shared `loc_F386` visible-neighbour update.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F2EE_marks_the_shooter_source_cell_erased() {
         assert_eq!(
             crate::level::shooter_expired_slot_erase_cell_loc_F2EE(0xB81A),
@@ -20410,7 +20410,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// seeds `$9(a0)` with ten frames before the later range countdown can
     /// rewind the state machine.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F2F8_seeds_the_range_countdown_with_ten_frames() {
         assert_eq!(
             crate::level::shooter_expired_slot_seed_range_delay_loc_F2F8(),
@@ -20423,7 +20423,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// byte `$9(a0)` is decremented; non-zero countdowns force `$A(a0)=2`,
     /// while out-of-range and zero-countdown paths continue through `loc_F386`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F302_rewinds_to_state_2_while_kid_remains_in_range() {
         assert_eq!(
             crate::level::shooter_expired_slot_range_countdown_loc_F302(false, 7),
@@ -20450,7 +20450,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_F350 (kid.asm:19932): for a non-head visible shooter removal,
     /// follow `$C(a3)` links until the predecessor's successor is `a0`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F350_finds_the_expired_visible_shooter_predecessor() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -20494,7 +20494,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_F35E (kid.asm:19940): after the predecessor scan, splice the
     /// expired visible shooter slot out by copying `$C(a0)` into `$C(a3)`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F35E_splices_the_expired_visible_shooter_out_of_the_active_list() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -20549,7 +20549,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// the free-list head, then continue active scanning only if saved `d0`
     /// held a non-zero successor.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F364_pushes_the_expired_visible_shooter_to_the_free_list() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -20612,7 +20612,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// post-up-check direction word once; carry set falls through to the right
     /// cell write, while carry clear skips directly to the down-bit gate.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F3B2_consumes_the_visible_right_direction_bit() {
         assert_eq!(
             crate::level::shooter_visible_right_gate_loc_F3B2(0b0011),
@@ -20637,7 +20637,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// the state-table word plus one to `2(a3)`, then queues the same word for
     /// the source block's `x+1,y` cell. A zero table word stays zero.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F3BC_writes_and_queues_the_visible_right_cell() {
         assert_eq!(
             crate::level::shooter_visible_right_cell_update_loc_F3BC(
@@ -20673,7 +20673,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// shifts once more; carry set enters the down-cell write and carry clear
     /// skips to the left-neighbour gate at `loc_F3EA`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F3CC_consumes_the_visible_down_direction_bit() {
         assert_eq!(
             crate::level::shooter_visible_down_gate_loc_F3CC(0b0011),
@@ -20698,7 +20698,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// the state-table word plus three to `-2(a3)`, then queues the same word
     /// for the source block's `x-1,y` cell. A zero table word stays zero.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F3F4_writes_and_queues_the_visible_left_cell() {
         assert_eq!(
             crate::level::shooter_visible_left_cell_update_loc_F3F4(
@@ -20734,7 +20734,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// `$C(a0)` and either resumes `loc_F28C` for the next active shooter slot
     /// or falls through to `loc_F2A2` to commit the frame.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F404_continues_or_commits_after_visible_shooter_scan() {
         assert_eq!(
             crate::level::shooter_visible_scan_tail_loc_F404(0xFFFF_E81C),
@@ -20756,7 +20756,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// upward bit, checks `col,row-1` against the visible block window, then
     /// emits `(screen_y, ++a5, tile, screen_x)`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F41E_emits_the_visible_upward_shooter_sprite_inside_the_window() {
         assert_eq!(
             crate::level::shooter_visible_up_sprite_loc_F41E(
@@ -20788,7 +20788,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F41E_skips_when_the_upward_bit_is_clear_or_row_is_outside_window() {
         assert_eq!(
             crate::level::shooter_visible_up_sprite_loc_F41E(
@@ -20841,7 +20841,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// path consumes the down bit, checks `col,row+1` against the visible
     /// block window, then emits `(screen_y, ++a5, d1+$1000, screen_x)`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F4A4_emits_the_visible_downward_shooter_sprite_inside_the_window() {
         assert_eq!(
             crate::level::shooter_visible_down_sprite_loc_F4A4(
@@ -20873,7 +20873,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F4A4_skips_when_the_downward_bit_is_clear_or_row_is_outside_window() {
         assert_eq!(
             crate::level::shooter_visible_down_sprite_loc_F4A4(
@@ -20926,7 +20926,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// path consumes the left bit, checks `col-1,row` against the visible
     /// block window, then emits `(screen_y, ++a5, d1+$814, screen_x)`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F4E6_emits_the_visible_left_shooter_sprite_inside_the_window() {
         assert_eq!(
             crate::level::shooter_visible_left_sprite_loc_F4E6(
@@ -20958,7 +20958,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F4E6_skips_when_the_left_bit_is_clear_or_column_is_outside_window() {
         assert_eq!(
             crate::level::shooter_visible_left_sprite_loc_F4E6(
@@ -21011,7 +21011,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// sprite checks, the ROM loads the active slot successor and either
     /// resumes the active-slot scan or commits the frame.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F528_continues_or_commits_after_negative_visible_shooter_scan() {
         assert_eq!(
             crate::level::shooter_visible_negative_scan_tail_loc_F528(0xFFFF_E81C),
@@ -21032,7 +21032,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// swaps the packed `d6/d7` registers back before the shared active-object
     /// scan tail at `loc_F9BA`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F836_restores_horizontal_animated_block_scan_registers() {
         assert_eq!(
             crate::level::animated_solid_block_horizontal_tail_loc_F836(0x0034_0012, 0x0567_000E,),
@@ -21048,7 +21048,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// culls off-camera columns and rows, but accepts rows as high as
     /// `camera_top-7` before precomputing the packed cell-X bits.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F83E_sets_up_visible_vertical_animated_blocks() {
         assert_eq!(
             crate::level::animated_solid_block_vertical_setup_loc_F83E(
@@ -21119,7 +21119,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_F866 (kid.asm:20536): the packed row bits are prepared by a
     /// left shift from 16-bit row index to the queue-word upper byte.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F866_shifts_the_row_into_vram_upper_byte() {
         assert_eq!(
             crate::level::animated_solid_block_row_hi_bits_loc_F866(0x001F),
@@ -21136,7 +21136,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_F86A (kid.asm:20540): only the nibble in `$0F00` remains after
     /// row-bit masking before ORing with packed X bits.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F86A_masks_the_row_upper_nybble_for_the_queue_word() {
         assert_eq!(
             crate::level::animated_solid_block_row_hi_bits_masked_loc_F86A(0x8A37),
@@ -21153,7 +21153,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_F86E (kid.asm:20546): the final packed queue word combines the
     /// masked row bits with the packed X bits via OR.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F86E_ors_masked_row_bits_with_packed_x_bits() {
         assert_eq!(
             crate::level::animated_solid_block_row_queue_word_loc_F86E(0x0A00, 0x0040),
@@ -21176,7 +21176,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// range, the routine swaps d2 and copies the two source longwords into the
     /// queued custom FG entry.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F872_copies_queued_animated_solid_mapping_longwords() {
         assert_eq!(
             crate::level::animated_solid_block_vertical_rows_loc_F872(
@@ -21195,7 +21195,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// row index, advances the layout pointer by `Level_width_tiles`, and
     /// decrements the DBF counter for repeat control.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F87A_advances_row_layout_ptr_and_dbf_counter() {
         assert_eq!(
             crate::level::animated_solid_block_vertical_rows_loop_tail_loc_F87A(
@@ -21231,7 +21231,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_F890 (kid.asm:20564): swaps `d6`/`d7` back before branching to
     /// the shared animation scan tail.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F890_restores_scan_registers_before_tail_jump() {
         assert_eq!(
             crate::level::animated_solid_block_vertical_rows_tail_loc_F890(
@@ -21249,7 +21249,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_F934 (kid.asm:20658): loop tailing should increment the current
     /// source column and advance DBF by one before the next visible-cell read.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F934_advances_col_and_dbf_count() {
         assert_eq!(
             crate::level::animated_solid_block_horizontal_queue_loop_tail_loc_F934(0x000A, 0x0003),
@@ -21284,7 +21284,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// queue entry only for `col` still inside the on-screen animated-solid
     /// window.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F90A_writes_layout_bytes_and_emits_fg_queue_entries_only_in_range() {
         let mut theme_mappings = vec![[0x1111_1111, 0x2222_2222]; 0x100];
         theme_mappings[0x5A] = [0xDEAD_BEEF, 0xFACE_CAFE];
@@ -21329,7 +21329,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_F94E (kid.asm:20657): only computes queue X bits when the source
     /// cell is inside `left..=right` and not above `top-7`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F94E_returns_packed_x_bits_only_when_visible() {
         assert_eq!(
             crate::level::animated_solid_block_horizontal_queue_gate_loc_F94E(
@@ -21400,7 +21400,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// foreground entry only for rows inside `[top,bottom]`, with queue address
     /// formed from `$F00 |` pre-packed X bits.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F96A_writes_layout_and_queues_only_in_row_window() {
         let mut theme_mappings = vec![[0x1111_1111, 0x2222_2222]; 0x100];
         theme_mappings[0x5A] = [0xDEAD_BEEF, 0xFACE_CAFE];
@@ -21461,7 +21461,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_F994 (kid.asm:20692): advances row index, source layout cursor, and
     /// layout queue pointer once per iteration, and decrements the DBF counter.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F994_advances_row_and_cursors_and_dbf_counter() {
         assert_eq!(
             crate::level::animated_solid_block_horizontal_queue_walk_tail_loc_F994(
@@ -21495,7 +21495,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_F93E (kid.asm:20646): always writes the source layout byte as a
     /// queue shortword, even when no FG queue work is performed.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F93E_always_writes_layout_bytes_for_skipped_rows() {
         assert_eq!(
             crate::level::animated_solid_block_horizontal_queue_layout_word_loc_F93E(0xA5),
@@ -21513,7 +21513,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// work, the ROM still restores every source layout byte and terminates via
     /// the same DBF end condition.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F93C_restores_layout_bytes_until_dbf_expires() {
         let source_cells = vec![0x01, 0x5B, 0xA5, 0xE8, 0x7C];
 
@@ -21559,7 +21559,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// still writes one layout word per DBF row and advances source/layout by row
     /// strides until DBF wraps to -1.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F9A6_copies_culled_column_layout_words_and_advances_by_level_stride() {
         let source_cells = (0u8..16).collect::<Vec<_>>();
         assert_eq!(
@@ -21625,7 +21625,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_F9A4 (kid.asm:20700): clear scratch byte and fall through to the
     /// culled-column copy loop with identical state transitions.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F9A4_transitions_to_F9A6_without_changing_output_state() {
         let source_cells = (0u8..12).collect::<Vec<_>>();
         assert_eq!(
@@ -21660,7 +21660,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_F946 (kid.asm:20651): restores the swapped row/col scan registers
     /// before jumping to the shared scan tail.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F946_restores_swapped_scan_registers() {
         assert_eq!(
             crate::level::animated_solid_block_horizontal_queue_tail_loc_F946(
@@ -21678,7 +21678,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_F9B6 (kid.asm:20710): restores swapped scan registers after the
     /// culled-column branch.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F9B6_restores_swapped_scan_registers() {
         assert_eq!(
             crate::level::animated_solid_block_horizontal_queue_tail_loc_F9B6(
@@ -21697,7 +21697,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// scan advances `a0` by `$10` bytes and uses DBF semantics to choose between
     /// looping back to the descriptor body and committing the frame state.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F9C0_advances_to_the_next_descriptor_until_dbf_wraps() {
         assert_eq!(
             crate::level::animated_solid_block_scan_advance_loc_F9C0(0xFFFF_F8DA, 0x0002),
@@ -21722,7 +21722,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// same descriptor-advance tail as `loc_F9C0`, advancing `a0` before DBF
     /// decides whether to loop or commit frame sprite state.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_FA40_advances_vertical_descriptors_until_dbf_wraps() {
         assert_eq!(
             crate::level::animated_solid_block_vertical_scan_advance_loc_FA40(0xFFFF_F91A, 0x0001,),
@@ -21747,7 +21747,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// descriptors emit one sprite per visible strip tile, incrementing the
     /// sprite link before every write and adding `$10` to X between sprites.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F9CC_emits_horizontal_sprites_for_the_visible_negative_strip() {
         let result = crate::level::animated_solid_block_negative_sprites_loc_F9CC(
             crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
@@ -21804,7 +21804,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// restarting at the camera-left column; fully clipped rows advance without
     /// sprites.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_FA06_clips_left_and_culls_rows_before_emitting_sprites() {
         assert_eq!(
             crate::level::animated_solid_block_negative_sprites_loc_F9CC(
@@ -21892,7 +21892,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// sprite-table coordinates as `(block << 4) - camera + $80` before the
     /// horizontal strip loop writes any sprites.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_FA0C_converts_visible_strip_to_sprite_coordinates() {
         let result = crate::level::animated_solid_block_negative_sprites_loc_F9CC(
             crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
@@ -21996,7 +21996,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// sprite-table entries, incrementing the link word before each store and
     /// advancing X by `$10` per DBF iteration.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_FA2E_emits_linked_horizontal_sprite_entries() {
         let result = crate::level::animated_solid_block_negative_sprites_loc_F9CC(
             crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
@@ -22046,7 +22046,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// descriptors emit one sprite per visible strip tile, culling the single
     /// column against the camera window and advancing Y by `$10` per sprite.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_FA4C_emits_vertical_sprites_for_the_visible_negative_strip() {
         let result = crate::level::animated_solid_block_vertical_sprites_loc_FA4C(
             crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
@@ -22096,7 +22096,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// camera, the negative row delta shortens the DBF counter and starts at
     /// the camera-top row; fully clipped rows advance the descriptor.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_FA7E_clips_top_and_culls_fully_hidden_vertical_strips() {
         assert_eq!(
             crate::level::animated_solid_block_vertical_sprites_loc_FA4C(
@@ -22204,7 +22204,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// the `$80` sprite-table bias, and selects the tile word from bit 0 of the
     /// descriptor flags.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_FA84_converts_vertical_strip_to_sprite_coordinates_and_tile_word() {
         let result = crate::level::animated_solid_block_vertical_sprites_loc_FA4C(
             crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
@@ -22308,7 +22308,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// sprite link before each entry, keeps X fixed, and advances Y by `$10`
     /// until DBF exhausts the visible tile counter.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_FAA6_emits_linked_vertical_sprite_entries() {
         let result = crate::level::animated_solid_block_vertical_sprites_loc_FA4C(
             crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
@@ -22358,7 +22358,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// back into a `Level_Layout` word pointer through the `$FFFF4A04`
     /// row-pointer table before returning the address in `d3`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_FAE2_resolves_block_coordinates_to_the_level_layout_word_address() {
         assert_eq!(
             crate::level::level_layout_word_address_loc_FAE2(0x0012, 0x0007, 0xFFFF_A652),
@@ -22375,7 +22375,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// FG queue entries only for the visible span after the `-8..+camera_right`
     /// cull check.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F8CA_restores_layout_and_emits_visible_horizontal_queue_entries() {
         let source_cells = (0u8..48).collect::<Vec<_>>();
         let mut theme_mappings = vec![[0x1111_1111, 0x2222_2222]; 0x100];
@@ -22488,7 +22488,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// current Level_Layout cell, queues VDP data only for visible rows, then
     /// advances by one row through `Level_width_tiles`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_F85A_writes_vertical_animated_block_rows_and_visible_queue_entries() {
         let rows = crate::level::animated_solid_block_vertical_rows_loc_F85A(
             crate::level::AnimatedSolidBlockVerticalRowsInputLocF85A {
@@ -22545,7 +22545,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EAC6_links_the_sub_EABC_evanescent_free_list_until_dbf_exits() {
         let slots = crate::level::initialise_evanesc_object_slots_sub_EABC();
 
@@ -22576,7 +22576,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// from `$FFFFF8D4`, preserve the current layout word pointer in `d4`, and
     /// bias `a0` by `-8` before the pre-increment scan.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E07A_hidden_block_evanescent_scan_biases_cursor_before_first_record() {
         let scan = crate::level::hidden_block_evanescent_scan_start_loc_E07A(0x0001_2400, 0x03A6);
 
@@ -22598,7 +22598,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// record layout word matches `d4`, then use the signed word at offset 6 to
     /// decide whether evanescent reveal sprite words replace the default.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E082_hidden_block_evanescent_scan_uses_8_byte_records_and_negative_gate() {
         let records = [
             crate::level::HiddenBlockMetadataRecordLocE082 {
@@ -22652,7 +22652,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// the single debris/animation object that carries the selected sprite
     /// words plus the block position and layout pointer.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E096_hidden_block_reveal_allocates_single_worker_with_selected_sprite_words() {
         let worker = crate::level::hidden_block_reveal_worker_loc_E096(
             0x0012,
@@ -22690,7 +22690,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// advances `d5/a2`, then DBF loops back to `sub_E446` until `d6` reaches
     /// `$FFFF` after decrement.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E48E_hidden_block_prize_reveal_scan_tail_advances_rows_until_dbf_exits() {
         let continuing =
             crate::level::hidden_block_prize_reveal_scan_tail_loc_E48E(0x0012, 0x03A6, 0x00F0, 2);
@@ -22731,7 +22731,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// of one is restored to one and allowed to test the signed layout byte's
     /// low nibble before falling through to `loc_EA5A`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EA3E_evanescent_removal_gate_requires_timer_and_negative_low_nibble() {
         let waiting = crate::level::evanescent_block_removal_gate_loc_EA3E(3, 0x8C);
         assert_eq!(
@@ -22781,7 +22781,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// and `$6(a2)` calls `EraseBlockFromLevelLayout`; after that call the ROM
     /// overwrites the high byte of the updated cell with `$20`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EA5A_erases_only_the_saved_cell_word_match() {
         let matched = crate::level::evanescent_block_erase_match_loc_EA5A(
             0x8C34, 0x8C34, 0x0012, 0x0007, 0x6A5B,
@@ -22817,7 +22817,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// unlink the current evanescent object from the active list, push it to
     /// the free-list head, then continue active processing from the saved link.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EA72_moves_current_evanescent_slot_from_active_to_free_list() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -22888,7 +22888,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// links from `Addr_FirstEvanescObjectSlot` until the next link equals the
     /// removed evanescent object in `a2`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EA86_finds_evanescent_active_list_predecessor() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -22923,7 +22923,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_EA92 (kid.asm:18809): the predecessor found in `a0` receives
     /// the removed evanescent object's saved `$A(a2)` successor.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EA92_splices_predecessor_over_removed_evanescent_slot() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -22973,7 +22973,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// then use the previously saved `d0` link to decide whether active-list
     /// processing continues.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EA98_pushes_removed_evanescent_slot_to_free_list() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -23039,7 +23039,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// stores the current `a3` sprite cursor and low `d3` count byte back to
     /// the shared sprite globals.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EAB2_returns_the_final_evanescent_sprite_cursor_and_count() {
         assert_eq!(
             crate::level::evanescent_sprite_scan_return_loc_EAB2(0xFFFF_0128, 0x25),
@@ -23056,7 +23056,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// inclusive tile counters, and only treats bit-15 block type `$A` cells as
     /// evanescent bullet-loader hits.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EAE4_expands_the_kid_hitbox_window_and_detects_evanescent_blocks() {
         let mut data = vec![0; 4 * 4 * 2];
         let evanescent_offset = (4 + 1) * 2;
@@ -23093,7 +23093,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// edge when it is still below `Level_height_pixels`; otherwise the ROM
     /// stores `Level_height_pixels - 1` in `d1`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EAF8_clamps_the_expanded_bottom_edge_to_level_height_minus_one() {
         assert_eq!(
             crate::level::evanescent_bullet_bottom_clamp_loc_EAF8(30, 64),
@@ -23111,7 +23111,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// become tile rows via `asr.w #4`; the bottom-minus-top result seeds the
     /// row DBF counter and the doubled top row indexes the row-pointer table.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EB0C_converts_clamped_vertical_pixels_to_rows_and_row_pointer_offset() {
         assert_eq!(
             crate::level::evanescent_bullet_vertical_rows_loc_EB0C(0x001F, 0x0040),
@@ -23129,7 +23129,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// then clamped only when that expanded word is not strictly below
     /// `Level_width_pixels`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EB2A_clamps_the_expanded_right_edge_to_level_width_minus_one() {
         assert_eq!(
             crate::level::evanescent_bullet_right_clamp_loc_EB2A(30, 64),
@@ -23147,7 +23147,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// into tile columns, the inclusive width seeds `d2`, and the doubled left
     /// column advances `a0` into the first scanned cell.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EB3E_converts_clamped_horizontal_pixels_to_columns_and_row_offset() {
         assert_eq!(
             crate::level::evanescent_bullet_horizontal_columns_loc_EB3E(0x001F, 0x0040),
@@ -23165,7 +23165,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// from `d2` and `a1` from `a0`, so later rows rescan from the left column
     /// instead of continuing from the previous row's post-incremented pointer.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EB48_resets_the_inner_scan_for_each_hitbox_row() {
         let mut data = vec![0; 4 * 3 * 2];
         let flagged_non_evanescent_offset = 2usize;
@@ -23190,7 +23190,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// non-`$A00` cells fall through to the scan-loop DBFs; only block-flagged
     /// `$A00` cells branch away to the evanescent trigger path.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EB62_continues_the_scan_until_a_flagged_evanescent_cell() {
         assert_eq!(
             crate::level::evanescent_bullet_cell_scan_loc_EB62(0x6A00),
@@ -23215,7 +23215,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// the bullet allocation loop; that path centres the stored block col/row
     /// in pixels and preserves `$6(a0)` as the direction bitfield.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EC52_loads_only_zero_age_evanescent_objects() {
         assert_eq!(
             crate::level::evanescent_bullet_load_candidate_loc_EC52(0x04A6, 7, 12, 0b1010, 0,),
@@ -23239,7 +23239,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// 0; each set bit consumes the current free shooter slot, pushes it to the
     /// active-list head, and initialises state `$FFFE`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EC76_loads_direction_bits_from_high_to_low_and_pushes_active_head() {
         let candidate = crate::level::EvanescentBulletLoadCandidateLocEC52 {
             layout_word_addr: 0x04A6,
@@ -23325,7 +23325,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// `Addr_NextFreeShooterObjectSlot` zero, the ROM branches to `loc_ECA2`
     /// immediately instead of checking lower direction bits.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EC76_stops_when_a_set_direction_finds_no_free_shooter_slot() {
         let candidate = crate::level::EvanescentBulletLoadCandidateLocEC52 {
             layout_word_addr: 0x04A6,
@@ -23371,7 +23371,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// bits, reaches the `dbf` tail; the loop continues through directions
     /// 3, 2, 1, 0 and exits only after the counter wraps to `$FFFF`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EC9E_direction_loop_tail_exits_after_direction_zero() {
         assert_eq!(
             crate::level::evanescent_bullet_direction_loop_tail_loc_EC9E(3),
@@ -23396,7 +23396,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// out and is not the active-list head, the ROM follows predecessor links
     /// until `$A(a3)` equals the current `a0` slot.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_ECC4_finds_the_predecessor_of_the_aged_evanescent_slot() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -23439,7 +23439,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// the aged evanescent object's saved successor link, unlinking the aged
     /// object before the shared free-list push.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_ECD2_splices_the_aged_evanescent_slot_out_of_the_active_list() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -23495,7 +23495,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// `Addr_NextFreeEvanescObjectSlot`; the saved successor in `d0` controls
     /// whether the active-list scan continues.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_ECD8_pushes_the_recycled_evanescent_slot_to_the_free_list() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -23564,7 +23564,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// pre-increment age word. Non-zero bytes branch to `loc_ED16`; zero bytes
     /// skip the evanescent action and follow `$A(a0)`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_ED04_dispatches_from_the_evanescent_action_table() {
         assert_eq!(
             crate::level::evanescent_bullet_action_dispatch_loc_ED04(1, 0xFFFF_E91A),
@@ -23607,7 +23607,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// evanescent path, emit a sprite only inside the inclusive camera window,
     /// and preserve bits 0/1 for the layout-update logic at `loc_ED52`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_ED16_negative_actions_emit_visible_fade_sprites_and_layout_flags() {
         assert_eq!(
             crate::level::evanescent_bullet_action_loc_ED16(
@@ -23695,7 +23695,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_ED16 (kid.asm:19216): `bpl.w loc_EDBC` sends positive action
     /// bytes to the alternate tile-word rewrite, using `$E31C + $6(a0)`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_ED16_positive_actions_branch_to_loc_EDBC() {
         assert_eq!(
             crate::level::evanescent_bullet_action_loc_ED16(
@@ -23724,7 +23724,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// theme collision byte indexed by the current terrain byte, rotates it
     /// right by four as a word, and ORs it into the outgoing layout word.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_ED7C_overlays_theme_collision_bits_with_word_rotate() {
         assert_eq!(
             crate::level::evanescent_bullet_collision_overlay_loc_ED7C(0x2D, 0xE6),
@@ -23743,7 +23743,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// writes `d1` through the saved layout pointer, queues x/y/word for the
     /// foreground cell updater, then branches by the saved `$A(a0)` link.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_ED98_writes_the_layout_word_and_queues_the_fg_cell_update() {
         assert_eq!(
             crate::level::evanescent_bullet_layout_write_loc_ED98(
@@ -23782,7 +23782,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// that reset, and use the current layout word's high collision bits to
     /// decide whether to interact with the level layout.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EE2A_resets_fourth_frame_and_gates_solid_interaction() {
         assert_eq!(
             crate::level::shooter_object_moving_right_gate_loc_EE2A(1, 0x04A6, 0x4000),
@@ -23821,7 +23821,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// the current layout word, bit 14 gates collision; young age words only
     /// interact when one of bits `$3000` is also set.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EE38_moving_right_collision_gate_uses_age_and_high_bits() {
         assert_eq!(
             crate::level::shooter_object_moving_right_collision_gate_loc_EE38(0, 0x4000),
@@ -23852,7 +23852,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// shooter object's x word by four and seeds `Process_ShooterObject_MakeSprite`
     /// with the right-facing sprite offsets and tile word.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EE52_moves_right_and_seeds_the_sprite_tail() {
         assert_eq!(
             crate::level::shooter_object_moving_right_sprite_tail_loc_EE52(0x0120),
@@ -23877,7 +23877,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// the selected layout word's bit 14, age, and `$2000` bit to decide whether
     /// to interact with the level layout.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EE80_moving_up_resets_fourth_frame_and_gates_collision() {
         assert_eq!(
             crate::level::shooter_object_moving_up_gate_loc_EE80(4, 0x04A6, 0x0028, 0x4000),
@@ -23915,7 +23915,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// layout word, age `< 2` interacts with any bit-14 cell; older ages require
     /// the moving-up `$2000` bit.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EE92_moving_up_collision_gate_uses_young_age_or_direction_bit() {
         assert_eq!(
             crate::level::shooter_object_moving_up_collision_gate_loc_EE92(1, 0x4000),
@@ -23945,7 +23945,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_EED6 (kid.asm:19403): moving-left shooters only reset on the
     /// fourth positive age, then step the layout pointer left by one word.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EED6_moving_left_resets_fourth_frame_and_steps_layout_left() {
         assert_eq!(
             crate::level::shooter_object_moving_left_gate_loc_EED6(3, 0x04A6),
@@ -23976,7 +23976,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// two or higher always interacts, while younger ages continue only if the
     /// `$1000` moving-left direction bit remains set.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EEE4_moving_left_collision_gate_uses_age_and_direction_bit() {
         assert_eq!(
             crate::level::shooter_object_moving_left_collision_gate_loc_EEE4(1, 0x5000),
@@ -24007,7 +24007,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// x, then enter `Process_ShooterObject_MakeSprite` with left-facing
     /// offsets and tile word `$8296`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EEFE_moving_left_sprite_tail_steps_left_and_uses_left_sprite_constants() {
         assert_eq!(
             crate::level::shooter_object_moving_left_sprite_tail_loc_EEFE(0x0120),
@@ -24031,7 +24031,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// positive age, advance the layout pointer by one row, then interact with
     /// bit-14 cells at age two or higher or with the `$2000` down bit set.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EF2E_moving_down_resets_fourth_frame_and_uses_down_collision_gate() {
         assert_eq!(
             crate::level::shooter_object_moving_down_gate_loc_EF2E(4, 0x04A6, 0x0040, 0x6000),
@@ -24069,7 +24069,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// age two or higher interacts immediately, while younger ages need the
     /// moving-down `$2000` direction bit.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EF40_moving_down_collision_gate_uses_age_and_direction_bit() {
         assert_eq!(
             crate::level::shooter_object_moving_down_collision_gate_loc_EF40(1, 0x4000),
@@ -24100,7 +24100,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// enter `Process_ShooterObject_MakeSprite` with down-facing offsets and
     /// tile word `$9295`.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EF56_moving_down_sprite_tail_steps_down_and_uses_down_sprite_constants() {
         assert_eq!(
             crate::level::shooter_object_moving_down_sprite_tail_loc_EF56(0x0120),
@@ -24124,7 +24124,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// through a non-zero `$A(a0)` active-list link and falls through at the
     /// zero tail.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EF94_uses_next_active_slot_to_loop_or_fall_through() {
         assert_eq!(
             crate::level::shooter_object_sprite_tail_next_loc_EF94(0xFFFF_EA12),
@@ -24145,7 +24145,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// `Addr_FirstShooterObjectSlot`, repeatedly read `$A(a3)` until that
     /// successor link equals the shooter object being removed.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EFB4_finds_shooter_active_list_predecessor() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -24189,7 +24189,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// ASM loc_EFC2 (kid.asm:19511): the predecessor found in `a3` receives
     /// the removed shooter object's saved `$A(a0)` successor.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EFC2_splices_the_shooter_predecessor_over_the_removed_slot() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -24247,7 +24247,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// `$A(a0)`, make `a0` the new free-list head, then branch to an
     /// interaction handler only when the current layout high byte is negative.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EFC8_pushes_shooter_slot_to_free_list_and_dispatches_signed_block_type() {
         let active_slots = [
             crate::level::LinkedObjectSlotInit {
@@ -24336,7 +24336,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
         let mut data = vec![0; 4 * 4 * 2];
         let clear_bit15_evanescent_offset = (4 + 1) * 2;
@@ -24431,7 +24431,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// PathBonus_Values with Current_LevelID, zero-extend the byte, multiply by
     /// 1000, and skip the EOL Path Bonus only when the product is zero.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D60E_path_bonus_multiplier_is_scaled_by_1000() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         start_level(&mut runtime);
@@ -24450,7 +24450,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_D77E_eol_score_counter_does_not_arm_hundred_k_trip_timer() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         start_level(&mut runtime);
@@ -25345,7 +25345,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_FAFE_lift_block_worker_preserves_layout_pointer_and_converts_cell_coords_to_pixels() {
         let result =
             NativeRuntime::lift_block_headbutt_worker_loc_FAFE(0x0012, 0x0007, 0xFFFF_A676);
@@ -27716,7 +27716,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_E03A_hidden_block_headbutt_requires_hidden_collision_nibble() {
         let mut runtime = NativeRuntime::new(manifest());
         let w = 6u16;
@@ -32744,7 +32744,7 @@ mod chunk_10 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_11CB6_rejects_prize_block_entries_once_the_fg_queue_boundary_is_reached() {
         assert!(
             crate::level::prize_block_list_guard_loc_11CB6(0, 9),
@@ -32761,7 +32761,7 @@ mod chunk_10 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_11CE0_rejects_custom_fg_queue_entries_at_ten_word_stride() {
         assert!(
             crate::level::fg_plane_custom_write_guard_loc_11CE0(0, 2),
@@ -32803,7 +32803,7 @@ mod chunk_10 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_1223C_rotates_lava_water_palette_words() {
         let mut palette = [0u16; 0x40];
         palette[crate::level::PALETTE_BUFFER_ROTATE_START_LOC_1223C] = 0x000E;
@@ -32876,7 +32876,7 @@ mod chunk_10 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_1246E_queues_hidden_block_for_row_by_row() {
         // ASM loc_1246E (kid.asm:24659-24666): hidden block handling for row-by-row placement.
         // When block_type is negative (hidden block), this queues an entry:
@@ -32942,7 +32942,6 @@ mod chunk_10 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     fn loc_124a6_initializes_hidden_block_list_pointer() {
         // ASM loc_124A6 (kid.asm:24691-24692): block type 3 entry point.
         //   move.l a5,($FFFFF8DA).w   ; save hidden block list base
@@ -32954,7 +32953,6 @@ mod chunk_10 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     fn loc_124aa_returns_on_negative_x_position() {
         // ASM loc_124AA (kid.asm:24694-24698): loop entry for block type 3.
         //   move.w (a1),d1       ; read x_pos
@@ -32973,7 +32971,6 @@ mod chunk_10 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     fn loc_124aa_parses_hidden_block_entry() {
         // ASM loc_124AA (kid.asm:24694-24698): reads x_pos, falls through to loc_124BE
         // if non-negative. Entry layout: x_pos(2) + y_row(2) + count(2) + stride(2) +
@@ -33025,7 +33022,6 @@ mod chunk_10 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     fn loc_124be_computes_cell_address_from_row_table() {
         // ASM loc_124BE (kid.asm:24708-24715): compute cell address.
         //   move.w 2(a1),d2          ; y_row
@@ -33070,7 +33066,6 @@ mod chunk_10 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     fn loc_124be_priority_0_and_3_skip_bit_modification() {
         // ASM loc_124BE (kid.asm:24716-24721): priority modification.
         //   move.w $A(a1),d0    ; priority field
@@ -33110,7 +33105,6 @@ mod chunk_10 {
     }
 
     #[test]
-    #[allow(non_snake_case)]
     fn loc_124e8_builds_complete_hidden_block_entry() {
         // ASM loc_124E8 (kid.asm:24723-24732): writes remaining hidden block entry.
         //   move.w d0,(a5)+     ; priority (possibly ORed)

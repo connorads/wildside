@@ -75,7 +75,7 @@ pub(crate) struct KidProjectileCollisionPassSub1D76 {
 }
 
 #[cfg(test)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn kid_projectile_collision_passes_sub_1D76() -> [KidProjectileCollisionPassSub1D76; 2] {
     // ASM sub_1D76 (kid.asm:3537): dispatch Kid projectile collision through
     // sub_1D84 twice, first with list head `$FFFFF862` and `d7=0`, then with
@@ -2894,7 +2894,7 @@ pub(crate) struct KidProjectileCollisionCursorLoc1DCC {
 }
 
 #[cfg(test)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn kid_projectile_target_x_span_loc_1DB4(
     x_pos: i16,
     x_direction: u8,
@@ -2925,7 +2925,7 @@ pub(crate) fn kid_projectile_target_x_span_loc_1DB4(
 }
 
 #[cfg(test)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn kid_projectile_target_rect_loc_1DBE(
     x_pos: i16,
     y_pos: i16,
@@ -2950,7 +2950,7 @@ pub(crate) fn kid_projectile_target_rect_loc_1DBE(
 }
 
 #[cfg(test)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn first_live_kid_projectile_collision_cursor_loc_1DCC(
     objects: &[KidProjectileCollisionObjectLoc1DCC],
 ) -> Option<KidProjectileCollisionCursorLoc1DCC> {
@@ -2977,7 +2977,7 @@ pub(crate) fn first_live_kid_projectile_collision_cursor_loc_1DCC(
 }
 
 #[cfg(test)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn first_non_mirrored_kid_projectile_overlap_loc_1DF2(
     target: KidProjectileTargetRectLoc1DBE,
     cursor: &KidProjectileCollisionCursorLoc1DCC,
@@ -3026,7 +3026,7 @@ pub(crate) fn first_non_mirrored_kid_projectile_overlap_loc_1DF2(
 }
 
 #[cfg(test)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn first_mirrored_kid_projectile_overlap_loc_1E1E(
     target: KidProjectileTargetRectLoc1DBE,
     cursor: &KidProjectileCollisionCursorLoc1DCC,
@@ -3082,7 +3082,7 @@ pub(crate) enum KidProjectileOverlapBranchLoc1E4A {
 }
 
 #[cfg(test)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn kid_projectile_overlap_branch_loc_1E4A(
     collision_mode_d7: u16,
     collision_size_word_22: u16,
@@ -3107,7 +3107,7 @@ pub(crate) fn kid_projectile_overlap_branch_loc_1E4A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn kid_projectile_dp_collision_word_loc_1EA0(object_meta_low_byte_3a: u8) -> u16 {
     // ASM loc_1EA0 (kid.asm:3665): the Diamond Power pass swaps d7, reads
     // `$3A(a2) & $00FF`, doubles it, and indexes `unk_1EBE` for the collision
@@ -3136,7 +3136,7 @@ pub(crate) struct KidProjectileHelperSpawnLoc1E5E {
 }
 
 #[cfg(test)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn kid_projectile_helper_spawn_loc_1E5E(
     projectile_x_pos: u16,
     projectile_y_pos: u16,
@@ -3168,7 +3168,7 @@ pub(crate) struct KidProjectileRightwallWritebackLoc1E94 {
 }
 
 #[cfg(test)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn kid_projectile_rightwall_writeback_loc_1E94() -> KidProjectileRightwallWritebackLoc1E94
 {
     // ASM loc_1E94 (kid.asm:3655-3656): write `#4` into `$38(a0)` and branch
@@ -3180,7 +3180,7 @@ pub(crate) fn kid_projectile_rightwall_writeback_loc_1E94() -> KidProjectileRigh
 }
 
 impl NativeRuntime {
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn process_new_shooter_objects_loc_EC22(&mut self, start_index: usize) {
         let mut index = start_index;
         let mut processed = 0usize;
@@ -3237,7 +3237,7 @@ impl NativeRuntime {
             == terrain::CollisionKind::Solid
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn shooter_object_direction_from_velocity_loc_EDFA(projectile: &EnemyProjectile) -> u16 {
         if projectile.y_velocity < 0 {
             0
@@ -3250,7 +3250,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn shooter_object_entered_layout_cell_loc_EDFA(projectile: &EnemyProjectile) -> bool {
         let direction = Self::shooter_object_direction_from_velocity_loc_EDFA(projectile);
         let x_low = ((projectile.x_pos >> 16) & 0x0F) as u8;
@@ -3263,7 +3263,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn shooter_object_layout_interaction_loc_F00A(
         grid: &terrain::BlockGrid,
         projectile: &EnemyProjectile,
@@ -3292,7 +3292,7 @@ impl NativeRuntime {
         })
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn shooter_layout_word_loc_EE38(cell: terrain::Cell) -> u16 {
         let block_flag = if cell.has_block { 0x8000 } else { 0 };
         let collision_bits = (cell.collision as u16) << 12;
@@ -3304,7 +3304,7 @@ impl NativeRuntime {
         block_flag | collision_bits | block_type_bits | u16::from(cell.skin)
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn shooter_layout_interaction_at_cell_loc_F00A(
         grid: &terrain::BlockGrid,
         col: u16,
@@ -3322,7 +3322,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn step_tracked_shooter_object_loc_EDFA(
         grid: &terrain::BlockGrid,
         projectile: &mut EnemyProjectile,
@@ -3512,7 +3512,7 @@ impl NativeRuntime {
         Ok(())
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn apply_shooter_object_layout_interaction_loc_F00A(
         &mut self,
         interaction: ShooterObjectLayoutInteractionLocF00A,
@@ -3606,7 +3606,7 @@ impl NativeRuntime {
     /// Native: `return false` removes from projectile list (sound/animation visual-only).
     /// loc_899C also decrements $FFFFFB70 (live skull count) — native counts active
     /// skulls inline via `projectiles.iter().filter(is_juggernaut_skull_projectile)`.
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn step_juggernaut_skull_sub_87B0(
         projectile: &mut EnemyProjectile,
         grid: Option<&terrain::BlockGrid>,
@@ -6031,7 +6031,6 @@ pub(crate) fn lion_projectile_cull_route_sub_3e2ce(
     }
 }
 
-#[allow(clippy::manual_range_contains)]
 pub(crate) fn lion_projectile_bounce_velocities_loc_3e266(
     x_velocity: i32,
     y_velocity: i32,

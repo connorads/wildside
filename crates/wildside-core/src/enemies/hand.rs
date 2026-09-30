@@ -55,7 +55,6 @@ pub(crate) fn hand_recording_settle_animation_seed_stru_32b6a() -> u8 {
     (17 + cycle - HAND_RECORDING_SETTLE_ADVANCE_TICKS_LOC_1AE2E % cycle) % cycle
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_jump_seed_loc_328a6(enemy_level: u8) -> i16 {
     // ASM Hand.asm loc_328A6: `move.w $46(a5),d5` loads the table's
     // level-selected attack-speed seed saved by Enemy17_Hand_Init.
@@ -77,7 +76,6 @@ fn hand_jump_units_from_random_loc_328aa(
     speed_seed.wrapping_add(random_component)
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_jump_components_loc_328aa(
     speed_seed: i16,
     x_direction_flag: bool,
@@ -105,14 +103,12 @@ pub(crate) fn hand_jump_components_loc_328aa(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_x_velocity_loc_328e0(x_velocity_word: i16) -> i32 {
     // ASM Hand.asm loc_328E0: `swap d7; move.l d7,x_vel(a3)` promotes the
     // signed X word prepared by loc_328AA into the high word of 16.16 velocity.
     i32::from(x_velocity_word) << 16
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_jump_loop_gravity_loc_328f0(y_velocity: i32) -> i32 {
     // ASM Hand.asm loc_328F0: after hibernation/range/collision checks,
     // `addi.l #$4000,y_vel(a3)` applies uncapped long-word gravity.
@@ -132,7 +128,6 @@ pub(crate) struct HandGroundCollisionDispatchLoc3299C {
     pub(crate) behavior: Option<HandGroundCollisionBehaviorLoc3299C>,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_ground_collision_dispatch_loc_3299c(
     collision_type: i16,
 ) -> HandGroundCollisionDispatchLoc3299C {
@@ -184,7 +179,6 @@ pub(crate) struct HandJumpCollisionDispatchLoc329F8 {
     pub(crate) behavior: Option<HandJumpCollisionBehaviorLoc329F8>,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_jump_collision_dispatch_loc_329f8(
     collision_type: i16,
 ) -> HandJumpCollisionDispatchLoc329F8 {
@@ -228,7 +222,6 @@ pub(crate) enum HandKidContactRouteLoc32A86 {
     StartGrab,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_kid_contact_gate_loc_32a86(
     character_movement_is_crawling: bool,
     current_helmet_is_juggernaut: bool,
@@ -250,7 +243,6 @@ pub(crate) struct HandRespawnMarkerLoc32AD8 {
     pub(crate) word_value: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_respawn_marker_loc_32ad8(object_status_slot: u8) -> HandRespawnMarkerLoc32AD8 {
     // ASM Hand.asm loc_32AD8: positive `$42(a5)` bytes are doubled as
     // EnemyStatus_Table word offsets, then `$2168` is written as the
@@ -273,7 +265,6 @@ pub(crate) struct HandDeleteTailLoc32AE6 {
     pub(crate) deletes_current_object: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_delete_tail_loc_32ae6() -> HandDeleteTailLoc32AE6 {
     // ASM Hand.asm loc_32AE6: every death-status route converges on a direct
     // jump to `j_Delete_CurrentObject`.
@@ -293,7 +284,6 @@ pub(crate) struct HandTerrainScanLoc32AFE {
     pub(crate) any_collision_4000: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_terrain_scan_loc_32afe(
     x_pos_word: u16,
     y_pos_word: u16,
@@ -362,7 +352,6 @@ pub(crate) struct HandDeathSequenceLoc32AA2 {
     pub(crate) deletes_current_object: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_death_sequence_loc_32aa2(object_status_slot: u8) -> HandDeathSequenceLoc32AA2 {
     // ASM Hand.asm loc_32AA2: death starts by enabling Kid collision,
     // stopping movement, playing `stru_32B78` to completion, then routing
@@ -396,7 +385,6 @@ pub(crate) struct HandJumpCollisionVelocityLoc32A3E {
     pub(crate) y_velocity: i32,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_jump_collision_clear_y_velocity_loc_32a3e(
     x_velocity: i32,
     _y_velocity: i32,
@@ -415,7 +403,6 @@ pub(crate) struct HandJumpCollisionVelocityLoc32A44 {
     pub(crate) y_velocity: i32,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_jump_collision_clear_x_velocity_loc_32a44(
     _x_velocity: i32,
     y_velocity: i32,
@@ -435,7 +422,6 @@ pub(crate) struct HandJumpCollisionResetLoc32A4A {
     pub(crate) initial_motion: HandInitialMotionLoc327F2,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_jump_collision_reset_loc_32a4a(
     enemy_level: u8,
     x_direction_flag: bool,
@@ -457,7 +443,6 @@ pub(crate) struct HandJumpCollisionBounceLoc32A5A {
     pub(crate) y_velocity: i32,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_jump_collision_bounce_up_left_loc_32a5a(
     x_pos: i32,
     y_pos: i32,
@@ -483,7 +468,6 @@ pub(crate) struct HandJumpCollisionBounceLoc32A70 {
     pub(crate) y_velocity: i32,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_jump_collision_bounce_up_right_loc_32a70(
     x_pos: i32,
     y_pos: i32,
@@ -507,7 +491,6 @@ pub(crate) struct HandGroundCollisionReverseLoc329E2 {
     pub(crate) x_direction_flag: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_ground_collision_reverse_loc_329e2(
     x_velocity: i32,
     x_direction_flag: bool,
@@ -526,7 +509,6 @@ pub(crate) struct HandKidBelowContactLoc329EC {
     pub(crate) kid_object_meta: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_kid_below_contact_loc_329ec() -> HandKidBelowContactLoc329EC {
     // ASM Hand.asm loc_329EC: `a2` is the Kid GfxObject pointer captured by
     // Enemy17_Hand_Init; side contact from a grounded hand writes `$28` to
@@ -586,7 +568,6 @@ pub(crate) struct HandGrabSnapLoc3294C {
     pub(crate) y_pos: u32,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_grab_snap_loc_3294c(
     kid_x_pos: u32,
     kid_y_pos: u32,
@@ -619,7 +600,6 @@ pub(crate) struct HandReleaseLoc32970 {
     pub(crate) collision_probe_height_px: i16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_release_loc_32970() -> HandReleaseLoc32970 {
     // ASM Hand.asm loc_32970: clear KidGrabbedByHand, probe a 9x14 collision
     // window, restore level-collision/moved flags, load `d5 = 2`, then branch
@@ -645,7 +625,6 @@ pub(crate) struct HandInitLoc327B6 {
     pub(crate) object_meta: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_init_loc_327b6() -> HandInitLoc327B6 {
     // ASM Hand.asm loc_327B6: `st $13/is_moved/has_level_collision`,
     // `sf x_direction/$19`, low priority, and object_meta `$17`.
@@ -660,7 +639,6 @@ pub(crate) fn hand_init_loc_327b6() -> HandInitLoc327B6 {
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_velocity_candidate_loc_327e4(enemy_level: u8, x_direction_flag: bool) -> i32 {
     // ASM Hand.asm loc_327E4: load the negative `$48(a5)` table velocity,
     // then negate it only when raw x_direction is non-zero.
@@ -693,7 +671,6 @@ pub(crate) struct HandReversalLoc32840 {
     pub(crate) x_direction_flag: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_reversal_loc_32840(
     x_velocity: i32,
     x_direction_flag: bool,
@@ -706,7 +683,6 @@ pub(crate) fn hand_reversal_loc_32840(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_left_detection_loc_32886(
     relative_x_px: i16,
     vertical_delta_minus_16_px: i16,
@@ -745,14 +721,12 @@ fn hand_right_detection_loc_3284c(
     vertical_delta_minus_16_px.wrapping_neg() <= relative_x_px
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_detection_reject_loc_328a2() -> i16 {
     // ASM Hand.asm loc_328A2: shared reject return from range/cone checks,
     // `moveq #0,d7; rts`.
     0
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn hand_patrol_decision_loc_32804(
     x_velocity: i32,
     probe_d6: i16,
@@ -890,7 +864,7 @@ pub(crate) fn step_hand(
     );
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(crate) fn step_hand_with_form(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,

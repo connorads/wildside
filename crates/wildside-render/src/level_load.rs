@@ -8,7 +8,6 @@ pub struct BackgroundMappingsChunkLoc12830 {
     pub y_pos: i16,
 }
 
-#[allow(non_snake_case)]
 pub fn background_mappings_read_chunk_loc_12830(
     layout_words: &[u16],
     x_offset: i16,
@@ -45,7 +44,6 @@ pub fn background_mappings_read_chunk_loc_12830(
     ))
 }
 
-#[allow(non_snake_case)]
 pub fn background_mappings_terminator_loc_12842() -> bool {
     // ASM loc_12842 (kid.asm:25176-25178): loop termination.
     //   movem.l (sp)+,d5-d7    ; restore saved registers
@@ -76,7 +74,6 @@ pub struct BackgroundFinalPatternLoc12952 {
     pub vram_buffer4_addr: u32,
 }
 
-#[allow(non_snake_case)]
 pub fn background_mountain_tileset_loc_12910(
     level_special_effects: u16,
 ) -> BackgroundMountainLoadLoc12910 {
@@ -118,7 +115,7 @@ pub fn background_mountain_tileset_loc_12910(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn background_hail_overlay_loc_1294A() -> BackgroundHailOverlayLoc1294A {
     // ASM loc_1294A (kid.asm:25294-25296): Hail overlay pattern for stormy weather.
     //   loc_1294A:	; hailstorm
@@ -134,7 +131,6 @@ pub fn background_hail_overlay_loc_1294A() -> BackgroundHailOverlayLoc1294A {
     }
 }
 
-#[allow(non_snake_case)]
 pub fn background_final_pattern_loc_12952(
     pattern_vram_offset: u16,
 ) -> BackgroundFinalPatternLoc12952 {
@@ -152,7 +148,6 @@ pub fn background_final_pattern_loc_12952(
     }
 }
 
-#[cfg_attr(test, allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BackgroundHillsLoadLoc1295E {
     pub pattern_vram_offset_1_2: u16,
@@ -162,7 +157,7 @@ pub struct BackgroundHillsLoadLoc1295E {
     pub vram_buffer3_addr: u32,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn background_hills_tileset_loc_1295E() -> BackgroundHillsLoadLoc1295E {
     // ASM loc_1295E (kid.asm:25305-25318): Hills theme background tileset load.
     //   loc_1295E:	; hill
@@ -194,7 +189,6 @@ pub fn background_hills_tileset_loc_1295E() -> BackgroundHillsLoadLoc1295E {
     }
 }
 
-#[cfg_attr(test, allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BackgroundDesertLoadLoc12988 {
     pub pattern_vram_offset: u16,
@@ -203,7 +197,6 @@ pub struct BackgroundDesertLoadLoc12988 {
     pub vram_buffer3_addr: u32,
 }
 
-#[allow(non_snake_case)]
 pub fn background_desert_tileset_loc_12988() -> BackgroundDesertLoadLoc12988 {
     // ASM loc_12988 (kid.asm:25321-25333): Desert theme background tileset load.
     //   loc_12988:	; desert
@@ -232,7 +225,6 @@ pub fn background_desert_tileset_loc_12988() -> BackgroundDesertLoadLoc12988 {
     }
 }
 
-#[cfg_attr(test, allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct JuggernautSkullArtDmaLoc129DC {
     vram_word_address: u16,
@@ -251,8 +243,7 @@ impl JuggernautSkullArtDmaLoc129DC {
     }
 }
 
-#[allow(non_snake_case)]
-#[allow(dead_code)]
+#[expect(non_snake_case)]
 pub fn juggernaut_skull_art_dma_loop_loc_129DC() -> JuggernautSkullArtDmaLoc129DC {
     // ASM loc_129DC (kid.asm:25359-25361): Juggernaut skull frame 1 DMA loop.
     //   loc_129DC:
@@ -275,7 +266,7 @@ pub fn juggernaut_skull_art_dma_loop_loc_129DC() -> JuggernautSkullArtDmaLoc129D
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn juggernaut_skull_art_dma_loop_loc_129E8() -> JuggernautSkullArtDmaLoc129DC {
     // ASM loc_129E8 (kid.asm:25365-25367): second `dbf` loop in sub_129CE.
     // It keeps the same `$CDC0` VRAM write command and copies another
@@ -294,7 +285,7 @@ pub fn juggernaut_skull_art_dma_loop_loc_129E8() -> JuggernautSkullArtDmaLoc129D
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn juggernaut_star_art_dma_loop_loc_129FC() -> JuggernautSkullArtDmaLoc129DC {
     // ASM loc_129FC (kid.asm:25372-25374): final `dbf` loop in sub_129CE.
     // This pass switches the VDP destination to `$DF40` and streams
@@ -312,7 +303,7 @@ pub fn juggernaut_star_art_dma_loop_loc_129FC() -> JuggernautSkullArtDmaLoc129DC
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn flag_bottom_art_dma_loop_loc_12B9C() -> JuggernautSkullArtDmaLoc129DC {
     // ASM loc_12B9C (kid.asm:25398-25400): `Load_FlagBottomArt` writes
     // `vdpComm($D2C0,VRAM,WRITE)` to the VDP control port, points `a1` at
@@ -331,7 +322,7 @@ pub fn flag_bottom_art_dma_loop_loc_12B9C() -> JuggernautSkullArtDmaLoc129DC {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn hitpoint_display_art_dma_loop_loc_12C34() -> JuggernautSkullArtDmaLoc129DC {
     // ASM loc_12C34 (kid.asm:25414-25416): `sub_12C24` writes
     // `vdpComm($45A0,VRAM,WRITE)` to the VDP control port, points `a1` at
@@ -350,7 +341,7 @@ pub fn hitpoint_display_art_dma_loop_loc_12C34() -> JuggernautSkullArtDmaLoc129D
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn block_mapping_or_mask_loc_11D42(high_priority_flag: bool) -> u32 {
     // ASM loc_11D0C -> loc_11D42 (kid.asm:23917-23923) clears `d1`, tests
     // `($FFFFF896).w`, and only loads `$80008000` into `d1` when that byte is
@@ -358,7 +349,7 @@ pub fn block_mapping_or_mask_loc_11D42(high_priority_flag: bool) -> u32 {
     if high_priority_flag { 0x8000_8000 } else { 0 }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn copy_block_mappings_loc_11D46(source_longwords: &[u32], or_mask: u32) -> Vec<u32> {
     // ASM loc_11D42/loc_11D46 (kid.asm:23923-23928) seeds `d0` with `$A1`, so
     // `dbf d0,loc_11D46` copies exactly `$A2` longwords from `(a1)+` to
@@ -438,7 +429,7 @@ pub struct SharedVramArtDecompressLoc11EFA {
     pub art_source: SharedVramArtSourceLoc11EFA,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn foreground_art_decompress_loc_11E48_11E60(
     foreground_theme: u16,
 ) -> ForegroundArtDecompressLoc11E60 {
@@ -456,7 +447,7 @@ pub fn foreground_art_decompress_loc_11E48_11E60(
     prepare_foreground_art_decompress_loc_11E60(selected)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn background_art_decompress_loc_11E8A_11EA2(
     background_theme: u16,
 ) -> BackgroundArtDecompressLoc11EA2 {
@@ -470,7 +461,7 @@ pub fn background_art_decompress_loc_11E8A_11EA2(
     prepare_background_art_decompress_loc_11EA2(selected)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn background_followup_art_decompress_loc_11EA2_11EF2(
     background_theme: u16,
     level_special_effects: u16,
@@ -494,7 +485,7 @@ pub fn background_followup_art_decompress_loc_11EA2_11EF2(
     ))
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn select_foreground_art_permutation_loc_11E48(
     foreground_theme: u16,
     selected_permutation: ForegroundArtPermutationLoc11E48,
@@ -511,7 +502,7 @@ pub fn select_foreground_art_permutation_loc_11E48(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn select_foreground_art_permutation_loc_11E54(
     foreground_theme: u16,
     selected_permutation: ForegroundArtPermutationLoc11E48,
@@ -528,7 +519,7 @@ pub fn select_foreground_art_permutation_loc_11E54(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn select_background_art_permutation_loc_11E8A(
     background_theme: u16,
     selected_permutation: BackgroundArtPermutationLoc11E8A,
@@ -545,7 +536,7 @@ pub fn select_background_art_permutation_loc_11E8A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn select_background_art_permutation_loc_11E96(
     background_theme: u16,
     selected_permutation: BackgroundArtPermutationLoc11E8A,
@@ -565,7 +556,7 @@ pub fn select_background_art_permutation_loc_11E96(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn prepare_background_art_decompress_loc_11EA2(
     selected_permutation: BackgroundArtPermutationLoc11E8A,
 ) -> BackgroundArtDecompressLoc11EA2 {
@@ -578,7 +569,7 @@ pub fn prepare_background_art_decompress_loc_11EA2(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn prepare_mountain_background_art_loc_11EC4(
     background_theme: u16,
 ) -> Option<BackgroundFollowupArtDecompressLoc11EC4> {
@@ -596,7 +587,7 @@ pub fn prepare_mountain_background_art_loc_11EC4(
     )
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn apply_mountain_weather_override_loc_11EEA(
     level_special_effects: u16,
     selected_decompress: BackgroundFollowupArtDecompressLoc11EC4,
@@ -622,7 +613,7 @@ pub fn apply_mountain_weather_override_loc_11EEA(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn prepare_followup_background_art_decompress_loc_11EF2(
     selected_decompress: BackgroundFollowupArtDecompressLoc11EC4,
 ) -> BackgroundFollowupArtDecompressLoc11EF2 {
@@ -637,7 +628,7 @@ pub fn prepare_followup_background_art_decompress_loc_11EF2(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn shared_vram_art_decompresses_loc_11EFA() -> [SharedVramArtDecompressLoc11EFA; 2] {
     // ASM loc_11EFA (kid.asm:24108-24115): after the background setup, the
     // shared tail always decompresses the block art to VRAM `$4400` and the
@@ -661,7 +652,7 @@ pub struct ForegroundArtDecompressLoc11E60 {
     pub permutation: ForegroundArtPermutationLoc11E48,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn prepare_foreground_art_decompress_loc_11E60(
     selected_permutation: ForegroundArtPermutationLoc11E48,
 ) -> ForegroundArtDecompressLoc11E60 {
@@ -968,7 +959,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_11D46_copies_block_mappings_with_priority_or_mask() {
         let mut source = vec![0x0000_0001; 0xA2];
         source[0] = 0x8000_0001;

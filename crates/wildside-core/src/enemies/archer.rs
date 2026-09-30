@@ -49,7 +49,7 @@ pub(crate) enum ArcherShootingTableLoc3419A {
     Vertical,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn archer_opening_angle_loc_3419A(
     table: ArcherShootingTableLoc3419A,
     facing: Direction,
@@ -75,7 +75,7 @@ pub(crate) struct ArcherShotSelectionLoc340C0 {
     pub(crate) uses_vertical_table: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn archer_shot_selection_loc_340C0(target_angle: usize) -> ArcherShotSelectionLoc340C0 {
     // ASM Archer.asm loc_3408C/loc_340C0: start on Shooting_Vertical with
     // x_direction clear, then `cmpi #6`, `cmpi #$D`, and `cmpi #$14` divide the
@@ -104,7 +104,7 @@ pub(crate) struct ArcherArrowSetupLoc341AA {
     pub(crate) held_arrow_facing: Direction,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn archer_arrow_setup_loc_341AA(
     opening_angle: usize,
     archer_facing: Direction,
@@ -139,7 +139,7 @@ pub(crate) enum ArcherShootingEntryLoc341BE {
     },
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn archer_shooting_entry_loc_341BE(
     table_frame_delay: i16,
 ) -> ArcherShootingEntryLoc341BE {
@@ -166,7 +166,6 @@ pub(crate) struct ArcherArrowDeleteLoc34336 {
     pub(crate) deletes_current_object: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn archer_arrow_delete_loc_34336(number_of_arrows: u16) -> ArcherArrowDeleteLoc34336 {
     // ASM Archer.asm loc_34336: `subq.w #1,(Number_of_Arrows).w`, then jump to
     // j_Delete_CurrentObject. Native stores the same live-arrow count as the
@@ -184,7 +183,6 @@ pub(crate) struct ArcherPoseFrameLoc34222 {
     pub(crate) y_offset_px: i16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn archer_pose_frame_loc_34222(
     held_arrow_sprite_offset: u16,
     table_x_offset_px: i16,
@@ -211,7 +209,6 @@ pub(crate) struct ArcherHeldArrowPositionLoc34234 {
     pub(crate) y_pos_word: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn archer_held_arrow_position_loc_34234(
     archer_x_pos: u32,
     archer_y_pos: u32,
@@ -239,7 +236,6 @@ pub(crate) struct ArcherRespawnMarkerLoc34188 {
     pub(crate) word_value: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn archer_respawn_marker_loc_34188(
     object_status_slot: u8,
 ) -> ArcherRespawnMarkerLoc34188 {
@@ -260,7 +256,7 @@ pub(crate) struct ArcherDeathSequenceLoc3414A {
     pub(crate) deletes_current_object: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn archer_death_sequence_loc_3414A(
     object_status_slot: u8,
 ) -> ArcherDeathSequenceLoc3414A {
@@ -420,7 +416,7 @@ pub(crate) struct ArcherReaimLoc3432E {
     pub(crate) y_velocity: i32,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn archer_reaim_loc_3432E(current_angle: u8, target_angle: u8) -> ArcherReaimLoc3432E {
     // ASM Archer.asm loc_3432E: after loc_34308/loc_34320 adjust d2 by one
     // circular angle step, copy d2 to d6 and rerun

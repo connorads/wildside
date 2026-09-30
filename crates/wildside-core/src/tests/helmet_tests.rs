@@ -4515,7 +4515,7 @@ mod chunk_08 {
     /// counter crosses the threshold; `finish_demo_auto_timeout_return` executes
     /// the title-return on the following frame.
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn loc_C0A_demo_auto_ends_after_max_frames() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.current_level = LevelId(demo::DEMO_1_LEVEL);

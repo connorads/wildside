@@ -1129,7 +1129,6 @@ pub(crate) struct NinjaCollisionStateLoc3D670 {
     pub(crate) hibernates_until_animation_finished: bool,
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn ninja_collision_block_animation_loc_3d670(
     block_timer: u16,
     wall_pinned: bool,

@@ -70,6 +70,9 @@ float-cmp                 = "allow"   # fixed-point comparisons
 used-underscore-binding            = "allow"
 # Every workspace-level allow triggers this lint; noise
 allow-attributes-without-reason    = "allow"
+# Forces #[expect] over #[allow], so a suppression that stops firing fails the
+# build instead of lingering.
+allow-attributes                   = "warn"
 # Game engine APIs with multiple independent bool flags
 fn-params-excessive-bools          = "allow"
 

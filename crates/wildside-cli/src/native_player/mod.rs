@@ -415,7 +415,6 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
 
     let mut runtime = initialise_runtime(manifest, &session_assets, options);
     let mut trace = runtime.trace_frame();
-    #[allow(unused_assignments)]
     let mut prev_trace = trace.clone();
     let mut debug_overlay_visible = options.debug_overlay;
     let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];

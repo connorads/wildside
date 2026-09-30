@@ -1315,7 +1315,7 @@ pub fn apply_gems_enigma_decoder(
 
 /// Clock one source-ordered ASM `EniDec` call while sampling a raster instant.
 #[cfg(feature = "audio")]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn apply_gems_enigma_decoder_with_checkpoint(
     audio: &mut GemsMasterClockTimingEngine,
     entry: LoadInGameCpuRasterCursor,

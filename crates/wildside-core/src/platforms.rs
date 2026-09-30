@@ -16,7 +16,7 @@ pub(crate) fn platform_script_relative_offset_loc_2836(offset: u16) -> u16 {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn execute_scripted_platforms_sub_23EA(
     platforms: &mut [ActivePlatform],
     script_table: &wildside_data::PlatformScriptTable,
@@ -119,7 +119,6 @@ pub(crate) struct VerticalPushMagnitudeLoc266A {
     pub(crate) magnitude_word: u16,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn platform_collision_return_loc_2720(
     collision_type_word: u16,
 ) -> PlatformCollisionReturnLoc2720 {
@@ -132,7 +131,7 @@ pub(crate) fn platform_collision_return_loc_2720(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn horizontal_overlap_resolution_loc_25EE(
     platform_left_px: i16,
     platform_right_px: i16,
@@ -162,7 +161,6 @@ pub(crate) fn horizontal_overlap_resolution_loc_25EE(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn horizontal_overlap_right_exit_loc_2616(
     platform_right_px: i16,
     player_left_px: i16,
@@ -177,7 +175,7 @@ pub(crate) fn horizontal_overlap_right_exit_loc_2616(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn vertical_overlap_top_exit_loc_261E(
     platform_top_px: i16,
     player_bottom_px: i16,
@@ -192,7 +190,6 @@ pub(crate) fn vertical_overlap_top_exit_loc_261E(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn vertical_overlap_resolution_loc_2632(
     platform_top_px: i16,
     platform_bottom_px: i16,
@@ -221,7 +218,7 @@ pub(crate) fn vertical_overlap_resolution_loc_2632(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn vertical_overlap_bottom_exit_loc_265A(
     platform_bottom_px: i16,
     player_top_px: i16,
@@ -236,7 +233,7 @@ pub(crate) fn vertical_overlap_bottom_exit_loc_265A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn vertical_push_magnitude_loc_266A(push_y_px: i16) -> VerticalPushMagnitudeLoc266A {
     // ASM loc_266A (kid.asm:4571): copy `d6` into `d4`, and when the signed
     // push is negative run `neg.w d4`. Returning the raw 16-bit word keeps the
@@ -260,7 +257,6 @@ pub(crate) struct HorizontalPlatformPushLoc2686 {
     pub(crate) takes_negative_branch: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn apply_horizontal_platform_push_loc_2686(
     kid_hitbox_left_px: i16,
     kid_hitbox_right_px: i16,
@@ -285,7 +281,7 @@ pub(crate) struct PositivePlatformCarryLoc26A2 {
     pub(crate) escalates_to_loc_271_a: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn positive_platform_carry_loc_26A2(
     platform_x_velocity_fp: i32,
     left_wall_already_touched: bool,
@@ -333,7 +329,7 @@ pub(crate) struct BottomPlatformCarryLoc26FE {
     pub(crate) escalates_to_loc_271_a: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn negative_platform_carry_loc_26B6(
     platform_x_velocity_fp: i32,
     right_wall_already_touched: bool,
@@ -349,7 +345,7 @@ pub(crate) fn negative_platform_carry_loc_26B6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn negative_platform_carry_commit_loc_26C0(
     carried_x_velocity_fp: i32,
     right_wall_already_touched: bool,
@@ -364,7 +360,7 @@ pub(crate) fn negative_platform_carry_commit_loc_26C0(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn platform_landing_loc_26D4(
     kid_hitbox_top_px: i16,
     kid_hitbox_bottom_px: i16,
@@ -389,7 +385,7 @@ pub(crate) fn platform_landing_loc_26D4(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn bottom_platform_carry_loc_26FE(
     platform_y_velocity_fp: i32,
     character_movement_is_jump: bool,
@@ -413,7 +409,7 @@ pub(crate) struct InitializePlatformsSub231C {
     pub(crate) slot_next_addrs: [u16; PLATFORM_SLOT_CAPACITY_LOC_231C],
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn initialize_platform_slots_sub_231C() -> InitializePlatformsSub231C {
     // ASM Initialize_Platforms/sub_231C (kid.asm:4167-4178): seed
     // Addr_NextFreePlatformSlot with $EDBA, link 17 Platform_RAM slots by
@@ -441,7 +437,7 @@ pub(crate) struct PlatformSlotPoolLoc231C {
     slot_next_addrs: [u16; PLATFORM_SLOT_CAPACITY_LOC_231C],
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 impl PlatformSlotPoolLoc231C {
     pub(crate) fn initialize_sub_231C() -> Self {
         let init = initialize_platform_slots_sub_231C();
@@ -561,7 +557,7 @@ pub(crate) struct PlatformLoaderSlotModelLoc2744 {
     slot_deactivated_flags: [u8; PLATFORM_SLOT_CAPACITY_LOC_231C],
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 impl PlatformLoaderSlotModelLoc2744 {
     pub(crate) fn initialize_sub_231C() -> Self {
         Self {
@@ -591,7 +587,7 @@ impl PlatformLoaderSlotModelLoc2744 {
             .fold(0, |mask, bit| mask | bit)
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn deallocate_layout_offset_sub_23B4(
         &mut self,
         layout_offset_words: u16,
@@ -802,7 +798,7 @@ pub(crate) enum AllocatePlatformSlotResultSub238E {
     NoFreeSlot { failure_label: &'static str },
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn allocate_platform_slot_sub_238E(
     next_free_platform_slot_addr: u16,
     allocated_slot_next_addr: u16,
@@ -839,7 +835,7 @@ pub(crate) enum DeallocatePlatformSlotResultSub23B4 {
     MissingSlot { failure_label: &'static str },
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn deallocate_platform_slot_sub_23B4(
     active_links: &mut [PlatformSlotLinkSub23B4],
     first_platform_slot_addr: &mut u16,
@@ -886,14 +882,13 @@ pub(crate) fn deallocate_platform_slot_sub_23B4(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn find_active_platform_miss_loc_2740() -> Option<usize> {
     // ASM loc_2740 (kid.asm:4662): once the active platform-slot walk reaches
     // a zero link, `moveq #0,d7; rts` reports "no matching slot".
     None
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn resolve_duplicate_platform_load_loc_286A(
     existing_platform_kind: u8,
 ) -> DuplicatePlatformResolutionLoc286A {
@@ -909,7 +904,7 @@ pub(crate) fn resolve_duplicate_platform_load_loc_286A(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn advance_platform_loader_offset_loc_286E(platform_loader_offset: u16) -> u16 {
     // ASM loc_286E (kid.asm:4785): every exit path from
     // `Manage_PlatformLoading` advances `(PlatformLoader_Offset).w` by one
@@ -925,7 +920,6 @@ pub(crate) struct PlatformLoaderCursorStepLoc2744 {
     pub(crate) wrapped_to_start: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn platform_loader_cursor_step_loc_2744(
     layout_len: usize,
     platform_loader_offset: u16,
@@ -1012,7 +1006,7 @@ pub(crate) fn platform_loader_work_loc_2744(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn platform_loader_offset_for_index_loc_286E(layout_index: usize) -> u16 {
     // ASM loc_286E (kid.asm:4785): each processed platform-layout record is
     // 12 bytes, and the ROM stamps the current `(PlatformLoader_Offset).w` into
@@ -1022,7 +1016,6 @@ pub(crate) fn platform_loader_offset_for_index_loc_286E(layout_index: usize) -> 
     })
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn platform_layout_coord_px_loc_2762(layout_coord: u16) -> u32 {
     // ASM loc_2762/Manage_PlatformLoading (kid.asm:4717): the `ptfm` x/y
     // words are 16 px block coordinates; the ROM shifts them left four bits
@@ -1030,12 +1023,10 @@ pub(crate) fn platform_layout_coord_px_loc_2762(layout_coord: u16) -> u32 {
     u32::from(layout_coord) << 4
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn platform_layout_coord_fixed_loc_2762(layout_coord: u16) -> u32 {
     platform_layout_coord_px_loc_2762(layout_coord) << 16
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn platform_chain_y_velocity_loc_436e(
     segment_index: u8,
     phase: PlatformChainPhase,
@@ -1058,7 +1049,7 @@ pub(crate) fn platform_chain_y_velocity_loc_436e(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn expand_platform_chain_segments_loc_428C(
     platforms: &mut Vec<ActivePlatform>,
     previous_platforms: &[ActivePlatform],
@@ -1129,7 +1120,7 @@ pub(crate) fn platform_size_words_loc_2814(kind: u8, h_variant: u8, v_variant: u
     let mut height_px = u16::from(v_variant) * 16 + 15;
     // `kind & 0x7F` isolates the platform type (low 7 bits) from the high flag
     // bit, mirroring the ASM; trailing_zeros would obscure that intent.
-    #[allow(clippy::verbose_bit_mask)]
+    #[expect(clippy::verbose_bit_mask)]
     if kind & 0x7F == 0 {
         height_px = height_px.saturating_sub(2);
     }
@@ -1154,7 +1145,6 @@ pub(crate) fn platform_mapping_addr_word_loc_2822(render_flags: u8) -> u16 {
     }
 }
 
-#[allow(non_snake_case)]
 fn platform_buffer_edge_px_loc_2762(buffer_edge: u8) -> u32 {
     // ASM loc_2762 (kid.asm:4690): activation-buffer bytes are absolute edges
     // in 32 px units, loaded into `d7` and shifted left five bits before the
@@ -1162,7 +1152,6 @@ fn platform_buffer_edge_px_loc_2762(buffer_edge: u8) -> u32 {
     u32::from(buffer_edge) << 5
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn find_active_platform_by_layout_offset_sub_2728(
     layout_offset_words: u16,
     active_platforms: &[ActivePlatformHandleSub2728],
@@ -1180,7 +1169,7 @@ pub(crate) fn find_active_platform_by_layout_offset_sub_2728(
     find_active_platform_miss_loc_2740()
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn begin_platform_collision_loc_257E(
     kid_gfx_object_addr: u32,
 ) -> PlatformCollisionEntryLoc257E {
@@ -1196,7 +1185,6 @@ pub(crate) fn begin_platform_collision_loc_257E(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn load_player_hitbox_loc_2590(
     left: i16,
     right: i16,
@@ -1215,14 +1203,14 @@ pub(crate) fn load_player_hitbox_loc_2590(
 }
 
 impl PlatformLoaderState {
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn number_platforms_loc_231C(self) -> u16 {
         self.loaded_mask
             .count_ones()
             .min(PLATFORM_SLOT_CAPACITY_LOC_231C as u32) as u16
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn synthetic_slot_addr_loc_231C(index: usize) -> Option<u16> {
         if index >= PLATFORM_SLOT_CAPACITY_LOC_231C {
             return None;
@@ -1238,7 +1226,7 @@ impl PlatformLoaderState {
         self.sync_slot_model_facade_loc_2744();
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn deallocate_layout_offset_sub_23B4(
         &mut self,
         layout_offset_words: u16,
@@ -1252,12 +1240,12 @@ impl PlatformLoaderState {
         result
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn next_free_platform_slot_addr_loc_231C(&self) -> u16 {
         self.slot_model.pool.next_free_platform_slot_addr()
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn active_slot_next_links_loc_231C(&self) -> Vec<(u16, u16)> {
         self.slot_model
             .active_slot_records_loc_2728()
@@ -1402,7 +1390,7 @@ pub(crate) fn runtime_active_platforms_loc_2762(
     active_platforms
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn runtime_active_platforms_from_loader_loc_257E(
     layout: &PlatformLayout,
     loader: PlatformLoaderState,
@@ -1559,7 +1547,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
     .outcome
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
     slice: &mut OpeningSliceState,
     platforms: &[ActivePlatform],
@@ -1886,7 +1874,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
     PlatformCollisionResultLoc257E::return_via_loc_2720(PlatformCollisionOutcome::None, scratch)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn standing_platform_index_loc_8ED0(
     platforms: &[ActivePlatform],
     standing_platform_addr: Option<u16>,
@@ -1909,7 +1897,6 @@ pub(crate) fn standing_platform_index_loc_8ED0(
     .then_some(platform_index)
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn remap_standing_platform_addr_by_layout_index_loc_2850(
     standing_platform_addr: Option<u16>,
     before: &[ActivePlatform],
@@ -1927,7 +1914,7 @@ pub(crate) fn remap_standing_platform_addr_by_layout_index_loc_2850(
         .and_then(|platform| platform.slot_addr)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn platform_index_by_slot_addr_loc_257E(
     platforms: &[ActivePlatform],
     slot_addr: u16,
@@ -1937,7 +1924,7 @@ pub(crate) fn platform_index_by_slot_addr_loc_257E(
         .position(|platform| platform.slot_addr == Some(slot_addr))
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn platform_support_check_sub_8ED0(
     platform: Option<&ActivePlatform>,
     player_x_pos: u32,
@@ -1986,7 +1973,7 @@ pub(crate) fn platform_support_check_sub_8ED0(
         || player_x_px - support_half_width_px > platform_right_px
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn crawl_standup_platform_overhead_sub_DAA6(
     platforms: &[ActivePlatform],
     player_x_pos: u32,
@@ -2049,7 +2036,7 @@ pub struct PlatformSpriteDispatchLoc244C {
     pub variant: PlatformSpriteVariantLoc244C,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn platform_sprite_dispatch_loc_244C(
     input: PlatformSpriteDispatchInputLoc244C,
 ) -> Option<PlatformSpriteDispatchLoc244C> {
@@ -2109,7 +2096,6 @@ pub struct PlatformSpriteEmitLoc2548 {
     pub next_number_sprites: u8,
 }
 
-#[allow(non_snake_case)]
 pub fn emit_platform_sprite_loc_2548(
     screen_x_word: i16,
     screen_y_word: i16,
@@ -2135,7 +2121,7 @@ pub fn emit_platform_sprite_loc_2548(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn finish_platform_sprite_list_loc_256E(next_sprite_slot_addr: u32) -> u32 {
     // ASM loc_256E (kid.asm:4456): `move.l a0,(Addr_NextSpriteSlot).w; rts`.
     // `a0` already points at the first free 8-byte sprite slot after the
@@ -2143,7 +2129,7 @@ pub fn finish_platform_sprite_list_loc_256E(next_sprite_slot_addr: u32) -> u32 {
     next_sprite_slot_addr
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn platform_single_sprite_loc_24C0(
     dispatch: PlatformSpriteDispatchLoc244C,
     number_sprites: u8,
@@ -2165,7 +2151,7 @@ pub struct PlatformSpriteStripLoc24CC {
     pub next_number_sprites: u8,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn platform_strip_sprites_loc_24CC(
     dispatch: PlatformSpriteDispatchLoc244C,
     number_sprites: u8,
@@ -2204,7 +2190,7 @@ pub struct PlatformSpriteStripLoc24F0 {
     pub next_number_sprites: u8,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn platform_strip_sprites_loc_24F0(
     dispatch: PlatformSpriteDispatchLoc244C,
     number_sprites: u8,
@@ -2266,7 +2252,7 @@ pub fn platform_strip_sprites_loc_24F0(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn platform_strip_sprites_loc_251C(
     dispatch: PlatformSpriteDispatchLoc244C,
     number_sprites: u8,
@@ -2344,7 +2330,6 @@ pub(crate) enum SoftPlatformSettledActionLoc4160 {
 /// its original y position and clears velocity, this state hibernates one
 /// frame per iteration and checks whether Kid is still standing on this
 /// specific platform.
-#[allow(non_snake_case)]
 pub(crate) fn soft_platform_settled_step_loc_4160(
     platform_standing_on: u16,
     this_platform_addr: u16,
@@ -2362,7 +2347,7 @@ pub(crate) fn soft_platform_settled_step_loc_4160(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn soft_platform_launch_velocity_loc_40E2(
     kid_y_velocity: i32,
     current_form: PlayerForm,
@@ -2377,7 +2362,6 @@ pub(crate) fn soft_platform_launch_velocity_loc_40E2(
     }
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn soft_platform_next_bounce_velocity_loc_4140(y_velocity: i32) -> i32 {
     // ASM SoftPlatform_BounceLoop loc_4140 (kid.asm:5225): after moving the
     // platform, subtract `$7000` from y velocity and clamp upward speed at
@@ -2385,7 +2369,6 @@ pub(crate) fn soft_platform_next_bounce_velocity_loc_4140(y_velocity: i32) -> i3
     (y_velocity - 0x7000).max(-0x1_8000)
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn trap_platform_down_launch_velocity_loc_4182(kid_y_velocity: i32) -> i32 {
     // ASM TrapPlatformDown_WaitLoop loc_4182 (kid.asm:5279): when Kid stands
     // on this platform, `asr.l #2,d1` divides the sampled Kid y velocity by 4
@@ -2401,7 +2384,6 @@ pub(crate) struct TrapPlatformDownMoveStepLoc4182 {
     pub(crate) continue_moving: bool,
 }
 
-#[allow(non_snake_case)]
 pub(crate) fn trap_platform_down_move_step_loc_4182(
     y_velocity: i32,
     platform_y_px: i16,
@@ -2425,7 +2407,7 @@ pub(crate) fn trap_platform_down_move_step_loc_4182(
 }
 
 impl ActivePlatform {
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn trigger_soft_platform_bounce_loc_40E2(
         &mut self,
         kid_y_velocity: i32,
@@ -2441,7 +2423,7 @@ impl ActivePlatform {
         state.phase = SoftPlatformPhase::Bounce;
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn trigger_special_platform_standing_loc_40D2(
         &mut self,
         kid_y_velocity: i32,
@@ -2466,7 +2448,7 @@ impl ActivePlatform {
         }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub(crate) fn step_special_platform_loc_40D2(
         &mut self,
         kid_standing_on_this_platform: bool,
@@ -2610,7 +2592,7 @@ pub(crate) enum TrapPlatformDownPostFallActionLoc41EE {
 /// (platform Y - Kid screen Y >= $E0), velocity is cleared and the sub-pixel
 /// field set to $800. This loop hibernates each frame and polls the
 /// deactivation flag at `$12(a3)`.
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn trap_platform_down_post_fall_step_loc_41EE(
     deactivated_flag: u8,
 ) -> TrapPlatformDownPostFallActionLoc41EE {
@@ -2638,7 +2620,6 @@ pub(crate) struct TrapPlatformUpMoveStepLoc4230 {
 /// velocity to the platform position (`TrapPlatformUp_Move`), this routine
 /// decelerates upward velocity by $4000 per frame (clamped to -$40000) and
 /// checks whether the platform has risen far enough above Kid to exit.
-#[allow(non_snake_case)]
 pub(crate) fn trap_platform_up_move_step_loc_4230(
     y_velocity: i32,
     platform_y_px: i16,
@@ -2678,7 +2659,6 @@ pub(crate) enum TrapPlatformUpPostRiseActionLoc4270 {
 /// above Kid (platform Y - Kid Y <= -$E0), velocity is cleared and the
 /// sub-pixel field set to $800. This loop hibernates each frame and polls
 /// the deactivation flag at `$12(a3)`.
-#[allow(non_snake_case)]
 pub(crate) fn trap_platform_up_post_rise_step_loc_4270(
     deactivated_flag: u8,
 ) -> TrapPlatformUpPostRiseActionLoc4270 {

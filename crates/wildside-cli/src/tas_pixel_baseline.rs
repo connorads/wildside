@@ -683,7 +683,7 @@ mod tests {
         }
     }
 
-    #[allow(clippy::unnecessary_wraps)] // fixtures assign into an Option field
+    #[expect(clippy::unnecessary_wraps)] // fixtures assign into an Option field
     fn regions(entries: &[(&str, u64, u64)]) -> Option<BTreeMap<String, RegionBaseline>> {
         Some(
             entries

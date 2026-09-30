@@ -203,7 +203,6 @@ pub use weather::{
     lava_geyser_is_inside_camera_window_loc_147D6, lava_geyser_sprite_chunks_loc_14BE8,
 };
 
-#[allow(non_snake_case)]
 fn heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
     anchor_x: u16,
     anchor_y: u16,
@@ -241,7 +240,6 @@ fn heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
     slots
 }
 
-#[allow(non_snake_case)]
 fn heady_metal_cached_workers_sub_37708_from_anchor_loc_39247(
     anchor_x: u16,
     anchor_y: u16,
@@ -709,15 +707,12 @@ pub struct NativeRuntime {
     vdp_state: Option<vdp::VdpState>,
     /// ASM sub_914 / sub_924 nest counter at `$FFFFF805`: active Z80 stop
     /// requests. Zero means the Z80 bus may run; non-zero keeps it halted.
-    #[allow(dead_code)]
     z80_stop_request_depth: u8,
     /// ASM sub_914 / sub_924 writes SR directly before stopping/starting the
     /// Z80 so later gameplay code can observe the current interrupt mask.
-    #[allow(dead_code)]
     z80_guard_sr: u16,
     /// Native mirror of the Z80 run state toggled by ASM `j_Stop_z80` /
     /// `j_Start_z80`.
-    #[allow(dead_code)]
     z80_running: bool,
     /// ASM OptionScreen_Input `Option_2PInput`: false = one controller, true = two.
     ///
@@ -1232,7 +1227,7 @@ pub(crate) struct PlaneClearWordFillLoc16B6 {
     pub(crate) words: Vec<u16>,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn plane_clear_word_fill_loc_16B6(
     target_addr: u32,
@@ -1250,7 +1245,7 @@ pub(crate) fn plane_clear_word_fill_loc_16B6(
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn plane_clear_word_fill_loc_16C8(
     target_addr: u32,
@@ -1264,7 +1259,7 @@ pub(crate) fn plane_clear_word_fill_loc_16C8(
     plane_clear_word_fill_loc_16B6(target_addr, source_word, dbf_seed)
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn plane_clear_word_fill_loc_16E0(
     target_addr: u32,
@@ -2495,8 +2490,6 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(non_snake_case)]
-    #[allow(dead_code)]
     fn stop_z80_guard_sub_914(&mut self) {
         // ASM sub_914 (kid.asm:1027): increment `$FFFFF805`, raise SR to
         // `$2700`, then call `j_Stop_z80` unconditionally. Nested callers keep
@@ -2506,8 +2499,7 @@ impl NativeRuntime {
         self.z80_running = false;
     }
 
-    #[allow(non_snake_case)]
-    #[allow(dead_code)]
+    #[cfg_attr(not(test), expect(dead_code))]
     fn prepare_plane_clear_pass_loc_1698(&mut self) -> PlaneClearPassSetupLoc1698 {
         self.stop_z80_guard_sub_914();
         // ASM loc_1698 (kid.asm:2803): after `j_sub_914`, the ROM targets
@@ -2520,7 +2512,7 @@ impl NativeRuntime {
         }
     }
 
-    #[allow(dead_code)]
+    #[cfg_attr(not(test), expect(dead_code))]
     fn start_z80_guard_sub_924(&mut self) {
         // ASM sub_924 (kid.asm:1038): decrement the shared byte, branch on a
         // signed `bgt` if nested stops remain, otherwise clear the byte,
@@ -4230,7 +4222,7 @@ impl NativeRuntime {
         // Two distinct ASM pause routines (loc_6b46 restart-round, loc_6c0a
         // last-life give-up) both suppress the toggle; kept as separate arms to
         // document that each ROM mechanism independently gates it.
-        #[allow(clippy::if_same_then_else)]
+        #[expect(clippy::if_same_then_else)]
         let normal_pause_continue_frame = if self.pending_pause_restart_round.is_some() {
             self.pause_toggle_pending = false;
             false
@@ -5698,7 +5690,7 @@ impl NativeRuntime {
             }
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn queue_jump_sound_from_probe_loc_A480(&mut self) {
         let Some(probe) = self.last_kid_frame_jump_gravity_probe else {
             return;
@@ -7332,7 +7324,7 @@ impl NativeRuntime {
         self.opening_slice = Some(slice);
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn exit_iron_knight_climb_on_platform_landing_loc_A9AA(
         &mut self,
         player_before_platform_collision: PlayerState,
@@ -7362,7 +7354,7 @@ impl NativeRuntime {
         self.helmet.iron_knight_climb_pose_accum = 0;
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn trigger_standing_special_platform_loc_40D2(
         &mut self,
         slice: &OpeningSliceState,
@@ -7388,7 +7380,7 @@ impl NativeRuntime {
     }
 
     #[cfg(test)]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn trigger_standing_soft_platform_bounce_loc_40E2(
         &mut self,
         slice: &OpeningSliceState,
@@ -7424,5 +7416,5 @@ impl NativeRuntime {
 }
 
 #[cfg(test)]
-#[allow(clippy::assertions_on_constants)]
+#[expect(clippy::assertions_on_constants)]
 mod tests;

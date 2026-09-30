@@ -349,7 +349,7 @@ pub(crate) fn ufo_on_screen_gate_loc_35008(
     (off_screen.number_ufos_on_screen, latch, sound)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(crate) fn ufo_tracking_command_loc_34e2a(
     ufo_x_pos: u32,
     ufo_y_pos: u32,
@@ -1668,7 +1668,7 @@ pub(crate) struct UfoHurtDriverStopTailLoc357C2 {
     pub(crate) waits_for_animation_before_delete: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn ufo_hurt_driver_stop_tail_loc_357C2(
     init_animation_result: i16,
@@ -1693,7 +1693,7 @@ pub(crate) struct UfoHurtDriverDeleteTailLoc357E2 {
     pub(crate) deletes_current_object: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn ufo_hurt_driver_delete_tail_loc_357E2() -> UfoHurtDriverDeleteTailLoc357E2 {
     // ASM UFO.asm loc_357E2: jump directly through `j_Delete_CurrentObject`;
@@ -1712,7 +1712,7 @@ pub(crate) struct UfoHurtDriverFallingLoopLoc357E6 {
     pub(crate) next_label: &'static str,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn ufo_hurt_driver_falling_loop_loc_357E6(
     y_velocity: i32,
@@ -1740,7 +1740,7 @@ pub(crate) struct UfoHurtDriverFallTurnaroundLoc357FA {
     pub(crate) x_direction: u8,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn ufo_hurt_driver_fall_turnaround_loc_357FA(
     x_velocity: i32,
@@ -1786,7 +1786,7 @@ pub(crate) struct UfoHurtDriverFloorLandingLoc3581E {
     pub(crate) slide_seed: UfoHurtDriverSlideSeedLoc3566C,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[cfg(test)]
 pub(crate) fn ufo_hurt_driver_floor_landing_loc_3581E(
     y_pos: u32,

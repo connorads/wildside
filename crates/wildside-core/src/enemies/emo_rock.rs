@@ -418,7 +418,7 @@ pub(crate) struct EmoRockDeathStatusLoc3639A {
     pub(crate) deletes_current_object: bool,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub(crate) fn emo_rock_death_status_loc_3639A(
     object_status_slot: u8,
 ) -> EmoRockDeathStatusLoc3639A {
@@ -1017,7 +1017,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn emo_rock_death_status_loc_3639A_deletes_after_every_status_route() {
         let positive = emo_rock_death_status_loc_3639A(0x05);
         assert_eq!(
