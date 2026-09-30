@@ -36,7 +36,7 @@ use enemies::*;
 use physics::{Direction, HorizontalInput, LevelBounds};
 use platforms::*;
 pub use scenario::{
-    ScriptRunner, run_script, run_script_with_direct_initial_title_card_handoff,
+    BootOptions, ScriptRunner, run_script, run_script_with_direct_initial_title_card_handoff,
     run_script_with_direct_title_card_handoff, run_script_with_physics_order,
     run_script_with_settled_warp, run_script_with_trace, run_script_with_warp,
 };

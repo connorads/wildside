@@ -9,7 +9,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use wildside_core::{FrameInput, LevelId, NativeRuntime, NativeTraceFrame};
+use wildside_core::{BootOptions, FrameInput, LevelId, NativeRuntime, NativeTraceFrame};
 use wildside_data::{AssetSource, BundleAssetSource, parse_manifest_with_source};
 use wildside_frame::{
     AudioSampleClock, FRAME_HEIGHT, FRAME_WIDTH, NativeAudioDirector, build_scene,
@@ -73,10 +73,10 @@ impl WebSession {
             manifest.clone(),
             source.clone(),
         );
-        runtime.set_recorded_title_card_handoff_delay(true);
-        if let Some(level) = level {
-            runtime.boot_to_level(LevelId(level));
-        }
+        runtime.boot(BootOptions {
+            recorded_title_card_handoff: true,
+            warp: level.map(LevelId),
+        });
 
         // Level 0 is the boot level when the attract flow runs; `step` reloads
         // visuals when the traced level changes (same default as

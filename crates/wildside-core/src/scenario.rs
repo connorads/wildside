@@ -194,7 +194,27 @@ fn should_restore_recorded_title_card_after_first_live(
     restore_after_first_live && game_mode == GameMode::InGame
 }
 
+/// How [`NativeRuntime::boot`] starts a session.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct BootOptions {
+    /// Use the oracle-recorded title-card hand-off timing, as the scenario
+    /// runner does, so a shell traces frame-for-frame with it.
+    pub recorded_title_card_handoff: bool,
+    /// Boot through the menus and warp to this level; `None` leaves the
+    /// runtime at power-on for the attract flow.
+    pub warp: Option<LevelId>,
+}
+
 impl NativeRuntime {
+    /// Production entry point for a shell: apply `options` to a freshly
+    /// constructed runtime, then drive it with [`step_frame`](Self::step_frame).
+    pub fn boot(&mut self, options: BootOptions) {
+        self.set_recorded_title_card_handoff_delay(options.recorded_title_card_handoff);
+        if let Some(level) = options.warp {
+            self.boot_to_level(level);
+        }
+    }
+
     /// Boot through menus to level 0, then advance to `target` using the
     /// level skip mechanism. Used by sweep infrastructure to reach any level
     /// without encoding warp buttons in the input script.
