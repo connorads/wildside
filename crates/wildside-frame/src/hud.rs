@@ -905,7 +905,7 @@ pub fn push_game_hud(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::{BTreeMap, HashMap};
+    use std::collections::BTreeMap;
     use wildside_core::{
         EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE, HudRasterUploadTimingSub44DC,
         HudTimerSpritePositionSubBD0A, NativeObjectKind, NativeObjectSnapshot,
@@ -1865,12 +1865,12 @@ mod tests {
                 ],
             },
             player: PlayerVisuals {
-                forms: HashMap::from([(0, sample_player_form_visuals())]),
+                forms: BTreeMap::from([(0, sample_player_form_visuals())]),
             },
             juggernaut_skull: None,
             enemies: EnemyVisuals {
-                families: HashMap::new(),
-                layout_palette_variants: HashMap::new(),
+                families: BTreeMap::new(),
+                layout_palette_variants: BTreeMap::new(),
             },
             floating_prizes: sample_floating_prize_visuals(),
             flag: FlagVisuals {
@@ -1928,8 +1928,8 @@ mod tests {
                 frames: vec![sample_sprite_frame(20); 4],
                 frame_duration: 1,
             },
-            helmets: HashMap::new(),
-            icons: HashMap::from([(
+            helmets: BTreeMap::new(),
+            icons: BTreeMap::from([(
                 0x0B,
                 AnimatedSpriteVisual {
                     palette: sample_palette(),

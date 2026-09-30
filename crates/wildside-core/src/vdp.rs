@@ -15568,7 +15568,7 @@ mod tests {
 
         let entries = title_text_word_writes_sub_1B7B6();
         assert_eq!(entries.len(), 55);
-        let mut expected_writes = std::collections::HashMap::new();
+        let mut expected_writes = std::collections::BTreeMap::new();
         for entry in &entries {
             let word_index = usize::from(
                 entry

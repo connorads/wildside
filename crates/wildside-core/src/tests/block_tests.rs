@@ -7163,7 +7163,7 @@ mod chunk_04 {
             },
             0,
             0x00E0_0000,
-            &HashSet::new(),
+            &BTreeSet::new(),
         );
         let skull = active.first_mut().expect("Big Hopping Skull should spawn");
         assert_eq!(skull.family, EnemyFamily::BigHoppingSkull);
@@ -7246,7 +7246,7 @@ mod chunk_04 {
             &mut rng,
             &mut drilled_blocks,
             Some(&mut sound_effects),
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
 
         assert_eq!(
@@ -7279,7 +7279,7 @@ mod chunk_04 {
             &mut rng,
             &mut drilled_blocks,
             Some(&mut sound_effects),
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
 
         assert_eq!(
@@ -10246,7 +10246,7 @@ mod chunk_04 {
             },
             200 << 16,
             100 << 16,
-            &HashSet::new(),
+            &BTreeSet::new(),
         );
         assert_eq!(active.len(), 3, "Shishkaboss should spawn 3 heads");
         assert_eq!(active[0].boss_head_index, 0);
@@ -10316,7 +10316,7 @@ mod chunk_04 {
             },
             200 << 16,
             100 << 16,
-            &HashSet::new(),
+            &BTreeSet::new(),
         );
         assert_eq!(active2.len(), 1);
         assert_eq!(active2[0].boss_head_index, BOSS_HEAD_NONE);
@@ -14026,7 +14026,7 @@ mod chunk_04 {
             },
             0x0060_0000,
             0x00E0_0000,
-            &HashSet::new(),
+            &BTreeSet::new(),
         );
 
         let orca = active.first().expect("Orca should activate from layout");
@@ -15023,7 +15023,7 @@ mod chunk_04 {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
 
         assert_eq!(
@@ -15052,7 +15052,7 @@ mod chunk_04 {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
 
         assert_eq!(

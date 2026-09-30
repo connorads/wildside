@@ -936,7 +936,7 @@ mod tests {
                 &mut rng,
                 &mut Vec::new(),
                 None,
-                &mut std::collections::HashMap::new(),
+                &mut std::collections::BTreeMap::new(),
             );
             // 28 eligible Gfx passes select C82F0 at frame 112; the next
             // eligible Object pass (116) consumes the default seed and shoots.
@@ -1122,7 +1122,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             Some(&mut sound_effects),
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
 
         assert_eq!(

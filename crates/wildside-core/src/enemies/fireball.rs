@@ -471,7 +471,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             Some(&mut sound_effects),
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
 
         assert_eq!(

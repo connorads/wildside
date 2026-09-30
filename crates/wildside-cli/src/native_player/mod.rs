@@ -6193,7 +6193,7 @@ mod tests {
     }
 
     fn sample_player_visuals() -> PlayerVisuals {
-        let mut forms = std::collections::HashMap::new();
+        let mut forms = std::collections::BTreeMap::new();
         forms.insert(
             0,
             PlayerFormVisuals {
@@ -7047,8 +7047,8 @@ mod tests {
     }
 
     fn sample_enemy_visuals() -> EnemyVisuals {
-        use std::collections::HashMap;
-        let mut families = HashMap::new();
+        use std::collections::BTreeMap;
+        let mut families = BTreeMap::new();
         families.insert(
             0x00,
             AnimatedSpriteVisual {
@@ -7721,19 +7721,19 @@ mod tests {
         );
         EnemyVisuals {
             families,
-            layout_palette_variants: HashMap::new(),
+            layout_palette_variants: BTreeMap::new(),
         }
     }
 
     fn sample_floating_prize_visuals() -> wildside_render::FloatingPrizeVisuals {
-        use std::collections::HashMap;
+        use std::collections::BTreeMap;
         let diamond_palette = Palette {
             colours: vec![colour(0, 0, 0), colour(100, 200, 255)],
         };
         let helmet_palette = Palette {
             colours: vec![colour(0, 0, 0), colour(200, 200, 255)],
         };
-        let mut helmets = HashMap::new();
+        let mut helmets = BTreeMap::new();
         for (content_id, tile_pattern, width_px, height_px) in [
             (0x02, 91, 0x11, 0x0E),
             (0x03, 92, 0x17, 0x0F),
@@ -7755,7 +7755,7 @@ mod tests {
                 },
             );
         }
-        let mut icons = HashMap::new();
+        let mut icons = BTreeMap::new();
         for (content_id, tile_pattern) in [(0x0B, 101), (0x0C, 102), (0x0D, 103)] {
             icons.insert(
                 content_id,

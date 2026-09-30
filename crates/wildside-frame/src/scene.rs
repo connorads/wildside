@@ -10124,7 +10124,7 @@ fn helmet_placeholder_colour(_object_meta: u16) -> [u8; 3] {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{BTreeMap, BTreeSet, HashMap};
+    use std::collections::{BTreeMap, BTreeSet};
 
     use super::*;
     use wildside_core::{
@@ -18264,17 +18264,17 @@ mod tests {
                 hitpoint_tiles: [sample_tile_ref(0), sample_tile_ref(1), sample_tile_ref(2)],
             },
             player: PlayerVisuals {
-                forms: HashMap::from([(0, sample_player_form_visuals(empty_frame.clone()))]),
+                forms: BTreeMap::from([(0, sample_player_form_visuals(empty_frame.clone()))]),
             },
             juggernaut_skull: None,
             enemies: EnemyVisuals {
-                families: HashMap::new(),
-                layout_palette_variants: HashMap::new(),
+                families: BTreeMap::new(),
+                layout_palette_variants: BTreeMap::new(),
             },
             floating_prizes: FloatingPrizeVisuals {
                 diamond: empty_prize,
-                helmets: HashMap::new(),
-                icons: HashMap::new(),
+                helmets: BTreeMap::new(),
+                icons: BTreeMap::new(),
             },
             flag: FlagVisuals {
                 palette: sample_palette(),

@@ -274,7 +274,7 @@ use crate::weather::{
 };
 use std::path::PathBuf;
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     env, fs,
     ops::RangeInclusive,
     process,

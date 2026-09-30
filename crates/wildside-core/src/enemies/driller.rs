@@ -535,7 +535,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
 
         assert!(
@@ -560,7 +560,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
 
         assert!(
@@ -588,7 +588,7 @@ mod tests {
         }];
         let mut rng = RomRandomState::default();
         let mut drilled_blocks = Vec::new();
-        let mut freshly_loaded = std::collections::HashMap::new();
+        let mut freshly_loaded = std::collections::BTreeMap::new();
         freshly_loaded.insert(ActiveEnemyKey::from_enemy(&enemies[0]), 3u8);
 
         for (pass, expected_x, label) in [
@@ -774,7 +774,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
 
         assert_eq!(

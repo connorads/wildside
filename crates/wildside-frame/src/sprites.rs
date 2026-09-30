@@ -3743,17 +3743,17 @@ mod tests {
                 hitpoint_tiles: [sample_tile_ref(0), sample_tile_ref(1), sample_tile_ref(2)],
             },
             player: wildside_render::PlayerVisuals {
-                forms: std::collections::HashMap::from([(0, labelled_player_visuals())]),
+                forms: std::collections::BTreeMap::from([(0, labelled_player_visuals())]),
             },
             juggernaut_skull: None,
             enemies: wildside_render::EnemyVisuals {
-                families: std::collections::HashMap::new(),
-                layout_palette_variants: std::collections::HashMap::new(),
+                families: std::collections::BTreeMap::new(),
+                layout_palette_variants: std::collections::BTreeMap::new(),
             },
             floating_prizes: wildside_render::FloatingPrizeVisuals {
                 diamond: prize_visual,
-                helmets: std::collections::HashMap::new(),
-                icons: std::collections::HashMap::new(),
+                helmets: std::collections::BTreeMap::new(),
+                icons: std::collections::BTreeMap::new(),
             },
             flag: wildside_render::FlagVisuals {
                 palette: marked_palette(0x0400),
@@ -7304,7 +7304,7 @@ mod tests {
         iron_knight.transform_palette = Some(wildside_render::Palette {
             colours: vec![transform_colour],
         });
-        let mut forms = std::collections::HashMap::new();
+        let mut forms = std::collections::BTreeMap::new();
         forms.insert(0u16, labelled_player_visuals());
         forms.insert(6u16, iron_knight);
         let player_visuals = wildside_render::PlayerVisuals { forms };
@@ -7417,7 +7417,7 @@ mod tests {
                 frame: Some(labelled_frame(0x0C00 + descriptor_index)),
             })
             .collect();
-        let mut forms = std::collections::HashMap::new();
+        let mut forms = std::collections::BTreeMap::new();
         forms.insert(0u16, kid);
         forms.insert(2u16, cyclone);
         let player_visuals = wildside_render::PlayerVisuals { forms };
@@ -7472,7 +7472,7 @@ mod tests {
                 frame: Some(labelled_frame(0x0C00 + descriptor_index)),
             })
             .collect();
-        let mut forms = std::collections::HashMap::new();
+        let mut forms = std::collections::BTreeMap::new();
         forms.insert(0u16, kid);
         forms.insert(9u16, micromax);
         let player_visuals = wildside_render::PlayerVisuals { forms };
@@ -7518,7 +7518,7 @@ mod tests {
             })
             .collect();
 
-        let mut forms = std::collections::HashMap::new();
+        let mut forms = std::collections::BTreeMap::new();
         forms.insert(0u16, labelled_player_visuals());
         forms.insert(2, cyclone);
         forms.insert(6, iron_knight);
@@ -7582,7 +7582,7 @@ mod tests {
                 })
                 .collect();
             let expected_palette = form.transform_palette.clone().unwrap();
-            let mut forms = std::collections::HashMap::new();
+            let mut forms = std::collections::BTreeMap::new();
             forms.insert(0u16, labelled_player_visuals());
             forms.insert(helmet_id, form);
             let player_visuals = wildside_render::PlayerVisuals { forms };

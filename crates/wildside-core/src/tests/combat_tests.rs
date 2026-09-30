@@ -12603,7 +12603,7 @@ mod chunk_03 {
             },
             0,
             0,
-            &HashSet::new(),
+            &BTreeSet::new(),
         );
 
         let dragon = active.first().expect("dragon should activate");
@@ -13123,7 +13123,7 @@ mod chunk_03 {
             },
             0,
             271 << 16,
-            &HashSet::new(),
+            &BTreeSet::new(),
         );
         assert_eq!(
             active.len(),
@@ -13175,7 +13175,7 @@ mod chunk_03 {
             },
             0,
             271 << 16,
-            &HashSet::new(),
+            &BTreeSet::new(),
         );
 
         assert_eq!(
@@ -13319,7 +13319,7 @@ mod chunk_03 {
             level_bounds,
             0,
             271 << 16,
-            &HashSet::new(),
+            &BTreeSet::new(),
         );
 
         assert_eq!(
@@ -14271,7 +14271,7 @@ mod chunk_03 {
             },
             0,
             271 << 16,
-            &HashSet::new(),
+            &BTreeSet::new(),
         );
 
         assert!(
@@ -16331,7 +16331,7 @@ mod chunk_03 {
             bounds,
             0,
             64 << 16,
-            &std::collections::HashSet::new(),
+            &std::collections::BTreeSet::new(),
         );
         assert_eq!(active.len(), 1);
         assert!(

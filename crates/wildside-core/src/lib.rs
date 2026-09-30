@@ -181,7 +181,7 @@ pub use platforms::{
     platform_sprite_dispatch_loc_244C, platform_strip_sprites_loc_24CC,
     platform_strip_sprites_loc_24F0, platform_strip_sprites_loc_251C,
 };
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::sync::Arc;
 #[cfg(test)]
 pub(crate) use trace::opening_level_one_object_counts;
@@ -425,7 +425,7 @@ pub struct NativeRuntime {
     /// Enemies killed during this level — (segment_index, layout_index).
     /// Prevents respawn when their spawn point re-enters the activation window.
     /// ASM: per-segment killed bitfield at $FFFFF66A.
-    killed_enemies: HashSet<(usize, usize)>,
+    killed_enemies: BTreeSet<(usize, usize)>,
     /// Native mirror of EnemyStatus_Table. ASM loc_31F9A clears 30 words, but
     /// loc_3200A and Manage_EnemyLoading iterate the unchecked layout count.
     /// ORIGINAL_QUIRK: retain the full six-bit status-index space without
@@ -449,10 +449,10 @@ pub struct NativeRuntime {
     /// Driller 3 (the loc_3691E defer, Enemy1A_Driller_Init's opening
     /// `j_Hibernate_Object_1Frame`, and the loc_3C0D2/loc_3C026 walker-entry
     /// hibernate).
-    freshly_loaded_enemies_loc_3691e: std::collections::HashMap<enemies::ActiveEnemyKey, u8>,
+    freshly_loaded_enemies_loc_3691e: std::collections::BTreeMap<enemies::ActiveEnemyKey, u8>,
     /// Enemy18_Tornado_Init consumes its loc_35326 RNG byte on the first
     /// Execute_Objects pass after loc_3691E allocation, not in the loader tail.
-    pending_tornado_initialisations_loc_3691e: HashSet<(usize, usize)>,
+    pending_tornado_initialisations_loc_3691e: BTreeSet<(usize, usize)>,
     /// Blocks drilled by Driller enemies this frame.
     /// Driller.asm loc_3BE78: checks sprite timer, destroys Smash/Ice blocks ahead.
     drilled_blocks: Vec<DrilledBlockLoc3BE78>,
@@ -1683,12 +1683,12 @@ impl NativeRuntime {
             level_skip_resume_hold: false,
             active_enemy_roster: Vec::new(),
             active_enemies: Vec::new(),
-            killed_enemies: HashSet::new(),
+            killed_enemies: BTreeSet::new(),
             enemy_status_words: [0; 0x0040],
             enemy_loading_initial_pass_complete: false,
             pending_enemy_gfx_initialisations_loc_3691e: 0,
-            freshly_loaded_enemies_loc_3691e: std::collections::HashMap::new(),
-            pending_tornado_initialisations_loc_3691e: HashSet::new(),
+            freshly_loaded_enemies_loc_3691e: std::collections::BTreeMap::new(),
+            pending_tornado_initialisations_loc_3691e: BTreeSet::new(),
             drilled_blocks: Vec::new(),
             active_platforms: Vec::new(),
             active_platform_roster: Vec::new(),

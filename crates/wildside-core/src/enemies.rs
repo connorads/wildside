@@ -314,7 +314,7 @@ pub(crate) fn hopper_constants(_family: EnemyFamily) -> HopperConstants {
 /// Sentinel: not a boss head.
 pub(crate) const BOSS_HEAD_NONE: u8 = 0xFF;
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub(crate) struct ActiveEnemyKey {
     segment_index: usize,
     layout_index: usize,
@@ -4075,7 +4075,7 @@ pub(crate) fn activate_enemies(
     level_bounds: physics::LevelBounds,
     player_x: u32,
     player_y: u32,
-    killed: &std::collections::HashSet<(usize, usize)>,
+    killed: &std::collections::BTreeSet<(usize, usize)>,
 ) {
     let mut rng = RomRandomState::default();
     let mut enemy_status_words = [0; 0x001E];
@@ -4108,7 +4108,7 @@ pub(crate) fn activate_enemies_with_rng(
     player_y: u32,
     blank_top_rows: u16,
     enemy_loading_initial_pass_complete: bool,
-    killed: &std::collections::HashSet<(usize, usize)>,
+    killed: &std::collections::BTreeSet<(usize, usize)>,
     enemy_status_words: &mut [u16],
     rng: &mut RomRandomState,
 ) {
@@ -4142,7 +4142,7 @@ fn allocate_enemies_after_execute_objects_loc_3691e(
     player_y: u32,
     blank_top_rows: u16,
     enemy_loading_initial_pass_complete: bool,
-    killed: &std::collections::HashSet<(usize, usize)>,
+    killed: &std::collections::BTreeSet<(usize, usize)>,
     enemy_status_words: &mut [u16],
     rng: &mut RomRandomState,
 ) {
@@ -4205,7 +4205,7 @@ fn activate_enemies_with_rng_inner(
     player_y: u32,
     blank_top_rows: u16,
     enemy_loading_initial_pass_complete: bool,
-    killed: &std::collections::HashSet<(usize, usize)>,
+    killed: &std::collections::BTreeSet<(usize, usize)>,
     enemy_status_words: &mut [u16],
     rng: &mut RomRandomState,
     existing_enemy_action: ExistingEnemyLoaderAction,
@@ -5045,7 +5045,7 @@ pub(crate) fn step_active_enemies(
     drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
 ) {
     let mut rng = RomRandomState::default();
-    let mut freshly_loaded_enemies = std::collections::HashMap::new();
+    let mut freshly_loaded_enemies = std::collections::BTreeMap::new();
     step_active_enemies_with_rng(
         active,
         block_grid,
@@ -5086,7 +5086,7 @@ pub(crate) fn step_active_enemies_with_rng(
     rng: &mut RomRandomState,
     drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
     played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
-    freshly_loaded_enemies: &mut std::collections::HashMap<ActiveEnemyKey, u8>,
+    freshly_loaded_enemies: &mut std::collections::BTreeMap<ActiveEnemyKey, u8>,
 ) -> Vec<ActiveEnemyKey> {
     step_active_enemies_with_rng_context(
         active,
@@ -5140,7 +5140,7 @@ fn step_active_enemies_with_rng_context(
     rng: &mut RomRandomState,
     drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
     mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
-    freshly_loaded_enemies: &mut std::collections::HashMap<ActiveEnemyKey, u8>,
+    freshly_loaded_enemies: &mut std::collections::BTreeMap<ActiveEnemyKey, u8>,
     boss_fire_context: BossFireFrameContext,
 ) -> Vec<ActiveEnemyKey> {
     let mut deleted_parents = Vec::new();
@@ -12430,7 +12430,7 @@ mod tests {
             };
             let key = ActiveEnemyKey::from_enemy(&parent);
             let mut active = [parent];
-            let mut fresh = std::collections::HashMap::new();
+            let mut fresh = std::collections::BTreeMap::new();
             if fresh_init {
                 fresh.insert(key, 1);
             }
@@ -13194,7 +13194,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             Some(&mut sound_effects),
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
 
         assert!(
@@ -13309,7 +13309,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
 
         assert_eq!(
@@ -13326,12 +13326,12 @@ mod tests {
         enemy.dragon_descent_frames = 0;
         let key = ActiveEnemyKey::from_enemy(&enemy);
         let mut enemies = [enemy];
-        let mut fresh = std::collections::HashMap::from([(key, 2)]);
+        let mut fresh = std::collections::BTreeMap::from([(key, 2)]);
         let mut rng = RomRandomState::default();
         let mut drilled_blocks = Vec::new();
 
         let mut step = |enemies: &mut [ActiveEnemy],
-                        fresh: &mut std::collections::HashMap<_, _>| {
+                        fresh: &mut std::collections::BTreeMap<_, _>| {
             step_active_enemies_with_rng(
                 enemies,
                 None,
@@ -13393,7 +13393,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
         assert_eq!(enemies[0].dragon_descent_frames, 1);
         assert_eq!(enemies[0].snapshot().sprite_animation_phase, Some(0));
@@ -13417,7 +13417,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
         assert_eq!(enemies[0].damage_flash_frames, 0);
         assert_eq!(
@@ -13456,7 +13456,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             Some(&mut sound_effects),
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
 
         assert!(
@@ -13496,7 +13496,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
 
         assert_eq!(
@@ -13522,7 +13522,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
 
         assert_eq!(
@@ -13905,7 +13905,7 @@ mod tests {
             },
             0,
             0,
-            &std::collections::HashSet::new(),
+            &std::collections::BTreeSet::new(),
         );
 
         let dragon = active.first().expect("walking dragon should activate");
@@ -13952,7 +13952,7 @@ mod tests {
             width_pixels: 4096,
             height_pixels: 512,
         };
-        let killed = std::collections::HashSet::new();
+        let killed = std::collections::BTreeSet::new();
         let mut active = Vec::new();
         let mut status_words = [0; 0x001E];
         let mut rng = RomRandomState::default();
@@ -14090,7 +14090,7 @@ mod tests {
             0,
             2,
             false,
-            &std::collections::HashSet::new(),
+            &std::collections::BTreeSet::new(),
             &mut status_words,
             &mut rng,
         );
@@ -14134,7 +14134,7 @@ mod tests {
             width_pixels: 640,
             height_pixels: 448,
         };
-        let killed = std::collections::HashSet::new();
+        let killed = std::collections::BTreeSet::new();
         let mut active = Vec::new();
 
         activate_enemies(&mut active, &layout, window, 0, 0, bounds, 0, 0, &killed);
@@ -14211,7 +14211,7 @@ mod tests {
             0,
             0,
             false,
-            &std::collections::HashSet::new(),
+            &std::collections::BTreeSet::new(),
             &mut enemy_status_words,
             &mut rng,
         );
@@ -14295,7 +14295,7 @@ mod tests {
             },
             0,
             0,
-            &std::collections::HashSet::new(),
+            &std::collections::BTreeSet::new(),
         );
 
         let lion = active.first().expect("Lion should activate");
@@ -14360,7 +14360,7 @@ mod tests {
             },
             0,
             0,
-            &std::collections::HashSet::new(),
+            &std::collections::BTreeSet::new(),
         );
 
         let ninja = active.first().expect("ninja should activate");
@@ -16153,7 +16153,7 @@ impl NativeRuntime {
                 .active_enemies
                 .iter()
                 .map(ActiveEnemyKey::from_enemy)
-                .collect::<std::collections::HashSet<_>>();
+                .collect::<std::collections::BTreeSet<_>>();
             activate_enemies_with_rng(
                 &mut self.active_enemies,
                 &enemy_layout,

@@ -1,5 +1,5 @@
 use crate::{Palette, TileRef, TileSheet};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpriteFrame {
@@ -74,7 +74,7 @@ pub struct PlayerFormVisuals {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlayerVisuals {
-    pub forms: HashMap<u16, PlayerFormVisuals>,
+    pub forms: BTreeMap<u16, PlayerFormVisuals>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -172,20 +172,20 @@ pub struct EolHologramVisuals {
 /// Enemy sprite visuals keyed by object_type (0x00..0x22).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnemyVisuals {
-    pub families: std::collections::HashMap<u8, AnimatedSpriteVisual>,
+    pub families: std::collections::BTreeMap<u8, AnimatedSpriteVisual>,
     /// Palette variant loaded for each family from its physical enemy-layout
     /// slot. The ROM advances `d7` over blank slots before choosing a CRAM
     /// line, so this is not the ordinal among non-blank enemies.
-    pub layout_palette_variants: std::collections::HashMap<u8, u8>,
+    pub layout_palette_variants: std::collections::BTreeMap<u8, u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FloatingPrizeVisuals {
     pub diamond: AnimatedSpriteVisual,
     /// Helmet prize visuals keyed by prize content id (0x02..0x0A).
-    pub helmets: HashMap<u8, AnimatedSpriteVisual>,
+    pub helmets: BTreeMap<u8, AnimatedSpriteVisual>,
     /// Simple icon prize visuals keyed by prize content id (0x0B..0x0D).
-    pub icons: HashMap<u8, AnimatedSpriteVisual>,
+    pub icons: BTreeMap<u8, AnimatedSpriteVisual>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

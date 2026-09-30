@@ -581,7 +581,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
         diamond = enemies[0];
 
@@ -630,7 +630,7 @@ mod tests {
             &mut rng,
             &mut drilled_blocks,
             None,
-            &mut std::collections::HashMap::new(),
+            &mut std::collections::BTreeMap::new(),
         );
 
         assert_eq!(

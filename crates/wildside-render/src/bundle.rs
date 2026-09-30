@@ -4208,7 +4208,7 @@ fn load_enemy_visuals(
     enemy_layout: Option<&EnemyLayout>,
     background_palette: &Palette,
 ) -> EnemyVisuals {
-    let mut families = std::collections::HashMap::new();
+    let mut families = std::collections::BTreeMap::new();
     let layout_palette_variants = enemy_layout_palette_variants(enemy_layout);
     for spec in ENEMY_FAMILIES {
         let palette =
@@ -4283,8 +4283,8 @@ fn load_enemy_visuals(
 /// confused with the source palette variant.
 fn enemy_layout_palette_variants(
     enemy_layout: Option<&EnemyLayout>,
-) -> std::collections::HashMap<u8, u8> {
-    let mut variants = std::collections::HashMap::new();
+) -> std::collections::BTreeMap<u8, u8> {
+    let mut variants = std::collections::BTreeMap::new();
     let Some(enemy_layout) = enemy_layout else {
         return variants;
     };
@@ -4439,7 +4439,7 @@ fn load_floating_prize_visuals(
         frame_duration: 3,
     };
 
-    let mut helmets = std::collections::HashMap::new();
+    let mut helmets = std::collections::BTreeMap::new();
     for spec in FLOATING_PRIZE_HELMETS {
         if find_ingame_asset(manifest, spec.art.relative_path).is_none()
             || find_ingame_asset(manifest, spec.palette_path).is_none()
@@ -4463,7 +4463,7 @@ fn load_floating_prize_visuals(
         );
     }
 
-    let mut icons = std::collections::HashMap::new();
+    let mut icons = std::collections::BTreeMap::new();
     for spec in FLOATING_PRIZE_ICONS {
         if find_ingame_asset(manifest, spec.art.relative_path).is_none() {
             continue;
@@ -4523,7 +4523,7 @@ fn load_player_visuals(
     manifest: &AssetManifest,
     source: &dyn AssetSource,
 ) -> Result<PlayerVisuals> {
-    let mut forms = std::collections::HashMap::new();
+    let mut forms = std::collections::BTreeMap::new();
     for spec in PLAYER_FORM_SPECS {
         let Some(visuals) = load_player_form_visuals_if_present(manifest, source, spec)? else {
             if spec.form_id == PLAYER_FORM_THE_KID {
