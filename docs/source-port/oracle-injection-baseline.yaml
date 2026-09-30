@@ -2,7 +2,7 @@
 #
 # An oracle injection is a teleport: the engine's clock is discarded and
 # replaced with a measured oracle cycle
-# (`advance_ntsc_master_clocks(CONST * 7 - engine.master_clock())`). Each one is
+# (`advance_to_master_clock(CONST * 7)`, harness-only in wildside-md). Each one is
 # a hole in the persistent CPU/VDP/GEMS scheduler, whose payoff needs the clock
 # cycle-continuous from boot.
 #

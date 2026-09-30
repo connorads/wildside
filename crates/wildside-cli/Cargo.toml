@@ -24,7 +24,7 @@ flate2 = "1.1"
 wildside-core = { path = "../wildside-core", features = ["harness"] }
 wildside-data = { path = "../wildside-data" }
 wildside-frame = { path = "../wildside-frame", features = ["audio"] }
-wildside-md = { path = "../wildside-md" }
+wildside-md = { path = "../wildside-md", features = ["harness"] }
 wildside-render = { path = "../wildside-render" }
 wildside-rom = { path = "../wildside-rom" }
 rayon.workspace = true

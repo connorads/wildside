@@ -814,6 +814,16 @@ impl GemsMasterClockTimingEngine {
         self.advance_ntsc_master_clocks_with_vdp_ownership_inner(master_clocks, false, None)
     }
 
+    /// Advance the persistent NTSC timeline to absolute master clock `target`.
+    ///
+    /// Harness-only: jumping to an oracle-measured absolute cycle discards the
+    /// engine's own clock (an oracle injection, #406). Production callers
+    /// advance by intervals with [`advance_ntsc_master_clocks`](Self::advance_ntsc_master_clocks).
+    #[cfg(any(test, feature = "harness"))]
+    pub fn advance_to_master_clock(&mut self, target: u64) -> GemsMasterClockAdvance {
+        self.advance_ntsc_master_clocks(target - self.master_clock())
+    }
+
     /// Advance an NTSC interval with constant VDP ownership of the 68000 bus.
     ///
     /// `loc_14314` FIFO retries use this for their one-cycle halted ticks.

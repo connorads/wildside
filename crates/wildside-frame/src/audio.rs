@@ -5936,7 +5936,7 @@ mod tests {
                 .expect("fresh engine accepts the EntryPoint startup schedule");
             apply_gems_power_on_post_clear_reset(&mut engine)
                 .expect("first StopMusic follows EntryPoint's post-clear reset");
-            engine.advance_ntsc_master_clocks(entry_cycles * 7 - engine.master_clock());
+            engine.advance_to_master_clock(entry_cycles * 7);
             let timing = wildside_core::gems_stop_music_elapsed_timing(
                 wildside_core::GemsStopMusicBusAckPolls {
                     driver_copy_sub_e13da: 1,
@@ -6248,7 +6248,7 @@ mod tests {
         }
 
         // ASM Load_TitleScreen -> PlaySound -> sub_E151C queues bgm_Ice.
-        engine.advance_ntsc_master_clocks(9_006_731 * 7 - engine.master_clock());
+        engine.advance_to_master_clock(9_006_731 * 7);
         let _ = engine.take_pending_m68k_wait_cycles();
         apply_timed_gems_queue_command(
             &mut engine,

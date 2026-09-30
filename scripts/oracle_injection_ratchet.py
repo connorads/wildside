@@ -4,8 +4,10 @@
 An "oracle injection" is a teleport: the engine's own clock is discarded and
 replaced with a measured oracle value.
 
-    self.engine.advance_ntsc_master_clocks(FRAME_993_SUB_E12_CYCLES * 7
-                                           - self.engine.master_clock())
+    self.engine.advance_to_master_clock(FRAME_993_SUB_E12_CYCLES * 7)
+
+`advance_to_master_clock` is wildside-md's harness-only absolute-clock API;
+production code advances by intervals with `advance_ntsc_master_clocks`.
 
 Each one is a hole in the persistent CPU/VDP/GEMS scheduler. The scheduler's
 payoff — a runtime seed at frame 1706 — needs the clock to be cycle-continuous
@@ -60,13 +62,10 @@ BASELINE = ROOT / "docs/source-port/oracle-injection-baseline.yaml"
 WINDOW_FRAMES = 10
 
 # The teleport shape: discard the engine clock and jump to a measured oracle
-# cycle. rustfmt wraps this across lines, so the match is DOTALL. Both the
-# `self.engine` and bare-`engine` receivers appear; the constant may be a named
-# const or a literal.
+# cycle. rustfmt wraps this across lines, so the match is DOTALL. The constant
+# may be a named const or a literal.
 TELEPORT_RE = re.compile(
-    r"advance_ntsc_master_clocks\(\s*"
-    r"[A-Za-z0-9_]+\s*\*\s*7\s*-\s*"
-    r"[A-Za-z0-9_.]+\.master_clock\(\)\s*,?\s*\)",
+    r"advance_to_master_clock\(\s*[A-Za-z0-9_]+\s*\*\s*7\s*,?\s*\)",
     re.S,
 )
 GUARD_EQ_RE = re.compile(r"power_on_frame\s*==\s*(\d+)")

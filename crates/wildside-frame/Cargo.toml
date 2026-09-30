@@ -21,3 +21,7 @@ wildside-core = { path = "../wildside-core" }
 wildside-data = { path = "../wildside-data" }
 wildside-md = { path = "../wildside-md", default-features = false, optional = true }
 wildside-render = { path = "../wildside-render" }
+
+[dev-dependencies]
+# Audio tests replay oracle-measured absolute clocks (advance_to_master_clock).
+wildside-md = { path = "../wildside-md", default-features = false, features = ["harness"] }

@@ -1335,9 +1335,8 @@ impl GemsSignatureProbe {
             // and loc_14314; FrameRendered lands in the first 1,083-word
             // FIFO upload after the frame's VINT.
             const SUB_1B2A4_ENTRY_CYCLES: u64 = 22_048_445;
-            self.engine.advance_ntsc_master_clocks(
-                SUB_1B2A4_ENTRY_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(SUB_1B2A4_ENTRY_CYCLES * 7);
             let setup = apply_gems_decompress_to_vram_setup_sub_142cc(
                 &mut self.engine,
                 wildside_core::vdp::LoadInGameCpuRasterCursor {
@@ -1368,7 +1367,7 @@ impl GemsSignatureProbe {
             // instruction entry just as the earlier title decoders do.
             const TRANSFER_ENTRY_CYCLES: u64 = 22_126_157;
             self.engine
-                .advance_ntsc_master_clocks(TRANSFER_ENTRY_CYCLES * 7 - self.engine.master_clock());
+                .advance_to_master_clock(TRANSFER_ENTRY_CYCLES * 7);
             let (transfer, checkpoint) =
                 apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314(
                     &mut self.engine,
@@ -1401,9 +1400,8 @@ impl GemsSignatureProbe {
             // stream's selected caller-return boundary. Resume at the raw
             // oracle's $1B2B4 instruction entry.
             const SECOND_CALLER_ENTRY_CYCLES: u64 = 22_169_623;
-            self.engine.advance_ntsc_master_clocks(
-                SECOND_CALLER_ENTRY_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(SECOND_CALLER_ENTRY_CYCLES * 7);
             let setup = apply_gems_decompress_to_vram_setup_sub_142cc(
                 &mut self.engine,
                 wildside_core::vdp::LoadInGameCpuRasterCursor {
@@ -4184,9 +4182,8 @@ impl GemsSignatureProbe {
             assert_eq!(self.engine.master_clock(), 111_460_847 * 7);
 
             const OPEN_CLOSE_ENTRY_CYCLES: u64 = 111_460_899;
-            self.engine.advance_ntsc_master_clocks(
-                OPEN_CLOSE_ENTRY_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(OPEN_CLOSE_ENTRY_CYCLES * 7);
             let open_close = apply_timed_gems_queue_command(
                 &mut self.engine,
                 GemsQueueCommandPath::OpenCloseSubE1576,
@@ -4218,7 +4215,7 @@ impl GemsSignatureProbe {
             // FrameRendered lands in this first Saxman decoder after VINT.
             const DECODER_ENTRY_CYCLES: u64 = 113_847_374;
             self.engine
-                .advance_ntsc_master_clocks(DECODER_ENTRY_CYCLES * 7 - self.engine.master_clock());
+                .advance_to_master_clock(DECODER_ENTRY_CYCLES * 7);
             let (decoder, checkpoint) =
                 apply_gems_decompress_to_vram_decoder_with_checkpoint_loc_14300(
                     &mut self.engine,
@@ -4251,7 +4248,7 @@ impl GemsSignatureProbe {
                 .expect("block-art chunk 1 decoder reaches loc_14314");
             const TRANSFER_ENTRY_CYCLES: u64 = 113_991_654;
             self.engine
-                .advance_ntsc_master_clocks(TRANSFER_ENTRY_CYCLES * 7 - self.engine.master_clock());
+                .advance_to_master_clock(TRANSFER_ENTRY_CYCLES * 7);
             let (transfer, checkpoint) =
                 apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314(
                     &mut self.engine,
@@ -4293,9 +4290,8 @@ impl GemsSignatureProbe {
             let block_resume = decoder.resume;
 
             const BLOCK_TRANSFER_2_CYCLES: u64 = 114_168_047;
-            self.engine.advance_ntsc_master_clocks(
-                BLOCK_TRANSFER_2_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(BLOCK_TRANSFER_2_CYCLES * 7);
             let transfer = apply_gems_decompress_to_vram_transfer_loc_14314(
                 &mut self.engine,
                 wildside_core::vdp::LoadInGameCpuRasterCursor {
@@ -4330,8 +4326,7 @@ impl GemsSignatureProbe {
             .expect("block-art final transfer");
 
             const HUD_DECODER_CYCLES: u64 = 114_263_082;
-            self.engine
-                .advance_ntsc_master_clocks(HUD_DECODER_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(HUD_DECODER_CYCLES * 7);
             let hud = apply_gems_decompress_to_vram_decoder_loc_14300(
                 &mut self.engine,
                 wildside_core::vdp::LoadInGameCpuRasterCursor {
@@ -4357,9 +4352,8 @@ impl GemsSignatureProbe {
             .expect("HUD-number transfer");
 
             const EYCLOPS_DECODER_CYCLES: u64 = 114_287_764;
-            self.engine.advance_ntsc_master_clocks(
-                EYCLOPS_DECODER_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(EYCLOPS_DECODER_CYCLES * 7);
             let next_target = ((self.power_on_frame + 1) as u64 * NTSC_SCANLINES_PER_FRAME
                 + (NTSC_SCANLINES_PER_FRAME - 30))
                 * MASTER_CLOCKS_PER_SCANLINE;
@@ -4398,9 +4392,8 @@ impl GemsSignatureProbe {
                 .take()
                 .expect("Eyclops-beam decoder reaches loc_14314");
             const EYCLOPS_TRANSFER_CYCLES: u64 = 114_314_288;
-            self.engine.advance_ntsc_master_clocks(
-                EYCLOPS_TRANSFER_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(EYCLOPS_TRANSFER_CYCLES * 7);
             let transfer = apply_gems_decompress_to_vram_transfer_loc_14314(
                 &mut self.engine,
                 wildside_core::vdp::LoadInGameCpuRasterCursor {
@@ -4433,9 +4426,8 @@ impl GemsSignatureProbe {
             // cycle 115,383,763 with refresh phase 28. The one-poll queue
             // transaction returns before this frame's raster sample.
             const PLAY_SOUND_ENTRY_CYCLES: u64 = 115_383_763;
-            self.engine.advance_ntsc_master_clocks(
-                PLAY_SOUND_ENTRY_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(PLAY_SOUND_ENTRY_CYCLES * 7);
             apply_timed_gems_queue_command(
                 &mut self.engine,
                 GemsQueueCommandPath::StartOrStopSequenceSubE151c,
@@ -4457,9 +4449,8 @@ impl GemsSignatureProbe {
             );
             let tail_entry = if let Some(pre_hud_work) = mode_level_work.pre_hud {
                 const FIRST_MODE_LEVEL_SUFFIX_CYCLES: u64 = 115_448_043;
-                self.engine.advance_ntsc_master_clocks(
-                    FIRST_MODE_LEVEL_SUFFIX_CYCLES * 7 - self.engine.master_clock(),
-                );
+                self.engine
+                    .advance_to_master_clock(FIRST_MODE_LEVEL_SUFFIX_CYCLES * 7);
                 // TODO(fidelity): compose the first Mode_Level VBlank prefix.
                 // The selected-PC trace proves that frame 902 skips
                 // Palette_to_VRAM's DMA and that the current sprite/scroll
@@ -4510,9 +4501,8 @@ impl GemsSignatureProbe {
                 // oracle boundary does not. Resume at the next exact source
                 // boundary until that execution split is resolved.
                 const FIRST_MODE_LEVEL_TAIL_CYCLES: u64 = 115_485_728;
-                self.engine.advance_ntsc_master_clocks(
-                    FIRST_MODE_LEVEL_TAIL_CYCLES * 7 - self.engine.master_clock(),
-                );
+                self.engine
+                    .advance_to_master_clock(FIRST_MODE_LEVEL_TAIL_CYCLES * 7);
                 let _ = self.engine.take_pending_m68k_wait_cycles();
                 wildside_core::vdp::ModeLevelCpuRasterCursor {
                     beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -4524,9 +4514,8 @@ impl GemsSignatureProbe {
                 // The isolated tail characterisation test predates the
                 // trace-backed full-frame ledger.
                 const FIRST_MODE_LEVEL_TAIL_CYCLES: u64 = 115_485_728;
-                self.engine.advance_ntsc_master_clocks(
-                    FIRST_MODE_LEVEL_TAIL_CYCLES * 7 - self.engine.master_clock(),
-                );
+                self.engine
+                    .advance_to_master_clock(FIRST_MODE_LEVEL_TAIL_CYCLES * 7);
                 let _ = self.engine.take_pending_m68k_wait_cycles();
                 wildside_core::vdp::ModeLevelCpuRasterCursor {
                     beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -4677,9 +4666,8 @@ impl GemsSignatureProbe {
             // the retained native/jgenesis X/Y split. Resume at the selected
             // loc_892 boundary until those two execution spans are resolved.
             const SECOND_MODE_LEVEL_TAIL_CYCLES: u64 = 115_597_533;
-            self.engine.advance_ntsc_master_clocks(
-                SECOND_MODE_LEVEL_TAIL_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(SECOND_MODE_LEVEL_TAIL_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let tail_entry = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -4792,9 +4780,8 @@ impl GemsSignatureProbe {
             // `Unclassified` in the Execute_Objects ledger. Retain the
             // selected sub_44DC boundary until that source branch is typed.
             const THIRD_GAMEPLAY_SUB_44DC_CYCLES: u64 = 115_717_585;
-            self.engine.advance_ntsc_master_clocks(
-                THIRD_GAMEPLAY_SUB_44DC_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(THIRD_GAMEPLAY_SUB_44DC_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert_eq!(
                 self.engine.master_clock(),
@@ -4812,9 +4799,8 @@ impl GemsSignatureProbe {
             // The selected loc_810 boundary pins this isolated interval while
             // the typed post-HUD ledger owns all following source work.
             const THIRD_GAMEPLAY_LOC_810_CYCLES: u64 = 115_721_319;
-            self.engine.advance_ntsc_master_clocks(
-                THIRD_GAMEPLAY_LOC_810_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(THIRD_GAMEPLAY_LOC_810_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let post_hud = apply_gems_mode_level_post_hud_to_loc_892(
                 &mut self.engine,
@@ -4949,9 +4935,8 @@ impl GemsSignatureProbe {
             // TODO(fidelity): frame 905's moving-player callback remains
             // `Unclassified` in the Execute_Objects ledger.
             const FOURTH_GAMEPLAY_SUB_44DC_CYCLES: u64 = 115_845_140;
-            self.engine.advance_ntsc_master_clocks(
-                FOURTH_GAMEPLAY_SUB_44DC_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FOURTH_GAMEPLAY_SUB_44DC_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert_eq!(
                 mode_level_work.hud_events,
@@ -4990,9 +4975,8 @@ impl GemsSignatureProbe {
             // the oracle boundary until the moving-player/demo split is
             // resolved.
             const FOURTH_GAMEPLAY_LOC_892_CYCLES: u64 = 115_857_909;
-            self.engine.advance_ntsc_master_clocks(
-                FOURTH_GAMEPLAY_LOC_892_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FOURTH_GAMEPLAY_LOC_892_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert_eq!(
                 self.engine.master_clock(),
@@ -5125,9 +5109,8 @@ impl GemsSignatureProbe {
             // TODO(fidelity): frame 906's stationary-player callback remains
             // `Unclassified` in the Execute_Objects ledger.
             const FIFTH_GAMEPLAY_SUB_44DC_CYCLES: u64 = 115_973_093;
-            self.engine.advance_ntsc_master_clocks(
-                FIFTH_GAMEPLAY_SUB_44DC_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FIFTH_GAMEPLAY_SUB_44DC_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert_eq!(
                 mode_level_work.hud_events,
@@ -5141,18 +5124,16 @@ impl GemsSignatureProbe {
             // Selected-PC tracing pins the interval while the persistent
             // hardware clock continues through it.
             const FIFTH_GAMEPLAY_LOC_810_CYCLES: u64 = 115_976_793;
-            self.engine.advance_ntsc_master_clocks(
-                FIFTH_GAMEPLAY_LOC_810_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FIFTH_GAMEPLAY_LOC_810_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert!(
                 mode_level_work.post_hud.is_some(),
                 "frame 906 exposes its post-HUD source ledger",
             );
             const FIFTH_GAMEPLAY_LOC_892_CYCLES: u64 = 115_985_703;
-            self.engine.advance_ntsc_master_clocks(
-                FIFTH_GAMEPLAY_LOC_892_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FIFTH_GAMEPLAY_LOC_892_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let advance = apply_gems_mode_level_tail_to_wait_for_vint(
                 &mut self.engine,
@@ -5292,27 +5273,24 @@ impl GemsSignatureProbe {
             // TODO(fidelity): frame 907's stationary-player callback remains
             // `Unclassified` in the Execute_Objects ledger.
             const SIXTH_GAMEPLAY_SUB_44DC_CYCLES: u64 = 116_101_879;
-            self.engine.advance_ntsc_master_clocks(
-                SIXTH_GAMEPLAY_SUB_44DC_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(SIXTH_GAMEPLAY_SUB_44DC_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert!(
                 mode_level_work.hud_events.is_empty(),
                 "ASM sub_44DC frame 907 skips every conditional HUD upload",
             );
             const SIXTH_GAMEPLAY_LOC_810_CYCLES: u64 = 116_102_109;
-            self.engine.advance_ntsc_master_clocks(
-                SIXTH_GAMEPLAY_LOC_810_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(SIXTH_GAMEPLAY_LOC_810_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert!(
                 mode_level_work.post_hud.is_some(),
                 "frame 907 exposes its post-HUD source ledger",
             );
             const SIXTH_GAMEPLAY_LOC_892_CYCLES: u64 = 116_111_057;
-            self.engine.advance_ntsc_master_clocks(
-                SIXTH_GAMEPLAY_LOC_892_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(SIXTH_GAMEPLAY_LOC_892_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let advance = apply_gems_mode_level_tail_to_wait_for_vint(
                 &mut self.engine,
@@ -5449,9 +5427,8 @@ impl GemsSignatureProbe {
             // TODO(fidelity): frame 908's stationary-player callback remains
             // `Unclassified` in the Execute_Objects ledger.
             const SEVENTH_GAMEPLAY_SUB_44DC_CYCLES: u64 = 116_227_073;
-            self.engine.advance_ntsc_master_clocks(
-                SEVENTH_GAMEPLAY_SUB_44DC_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(SEVENTH_GAMEPLAY_SUB_44DC_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert_eq!(
                 mode_level_work.hud_events,
@@ -5485,9 +5462,8 @@ impl GemsSignatureProbe {
                 "frame 908 exposes its post-HUD source ledger",
             );
             const SEVENTH_GAMEPLAY_LOC_892_CYCLES: u64 = 116_241_230;
-            self.engine.advance_ntsc_master_clocks(
-                SEVENTH_GAMEPLAY_LOC_892_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(SEVENTH_GAMEPLAY_LOC_892_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let advance = apply_gems_mode_level_tail_to_wait_for_vint(
                 &mut self.engine,
@@ -5624,9 +5600,8 @@ impl GemsSignatureProbe {
             // TODO(fidelity): frame 909's stationary-player callback remains
             // `Unclassified` in the Execute_Objects ledger.
             const EIGHTH_GAMEPLAY_SUB_44DC_CYCLES: u64 = 116_355_072;
-            self.engine.advance_ntsc_master_clocks(
-                EIGHTH_GAMEPLAY_SUB_44DC_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(EIGHTH_GAMEPLAY_SUB_44DC_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert_eq!(
                 mode_level_work.hud_events,
@@ -5639,18 +5614,16 @@ impl GemsSignatureProbe {
             // Selected-PC tracing pins its complete interval while the
             // persistent hardware clock continues through it.
             const EIGHTH_GAMEPLAY_LOC_810_CYCLES: u64 = 116_363_921;
-            self.engine.advance_ntsc_master_clocks(
-                EIGHTH_GAMEPLAY_LOC_810_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(EIGHTH_GAMEPLAY_LOC_810_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert!(
                 mode_level_work.post_hud.is_some(),
                 "frame 909 exposes its post-HUD source ledger",
             );
             const EIGHTH_GAMEPLAY_LOC_892_CYCLES: u64 = 116_372_869;
-            self.engine.advance_ntsc_master_clocks(
-                EIGHTH_GAMEPLAY_LOC_892_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(EIGHTH_GAMEPLAY_LOC_892_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert!(
                 matches!(
@@ -5668,9 +5641,8 @@ impl GemsSignatureProbe {
             // The generic tail visitor deliberately rejects it; selected-PC
             // tracing pins the complete loc_892 -> $93E interval.
             const EIGHTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES: u64 = 116_405_045;
-            self.engine.advance_ntsc_master_clocks(
-                EIGHTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(EIGHTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let wait_for_vint = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -5779,9 +5751,8 @@ impl GemsSignatureProbe {
             // TODO(fidelity): frame 910's stationary-player callback remains
             // `Unclassified` in the Execute_Objects ledger.
             const NINTH_GAMEPLAY_SUB_44DC_CYCLES: u64 = 116_483_080;
-            self.engine.advance_ntsc_master_clocks(
-                NINTH_GAMEPLAY_SUB_44DC_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(NINTH_GAMEPLAY_SUB_44DC_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert_eq!(
                 mode_level_work.hud_events,
@@ -5792,23 +5763,20 @@ impl GemsSignatureProbe {
             );
             // TODO(fidelity): compose the coin-only sub_44DC FIFO schedule.
             const NINTH_GAMEPLAY_LOC_810_CYCLES: u64 = 116_484_452;
-            self.engine.advance_ntsc_master_clocks(
-                NINTH_GAMEPLAY_LOC_810_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(NINTH_GAMEPLAY_LOC_810_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert!(
                 mode_level_work.post_hud.is_some(),
                 "frame 910 exposes its post-HUD source ledger",
             );
             const NINTH_GAMEPLAY_LOC_892_CYCLES: u64 = 116_493_360;
-            self.engine.advance_ntsc_master_clocks(
-                NINTH_GAMEPLAY_LOC_892_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(NINTH_GAMEPLAY_LOC_892_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             const NINTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES: u64 = 116_522_808;
-            self.engine.advance_ntsc_master_clocks(
-                NINTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(NINTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let wait_for_vint = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -5917,9 +5885,8 @@ impl GemsSignatureProbe {
             // TODO(fidelity): frame 911's stationary-player callback remains
             // `Unclassified` in the Execute_Objects ledger.
             const TENTH_GAMEPLAY_SUB_44DC_CYCLES: u64 = 116_611_097;
-            self.engine.advance_ntsc_master_clocks(
-                TENTH_GAMEPLAY_SUB_44DC_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(TENTH_GAMEPLAY_SUB_44DC_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert_eq!(
                 mode_level_work.hud_events,
@@ -5954,14 +5921,12 @@ impl GemsSignatureProbe {
                 "frame 911 exposes its post-HUD source ledger",
             );
             const TENTH_GAMEPLAY_LOC_892_CYCLES: u64 = 116_621_417;
-            self.engine.advance_ntsc_master_clocks(
-                TENTH_GAMEPLAY_LOC_892_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(TENTH_GAMEPLAY_LOC_892_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             const TENTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES: u64 = 116_655_965;
-            self.engine.advance_ntsc_master_clocks(
-                TENTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(TENTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let wait_for_vint = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -6070,9 +6035,8 @@ impl GemsSignatureProbe {
             // TODO(fidelity): frame 912's stationary-player callback remains
             // `Unclassified` in the Execute_Objects ledger.
             const ELEVENTH_GAMEPLAY_SUB_44DC_CYCLES: u64 = 116_739_096;
-            self.engine.advance_ntsc_master_clocks(
-                ELEVENTH_GAMEPLAY_SUB_44DC_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(ELEVENTH_GAMEPLAY_SUB_44DC_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert_eq!(
                 mode_level_work.hud_events,
@@ -6086,23 +6050,20 @@ impl GemsSignatureProbe {
             // Selected-PC tracing pins the interval while the persistent
             // hardware clock continues through it.
             const ELEVENTH_GAMEPLAY_LOC_810_CYCLES: u64 = 116_740_468;
-            self.engine.advance_ntsc_master_clocks(
-                ELEVENTH_GAMEPLAY_LOC_810_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(ELEVENTH_GAMEPLAY_LOC_810_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert!(
                 mode_level_work.post_hud.is_some(),
                 "frame 912 exposes its post-HUD source ledger",
             );
             const ELEVENTH_GAMEPLAY_LOC_892_CYCLES: u64 = 116_749_376;
-            self.engine.advance_ntsc_master_clocks(
-                ELEVENTH_GAMEPLAY_LOC_892_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(ELEVENTH_GAMEPLAY_LOC_892_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             const ELEVENTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES: u64 = 116_778_940;
-            self.engine.advance_ntsc_master_clocks(
-                ELEVENTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(ELEVENTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let wait_for_vint = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -6209,9 +6170,8 @@ impl GemsSignatureProbe {
             // TODO(fidelity): frame 913's stationary-player callback remains
             // `Unclassified` in the Execute_Objects ledger.
             const TWELFTH_GAMEPLAY_SUB_44DC_CYCLES: u64 = 116_867_097;
-            self.engine.advance_ntsc_master_clocks(
-                TWELFTH_GAMEPLAY_SUB_44DC_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(TWELFTH_GAMEPLAY_SUB_44DC_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert_eq!(
                 mode_level_work.hud_events,
@@ -6219,23 +6179,20 @@ impl GemsSignatureProbe {
                 "ASM sub_44DC frame 913 skips all conditional HUD uploads",
             );
             const TWELFTH_GAMEPLAY_LOC_810_CYCLES: u64 = 116_867_327;
-            self.engine.advance_ntsc_master_clocks(
-                TWELFTH_GAMEPLAY_LOC_810_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(TWELFTH_GAMEPLAY_LOC_810_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert!(
                 mode_level_work.post_hud.is_some(),
                 "frame 913 exposes its post-HUD source ledger",
             );
             const TWELFTH_GAMEPLAY_LOC_892_CYCLES: u64 = 116_876_275;
-            self.engine.advance_ntsc_master_clocks(
-                TWELFTH_GAMEPLAY_LOC_892_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(TWELFTH_GAMEPLAY_LOC_892_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             const TWELFTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES: u64 = 116_908_316;
-            self.engine.advance_ntsc_master_clocks(
-                TWELFTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(TWELFTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let wait_for_vint = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -6335,8 +6292,7 @@ impl GemsSignatureProbe {
             );
             assert!(work.pre_hud.is_some(), "frame 914 exposes pre-HUD work");
             const SUB_44DC_CYCLES: u64 = 116_995_101;
-            self.engine
-                .advance_ntsc_master_clocks(SUB_44DC_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(SUB_44DC_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert_eq!(
                 work.hud_events,
@@ -6367,12 +6323,11 @@ impl GemsSignatureProbe {
             );
             assert!(work.post_hud.is_some(), "frame 914 exposes post-HUD work");
             const LOC_892_CYCLES: u64 = 117_009_182;
-            self.engine
-                .advance_ntsc_master_clocks(LOC_892_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(LOC_892_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             const WAIT_FOR_VINT_CYCLES: u64 = 117_038_746;
             self.engine
-                .advance_ntsc_master_clocks(WAIT_FOR_VINT_CYCLES * 7 - self.engine.master_clock());
+                .advance_to_master_clock(WAIT_FOR_VINT_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let wait = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -6467,8 +6422,7 @@ impl GemsSignatureProbe {
             );
             assert!(work.pre_hud.is_some(), "frame 915 exposes pre-HUD work");
             const SUB_44DC_CYCLES: u64 = 117_123_077;
-            self.engine
-                .advance_ntsc_master_clocks(SUB_44DC_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(SUB_44DC_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert_eq!(
                 work.hud_events,
@@ -6479,17 +6433,15 @@ impl GemsSignatureProbe {
             );
             // TODO(fidelity): compose the flag-only sub_44DC FIFO schedule.
             const LOC_810_CYCLES: u64 = 117_131_653;
-            self.engine
-                .advance_ntsc_master_clocks(LOC_810_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(LOC_810_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert!(work.post_hud.is_some(), "frame 915 exposes post-HUD work");
             const LOC_892_CYCLES: u64 = 117_140_601;
-            self.engine
-                .advance_ntsc_master_clocks(LOC_892_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(LOC_892_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             const WAIT_FOR_VINT_CYCLES: u64 = 117_170_165;
             self.engine
-                .advance_ntsc_master_clocks(WAIT_FOR_VINT_CYCLES * 7 - self.engine.master_clock());
+                .advance_to_master_clock(WAIT_FOR_VINT_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let wait = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -6586,8 +6538,7 @@ impl GemsSignatureProbe {
             );
             assert!(work.pre_hud.is_some(), "frame 916 exposes pre-HUD work");
             const SUB_44DC_CYCLES: u64 = 117_251_097;
-            self.engine
-                .advance_ntsc_master_clocks(SUB_44DC_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(SUB_44DC_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert_eq!(
                 work.hud_events,
@@ -6597,17 +6548,15 @@ impl GemsSignatureProbe {
                 "ASM sub_44DC frame 916 takes the coin-only upload path",
             );
             const LOC_810_CYCLES: u64 = 117_252_469;
-            self.engine
-                .advance_ntsc_master_clocks(LOC_810_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(LOC_810_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert!(work.post_hud.is_some(), "frame 916 exposes post-HUD work");
             const LOC_892_CYCLES: u64 = 117_261_377;
-            self.engine
-                .advance_ntsc_master_clocks(LOC_892_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(LOC_892_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             const WAIT_FOR_VINT_CYCLES: u64 = 117_293_488;
             self.engine
-                .advance_ntsc_master_clocks(WAIT_FOR_VINT_CYCLES * 7 - self.engine.master_clock());
+                .advance_to_master_clock(WAIT_FOR_VINT_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let wait = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -6701,8 +6650,7 @@ impl GemsSignatureProbe {
             );
             assert!(work.pre_hud.is_some(), "frame 917 exposes pre-HUD work");
             const SUB_44DC_CYCLES: u64 = 117_379_096;
-            self.engine
-                .advance_ntsc_master_clocks(SUB_44DC_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(SUB_44DC_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert_eq!(
                 work.hud_events,
@@ -6734,12 +6682,11 @@ impl GemsSignatureProbe {
             );
             assert!(work.post_hud.is_some(), "frame 917 exposes post-HUD work");
             const LOC_892_CYCLES: u64 = 117_389_416;
-            self.engine
-                .advance_ntsc_master_clocks(LOC_892_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(LOC_892_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             const WAIT_FOR_VINT_CYCLES: u64 = 117_419_222;
             self.engine
-                .advance_ntsc_master_clocks(WAIT_FOR_VINT_CYCLES * 7 - self.engine.master_clock());
+                .advance_to_master_clock(WAIT_FOR_VINT_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let wait = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -6834,8 +6781,7 @@ impl GemsSignatureProbe {
             );
             assert!(work.pre_hud.is_some(), "frame 918 exposes pre-HUD work");
             const SUB_44DC_CYCLES: u64 = 117_507_108;
-            self.engine
-                .advance_ntsc_master_clocks(SUB_44DC_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(SUB_44DC_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert_eq!(
                 work.hud_events,
@@ -6847,17 +6793,15 @@ impl GemsSignatureProbe {
             );
             // TODO(fidelity): compose the clock-only sub_44DC FIFO schedule.
             const LOC_810_CYCLES: u64 = 117_508_480;
-            self.engine
-                .advance_ntsc_master_clocks(LOC_810_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(LOC_810_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             assert!(work.post_hud.is_some(), "frame 918 exposes post-HUD work");
             const LOC_892_CYCLES: u64 = 117_517_388;
-            self.engine
-                .advance_ntsc_master_clocks(LOC_892_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(LOC_892_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             const WAIT_FOR_VINT_CYCLES: u64 = 117_546_952;
             self.engine
-                .advance_ntsc_master_clocks(WAIT_FOR_VINT_CYCLES * 7 - self.engine.master_clock());
+                .advance_to_master_clock(WAIT_FOR_VINT_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let wait = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -7288,8 +7232,7 @@ impl GemsSignatureProbe {
             // Selected-PC tracing pins its complete interval while the
             // persistent GEMS/VDP clock continues through it.
             const LOC_810_CYCLES: u64 = 117_894_313;
-            self.engine
-                .advance_ntsc_master_clocks(LOC_810_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(LOC_810_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let post_hud = apply_gems_mode_level_post_hud_to_loc_892(
                 &mut self.engine,
@@ -7438,8 +7381,7 @@ impl GemsSignatureProbe {
             // Selected-PC tracing pins its complete interval while the
             // persistent GEMS/VDP clock continues through it.
             const LOC_810_CYCLES: u64 = 118_020_026;
-            self.engine
-                .advance_ntsc_master_clocks(LOC_810_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(LOC_810_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let post_hud = apply_gems_mode_level_post_hud_to_loc_892(
                 &mut self.engine,
@@ -7482,7 +7424,7 @@ impl GemsSignatureProbe {
             // the complete loc_892 -> first `$93E` interval.
             const WAIT_FOR_VINT_CYCLES: u64 = 118_040_954;
             self.engine
-                .advance_ntsc_master_clocks(WAIT_FOR_VINT_CYCLES * 7 - self.engine.master_clock());
+                .advance_to_master_clock(WAIT_FOR_VINT_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             let wait = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -7532,7 +7474,7 @@ impl GemsSignatureProbe {
             // loc_14314 instruction entry.
             const TRANSFER_ENTRY_CYCLES: u64 = 22_295_068;
             self.engine
-                .advance_ntsc_master_clocks(TRANSFER_ENTRY_CYCLES * 7 - self.engine.master_clock());
+                .advance_to_master_clock(TRANSFER_ENTRY_CYCLES * 7);
             let (transfer, checkpoint) =
                 apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314(
                     &mut self.engine,
@@ -8141,8 +8083,7 @@ impl GemsSignatureProbe {
             // performs the ordinary palette, SAT/Kid, and scroll DMAs before
             // Execute_Objects enters loc_12E64's blocking WaitForVint.
             const PALETTE_CALL_CYCLES: u64 = 4_212_142;
-            self.engine
-                .advance_ntsc_master_clocks(PALETTE_CALL_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(PALETTE_CALL_CYCLES * 7);
             let checkpoint = self.engine.checkpoint();
             assert_eq!(
                 (
@@ -8190,13 +8131,11 @@ impl GemsSignatureProbe {
             // reads. Selected-PC tracing pins the Stop_z80/Start_z80 writes.
             const READ_JOYPAD_BUS_REQUEST_CYCLES: u64 = 4_334_043;
             const READ_JOYPAD_BUS_RELEASE_CYCLES: u64 = 4_334_719;
-            self.engine.advance_ntsc_master_clocks(
-                READ_JOYPAD_BUS_REQUEST_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(READ_JOYPAD_BUS_REQUEST_CYCLES * 7);
             self.engine.set_z80_control(true, false);
-            self.engine.advance_ntsc_master_clocks(
-                READ_JOYPAD_BUS_RELEASE_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(READ_JOYPAD_BUS_RELEASE_CYCLES * 7);
             self.engine.set_z80_control(false, false);
         }
         if self.power_on_frame == 34 {
@@ -8205,8 +8144,7 @@ impl GemsSignatureProbe {
             // The generic call journal begins at the effective BSR boundary,
             // 18 cycles before Palette_to_VRAM $970.
             const PALETTE_CALL_CYCLES: u64 = 4_341_351;
-            self.engine
-                .advance_ntsc_master_clocks(PALETTE_CALL_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(PALETTE_CALL_CYCLES * 7);
             let entry = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::H40BeamPosition::new(239, 2_757)
                     .expect("oracle second Palette_to_VRAM caller beam"),
@@ -8228,21 +8166,18 @@ impl GemsSignatureProbe {
             // tracing pins the sub_914/sub_924 register-write completions.
             const READ_JOYPAD_BUS_REQUEST_CYCLES: u64 = 4_462_064;
             const READ_JOYPAD_BUS_RELEASE_CYCLES: u64 = 4_462_740;
-            self.engine.advance_ntsc_master_clocks(
-                READ_JOYPAD_BUS_REQUEST_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(READ_JOYPAD_BUS_REQUEST_CYCLES * 7);
             self.engine.set_z80_control(true, false);
-            self.engine.advance_ntsc_master_clocks(
-                READ_JOYPAD_BUS_RELEASE_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(READ_JOYPAD_BUS_RELEASE_CYCLES * 7);
             self.engine.set_z80_control(false, false);
         }
         if self.power_on_frame == 35 {
             // ASM Load_SegaScreen loc_12E6C's second local iteration repeats
             // the palette upload and controller BUSREQ window one VINT later.
             const PALETTE_CALL_CYCLES: u64 = 4_469_370;
-            self.engine
-                .advance_ntsc_master_clocks(PALETTE_CALL_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(PALETTE_CALL_CYCLES * 7);
             let entry = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::H40BeamPosition::new(239, 2_850)
                     .expect("oracle third Palette_to_VRAM caller beam"),
@@ -8260,21 +8195,18 @@ impl GemsSignatureProbe {
 
             const READ_JOYPAD_BUS_REQUEST_CYCLES: u64 = 4_590_064;
             const READ_JOYPAD_BUS_RELEASE_CYCLES: u64 = 4_590_738;
-            self.engine.advance_ntsc_master_clocks(
-                READ_JOYPAD_BUS_REQUEST_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(READ_JOYPAD_BUS_REQUEST_CYCLES * 7);
             self.engine.set_z80_control(true, false);
-            self.engine.advance_ntsc_master_clocks(
-                READ_JOYPAD_BUS_RELEASE_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(READ_JOYPAD_BUS_RELEASE_CYCLES * 7);
             self.engine.set_z80_control(false, false);
         }
         if self.power_on_frame == 36 {
             // ASM Load_SegaScreen loc_12E6C's third local iteration repeats
             // the same palette/VINT/controller hardware path.
             const PALETTE_CALL_CYCLES: u64 = 4_597_370;
-            self.engine
-                .advance_ntsc_master_clocks(PALETTE_CALL_CYCLES * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(PALETTE_CALL_CYCLES * 7);
             let entry = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::H40BeamPosition::new(239, 2_810)
                     .expect("oracle fourth Palette_to_VRAM caller beam"),
@@ -8292,13 +8224,11 @@ impl GemsSignatureProbe {
 
             const READ_JOYPAD_BUS_REQUEST_CYCLES: u64 = 4_718_062;
             const READ_JOYPAD_BUS_RELEASE_CYCLES: u64 = 4_718_736;
-            self.engine.advance_ntsc_master_clocks(
-                READ_JOYPAD_BUS_REQUEST_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(READ_JOYPAD_BUS_REQUEST_CYCLES * 7);
             self.engine.set_z80_control(true, false);
-            self.engine.advance_ntsc_master_clocks(
-                READ_JOYPAD_BUS_RELEASE_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(READ_JOYPAD_BUS_RELEASE_CYCLES * 7);
             self.engine.set_z80_control(false, false);
         }
         if let Some((palette_call_cycles, scanline_mclk, refresh_phase)) = match self.power_on_frame
@@ -8327,8 +8257,7 @@ impl GemsSignatureProbe {
             // Palette_Buffer through Palette_to_VRAM. The source
             // scheduler begins at the effective BSR boundary, 18 cycles
             // before the oracle's $970 selected-PC row.
-            self.engine
-                .advance_ntsc_master_clocks(palette_call_cycles * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(palette_call_cycles * 7);
             let entry = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::H40BeamPosition::new(237, scanline_mclk)
                     .expect("oracle Pal_FadeOut Palette_to_VRAM caller beam"),
@@ -8439,9 +8368,8 @@ impl GemsSignatureProbe {
                 .expect("IntroSequence1 StopMusic reaches selected $E150C");
 
             const PLAY_SOUND_ENTRY_CYCLES: u64 = 9_006_731;
-            self.engine.advance_ntsc_master_clocks(
-                PLAY_SOUND_ENTRY_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(PLAY_SOUND_ENTRY_CYCLES * 7);
             apply_timed_gems_queue_command(
                 &mut self.engine,
                 GemsQueueCommandPath::StartOrStopSequenceSubE151c,
@@ -8451,9 +8379,8 @@ impl GemsSignatureProbe {
             .expect("ASM Load_IntroSequence1 queues bgm_Ice");
 
             const SUB_1B850_ENTRY_CYCLES: u64 = 9_007_307;
-            self.engine.advance_ntsc_master_clocks(
-                SUB_1B850_ENTRY_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(SUB_1B850_ENTRY_CYCLES * 7);
             let setup = apply_gems_decompress_to_vram_setup_sub_142cc(
                 &mut self.engine,
                 wildside_core::vdp::LoadInGameCpuRasterCursor {
@@ -8492,7 +8419,7 @@ impl GemsSignatureProbe {
             // FIFO-paced transfer.
             const TRANSFER_ENTRY_CYCLES: u64 = 9_161_190;
             self.engine
-                .advance_ntsc_master_clocks(TRANSFER_ENTRY_CYCLES * 7 - self.engine.master_clock());
+                .advance_to_master_clock(TRANSFER_ENTRY_CYCLES * 7);
             let (transfer, checkpoint) =
                 apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314(
                     &mut self.engine,
@@ -8873,9 +8800,8 @@ impl GemsSignatureProbe {
             // observed 132 Z80 waits still leaves the coarse suffix 406
             // cycles short, so source-position this post-frozen boundary.
             const FRAME_962_SUB_E12_CYCLES: u64 = 123_131_603;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_962_SUB_E12_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_962_SUB_E12_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             suffix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -8890,9 +8816,8 @@ impl GemsSignatureProbe {
             // 771408..771485. Source-position this post-frozen boundary until
             // the later GEMS phase can reproduce those 77 waits directly.
             const FRAME_965_SUB_E12_CYCLES: u64 = 123_515_470;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_965_SUB_E12_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_965_SUB_E12_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             suffix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -8907,9 +8832,8 @@ impl GemsSignatureProbe {
             // rises by 121. The coarse post-frozen suffix is 196 cycles
             // short, so retain this measured source boundary.
             const FRAME_993_SUB_E12_CYCLES: u64 = 127_099_318;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_993_SUB_E12_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_993_SUB_E12_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             suffix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -8923,9 +8847,8 @@ impl GemsSignatureProbe {
             // span 127354357..127355334 while the oracle Z80 wait counter
             // rises by 121. Retain the measured post-frozen suffix boundary.
             const FRAME_995_SUB_E12_CYCLES: u64 = 127_355_334;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_995_SUB_E12_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_995_SUB_E12_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             suffix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9100,8 +9023,7 @@ impl GemsSignatureProbe {
                 994 => (127_251_241, 100),
                 _ => unreachable!("guarded post-frozen source position"),
             };
-            self.engine
-                .advance_ntsc_master_clocks(target_cycles * 7 - self.engine.master_clock());
+            self.engine.advance_to_master_clock(target_cycles * 7);
             self.engine.set_z80_control(false, false);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             Some(wildside_core::vdp::ModeLevelCpuRasterCursor {
@@ -9284,9 +9206,8 @@ impl GemsSignatureProbe {
             // audio witness is not extended; this retains the authoritative
             // CPU/VDP boundary while the later GEMS phase remains measured.
             const FRAME_958_WAIT_FOR_VINT_CYCLES: u64 = 122_645_157;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_958_WAIT_FOR_VINT_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_958_WAIT_FOR_VINT_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             wait.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9303,9 +9224,8 @@ impl GemsSignatureProbe {
             // the frozen audio witness, so retain this authoritative CPU/VDP
             // handoff until that later audio phase is source-positioned.
             const FRAME_958_MODE_LEVEL_CYCLES: u64 = 122_739_140;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_958_MODE_LEVEL_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_958_MODE_LEVEL_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9321,9 +9241,8 @@ impl GemsSignatureProbe {
             // six-cycle refresh here; retain the exact wall-clock interval so
             // GEMS keeps running without inventing an M68k bank wait.
             const FRAME_960_MODE_LEVEL_CYCLES: u64 = 122_995_154;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_960_MODE_LEVEL_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_960_MODE_LEVEL_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9339,9 +9258,8 @@ impl GemsSignatureProbe {
             // phase counts late on this post-frozen GEMS state, so retain the
             // authoritative wall-clock interval without widening production.
             const FRAME_961_MODE_LEVEL_CYCLES: u64 = 123_123_152;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_961_MODE_LEVEL_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_961_MODE_LEVEL_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9398,9 +9316,8 @@ impl GemsSignatureProbe {
             // not generate that split, so retain the measured endpoint in
             // this post-frozen continuation.
             const FRAME_962_LOC_7D6_CYCLES: u64 = 123_130_207;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_962_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_962_LOC_7D6_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9423,9 +9340,8 @@ impl GemsSignatureProbe {
             // post-frozen route is two wall-clock cycles short while its
             // refresh phase is already exact, so source-position the prefix.
             const FRAME_964_LOC_7D6_CYCLES: u64 = 123_386_404;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_964_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_964_LOC_7D6_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9439,9 +9355,8 @@ impl GemsSignatureProbe {
             // selected PCs end at cycle 123514535/phase 16 with 77 GEMS
             // waits following in the suffix. Retain this test-only boundary.
             const FRAME_965_LOC_7D6_CYCLES: u64 = 123_514_535;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_965_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_965_LOC_7D6_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9455,9 +9370,8 @@ impl GemsSignatureProbe {
             // selected PCs end at cycle 123642413/phase 16. Retain this
             // post-frozen VBlank-prefix boundary before its wait-free suffix.
             const FRAME_966_LOC_7D6_CYCLES: u64 = 123_642_413;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_966_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_966_LOC_7D6_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9472,9 +9386,8 @@ impl GemsSignatureProbe {
             // post-frozen prefix is four wall-clock cycles short with the
             // correct phase, so source-position its measured endpoint.
             const FRAME_967_LOC_7D6_CYCLES: u64 = 123_770_126;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_967_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_967_LOC_7D6_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9489,9 +9402,8 @@ impl GemsSignatureProbe {
             // the false post-HUD waits, the retained prefix is four cycles
             // short with the correct phase; source-position its endpoint.
             const FRAME_968_LOC_7D6_CYCLES: u64 = 123_898_130;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_968_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_968_LOC_7D6_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9506,9 +9418,8 @@ impl GemsSignatureProbe {
             // counter rises by 66 cycles; its instruction interleaving makes
             // the retained post-frozen prefix 96 elapsed cycles short.
             const FRAME_969_LOC_7D6_CYCLES: u64 = 124_026_234;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_969_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_969_LOC_7D6_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9522,9 +9433,8 @@ impl GemsSignatureProbe {
             // selected PCs end at cycle 124154438/phase 16. The retained
             // wait-free prefix is two cycles short with the correct phase.
             const FRAME_970_LOC_7D6_CYCLES: u64 = 124_154_438;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_970_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_970_LOC_7D6_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9538,9 +9448,8 @@ impl GemsSignatureProbe {
             // selected PCs end at cycle 124282455/phase 16. The retained
             // wait-free prefix is 13 cycles short with the correct phase.
             const FRAME_971_LOC_7D6_CYCLES: u64 = 124_282_455;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_971_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_971_LOC_7D6_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9555,9 +9464,8 @@ impl GemsSignatureProbe {
             // wait counter rises 784146..784267. The retained prefix is 138
             // elapsed cycles short after refresh and wait arbitration.
             const FRAME_972_LOC_7D6_CYCLES: u64 = 124_410_581;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_972_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_972_LOC_7D6_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9572,9 +9480,8 @@ impl GemsSignatureProbe {
             // counters remain flat. The retained prefix is 18 cycles short
             // with the correct refresh phase.
             const FRAME_973_LOC_7D6_CYCLES: u64 = 124_538_172;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_973_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_973_LOC_7D6_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9589,9 +9496,8 @@ impl GemsSignatureProbe {
             // wait counter remains flat while the retained prefix is 130
             // elapsed cycles short.
             const FRAME_976_LOC_7D6_CYCLES: u64 = 124_922_308;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_976_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_976_LOC_7D6_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9606,9 +9512,8 @@ impl GemsSignatureProbe {
             // counters remain flat while the retained prefix is 16 cycles
             // short with the correct phase.
             const FRAME_977_LOC_7D6_CYCLES: u64 = 125_050_186;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_977_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_977_LOC_7D6_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9623,9 +9528,8 @@ impl GemsSignatureProbe {
             // the nine-cycle post-frozen prefix residue before its wait-free
             // loc_7D6 -> sub_E12 suffix.
             const FRAME_983_LOC_7D6_CYCLES: u64 = 125_818_211;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_983_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_983_LOC_7D6_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9640,9 +9544,8 @@ impl GemsSignatureProbe {
             // Z80 wait counter rises by 2,277. Retain the authoritative
             // post-frozen VBlank-prefix boundary.
             const FRAME_995_LOC_7D6_CYCLES: u64 = 127_354_357;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_995_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_995_LOC_7D6_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
@@ -9657,9 +9560,8 @@ impl GemsSignatureProbe {
             // the aggregate VDP/GEMS ownership while the later audio phase is
             // outside the frozen frame-923 witness.
             const FRAME_959_LOC_7D6_CYCLES: u64 = 122_746_448;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_959_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
-            );
+            self.engine
+                .advance_to_master_clock(FRAME_959_LOC_7D6_CYCLES * 7);
             let _ = self.engine.take_pending_m68k_wait_cycles();
             prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
                 beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
