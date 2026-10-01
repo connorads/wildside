@@ -288,6 +288,10 @@ description = "Random-route native vs ROM parity fuzz; clusters first divergence
 run = "cargo run --release -p wildside-cli -- ledger run"
 description = "Search level exits on native and confirm them on the ROM (writes .cache/ledger-runs/; --write updates level-ledger.yaml)"
 
+[tasks.verify-ledger]
+run = "cargo run --release -p wildside-cli -- ledger verify"
+description = "Replay every confirmed ledger route on native and the ROM (periodic; not in verify-slice-fast)"
+
 [tasks.sweep-census]
 run = "cargo run --release -p wildside-cli -- sweep-census"
 description = "Classify sweep-blocking diffs by enemy family (writes .cache/audit/sweep-census.json)"

@@ -50,7 +50,9 @@ replayed on the ROM. It is `confirmed` when no blocking divergence precedes the
 exit and both sides change mode or level on the same frame; otherwise the
 ledger records the blocking signature. `--write` merges the levels run into
 `docs/source-port/level-ledger.yaml` and copies confirmed routes to
-`tests/data/ledger-routes/<level>.json`.
+`tests/data/ledger-routes/<level>.json`. `mise run verify-ledger`
+(`wildside ledger verify`) replays every confirmed route: native must exit on
+the recorded frame and the ROM must still confirm it.
 
 ## Dev / oracle setup
 

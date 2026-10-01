@@ -555,6 +555,82 @@ fn check_on_rom(
     })
 }
 
+/// Replays every checked-in confirmed route: native must reach the recorded
+/// exit on the recorded frame and the ROM must still confirm it.
+pub(crate) fn verify_ledger(repo_root: &Path, rom: &Path, manifest: &AssetManifest) -> Result<()> {
+    let ledger = load_ledger(repo_root)?;
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs();
+    let oracle = OracleRunner::new(
+        repo_root,
+        rom,
+        &repo_root
+            .join(".cache/ledger-runs/verify")
+            .join(stamp.to_string()),
+    )?;
+    let confirmed = ledger
+        .levels
+        .iter()
+        .filter(|entry| entry.status == LevelStatus::Confirmed)
+        .collect::<Vec<_>>();
+    let failures = confirmed
+        .par_iter()
+        .filter_map(|entry| {
+            let result = verify_route(repo_root, manifest, &oracle, entry);
+            let line = match &result {
+                Ok(()) => format!("{:#04x}: confirmed", entry.level),
+                Err(error) => format!("{:#04x}: FAILED {error:#}", entry.level),
+            };
+            println!("{line}");
+            result.err().map(|_| entry.level)
+        })
+        .collect::<Vec<_>>();
+    ensure!(
+        failures.is_empty(),
+        "{} of {} ledger routes no longer confirm",
+        failures.len(),
+        confirmed.len()
+    );
+    println!("verify-ledger: {} routes confirmed", confirmed.len());
+    Ok(())
+}
+
+fn verify_route(
+    repo_root: &Path,
+    manifest: &AssetManifest,
+    oracle: &OracleRunner,
+    entry: &LevelEntry,
+) -> Result<()> {
+    let path = repo_root.join(ROUTE_DIR).join(route_file(entry.level));
+    let scenario: DynamicScenario = serde_json::from_slice(&fs::read(&path)?)
+        .with_context(|| format!("parse {}", path.display()))?;
+    let native = run_native_dynamic_scenario(
+        manifest.clone(),
+        &scenario,
+        NativeDynamicRunOptions::default(),
+    )?;
+    let first_exit = native.iter().enumerate().find_map(|(frame, trace)| {
+        classify_exit(LevelId(entry.level), trace).map(|exit| (frame, exit))
+    });
+    ensure!(
+        first_exit == entry.exit_frame.zip(entry.exit.clone()),
+        "native exit {first_exit:?}, ledger records {:?} at {:?}",
+        entry.exit,
+        entry.exit_frame
+    );
+    let (status, blocked_by) = check_on_rom(manifest, oracle, &scenario, entry.level)?;
+    ensure!(
+        status == LevelStatus::Confirmed,
+        "ROM replay now {status:?}{}",
+        blocked_by.map_or_else(String::new, |blocker| format!(
+            " at frame {} ({})",
+            blocker.frame, blocker.signature
+        ))
+    );
+    Ok(())
+}
+
 fn entry_line(entry: &LevelEntry) -> String {
     let mut line = format!("{:#04x}: {:?}", entry.level, entry.status);
     if let (Some(exit), Some(frame)) = (&entry.exit, entry.exit_frame) {

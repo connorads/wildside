@@ -290,6 +290,13 @@ enum LedgerCommand {
         #[arg(long, default_value_t = false)]
         write: bool,
     },
+    /// Replay every confirmed ledger route on native and the ROM.
+    Verify {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -1714,6 +1721,15 @@ fn main() -> Result<()> {
                 cap: cells,
             };
             ledger::run_ledger(&repo_root, &rom_path, &manifest, &args, write)?;
+        }
+        Commands::Ledger {
+            command: LedgerCommand::Verify { rom, dir },
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            ledger::verify_ledger(&repo_root, &rom_path, &manifest)?;
         }
         Commands::Fuzz {
             command: FuzzCommand::Shrink { rom, dir, cluster },
