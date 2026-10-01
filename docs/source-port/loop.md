@@ -90,7 +90,10 @@ that `project-status` reads; neither runs in a gate.
   `mise run verify-ledger` replays every confirmed route; run it periodically.
 
 The headline is N/103 levels confirmed. A fix that removes a cluster usually
-unblocks ledger levels too, so re-run both after each fix.
+unblocks ledger levels too, so re-run both after each fix. The fuzz census
+takes under a minute. A full ledger pass takes about an hour, so after a fix
+re-run only the levels its cluster blocked (`--levels 0x00,0x04`); `--write`
+merges them into the ledger.
 
 ## Jev discovery and saved-route validation
 
