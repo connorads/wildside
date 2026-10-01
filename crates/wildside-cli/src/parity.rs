@@ -301,6 +301,35 @@ fn first_unmasked_crc_mismatch(
     })
 }
 
+/// First frame whose game mode or level differs from frame 0: where a route
+/// leaves the level. `first_divergence` masks everything after the oracle
+/// leaves, so the exit itself is compared here.
+pub(crate) fn transition_frame(modes: impl IntoIterator<Item = (u16, u16)>) -> Option<usize> {
+    let mut modes = modes.into_iter();
+    let start = modes.next()?;
+    modes.position(|mode| mode != start).map(|index| index + 1)
+}
+
+pub(crate) fn native_transition_frame(native_trace: &[NativeTraceFrame]) -> Option<usize> {
+    transition_frame(
+        native_trace
+            .iter()
+            .map(|frame| (frame.game_mode_value, u16::from(frame.current_level.0))),
+    )
+}
+
+/// Native and the ROM leave the level on the same frame.
+pub(crate) fn exit_matches(native_trace: &[NativeTraceFrame], oracle: &OracleManifest) -> bool {
+    let oracle_exit = transition_frame(
+        oracle
+            .states
+            .iter()
+            .map(|state| (state.game_mode, state.current_level_id)),
+    );
+    let native_exit = native_transition_frame(native_trace);
+    native_exit.is_some() && native_exit == oracle_exit
+}
+
 /// Level-agnostic cluster key for a divergence.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub(crate) struct Signature {
@@ -530,6 +559,23 @@ mod tests {
                 .iter()
                 .any(|diff| diff.field == "kid_x_pos")
         );
+    }
+
+    #[test]
+    fn exits_match_only_on_the_same_transition_frame() {
+        let mut trace = native_trace(20);
+        for frame in &mut trace[12..] {
+            frame.current_level = LevelId(0x40);
+        }
+        let oracle = oracle_for(&trace);
+        assert_eq!(native_transition_frame(&trace), Some(12));
+        assert!(exit_matches(&trace, &oracle));
+
+        let mut late = oracle.clone();
+        late.states[12].current_level_id = u16::from(LEVEL);
+        assert!(!exit_matches(&trace, &late));
+        let still = native_trace(20);
+        assert!(!exit_matches(&still, &oracle_for(&still)));
     }
 
     #[test]

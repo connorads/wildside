@@ -460,7 +460,7 @@ fn write_summary(repo_root: &Path, summary: &FuzzSummary) -> Result<()> {
     fs::write(&path, body).with_context(|| format!("write {}", path.display()))
 }
 
-fn git_revision(repo_root: &Path) -> String {
+pub(crate) fn git_revision(repo_root: &Path) -> String {
     std::process::Command::new("git")
         .args(["describe", "--always", "--dirty", "--abbrev=12"])
         .current_dir(repo_root)
@@ -470,7 +470,7 @@ fn git_revision(repo_root: &Path) -> String {
         .map_or_else(|| "unknown".to_owned(), |text| text.trim().to_owned())
 }
 
-mod hex_level {
+pub(crate) mod hex_level {
     use serde::{Deserialize, Deserializer, Serializer};
 
     #[expect(

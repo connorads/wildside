@@ -154,7 +154,7 @@ sh -ec '
 python3 scripts/core_test_exclusions.py \
   && cargo test -q -p wildside-cli gameplay_regression_ \
   && cargo test -q -p wildside-cli replay_exploration:: \
-  && cargo test -q -p wildside-cli -- parity:: fuzz:: input_gen:: \
+  && cargo test -q -p wildside-cli -- parity:: fuzz:: input_gen:: ledger:: \
   && python3 scripts/test_tas_pixel_gate.py \
   && cargo test -q -p wildside-rom
 '
@@ -283,6 +283,10 @@ description = "#447 meter: fail if any opcode file fails more 68000 vectors than
 [tasks.fuzz]
 run = "cargo run --release -p wildside-cli -- fuzz run"
 description = "Random-route native vs ROM parity fuzz; clusters first divergences (writes .cache/fuzz-runs/)"
+
+[tasks.ledger]
+run = "cargo run --release -p wildside-cli -- ledger run"
+description = "Search level exits on native and confirm them on the ROM (writes .cache/ledger-runs/; --write updates level-ledger.yaml)"
 
 [tasks.sweep-census]
 run = "cargo run --release -p wildside-cli -- sweep-census"

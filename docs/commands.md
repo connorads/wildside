@@ -39,6 +39,19 @@ same signature: it truncates to the divergence, then zeroes input spans. It uses
 the same reducer as `wildside case reduce`, one oracle replay per candidate
 (~4 s each).
 
+## Level ledger
+
+`mise run ledger` (`wildside ledger run --levels 0x00-0x10`) searches each level
+for an exit on native: a flag, a teleport to another level, or the game end.
+Each seed runs a deterministic Go-Explore archive of 24 px cells per helmet
+form with a fixed frame budget (`--frames`, `--jobs` seeds per level, `--cells`
+cap at ~0.35 MB each); the lowest seed that exits wins. The found route is then
+replayed on the ROM. It is `confirmed` when no blocking divergence precedes the
+exit and both sides change mode or level on the same frame; otherwise the
+ledger records the blocking signature. `--write` merges the levels run into
+`docs/source-port/level-ledger.yaml` and copies confirmed routes to
+`tests/data/ledger-routes/<level>.json`.
+
 ## Dev / oracle setup
 
 The native runtime, asset extraction, and the emulator oracle are wired through mise:

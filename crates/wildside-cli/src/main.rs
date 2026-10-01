@@ -17,6 +17,7 @@ mod gems_span;
 mod hypothesis;
 mod input_gen;
 mod inspect;
+mod ledger;
 mod native_player;
 mod oracle;
 mod parity;
@@ -264,6 +265,34 @@ enum RecordScenarioKind {
 }
 
 #[derive(Debug, Subcommand)]
+enum LedgerCommand {
+    /// Search each level for an exit on native, confirm the route on the ROM
+    /// and write .cache/ledger-runs/<ts>/.
+    Run {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Hex logical levels: "0x00-0x10", "00,03,0a" or "all".
+        #[arg(long, default_value = "0x00-0x10")]
+        levels: String,
+        /// Native frames each explorer may spend.
+        #[arg(long, default_value_t = 1_500_000)]
+        frames: u64,
+        /// Independent explorer seeds per level; the lowest seed that exits wins.
+        #[arg(long, default_value_t = 2)]
+        jobs: u64,
+        /// Archive cells per explorer (~0.35 MB each).
+        #[arg(long, default_value_t = 2000)]
+        cells: usize,
+        /// Also update docs/source-port/level-ledger.yaml and
+        /// tests/data/ledger-routes/.
+        #[arg(long, default_value_t = false)]
+        write: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 enum FuzzCommand {
     /// Replay random routes from each level start on native and the ROM,
     /// cluster first divergences, and write .cache/fuzz-runs/<ts>/.
@@ -306,6 +335,11 @@ enum Commands {
     Case {
         #[command(subcommand)]
         command: CaseCommand,
+    },
+    /// Level exits found on native and confirmed on the ROM.
+    Ledger {
+        #[command(subcommand)]
+        command: LedgerCommand,
     },
     /// Random-route parity fuzzing: native vs ROM first divergences, clustered.
     Fuzz {
@@ -1656,6 +1690,30 @@ fn main() -> Result<()> {
                 frames,
             };
             fuzz::run_fuzz(&repo_root, &rom_path, &manifest, &args, jobs, write)?;
+        }
+        Commands::Ledger {
+            command:
+                LedgerCommand::Run {
+                    rom,
+                    dir,
+                    levels,
+                    frames,
+                    jobs,
+                    cells,
+                    write,
+                },
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let args = ledger::LedgerArgs {
+                levels: parity::parse_levels(&levels)?,
+                budget: frames,
+                jobs,
+                cap: cells,
+            };
+            ledger::run_ledger(&repo_root, &rom_path, &manifest, &args, write)?;
         }
         Commands::Fuzz {
             command: FuzzCommand::Shrink { rom, dir, cluster },
@@ -5653,7 +5711,7 @@ mod tests {
     const SAXMAN_FIXTURE: &[u8] = &[0x00, 0x02, 0xF4, 0x60, 0x41, 0x42, 0x43, 0x44, 0x00, 0x00];
     const ENIGMA_FIXTURE: &[u8] = &[0x05, 0x00, 0x00, 0x01, 0x00, 0x0A, 0x09, 0x18, 0x10, 0xFE];
 
-    fn cached_generated_manifest() -> Option<AssetManifest> {
+    pub(crate) fn cached_generated_manifest() -> Option<AssetManifest> {
         let repo_root = if let Ok(override_root) = std::env::var("KID_REPO_ROOT")
             && !override_root.is_empty()
         {
