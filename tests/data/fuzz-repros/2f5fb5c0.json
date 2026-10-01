@@ -1,0 +1,13 @@
+{
+  "slug": "fuzz-2f5fb5c0",
+  "script": [],
+  "frame_count": 1,
+  "checkpoints": [
+    {
+      "label": "frame_0",
+      "frame_index": 0
+    }
+  ],
+  "warp_to_level": 7,
+  "settle_oracle_warp": true
+}

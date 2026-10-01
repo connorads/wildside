@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-10-01 - Parity fuzzer, level ledger and ADR 0004
+
+Added `wildside fuzz run`/`shrink` and `wildside ledger run`/`verify`, and pointed the loop's intake at them. The first census (0x00-0x05 x 8 seeds) found 31/32 random routes diverging into 23 clusters, 16 of them first on `character_movement`. The ledger exits 10 of 17 levels on native but confirms none on the ROM. ADR 0004 closed #406/#409/#416 and deleted the scheduled-frame and GEMS frame-signature ratchets; `verify-tas-full` stayed green. Intake rows #515-#521 own every cluster and blocker.
+
 ## 2026-09-28 - #186 live Lion loader and ledge entry
 
 The checked-in settled Level 0x07 route matches all 67 gameplay checkpoints through the upper Lion's live allocation. Its enemy frontier retains four frame 62..65 diagnostics because native stays grounded while the oracle enters the ledge fall and applies same-pass gravity. Fresh strict captures show both sides use the same `$0AA0` Lion mapping; the visible offset is the one-pixel airborne schedule, not a sprite-phase defect. A global linked-Gfx terrain-probe shift broke the comparable lower Lion and was rejected. #186 remains active for the live-loader schedule plus surviving-stomp recoil and recovery. No paid JEV request occurred.

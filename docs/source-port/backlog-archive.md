@@ -29970,3 +29970,23 @@ frames, 3a36f8ac 71 -> 41, 54fce7a1 90 -> 60 (3 nonzero inputs), 87a37ef6
 
 #516: 60979027 shrank 128 -> 98 frames. #517: 022889be shrank 339 -> 309.
 #518 and #519 have unshrunk repros or none (idle controls).
+
+<a id="issue-520"></a>
+### #520-#521 - First level-ledger intake (2026-10-01)
+
+Source: `wildside ledger run --levels 0x00-0x10 --write` (2 seeds x 1.5M
+frames): 10/17 native exits, 0 confirmed. Each untracked blocker's route was
+cut to divergence + 30 frames and shrunk with `wildside fuzz shrink`; repros
+live in `tests/data/fuzz-repros/<id>.json`. Oracle status: authoritative;
+minimum gate: `fast-slice`.
+
+#515 also owns the ledger's `character_movement` blockers: c96a3c9d (0x01
+f51, shrunk 81 -> 51 frames) and 60e1fbc2 (0x05 f55, 85 -> 55 frames, 3
+nonzero inputs), alongside 668a6a0f (0x00) and 7b0a8e1e (0x04).
+
+#520 owns the `enemy_roster` blockers: 5c73a00e (0x03 f171, 201 -> 171 frames), a8918bf2 (0x09
+f80, 110 -> 80 frames) and d0eff6e6 (0x0e f133, 163 -> 133 frames).
+
+#521 owns frame-0 blockers, which shrink to an empty script: 2f5fb5c0 (0x07,
+RNG offset/ring) and 5a69ed83 (0x0a and 0x0b, enemy roster). The settled warp
+itself differs from the ROM, so no input reaches them.

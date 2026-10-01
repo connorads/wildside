@@ -1064,5 +1064,29 @@
     ],
     "next_action": "Run the idle control for 0x05 and compare the frame-71 enemy roster with the oracle.",
     "scope": "Idle controls on 0x01 and 0x05."
+  },
+  {
+    "issue": 520,
+    "readiness": "ready_replay",
+    "active_path": "Enemy roster on 0x03, 0x09 and 0x0e ledger routes",
+    "route": "tests/data/fuzz-repros/5c73a00e.json, a8918bf2.json, d0eff6e6.json",
+    "evidence": [
+      "docs/source-port/level-ledger.yaml",
+      "docs/source-port/backlog-archive.md#issue-520"
+    ],
+    "next_action": "Replay a8918bf2 to frame 80 and compare the enemy roster with the oracle.",
+    "scope": "Ledger enemy_roster blockers from the first run."
+  },
+  {
+    "issue": 521,
+    "readiness": "ready_replay",
+    "active_path": "Settled-warp initial state on 0x07, 0x0a and 0x0b",
+    "route": "tests/data/fuzz-repros/2f5fb5c0.json and 5a69ed83.json (empty scripts)",
+    "evidence": [
+      "docs/source-port/level-ledger.yaml",
+      "docs/source-port/backlog-archive.md#issue-520"
+    ],
+    "next_action": "Compare frame 0 of the 0x07 settled warp RNG ring with the oracle.",
+    "scope": "Frame-0 divergences with no input."
   }
 ]

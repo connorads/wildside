@@ -31,13 +31,13 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-09-28):** #186 is active. The checked-in Level 0x07 routes match 120 roar/contact frames and 67 live-loader gameplay frames. The live-loader enemy frontier retains four frame 62..65 airborne-schedule diagnostics. Resolve them, then capture a surviving stomp through recoil and recovery.
-- **Selection:** #169 remains parked on non-comparable settled starts. #186 is the next P1 objective gap; loader and ledge gameplay parity do not prove the enemy frontier, recoil or recovery.
-- **Scope:** Single-player across all playable levels, branches, forms and bosses. Invisible timing parity is out of scope per ADR 0004; the pixel baseline and injection ratchet stay. Final package retains subjective/device checks; no human validation is claimed.
-- **Jev allowance:** $5 additional across the campaign. #185 used 48 requests in one attempt. The ledger lifetime charged upper bound is $0.257086284. The checked-in route and later comparisons need no further paid navigation.
-- **Jev exploration review:** Revision `cf5d84937`. #433 was the highest-priority eligible gap, but its 20-minute case window had expired. Offline ROM graph discovery replaced the false no-entry premise and found the natural Crypt chain. No request or spend occurred. Restart the three-fix cadence from this review.
-- **#185 evidence:** `tests/data/dynamic-scenarios/issue-185-hand-natural-grab.json` covers frames 0..127. Strict enemy comparison reports 128 matches and zero divergences. Offline JEV replay matches trace and emulator state. The remaining image bounds contain the documented HUD life icon and Kid slope frames owned by #211, with no standalone Hand residual.
-- **Evidence boundary:** Published-route state/RNG gates cover one route. Frozen visual debt is 241 frames / 2,391 pixels. Neither that replay nor idle sweep checkpoints proves whole-game completion.
+- **Current work (2026-10-01):** #515 is next. Port the ROM's `Character_Movement` MoveID writes in place of `current_character_movement`; it owns 18 fuzz clusters and blocks the 0x00/0x01/0x04/0x05 ledger exits. Start from `tests/data/fuzz-repros/54fce7a1.json` (3 inputs: Down arrives while walking; native flips to crawl a frame before the ROM). #186 stays `[~]`.
+- **Intake:** `fuzz-summary.yaml` (0x00-0x05 x 8 seeds) has 23 clusters, all tracked by #515-#519. `level-ledger.yaml` (0x00-0x10) has 10/17 native exits and 0/103 confirmed; every blocker is tracked by #515, #520 or #521.
+- **Scope:** ADR 0004 sets the fidelity floor: gameplay, enemy and RNG state, level exits, visible or audible bugs. #406/#409/#416 closed under it; the pixel baseline and injection ratchet stay.
+- **After each fix:** re-run `wildside fuzz run --levels 0x00-0x05 --seeds 8 --frames 600 --write` and `wildside ledger run --write`; extend the ledger past 0x10 once early levels confirm.
+- **Jev allowance:** $5 additional across the campaign. #185 used 48 requests in one attempt. The ledger lifetime charged upper bound is $0.257086284.
+- **Jev exploration review:** Revision `cf5d84937`. No request or spend occurred. Restart the three-fix cadence from this review.
+- **Evidence boundary:** The published-route state/RNG gates cover one route; `verify-tas-full` passed at `047b09300`. The ledger and fuzz census measure the rest.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -65,3 +65,5 @@ For newly opened items, capture these facts in the investigation notes:
 | 517 | [ ] | P2 | enemy | Fuzz clusters 022889be (0x00 f309), d1446380 and 72129c1a (0x03), e9b6a11e (0x02): native keeps a different live object set or roster. | Each shrunk repro matches object counts and roster. |
 | 518 | [ ] | P2 | kid-physics | Fuzz clusters 6c5f8e27 (0x04 f260, airborne `kid_x_vel`) and 1f2cfa0d (0x04 f203, RNG offset/ring). | Both repros match the ROM through their divergence frames. |
 | 519 | [ ] | P2 | enemy | Idle fuzz controls diverge on `enemy_roster` at 0x01 frame 99 and 0x05 frame 71, so fuzz skips both levels (`start_state`). | Idle 600-frame control matches on 0x01 and 0x05. |
+| 520 | [ ] | P1 | enemy | Ledger routes diverge on `enemy_roster` before their exits: 5c73a00e (0x03 f171), a8918bf2 (0x09 f80), d0eff6e6 (0x0e f133). | Each repro in `tests/data/fuzz-repros/` matches the roster; the levels re-run in the ledger. |
+| 521 | [ ] | P2 | level | Settled-warp start state differs at frame 0 with no input: 2f5fb5c0 (0x07 RNG offset/ring) and 5a69ed83 (0x0a/0x0b enemy roster). | Frame 0 of the settled warp matches the ROM on 0x07, 0x0a and 0x0b. |
