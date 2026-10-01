@@ -29946,3 +29946,27 @@ disclosed non-goals, not debt: raster frontier 995 (#406), HUD residue
 guards. The #409 scheduled-frame coverage ratchet and the `tas-gems-baseline`
 frame-signature witness are deleted. A visible symptom traced to these
 mechanisms reopens as a new, narrow issue.
+
+<a id="issue-515"></a>
+### #515-#519 - First fuzz census intake (2026-10-01)
+
+Source: `wildside fuzz run --levels 0x00-0x05 --seeds 8 --frames 600 --write`
+at `ef02c79097d2`; census in `docs/source-port/fuzz-summary.yaml`, one repro
+per cluster in `tests/data/fuzz-repros/<id>.json`. 31 of 32 routes on the four
+idle-clean levels diverge, into 23 clusters. Native repro status: reproduced by
+the repro scenario; oracle status: authoritative; minimum gate: `fast-slice`.
+
+#515 owns the 16 clusters whose first blocking field is `character_movement`
+alone: 7b0a8e1e, 3a36f8ac, 54fce7a1, 87a37ef6, 7e8ce7fc, 668a6a0f, 34b21cfc,
+21b9400d, 0ae5df13, 65f69230, acad697b, 14a945c9, 6fc9900d, 8890705b,
+a01c144a, 85f74ff9. Native classifies MoveID from player state each frame in
+`trace.rs` `current_character_movement`; the ROM writes `Character_Movement`
+(`$FFFFFA56`) at about twenty `move.w #MoveID_*` sites in the Kid coroutines
+(kid.asm, e.g. `loc_A6F8` Jump). Gameplay reads the native value (stomp
+`combat.rs`, platforms and helmet wake `lib.rs`, Hand `combat.rs`), so the fix
+can move gameplay and needs `verify-tas-full`. Shrunk repros: 7b0a8e1e 72 -> 42
+frames, 3a36f8ac 71 -> 41, 54fce7a1 90 -> 60 (3 nonzero inputs), 87a37ef6
+78 -> 48, acad697b 145 -> 115 (4 nonzero inputs; Down on landing).
+
+#516: 60979027 shrank 128 -> 98 frames. #517: 022889be shrank 339 -> 309.
+#518 and #519 have unshrunk repros or none (idle controls).

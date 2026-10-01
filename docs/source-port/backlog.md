@@ -60,3 +60,8 @@ For newly opened items, capture these facts in the investigation notes:
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 186 | [~] | P1 | enemy | Fight a Lion; hurt recoil, ledge leap, roar windup, and engagement range should behave like the ROM. | Resolve live-loader pose pixels; capture surviving-stomp recoil and recovery. |
+| 515 | [ ] | P1 | kid-physics | Native derives `character_movement` each frame (`current_character_movement`); the ROM stores MoveID at its coroutine write sites. 16 of 23 fuzz clusters (24 routes) diverge here first, e.g. 7b0a8e1e, 3a36f8ac, 54fce7a1, 87a37ef6. | Fuzz 0x00-0x05 x 8 seeds has no `character_movement`-first cluster; `gameplay_regression_*` tests load the shrunk repros. |
+| 516 | [ ] | P1 | kid-physics | Fuzz cluster 60979027: on 0x04 Kid position, x/y velocity and camera diverge at frame 98 while moving right. | Shrunk repro `tests/data/fuzz-repros/60979027.json` matches the ROM; regression test. |
+| 517 | [ ] | P2 | enemy | Fuzz clusters 022889be (0x00 f309), d1446380 and 72129c1a (0x03), e9b6a11e (0x02): native keeps a different live object set or roster. | Each shrunk repro matches object counts and roster. |
+| 518 | [ ] | P2 | kid-physics | Fuzz clusters 6c5f8e27 (0x04 f260, airborne `kid_x_vel`) and 1f2cfa0d (0x04 f203, RNG offset/ring). | Both repros match the ROM through their divergence frames. |
+| 519 | [ ] | P2 | enemy | Idle fuzz controls diverge on `enemy_roster` at 0x01 frame 99 and 0x05 frame 71, so fuzz skips both levels (`start_state`). | Idle 600-frame control matches on 0x01 and 0x05. |
