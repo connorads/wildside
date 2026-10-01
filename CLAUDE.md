@@ -6,7 +6,9 @@ This repo keeps source-port research material in cache-local checkouts and repo 
 
 If your prompt mentions a loop session (or you're asked to "take the next item"),
 follow `docs/source-port/loop.md`; it is the whole loop, including saved-route
-validation and periodic Jev exploration. The backlog is sharded by
+validation and periodic Jev exploration. Its intake is fuzz clusters and level
+ledger blockers (`mise run fuzz`, `mise run ledger`), promoted to backlog rows
+with a shrunk repro. The backlog is sharded by
 reader: `docs/source-port/backlog.md` holds the NOW handoff and the open queue
 (`[ ]`/`[~]` rows, plus never-selectable frozen `[f]` lanes);
 `backlog-awaiting-human.md` holds `[?]`/`[b]` cases eligible for objective investigation under
@@ -134,6 +136,10 @@ cargo run -p wildside-cli -- asm-coverage --json             # machine-readable 
 cargo run -p wildside-cli -- asm-coverage --check-required   # fast-gate required-label citations
 cargo run -p wildside-cli -- asm-coverage --check-no-new-test-only  # ratchet new test-only debt
 cargo run -p wildside-cli -- asm-coverage --update           # regenerate .cache/asm-coverage.yaml (untracked)
+cargo run --release -p wildside-cli -- fuzz run --write      # random-route parity census -> docs/source-port/fuzz-summary.yaml
+cargo run --release -p wildside-cli -- fuzz shrink <cluster> # minimise a cluster's repro in place
+cargo run --release -p wildside-cli -- ledger run --write    # level exits on native, confirmed on the ROM -> level-ledger.yaml
+cargo run --release -p wildside-cli -- ledger verify         # replay every confirmed ledger route
 ```
 
 > **Citation ≠ fidelity ≠ reachability.** `asm-coverage` is a discovery aid: a label is
@@ -192,7 +198,7 @@ top of `backlog.md` (rewrite it each session; never let it accrete: old handoffs
    `docs/source-port/completion-campaign.md` to select objective awaiting-human
    cases and coverage prerequisites; do not automate subjective/device sign-off.
    a. project-status lists "ready to implement now" (open rows whose evidence says "root cause identified") first; take those before generic open playability/visual risks.
-   b. If project-status shows no ready item and no open risks, use the proactive-verification fallback in `loop.md` (mutation-test one file, audit one enemy family vs ASM, extend ASM coverage)
+   b. Promote any untracked fuzz cluster or ledger blocker that project-status lists to a backlog row first (`wildside fuzz shrink <cluster>` for the repro). If nothing is ready, open or untracked, re-run `mise run fuzz` / `mise run ledger` with `--write`; the loop stops when they report no open cluster or blocker
 2. Mark `[~]` when starting work
 3. Investigate (structured):
    a. Reproduce: capture frames or run scenario showing the bug

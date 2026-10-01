@@ -275,7 +275,7 @@ Loop sessions consume these bundles through `docs/source-port/loop.md`:
 - grep `backlog-archive.md` for `#NNN` before forming a hypothesis, since dead ends are recorded there
 - recording-backed cases outrank generic replay slices when both exist for an issue
 - if tracked git changes already exist when a session starts, treat them as the highest-priority recovery task; verify/commit or intentionally discard that coherent unit before taking a new item
-- when no backlog item is actionable, use the proactive-verification fallback in `loop.md` (mutation-test one file, audit one enemy family vs ASM, extend ASM coverage)
+- intake comes from `wildside fuzz run` clusters and `wildside ledger run` blockers; promote each to a row with a shrunk repro, and re-run both after every fix (see "Parity measurements" in `loop.md`)
 
 ### Decision tree
 

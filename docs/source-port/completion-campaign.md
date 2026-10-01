@@ -126,6 +126,10 @@ not Codex usage. Never put API keys in tracked files or reports.
 
 - All confirmed playable levels and progression branches have natural route
   evidence; every form and boss and each enemy/mechanic family has live coverage.
+- `level-ledger.yaml` confirms an exit on the ROM for every playable level, or
+  names a blocker that an open row owns.
+- `fuzz-summary.yaml`, run with the census arguments over every idle-clean level,
+  has no cluster without an open row; its clean-route rate is reported.
 - Boot-to-credits and death, continue, game-over, pause and restart flows pass.
 - Every in-scope objective report has a supported resolution. No unresolved
   objective defect is disguised as a human check or a frozen timing exception.

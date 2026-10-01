@@ -14,8 +14,12 @@ The whole loop. The backlog is sharded by reader:
 
 1. **Orient and select.** Read the NOW block in `backlog.md`, then run
    `mise run project-status` (or `cargo run -p wildside-cli -- project-status`)
-   and `mise run jev-audit`. The status command reads
-   every live lane and prints, priority-ordered (P0 before P1 before P2):
+   and `mise run jev-audit`. The status command reads every live lane and the
+   checked-in parity measurements, and prints:
+   - **level ledger**: N/103 levels exited on native with the route confirmed on
+     the ROM, and the divergence blocking each unconfirmed native exit;
+   - **fuzz**: the random-route census, idle-divergent levels, and every cluster
+     no open row (or its archive section) names;
    - **ready to implement now**: open rows with a root cause identified; take the top one;
    - **top open playability / visual risks**: otherwise take the top of these;
    - **human validation/repro blockers**: select objective cases under the campaign
@@ -23,10 +27,15 @@ The whole loop. The backlog is sharded by reader:
      Each prints `Target` plus the short human `Check`. Move a selected objective
      row to the open lane before starting work, preserving its history.
 
-   Do not eyeball the table for "the top row": order in the file is not priority,
-   `project-status` is. If `ready` and the risk lists are empty, use the
-   campaign coverage prerequisites and objective cases before the
-   proactive-verification fallback below. The NOW "Current work" bullet names the next
+   **Intake is the measurements.** An untracked fuzz cluster or ledger blocker
+   becomes a backlog row before other selection: shrink its repro
+   (`wildside fuzz shrink <cluster>`), open a row that names the cluster id, and
+   record the repro path under its `#NNN` in the archive. Then select by
+   `project-status` order. Do not eyeball the table for "the top row": order in
+   the file is not priority, `project-status` is. When nothing is ready, open or
+   untracked, re-run the measurements (see **Parity measurements**); the loop
+   stops when they report no open cluster and no ledger blocker. The NOW
+   "Current work" bullet names the next
    implementation item, so it must not steer below `project-status`'s top open
    priority (e.g. name a P2 while a P1 is open); `backlog-lint` enforces this. Other NOW bullets are
    state/context and may mention any priority.
@@ -39,11 +48,15 @@ The whole loop. The backlog is sharded by reader:
    State the symptom, active runtime path and required encounter witness.
    Read the owning ASM routine in `.cache/upstream/kid-chameleon-disasm/` before
    touching native code; cite the label in code and tests.
-5. Reproduce with ordinary recorded inputs. Write the narrowest failing regression,
-   then fix it. Replay the same inputs and assertion after the change.
+5. Reproduce with the shrunk repro or ordinary recorded inputs. Write the narrowest
+   failing regression, then fix it. Replay the same inputs and assertion after the
+   change. A fix's evidence is the repro, an oracle match and a
+   `gameplay_regression_*` test that loads the repro; only that prefix runs in the gate.
 6. Compare the saved route with the emulator and inspect the relevant captures.
    Verify: `mise run verify-slice-fast` (always) + `mise run verify-tas-full` if the
-   change is gameplay-affecting. The gate must be green at every commit.
+   change is gameplay-affecting. The gate must be green at every commit. After a
+   fix, re-run the parity measurements with `--write`: the fixed cluster must
+   disappear and no earlier cluster may appear.
 7. Commit with the *why*, dead ends included. **Close out in the same commit:** set the
    row's status, and if it leaves the open lane, MOVE the whole row to its lane:
    `[?]`/`[b]` → `backlog-awaiting-human.md`, `[x]`/`[-]` → the resolved index in
@@ -58,6 +71,26 @@ The whole loop. The backlog is sharded by reader:
 8. Update the handoff: prepend a one-paragraph session note to `session-log.md`
    (newest first) and rewrite NOW in `backlog.md` to the current state. NOW is a
    handoff, not a changelog; never let it accrete.
+
+## Parity measurements
+
+Two commands turn the oracle into the loop's intake. Both write checked-in yaml
+that `project-status` reads; neither runs in a gate.
+
+- `mise run fuzz` (`wildside fuzz run --levels 0x00-0x05 --seeds 8 --frames 600`):
+  random routes from each idle-clean level start, replayed on native and the ROM.
+  Each route's first blocking divergence is clustered by signature. `--write`
+  updates `fuzz-summary.yaml` and `tests/data/fuzz-repros/<cluster>.json`.
+  Keep the census arguments fixed between runs so cluster counts compare.
+- `mise run ledger` (`wildside ledger run --write`): a deterministic Go-Explore
+  search per level for an exit (flag, teleport or game end), then the route's ROM
+  replay. A level is `confirmed` when no blocking divergence precedes the exit and
+  both sides leave on the same frame; otherwise `blocked_by` names the cluster.
+  `--write` updates `level-ledger.yaml` and `tests/data/ledger-routes/`.
+  `mise run verify-ledger` replays every confirmed route; run it periodically.
+
+The headline is N/103 levels confirmed. A fix that removes a cluster usually
+unblocks ledger levels too, so re-run both after each fix.
 
 ## Jev discovery and saved-route validation
 
@@ -113,7 +146,7 @@ is "do the same thing at index N+1" — type the next TAS frame, model the next 
 the next enemy — must also leave the issue measurably closer to closing: a retired
 override, a retired oracle injection, a newly attributed constant, or a gate that now
 covers what it did not. Where a ratchet meters the lane (`oracle-injection-ratchet` for
-#406's clock teleports), the commit must move it. If the session can only add index N+1,
+the clock teleports), the commit must move it. If the session can only add index N+1,
 say so in the handoff and take a different item; a march that pays down nothing is
 indistinguishable from a stalled one, and only the ratchet can tell them apart.
 
@@ -121,31 +154,3 @@ indistinguishable from a stalled one, and only the ratchet can tell them apart.
 awaiting-human `Target`/`Check`, concrete non-vague human checks, each `#NNN` in exactly
 one lane, rows in the lane their status implies, and a `Verify` that is not just the
 `Summary`'s index plus one); it runs inside `verify-slice-fast`, so drift fails the gate.
-
-## Fallback: proactive verification
-
-`project-status` shows no `ready` and no open risks (every open row is gone or the
-queue is empty)? Frozen `[f]` rows are never selectable, so they do not block the
-fallback. Discover bugs before the next playtest does — preferring targets whose
-hardening could plausibly move a live gate or ratchet:
-
-- **Prefer live gameplay/sweep-path modules over frozen-lane feeders.** Modules
-  that exist to feed a frozen lane (`saxman_timing.rs`, `enigma_timing.rs`,
-  `intro_timing.rs`, `vdp.rs` raster scheduling, `mode_level_timing.rs`) harden a
-  surface nothing ships through; enemy families, physics, collision, and sweep-path
-  rendering harden what the sweep and playtests actually exercise. The handoff must
-  name which gate or ratchet the session's hardening could plausibly move — "more
-  tests in a frozen feeder" names none. Preference, not mechanism: an allowlist
-  lint would fight legitimate work when a frozen lane thaws.
-- **Mutation-test one file**: `FILE=<module.rs> mise run mutants-file`; every
-  surviving mutant is a test blind spot. Pair loose proptests with exact-value
-  unit tests; left-facing paths are systematically undertested. Keep runs to one
-  module (big files like `enemies.rs` enumerate thousands of mutants).
-- **Audit one enemy family vs ASM**: pick a family in `code/enemy/*.asm`, compare
-  each branch against the native implementation, write probe scenarios for any
-  behaviour the sweep doesn't already exercise.
-- **Extend ASM coverage**: `cargo run -p wildside-cli -- asm-coverage --uncovered`, pick
-  an ordinary uncovered `sub_` label, trace and cite it. If only
-  `[emulated GEMS out-of-scope]` labels remain, do not cite them just to move the
-  metric; use another fallback. Coverage is a discovery aid, not the lead
-  selector; backlog truth always beats raw coverage.
