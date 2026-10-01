@@ -460,6 +460,12 @@ fn write_summary(repo_root: &Path, summary: &FuzzSummary) -> Result<()> {
     fs::write(&path, body).with_context(|| format!("write {}", path.display()))
 }
 
+pub(crate) fn load_summary(repo_root: &Path) -> Result<FuzzSummary> {
+    let path = repo_root.join(SUMMARY_PATH);
+    let text = fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
+    serde_yaml::from_str(&text).with_context(|| format!("parse {}", path.display()))
+}
+
 pub(crate) fn git_revision(repo_root: &Path) -> String {
     std::process::Command::new("git")
         .args(["describe", "--always", "--dirty", "--abbrev=12"])

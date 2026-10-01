@@ -22,8 +22,52 @@ pub(crate) struct ProjectStatusReport {
     top_open_playability_items: Vec<BacklogItem>,
     top_open_visual_items: Vec<BacklogItem>,
     frozen_items: Vec<BacklogItem>,
+    ledger: Option<LedgerStatus>,
+    fuzz: Option<FuzzStatus>,
     human_validation_blockers: Vec<HumanValidationBlocker>,
     warnings: Vec<String>,
+}
+
+/// `docs/source-port/level-ledger.yaml`: the N/103 headline and the
+/// divergences that block native exits from confirming on the ROM.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+struct LedgerStatus {
+    revision: String,
+    confirmed: usize,
+    native_exits: usize,
+    searched: usize,
+    playable: usize,
+    blockers: Vec<LedgerBlockerItem>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+struct LedgerBlockerItem {
+    level: String,
+    cluster: String,
+    frame: usize,
+    signature: String,
+    /// An open row or its archive section names the cluster.
+    tracked: bool,
+}
+
+/// `docs/source-port/fuzz-summary.yaml`, with the clusters no open backlog
+/// row (or its archive section) names yet.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+struct FuzzStatus {
+    revision: String,
+    routes: usize,
+    diverged: usize,
+    clusters: usize,
+    start_state_levels: Vec<String>,
+    untracked: Vec<FuzzClusterItem>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+struct FuzzClusterItem {
+    id: String,
+    count: usize,
+    levels: String,
+    signature: String,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -104,8 +148,17 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
     let top_open_visual_items = load_top_open_items(repo_root, 5, BacklogFocus::VisualParity)?;
     let frozen_items = load_frozen_items(repo_root)?;
     let human_validation_blockers = load_human_validation_blockers(repo_root);
-
     let mut warnings = Vec::new();
+    let tracking = open_backlog_text(repo_root).unwrap_or_default();
+    let ledger = crate::ledger::load_ledger(repo_root)
+        .map(|ledger| ledger_status(ledger, &tracking))
+        .map_err(|error| warnings.push(format!("level ledger unavailable: {error:#}")))
+        .ok();
+    let fuzz = crate::fuzz::load_summary(repo_root)
+        .map(|summary| fuzz_status(&summary, &tracking))
+        .map_err(|error| warnings.push(format!("fuzz summary unavailable: {error:#}")))
+        .ok();
+
     if let Some(warning) = now_staleness_warning(repo_root) {
         warnings.push(warning);
     }
@@ -145,9 +198,84 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
         top_open_playability_items,
         top_open_visual_items,
         frozen_items,
+        ledger,
+        fuzz,
         human_validation_blockers,
         warnings,
     })
+}
+
+fn ledger_status(ledger: crate::ledger::Ledger, tracking: &str) -> LedgerStatus {
+    LedgerStatus {
+        revision: ledger.revision,
+        confirmed: ledger.confirmed,
+        native_exits: ledger.native_exits,
+        searched: ledger.levels.len(),
+        playable: ledger.playable,
+        blockers: ledger
+            .levels
+            .into_iter()
+            .filter_map(|entry| {
+                let blocker = entry.blocked_by?;
+                Some(LedgerBlockerItem {
+                    level: format!("{:#04x}", entry.level),
+                    tracked: tracking.contains(&blocker.id),
+                    cluster: blocker.id,
+                    frame: blocker.frame,
+                    signature: blocker.signature.to_string(),
+                })
+            })
+            .collect(),
+    }
+}
+
+fn fuzz_status(summary: &crate::fuzz::FuzzSummary, tracking: &str) -> FuzzStatus {
+    FuzzStatus {
+        revision: summary.revision.clone(),
+        routes: summary.levels.iter().map(|level| level.routes).sum(),
+        diverged: summary.levels.iter().map(|level| level.diverged).sum(),
+        clusters: summary.clusters.len(),
+        start_state_levels: summary
+            .levels
+            .iter()
+            .filter(|level| level.idle != crate::fuzz::IdleStatus::Clean)
+            .map(|level| format!("{:#04x}", level.level))
+            .collect(),
+        untracked: summary
+            .clusters
+            .iter()
+            .filter(|cluster| !tracking.contains(&cluster.id))
+            .map(|cluster| FuzzClusterItem {
+                id: cluster.id.clone(),
+                count: cluster.count,
+                levels: cluster
+                    .levels
+                    .iter()
+                    .map(|level| format!("{level:#04x}"))
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                signature: cluster.signature.to_string(),
+            })
+            .collect(),
+    }
+}
+
+/// The open queue plus the archive section of each open issue: a fuzz
+/// cluster is tracked once either names its id.
+fn open_backlog_text(repo_root: &Path) -> Result<String> {
+    let backlog = fs::read_to_string(repo_root.join("docs/source-port/backlog.md"))?;
+    let archive = fs::read_to_string(repo_root.join("docs/source-port/backlog-archive.md"))
+        .unwrap_or_default();
+    let mut text = backlog.clone();
+    for (id, _) in open_row_priorities(repo_root)? {
+        let anchor = format!("<a id=\"issue-{id}\"></a>");
+        if let Some(start) = archive.find(&anchor) {
+            let rest = &archive[start + anchor.len()..];
+            let end = rest.find("<a id=\"issue-").unwrap_or(rest.len());
+            text.push_str(&rest[..end]);
+        }
+    }
+    Ok(text)
 }
 
 fn load_gate_signal(repo_root: &Path, gate_name: &str) -> GateSignal {
@@ -525,6 +653,53 @@ fn render_project_status(report: &ProjectStatusReport) -> String {
             }
         );
     }
+    if let Some(ledger) = &report.ledger {
+        let _ = writeln!(
+            output,
+            "  level ledger: {}/{} confirmed on the ROM, {} native exits, {} levels searched ({})",
+            ledger.confirmed,
+            ledger.playable,
+            ledger.native_exits,
+            ledger.searched,
+            ledger.revision
+        );
+        for blocker in &ledger.blockers {
+            let _ = writeln!(
+                output,
+                "    - {} blocked by {}{} at frame {}: {}",
+                blocker.level,
+                if blocker.tracked { "" } else { "untracked " },
+                blocker.cluster,
+                blocker.frame,
+                blocker.signature
+            );
+        }
+    }
+    if let Some(fuzz) = &report.fuzz {
+        let _ = writeln!(
+            output,
+            "  fuzz: {}/{} routes diverge into {} clusters ({}); {} without a backlog row",
+            fuzz.diverged,
+            fuzz.routes,
+            fuzz.clusters,
+            fuzz.revision,
+            fuzz.untracked.len()
+        );
+        if !fuzz.start_state_levels.is_empty() {
+            let _ = writeln!(
+                output,
+                "    - idle control diverges: {}",
+                fuzz.start_state_levels.join(" ")
+            );
+        }
+        for cluster in &fuzz.untracked {
+            let _ = writeln!(
+                output,
+                "    - untracked {} x{} [{}]: {}",
+                cluster.id, cluster.count, cluster.levels, cluster.signature
+            );
+        }
+    }
     let _ = writeln!(output, "  ready to implement now:");
     if report.ready_to_implement_items.is_empty() {
         let _ = writeln!(output, "    - none");
@@ -607,11 +782,11 @@ fn render_project_status(report: &ProjectStatusReport) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        BacklogFocus, BacklogItem, GateSignal, HumanValidationBlocker, ProjectStatusFormat,
-        ProjectStatusReport, build_project_status_report, classify_backlog_focus, iso_dates,
-        load_frozen_items, load_human_validation_blockers, load_ready_to_implement_items,
-        load_top_open_items, now_staleness_warning, print_project_status, render_project_status,
-        run_project_status,
+        BacklogFocus, BacklogItem, FuzzClusterItem, FuzzStatus, GateSignal, HumanValidationBlocker,
+        LedgerBlockerItem, LedgerStatus, ProjectStatusFormat, ProjectStatusReport,
+        build_project_status_report, classify_backlog_focus, iso_dates, load_frozen_items,
+        load_human_validation_blockers, load_ready_to_implement_items, load_top_open_items,
+        now_staleness_warning, print_project_status, render_project_status, run_project_status,
     };
     use std::fs;
     use tempfile::TempDir;
@@ -1120,6 +1295,33 @@ not a table row
                 system: "rendering".to_owned(),
                 summary: "frozen lane".to_owned(),
             }],
+            ledger: Some(LedgerStatus {
+                revision: "abc".to_owned(),
+                confirmed: 4,
+                native_exits: 7,
+                searched: 17,
+                playable: 103,
+                blockers: vec![LedgerBlockerItem {
+                    level: "0x05".to_owned(),
+                    cluster: "1a2b3c4d".to_owned(),
+                    frame: 120,
+                    signature: "kid_x_pos movement=1/0".to_owned(),
+                    tracked: false,
+                }],
+            }),
+            fuzz: Some(FuzzStatus {
+                revision: "abc".to_owned(),
+                routes: 32,
+                diverged: 31,
+                clusters: 23,
+                start_state_levels: vec!["0x01".to_owned()],
+                untracked: vec![FuzzClusterItem {
+                    id: "deadbeef".to_owned(),
+                    count: 2,
+                    levels: "0x00 0x02".to_owned(),
+                    signature: "number_objects".to_owned(),
+                }],
+            }),
             human_validation_blockers: vec![HumanValidationBlocker {
                 id: "013".to_owned(),
                 status: "[?]".to_owned(),
@@ -1146,7 +1348,94 @@ not a table row
         assert!(text.contains("how to use: run `mise run play-native`"));
         assert!(text.contains("review: objective closure needs campaign evidence; subjective/device checks need human playtest"));
         assert!(text.contains("warning row"));
+        assert!(text.contains(
+            "level ledger: 4/103 confirmed on the ROM, 7 native exits, 17 levels searched (abc)"
+        ));
+        assert!(
+            text.contains(
+                "0x05 blocked by untracked 1a2b3c4d at frame 120: kid_x_pos movement=1/0"
+            )
+        );
+        assert!(text.contains(
+            "fuzz: 31/32 routes diverge into 23 clusters (abc); 1 without a backlog row"
+        ));
+        assert!(text.contains("idle control diverges: 0x01"));
+        assert!(text.contains("untracked deadbeef x2 [0x00 0x02]: number_objects"));
         assert_eq!(print_project_status(&report), text);
+    }
+
+    #[test]
+    fn ledger_and_fuzz_sections_load_from_checked_in_yaml() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let docs = temp_dir.path().join("docs/source-port");
+        fs::create_dir_all(&docs).expect("docs dir");
+        fs::write(
+            docs.join("backlog.md"),
+            "# Backlog\n\n\
+| # | Status | Pri | System | Summary | Verify |\n\
+|---|--------|-----|--------|---------|--------|\n\
+| 600 | [ ] | P1 | kid-physics | Cluster aaaa0001 diverges. | repro |\n\
+| 601 | [ ] | P1 | kid-physics | Movement clusters. | repro |\n",
+        )
+        .expect("backlog");
+        fs::write(
+            docs.join("backlog-archive.md"),
+            "# Archive\n\n<a id=\"issue-601\"></a>\n### #601\n\nOwns aaaa0002.\n\n\
+<a id=\"issue-400\"></a>\n### #400 closed\n\nOwned aaaa0003.\n",
+        )
+        .expect("archive");
+        let cluster = |id: &str| {
+            format!(
+                "- id: {id}\n  signature:\n    fields: [kid_x_pos]\n    native_movement: 1\n    \
+oracle_movement: 0\n    native_on_ground: true\n    inputs: [2, 2]\n  count: 1\n  \
+levels: ['0x00']\n  earliest_frame: 40\n  repro: tests/data/fuzz-repros/{id}.json\n"
+            )
+        };
+        fs::write(
+            docs.join("fuzz-summary.yaml"),
+            format!(
+                "revision: abc\nargs:\n  levels: ['0x00', '0x01']\n  seeds: 2\n  frames: 600\n\
+levels:\n- level: '0x00'\n  idle: clean\n  routes: 2\n  diverged: 2\n\
+- level: '0x01'\n  idle: start_state\n  idle_frame: 99\n  routes: 0\n  diverged: 0\n\
+clusters:\n{}{}{}",
+                cluster("aaaa0001"),
+                cluster("aaaa0002"),
+                cluster("aaaa0003")
+            ),
+        )
+        .expect("fuzz summary");
+        fs::write(
+            docs.join("level-ledger.yaml"),
+            "revision: def\nconfirmed: 1\nnative_exits: 2\nplayable: 103\nlevels:\n\
+- level: '0x00'\n  status: confirmed\n  exit: flag\n  exit_frame: 900\n  run: '1'\n\
+- level: '0x04'\n  status: native_exit\n  exit: flag\n  exit_frame: 800\n  blocked_by:\n    \
+id: aaaa0001\n    frame: 40\n    signature:\n      fields: [kid_x_pos]\n      \
+native_movement: 1\n      oracle_movement: 0\n      native_on_ground: true\n      \
+inputs: [2, 2]\n  run: '1'\n",
+        )
+        .expect("ledger");
+
+        let report = build_project_status_report(temp_dir.path()).expect("report");
+        let ledger = report.ledger.expect("ledger section");
+        assert_eq!(
+            (ledger.confirmed, ledger.native_exits, ledger.searched),
+            (1, 2, 2)
+        );
+        assert_eq!(ledger.blockers[0].level, "0x04");
+        assert_eq!(ledger.blockers[0].cluster, "aaaa0001");
+        assert!(ledger.blockers[0].tracked);
+        let fuzz = report.fuzz.expect("fuzz section");
+        assert_eq!((fuzz.routes, fuzz.diverged, fuzz.clusters), (2, 2, 3));
+        assert_eq!(fuzz.start_state_levels, ["0x01"]);
+        // aaaa0001 is named by an open row and aaaa0002 by an open issue's
+        // archive section; aaaa0003 only by a closed issue's section.
+        assert_eq!(
+            fuzz.untracked
+                .iter()
+                .map(|cluster| cluster.id.as_str())
+                .collect::<Vec<_>>(),
+            ["aaaa0003"]
+        );
     }
 
     #[test]
