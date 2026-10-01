@@ -1004,5 +1004,65 @@
     ],
     "next_action": "Capture one 0x48 trace containing both normal-to-close and close-to-normal Drips ROM-PC branch transitions.",
     "scope": "Drips use the tighter unload bounds only while more than 20 Object workers are linked."
+  },
+  {
+    "issue": 515,
+    "readiness": "ready_replay",
+    "active_path": "crates/wildside-core/src/trace.rs current_character_movement vs kid.asm Character_Movement MoveID writes (e.g. loc_A6F8)",
+    "route": "tests/data/fuzz-repros/54fce7a1.json, 7b0a8e1e.json, 3a36f8ac.json, 87a37ef6.json, acad697b.json",
+    "evidence": [
+      "docs/source-port/fuzz-summary.yaml",
+      "docs/source-port/backlog-archive.md#issue-515"
+    ],
+    "next_action": "Replay 54fce7a1 (Left+C then Down on 0x04) and read the Kid crawl/walk coroutine writes to place the MoveID change on the ROM's frame.",
+    "scope": "Clusters whose first blocking field is character_movement alone."
+  },
+  {
+    "issue": 516,
+    "readiness": "ready_replay",
+    "active_path": "Kid physics on 0x04 while moving right",
+    "route": "tests/data/fuzz-repros/60979027.json",
+    "evidence": [
+      "docs/source-port/fuzz-summary.yaml",
+      "docs/source-port/backlog-archive.md#issue-515"
+    ],
+    "next_action": "Replay the repro to frame 98 and compare Kid position, velocity and camera with the oracle.",
+    "scope": "Cluster 60979027 only."
+  },
+  {
+    "issue": 517,
+    "readiness": "ready_replay",
+    "active_path": "Object allocation and enemy roster on 0x00/0x02/0x03",
+    "route": "tests/data/fuzz-repros/022889be.json, d1446380.json, 72129c1a.json, e9b6a11e.json",
+    "evidence": [
+      "docs/source-port/fuzz-summary.yaml",
+      "docs/source-port/backlog-archive.md#issue-515"
+    ],
+    "next_action": "Replay 022889be to frame 309 and identify the extra native Object and GfxObject.",
+    "scope": "Object-count and roster clusters from the first census."
+  },
+  {
+    "issue": 518,
+    "readiness": "ready_replay",
+    "active_path": "Airborne Kid x velocity and RNG draws on 0x04",
+    "route": "tests/data/fuzz-repros/6c5f8e27.json, 1f2cfa0d.json",
+    "evidence": [
+      "docs/source-port/fuzz-summary.yaml",
+      "docs/source-port/backlog-archive.md#issue-515"
+    ],
+    "next_action": "Shrink both clusters with wildside fuzz shrink, then compare their divergence frames with the oracle.",
+    "scope": "Clusters 6c5f8e27 and 1f2cfa0d."
+  },
+  {
+    "issue": 519,
+    "readiness": "ready_replay",
+    "active_path": "Settled-warp enemy roster on 0x01 and 0x05",
+    "route": "All-zero 600-frame settled-warp script (fuzz idle control)",
+    "evidence": [
+      "docs/source-port/fuzz-summary.yaml",
+      "docs/source-port/backlog-archive.md#issue-515"
+    ],
+    "next_action": "Run the idle control for 0x05 and compare the frame-71 enemy roster with the oracle.",
+    "scope": "Idle controls on 0x01 and 0x05."
   }
 ]
