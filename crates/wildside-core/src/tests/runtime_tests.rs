@@ -23342,3 +23342,27 @@ mod chunk_09 {
         );
     }
 }
+
+#[test]
+fn gameplay_regression_crawl_entry_uses_latched_down_loc_8c70() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/fuzz-repros/54fce7a1.json"
+    ))
+    .expect("checked-in fuzz repro");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    // ASM loc_7464 latches Down before loc_8C70 chooses loc_8218.
+    // Oracle 54fce7a1: raw Down arrives at 60; loc_8C70 still sees Left+C.
+    assert_eq!(trace[60].character_movement, Some(2));
+}

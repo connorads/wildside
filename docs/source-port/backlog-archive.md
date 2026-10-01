@@ -29971,6 +29971,31 @@ frames, 3a36f8ac 71 -> 41, 54fce7a1 90 -> 60 (3 nonzero inputs), 87a37ef6
 #516: 60979027 shrank 128 -> 98 frames. #517: 022889be shrank 339 -> 309.
 #518 and #519 have unshrunk repros or none (idle controls).
 
+#### #515 - Crawl latch boundary (2026-10-01)
+
+The smallest repro, `tests/data/fuzz-repros/54fce7a1.json`, isolates a
+controller-latch error before a full coroutine port. On frame 60, gameplay
+still consumes Left+C through `gameplay_input`, but the classifier reads raw
+Down from `trace_input` and reports crawl early. Before the change,
+`verify-tas --frontier-kind enemy` reports native MoveID 1 versus ROM 2;
+player/camera CRC matches all 61 frames. Retaining the actual crawl-path
+selection after helmet, clearance and Hand gates makes all 61 checkpoints
+match, including the enemy frontier. Full TAS verification passes all 37,759
+frames with the existing pixel and GEMS-command baselines. The 105-level
+state sweep passes 102 levels; the three failed levels (0x1B/0x4C/0x5C)
+have identical state diffs to prior sweep `1790394359`. The regression loads the same repro in
+`ScriptRunner::settle_recording_warp`; the full-frame adapter is a different
+input timeline and cannot validate this recording boundary.
+
+Do not stop at this fixture: a temporary extension with Down held on script
+frames 60..61 and released at 62 exposes a velocity difference at frame 61
+(native -$2800 versus ROM -$4000) and a crawl-release difference at frame 62.
+ASM loc_8C70 enters loc_8218 without executing loc_83B4's crawl acceleration
+on the entry wake; loc_82BA also returns moving crawl releases to loc_75D4.
+The normal movement kernel still merges those coroutine transitions. The
+extension is a diagnostic, not a passing regression or closure claim.
+
+
 <a id="issue-520"></a>
 ### #520-#521 - First level-ledger intake (2026-10-01)
 
@@ -29990,3 +30015,33 @@ f80, 110 -> 80 frames) and d0eff6e6 (0x0e f133, 163 -> 133 frames).
 #521 owns frame-0 blockers, which shrink to an empty script: 2f5fb5c0 (0x07,
 RNG offset/ring) and 5a69ed83 (0x0a and 0x0b, enemy roster). The settled warp
 itself differs from the ROM, so no input reaches them.
+
+<a id="issue-522"></a>
+### #522 - Physics behind the crawl-latch frontier (2026-10-01)
+
+Source: the unchanged 0x00-0x05 x 8-seed x 600-frame census and the affected
+0x00/0x01/0x04/0x05 ledger rerun after the #515 crawl-latch draft. Native
+repro status: reproduced. Oracle status: authoritative settled-warp state.
+Minimum gate: `fast-slice` plus `verify-tas-full` for gameplay changes.
+
+Repros are `tests/data/fuzz-repros/<id>.json`. 0ed35d38 (0x02 frame 34)
+shrinks from 64 to 34 frames with two nonzero inputs. f92931b6
+(0x03 frame 88) shrinks from 118 to 88 frames with two nonzero inputs;
+da81e8c7 (0x03 frame 100) shrinks from 130 to 100 frames with two nonzero
+inputs. Ledger blocker 9819d44c (0x00 crawl X/velocity at 38) shrinks
+from 68 to 38 script frames with three nonzero inputs.
+417af3e3 (0x02 camera Y at 207) shrinks from 237 to 207 script
+frames with 31 nonzero inputs in 1,371 replays. ba78e9a9 (0x03 crawl
+X/velocity at 260) shrinks from 290 to 260 script frames with 73 nonzero
+inputs in 1,118 replays.
+These are exposed frontiers, not evidence of newly introduced physics:
+#515 changes movement reporting; compare the same inputs on the parent
+revision before deciding whether a gameplay change is required.
+
+#### #520 - Level 0x05 ledger frontier after crawl-latch draft
+
+The affected-level ledger rerun exposes c90f74d2 on 0x05 at frame 71,
+`enemy_roster`, after retiring 60e1fbc2 as that route's first blocker.
+The repro `tests/data/fuzz-repros/c90f74d2.json` shrinks from 101 to 71
+script frames with three nonzero inputs. Keep it with
+#520's other ledger roster blockers; no root cause is assigned yet.

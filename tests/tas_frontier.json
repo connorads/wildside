@@ -152,7 +152,7 @@
         "advisory": 0,
         "accumulation": 0,
         "rng": 0,
-        "oracle_limitation": 5
+        "oracle_limitation": 1
       },
       "total_frames": 3300,
       "status": "verified"
@@ -167,7 +167,7 @@
         "advisory": 0,
         "accumulation": 0,
         "rng": 0,
-        "oracle_limitation": 19
+        "oracle_limitation": 15
       },
       "total_frames": 40,
       "status": "verified"

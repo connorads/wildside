@@ -329,6 +329,8 @@ pub struct NativeRuntime {
     mode_level_tail_work_loc_892: Option<ModeLevelTailWorkLoc892>,
     boot_state: BootState,
     trace_input: FrameInput,
+    /// ASM loc_8218/loc_8C70 (kid.asm): crawl path retained across Kid hibernation.
+    kid_crawling: bool,
     prior_input: FrameInput,
     previous_input: FrameInput,
     respawn_start_latched_frames: u8,
@@ -1626,6 +1628,7 @@ impl NativeRuntime {
             mode_level_tail_work_loc_892: None,
             boot_state: BootState::SegaScreen { elapsed: 0 },
             trace_input: FrameInput::default(),
+            kid_crawling: false,
             prior_input: FrameInput::default(),
             previous_input: FrameInput::default(),
             respawn_start_latched_frames: 0,
@@ -2013,6 +2016,7 @@ impl NativeRuntime {
     }
 
     pub(crate) fn reset_and_preload_mode_level_tail_loc_720_2ffe8(&mut self) {
+        self.kid_crawling = false;
         self.mode_level_tail_state_loc_892.clear_loc_720();
         self.rebase_mode_level_tail_after_external_override_loc_2ffe8();
         // ASM sub_73D0/loc_7414: every Load_InGame path seeds both full
@@ -6910,9 +6914,13 @@ impl NativeRuntime {
             self.maybe_hold_wall_cling_boundary_trace_y_velocity(slice.player);
             // ASM loc_833E -> sub_8ED0 checks `Character_Movement` for
             // MoveID_Crawling before choosing the platform-support width.
-            // Native has no persistent movement ID, so preserve the post
-            // stand-up-check crawl-path decision for the later platform pass.
-            platform_support_crawling = movement_input.down && slice.player.on_ground;
+            // Preserve the post-stand-up-check crawl-path decision for the
+            // later platform pass and movement-state consumers.
+            platform_support_crawling =
+                movement_input.down && slice.player.on_ground && !slice.kid_grabbed_by_hand;
+            // ASM loc_8C70/loc_7772 -> loc_8218: store the path selected by
+            // Ctrl_Down_Held and its helmet/clearance gates, before hibernation.
+            self.kid_crawling = platform_support_crawling;
             self.queue_hidden_block_reveal_bounces_from_diff(
                 hidden_block_cells_before_physics.as_deref(),
             );
@@ -6939,8 +6947,8 @@ impl NativeRuntime {
         // `Character_Movement = MoveID_Crawling`, calls sub_71E4 (camera
         // follow), hibernates 1 frame, sets half_width = $E (14px), runs
         // Character_CheckCollision, saves x/y to $FFFFFA2C/$FFFFFA2E, then
-        // sub_7ACC (helmet change check). Native: the crawling state is not
-        // a separate movement ID — down-held+grounded is handled inline.
+        // sub_7ACC (helmet change check). Native retains the selected crawl
+        // path after the inline movement and stand-up checks.
         //
         // ASM loc_825C (kid.asm:9018): crawl continuation — if down still
         // held (`tst.b (Ctrl_Down_Held)`), branch to loc_82D8 (crawl loop).

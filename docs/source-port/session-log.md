@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-10-02 - #515 crawl latch and exposed physics intake
+
+The draft retains the crawl path selected by Kid gameplay instead of reading raw Down in the movement classifier. The shrunk `54fce7a1` repro changes from native MoveID 1/ROM 2 at frame 60 to all 61 checkpoints matching. Fast and full TAS gates pass; two pause-shell limitation baselines shrink by four each. The census drops from 23 to 20 clusters, with 31/32 routes still divergent. The affected-level ledger remains 0/103 confirmed and exposes 9819d44c/c90f74d2 beyond the former MoveID blockers. The 105-level sweep retains identical prior failures on 0x1B/0x4C/0x5C. #522 tracks exposed physics frontiers; #520 gains the 0x05 roster blocker. All eight intake repros are shrunk. The two longest reductions take 1,371 and 1,118 oracle replays. #515 remains open for its other movement-write boundaries; #522 is ready for replay. No paid Jev request occurred.
+
 ## 2026-10-01 - Parity fuzzer, level ledger and ADR 0004
 
 Added `wildside fuzz run`/`shrink` and `wildside ledger run`/`verify`, and pointed the loop's intake at them. The first census (0x00-0x05 x 8 seeds) found 31/32 random routes diverging into 23 clusters, 16 of them first on `character_movement`. The ledger exits 10 of 17 levels on native but confirms none on the ROM. ADR 0004 closed #406/#409/#416 and deleted the scheduled-frame and GEMS frame-signature ratchets; `verify-tas-full` stayed green. Intake rows #515-#521 own every cluster and blocker.

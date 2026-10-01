@@ -9994,7 +9994,7 @@ impl NativeRuntime {
         if !player.on_ground || player.just_jumped {
             return MOVE_JUMP;
         }
-        if self.trace_input.down {
+        if self.kid_crawling {
             return MOVE_CRAWLING;
         }
         // ASM loc_8DFC / loc_8E16: grounded non-Skycutter motion that settles

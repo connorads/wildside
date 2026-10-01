@@ -1014,7 +1014,7 @@
       "docs/source-port/fuzz-summary.yaml",
       "docs/source-port/backlog-archive.md#issue-515"
     ],
-    "next_action": "Replay 54fce7a1 (Left+C then Down on 0x04) and read the Kid crawl/walk coroutine writes to place the MoveID change on the ROM's frame.",
+    "next_action": "54fce7a1 matches through frame 60. Replay 7b0a8e1e and trace loc_82BA crawl release and loc_8BF0 walking entry; extend the passing crawl fixture through its entry velocity.",
     "scope": "Clusters whose first blocking field is character_movement alone."
   },
   {
@@ -1088,5 +1088,18 @@
     ],
     "next_action": "Compare frame 0 of the 0x07 settled warp RNG ring with the oracle.",
     "scope": "Frame-0 divergences with no input."
+  },
+  {
+    "issue": 522,
+    "readiness": "ready_replay",
+    "active_path": "NativeRuntime::refresh_opening_slice and movement.rs crawl/jump transitions",
+    "route": "tests/data/fuzz-repros/0ed35d38.json, f92931b6.json, da81e8c7.json, 417af3e3.json, ba78e9a9.json, 9819d44c.json",
+    "evidence": [
+      "docs/source-port/fuzz-summary.yaml",
+      "docs/source-port/level-ledger.yaml",
+      "docs/source-port/backlog-archive.md#issue-522"
+    ],
+    "next_action": "Compare the shrunk inputs on the parent and crawl-latch implementation before porting the owning ASM transition.",
+    "scope": "Physics frontiers exposed after the early crawl movement-ID mismatch is removed."
   }
 ]
