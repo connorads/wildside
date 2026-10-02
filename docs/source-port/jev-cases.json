@@ -67,7 +67,7 @@
       "tests/data/dynamic-scenarios/issue-186-lion-live-loader.json",
       "crates/wildside-core/src/enemies/lion.rs"
     ],
-    "next_action": "Resolve the live-loader frames 62..65 airborne schedule without changing the comparable lower Lion, then capture a surviving stomp through recoil and recovery",
+    "next_action": "Resolve Lion Init RNG preflight, then find an oracle-confirmed surviving stomp through hurt and recovery; the native 12-frame Right+B candidate causes no ROM damage",
     "scope": "Lion: hurt recoil, gravity ledge-leap charge, roar windup + engagement bands missing"
   },
   {

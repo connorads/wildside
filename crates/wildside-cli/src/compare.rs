@@ -1214,40 +1214,42 @@ pub(crate) fn active_enemy_states_from_native_frame(
             {
                 None
             }
-            wildside_core::NativeObjectKind::Enemy { object_type } => Some(OracleEnemyState {
-                object_type,
-                x_pos: if object_type == 0x12 {
-                    // ASM Enemy12_Lion_Init loc_3DF56 links a GfxObject whose
-                    // X differs from native's collision carrier. Compare the
-                    // typed Gfx trace against the oracle's GfxObject roster.
+            wildside_core::NativeObjectKind::Enemy { object_type } => {
+                // ASM loc_3DF56/loc_3E7CA: the oracle samples linked Lion
+                // GfxObject motion, including its positive leftward speed.
+                let object = if object_type == 0x12 {
                     frame
                         .active_enemy_details
                         .iter()
                         .find(|detail| {
                             detail.kind == object.kind && detail.layout_index == object.layout_index
                         })
-                        .map_or(object.x_pos, |detail| detail.x_pos)
+                        .unwrap_or(object)
                 } else {
-                    object.x_pos
-                },
-                y_pos: object.y_pos,
-                x_velocity: object.x_velocity.unwrap_or(0),
-                y_velocity: object.y_velocity.unwrap_or(0),
-                facing: enemy_facing_from_native(object.facing),
-                collision_type: None,
-                collision_source: None,
-                layout_index: object.layout_index,
-                layout_ptr: None,
-                parent_object_ptr: None,
-                gfx_slot_index: None,
-                on_ground: object.on_ground,
-                // Native `hit_points` is the byte the runtime decrements; the
-                // ROM stores it as the word `current_hp` at GfxObject + $44.
-                // Widen u8 → u16 for the comparison so both sides represent
-                // the same M68K word.
-                current_hp: object.hit_points.map(u16::from),
-                debug_fields: object.debug_fields.clone(),
-            }),
+                    object
+                };
+                Some(OracleEnemyState {
+                    object_type,
+                    x_pos: object.x_pos,
+                    y_pos: object.y_pos,
+                    x_velocity: object.x_velocity.unwrap_or(0),
+                    y_velocity: object.y_velocity.unwrap_or(0),
+                    facing: enemy_facing_from_native(object.facing),
+                    collision_type: None,
+                    collision_source: None,
+                    layout_index: object.layout_index,
+                    layout_ptr: None,
+                    parent_object_ptr: None,
+                    gfx_slot_index: None,
+                    on_ground: object.on_ground,
+                    // Native `hit_points` is the byte the runtime decrements; the
+                    // ROM stores it as the word `current_hp` at GfxObject + $44.
+                    // Widen u8 → u16 for the comparison so both sides represent
+                    // the same M68K word.
+                    current_hp: object.hit_points.map(u16::from),
+                    debug_fields: object.debug_fields.clone(),
+                })
+            }
             _ => None,
         })
         .collect::<Vec<_>>();
@@ -2521,13 +2523,13 @@ mod tests {
     }
 
     #[test]
-    fn native_lion_enemy_state_uses_linked_gfx_x_loc_3df56() {
-        let lion = |x_pos| wildside_core::NativeObjectSnapshot {
+    fn native_lion_enemy_state_uses_linked_gfx_motion_loc_3df56_3e7ca() {
+        let lion = |x_velocity| wildside_core::NativeObjectSnapshot {
             kind: wildside_core::NativeObjectKind::Enemy { object_type: 0x12 },
-            x_pos,
+            x_pos: 0x02B6_8000,
             y_pos: 0x02C0_0000,
             layout_index: Some(1),
-            x_velocity: Some(0),
+            x_velocity: Some(x_velocity),
             y_velocity: Some(0),
             facing: Some(wildside_core::physics::Direction::Left),
             on_ground: Some(true),
@@ -2545,14 +2547,17 @@ mod tests {
             debug_fields: BTreeMap::new(),
         };
         let frame = NativeTraceFrame {
-            active_objects: vec![lion(0x0210_0000)],
-            active_enemy_details: vec![lion(0x0205_8000)],
+            active_objects: vec![lion(-0x18000)],
+            active_enemy_details: vec![lion(0x18000)],
             ..NativeTraceFrame::default()
         };
 
         let enemies = active_enemy_states_from_native_frame(&frame);
 
-        assert_eq!(enemies[0].x_pos, 0x0205_8000);
+        // ASM loc_3E7CA subtracts positive raw x_vel. Native signed
+        // movement and the linked Gfx trace represent different velocities.
+        assert_eq!(enemies[0].x_pos, 0x02B6_8000);
+        assert_eq!(enemies[0].x_velocity, 0x18000);
     }
 
     #[test]

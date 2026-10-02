@@ -31,13 +31,13 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-10-02):** #186 Lion loader, recoil and ledge behaviour is the top open risk. #525 live settled recording now replays exactly across240 frames; #524 cleanup matches the full435-frame ROM tail. #522 zero-velocity stand-up stays open.
-- **Intake:** `fuzz-summary.yaml` (0x00-0x05 x 8 seeds) has 26 clusters, tracked by #515/#517-#519/#522. `level-ledger.yaml` (0x00-0x10) has 10/17 native exits and 0/103 confirmed; every blocker is tracked by #515, #521, #522 or #518.
-- **Scope:** ADR 0004 sets the fidelity floor: gameplay, enemy and RNG state, level exits, visible or audible bugs. #406/#409/#416 closed under it; the pixel baseline and injection ratchet stay.
-- **After each fix:** re-run `wildside fuzz run --levels 0x00-0x05 --seeds 8 --frames 600 --write` and `wildside ledger run --write`; extend the ledger past 0x10 once early levels confirm.
-- **Jev allowance:** $5 additional across the campaign. #185 used 48 requests in one attempt. The ledger lifetime charged upper bound is $0.257086284.
-- **Jev exploration review:** Cleanup candidate on `29c01ba29`. Review1790954092913080000 is blocked by frame-0 RNG FFD7/FFD8 and1702 pixels. Zero API requests or spend; restart the three-fix cadence.
-- **Evidence boundary:** Fast/full gates verify post-motion helmet contact and retained-control cleanup. The published pixel/GEMS baselines are unchanged; the 105-level sweep retains three prior failed levels. Ledger remains 0/103 confirmed with ten native exits;0x09 reaches0x4B at3222 on a new route blocked by #518 velocity08342e19 at304.
+- **Current work (2026-10-02):** #186 Lion callbacks match the saved loader and roar routes. Capture an oracle-confirmed surviving stomp and recovery; resolve #521 Init RNG as its comparison prerequisite. #515/#522 remain open.
+- **Intake:** Fixed fuzz 0x00-0x05 x 8 seeds retains26 tracked clusters. Ledger has10 native exits and0/103 confirmed; level07 Flag3033 remains blocked by #521 RNG2f5fb5c0 at0.
+- **Scope:** ADR0004 sets the fidelity floor: gameplay, enemy and RNG state, level exits, visible or audible bugs. Pixel baseline and injection ratchet stay.
+- **After each fix:** Re-run fixed fuzz and affected ledger levels with `--write`; extend the ledger beyond0x10 once early levels confirm.
+- **Jev allowance:** $5 additional across the campaign. #185 used48 requests in one attempt; lifetime charged upper bound $0.257086284.
+- **Jev exploration review:** Review1790954092913080000 stopped before requests on frame0 RNG and pixels. The native surviving-stomp candidate causes no ROM damage; no recoil coverage. Restart the three-fix cadence after the review.
+- **Evidence boundary:** Lion loader67 and roar120 frames have zero authoritative gameplay/enemy differences, but every RNG checkpoint differs. Fast/full pass; sweep102/105 retains1B/4C/5C. Loader28 pixel frames differ. Natural entry, surviving hurt and human play stability remain unproven.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -59,7 +59,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 186 | [~] | P1 | enemy | Fight a Lion; hurt recoil, ledge leap, roar windup, and engagement range should behave like the ROM. | Resolve live-loader pose pixels; capture surviving-stomp recoil and recovery. |
+| 186 | [~] | P1 | enemy | Fight a Lion; hurt recoil, ledge leap, roar windup, and engagement range should behave like the ROM. | Capture ROM surviving-stomp recovery; resolve Init RNG prerequisite and remaining pose pixels. |
 | 515 | [~] | P1 | kid-physics | Native derives MoveID; the ROM stores it at coroutine write sites. 10/26 fuzz clusters (20 routes) differ first: 7b0a8e1e, 3a36f8ac, 5a673417, a5798943, b5918261, 891e57ae, c9b3814a, c96a3c9d. | Fuzz 0x00-0x05 x 8 seeds has no `character_movement`-first cluster; `gameplay_regression_*` tests load the shrunk repros. |
 | 517 | [ ] | P2 | enemy | Fuzz clusters 022889be (0x00 f309), d1446380 and 72129c1a (0x03), e9b6a11e (0x02): native keeps a different live object set or roster. | Each shrunk repro matches object counts and roster. |
 | 518 | [ ] | P2 | kid-physics | Fuzz clusters 6c5f8e27 (0x04 f260, airborne `kid_x_vel`), 1f2cfa0d (0x04 f203, RNG offset/ring) and 70019eed (0x04 f127, RNG offset/ring); ledger08342e19 (0x09 f304, airborne velocity). | Each repro matches the ROM through its divergence frame. |

@@ -2889,7 +2889,7 @@ impl ActiveEnemy {
                 LionState::Roaring if self.wait_timer == 0 => 3,
                 LionState::Roaring => {
                     const LEAD: [u8; 7] = [0, 1, 2, 1, 0, 1, 2];
-                    let elapsed = 44_u16.saturating_sub(self.wait_timer.min(44));
+                    let elapsed = 42_u16.saturating_sub(self.wait_timer.min(42));
                     LEAD[usize::from((elapsed / 6).min(6))]
                 }
                 LionState::PostFire if self.wait_timer >= 25 => 3,
@@ -3423,10 +3423,9 @@ impl ActiveEnemy {
     pub(crate) fn trace_gfx_snapshot_loc_3df56(&self) -> NativeObjectSnapshot {
         let mut snapshot = self.snapshot();
         if matches!(self.family, EnemyFamily::Lion) && self.facing == Direction::Left {
-            // ASM Enemy12_Lion_Init loc_3DF56 allocates a distinct GfxObject.
-            // Native keeps Lion collision on a carrier centred 10.5 px to the
-            // right; oracle enemy traces expose the linked GfxObject instead.
-            snapshot.x_pos = snapshot.x_pos.wrapping_sub(0x000A_8000);
+            // ASM loc_3E7B0/loc_3E7CA stores a positive charge magnitude
+            // in x_vel and subtracts it; native moves with signed velocity.
+            snapshot.x_velocity = snapshot.x_velocity.map(i32::abs);
         }
         snapshot
     }
@@ -16179,15 +16178,6 @@ impl NativeRuntime {
             enemy.lion_state = LionState::Roaring;
             enemy.wait_timer = 19;
             enemy.ufo_beam_segments = enemy.ufo_beam_segments.saturating_sub(1);
-            if enemy.facing == Direction::Left {
-                // ASM Lion.asm loc_3E682 falls through loc_3E77E on the
-                // ledge-entry pass. The collapsed recording settle therefore
-                // consumes one more left charge step before this loc_3E09E
-                // coroutine rewind than the oracle's visible handoff.
-                enemy.x_pos = enemy
-                    .x_pos
-                    .wrapping_sub(lion_charge_speed(enemy.hit_points) as u32);
-            }
         }
 
         self.projectiles.retain(|projectile| {
@@ -17035,8 +17025,8 @@ impl NativeRuntime {
                 .map(|enemy| (enemy.segment_index, enemy.layout_index)),
         );
         // ASM Diamond.asm loc_3AD4C/loc_3ADA4, Tank.asm loc_3B40A,
-        // Tank_Shooting.asm loc_3B6AE and Robot.asm loc_3A884 hibernate
-        // before their first step. Mode_Level loc_80C loads after
+        // Tank_Shooting.asm loc_3B6AE, Robot.asm loc_3A884 and Lion.asm
+        // loc_3DF56 -> loc_3E546 hibernate before their first step. Mode_Level loc_80C loads after
         // Execute_Objects, so the next scheduled pass runs Init without moving.
         for enemy in &self.active_enemies[active_before_trailing_load..] {
             if matches!(
@@ -17045,21 +17035,10 @@ impl NativeRuntime {
                     | EnemyFamily::Tank
                     | EnemyFamily::TankShooting
                     | EnemyFamily::Robot
+                    | EnemyFamily::Lion
             ) {
                 self.freshly_loaded_enemies_loc_3691e
                     .insert(ActiveEnemyKey::from_enemy(enemy), 1);
-            }
-        }
-        if self.recording_oracle_settle_completed {
-            for enemy in &mut self.active_enemies[active_before_trailing_load..] {
-                if enemy.family == EnemyFamily::Lion && enemy.facing == Direction::Left {
-                    // ASM Enemy12_Lion_Init loc_3DF56 creates the linked
-                    // GfxObject at layout X, then loc_3DFF0 keeps its Object
-                    // carrier 10.5 px right and hibernates before the first
-                    // 1.5 px left charge step. Native collapses that init,
-                    // so seed the live carrier 12 px right before it steps.
-                    enemy.x_pos = enemy.x_pos.wrapping_add(0x000C_0000);
-                }
             }
         }
         self.ensure_heady_metal_breakup_slots_loc_39247();

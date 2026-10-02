@@ -23818,3 +23818,73 @@ fn gameplay_regression_maniaxe_pickup_uses_post_motion_hitbox() {
     );
     assert!(trace[317].active_enemy_details.is_empty());
 }
+
+/// ASM Lion.asm loc_3DF56/loc_3E546 yields after initialisation;
+/// loc_3E566 enters loc_3E79E before the first airborne movement.
+#[test]
+fn gameplay_regression_lion_live_initialisation_precedes_ledge_fall() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/issue-186-lion-live-loader.json"
+    ))
+    .expect("checked-in Lion loader route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    for (frame, x, y, x_velocity, y_velocity) in [
+        (62, 0x02B8_0000, 0x018F_0000, 0, 0),
+        (63, 0x02B6_8000, 0x0190_0000, 0x18000, 0x4000),
+        (64, 0x02B5_0000, 0x0190_4000, 0x18000, 0x8000),
+        (65, 0x02B3_8000, 0x0190_C000, 0x18000, 0xC000),
+        (66, 0x02B2_0000, 0x0190_0000, 0, 0),
+    ] {
+        let lion = trace[frame]
+            .active_enemy_details
+            .iter()
+            .find(|enemy| {
+                enemy.kind == NativeObjectKind::Enemy { object_type: 0x12 }
+                    && enemy.layout_index == Some(0)
+            })
+            .expect("upper Lion initialises on frame 62");
+        assert_eq!(lion.x_pos, x, "frame {frame}");
+        assert_eq!(lion.y_pos, y, "frame {frame}");
+        assert_eq!(lion.x_velocity, Some(x_velocity), "frame {frame}");
+        assert_eq!(lion.y_velocity, Some(y_velocity), "frame {frame}");
+    }
+    // ASM loc_3E67A: the established lower Lion keeps walking while the
+    // upper Lion runs Init and its first ledge callback. Pin both objects.
+    for (frame, x) in [
+        (58, 0x01F2_0000),
+        (59, 0x01F0_8000),
+        (60, 0x01EF_0000),
+        (61, 0x01ED_8000),
+        (62, 0x01EC_0000),
+        (63, 0x01EA_8000),
+        (64, 0x01E9_0000),
+        (65, 0x01E7_8000),
+        (66, 0x01E6_0000),
+    ] {
+        let lion = trace[frame]
+            .active_enemy_details
+            .iter()
+            .find(|enemy| {
+                enemy.kind == NativeObjectKind::Enemy { object_type: 0x12 }
+                    && enemy.layout_index == Some(1)
+            })
+            .expect("lower Lion remains active");
+        assert_eq!(
+            (lion.x_pos, lion.y_pos, lion.x_velocity, lion.y_velocity),
+            (x, 0x02C0_0000, Some(0), Some(0)),
+            "lower Lion frame {frame}"
+        );
+    }
+}

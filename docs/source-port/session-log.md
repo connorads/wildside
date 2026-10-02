@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-10-02 - #186 exact Lion callback timing
+
+Lion Init yields before ledge fall; grounded movement follows the current-row ASM scan and airborne callbacks bypass tracking/roar timers. Exact motion retires four carrier/projectile/handoff position allowances and re-derives the43-callback roar delay. Saved loader67 and roar120 frames have zero authoritative gameplay/enemy differences; the explicit Lion suite passes142 tests. Fast/full gates pass with unchanged pixel/GEMS baselines, sweep retains1B/4C/5C, and fuzz routes/idle/26 clusters exactly match the prior census. All26 generated repro overwrites are restored. Level07 reaches Flag3033 but remains blocked by #521 frame0 RNG; aggregate0/103 confirmed and10 native exits. A native surviving-stomp candidate causes no Lion HP decrease or hurt callback on the ROM, so no hurt fix is justified yet. #186 stays open; correct Init RNG before further comparison and find the first contact divergence.
+
 ## 2026-10-02 - #525 settled window recording replay
 
 Live settled startup uses recording replay's bootstrap. The composition regression fails at0 on298766389 and passes all240 trace frames after the call changes. A fresh SDL bundle records240 idle frames with GEMS active and passes native-only replay with no drift; its final frame was inspected. This proves native recording determinism, not oracle parity or interactive playthrough. #524 is committed as298766389 with hooks green and its new #518 intake reduced to147 nonzero masks in304 frames. Next select #186 through project-status; the Lion floor-class/Y-seed discriminator and missing initialisation RNG draw remain research leads.

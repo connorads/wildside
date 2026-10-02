@@ -1799,7 +1799,7 @@ mod tests {
             .expect("Level 0x07 lower Lion has a trace GfxObject");
         assert_eq!(
             lion_trace.x_pos, 0x0205_8000,
-            "ASM Enemy12_Lion_Init loc_3DF56 exposes the linked GfxObject position, not native's collision carrier"
+            "ASM Enemy12_Lion_Init loc_3DF56 and loc_3E88A retain the linked GfxObject X517.5 after landing"
         );
 
         for _ in 1..19 {
@@ -1843,7 +1843,7 @@ mod tests {
             .iter()
             .find(|enemy| enemy.family == EnemyFamily::Lion && enemy.layout_index == 1)
             .expect("Level 0x07 lower Lion remains active before charge resumes");
-        assert_eq!(lion_before_charge.x_pos, 0x0210_0000);
+        assert_eq!(lion_before_charge.x_pos, 0x0205_8000);
 
         runtime.step_frame(FrameInput::default());
         let lion_after_charge = runtime
@@ -1852,7 +1852,7 @@ mod tests {
             .find(|enemy| enemy.family == EnemyFamily::Lion && enemy.layout_index == 1)
             .expect("Level 0x07 lower Lion remains active when charge resumes");
         assert_ne!(
-            lion_after_charge.x_pos, 0x0210_0000,
+            lion_after_charge.x_pos, 0x0205_8000,
             "ASM Lion.asm loc_3E11E resumes the charge on oracle frame 46"
         );
     }
