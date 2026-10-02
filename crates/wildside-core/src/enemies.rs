@@ -8912,7 +8912,8 @@ fn fresh_enemy_no_step_passes_loc_3691e(family: EnemyFamily, enemy_level: u8) ->
         // hibernates before the first loc_3B41C movement callback.
         // Robot.asm Enemy03_Robot_Init loc_3A884 reaches the same shared
         // walker entry, so its init pass cannot move the body either.
-        EnemyFamily::Tank | EnemyFamily::Robot => 1,
+        // ASM Tank_Shooting.asm loc_3B6AE enters the same hibernate.
+        EnemyFamily::Tank | EnemyFamily::TankShooting | EnemyFamily::Robot => 1,
         // ASM Diamond.asm loc_3AD4C -> loc_3C026/loc_3C0D2 and the
         // high-HP loc_3ADA4 path both hibernate before their first step.
         EnemyFamily::Diamond => 1,
@@ -16957,11 +16958,18 @@ impl NativeRuntime {
                 .filter(|enemy| enemy.family == EnemyFamily::Tornado)
                 .map(|enemy| (enemy.segment_index, enemy.layout_index)),
         );
-        // ASM Enemy03_Robot_Init loc_3A884 enters a hibernating walker start
-        // on its first Object pass. The trailing loader runs after
-        // Execute_Objects, so the next pass must initialise before walking.
+        // ASM Diamond.asm loc_3AD4C/loc_3ADA4, Tank.asm loc_3B40A,
+        // Tank_Shooting.asm loc_3B6AE and Robot.asm loc_3A884 hibernate
+        // before their first step. Mode_Level loc_80C loads after
+        // Execute_Objects, so the next scheduled pass runs Init without moving.
         for enemy in &self.active_enemies[active_before_trailing_load..] {
-            if enemy.family == EnemyFamily::Robot {
+            if matches!(
+                enemy.family,
+                EnemyFamily::Diamond
+                    | EnemyFamily::Tank
+                    | EnemyFamily::TankShooting
+                    | EnemyFamily::Robot
+            ) {
                 self.freshly_loaded_enemies_loc_3691e
                     .insert(ActiveEnemyKey::from_enemy(enemy), 1);
             }

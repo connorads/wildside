@@ -19,6 +19,11 @@
       "key": "kid_gameplay_path_probe",
       "reason": "Jev #370 natural-death classification distinguishes fatal projectile damage from prior Dragon body contact.",
       "maturity_status": "ready"
+    },
+    {
+      "key": "oracle_object_slots_loc_e1e",
+      "reason": "The #520 Diamond, Tank and shooting Tank live-entry frontiers use continuation PCs and hibernate counters to distinguish the initial hold from falling physics.",
+      "maturity_status": "ready"
     }
   ],
   "fields": [
@@ -868,11 +873,12 @@
     {
       "key": "oracle_object_slots_loc_e1e",
       "scope": "frame",
-      "status": "exploratory",
-      "owner": "issue-214-highwater-shooter",
+      "status": "candidate",
+      "owner": "object-scheduler",
       "first_added_commit": "649ee918",
       "intended_meaning": "Oracle-side active Object_RAM linked-list dump from ASM Execute_Objects loc_E1E: object address, code pointer, hibernate counter, and owned gfx x/y when present.",
-      "promotion_trigger": "Promote if #214 parity or checked-in regressions start depending on exact ROM block-destroy worker object lifetime."
+      "promotion_trigger": "Promote individual resume-PC or hibernation fields when parity or checked-in regressions consume them; retain the raw Object_RAM dump for correlation.",
+      "stale_candidate_exemption": "Raw Object_RAM correlation for #520 live init scheduling. Regressions assert typed positions and velocities, not this compound dump; promote a component when parity or a checked-in assertion consumes it."
     },
     {
       "key": "teleport_layout_prelude_work_loc_11ae4",

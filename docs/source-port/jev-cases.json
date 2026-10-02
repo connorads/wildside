@@ -1056,14 +1056,14 @@
   {
     "issue": 520,
     "readiness": "ready_replay",
-    "active_path": "Enemy falling entry on 0x03, 0x09 and 0x0e ledger routes",
-    "route": "tests/data/fuzz-repros/5c73a00e.json, a8918bf2.json, d0eff6e6.json, e042da59.json, 1d4fc806.json",
+    "active_path": "Shared walker fall representation, floor crossing and Dragon wall turn",
+    "route": "tests/data/dynamic-scenarios/issue-520-live-diamond-fall.json, issue-520-live-tank-landing.json, issue-520-live-shooting-tank-dragon-turn.json; tests/data/fuzz-repros/c54bfc65.json",
     "evidence": [
       "docs/source-port/level-ledger.yaml",
       "docs/source-port/backlog-archive.md#issue-520"
     ],
-    "next_action": "Pin the three saved initial-hibernate frontiers, extend live init deferral to Diamond/Tank/shooting Tank and replay the complete routes.",
-    "scope": "Remaining ledger enemy_roster blockers; 0x05 Diamond turn repros match."
+    "next_action": "Retain positive raw falling X velocity and require strict floor-boundary crossing from loc_3C30C; replay both following wakes and the Dragon turn.",
+    "scope": "Live init hold fixed; later enemy-roster frontiers remain."
   },
   {
     "issue": 521,

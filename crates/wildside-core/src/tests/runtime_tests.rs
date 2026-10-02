@@ -23453,3 +23453,82 @@ fn gameplay_regression_diamond_ledge_turn_uses_init_width_loc_3ad4c() {
     assert_eq!(diamond.y_pos, 336 << 16);
     assert_eq!(diamond.facing, Some(Direction::Right));
 }
+
+#[test]
+fn gameplay_regression_live_walkers_hibernate_before_falling_loc_3c044() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    // ASM Diamond.asm loc_3AD4C, Tank.asm loc_3B40A and
+    // Tank_Shooting.asm loc_3B6AE enter loc_3C044/loc_3C0F0 before
+    // their first walk. ROM slots resume at $3C048/$3C0F4 with zero
+    // velocities. The following wake enters loc_3C17A/loc_3C266,
+    // adds one Y pixel and applies $2000 gravity at loc_3C246/loc_3C332.
+    for (source, frame, object_type, layout_index, spawn_x, spawn_y, step_x) in [
+        (
+            include_str!("../../../../tests/data/fuzz-repros/5c73a00e.json"),
+            171,
+            1,
+            5,
+            792_u32,
+            95,
+            -0x10000,
+        ),
+        (
+            include_str!("../../../../tests/data/fuzz-repros/a8918bf2.json"),
+            80,
+            10,
+            0,
+            480,
+            400,
+            -0x8000,
+        ),
+        (
+            include_str!("../../../../tests/data/fuzz-repros/d0eff6e6.json"),
+            133,
+            11,
+            7,
+            40,
+            287,
+            0x10000,
+        ),
+    ] {
+        let mut repro: Repro = serde_json::from_str(source).expect("checked-in ledger repro");
+        repro.script.push(0);
+        let trace = ScriptRunner::new(manifest.clone())
+            .warp_to_level(repro.warp_to_level)
+            .settle_recording_warp()
+            .run(&repro.script, repro.frame_count + 1);
+        for (index, x, y, y_velocity) in [
+            (frame, spawn_x << 16, spawn_y << 16, 0),
+            (
+                frame + 1,
+                (spawn_x << 16).wrapping_add_signed(step_x),
+                (spawn_y + 1) << 16,
+                0x2000,
+            ),
+        ] {
+            let body = trace[index]
+                .active_enemy_details
+                .iter()
+                .find(|enemy| {
+                    enemy.kind == NativeObjectKind::Enemy { object_type }
+                        && enemy.layout_index == Some(layout_index)
+                        && enemy.hit_points.is_some_and(|hp| hp > 0)
+                })
+                .expect("live walker body");
+            assert_eq!(body.x_pos, x, "type {object_type} frame {index}");
+            assert_eq!(body.y_pos, y, "type {object_type} frame {index}");
+            if index == frame {
+                assert_eq!(body.x_velocity, Some(0));
+            }
+            assert_eq!(body.y_velocity, Some(y_velocity));
+        }
+    }
+}

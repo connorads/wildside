@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-10-02 - #520 live walker initial hibernation
+
+Diamond, Tank and shooting Tank hold the first live scheduled pass. The three-family regression fails on the parent and passes after the fix. Final fast/full gates pass; the sweep retains 102 passes and three prior failures. Pixel/GEMS baselines are unchanged; Tank frame380 matches the ROM exactly. Extended routes expose positive raw falling X velocity, strict floor-boundary crossing and a separate Dragon turn. Ledger remains 0/103 confirmed with ten native exits; b17bcd1f and c54bfc65 become the next blockers. Census retains 26 clusters. Existing shrunk fixtures are restored after the census writer regenerates full representatives. The bounded #186 Jev review fails frame-0 state/pixel preflight before any API request; charged upper bound stays $0.257086284. #520 remains open.
+
 ## 2026-10-02 - #520 Diamond wall and ledge turns
 
 Diamond uses width 10, one initial walker hibernate and the shared tile-boundary gate before wall dispatch. Both 72-checkpoint level 0x05 repros and the 241-checkpoint idle extension match the ROM. The Crab fixture pins its non-crossing fractional step before turning. Fast/full gates pass with unchanged pixel and GEMS command baselines; the sweep retains the same three failures. Diff-scoped mutation testing catches all ten mutants. The census enables level 0x05 random routes and records 37/40 divergent routes in 26 clusters, with all previous 32 results unchanged. Ledger remains 0/103 confirmed and ten native exits. All eight new intake repros are shrunk and assigned. The native SDL loop passes, but its saved recording fails deterministic replay at frame 0 and supplies no replay proof. Existing ROM slot traces identify missing live init hibernation for the remaining Diamond/Tank frontiers. #520 remains open. The third-fix Jev exploration review is due; no paid request or human sign-off occurred.

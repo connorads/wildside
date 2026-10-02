@@ -30285,3 +30285,77 @@ Every saved file retains each checkpoint through the frontier and has
 frame_count equal to script length plus one. The shrink command writes the
 tracked repro in place; copying the old cache repro afterwards overwrites
 the reduction. The corrected runs omit that copy.
+
+### #186 - Bounded recoil exploration review (2026-10-02)
+
+Review revision `8a832f3b9` after three gameplay fixes. Select the P1 Lion
+recoil route gap, with an 80-decision limit and the saved roar/contact prefix.
+The prefix has one unused input after its 120 recorded frames. Jev rejects
+that shape before creating an attempt; a cache copy trims only that unused
+input and preserves all checkpoints. The tracked fixture stays intact.
+
+Preflight run `1790909349019624000` matches native trace replay but fails
+oracle state at frame0: RNG offset native FFD7 versus ROM FFD8, the #521
+starting-state blocker. Its first frame also has 1,702 changed pixels in
+bounds x206..258/y105..156, outside the frozen HUD regions. Collection is
+blocked before any API request. The charged upper bound remains
+$0.257086284. No recoil coverage is established; retain #186 as needs_route
+and continue the evidence-backed #520 implementation. No docs-only commit.
+
+### #520 - Live walker init scheduling (2026-10-02)
+
+Parent `8a832f3b9`: the three saved ROM Object slots stop at the initial
+`loc_3C044/loc_3C0F0` hibernate with zero velocities, while native runs
+its first fall callback. ASM Mode_Level executes objects before the
+`loc_80C` loading tail; `loc_3691E` installs Init for the next executable
+Object pass. Diamond `loc_3AD4C/loc_3ADA4`, Tank `loc_3B40A`, shooting
+Tank `loc_3B6AE` and Robot `loc_3A884` all begin with a hibernate.
+
+The implementation registers one live init hold for those four families through the
+existing scheduler map. Its hold is consumed after selecting the executable
+Object slot, preserving Samurai Haze and later objects' slots. The shooting
+Tank also joins the debug-entry helper's one-pass arm. Do not apply every
+debug-entry delay to the live loader; other nonzero families lack this witness.
+
+The new three-family regression fails on the parent at Diamond frame171,
+then passes with the hold. It checks the initial pose and zero velocities,
+then the following X/Y displacement and $2000 falling gravity. The first
+draft incorrectly pins a signed post-fall X velocity from native. Extended
+oracle capture shows Diamond instead stores positive $10000 while moving
+left at frame172, as `loc_3C266/loc_3C288` specify. Remove that incorrect
+expectation; the initial X-velocity assertion remains. Oracle parity keeps
+reporting the sign defect rather than hiding it.
+
+The 30-idle-frame extensions expose later first frontiers: Diamond frame172
+(raw X-velocity sign), Tank frame96 (native lands at exact floor-boundary equality;
+ROM is still falling with $8000/$20000), shooting Tank frame149 (the separate type0D
+Dragon turns right in ROM while native continues left). The init hold fixes
+its witnessed first cause; #520 remains open for these later boundaries.
+
+The retained-landing-velocity hypothesis is rejected. ASM `loc_3C30C`
+skips contact when boundary remainder equals integer displacement; only
+strict crossing can branch to `loc_3C0D2`, which immediately clears both
+velocities. Native accepts equality one pass early. Preserve raw positive
+falling X velocity and select addition/subtraction by coroutine direction;
+a snapshot conversion would conceal the incorrect landing continuation.
+
+Final fast gate passes 7,467 selected core tests, clippy and CLI checks,
+with 286 existing reviewed exclusions. Full TAS checks all 37,759 frames;
+the pixel baseline remains 37,518 exact/241 divergent/2,391 changed pixels
+and GEMS command mismatches remain zero. Sweep `1790910919` retains
+102 passed/3 failed levels. At Tank frame380, both before/after and
+corrected-native/ROM pixel comparisons have zero changed pixels. This
+rendering witness does not clear the authoritative frame96 state defect.
+
+Census `1790910920` retains 26 clusters. Its writer replaces existing
+shrunk repros with full representative scripts; restore those known
+generated edits from the parent after collection. Preserve new intake.
+Ledger `1790910974` remains 0/103 confirmed and ten native exits, exposing
+b17bcd1f (0x03 Kid X position, #522) and c54bfc65 (0x0e Dragon turn, #520).
+
+Dragon-turn intake c54bfc65 shrinks from 2,604 to 149 inputs with 18
+nonzero inputs in 110 oracle replays, preserving its first signature.
+
+Kid-position intake b17bcd1f shrinks from 3,583 to 135 inputs with 60
+nonzero inputs in 253 oracle replays, preserving its first signature.
+Both shrunk repros retain every checkpoint.
