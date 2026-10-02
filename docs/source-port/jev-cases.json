@@ -1077,16 +1077,5 @@
     ],
     "next_action": "Replay remaining crawl, jump, slope and zero-velocity stand-up frontiers after verified9819d44c entry and nonzero stand-up",
     "scope": "Physics frontiers behind crawl-latch and landing fixes."
-  },
-  {
-    "issue": 525,
-    "readiness": "ready_replay",
-    "active_path": "Native player settled recording start and recording.rs replay initialisation",
-    "route": "play-native --warp-level 0 --settled --scale 1 --record issue-525-window-smoke --record-frames 240",
-    "evidence": [
-      "docs/source-port/backlog-archive.md#issue-525"
-    ],
-    "next_action": "Add the red live/replay initialisation regression, select boot_to_level_for_recording_oracle for settled GUI warps, then repeat the window recording and native replay.",
-    "scope": "Determinism of a live settled native-window recording, without oracle comparison."
   }
 ]

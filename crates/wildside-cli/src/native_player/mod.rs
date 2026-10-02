@@ -1645,7 +1645,7 @@ fn initialise_runtime(
             // fresh repros are replayable at frame 0 instead of starting from
             // the synthetic `enter_level_playtest` shortcut.
             let level_id = LevelId(level_id);
-            runtime.boot_to_level(level_id);
+            runtime.boot_to_level_for_recording_oracle(level_id);
             runtime.settle_recording_oracle_warp_live_window(level_id);
         } else {
             runtime.warp_to_level(LevelId(level_id));
@@ -15231,6 +15231,55 @@ mod tests {
             GameMode::SegaScreen,
             "settled recording startup must advance beyond cold boot even when the tiny unit-test manifest lacks full title-card assets"
         );
+    }
+
+    #[test]
+    fn live_settled_recording_replays_loc_74e0_bootstrap_exactly() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let session_assets = load_native_session_assets(&manifest, 0).expect("session assets");
+        let mut options = plain_record_options(Path::new("unused-recording-directory"), Some(240));
+        options.warp_level = Some(0);
+        options.settled = true;
+        let mut runtime = initialise_runtime(&manifest, &session_assets, &options);
+        let scenario = DynamicScenario {
+            slug: "live-settled-bootstrap".into(),
+            script: vec![0; 240],
+            frame_count: 240,
+            checkpoints: Vec::new(),
+            start_position: None,
+            start_velocity: None,
+            camera_position: None,
+            playtest_form: None,
+            initial_diamond_count: None,
+            initial_lives: None,
+            warp_to_level: Some(0),
+            settle_oracle_warp: true,
+        };
+        let replay = crate::recording::run_recorded_trace(
+            &manifest,
+            playtest_segment_start(Some(0), true),
+            &scenario,
+        )
+        .expect("native recording replay");
+        let mut first_frame = None;
+        for (index, expected) in replay.iter().enumerate() {
+            let mut actual = runtime.step_frame(FrameInput::default());
+            let first = *first_frame.get_or_insert(actual.frame_index);
+            actual.frame_index -= first;
+            // ASM loc_74E0: recording replay exports the armed level-skip
+            // visual bit; normalise only that existing recording convention.
+            actual.level_skip_cheat_enabled = 1;
+            let actual = serde_json::to_value(actual).expect("live trace");
+            let expected = serde_json::to_value(expected).expect("replay trace");
+            for (field, expected) in expected.as_object().expect("trace fields") {
+                assert_eq!(
+                    &actual[field], expected,
+                    "ASM loc_1AE2E/loc_74E0: live settled recording differs at frame {index}, field {field}"
+                );
+            }
+        }
     }
 
     #[test]

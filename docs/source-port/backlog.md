@@ -31,7 +31,7 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-10-02):** #525 live settled recording uses the wrong bootstrap; take this ready fix before generic #186 Lion risks. #524 pickup and the full435-frame cleanup tail match the ROM. #522 zero-velocity stand-up stays open.
+- **Current work (2026-10-02):** #186 Lion loader, recoil and ledge behaviour is the top open risk. #525 live settled recording now replays exactly across240 frames; #524 cleanup matches the full435-frame ROM tail. #522 zero-velocity stand-up stays open.
 - **Intake:** `fuzz-summary.yaml` (0x00-0x05 x 8 seeds) has 26 clusters, tracked by #515/#517-#519/#522. `level-ledger.yaml` (0x00-0x10) has 10/17 native exits and 0/103 confirmed; every blocker is tracked by #515, #521, #522 or #518.
 - **Scope:** ADR 0004 sets the fidelity floor: gameplay, enemy and RNG state, level exits, visible or audible bugs. #406/#409/#416 closed under it; the pixel baseline and injection ratchet stay.
 - **After each fix:** re-run `wildside fuzz run --levels 0x00-0x05 --seeds 8 --frames 600 --write` and `wildside ledger run --write`; extend the ledger past 0x10 once early levels confirm.
@@ -64,6 +64,5 @@ For newly opened items, capture these facts in the investigation notes:
 | 517 | [ ] | P2 | enemy | Fuzz clusters 022889be (0x00 f309), d1446380 and 72129c1a (0x03), e9b6a11e (0x02): native keeps a different live object set or roster. | Each shrunk repro matches object counts and roster. |
 | 518 | [ ] | P2 | kid-physics | Fuzz clusters 6c5f8e27 (0x04 f260, airborne `kid_x_vel`), 1f2cfa0d (0x04 f203, RNG offset/ring) and 70019eed (0x04 f127, RNG offset/ring); ledger08342e19 (0x09 f304, airborne velocity). | Each repro matches the ROM through its divergence frame. |
 | 519 | [ ] | P2 | enemy | Idle fuzz control diverges on `enemy_roster` at 0x01 frame 99, so fuzz skips that level (`start_state`). 0x05 is idle-clean after the Diamond turn fix. | Idle 600-frame control matches on 0x01. |
-| 525 | [ ] | P2 | tooling/recording | Live settled level0 window recording fails deterministic native replay at frame0; absolute frame, Start count and RNG differ. | Root cause identified: GUI uses the other bootstrap. Live settled recording replays exactly from frame0. |
 | 521 | [ ] | P2 | level | Settled-warp start state differs at frame 0 with no input: 2f5fb5c0 (0x07 RNG offset/ring) and 5a69ed83 (0x0a/0x0b enemy roster). | Frame 0 of the settled warp matches the ROM on 0x07, 0x0a and 0x0b. |
 | 522 | [~] | P1 | kid-physics | Remaining crawl, jump, slope and zero-velocity stand-up physics. Clusters 0ed35d38/f92931b6/da81e8c7/417af3e3/ba78e9a9/0b645d5b/d38053c6/70d46852/ba3911e6/6a155c95; ledger 594f9474/6709165a/e1e5e429/b17bcd1f/7a06941b/a44fc576. | Entry and nonzero stand-up match 9819d44c. Replay remaining shrunk frontiers. |
