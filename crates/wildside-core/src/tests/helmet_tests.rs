@@ -8957,8 +8957,8 @@ mod chunk_08 {
 
         let frame_1129 = frame_1129.expect("frame 1129 trace");
         let frame_1130 = frame_1130.expect("frame 1130 trace");
-        // ASM Kid_Transform loc_7D22/loc_7E90 hibernates through the final
-        // cleanup frame, but `sf (Currently_transforming).w` has already run.
+        // ASM Kid_Transform loc_7E90 clears Currently_transforming and returns
+        // to the suspended movement callback on the final cleanup frame.
         assert_eq!(frame_1129.form_change_flash_frames, 2);
         assert!(
             frame_1129
@@ -8972,7 +8972,7 @@ mod chunk_08 {
                 .contains_key("currently_transforming")
         );
         assert!(
-            frame_1130
+            !frame_1130
                 .gameplay_debug_fields
                 .contains_key("gameplay_hibernated")
         );

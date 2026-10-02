@@ -11493,7 +11493,9 @@ mod chunk_03 {
             "ASM loc_7E40 must wait for transform cleanup before sfx_Voice_bummer"
         );
         while runtime.progression.form_change_flash_frames > 1 {
-            runtime.step_frame(FrameInput::default());
+            // ASM loc_7E26/loc_7E40 is the transform worker's audio tail;
+            // isolate it from weather workers resumed by the outer pass.
+            runtime.step_lifecycle(FrameInput::default());
         }
         assert_eq!(
             runtime.played_sound_effects,

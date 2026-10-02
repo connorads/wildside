@@ -15950,7 +15950,7 @@ mod chunk_09 {
         slice.player.x_velocity = 0x1_8000;
         slice.player.y_velocity = -0x2_C000;
         rt.opening_slice = Some(slice);
-        rt.progression.form_change_flash_frames = 1;
+        rt.progression.form_change_flash_frames = 2;
         rt.step_lifecycle(FrameInput::default());
         let player = rt.opening_slice.expect("slice survives the cleanup").player;
         assert_eq!(
@@ -15958,6 +15958,12 @@ mod chunk_09 {
             (0, 0),
             "loc_7E90 clears both Kid velocities on the transform cleanup frame"
         );
+        let player = &mut rt.opening_slice.as_mut().unwrap().player;
+        player.x_velocity = -0x3000;
+        player.y_velocity = 0x0800;
+        rt.step_lifecycle(FrameInput::default());
+        let player = rt.opening_slice.unwrap().player;
+        assert_eq!((player.x_velocity, player.y_velocity), (-0x3000, 0x0800));
     }
 
     #[test]
@@ -23775,11 +23781,11 @@ fn gameplay_regression_maniaxe_pickup_uses_post_motion_hitbox() {
         "../../../../tests/data/fuzz-repros/5aef09ec.json"
     ))
     .expect("checked-in Maniaxe pickup route");
-    repro.script.extend([0; 41]);
+    repro.script.extend([0; 160]);
     let trace = ScriptRunner::new(manifest)
         .warp_to_level(repro.warp_to_level)
         .settle_recording_warp()
-        .run(&repro.script, repro.frame_count + 41);
+        .run(&repro.script, repro.frame_count + 160);
     assert_eq!(trace[270].current_helmet_id, PlayerForm::TheKid.helmet_id());
     for frame in &trace[271..=315] {
         assert_eq!(frame.current_helmet_id, PlayerForm::Maniaxe.helmet_id());
@@ -23788,4 +23794,27 @@ fn gameplay_regression_maniaxe_pickup_uses_post_motion_hitbox() {
         assert_eq!(frame.kid_x_velocity, Some(-120_832));
         assert!(frame.form_change_flash_frames > 0);
     }
+    // ASM loc_7E90 clears velocity and returns to loc_8C12 with the
+    // loc_7464 controls retained across sub_8E0's transformation waits.
+    for (index, x, velocity, movement) in [
+        (316, 0x0073_2600, -0x3000, 2),
+        (317, 0x0073_1E00, -0x0800, 2),
+        (318, 0x0073_1E00, 0, 0),
+        (319, 0x0073_1E00, 0, 0),
+        (434, 0x0073_1E00, 0, 0),
+    ] {
+        let frame = &trace[index];
+        assert_eq!(frame.kid_x_pos, Some(x), "frame {index}");
+        assert_eq!(frame.kid_x_velocity, Some(velocity), "frame {index}");
+        assert_eq!(frame.character_movement, Some(movement), "frame {index}");
+        assert_eq!(frame.kid_y_pos, Some(0x019F_0000), "frame {index}");
+        assert_eq!(frame.current_helmet_id, PlayerForm::Maniaxe.helmet_id());
+    }
+    // ASM Dragon loc_3CEFC -> loc_3E956 deletes the completed death wait;
+    // the resumed transform must not restore a loc_3CE90 patrol tick.
+    assert_eq!(
+        (trace[317].number_objects, trace[317].number_gfx_objects),
+        (3, 4)
+    );
+    assert!(trace[317].active_enemy_details.is_empty());
 }

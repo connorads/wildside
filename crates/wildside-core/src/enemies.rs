@@ -16731,11 +16731,14 @@ impl NativeRuntime {
                     if let Some(enemy) = self.active_enemies.last_mut()
                         && enemy.family == EnemyFamily::DragonWalking
                         && enemy.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK
+                        && !enemy.death_animation_active
                     {
                         // ASM Kid_Transform loc_7E90 returns into the suspended
                         // Execute_Objects loc_E1E pass. The final normal enemy is
                         // still one loc_3CE90 callback behind native's atomic
                         // transform model, so retain that `$66` frame here.
+                        // ASM loc_3CEFC instead waits for the death animation;
+                        // its completed wait must reach loc_3E956 unchanged.
                         enemy.wait_timer = enemy.wait_timer.saturating_add(1);
                         enemy.dragon_script_variant |= DRAGON_WALKING_TRANSFORM_TIMER_ALIGNED_FLAG;
                     }

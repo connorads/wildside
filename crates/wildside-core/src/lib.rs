@@ -595,13 +595,9 @@ pub struct NativeRuntime {
     /// before the `$2000` Kid; recording handoffs can preserve a resumed
     /// worker after Kid instead.
     floating_prize_order_sub_e12: FloatingPrizeOrderSubE12,
-    /// One-shot phase carried with a helmet queued by a prize callback after
-    /// Player. Its next-wake transform does not need native's frame-end
-    /// cleanup compensation.
-    pending_form_queued_after_player_loc_e1e: bool,
-    /// Active transform inherited from the one-shot phase above. Its final
-    /// cleanup count resumes gameplay in the current object pass.
-    transform_started_after_player_loc_e1e: bool,
+    /// ASM loc_7464/loc_8BF0 (kid.asm): movement controls retained while
+    /// Kid_Transform waits in sub_8E0 before returning to its caller.
+    transform_continuation_controls: Option<(FrameInput, bool)>,
     /// ASM PrizeClock_Init loc_10796 swaps the active clock prize animation
     /// when its countdown reaches `$012C`.
     clock_prize_animation_swaps_loc_10796: Vec<(u16, u16)>,
@@ -1772,8 +1768,7 @@ impl NativeRuntime {
             prize_worker_effects: Vec::new(),
             latched_prize_wake_armed_loc_104ae: false,
             floating_prize_order_sub_e12: FloatingPrizeOrderSubE12::BeforePlayer,
-            pending_form_queued_after_player_loc_e1e: false,
-            transform_started_after_player_loc_e1e: false,
+            transform_continuation_controls: None,
             clock_prize_animation_swaps_loc_10796: Vec::new(),
             continue_prize_animation_swaps_loc_1080a: Vec::new(),
             prize_helmet_collision_hibernate_delay_frames: 0,
@@ -2431,6 +2426,7 @@ impl NativeRuntime {
         self.progression.pending_form = None;
         self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
         self.progression.form_change_flash_frames = 0;
+        self.transform_continuation_controls = None;
         self.progression.form_width_delta = 0;
         self.helmet.reset();
     }
@@ -4876,7 +4872,13 @@ impl NativeRuntime {
                             }
                             let transform_starts_this_frame =
                                 self.progression.form_change_flash_frames == 0;
-                            self.refresh_opening_slice(gameplay_input, jump_pressed);
+                            let (held_input, held_jump_pressed) = self
+                                .transform_continuation_controls
+                                .unwrap_or((gameplay_input, jump_pressed));
+                            self.refresh_opening_slice(held_input, held_jump_pressed);
+                            self.transform_continuation_controls = self
+                                .object_pass_hibernating_for_transform_loc_7e90()
+                                .then_some((held_input, held_jump_pressed));
                             if transform_starts_this_frame
                                 && self.progression.form_change_flash_frames > 0
                             {
@@ -5762,8 +5764,9 @@ impl NativeRuntime {
     }
 
     pub(crate) fn gameplay_hibernating_for_transform(&self) -> bool {
-        self.progression.form_change_flash_frames
-            > u8::from(self.transform_started_after_player_loc_e1e)
+        // ASM loc_7E90 returns to the suspended movement callback after
+        // the final table wait; countdown one is that cleanup continuation.
+        self.progression.form_change_flash_frames > 1
     }
 
     const fn hud_animation_runs_in_mode_level_loc_80c(
@@ -6023,6 +6026,7 @@ impl NativeRuntime {
 
     fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {
         self.kid_floor_landing_hibernated = false;
+        let resuming_transform_callback = self.progression.form_change_flash_frames == 2;
         if !self.step_lifecycle(input) {
             self.demo_transform_active = false;
             return;
@@ -6102,7 +6106,6 @@ impl NativeRuntime {
                 .any(|item| item.collision_latched && Self::is_helmet_prize(item.content))
         {
             self.award_collision_latched_prize_loc_104ae();
-            self.pending_form_queued_after_player_loc_e1e = false;
         }
         // ASM CharacterCollision_TouchSpecialPrize queues the helmet for
         // sub_7ACC's space-clear before Kid_Transform owns this wake frame.
@@ -7403,7 +7406,11 @@ impl NativeRuntime {
         self.step_lava_geysers(&slice);
         self.step_rotate_palette_lava_water_loc_1223c();
         let island_shore_before_kid_loc_e1e = self.island_shore_cycle_loc_1202a;
-        self.step_island_shore_cycle_loc_1202a();
+        // ASM loc_1202A has already yielded before the suspended Kid callback;
+        // loc_7E90 resumes that pass without executing the Island worker again.
+        if !resuming_transform_callback {
+            self.step_island_shore_cycle_loc_1202a();
+        }
 
         if self.resolve_frame_hazards(
             &mut slice,

@@ -1032,14 +1032,14 @@
   {
     "issue": 518,
     "readiness": "ready_replay",
-    "active_path": "Airborne Kid x velocity and RNG draws on 0x04; velocity on the new0x09 ledger exit route",
-    "route": "tests/data/fuzz-repros/6c5f8e27.json, 1f2cfa0d.json, 70019eed.json",
+    "active_path": "Airborne Kid x velocity and RNG draws on 0x04; airborne velocity on 0x09 ledger routes",
+    "route": "tests/data/fuzz-repros/6c5f8e27.json, 1f2cfa0d.json, 70019eed.json, 08342e19.json",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
       "docs/source-port/backlog-archive.md#issue-515"
     ],
     "next_action": "Compare the 0x04 airborne velocity repro and both RNG frontiers with the ROM; read the owning routine before changing physics or scheduling.",
-    "scope": "The 0x04 airborne-velocity and RNG clusters."
+    "scope": "The 0x04 airborne-velocity and RNG clusters, plus 0x09 airborne velocity before any transform."
   },
   {
     "issue": 519,
@@ -1079,15 +1079,14 @@
     "scope": "Physics frontiers behind crawl-latch and landing fixes."
   },
   {
-    "issue": 524,
+    "issue": 525,
     "readiness": "ready_replay",
-    "active_path": "NativeRuntime Kid contact and helmet transformation dispatch",
-    "route": "tests/data/fuzz-repros/5aef09ec.json",
+    "active_path": "Native player settled recording start and recording.rs replay initialisation",
+    "route": "play-native --warp-level 0 --settled --scale 1 --record issue-525-window-smoke --record-frames 240",
     "evidence": [
-      "docs/source-port/level-ledger.yaml",
-      "docs/source-port/backlog-archive.md#issue-524"
+      "docs/source-port/backlog-archive.md#issue-525"
     ],
-    "next_action": "Extend reduced5aef09ec with160 idle frames; compare loc_7E90 cleanup, walking continuation and retained held input at316",
-    "scope": "Pickup matches275 state checkpoints; extended transformation tail first differs at316."
+    "next_action": "Add the red live/replay initialisation regression, select boot_to_level_for_recording_oracle for settled GUI warps, then repeat the window recording and native replay.",
+    "scope": "Determinism of a live settled native-window recording, without oracle comparison."
   }
 ]

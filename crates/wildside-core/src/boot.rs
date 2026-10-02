@@ -8510,11 +8510,7 @@ impl NativeRuntime {
                     if cleanup_audio_due {
                         self.queue_transform_cleanup_audio_loc_7e26();
                     }
-                    let after_player_cleanup = self.transform_started_after_player_loc_e1e
-                        && self.progression.form_change_flash_frames == 1;
-                    let regular_cleanup = !self.transform_started_after_player_loc_e1e
-                        && self.progression.form_change_flash_frames == 0;
-                    if (after_player_cleanup || regular_cleanup)
+                    if self.progression.form_change_flash_frames == 1
                         && let Some(slice) = self.opening_slice.as_mut()
                     {
                         // ASM Kid_Transform loc_7E90 (kid.asm:8599-8600):
@@ -8525,9 +8521,6 @@ impl NativeRuntime {
                         // standstill into the f107 drill-child contact, #420).
                         slice.player.x_velocity = 0;
                         slice.player.y_velocity = 0;
-                    }
-                    if self.progression.form_change_flash_frames == 0 {
-                        self.transform_started_after_player_loc_e1e = false;
                     }
                 }
                 self.resolve_pending_form_change();
