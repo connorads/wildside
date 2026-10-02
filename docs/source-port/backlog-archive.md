@@ -30441,3 +30441,126 @@ in the checked-in split source.
 The 7a06941b reducer completes 231 oracle replays and retains 173
 inputs/116 nonzero inputs. No further zeroing preserves the new first
 signature. All 174 checkpoints remain; e042da59 stays unchanged.
+
+### #520 - Supported Dragon world-edge dispatch (2026-10-02)
+
+The live 164-checkpoint route and shrunk c54bfc65 150-checkpoint route
+match every state checkpoint. The public supported-edge regression is red
+on parent 59eca7483 (X8.5/Left instead of X9/Right) and green after the
+fix. Unsupported-edge falling already passes. Dragon.asm loc_3CDFC sets
+width9; sub_36972/sub_36A58 preload synthetic d7=3 at world edges;
+Lion.asm loc_3E3B2/loc_3E566 require strict whole-pixel crossing. Body
+contact and negative floor class precede wall dispatch. Keep the cell
+wall probe and specialised Dragon floor path intact.
+
+The first draft sets WallProbe.hit for the synthetic edge, which would
+misstate the required real Cell provenance. Reject that representation;
+decide synthetic turns separately, without inventing tiles or debug keys.
+Candidate-register the existing shared_walker_probe_wall correlation.
+The permanent gameplay regression loads the saved live route and pins
+ROM frames148-152: X9/Left, stationary X9/Right, then X9.5/X10/X10.5 Right,
+Y608 and zero raw velocities throughout. It fails on parent frame149 and
+passes with cache-backed assets enabled.
+
+Final fast passes 7,472 selected core tests with 286 reviewed exclusions,
+clippy and wired frontier/CLI/workspace checks (372.67 seconds under
+reduction load). Full TAS checks 37,759 frames and retains 37,518 exact/
+241 divergent/2,391 changed pixels and zero GEMS command mismatches.
+The 105-level sweep retains 102 passes and identical failed-level state
+diffs on 0x1B/0x4C/0x5C. The census retains 26 clusters. Restore the
+writer's regenerated existing representatives from HEAD to keep shrinks.
+
+Verified parent/candidate frames149/150/160 are inspected. Before/after
+changed pixels are 0/597/646; candidate/ROM differences are 477/459/646.
+These captures establish no exact pixel parity. The bounded SDL player
+loop completes 164 frames with GEMS audio. Its recording fails native
+replay at frame0, so it supplies only a player-loop smoke check.
+
+Diff-scoped mutation testing isolates copies. Corrected command tests 28:
+20 caught, six missed prefilter changes, one unviable and one timeout.
+Retrying strict-crossing >= with a 120-second timeout catches it, giving
+21 caught, six surviving prefilter mutations and one unviable. Survivors
+widen the scanner-call prefilter on checked traces; exact flags/floor
+still determine the tested turn. Do not claim complete mutation coverage.
+The initial malformed command runs no mutants and proves nothing.
+
+The affected ledger retains 0/103 confirmed and ten native exits. New
+0x0e route first differs at frame264 as 8d048d89: Dragon layout10 is
+X31/Left on native's patrol_timer_turn, versus ROM X31.5/Right, Y608,
+zero velocities and continuation $03E3A6/hibernate1. Scorpion.asm
+loc_3DEA0/loc_3DEAE decrements $54 and rotates $6E on expiry. Compare
+existing timer/pair/state at init, wall turn and frames263-265 before
+patching. #520 stays open. The repro shrinks 2,375 to 264 inputs with
+69 nonzero in 347 oracle replays; all 265 checkpoints remain. Original
+c54bfc65 stays unchanged and matched.
+
+### Runtime catalogue prerequisite (2026-10-02)
+
+Final fast initially fails the unbaselined web catalogue assertion. The
+SDL asset preflight materialises logical JSON sidecars; runtime requests
+16 missing paths (04,06,0A,0B,0C,0D,0E,11,12,15,16,19,1B,1C,1E,1F),
+with zero unrequested entries. The existing generator adds exactly those
+paths and passes all 126 diagnostic boots in 184.45 seconds. The normal
+assertion also passes on parent gameplay in 171.16 seconds. Commit the
+catalogue separately as 70d3c2892; retain the reviewed failure baseline.
+Final fast then passes. No gameplay change belongs to this prerequisite.
+
+### #522 - New 0x09 ledger route (2026-10-02)
+
+The post-edge search finds a different 0x09 exit route, first differing
+at frame148 as a44fc576 on camera X, Kid facing/X/velocity. Preserve
+older e1e5e429: those same inputs still first differ only on Kid velocity
+at frame180 ($FFFFBF80 versus ROM zero), with matched position/counts.
+The earlier new search signature is not an earlier break on that route.
+The a44fc576 repro shrinks 4,631 to 148 inputs with 102 nonzero in
+1,301 oracle replays. All 149 checkpoints remain. No further zeroing
+preserves its signature; the older e1e5e429 fixture stays unchanged.
+
+### #522 - Crawl-entry continuation identified (2026-10-02)
+
+Preserved 9819d44c first differs at frame38: native X$00200800/velocity$800,
+ROM X$00200000/velocity$2000; both Y$010F0000 and Crawling MoveID1.
+A zero-input tail holds ROM X/velocity on frame39 with Standingstill
+MoveID0, then clears velocity on frame40. constants.asm defines these
+IDs; the initial interpretation incorrectly names MoveID1 Standingstill.
+
+Reject the stand-up side-escape hypothesis. Kid Object$FFFF0DA0 owns
+Gfx$FFFF24E0 and resumes at $008BFE on frame37 (walking), $008226 on
+frame38 (crawl entry), then $0075E2 on frames39-40 (standing). sub_7A10
+clears fractional X with clr.w $1C(a3); successful loc_8C70 runs
+sub_8446 and loc_8218's hibernate without crawling friction sub_8506.
+Native's premature $800 step belongs to crawl entry, not sub_81B4.
+Pin the entry hold and following standing/velocity-clear wakes before
+patching. An isolated parent regression extends 9819d44c by two idle
+inputs and fails at frame38: X$00200800 instead of ROM X$00200000.
+Gameplay consumes the prior held-input latch, explaining the probe
+labelled with current idle input. Existing Object-slot diagnostics supply
+the PCs; add no key.
+An isolated prototype holds entry/release inside physics dispatch using
+existing kid_crawling. All three ROM checkpoints pass without another
+persistent phase field; ordinary standing physics clears the next wake.
+Jump, blocked clearance, held Down and form cases remain unverified,
+so the prototype is not applied to the main checkout.
+Additional ROM witnesses confirm one held-Down entry hold, then normal
+crawl friction on the next wake. Mirrored negative-velocity entry/release
+preserves velocity before the standing wake clears it. Zero-velocity
+release exposes Walking MoveID2 for one wake instead of the nonzero
+Standingstill path; do not generalise that branch to all releases.
+The four isolated prototype comparisons all reveal gaps. Held Down loses
+the retained $800 X fraction on frame40 because alignment repeats.
+Down+B jumps with matched Y/velocities but X$3000 behind ROM because
+alignment runs before jump. Mirrored release reports Walking at frame39
+and moves left on frame40, disproving that normal standing physics is
+sufficient for both signs. Preserve the standing continuation explicitly.
+Zero release reports Standingstill instead of ROM Walking at frame39.
+The prototype remains rejected; all witness fixtures are isolated.
+
+### #186 - Supported-edge cadence review (2026-10-02)
+
+After three gameplay units, re-run bounded 80-decision surviving-stomp
+discovery with the saved prefix. Parent revision 59eca7483; source patch
+SHA256 starts dc6436131f2a. Preflight run 1790917295575775000 fails at
+frame0: native RNG FFD7 versus ROM FFD8, plus 1,702 changed pixels at
+x206..258/y105..156 outside frozen HUD regions. Zero API requests;
+charged upper bound stays $0.257086284. No recoil or human coverage is
+established. Continue offline campaign work.

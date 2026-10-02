@@ -23533,3 +23533,47 @@ fn gameplay_regression_live_walkers_hibernate_before_falling_loc_3c044() {
         }
     }
 }
+
+#[test]
+fn gameplay_regression_dragon_world_edge_turn_resumes_loc_3e392() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/issue-520-live-shooting-tank-dragon-turn.json"
+    ))
+    .expect("checked-in Dragon turn route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    // ASM sub_36A58 supplies the synthetic edge flag; Lion.asm
+    // loc_3E566/loc_3E5BA/loc_3E642 hold X9 and enter loc_3E392.
+    // The following grounded wake moves right by half a pixel.
+    for (frame, x, facing) in [
+        (148, 0x0009_0000, Direction::Left),
+        (149, 0x0009_0000, Direction::Right),
+        (150, 0x0009_8000, Direction::Right),
+        (151, 0x000A_0000, Direction::Right),
+        (152, 0x000A_8000, Direction::Right),
+    ] {
+        let dragon = trace[frame]
+            .active_enemy_details
+            .iter()
+            .find(|enemy| {
+                enemy.kind == NativeObjectKind::Enemy { object_type: 0x0D }
+                    && enemy.layout_index == Some(10)
+            })
+            .expect("live Dragon layout 10");
+        assert_eq!(dragon.x_pos, x, "frame {frame}");
+        assert_eq!(dragon.y_pos, 608 << 16, "frame {frame}");
+        assert_eq!(dragon.facing, Some(facing), "frame {frame}");
+        assert_eq!((dragon.x_velocity, dragon.y_velocity), (Some(0), Some(0)));
+    }
+}

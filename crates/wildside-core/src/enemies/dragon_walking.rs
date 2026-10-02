@@ -692,8 +692,11 @@ fn step_dragon_walking_walk(
         );
         let step_px = (cx - current_cx).abs();
         let leading_side_boundary_offset = ENEMY_PROBE_HALF_WIDTH + 1;
-        let leading_boundary_distance_px =
-            (-(current_cx + leading_side_boundary_offset)).rem_euclid(0x10);
+        let leading_boundary_distance_px = if moving_right {
+            (-(current_cx + leading_side_boundary_offset)).rem_euclid(0x10)
+        } else {
+            (current_cx - leading_side_boundary_offset).rem_euclid(0x10)
+        };
         if moving_right && step_px <= leading_boundary_distance_px {
             // ASM Lion.asm loc_3E3B2/loc_3E566: walking Dragon pacing ignores
             // the current-position right-side flag while `cmp.w d1,d3; bcc`
@@ -701,6 +704,37 @@ fn step_dragon_walking_walk(
             // boundary. This preserves the oracle-backed fractional step.
             wall.hit = false;
         }
+        let at_world_edge = if moving_right {
+            ((current_cx + leading_side_boundary_offset - 1) >> 4) + 1
+                >= i32::from(grid.width_cells)
+        } else {
+            ((current_cx - leading_side_boundary_offset) >> 4) == 0
+        };
+        let world_edge_turn = if at_world_edge && step_px > leading_boundary_distance_px {
+            // ASM sub_36972/sub_36A58 preload d7=3 at the world edge.
+            // Dragon.asm loc_3CDFC sets width9; Lion.asm loc_3E3B2/loc_3E566
+            // process body overlap and negative floor class before wall flags.
+            let scan = if moving_right {
+                terrain::grounded_walker_scan_right_sub_36972(
+                    grid,
+                    current_cx,
+                    current_y_px,
+                    leading_side_boundary_offset,
+                    ENEMY_PROBE_HEIGHT,
+                )
+            } else {
+                terrain::grounded_walker_scan_left_sub_36A58(
+                    grid,
+                    current_cx,
+                    current_y_px,
+                    leading_side_boundary_offset,
+                    ENEMY_PROBE_HEIGHT,
+                )
+            };
+            scan.flags_d7 == 3 && scan.floor_class_d6 >= 0
+        } else {
+            false
+        };
         // ASM Lion.asm loc_3E3B2 calls sub_36972 against the current x_pos,
         // then computes the proposed `$50(a5)` step in d2. The support scan
         // therefore sees the trailing ninth Dragon pixel for one final frame
@@ -713,9 +747,9 @@ fn step_dragon_walking_walk(
             left_floor: Some(floor_support.left),
             right_floor: Some(floor_support.right),
         };
-        if wall.hit {
-            // ASM Lion.asm loc_3E406 -> loc_3E434 changes the walker state
-            // without storing proposed d2 or snapping x_pos. Keep the exact
+        if wall.hit || world_edge_turn {
+            // ASM Lion.asm loc_3E406/loc_3E5BA dispatch wall turns through
+            // loc_3E48E/loc_3E642 without storing proposed d2. Keep the exact
             // FP16.16 position reached by the preceding fractional step.
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
@@ -1414,6 +1448,79 @@ mod tests {
             "ASM Lion.asm loc_3E3B2 `cmp.w d1,d3; bcc` accepts the 1.5px Dragon step while its right edge remains before the next 16px boundary"
         );
         assert_eq!(dragon.facing, Direction::Right);
+    }
+
+    #[test]
+    fn dragon_walking_world_edge_turn_waits_for_integer_crossing_loc_3e566() {
+        let floor_cells: Vec<_> = (0..8).map(|col| (col, 2)).collect();
+        let grid = dragon_walking_grid(8, 4, &floor_cells);
+        for (facing, spawn_x, poses) in [
+            (
+                Direction::Left,
+                0x0009_8000,
+                [
+                    (0x0009_0000, Direction::Left),
+                    (0x0009_0000, Direction::Right),
+                    (0x0009_8000, Direction::Right),
+                    (0x000A_0000, Direction::Right),
+                ],
+            ),
+            (
+                Direction::Right,
+                0x0076_8000,
+                [
+                    (0x0077_0000, Direction::Right),
+                    (0x0077_8000, Direction::Right),
+                    (0x0077_8000, Direction::Left),
+                    (0x0077_0000, Direction::Left),
+                ],
+            ),
+        ] {
+            let mut dragon = dragon_walking_test_enemy();
+            dragon.enemy_level = 1;
+            dragon.hit_points = 2;
+            dragon.facing = facing;
+            dragon.x_pos = spawn_x;
+            dragon.y_pos = 32 << 16;
+            let mut projectiles = Vec::new();
+
+            for pose in poses {
+                step_dragon_walking(&mut dragon, Some(&grid), &mut projectiles, None);
+
+                // ASM Dragon.asm loc_3CDFC width9; sub_36972/sub_36A58
+                // preload the edge flags. Lion.asm loc_3E3B2/loc_3E566
+                // ignore them until integer displacement exceeds remainder.
+                assert_eq!((dragon.x_pos, dragon.facing), pose);
+                assert_eq!(dragon.y_pos, 32 << 16);
+                assert_eq!((dragon.x_velocity, dragon.y_velocity), (0, 0));
+                assert!(dragon.on_ground);
+            }
+        }
+    }
+
+    #[test]
+    fn dragon_walking_world_edge_without_support_enters_fall_loc_3e79e() {
+        let grid = dragon_walking_grid(8, 4, &[]);
+        for (facing, spawn_x, next_x) in [
+            (Direction::Left, 0x0009_0000, 0x0008_8000),
+            (Direction::Right, 0x0077_8000, 0x0078_0000),
+        ] {
+            let mut dragon = dragon_walking_test_enemy();
+            dragon.enemy_level = 1;
+            dragon.hit_points = 2;
+            dragon.facing = facing;
+            dragon.x_pos = spawn_x;
+            dragon.y_pos = 32 << 16;
+            let mut projectiles = Vec::new();
+
+            step_dragon_walking(&mut dragon, Some(&grid), &mut projectiles, None);
+
+            // ASM Lion.asm loc_3E3B2/loc_3E566 route negative d6 to
+            // loc_3E682/loc_3E79E before interpreting world-edge wall flags.
+            assert_eq!((dragon.x_pos, dragon.facing), (next_x, facing));
+            assert_eq!(dragon.y_pos, 33 << 16);
+            assert!(!dragon.on_ground);
+        }
     }
 
     #[test]

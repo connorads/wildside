@@ -1056,14 +1056,14 @@
   {
     "issue": 520,
     "readiness": "ready_replay",
-    "active_path": "Walking Dragon synthetic world-edge wall and width9 boundary dispatch",
-    "route": "tests/data/dynamic-scenarios/issue-520-live-shooting-tank-dragon-turn.json; tests/data/fuzz-repros/c54bfc65.json",
+    "active_path": "Walking Dragon grounded patrol callback and timer phase",
+    "route": "tests/data/fuzz-repros/8d048d89.json",
     "evidence": [
       "docs/source-port/level-ledger.yaml",
       "docs/source-port/backlog-archive.md#issue-520"
     ],
-    "next_action": "Pin supported Dragon X9 wall turn and X9.5 non-crossing advance; use the grounded scanner synthetic edge flag with loc_3E566 width9 boundary math.",
-    "scope": "Shared falling speed and strict floor crossing match Diamond/Tank routes; the Dragon frame149 turn remains."
+    "next_action": "Compare existing patrol timer/pair/state at initial wake, supported wall turn and frames263-265; distinguish initial phase from an extra callback decrement.",
+    "scope": "Saved init/fall/edge routes match; Dragon patrol turns one wake early beyond the resolved frame149 edge."
   },
   {
     "issue": 521,
@@ -1081,13 +1081,13 @@
     "issue": 522,
     "readiness": "ready_replay",
     "active_path": "NativeRuntime::refresh_opening_slice and movement.rs crawl/jump transitions",
-    "route": "tests/data/fuzz-repros/0ed35d38.json, f92931b6.json, da81e8c7.json, 417af3e3.json, ba78e9a9.json, 9819d44c.json, 0b645d5b.json, d38053c6.json, 70d46852.json, 594f9474.json, ba3911e6.json, 6709165a.json, e1e5e429.json, 7a06941b.json",
+    "route": "tests/data/fuzz-repros/0ed35d38.json, f92931b6.json, da81e8c7.json, 417af3e3.json, ba78e9a9.json, 9819d44c.json, 0b645d5b.json, d38053c6.json, 70d46852.json, 594f9474.json, ba3911e6.json, 6709165a.json, e1e5e429.json, 7a06941b.json, a44fc576.json",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
       "docs/source-port/level-ledger.yaml",
       "docs/source-port/backlog-archive.md#issue-522"
     ],
-    "next_action": "Compare the shrunk inputs on the parent and crawl-latch implementation before porting the owning ASM transition.",
+    "next_action": "Pin 9819d44c frames38-40: loc_8C70/sub_7A10 clears fractional X and enters loc_8218 without crawling friction/displacement; then standing transition and velocity clear on later wakes.",
     "scope": "Physics frontiers behind crawl-latch and landing fixes."
   }
 ]

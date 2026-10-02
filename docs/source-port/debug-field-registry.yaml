@@ -24,6 +24,11 @@
       "key": "oracle_object_slots_loc_e1e",
       "reason": "The #520 Diamond, Tank and shooting Tank live-entry frontiers use continuation PCs and hibernate counters to distinguish the initial hold from falling physics.",
       "maturity_status": "ready"
+    },
+    {
+      "key": "shared_walker_probe_wall",
+      "reason": "The #520 Dragon live route and ledger blocker correlate a negative cell probe with the ASM synthetic world-edge wall flag.",
+      "maturity_status": "ready"
     }
   ],
   "fields": [
@@ -783,11 +788,12 @@
     {
       "key": "shared_walker_probe_wall",
       "scope": "object",
-      "status": "exploratory",
+      "status": "candidate",
       "owner": "shared-walker-frontier",
       "first_added_commit": "c2b88970",
-      "intended_meaning": "The wall probe result for the most recent DragonWalking terrain decision, including negative hits.",
-      "promotion_trigger": "Promote if repeated frontier work depends on typed side-contact attribution."
+      "intended_meaning": "The cell-based wall probe result for the most recent DragonWalking terrain decision, including negative hits. Synthetic world-edge flags come from the typed grounded scanner.",
+      "promotion_trigger": "Promote typed side-contact origin when parity or regressions consume cell-versus-world-edge attribution; retain the raw cell probe for correlation.",
+      "stale_candidate_exemption": "The #520 Dragon world-edge investigation uses the raw cell probe to distinguish missing tile contact from synthetic scanner flags. Regressions assert typed position and facing; they do not consume this raw probe."
     },
     {
       "key": "shared_walker_grounded_scan_loc_3c04e",
