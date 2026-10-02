@@ -27682,6 +27682,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 523 | [x] | P0 | enemy | Friendly projectile batches remove each killed enemy once in descending index order. | Three discriminating regressions and the saved 3270-frame crash route pass; full TAS retains zero authoritative differences. |
 | 416 | [-] | P2 | audio | Closed under ADR 0004: the GEMS frame-signature frontier (frames 0..922) is a disclosed non-goal; command parity (#435) stays the audio authority. | `tas-gems-baseline` deleted; `verify-tas-full` green. See archive #416 and ADR 0004. |
 | 409 | [-] | P1 | rendering | Closed under ADR 0004: the raster recurrence and its HUD residue (241 frames / 2,391 px) are disclosed non-goals; `tas-pixel-baseline` stays as the guard. | Scheduled-frame ratchet deleted; pixel baseline green. See archive #409 and ADR 0004. |
 | 406 | [-] | P1 | rendering | Closed under ADR 0004: persistent CPU/VDP/GEMS timing (raster frontier 995) is a disclosed non-goal; the oracle-injection ratchet stays. | Injection ratchet green. See archive #406 and ADR 0004. |
@@ -30564,3 +30565,29 @@ frame0: native RNG FFD7 versus ROM FFD8, plus 1,702 changed pixels at
 x206..258/y105..156 outside frozen HUD regions. Zero API requests;
 charged upper bound stays $0.257086284. No recoil or human coverage is
 established. Continue offline campaign work.
+
+<a id="issue-523"></a>
+### #523 - Friendly projectile removal crash (2026-10-02)
+
+Owned ordinary-input capture reproduces0x09 seed1 at search frame448909.
+The3490-input route throws the same combat.rs10539 index6/len6 panic.
+Backtrace identifies process_friendly_projectile_hits -> remove_dead_enemy.
+That projectile-major batch consumes unsorted and repeated kill indices;
+other enemy-removal batches sort/deduplicate or enumerate in index order.
+Reduce the route before promotion. No crash fix is folded into #522.
+
+
+The exact parent02311f277 replays the original3490 inputs without panic.
+Corrected crawl motion reaches the existing faulty batch. Current core
+instrumentation observes duplicate lists[2,2] and[6,6]. Three synthetic
+regressions fail before the patch: duplicate first-target damage corrupts
+the untouched neighbour; duplicate last-target and reversed target order
+both panic. Sorting/deduplicating before descending removal makes all
+16 selected friendly-projectile tests pass. loc_1E5E writes colid_hurt
+to the linked object identity; native Vec compaction preserves that identity.
+This is a separate prerequisite commit before the crawl unit.
+
+
+#523 final verification: the post-fix fuzz report1790944207 is identical to1790924428 in summary, idle results and routes (26 clusters). The two-seed level09 ledger completes without panic and retains5aef09ec at frame274. Existing generated repro overwrites are restored; the eight reduced fixtures are preserved. Full TAS compares37759 frames with zero authoritative or enemy-frontier differences and24 existing oracle limitations.
+
+Resumed verification passes17 selected friendly tests with cache-backed checks enabled, including the3270-frame route and all three removal regressions.

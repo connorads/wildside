@@ -4739,6 +4739,115 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_1E5E keeps friendly contacts tied to the same enemy slot.
+    #[test]
+    fn gameplay_regression_friendly_projectile_batch_loc_1e5e() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        #[derive(serde::Deserialize)]
+        struct Repro {
+            script: Vec<u8>,
+            frame_count: usize,
+            warp_to_level: u8,
+        }
+        let repro: Repro = serde_json::from_str(include_str!(
+            "../../../../tests/data/dynamic-scenarios/issue-523-friendly-projectile-removal-crash.json"
+        )).expect("checked-in friendly projectile route");
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(repro.warp_to_level)
+            .settle_recording_warp()
+            .run(&repro.script, repro.frame_count);
+        assert_eq!(trace.len(), repro.frame_count);
+    }
+
+    fn friendly_projectile_batch_runtime(projectile_xs: &[u32]) -> NativeRuntime {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.active_enemies = vec![
+            test_enemy(EnemyFamily::Dragon, 100 << 16, 100 << 16, 1),
+            test_enemy(EnemyFamily::Goat, 200 << 16, 100 << 16, 2),
+            test_enemy(EnemyFamily::Dragon, 300 << 16, 100 << 16, 1),
+        ];
+        for (index, enemy) in runtime.active_enemies.iter_mut().enumerate() {
+            enemy.layout_index = index;
+        }
+        runtime.projectiles = projectile_xs
+            .iter()
+            .map(|&x_pos| EnemyProjectile {
+                x_pos: x_pos << 16,
+                y_pos: 100 << 16,
+                lifetime: 20,
+                friendly: true,
+                kind: EnemyProjectileKind::ManiaxeAxe,
+                ..Default::default()
+            })
+            .collect();
+        runtime.process_friendly_projectile_hits();
+        runtime
+    }
+
+    /// ASM loc_1E5E writes colid_hurt to the linked enemy identity;
+    /// repeated projectile contacts cannot select its untouched neighbour.
+    #[test]
+    fn friendly_duplicate_kill_preserves_neighbour_loc_1e5e() {
+        let runtime = friendly_projectile_batch_runtime(&[100, 100]);
+        assert_eq!(
+            runtime
+                .active_enemies
+                .iter()
+                .map(|enemy| {
+                    (
+                        enemy.layout_index,
+                        enemy.hit_points,
+                        enemy.death_animation_active,
+                    )
+                })
+                .collect::<Vec<_>>(),
+            vec![(1, 2, false), (2, 1, false)]
+        );
+    }
+
+    /// ASM loc_1E5E keeps one linked target identity for both contacts.
+    #[test]
+    fn friendly_duplicate_last_kill_keeps_indices_valid_loc_1e5e() {
+        let runtime = friendly_projectile_batch_runtime(&[300, 300]);
+        assert_eq!(
+            runtime
+                .active_enemies
+                .iter()
+                .map(|enemy| {
+                    (
+                        enemy.layout_index,
+                        enemy.hit_points,
+                        enemy.death_animation_active,
+                    )
+                })
+                .collect::<Vec<_>>(),
+            vec![(0, 1, false), (1, 2, false)]
+        );
+    }
+
+    /// ASM loc_1E5E addresses each linked enemy independently of projectile
+    /// order; loc_1E94 consumes each contacting projectile once.
+    #[test]
+    fn friendly_reverse_target_order_preserves_neighbour_loc_1e5e() {
+        let runtime = friendly_projectile_batch_runtime(&[300, 100]);
+        assert_eq!(
+            runtime
+                .active_enemies
+                .iter()
+                .map(|enemy| {
+                    (
+                        enemy.layout_index,
+                        enemy.hit_points,
+                        enemy.death_animation_active,
+                    )
+                })
+                .collect::<Vec<_>>(),
+            vec![(1, 2, false)]
+        );
+    }
+
     #[test]
     fn maniaxe_axe_recycles_shooter_object_bullet_sub_226a_before_enemy_hits() {
         let mut rt = NativeRuntime::new(manifest());

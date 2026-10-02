@@ -7459,7 +7459,10 @@ impl NativeRuntime {
             self.spawn_kid_projectile_hit_spark_loc_1_f08(x_pos, y_pos);
         }
 
-        // Remove dead enemies, spawn death effects, and award points
+        // ASM loc_1E5E writes colid_hurt to one linked enemy identity.
+        // Remove each target once, from the back, to preserve Vec indices.
+        kill_indices.sort_unstable();
+        kill_indices.dedup();
         for &idx in kill_indices.iter().rev() {
             self.remove_dead_enemy(idx);
         }

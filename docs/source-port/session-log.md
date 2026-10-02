@@ -7,6 +7,11 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-10-02 - #523 friendly-projectile removal prerequisite
+
+Sort and deduplicate killed enemy indices before descending removal. Three synthetic regressions discriminate duplicate and reversed targets; the 3270-frame saved route completes. The final fuzz report is identical across summary, idle results and routes (26 clusters). Two-seed level09 ledger no longer panics and retains the damage/transform frontier5aef09ec. Restore 22 generated fixture overwrites and eight original reduced fixtures. Crawl transition work remains a separate pending commit; zero-velocity stand-up remains open.
+
+
 ## 2026-10-02 - #520 supported Dragon world-edge turn
 
 The width9 grounded scanner supplies synthetic edge flags after strict whole-pixel crossing. The two-direction supported regression and saved-route frame149 regression are red on the parent and green after the fix; unsupported falling retains priority. Live 164 and c54bfc65 150 checkpoints match. Final fast passes 7,472 core tests with 286 reviewed exclusions after a separate 16-path runtime catalogue prerequisite; full TAS and pixel/GEMS baselines pass unchanged. The 105-level sweep retains identical prior failures and the census retains 26 clusters. Ledger retains 0/103 confirmed and ten native exits; new 8d048d89 exposes Dragon patrol expiry one wake early at frame264, while a44fc576 is new #522 physics intake. Both repros are reduced before the commit. Mutation testing catches 21, leaves six prefilter survivors and one unviable. Native captures retain pixel differences against ROM; the bounded SDL loop completes 164 frames but its recording fails deterministic replay at frame0. The three-fix Lion exploration review fails frame0 RNG/non-HUD preflight before any paid request; spend stays $0.257086284. #520 remains open for timer phase. Next select #522 by project-status.
