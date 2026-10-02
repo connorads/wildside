@@ -331,6 +331,8 @@ pub struct NativeRuntime {
     trace_input: FrameInput,
     /// ASM loc_8218/loc_8C70 (kid.asm): crawl path retained across Kid hibernation.
     kid_crawling: bool,
+    /// ASM loc_A99E -> loc_8BF0 (kid.asm): landing yields before slope scans.
+    kid_floor_landing_hibernated: bool,
     prior_input: FrameInput,
     previous_input: FrameInput,
     respawn_start_latched_frames: u8,
@@ -1629,6 +1631,7 @@ impl NativeRuntime {
             boot_state: BootState::SegaScreen { elapsed: 0 },
             trace_input: FrameInput::default(),
             kid_crawling: false,
+            kid_floor_landing_hibernated: false,
             prior_input: FrameInput::default(),
             previous_input: FrameInput::default(),
             respawn_start_latched_frames: 0,
@@ -2017,6 +2020,7 @@ impl NativeRuntime {
 
     pub(crate) fn reset_and_preload_mode_level_tail_loc_720_2ffe8(&mut self) {
         self.kid_crawling = false;
+        self.kid_floor_landing_hibernated = false;
         self.mode_level_tail_state_loc_892.clear_loc_720();
         self.rebase_mode_level_tail_after_external_override_loc_2ffe8();
         // ASM sub_73D0/loc_7414: every Load_InGame path seeds both full
@@ -6014,6 +6018,7 @@ impl NativeRuntime {
     }
 
     fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {
+        self.kid_floor_landing_hibernated = false;
         if !self.step_lifecycle(input) {
             self.demo_transform_active = false;
             return;
@@ -6405,6 +6410,7 @@ impl NativeRuntime {
                     })
             });
 
+            let mut physics_outcome = movement::KidPhysicsStepOutcome::Complete;
             if iron_knight_climb_step == IronKnightClimbStep::AttachHibernate {
                 // ORIGINAL_QUIRK: `loc_A276` seeds wall-climb state, then
                 // `Hibernate_Object_1Frame` stops Kid immediately. The attach
@@ -6550,13 +6556,18 @@ impl NativeRuntime {
                     jump_pressed,
                     custom_gravity,
                 );
-                slice.step_with_order_and_maniaxe_axe(
+                physics_outcome = slice.step_with_order_and_maniaxe_axe(
                     movement_input,
                     jump_pressed,
                     self.progression.current_form,
                     self.block_grid.as_mut(),
                     self.block_list.as_ref(),
                     custom_gravity,
+                    if self.helmet.skycutter_on_board {
+                        movement::KidFloorContactPath::MountedBoard
+                    } else {
+                        movement::KidFloorContactPath::OnFoot
+                    },
                     self.y_look_offset,
                     self.helmet.maniaxe_axe_active,
                     self.physics_order,
@@ -6892,6 +6903,22 @@ impl NativeRuntime {
                 self.queue_start_sequence(QueuedSoundEffect::JumpOnEnemy);
             }
 
+            if physics_outcome == movement::KidPhysicsStepOutcome::FloorLanding {
+                // ASM loc_A94E: only the zero-return impact path hibernates.
+                let continuation = if slice.player.on_ground {
+                    self.kid_floor_landing_hibernated = true;
+                    movement::FloorLandingContinuation::Walk
+                } else {
+                    movement::FloorLandingContinuation::JumpLoop
+                };
+                slice.finish_airborne_floor_landing(
+                    continuation,
+                    self.progression.current_form,
+                    self.block_grid.as_ref(),
+                    self.y_look_offset,
+                );
+            }
+
             self.note_kid_same_frame_stomp_probe(
                 &slice,
                 pre_physics_y_velocity,
@@ -6916,8 +6943,10 @@ impl NativeRuntime {
             // MoveID_Crawling before choosing the platform-support width.
             // Preserve the post-stand-up-check crawl-path decision for the
             // later platform pass and movement-state consumers.
-            platform_support_crawling =
-                movement_input.down && slice.player.on_ground && !slice.kid_grabbed_by_hand;
+            platform_support_crawling = !self.kid_floor_landing_hibernated
+                && movement_input.down
+                && slice.player.on_ground
+                && !slice.kid_grabbed_by_hand;
             // ASM loc_8C70/loc_7772 -> loc_8218: store the path selected by
             // Ctrl_Down_Held and its helmet/clearance gates, before hibernation.
             self.kid_crawling = platform_support_crawling;

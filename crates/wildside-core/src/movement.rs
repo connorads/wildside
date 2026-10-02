@@ -2,6 +2,27 @@ use super::*;
 use crate::level::fade_palette_span_sub_1C85E;
 use std::collections::BTreeMap;
 
+/// ASM loc_A94E (kid.asm): floor impacts choose hibernation or loc_A762.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum KidPhysicsStepOutcome {
+    Complete,
+    FloorLanding,
+}
+
+/// ASM loc_A912 (kid.asm): mounted boards bypass the on-foot landing tail.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum KidFloorContactPath {
+    OnFoot,
+    MountedBoard,
+}
+
+/// ASM loc_A94E (kid.asm): sub_B000/sub_AF7A rebound resumes sub_8F26.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum FloorLandingContinuation {
+    Walk,
+    JumpLoop,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroSequence3Descriptor {
     pub(crate) x_pos: u16,
@@ -2838,7 +2859,7 @@ impl OpeningSliceState {
         input: FrameInput,
         jump_pressed: bool,
         form: PlayerForm,
-        block_grid: Option<&mut terrain::BlockGrid>,
+        mut block_grid: Option<&mut terrain::BlockGrid>,
         block_list: Option<&terrain::BlockList>,
         custom_gravity: bool,
         y_look_offset: i16,
@@ -2846,13 +2867,14 @@ impl OpeningSliceState {
         allow_asm_faithful_solid_touch_snap: bool,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
     ) {
-        self.step_with_order_inner(
+        let outcome = self.step_with_order_inner(
             input,
             jump_pressed,
             form,
-            block_grid,
+            block_grid.as_deref_mut(),
             block_list,
             custom_gravity,
+            KidFloorContactPath::OnFoot,
             y_look_offset,
             false,
             physics_order,
@@ -2861,6 +2883,14 @@ impl OpeningSliceState {
             false,
             deferred_prize_ceiling_cells,
         );
+        if outcome == KidPhysicsStepOutcome::FloorLanding {
+            self.finish_airborne_floor_landing(
+                FloorLandingContinuation::Walk,
+                form,
+                block_grid.as_deref(),
+                y_look_offset,
+            );
+        }
     }
 
     #[expect(clippy::too_many_arguments)]
@@ -2872,6 +2902,7 @@ impl OpeningSliceState {
         block_grid: Option<&mut terrain::BlockGrid>,
         block_list: Option<&terrain::BlockList>,
         custom_gravity: bool,
+        floor_contact_path: KidFloorContactPath,
         y_look_offset: i16,
         maniaxe_throwing_axe_active: bool,
         physics_order: PhysicsOrder,
@@ -2879,7 +2910,7 @@ impl OpeningSliceState {
         suppress_post_horizontal_floor_release: bool,
         suppress_probe_slope_velocity: bool,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
-    ) {
+    ) -> KidPhysicsStepOutcome {
         self.step_with_order_inner(
             input,
             jump_pressed,
@@ -2887,6 +2918,7 @@ impl OpeningSliceState {
             block_grid,
             block_list,
             custom_gravity,
+            floor_contact_path,
             y_look_offset,
             maniaxe_throwing_axe_active,
             physics_order,
@@ -2894,7 +2926,7 @@ impl OpeningSliceState {
             suppress_post_horizontal_floor_release,
             suppress_probe_slope_velocity,
             deferred_prize_ceiling_cells,
-        );
+        )
     }
 
     #[expect(clippy::too_many_arguments)]
@@ -2906,6 +2938,7 @@ impl OpeningSliceState {
         block_grid: Option<&mut terrain::BlockGrid>,
         block_list: Option<&terrain::BlockList>,
         custom_gravity: bool,
+        floor_contact_path: KidFloorContactPath,
         y_look_offset: i16,
         maniaxe_throwing_axe_active: bool,
         physics_order: PhysicsOrder,
@@ -2913,7 +2946,7 @@ impl OpeningSliceState {
         suppress_post_horizontal_floor_release: bool,
         suppress_probe_slope_velocity: bool,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
-    ) {
+    ) -> KidPhysicsStepOutcome {
         // ASM loc_1062 / Hibernate_UntilAnimFinished (kid.asm:1985) loops for
         // 21 frames after ledge snap, suppressing all physics.
         // Camera follow resumes on the final frame (ASM exits animation,
@@ -2921,11 +2954,11 @@ impl OpeningSliceState {
         if self.player.ledge_snap_cooldown > 0 {
             self.player.ledge_snap_cooldown -= 1;
             if self.player.ledge_snap_cooldown > 0 {
-                return;
+                return KidPhysicsStepOutcome::Complete;
             }
             // Last cooldown frame: physics still suppressed but camera catches up.
             self.update_camera_follow(y_look_offset);
-            return;
+            return KidPhysicsStepOutcome::Complete;
         }
         let mut block_grid = block_grid;
         // ASM loc_8E06 (kid.asm:10203): the walking loop re-runs the sub_B43A
@@ -2950,7 +2983,7 @@ impl OpeningSliceState {
             self.player.on_spikes = false;
             self.terrain.floor_terrain_type = TerrainType::Normal;
             self.update_camera_follow(y_look_offset);
-            return;
+            return KidPhysicsStepOutcome::Complete;
         }
         let on_ground_before = self.player.on_ground;
         let walk_visual_accumulator_before_step = self.walk_visual_accumulator;
@@ -3030,7 +3063,7 @@ impl OpeningSliceState {
                         // ledge-snap frame, the camera follow sees the pre-snap
                         // position — skip the follow here and let the next frame
                         // catch up, matching the oracle's one-frame camera lag.
-                        return;
+                        return KidPhysicsStepOutcome::Complete;
                     }
                     self.apply_ceiling_collision_for_physics_step(
                         Some(grid),
@@ -3115,7 +3148,7 @@ impl OpeningSliceState {
                         // ledge-snap frame, the camera follow sees the pre-snap
                         // position — skip the follow here and let the next frame
                         // catch up, matching the oracle's one-frame camera lag.
-                        return;
+                        return KidPhysicsStepOutcome::Complete;
                     }
                     self.apply_ceiling_collision_for_physics_step(
                         Some(grid),
@@ -3180,18 +3213,19 @@ impl OpeningSliceState {
                 // updates. If no Solid/Spikes cell found → loc_B5F6: y_pos += 1px,
                 // transition to Jump, skip sub_9A0A/sub_8F26 entirely.
                 //
-                // ASM loc_8E06 (kid.asm:10203): no-platform Skycutter walking entry.
-                // `moveq #0,d7; moveq #0,d6; bsr.w sub_B43A` flat floor probe:
-                // bmi → loc_BC80 (off-level death), beq → loc_B5F6 (no support →
-                // airborne). Falls through to loc_8E16: sub_8600 surface scan,
-                // sub_9A0A Skycutter velocity, velocity-zero → loc_8DFC standing,
-                // non-zero → loc_8E3E wall/slope dispatch.
-                // Native: this sub_B43A floor probe is the same check below;
-                // Skycutter velocity is `update_horizontal_velocity_only` →
-                // `update_skycutter_horizontal_velocity_sub_9A20`.
+                // ASM loc_8D72 -> loc_8E06 (kid.asm:10203): no-platform walking
+                // entry for every helmet. `moveq #0,d7; moveq #0,d6; bsr.w
+                // sub_B43A` probes flat floor support: bmi -> loc_BC80
+                // (off-level death), beq -> loc_B5F6 (no support -> airborne).
+                // loc_8E16 then calls sub_8600 and sub_9A0A's helmet velocity
+                // table; zero velocity -> loc_8DFC, otherwise loc_8E3E.
+                // Native uses the same sub_B43A check below and the helmet's
+                // velocity table in update_horizontal_velocity_only.
+                // ASM loc_8BF0/loc_9D22: centre-tile geometry does not switch
+                // an active walking coroutine into the slope loop before X.
                 let grounded_slope_before = self
                     .grounded_slope_collision(block_grid.as_deref())
-                    .filter(|_| on_ground_before);
+                    .filter(|_| on_ground_before && self.terrain.slope_sliding);
                 let grounded_edge_slope_before = if on_ground_before {
                     block_grid.as_deref().and_then(|grid| {
                         let x_px = (self.player.x_pos >> 16) as i32;
@@ -3216,6 +3250,7 @@ impl OpeningSliceState {
                     None
                 };
                 if on_ground_before
+                    && !slope_sliding_before
                     && grounded_slope_before.is_none()
                     && grounded_edge_slope_before.is_none()
                     && let Some(grid) = block_grid.as_deref()
@@ -3228,7 +3263,7 @@ impl OpeningSliceState {
                     self.terrain.floor_terrain_type = TerrainType::Normal;
                     self.finalise_trace();
                     self.update_camera_follow(y_look_offset);
-                    return;
+                    return KidPhysicsStepOutcome::Complete;
                 }
                 if on_ground_before
                     && grounded_slope_before.is_none()
@@ -3288,7 +3323,7 @@ impl OpeningSliceState {
                     self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                     self.finalise_trace();
                     self.update_camera_follow(y_look_offset);
-                    return;
+                    return KidPhysicsStepOutcome::Complete;
                 }
 
                 if on_ground_before
@@ -3326,7 +3361,7 @@ impl OpeningSliceState {
                     self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                     self.finalise_trace();
                     self.update_camera_follow(y_look_offset);
-                    return;
+                    return KidPhysicsStepOutcome::Complete;
                 }
 
                 if on_ground_before
@@ -3364,7 +3399,7 @@ impl OpeningSliceState {
                         self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                         self.finalise_trace();
                         self.update_camera_follow(y_look_offset);
-                        return;
+                        return KidPhysicsStepOutcome::Complete;
                     }
                 }
 
@@ -3406,7 +3441,7 @@ impl OpeningSliceState {
                     self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                     self.finalise_trace();
                     self.update_camera_follow(y_look_offset);
-                    return;
+                    return KidPhysicsStepOutcome::Complete;
                 }
 
                 // ASM loc_AA9C (kid.asm:13334): wall-cling direction dispatch.
@@ -3505,13 +3540,14 @@ impl OpeningSliceState {
                 // moves diagonally along the 45° surface. SlopeUp (/): going
                 // right means going up → y_vel = -x_vel. SlopeDown (\): going
                 // right means going down → y_vel = +x_vel.
-                let grounded_slope_for_loc_9d22 = if self.player.on_ground {
-                    block_grid
-                        .as_deref()
-                        .and_then(|grid| self.grounded_slope_collision(Some(grid)))
-                } else {
-                    None
-                };
+                let grounded_slope_for_loc_9d22 =
+                    if self.player.on_ground && self.terrain.slope_sliding {
+                        block_grid
+                            .as_deref()
+                            .and_then(|grid| self.grounded_slope_collision(Some(grid)))
+                    } else {
+                        None
+                    };
                 if let Some(slope) = grounded_slope_for_loc_9d22 {
                     match slope {
                         terrain::CollisionKind::SlopeUp => {
@@ -3604,7 +3640,7 @@ impl OpeningSliceState {
                         self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                         self.finalise_trace();
                         self.update_camera_follow(y_look_offset);
-                        return;
+                        return KidPhysicsStepOutcome::Complete;
                     }
                 }
                 if self.player.on_ground
@@ -3937,7 +3973,7 @@ impl OpeningSliceState {
                             } else {
                                 self.apply_floor_collision(
                                     Some(grid),
-                                    horizontal_step_applied,
+                                    false,
                                     !jump_pressed,
                                     collision_hw,
                                     allow_asm_faithful_solid_touch_snap,
@@ -3948,7 +3984,7 @@ impl OpeningSliceState {
                 } else {
                     self.apply_floor_collision(
                         None,
-                        horizontal_step_applied,
+                        false,
                         !jump_pressed,
                         collision_hw,
                         allow_asm_faithful_solid_touch_snap,
@@ -3979,6 +4015,7 @@ impl OpeningSliceState {
                     && airborne_slope_recontact.is_none();
                 let slope_recontact_this_step = airborne_slope_recontact.is_some();
                 if plain_airborne_floor_landing
+                    && floor_contact_path == KidFloorContactPath::MountedBoard
                     && self.player.x_velocity != 0
                     && should_advance_grounded_walk_visual_accumulator_loc_95da(
                         form,
@@ -4038,12 +4075,19 @@ impl OpeningSliceState {
                         },
                     );
                 }
+                if plain_airborne_floor_landing && floor_contact_path == KidFloorContactPath::OnFoot
+                {
+                    // ASM loc_A94E resolves sub_B000/sub_AF7A before choosing
+                    // loc_A99E -> loc_8BF0 or loc_A762 -> sub_8F26.
+                    self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
+                    return KidPhysicsStepOutcome::FloorLanding;
+                }
                 if direct_compound_landing_loc_a4ee {
                     kid_flip_follow_on_stages.after_floor = self.kid_flip_follow_on_stage_state();
                     self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                     self.finalise_trace();
                     self.update_camera_follow(y_look_offset);
-                    return;
+                    return KidPhysicsStepOutcome::Complete;
                 }
                 if let Some(grid) = block_grid.as_deref() {
                     self.record_wall_cling_release_probe(input, form, grid, pre_vertical_y_px);
@@ -4055,7 +4099,7 @@ impl OpeningSliceState {
                     self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                     self.finalise_trace();
                     self.update_camera_follow(y_look_offset);
-                    return;
+                    return KidPhysicsStepOutcome::Complete;
                 }
                 if let Some(grid) = block_grid.as_deref()
                     && self.try_release_descending_wall_cling_into_run(input, form, grid)
@@ -4064,7 +4108,7 @@ impl OpeningSliceState {
                     self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                     self.finalise_trace();
                     self.update_camera_follow(y_look_offset);
-                    return;
+                    return KidPhysicsStepOutcome::Complete;
                 }
 
                 // ASM loc_A762 (kid.asm:13070): `bsr.w sub_8F26; bne.w loc_A8DE`
@@ -4261,10 +4305,11 @@ impl OpeningSliceState {
                             self.kid_flip_follow_on_stage_state();
                         self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                         self.finalise_trace();
-                        return;
+                        return KidPhysicsStepOutcome::Complete;
                     }
                     if self.player.on_ground
                         && on_ground_before
+                        && !slope_sliding_before
                         && grounded_slope_for_loc_9d22.is_none()
                         && !wall_hit
                         && let Some((slope, current_row)) =
@@ -4291,7 +4336,7 @@ impl OpeningSliceState {
                                         Some(kid_flip_follow_on_stages);
                                     self.finalise_trace();
                                     self.update_camera_follow(y_look_offset);
-                                    return;
+                                    return KidPhysicsStepOutcome::Complete;
                                 }
                             }
                         }
@@ -4299,6 +4344,8 @@ impl OpeningSliceState {
                         // entry happens after the horizontal step; the slope
                         // coroutine stores diagonal velocity and hibernates
                         // before the loc_9F18 position tail can run.
+                        self.terrain.slope_walk_kind = Some(slope);
+                        self.terrain.slope_sliding = true;
                         self.player.y_velocity = match slope {
                             terrain::CollisionKind::SlopeUp => -self.player.x_velocity,
                             terrain::CollisionKind::SlopeDown => self.player.x_velocity,
@@ -4309,7 +4356,7 @@ impl OpeningSliceState {
                         self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                         self.finalise_trace();
                         self.update_camera_follow(y_look_offset);
-                        return;
+                        return KidPhysicsStepOutcome::Complete;
                     }
                     // ASM sub_9386 + sub_A254: after horizontal movement, snap Y
                     // to the slope surface. The ROM stores a linear constant
@@ -4495,6 +4542,54 @@ impl OpeningSliceState {
                 kid_flip_follow_on_stages.after_wall = self.kid_flip_follow_on_stage_state();
                 self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
             }
+        }
+        self.finalise_trace();
+        self.update_camera_follow(y_look_offset);
+        KidPhysicsStepOutcome::Complete
+    }
+
+    /// ASM loc_A94E -> loc_A99E/loc_A762 (kid.asm): finish floor impact wake.
+    pub(crate) fn finish_airborne_floor_landing(
+        &mut self,
+        continuation: FloorLandingContinuation,
+        form: PlayerForm,
+        block_grid: Option<&terrain::BlockGrid>,
+        y_look_offset: i16,
+    ) {
+        match continuation {
+            FloorLandingContinuation::Walk => {
+                if self.player.x_velocity != 0
+                    && should_advance_grounded_walk_visual_accumulator_loc_95da(
+                        form,
+                        self.player.facing,
+                        self.player.x_velocity,
+                    )
+                {
+                    self.walk_visual_accumulator = grounded_walk_visual_accumulator_loc_95da(
+                        self.walk_visual_accumulator,
+                        form,
+                        self.player.x_velocity,
+                    );
+                }
+                if let Some(trace) = self.physics_trace.as_mut() {
+                    trace.horizontal_step_applied = false;
+                }
+            }
+            FloorLandingContinuation::JumpLoop => {
+                // ASM loc_A762 calls sub_8F26 once after the rebound.
+                self.apply_x_velocity_to_position();
+                let pre_collision_x = self.player.x_pos;
+                self.apply_wall_collision_for_form(block_grid, form);
+                if let Some(trace) = self.physics_trace.as_mut() {
+                    trace.horizontal_step_applied = true;
+                    trace.wall_hit = self.player.x_pos != pre_collision_x;
+                    trace.wall_snap_x = trace.wall_hit.then_some(self.player.x_pos);
+                }
+            }
+        }
+        let stage = self.kid_flip_follow_on_stage_state();
+        if let Some(stages) = self.kid_flip_follow_on_stages.as_mut() {
+            stages.after_wall = stage;
         }
         self.finalise_trace();
         self.update_camera_follow(y_look_offset);
@@ -5370,15 +5465,18 @@ impl OpeningSliceState {
         if self.player.on_ground && !input.b {
             self.player.jump_buffer_frames = 0;
         }
+        // ASM loc_8BF0/loc_9D22 selects the velocity table by coroutine,
+        // not by a slope tile still underneath a flat-floor landing.
         let grounded_slope = self
             .grounded_slope_collision(block_grid)
-            .filter(|_| self.player.on_ground);
-        let cached_slope_continuation = (self.player.on_ground && grounded_slope.is_none())
-            .then_some(self.terrain.slope_walk_kind)
-            .flatten()
-            .filter(|&slope| {
-                cached_slope_walk_exit_gate_loc_a13a(self.player.x_velocity, input, slope)
-            });
+            .filter(|_| self.player.on_ground && self.terrain.slope_sliding);
+        let cached_slope_continuation =
+            (self.player.on_ground && self.terrain.slope_sliding && grounded_slope.is_none())
+                .then_some(self.terrain.slope_walk_kind)
+                .flatten()
+                .filter(|&slope| {
+                    cached_slope_walk_exit_gate_loc_a13a(self.player.x_velocity, input, slope)
+                });
         if self.player.on_ground && self.player.jump_buffer_frames > 0 {
             return false;
         }
@@ -5804,9 +5902,11 @@ impl OpeningSliceState {
         if self.player.on_ground && self.player.jump_buffer_frames > 0 && !input.b {
             self.player.jump_buffer_frames = 0;
         }
+        // ASM loc_8BF0/loc_9D22 selects the velocity table by coroutine,
+        // not by a slope tile still underneath a flat-floor landing.
         let grounded_slope = self
             .grounded_slope_collision(block_grid)
-            .filter(|_| self.player.on_ground);
+            .filter(|_| self.player.on_ground && self.terrain.slope_sliding);
         if self.player.on_ground && self.player.jump_buffer_frames > 0 {
             return false;
         }
@@ -7192,6 +7292,21 @@ impl OpeningSliceState {
                     }
                 }
             }
+            // ASM sub_902A -> sub_914A loc_9188: a descending row
+            // crossing scans the whole span for $6000/$7000 before slopes.
+            if !was_on_ground
+                && crossed_descending_floor_scan_boundary
+                && let Some(solid_probe) = terrain::probe_floor_solid_span_loc_914a(
+                    grid,
+                    x_px - collision_hw,
+                    x_px + collision_hw,
+                    y_px,
+                )
+            {
+                probe = solid_probe;
+                center_slope_snap_candidate = false;
+                allow_hitbox_snap = true;
+            }
             let preserving_ground_contact = self.player.on_ground && probe.cell.is_solid_floor();
             if center_slope_snap_candidate
                 || (allow_hitbox_snap && (probe.on_ground || preserving_ground_contact))
@@ -7266,9 +7381,28 @@ impl OpeningSliceState {
                     }
                 };
                 if can_land {
-                    let rubber_rebound = !was_on_ground
-                        && probe.cell.has_block
-                        && probe.cell.block_type == terrain::BlockType::Rubber;
+                    // ASM sub_914A loc_91C0/loc_9204: any Rubber block in
+                    // the scanned solid row sets the rebound return flag.
+                    let rubber_effect_cell = if !was_on_ground
+                        && matches!(
+                            probe.cell.collision,
+                            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                        ) {
+                        let left_col = ((x_px - collision_hw) >> 4).max(0) as u16;
+                        let right_col = ((x_px + collision_hw) >> 4).max(0) as u16;
+                        let max_col = grid.width_cells.saturating_sub(1);
+                        (left_col.min(max_col)..=right_col.min(max_col))
+                            .find(|&col| {
+                                let cell = grid.cell_at(col, probe.cell_y);
+                                cell.has_block
+                                    && cell.block_type == terrain::BlockType::Rubber
+                                    && cell.collision == terrain::CollisionKind::Solid
+                            })
+                            .map(|col| (col, probe.cell_y))
+                    } else {
+                        None
+                    };
+                    let rubber_rebound = rubber_effect_cell.is_some();
                     let trailing_edge_still_on_solid = match self.player.x_velocity.cmp(&0) {
                         // ASM `sub_902A -> loc_A984 -> loc_A99E -> loc_8BF0`
                         // keeps the landing frame as plain walking while the
@@ -7339,24 +7473,12 @@ impl OpeningSliceState {
                         // `x_pos-half_width..x_pos+half_width` floor span and
                         // calls loc_10DA4 once for each rubber block, so keep
                         // the first scanned rubber cell as the effect anchor.
-                        let rubber_effect_cell = [left_edge_probe, probe, right_edge_probe]
-                            .into_iter()
-                            .filter(|candidate| {
-                                candidate.cell.has_block
-                                    && candidate.cell.block_type == terrain::BlockType::Rubber
-                                    && candidate.cell.collision == terrain::CollisionKind::Solid
-                                    && candidate.cell_y == probe.cell_y
-                            })
-                            .min_by_key(|candidate| candidate.cell_x)
-                            .map_or((probe.cell_x, probe.cell_y), |candidate| {
-                                (candidate.cell_x, candidate.cell_y)
-                            });
                         self.player.on_ground = false;
                         self.player.y_velocity = -incoming_y_velocity;
                         self.player.on_spikes = false;
                         self.terrain.floor_terrain_type =
                             grounded_surface_type_sub_8600(grid, x_px, y_px, collision_hw);
-                        self.rubber_block_hit = Some(rubber_effect_cell);
+                        self.rubber_block_hit = rubber_effect_cell;
                         self.player.wall_cling_direction = None;
                         return None;
                     }

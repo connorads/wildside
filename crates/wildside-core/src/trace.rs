@@ -9994,6 +9994,17 @@ impl NativeRuntime {
         if !player.on_ground || player.just_jumped {
             return MOVE_JUMP;
         }
+        if self.kid_floor_landing_hibernated {
+            // ASM loc_A984 -> loc_A99E -> loc_8BF0: landing has not run
+            // the next walking wake's sub_9386 slope or loc_8C70 crawl scan.
+            return if player.x_velocity != 0
+                || self.progression.current_form == PlayerForm::Skycutter
+            {
+                MOVE_WALKING
+            } else {
+                MOVE_STANDINGSTILL
+            };
+        }
         if self.kid_crawling {
             return MOVE_CRAWLING;
         }

@@ -1009,25 +1009,13 @@
     "issue": 515,
     "readiness": "ready_replay",
     "active_path": "crates/wildside-core/src/trace.rs current_character_movement vs kid.asm Character_Movement MoveID writes (e.g. loc_A6F8)",
-    "route": "tests/data/fuzz-repros/54fce7a1.json, 7b0a8e1e.json, 3a36f8ac.json, 87a37ef6.json, acad697b.json",
+    "route": "tests/data/fuzz-repros/54fce7a1.json, 7b0a8e1e.json, 3a36f8ac.json, 87a37ef6.json, acad697b.json, 5a673417.json, a5798943.json",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
       "docs/source-port/backlog-archive.md#issue-515"
     ],
     "next_action": "54fce7a1 matches through frame 60. Replay 7b0a8e1e and trace loc_82BA crawl release and loc_8BF0 walking entry; extend the passing crawl fixture through its entry velocity.",
     "scope": "Clusters whose first blocking field is character_movement alone."
-  },
-  {
-    "issue": 516,
-    "readiness": "ready_replay",
-    "active_path": "Kid physics on 0x04 while moving right",
-    "route": "tests/data/fuzz-repros/60979027.json",
-    "evidence": [
-      "docs/source-port/fuzz-summary.yaml",
-      "docs/source-port/backlog-archive.md#issue-515"
-    ],
-    "next_action": "Replay the repro to frame 98 and compare Kid position, velocity and camera with the oracle.",
-    "scope": "Cluster 60979027 only."
   },
   {
     "issue": 517,
@@ -1045,13 +1033,13 @@
     "issue": 518,
     "readiness": "ready_replay",
     "active_path": "Airborne Kid x velocity and RNG draws on 0x04",
-    "route": "tests/data/fuzz-repros/6c5f8e27.json, 1f2cfa0d.json",
+    "route": "tests/data/fuzz-repros/6c5f8e27.json, 1f2cfa0d.json, 70019eed.json",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
       "docs/source-port/backlog-archive.md#issue-515"
     ],
-    "next_action": "Shrink both clusters with wildside fuzz shrink, then compare their divergence frames with the oracle.",
-    "scope": "Clusters 6c5f8e27 and 1f2cfa0d."
+    "next_action": "Compare the 0x04 airborne velocity repro and both RNG frontiers with the ROM; read the owning routine before changing physics or scheduling.",
+    "scope": "The 0x04 airborne-velocity and RNG clusters."
   },
   {
     "issue": 519,
@@ -1068,8 +1056,8 @@
   {
     "issue": 520,
     "readiness": "ready_replay",
-    "active_path": "Enemy roster on 0x03, 0x09 and 0x0e ledger routes",
-    "route": "tests/data/fuzz-repros/5c73a00e.json, a8918bf2.json, d0eff6e6.json",
+    "active_path": "Enemy roster on 0x03, 0x05, 0x09 and 0x0e ledger routes",
+    "route": "tests/data/fuzz-repros/5c73a00e.json, a8918bf2.json, d0eff6e6.json, c90f74d2.json, 076909d9.json",
     "evidence": [
       "docs/source-port/level-ledger.yaml",
       "docs/source-port/backlog-archive.md#issue-520"
@@ -1093,13 +1081,13 @@
     "issue": 522,
     "readiness": "ready_replay",
     "active_path": "NativeRuntime::refresh_opening_slice and movement.rs crawl/jump transitions",
-    "route": "tests/data/fuzz-repros/0ed35d38.json, f92931b6.json, da81e8c7.json, 417af3e3.json, ba78e9a9.json, 9819d44c.json",
+    "route": "tests/data/fuzz-repros/0ed35d38.json, f92931b6.json, da81e8c7.json, 417af3e3.json, ba78e9a9.json, 9819d44c.json, 0b645d5b.json, d38053c6.json, 70d46852.json, 594f9474.json",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
       "docs/source-port/level-ledger.yaml",
       "docs/source-port/backlog-archive.md#issue-522"
     ],
     "next_action": "Compare the shrunk inputs on the parent and crawl-latch implementation before porting the owning ASM transition.",
-    "scope": "Physics frontiers exposed after the early crawl movement-ID mismatch is removed."
+    "scope": "Physics frontiers behind crawl-latch and landing fixes."
   }
 ]

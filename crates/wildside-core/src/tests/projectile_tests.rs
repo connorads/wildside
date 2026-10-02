@@ -14810,3 +14810,50 @@ mod chunk_06 {
         );
     }
 }
+
+/// ASM loc_A94E -> sub_B000/sub_AF7A -> loc_A762 (kid.asm): resolve
+/// the floor block at old X, then carry rebound X through sub_8F26 once.
+#[test]
+fn gameplay_regression_floor_rebounds_integrate_x_after_impact_loc_a762() {
+    for (form, block_bytes, rebound) in [
+        (PlayerForm::RedStealth, [0xE0, 0x01], -0x0003_8000),
+        (PlayerForm::IronKnight, [0xE5, 0x0B], -0x8000),
+    ] {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.progression.current_form = form;
+        runtime.progression.number_hitpoints = form.max_hitpoints();
+        if form == PlayerForm::RedStealth {
+            runtime.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES + 1;
+        }
+        let mut grid = grid_with_floor_at_row(14);
+        grid.set_cell_at(
+            5,
+            14,
+            terrain::Cell::from_be_bytes(block_bytes[0], block_bytes[1]),
+        );
+        runtime.block_grid = Some(grid);
+        let mut slice = OpeningSliceState::respawn(runtime.level_bounds(LevelId(0)));
+        slice.player.x_pos = 95 << 16;
+        slice.player.x_velocity = 0x0003_0000;
+        slice.player.y_pos = 223 << 16;
+        slice.player.y_velocity = 0x0005_0000;
+        slice.player.on_ground = false;
+        runtime.opening_slice = Some(slice);
+
+        runtime.step_frame(FrameInput::default());
+
+        let landed = runtime.opening_slice.expect("live floor impact");
+        // ASM loc_B0FE subtracts $400 with no horizontal button held.
+        assert_eq!(landed.player.x_velocity, 0x0002_fc00, "{form:?}");
+        assert_eq!(landed.player.x_pos, (95 << 16) + 0x0002_fc00, "{form:?}");
+        assert_eq!(landed.player.y_velocity, rebound, "{form:?}");
+        assert!(!landed.player.on_ground, "{form:?}");
+        let floor_block = runtime.block_grid().expect("floor grid").cell_at(5, 14);
+        assert_eq!(
+            floor_block.has_block,
+            form == PlayerForm::IronKnight,
+            "{form:?}"
+        );
+    }
+}

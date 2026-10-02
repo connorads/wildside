@@ -14807,6 +14807,8 @@ mod chunk_12 {
             height_pixels: h * 16,
         });
         slice.player.on_ground = true;
+        // ASM loc_9D22: this fixture starts inside the active slope coroutine.
+        slice.terrain.slope_sliding = true;
         slice.player.facing = Direction::Right;
         slice.player.x_pos = 64 << 16;
         slice.player.y_pos = 63 << 16;
@@ -14852,6 +14854,8 @@ mod chunk_12 {
             height_pixels: h * 16,
         });
         slice.player.on_ground = true;
+        // ASM loc_9D22: this fixture starts inside the active slope coroutine.
+        slice.terrain.slope_sliding = true;
         slice.player.facing = Direction::Right;
         slice.player.x_pos = 47 << 16;
         slice.player.y_pos = 63 << 16;
@@ -18115,10 +18119,9 @@ mod chunk_12 {
         );
     }
 
-    /// ASM loc_77C2 only keeps non-bitmask helmets standing while the slope is
-    /// adjacent. Once `sub_9386` would report current slope support, the frame
-    /// must continue into loc_9E6C so Red Stealth slides downhill instead of
-    /// vibrating in the standing-still loop.
+    /// ASM loc_9D58 -> loc_9E6C (kid.asm): Red Stealth resumes an active
+    /// slope coroutine with downhill velocity, bypassing loc_77C2's standing
+    /// ledge guard.
     #[test]
     fn asm_faithful_red_stealth_on_current_slope_up_enters_loc_9e6c_slide() {
         let w: u16 = 8;
@@ -18137,6 +18140,8 @@ mod chunk_12 {
             height_pixels: h * 16,
         });
         slice.player.on_ground = true;
+        // ASM loc_9D22: this fixture starts inside the active slope coroutine.
+        slice.terrain.slope_sliding = true;
         slice.player.facing = Direction::Right;
         slice.player.x_pos = 64 << 16;
         slice.player.y_pos = 63 << 16;
@@ -18160,7 +18165,7 @@ mod chunk_12 {
         );
         assert_eq!(
             slice.player.x_velocity, -0x1000,
-            "ASM sub_9386 current SlopeUp support should reach loc_9E6C and slide downhill",
+            "ASM loc_9D58 resumes active SlopeUp through loc_9E6C downhill velocity",
         );
         assert_eq!(
             slice.player.facing,
@@ -18169,11 +18174,9 @@ mod chunk_12 {
         );
     }
 
-    /// ASM loc_77C2 only suppresses standing-to-walking while a slope is
-    /// adjacent. Once sub_9386 has found the current SlopeUp support, repeated
-    /// frames must keep feeding loc_9E6C so Red Stealth slides smoothly downhill
-    /// instead of alternating between a one-frame recontact step and a zero-vel
-    /// standing hold.
+    /// ASM loc_9D58 -> loc_9E6C (kid.asm): repeated active slope wakes keep
+    /// Red Stealth on the downhill table instead of re-entering loc_77C2's
+    /// standing guard.
     #[test]
     fn asm_faithful_red_stealth_current_slope_up_slides_without_limit_cycle() {
         let w: u16 = 8;
@@ -18188,6 +18191,8 @@ mod chunk_12 {
             height_pixels: h * 16,
         });
         slice.player.on_ground = true;
+        // ASM loc_9D22: this fixture starts inside the active slope coroutine.
+        slice.terrain.slope_sliding = true;
         slice.player.facing = Direction::Right;
         slice.player.x_pos = 0x46 << 16;
         slice.player.y_pos = (0x30 + 0x0F - (0x46 & 0x0F)) << 16;
@@ -18277,8 +18282,8 @@ mod chunk_12 {
         );
     }
 
-    /// ASM loc_77FC mirrors loc_77C2: adjacent SlopeDown can keep Eyeclops
-    /// standing, but current SlopeDown support must run the loc_9E6C slide.
+    /// ASM loc_9D58 -> loc_9E6C (kid.asm): Eyeclops resumes its active
+    /// SlopeDown coroutine with downhill velocity.
     #[test]
     fn asm_faithful_eyeclops_on_current_slope_down_enters_loc_9e6c_slide() {
         let w: u16 = 8;
@@ -18297,6 +18302,8 @@ mod chunk_12 {
             height_pixels: h * 16,
         });
         slice.player.on_ground = true;
+        // ASM loc_9D22: this fixture starts inside the active slope coroutine.
+        slice.terrain.slope_sliding = true;
         slice.player.facing = Direction::Left;
         slice.player.x_pos = 47 << 16;
         slice.player.y_pos = 63 << 16;
@@ -18320,7 +18327,7 @@ mod chunk_12 {
         );
         assert_eq!(
             slice.player.x_velocity, 0x1000,
-            "ASM sub_9386 current SlopeDown support should reach loc_9E6C and slide downhill",
+            "ASM loc_9D58 resumes active SlopeDown through loc_9E6C downhill velocity",
         );
         assert_eq!(
             slice.player.facing,
@@ -18329,9 +18336,8 @@ mod chunk_12 {
         );
     }
 
-    /// ASM loc_77FC mirrors loc_77C2 for the left-adjacent hold. Current
-    /// SlopeDown support must stay on the loc_9E6C downhill slide path across
-    /// frames rather than re-entering the standing-still guard.
+    /// ASM loc_9D58 -> loc_9E6C (kid.asm): active SlopeDown wakes keep
+    /// Eyeclops sliding instead of re-entering loc_77FC's standing guard.
     #[test]
     fn asm_faithful_eyeclops_current_slope_down_slides_without_limit_cycle() {
         let w: u16 = 8;
@@ -18346,6 +18352,8 @@ mod chunk_12 {
             height_pixels: h * 16,
         });
         slice.player.on_ground = true;
+        // ASM loc_9D22: this fixture starts inside the active slope coroutine.
+        slice.terrain.slope_sliding = true;
         slice.player.facing = Direction::Left;
         slice.player.x_pos = 0x26 << 16;
         slice.player.y_pos = (0x30 + (0x26 & 0x0F)) << 16;
@@ -21922,6 +21930,8 @@ mod chunk_12 {
             height_pixels: h * 16,
         });
         slice.player.on_ground = true;
+        // ASM loc_9D22: this fixture starts inside the active slope coroutine.
+        slice.terrain.slope_sliding = true;
         slice.player.facing = Direction::Right;
         slice.player.x_pos = 0x02cf_d000;
         slice.player.y_pos = 0x00f0_0000;
@@ -22512,13 +22522,11 @@ mod chunk_12 {
         );
     }
 
-    /// ASM sub_9386 (kid.asm:10809) derives `$FA24/$FA26` from the slope cell
-    /// before sub_A254 stores the y position. Native's defensive boundary
-    /// search checks the current row, then the prior row, then the following
-    /// row; when both neighbouring slope rows are plausible, the prior row
-    /// must win instead of letting the following row overwrite it.
+    /// ASM loc_8E06 -> sub_B43A -> loc_B5F6 (kid.asm): walking over an
+    /// empty support row yields airborne before sub_9386 or sub_A254 can
+    /// inspect neighbouring slope rows.
     #[test]
-    fn asm_faithful_sub_a254_prefers_prior_slope_row_at_boundary() {
+    fn asm_faithful_walking_without_solid_support_yields_before_slope_boundary_snap() {
         let w: u16 = 8;
         let h: u16 = 8;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
@@ -22553,10 +22561,11 @@ mod chunk_12 {
             &[],
         );
 
+        assert!(!slice.player.on_ground, "loc_B5F6 enters airborne state");
         assert_eq!(
             slice.player.y_pos,
-            62 << 16,
-            "sub_A254 boundary search should choose the prior-row SlopeDown surface before the following-row SlopeUp surface",
+            66 << 16,
+            "loc_B5F6 increments Y before neighbouring slopes are considered",
         );
     }
 
@@ -22578,6 +22587,8 @@ mod chunk_12 {
                 height_pixels: h * 16,
             });
             slice.player.on_ground = true;
+            // ASM loc_9D22: this fixture starts inside the active slope coroutine.
+            slice.terrain.slope_sliding = true;
             slice.player.x_pos = (x_px as u32) << 16;
             slice.player.y_pos = (floor_y_px as u32) << 16;
             slice.player.x_velocity = 0x0002_0000;

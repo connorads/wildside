@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-10-02 - #516 floor landing and walking continuation
+
+The #515 crawl latch is committed as `f68614b85`. #516 selects solid/spike support across the full floor span, yields ordinary landings before another X step and retains the active walking/slope distinction on the following wake. Saved 99/100-checkpoint ROM routes match; rebound regressions cover Red Stealth and Iron Knight. Main fast/full gates pass with unchanged pixel/GEMS command baselines. The 105-level sweep retains the three prior failures. Main census has 22 clusters and 31/32 divergent routes; four former clusters retire, six later signatures appear. All eight new census/ledger repros are shrunk and assigned to #515/#518/#520/#522. Ledger remains 0/103 confirmed, with 10 native exits. Parent/fixed frames are inspected. No Jev request or human playtest occurred.
+
 ## 2026-10-02 - #515 crawl latch and exposed physics intake
 
 The draft retains the crawl path selected by Kid gameplay instead of reading raw Down in the movement classifier. The shrunk `54fce7a1` repro changes from native MoveID 1/ROM 2 at frame 60 to all 61 checkpoints matching. Fast and full TAS gates pass; two pause-shell limitation baselines shrink by four each. The census drops from 23 to 20 clusters, with 31/32 routes still divergent. The affected-level ledger remains 0/103 confirmed and exposes 9819d44c/c90f74d2 beyond the former MoveID blockers. The 105-level sweep retains identical prior failures on 0x1B/0x4C/0x5C. #522 tracks exposed physics frontiers; #520 gains the 0x05 roster blocker. All eight intake repros are shrunk. The two longest reductions take 1,371 and 1,118 oracle replays. #515 remains open for its other movement-write boundaries; #522 is ready for replay. No paid Jev request occurred.

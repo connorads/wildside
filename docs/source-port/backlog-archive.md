@@ -27688,6 +27688,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 370 | [x] | P0 | enemy/projectile | Natural Dragon-breath death clears the projectile and reproduces the ROM death-loader, title-card and live hand-off phases. | Registered 620-frame JEV route matches trace, emulator state and every pixel; verified cleanup control fails after a 303-frame prefix. See archive #370. |
 | 210 | [x] | P0 | gameflow/render | Rapid intro/title/menu Start presses preserve the title hand-off and title-card sprite priority. | Registered 600-frame JEV route matches trace, oracle state and every frame; verified early-release control fails. |
 | 300 | [x] | P1 | level/teleporter | Cross-level Teleport exposes each destination after its scheduled `Load_InGame` work. | Red-before Bloody Swamp boundary; 56 exact post-clear gameplay checkpoints and 35 exact destination frames on ordinary Skydragon inputs. |
+| 516 | [x] | P1 | kid-physics | Solid floor landings scan the full span, yield before another X step and resume walking before slope dispatch; rebound and mounted-board paths retain their carry. | Saved 99/100-checkpoint ROM routes match; landing/rebound regressions and fast/full gates pass. See archive #516. |
 | 514 | [x] | P1 | recording/prize | Settled live Prize cells recover their ROM records; adjacent Rubber defers dispatch; simultaneous completed Dragon breath children release both linked pairs. | Checked-in 300-frame route matches every state checkpoint and player/camera CRC; published single-Dragon boundary remains green. See archive #514. |
 | 513 | [x] | P1 | kid-physics | `sub_914A` full-span ceiling scan retains adjacent Rubber contact and `loc_9130` reverses Kid velocity. | Checked-in 125-frame route matches every checkpoint and player/camera CRC; focused adjacent-cell regression. See archive #513. |
 | 512 | [-] | P1 | level/loader | Empty sections in settled RAM block-list sidecars represent live lifecycle state and must not be rebuilt from static ROM records. | Rejected merge first diverges at frame 6; regression preserves empty prizes plus captured pad. See archive #512. |
@@ -30045,3 +30046,133 @@ The affected-level ledger rerun exposes c90f74d2 on 0x05 at frame 71,
 The repro `tests/data/fuzz-repros/c90f74d2.json` shrinks from 101 to 71
 script frames with three nonzero inputs. Keep it with
 #520's other ledger roster blockers; no root cause is assigned yet.
+
+<a id="issue-516"></a>
+### #516 - Floor scan and landing wake (2026-10-01)
+
+Source: `tests/data/fuzz-repros/60979027.json`, level 0x04. The recording
+warp replay matches frames 0..97 and first differs at 98. Native repro:
+reproduced. Oracle: authoritative settled-warp state. Minimum gate:
+`fast-slice` plus `verify-tas-full`, full sweep, fixed-argument fuzz census
+and affected ledger reruns.
+
+The landing starts at X=$00CDAD00, Y=$00DCC000. The centre is on
+SlopeUp cell (12,14), but the right edge overlaps Solid cell (13,14).
+ASM `sub_902A -> sub_914A/loc_9188` scans the complete span for $6000/$7000;
+it snaps Y to $00DF0000. `loc_A94E -> loc_A99E -> loc_8BF0` then hibernates
+at X=$00CDAD00, xv=$00029700, vy=0, camera X=$001F0000, MoveID 2.
+Native instead selects centre slope support and takes another slope step.
+
+An ordinary-landing early return alone does not fix the route: the floor
+helper reports SlopeUp, so its plain-landing predicate is false. Selecting
+the solid span alone exposes a second error: the pre-X floor call receives
+`horizontal_step_applied=true` and rewinds X even though ASM-faithful order
+has changed only velocity. Solid priority, the correct pre-X flag and the
+landing yield must change together. Movement reporting must retain this
+walking landing wake before the next `sub_9386`/`loc_8C70` scan.
+
+`loc_A94E` runs `sub_B000` and `sub_AF7A` before deciding whether to yield.
+The private typed handoff lets runtime floor effects choose walking
+hibernation or `loc_A762 -> sub_8F26` rebound carry. Mounted-board
+`loc_A912` keeps its existing jump-loop path. `sub_914A/loc_91C0` checks
+all spanned solid cells for Rubber; selecting the first solid cell must not
+hide a later Rubber cell's rebound flag.
+
+The draft matches all 99 saved-route checkpoints on the enemy frontier.
+Its regression pins X/Y, velocities, camera X and MoveID. A second regression
+checks Red Stealth and Iron Knight block impacts before exactly one rebound
+X step. Five focused landing/rebound tests pass. `verify-slice-fast` passes
+7,464 core tests, clippy and the frontier baselines. It retains 286 reviewed
+exclusions, the ignored Driller shell witness and two manual exploration tests.
+
+The opt-in cache-backed full core suite has 93 identical failures on the
+unchanged #515 parent and the first draft; only the Rubber span test is a
+new failure. That Rubber regression passes after the full-span correction.
+The old failures are not evidence against this change or proof of their own
+validity. No exclusion or expected value is changed to absorb them.
+Full TAS passes all 37,759 frames with unchanged pixel and GEMS command
+baselines. Sweep run `1790895508` is 102 passed/3 failed/0 errors; failed
+levels 0x1B/0x4C/0x5C have identical state diffs to #515 run `1790891639`.
+Fuzz run `1790895506` remains 31/32 divergent routes and changes 20 to 22
+clusters: 60979027/87a37ef6/acad697b/d9cfd61d retire, six signatures appear.
+
+The unshrunk 0x04 seed-1 route now matches the landing at frame 98 and
+breaks at 99 as 1465e8ad. Native infers SlopeUp from the centre tile on the
+next grounded wake, brakes xv to $25200 and lifts Y with vy=-$25200;
+ROM retains plain walking, xv=$26A00, vy=0, Y=$00DF0000. This is the next
+landing-continuation investigation; #516 remains open. The raw slope probe
+at frame start must be distinguished from the active `loc_8BF0` versus
+`loc_9D22` coroutine before another patch. Visual inspection and affected
+ledger verification remain pending.
+
+#### #516 - Walking phase after a solid landing (2026-10-02)
+
+ASM `loc_8BF0` resumes walking before the next `sub_9386` dispatch;
+`loc_9D22` resumes slope velocity through a separate coroutine. The existing
+`TerrainState.slope_sliding` records the active slope phase. A centre slope
+tile alone cannot select that phase before the walking X step. Fresh slope
+entry records the phase for the following wake; active slope motion bypasses
+walking's flat support precheck and fresh-entry dispatch.
+
+The 100-frame held-Right regression pins frame 99 at X=$00D08F00,
+Y=$00DF0000, xv=$00026A00, vy=0 and MoveID 2. Its ROM comparison matches
+all 100 enemy-frontier checkpoints. The same seed's wider census route reaches
+frame 127 before its first RNG difference, instead of the landing failures at
+98/99. The 130-frame continuation has two enemy-roster differences at 128/129;
+those states are not claimed as matched.
+
+Eleven slope fixtures start inside `loc_9D22`; they explicitly seed its active
+phase and retain their expected values. The former prior-row boundary fixture
+starts walking with no solid support in row 4. `sub_B43A/loc_B4C0` computes
+`(65+1)>>4`; `loc_B4E0` accepts only $6000/$7000. `loc_B5F6` therefore adds
+one pixel and enters airborne state before `sub_A254`. Its native-only Y=62
+expectation is replaced by the ASM-derived Y=66 and airborne assertion.
+
+Current-phase `verify-slice-fast` passes in 267.65 seconds, with 7,465 core
+tests, clippy and unchanged frontier baselines. The 286 reviewed exclusions
+and existing ignored witnesses remain. Full TAS passes 37,759 frames with
+37,518 exact/241 divergent frames, 2,391 changed pixels and zero GEMS command
+mismatches. Sweep `1790897566` retains exactly the prior failed-state
+dictionaries at 0x1B/0x4C/0x5C. The canonical 0x04 repeat `1790897651` passes.
+
+Clean fuzz `1790897649` is identical to `1790897566`: 31/32 divergent routes,
+22 clusters. Native and ROM frames 97/98/99 are inspected. Native visual
+capture emits a direct level-layout override, so its four 0x04 files are moved
+out of the asset path before the clean census and level sweep repeat. Main's
+live shrink cache is separate. Affected-level ledger verification is pending.
+
+Affected-level ledger `1790897738` finds five native exits in 0x00-0x05
+and confirms none on the ROM. Level 0x02 finds no exit. The existing 0x00,
+0x01 and 0x04 blockers remain at frames 38, 51 and 120. Level 0x03 now
+hits physics signature 594f9474 at 124 before its former roster blocker;
+level 0x05 hits roster signature 076909d9 at 71. 594f9474 shrinks from 154 to 124 script frames with two nonzero
+inputs in 32 replays. 076909d9 shrinks from 101 to 71 script frames with two
+nonzero inputs in 33 replays. The original 60979027 route also matches all 99
+checkpoints on the current phase draft.
+
+Closed 2026-10-02 as `[x]`. Main `verify-slice-fast` passes in 300.46
+seconds; full TAS retains the 37,759-frame pixel and GEMS command baselines.
+Main census `1790899660` matches the isolated clean census exactly apart
+from revision metadata. Main ledger `1790900092` matches the six isolated
+entries apart from run ids and retains 0/103 confirmed, 10 native exits.
+The parent `f68614b85` and fixed builds' frames 98/99 are inspected;
+ordinary landing no longer carries Kid rightward/upward into another slope
+step. No authoritative baseline, exclusion or advisory mask is added.
+
+#### #515/#518/#520/#522 - Intake after the landing fix
+
+All repros live in `tests/data/fuzz-repros/<id>.json`. The fixed census
+retires 60979027, 87a37ef6, acad697b and d9cfd61d as first-frontier signatures.
+Seven of its 22 clusters (16 routes) still have only `character_movement` as
+the first field. #515 gains 5a673417 (0x00 frame 70), shrunk 100 -> 70
+script frames, four nonzero inputs, 234 replays; and a5798943 (0x02 frame
+223), shrunk 253 -> 223, 13 nonzero inputs, 84 replays.
+
+#518 gains 70019eed (0x04 RNG at 127), shrunk 157 -> 127 script frames,
+91 nonzero inputs, 359 replays. #522 gains 0b645d5b (0x02 physics at
+125), shrunk 155 -> 125, seven nonzero inputs, 71 replays; d38053c6
+(0x02 physics at 129), shrunk 159 -> 129, 49 nonzero inputs, 391 replays;
+and 70d46852 (0x04 camera Y at 213), shrunk 243 -> 213, 66 nonzero
+inputs, 488 replays. The two ledger repros 594f9474 (#522) and 076909d9
+(#520) are shrunk as recorded above. Compare these same inputs on the parent
+before attributing a later frontier to the landing change.

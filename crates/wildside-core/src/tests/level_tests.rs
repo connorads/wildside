@@ -14960,6 +14960,8 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         slice.player.x_pos = (start_x_px as u32) << 16;
         slice.player.y_pos = (start_floor_y as u32) << 16;
         slice.player.on_ground = true;
+        // ASM loc_9D22: this fixture starts inside the active slope coroutine.
+        slice.terrain.slope_sliding = true;
         slice.player.x_velocity = 0x0002_0000;
         slice.player.facing = Direction::Right;
 
@@ -15029,6 +15031,8 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         slice.player.x_pos = (start_x_px as u32) << 16;
         slice.player.y_pos = (start_floor_y as u32) << 16;
         slice.player.on_ground = true;
+        // ASM loc_9D22: this fixture starts inside the active slope coroutine.
+        slice.terrain.slope_sliding = true;
         slice.player.x_velocity = 0x0002_0000; // seed a live slope run-up
         slice.player.facing = Direction::Right;
 
@@ -15144,6 +15148,8 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         slice.player.x_pos = (start_x_px as u32) << 16;
         slice.player.y_pos = (start_floor_y as u32) << 16;
         slice.player.on_ground = true;
+        // ASM loc_9D22: this fixture starts inside the active slope coroutine.
+        slice.terrain.slope_sliding = true;
         slice.player.x_velocity = 0x0002_0000; // seed a live slope run-up
         slice.player.facing = Direction::Right;
 

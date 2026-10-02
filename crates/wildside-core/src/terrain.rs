@@ -1589,7 +1589,7 @@ pub fn probe_floor_hitbox(
     }
 }
 
-fn probe_floor_solid_span_loc_914a(
+pub(crate) fn probe_floor_solid_span_loc_914a(
     grid: &BlockGrid,
     left_x_px: i32,
     right_x_px: i32,

@@ -31,13 +31,13 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-10-02):** Commit the verified #515 crawl-latch unit; all eight intake repros are shrunk. #516's isolated landing and walking-phase draft passes fast/full and 100 ROM checkpoints. Its clean fuzz census remains 31/32 divergent routes; affected ledger verification finds no confirmed exit. Live handles and evidence are in `.cache/debug/515-progress.json`.
-- **Intake:** `fuzz-summary.yaml` (0x00-0x05 x 8 seeds) has 20 clusters, tracked by #515-#519/#522. `level-ledger.yaml` (0x00-0x10) has 10/17 native exits and 0/103 confirmed; every blocker is tracked by #515, #520, #521 or #522.
+- **Current work (2026-10-02):** Commit verified #516 floor-landing continuation and its eight shrunk intake repros, then select the next item with `mise run project-status`. Main fast/full gates pass; the 99/100-checkpoint ROM routes match. Live handles and evidence are in `.cache/debug/515-progress.json`.
+- **Intake:** `fuzz-summary.yaml` (0x00-0x05 x 8 seeds) has 22 clusters, tracked by #515/#517-#519/#522. `level-ledger.yaml` (0x00-0x10) has 10/17 native exits and 0/103 confirmed; every blocker is tracked by #515, #520, #521 or #522.
 - **Scope:** ADR 0004 sets the fidelity floor: gameplay, enemy and RNG state, level exits, visible or audible bugs. #406/#409/#416 closed under it; the pixel baseline and injection ratchet stay.
 - **After each fix:** re-run `wildside fuzz run --levels 0x00-0x05 --seeds 8 --frames 600 --write` and `wildside ledger run --write`; extend the ledger past 0x10 once early levels confirm.
 - **Jev allowance:** $5 additional across the campaign. #185 used 48 requests in one attempt. The ledger lifetime charged upper bound is $0.257086284.
 - **Jev exploration review:** Revision `cf5d84937`. No request or spend occurred. Restart the three-fix cadence from this review.
-- **Evidence boundary:** The published-route state/RNG gates cover one route; `verify-tas-full` passes on the #515 draft at parent `8f5891221`; the 105-level sweep retains the prior three failed levels. The ledger and fuzz census measure the rest.
+- **Evidence boundary:** The published-route state/RNG gates cover one route; `verify-tas-full` passes on the #516 fix at parent `f68614b85`; the 105-level sweep retains the prior three failed levels. The ledger and fuzz census measure the rest.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -60,11 +60,10 @@ For newly opened items, capture these facts in the investigation notes:
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 186 | [~] | P1 | enemy | Fight a Lion; hurt recoil, ledge leap, roar windup, and engagement range should behave like the ROM. | Resolve live-loader pose pixels; capture surviving-stomp recoil and recovery. |
-| 515 | [~] | P1 | kid-physics | Native derives `character_movement` each frame (`current_character_movement`); the ROM stores MoveID at its coroutine write sites. 8 of 20 fuzz clusters (19 routes) diverge here first, e.g. 7b0a8e1e, 3a36f8ac, d9cfd61d, 87a37ef6. | Fuzz 0x00-0x05 x 8 seeds has no `character_movement`-first cluster; `gameplay_regression_*` tests load the shrunk repros. |
-| 516 | [ ] | P1 | kid-physics | Fuzz cluster 60979027: on 0x04 Kid position, x/y velocity and camera diverge at frame 98 while moving right. | Shrunk repro `tests/data/fuzz-repros/60979027.json` matches the ROM; regression test. |
+| 515 | [~] | P1 | kid-physics | Native derives `character_movement` each frame (`current_character_movement`); the ROM stores MoveID at its coroutine write sites. 7 of 22 fuzz clusters (16 routes) diverge here first, including 7b0a8e1e, 3a36f8ac, 5a673417 and a5798943. | Fuzz 0x00-0x05 x 8 seeds has no `character_movement`-first cluster; `gameplay_regression_*` tests load the shrunk repros. |
 | 517 | [ ] | P2 | enemy | Fuzz clusters 022889be (0x00 f309), d1446380 and 72129c1a (0x03), e9b6a11e (0x02): native keeps a different live object set or roster. | Each shrunk repro matches object counts and roster. |
-| 518 | [ ] | P2 | kid-physics | Fuzz clusters 6c5f8e27 (0x04 f260, airborne `kid_x_vel`) and 1f2cfa0d (0x04 f203, RNG offset/ring). | Both repros match the ROM through their divergence frames. |
+| 518 | [ ] | P2 | kid-physics | Fuzz clusters 6c5f8e27 (0x04 f260, airborne `kid_x_vel`), 1f2cfa0d (0x04 f203, RNG offset/ring) and 70019eed (0x04 f127, RNG offset/ring). | Each repro matches the ROM through its divergence frame. |
 | 519 | [ ] | P2 | enemy | Idle fuzz controls diverge on `enemy_roster` at 0x01 frame 99 and 0x05 frame 71, so fuzz skips both levels (`start_state`). | Idle 600-frame control matches on 0x01 and 0x05. |
-| 520 | [ ] | P1 | enemy | Ledger routes diverge on `enemy_roster` before their exits: 5c73a00e (0x03 f171), a8918bf2 (0x09 f80), d0eff6e6 (0x0e f133), c90f74d2 (0x05 f71). | Each repro in `tests/data/fuzz-repros/` matches the roster; the levels re-run in the ledger. |
+| 520 | [ ] | P1 | enemy | Ledger routes diverge on `enemy_roster` before their exits: 5c73a00e (0x03 f171), a8918bf2 (0x09 f80), d0eff6e6 (0x0e f133), c90f74d2 and 076909d9 (0x05 f71). | Each repro in `tests/data/fuzz-repros/` matches the roster; the levels re-run in the ledger. |
 | 521 | [ ] | P2 | level | Settled-warp start state differs at frame 0 with no input: 2f5fb5c0 (0x07 RNG offset/ring) and 5a69ed83 (0x0a/0x0b enemy roster). | Frame 0 of the settled warp matches the ROM on 0x07, 0x0a and 0x0b. |
-| 522 | [ ] | P1 | kid-physics | Removing the early crawl MoveID mismatch exposes physics clusters 0ed35d38, f92931b6, da81e8c7, 417af3e3, ba78e9a9 and ledger blocker 9819d44c. | Shrink the repros; compare crawl entry, release and jump transitions with the ROM. |
+| 522 | [ ] | P1 | kid-physics | Crawl-latch and landing fixes expose physics clusters 0ed35d38, f92931b6, da81e8c7, 417af3e3, ba78e9a9, 0b645d5b, d38053c6, 70d46852 and ledger blockers 9819d44c/594f9474. | Shrink the repros; compare crawl entry, release and jump transitions with the ROM. |

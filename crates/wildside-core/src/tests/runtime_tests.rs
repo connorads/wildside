@@ -23366,3 +23366,55 @@ fn gameplay_regression_crawl_entry_uses_latched_down_loc_8c70() {
     // Oracle 54fce7a1: raw Down arrives at 60; loc_8C70 still sees Left+C.
     assert_eq!(trace[60].character_movement, Some(2));
 }
+
+#[test]
+fn gameplay_regression_flat_landing_yields_before_horizontal_step_loc_a94e() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/fuzz-repros/60979027.json"
+    ))
+    .expect("checked-in fuzz repro");
+    let trace = ScriptRunner::new(manifest)
+        .physics_order(PhysicsOrder::AsmFaithful)
+        .trace_physics()
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    // ASM loc_A912 -> loc_A94E -> loc_A99E -> loc_8BF0 yields on floor
+    // contact before loc_A762 can integrate X or dispatch slope walking.
+    let landing = &trace[98];
+    assert_eq!(landing.kid_x_pos, Some(0x00cd_ad00));
+    assert_eq!(landing.kid_y_pos, Some(0x00df_0000));
+    assert_eq!(landing.kid_x_velocity, Some(0x0002_9700));
+    assert_eq!(landing.kid_y_velocity, Some(0));
+    assert_eq!(landing.camera_x_pos, 0x001f_0000);
+    assert_eq!(landing.character_movement, Some(2));
+}
+
+#[test]
+fn gameplay_regression_flat_landing_resumes_walk_before_slope_dispatch_loc_8bf0() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    // ASM loc_A99E -> loc_8BF0 -> loc_8E06/loc_8E3E resumes walking.
+    // The full-width solid support remains live; loc_9D22 has not been entered.
+    // ROM fuzz-1465e8ad is exactly 100 held-Right inputs through this wake.
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(0x04)
+        .settle_recording_warp()
+        .run(&[0x08; 100], 100);
+    let walking = &trace[99];
+    assert_eq!(walking.kid_x_pos, Some(0x00d0_8f00));
+    assert_eq!(walking.kid_y_pos, Some(0x00df_0000));
+    assert_eq!(walking.kid_x_velocity, Some(0x0002_6a00));
+    assert_eq!(walking.kid_y_velocity, Some(0));
+    assert_eq!(walking.character_movement, Some(2));
+}
