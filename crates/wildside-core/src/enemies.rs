@@ -4630,10 +4630,9 @@ fn activate_enemies_with_rng_inner(
             }
             if let Some(runtime) = lion_runtime_fields {
                 // ASM Lion.asm loc_3DFF0 writes the common runtime tail after
-                // the HP-specific motion profile. Native has no `$71(a5)`
-                // phase byte, so this assertion uses a non-consuming zero RNG
-                // byte to validate the original `$4B` remap without shifting
-                // the runtime RNG stream.
+                // the HP-specific motion profile. Allocation derives these
+                // deterministic fields without drawing; the accepted Object
+                // Init callback seeds `$71(a5)` before its first yield.
                 debug_assert_eq!(runtime.ufo_beam_interval, 0x002F);
                 debug_assert_eq!(runtime.ufo_beam_segments, 0x0014);
                 debug_assert_eq!(runtime.tracking_callback, "LionTrackingCallback");
@@ -5405,6 +5404,17 @@ fn step_active_enemies_with_rng_context(
         }
         if executable_enemy_indices.next_if_eq(&enemy_index).is_none() {
             continue;
+        }
+        if enemy.family == EnemyFamily::Lion
+            && enemy.ufo_beam_interval == 0
+            && !enemy.death_animation_active
+        {
+            // ASM loc_3DFF0 draws $71(a5) on the accepted Init callback,
+            // before loc_3E546 yields. Zero remaps to4B, leaving no live
+            // zero token; loc_E1E haze-skipped callbacks must not draw.
+            let profile = lion_init_motion_profile_loc_3dfd8(u16::from(enemy.hit_points));
+            enemy.ufo_beam_interval =
+                lion_init_runtime_fields_loc_3dff0(profile, rng.next_byte()).random_phase_byte;
         }
         if let Some(remaining) = freshly_loaded_enemies.get_mut(&ActiveEnemyKey::from_enemy(enemy))
         {

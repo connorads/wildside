@@ -59,7 +59,7 @@
     "issue": 186,
     "readiness": "needs_route",
     "active_path": "crates/wildside-core/src/enemies.rs Lion state dispatch",
-    "route": "Level 0x07 settled route: roar/contact frames 0..119 and live upper-Lion loader frames 0..66; recoil remains missing",
+    "route": "Level0x07 settled roar/contact0..119 and live loader0..66 match gameplay/enemy/RNG; ledger c36fb8b6 exposes grounded tracking at82; surviving hurt remains missing",
     "evidence": [
       "docs/source-port/backlog.md",
       "docs/source-port/backlog-archive.md#issue-186",
@@ -67,7 +67,7 @@
       "tests/data/dynamic-scenarios/issue-186-lion-live-loader.json",
       "crates/wildside-core/src/enemies/lion.rs"
     ],
-    "next_action": "Resolve Lion Init RNG preflight, then find an oracle-confirmed surviving stomp through hurt and recovery; the native 12-frame Right+B candidate causes no ROM damage",
+    "next_action": "Restore tracking after the post-fire completion using c36fb8b6, then resolve pose-specific contact and find an oracle-confirmed surviving stomp",
     "scope": "Lion: hurt recoil, gravity ledge-leap charge, roar windup + engagement bands missing"
   },
   {
@@ -1062,7 +1062,7 @@
       "docs/source-port/level-ledger.yaml",
       "docs/source-port/backlog-archive.md#issue-520"
     ],
-    "next_action": "Compare frame 0 of the 0x07 settled warp RNG ring with the oracle.",
+    "next_action": "Compare frame0 enemy rosters on settled0x0a and0x0b; Lion0x07 Init RNG matches.",
     "scope": "Frame-0 divergences with no input."
   },
   {

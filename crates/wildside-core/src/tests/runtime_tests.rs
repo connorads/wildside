@@ -23888,3 +23888,78 @@ fn gameplay_regression_lion_live_initialisation_precedes_ledge_fall() {
         );
     }
 }
+
+/// ASM Lion.asm loc_3DFF0 consumes one byte on Init before loc_3E546
+/// yields. Allocation at61 has no draw; Init62 draws once, callback63 does not.
+#[test]
+fn gameplay_regression_lion_init_rng_matches_settled_and_live_callbacks() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/issue-186-lion-live-loader.json"
+    ))
+    .expect("checked-in Lion loader route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    for (index, offset, last, ring) in [
+        (
+            0,
+            0xFFD8,
+            148,
+            [
+                248, 92, 50, 113, 185, 97, 9, 250, 84, 192, 0, 240, 109, 94, 127, 148, 155, 63,
+                250, 230, 39, 94, 167, 100, 156, 183, 54, 100, 91, 188, 218, 17, 178, 230, 172,
+                237, 64, 209, 230, 159, 97, 5, 195, 120, 0, 163, 197, 137, 150, 18, 225, 142, 41,
+                21, 74,
+            ],
+        ),
+        (
+            61,
+            0xFFF0,
+            210,
+            [
+                7, 248, 101, 141, 114, 8, 244, 209, 237, 129, 132, 182, 158, 115, 105, 60, 69, 70,
+                12, 245, 86, 170, 206, 30, 73, 9, 213, 48, 73, 133, 1, 62, 142, 129, 163, 47, 229,
+                197, 254, 210, 109, 94, 226, 9, 67, 53, 90, 37, 121, 229, 10, 63, 212, 72, 40,
+            ],
+        ),
+        (
+            62,
+            0xFFF5,
+            237,
+            [
+                7, 248, 101, 141, 114, 8, 244, 209, 237, 129, 132, 182, 158, 115, 105, 60, 69, 70,
+                12, 245, 86, 170, 206, 30, 73, 9, 213, 48, 73, 133, 1, 62, 142, 129, 163, 47, 229,
+                197, 254, 210, 40, 24, 214, 20, 237, 53, 90, 37, 121, 229, 10, 63, 212, 72, 40,
+            ],
+        ),
+        (
+            63,
+            0xFFF9,
+            48,
+            [
+                7, 248, 101, 141, 114, 8, 244, 209, 237, 129, 132, 182, 158, 115, 105, 60, 69, 70,
+                12, 245, 86, 170, 206, 30, 73, 9, 213, 48, 73, 133, 1, 62, 142, 129, 163, 47, 229,
+                197, 254, 210, 40, 24, 214, 20, 237, 139, 140, 7, 48, 229, 10, 63, 212, 72, 40,
+            ],
+        ),
+    ] {
+        let frame = &trace[index];
+        assert_eq!(frame.rng_offset, Some(offset), "frame {index}");
+        assert_eq!(frame.rng_last_byte, Some(last), "frame {index}");
+        assert_eq!(
+            frame.rng_ring.as_ref().map(|value| *value.as_bytes()),
+            Some(ring),
+            "frame {index}"
+        );
+    }
+}

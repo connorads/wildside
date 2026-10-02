@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-10-02 - #521 Lion Init RNG parity
+
+Lion loc_3DFF0 consumes its owner byte on the first accepted Object callback, before Init yields. Two red/green regressions cover complete settled/live RNG rings, allocation versus Init, skipped Haze callbacks, execution order, zero remap and no repeat. Explicit Lion suite144 passes. Saved loader67 and roar120 frames now match gameplay/enemy/RNG; pixels remain divergent. Fast/full pass with unchanged pixel/GEMS baselines, sweep retains1B/4C/5C and fixed fuzz is identical;26 generated repro overwrites are restored. Level07 ledger's first blocker advances from frame0 RNG to lower-Lion turn c36fb8b6 at82;0/103 exits remain confirmed. Direct ROM PCs prove tracking resumes47 after the post-fire completion46, while native ResumingCharge bypasses it indefinitely. #186 owns this next callback defect. #521 remains open for0x0a/0x0b roster mismatch.
+
 ## 2026-10-02 - #186 exact Lion callback timing
 
 Lion Init yields before ledge fall; grounded movement follows the current-row ASM scan and airborne callbacks bypass tracking/roar timers. Exact motion retires four carrier/projectile/handoff position allowances and re-derives the43-callback roar delay. Saved loader67 and roar120 frames have zero authoritative gameplay/enemy differences; the explicit Lion suite passes142 tests. Fast/full gates pass with unchanged pixel/GEMS baselines, sweep retains1B/4C/5C, and fuzz routes/idle/26 clusters exactly match the prior census. All26 generated repro overwrites are restored. Level07 reaches Flag3033 but remains blocked by #521 frame0 RNG; aggregate0/103 confirmed and10 native exits. A native surviving-stomp candidate causes no Lion HP decrease or hurt callback on the ROM, so no hurt fix is justified yet. #186 stays open; correct Init RNG before further comparison and find the first contact divergence.

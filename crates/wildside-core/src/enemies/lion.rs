@@ -2000,6 +2000,73 @@ mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
 
+    /// ASM loc_E1E gates execution before Lion loc_3DFF0 draws into $71;
+    /// loc_3E546 then yields. Zero becomes4B, so later callbacks cannot repeat Init.
+    #[test]
+    fn lion_init_rng_waits_for_execution_and_draws_once_loc_3dff0() {
+        for zero_byte in [false, true] {
+            let mut ring = [0; 55];
+            if !zero_byte {
+                ring[1] = 0x2A;
+                ring[2] = 0x77;
+            }
+            let mut rng = RomRandomState::from_raw_parts(ring, 0xFFC9);
+            let before = rng.clone();
+            let mut enemies = [7, 2].map(|layout_index| ActiveEnemy {
+                family: EnemyFamily::Lion,
+                layout_index,
+                hit_points: 6,
+                ufo_beam_interval: 0,
+                ..mini_hopping_skull_test_enemy()
+            });
+            let mut fresh = enemies
+                .iter()
+                .map(|enemy| (ActiveEnemyKey::from_enemy(enemy), 1))
+                .collect::<std::collections::BTreeMap<_, _>>();
+            let mut step = |time_frames, rng: &mut RomRandomState| {
+                step_active_enemies_with_rng(
+                    &mut enemies,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    PlayerForm::TheKid,
+                    time_frames,
+                    true,
+                    None,
+                    rng,
+                    &mut Vec::new(),
+                    None,
+                    &mut fresh,
+                );
+            };
+            step(1, &mut rng);
+            assert_eq!(rng, before, "haze-skipped Init consumes no byte");
+            step(4, &mut rng);
+            let mut expected = before.clone();
+            let first = expected.next_byte();
+            let second = expected.next_byte();
+            assert_eq!(
+                rng, expected,
+                "two accepted Init callbacks draw in Object order"
+            );
+            step(8, &mut rng);
+            assert_eq!(rng, expected, "later callbacks consume no Init byte");
+            assert_eq!(
+                enemies[0].ufo_beam_interval,
+                if first == 0 { 0x4B } else { first }
+            );
+            assert_eq!(
+                enemies[1].ufo_beam_interval,
+                if second == 0 { 0x4B } else { second }
+            );
+        }
+    }
+
     #[test]
     fn lion_init_visible_state_matches_loc_3df92() {
         assert_eq!(

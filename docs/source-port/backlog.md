@@ -31,13 +31,13 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-10-02):** #186 Lion callbacks match the saved loader and roar routes. Capture an oracle-confirmed surviving stomp and recovery; resolve #521 Init RNG as its comparison prerequisite. #515/#522 remain open.
-- **Intake:** Fixed fuzz 0x00-0x05 x 8 seeds retains26 tracked clusters. Ledger has10 native exits and0/103 confirmed; level07 Flag3033 remains blocked by #521 RNG2f5fb5c0 at0.
+- **Current work (2026-10-02):** #186 lower-Lion turn at82 blocks ledger c36fb8b6. Saved loader/roar now match RNG too; capture surviving hurt only after exact contact classification. #515/#522 remain open.
+- **Intake:** Fixed fuzz 0x00-0x05 x 8 seeds retains26 tracked clusters. Ledger has10 native exits and0/103 confirmed; level07 Flag3033 is blocked by #186 turn c36fb8b6 at82.
 - **Scope:** ADR0004 sets the fidelity floor: gameplay, enemy and RNG state, level exits, visible or audible bugs. Pixel baseline and injection ratchet stay.
 - **After each fix:** Re-run fixed fuzz and affected ledger levels with `--write`; extend the ledger beyond0x10 once early levels confirm.
 - **Jev allowance:** $5 additional across the campaign. #185 used48 requests in one attempt; lifetime charged upper bound $0.257086284.
-- **Jev exploration review:** Review1790954092913080000 stopped before requests on frame0 RNG and pixels. The native surviving-stomp candidate causes no ROM damage; no recoil coverage. Restart the three-fix cadence after the review.
-- **Evidence boundary:** Lion loader67 and roar120 frames have zero authoritative gameplay/enemy differences, but every RNG checkpoint differs. Fast/full pass; sweep102/105 retains1B/4C/5C. Loader28 pixel frames differ. Natural entry, surviving hurt and human play stability remain unproven.
+- **Jev exploration review:** Run1790965033462302000 passes120-frame trace/state preflight but fails pixels from47 (73 frames). No paid collection begins; restart the three-fix cadence. Native surviving-stomp candidate causes no ROM damage.
+- **Evidence boundary:** Lion loader67 and roar120 frames match gameplay, enemy and RNG checkpoints. Fast/full pass; sweep102/105 retains1B/4C/5C. Loader28 pixel frames differ. Natural entry, surviving hurt and human play stability remain unproven.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -59,10 +59,10 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 186 | [~] | P1 | enemy | Fight a Lion; hurt recoil, ledge leap, roar windup, and engagement range should behave like the ROM. | Capture ROM surviving-stomp recovery; resolve Init RNG prerequisite and remaining pose pixels. |
+| 186 | [~] | P1 | enemy | Fight a Lion; hurt recovery and engagement must match the ROM. Ledger c36fb8b6 first differs on the lower Lion turn at82. | Replay c36fb8b6 turn; capture ROM surviving-stomp recovery and resolve remaining pose pixels. |
 | 515 | [~] | P1 | kid-physics | Native derives MoveID; the ROM stores it at coroutine write sites. 10/26 fuzz clusters (20 routes) differ first: 7b0a8e1e, 3a36f8ac, 5a673417, a5798943, b5918261, 891e57ae, c9b3814a, c96a3c9d. | Fuzz 0x00-0x05 x 8 seeds has no `character_movement`-first cluster; `gameplay_regression_*` tests load the shrunk repros. |
 | 517 | [ ] | P2 | enemy | Fuzz clusters 022889be (0x00 f309), d1446380 and 72129c1a (0x03), e9b6a11e (0x02): native keeps a different live object set or roster. | Each shrunk repro matches object counts and roster. |
 | 518 | [ ] | P2 | kid-physics | Fuzz clusters 6c5f8e27 (0x04 f260, airborne `kid_x_vel`), 1f2cfa0d (0x04 f203, RNG offset/ring) and 70019eed (0x04 f127, RNG offset/ring); ledger08342e19 (0x09 f304, airborne velocity). | Each repro matches the ROM through its divergence frame. |
 | 519 | [ ] | P2 | enemy | Idle fuzz control diverges on `enemy_roster` at 0x01 frame 99, so fuzz skips that level (`start_state`). 0x05 is idle-clean after the Diamond turn fix. | Idle 600-frame control matches on 0x01. |
-| 521 | [ ] | P2 | level | Settled-warp start state differs at frame 0 with no input: 2f5fb5c0 (0x07 RNG offset/ring) and 5a69ed83 (0x0a/0x0b enemy roster). | Frame 0 of the settled warp matches the ROM on 0x07, 0x0a and 0x0b. |
+| 521 | [~] | P2 | level | Settled-warp start state differs at frame0 on 5a69ed83 (0x0a/0x0b enemy roster); Lion Init RNG on0x07 is verified. | Frame0 enemy roster matches the ROM on0x0a and0x0b. |
 | 522 | [~] | P1 | kid-physics | Remaining crawl, jump, slope and zero-velocity stand-up physics. Clusters 0ed35d38/f92931b6/da81e8c7/417af3e3/ba78e9a9/0b645d5b/d38053c6/70d46852/ba3911e6/6a155c95; ledger 594f9474/6709165a/e1e5e429/b17bcd1f/7a06941b/a44fc576. | Entry and nonzero stand-up match 9819d44c. Replay remaining shrunk frontiers. |
