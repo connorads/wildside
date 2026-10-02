@@ -9310,6 +9310,10 @@ pub(crate) fn step_pacer(
         // gravity update.
         enemy.y_pos = enemy.y_pos.wrapping_add(1 << 16);
         enemy.on_ground = false;
+        if shared_walker_turns_at_cliffs_loc_3c0a6(enemy.family) {
+            // ASM loc_3C17A/loc_3C266 store $50(a5) without a direction sign.
+            enemy.x_velocity = walk_speed;
+        }
         step_shared_walker_falling_loc_3c288(enemy, grid);
         return;
     }
@@ -9785,14 +9789,21 @@ fn step_shared_walker_falling_loc_3c288(enemy: &mut ActiveEnemy, grid: &terrain:
     // ASM loc_3C19C / loc_3C288: falling shared walkers keep the horizontal
     // velocity seeded by loc_3C17A/loc_3C266, apply the current Y velocity, then
     // loc_3C246/loc_3C332 adds `$2000` gravity capped at `$80000`.
-    let previous_y_px = enemy.y_pos >> 16;
-    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
-    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    let previous_y_px = (enemy.y_pos >> 16) as i16;
+    // ASM loc_3C19C adds raw x_vel; loc_3C288 subtracts the same magnitude.
+    enemy.x_pos = match enemy.facing {
+        Direction::Right => enemy.x_pos.wrapping_add_signed(enemy.x_velocity),
+        Direction::Left => enemy.x_pos.wrapping_sub(enemy.x_velocity as u32),
+    };
+    enemy.y_pos = enemy.y_pos.wrapping_add_signed(enemy.y_velocity);
 
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
-    let crossed_y_pixel = (enemy.y_pos >> 16) != previous_y_px;
-    if crossed_y_pixel && enemy.y_velocity >= 0 {
+    // ASM loc_3C220/loc_3C30C cmp.w displacement,remainder; bcc skips
+    // equality. Fractions beyond the boundary still wait for an integer crossing.
+    let pixel_delta = (cy as i16).wrapping_sub(previous_y_px);
+    let tile_remainder = previous_y_px.wrapping_neg() & 0xF;
+    if pixel_delta > tile_remainder && enemy.y_velocity >= 0 {
         let floor = terrain::probe_floor(grid, cx, cy);
         let floor_y_fp = (floor.floor_y_px as u32) << 16;
         if floor.on_ground && enemy.y_pos >= floor_y_fp {
@@ -13820,6 +13831,68 @@ mod tests {
             enemy.y_velocity, 0x0000_4000,
             "ASM loc_3C332 should accumulate another $2000 of falling velocity"
         );
+    }
+
+    #[test]
+    fn shared_walker_fall_keeps_raw_speed_in_both_directions_loc_3c17a_3c266() {
+        let grid = terrain::BlockGrid::from_level_layout(&[0; 16 * 16 * 2], 16, 16);
+        for (facing, expected_x) in [
+            (Direction::Left, 0x007F_8000),
+            (Direction::Right, 0x0080_8000),
+        ] {
+            let mut enemy = ActiveEnemy {
+                family: EnemyFamily::Tank,
+                facing,
+                x_pos: 0x0080_0000,
+                y_pos: 0x001F_0000,
+                on_ground: true,
+                ..mini_hopping_skull_test_enemy()
+            };
+
+            step_pacer(&mut enemy, Some(&grid), None);
+
+            // ASM loc_3C17A/loc_3C266 store positive $50(a5), while
+            // loc_3C19C adds it and loc_3C288 subtracts it.
+            assert_eq!(enemy.x_pos, expected_x);
+            assert_eq!(enemy.x_velocity, 0x8000);
+            assert_eq!(enemy.y_pos, 0x0020_0000);
+            assert_eq!(enemy.y_velocity, 0x2000);
+            assert!(!enemy.on_ground);
+        }
+    }
+
+    #[test]
+    fn shared_walker_floor_equality_keeps_falling_loc_3c220_3c30c() {
+        let grid = mini_hopping_skull_test_grid();
+        for facing in [Direction::Left, Direction::Right] {
+            let mut enemy = ActiveEnemy {
+                family: EnemyFamily::Tank,
+                facing,
+                x_pos: 0x0040_0000,
+                y_pos: 0x001E_8000,
+                x_velocity: 0x8000,
+                y_velocity: 0x0001_8000,
+                on_ground: false,
+                ..mini_hopping_skull_test_enemy()
+            };
+
+            step_pacer(&mut enemy, Some(&grid), None);
+
+            // ASM loc_3C220/loc_3C30C bcc skips equality between the
+            // two-pixel boundary remainder and integer displacement.
+            assert_eq!(enemy.y_pos, 0x0020_0000);
+            assert_eq!(enemy.x_velocity, 0x8000);
+            assert_eq!(enemy.y_velocity, 0x0001_A000);
+            assert!(!enemy.on_ground);
+
+            step_pacer(&mut enemy, Some(&grid), None);
+
+            // ASM loc_3C220 -> loc_3C026 and loc_3C30C -> loc_3C0D2
+            // clear both velocities after strict crossing and floor contact.
+            assert_eq!(enemy.y_pos, 0x0020_0000);
+            assert_eq!((enemy.x_velocity, enemy.y_velocity), (0, 0));
+            assert!(enemy.on_ground);
+        }
     }
 
     #[test]

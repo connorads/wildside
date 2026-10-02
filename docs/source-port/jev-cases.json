@@ -1056,14 +1056,14 @@
   {
     "issue": 520,
     "readiness": "ready_replay",
-    "active_path": "Shared walker fall representation, floor crossing and Dragon wall turn",
-    "route": "tests/data/dynamic-scenarios/issue-520-live-diamond-fall.json, issue-520-live-tank-landing.json, issue-520-live-shooting-tank-dragon-turn.json; tests/data/fuzz-repros/c54bfc65.json",
+    "active_path": "Walking Dragon synthetic world-edge wall and width9 boundary dispatch",
+    "route": "tests/data/dynamic-scenarios/issue-520-live-shooting-tank-dragon-turn.json; tests/data/fuzz-repros/c54bfc65.json",
     "evidence": [
       "docs/source-port/level-ledger.yaml",
       "docs/source-port/backlog-archive.md#issue-520"
     ],
-    "next_action": "Retain positive raw falling X velocity and require strict floor-boundary crossing from loc_3C30C; replay both following wakes and the Dragon turn.",
-    "scope": "Live init hold fixed; later enemy-roster frontiers remain."
+    "next_action": "Pin supported Dragon X9 wall turn and X9.5 non-crossing advance; use the grounded scanner synthetic edge flag with loc_3E566 width9 boundary math.",
+    "scope": "Shared falling speed and strict floor crossing match Diamond/Tank routes; the Dragon frame149 turn remains."
   },
   {
     "issue": 521,
@@ -1081,7 +1081,7 @@
     "issue": 522,
     "readiness": "ready_replay",
     "active_path": "NativeRuntime::refresh_opening_slice and movement.rs crawl/jump transitions",
-    "route": "tests/data/fuzz-repros/0ed35d38.json, f92931b6.json, da81e8c7.json, 417af3e3.json, ba78e9a9.json, 9819d44c.json, 0b645d5b.json, d38053c6.json, 70d46852.json, 594f9474.json, ba3911e6.json, 6709165a.json, e1e5e429.json",
+    "route": "tests/data/fuzz-repros/0ed35d38.json, f92931b6.json, da81e8c7.json, 417af3e3.json, ba78e9a9.json, 9819d44c.json, 0b645d5b.json, d38053c6.json, 70d46852.json, 594f9474.json, ba3911e6.json, 6709165a.json, e1e5e429.json, 7a06941b.json",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
       "docs/source-port/level-ledger.yaml",

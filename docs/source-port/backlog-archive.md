@@ -30359,3 +30359,85 @@ nonzero inputs in 110 oracle replays, preserving its first signature.
 Kid-position intake b17bcd1f shrinks from 3,583 to 135 inputs with 60
 nonzero inputs in 253 oracle replays, preserving its first signature.
 Both shrunk repros retain every checkpoint.
+
+### #520 - Raw falling speed and strict floor crossing (2026-10-02)
+
+Parent `1c768b7b0`: ASM `loc_3C17A/loc_3C266` seeds the same positive
+$50(a5) speed for both falling loops. `loc_3C19C` adds it and `loc_3C288`
+subtracts it. Seed that raw speed at the shared fall entry and select
+addition/subtraction by direction. The separate Lion-lineage fall stays
+under its existing branch. Do not convert the exported snapshot.
+
+ASM `loc_3C220/loc_3C30C` compares whole-pixel displacement against the
+previous Y word's next tile-boundary remainder. Equality takes `bcc`
+without a floor probe; fractions beyond the boundary still wait for an
+integer crossing. A strict crossing can land through `loc_3C026/loc_3C0D2`,
+clearing both velocities. Replace the any-pixel-change floor trigger with
+that strict word comparison.
+
+Three red checks reproduce negative Tank raw speed, premature landing at
+exact equality and the saved Diamond route's negative raw speed. Focused
+checks pass after the change, with cached assets explicitly enabled for
+the live route. The floor regression follows the next wake through
+contact and zero velocities. No parity mask or trace-only conversion.
+
+The extended Diamond route matches all 202 checkpoints and Tank matches
+all 111. Shooting Tank retains 15 differences, first frame149 in the
+separate type0D Dragon. Fast gate passes. Sweep `1790912746` retains
+102 passes and identical failed-level diffs. Census `1790912731` retains
+26 clusters; restore all 26 generated representative rewrites to preserve
+committed shrinks. Ledger `1790912730` retains the same exits, blocker
+signatures and frames, with 0/103 confirmed and ten native exits.
+
+The isolated capture source matches candidate production. Before/after
+Tank frame380 and corrected-native/ROM each have zero changed pixels;
+frames320/380/430 are retained under `.cache/debug/520-fall-*-visible/`.
+The parent frame380 capture comes from the preceding verified live-init
+unit; its production source matches `1c768b7b0`.
+
+### #520 - Dragon world-edge turn cause (2026-10-02, pending)
+
+Dragon.asm `loc_3CDFC` sets width9/height16. At X9, left scanner
+`sub_36A58` at $36A9E preloads d7=3 for column0 without a solid wall
+cell. `loc_3E566` computes remainder0 and displacement1 for X8.5,
+then `loc_3E5BA` bit0 takes `loc_3E642 -> loc_3E392`: hold X9, clear
+velocities, face right. Saved continuation $3E3A6/directionFF confirms it.
+Native Dragon's custom grounded walker uses the width8 cell-only wall
+probe and commits X8.5. Probe the existing scanner's synthetic edge flag
+with exact width9 boundary math; pair X9 turn with the fractional X9.5
+non-crossing advance. Replacing all Dragon terrain dispatch also changes
+ordinary walls, spikes and floors with existing witnesses; avoid that
+broader replacement until separately evidenced. Do not alter the airborne
+Dragon/charging-Lion shared probe.
+
+Full TAS gate passes all 37,759 frames with unchanged 37,518 exact/241
+divergent/2,391 changed pixels and zero GEMS command mismatches. The
+final fast selection passes 7,469 core tests, with 286 existing reviewed
+exclusions, plus clippy and the wired frontier/CLI/workspace checks.
+
+Older shrunk ledger replay 1d4fc806 matches all 134 checkpoints. On
+e042da59, the enemy roster matches and only two Kid X/Y differences
+remain at frame173 (native $02218B80/$009E0000, ROM $02220000/$009D0000).
+Transfer that remaining physics frontier to #522; do not claim the whole
+route matches. The old roster entry is resolved at its witnessed boundary.
+
+The old e042da59 signature changes to 7a06941b under the corrected
+engine. Preserve its original fixture and shrink a separate #522 repro.
+
+### #522 - Kid X/Y beyond the resolved e042da59 roster (2026-10-02)
+
+The corrected shared-fall engine leaves the e042da59 enemy roster matched,
+but Kid X/Y differ at frame173. Fuzz reclassification identifies 7a06941b.
+Keep the old fixture for its resolved enemy boundary and reduce a separate
+repro for this physics signature. Native is X$02218B80/Y$009E0000; ROM is
+X$02220000/Y$009D0000. No physics patch or guessed cause is claimed.
+
+Dragon turn priority must preserve `loc_3E566 tst.w d6; bmi loc_3E79E`
+before the wall branch. A negative floor class enters falling even at
+the world edge; do not turn an unsupported Dragon into an arena clamp.
+The $36A9E instruction is inside `sub_36A58`, not a standalone label
+in the checked-in split source.
+
+The 7a06941b reducer completes 231 oracle replays and retains 173
+inputs/116 nonzero inputs. No further zeroing preserves the new first
+signature. All 174 checkpoints remain; e042da59 stays unchanged.

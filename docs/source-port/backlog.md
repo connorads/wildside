@@ -31,13 +31,13 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-10-02):** #520 live walker init holds pass the three-family regression. Next fix raw falling X velocity and strict floor-boundary crossing, then replay the Dragon turn frontier. #520 remains open.
+- **Current work (2026-10-02):** #520 raw falling speed and strict floor crossing match Diamond/Tank oracle replays. Fast/full gates pass; #522 intake 7a06941b retains its shrunk signature after 231 oracle checks. Next fix Dragon synthetic world-edge dispatch from the saved frame149 continuation.
 - **Intake:** `fuzz-summary.yaml` (0x00-0x05 x 8 seeds) has 26 clusters, tracked by #515/#517-#519/#522. `level-ledger.yaml` (0x00-0x10) has 10/17 native exits and 0/103 confirmed; every blocker is tracked by #515, #520, #521 or #522.
 - **Scope:** ADR 0004 sets the fidelity floor: gameplay, enemy and RNG state, level exits, visible or audible bugs. #406/#409/#416 closed under it; the pixel baseline and injection ratchet stay.
 - **After each fix:** re-run `wildside fuzz run --levels 0x00-0x05 --seeds 8 --frames 600 --write` and `wildside ledger run --write`; extend the ledger past 0x10 once early levels confirm.
 - **Jev allowance:** $5 additional across the campaign. #185 used 48 requests in one attempt. The ledger lifetime charged upper bound is $0.257086284.
 - **Jev exploration review:** Revision `8a832f3b9`. Bounded #186 recoil discovery is blocked by frame-0 RNG and non-HUD pixels at oracle preflight. Zero API requests or spend. Restart the three-fix cadence from this review.
-- **Evidence boundary:** Final fast/full gates pass the live init hold. The published pixel/GEMS baselines are unchanged; the 105-level sweep retains three prior failed levels. Ledger remains 0/103 confirmed with ten native exits.
+- **Evidence boundary:** Final fast/full gates pass the shared falling-state fix. The published pixel/GEMS baselines are unchanged; the 105-level sweep retains three prior failed levels. Ledger remains 0/103 confirmed with ten native exits.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -64,6 +64,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 517 | [ ] | P2 | enemy | Fuzz clusters 022889be (0x00 f309), d1446380 and 72129c1a (0x03), e9b6a11e (0x02): native keeps a different live object set or roster. | Each shrunk repro matches object counts and roster. |
 | 518 | [ ] | P2 | kid-physics | Fuzz clusters 6c5f8e27 (0x04 f260, airborne `kid_x_vel`), 1f2cfa0d (0x04 f203, RNG offset/ring) and 70019eed (0x04 f127, RNG offset/ring). | Each repro matches the ROM through its divergence frame. |
 | 519 | [ ] | P2 | enemy | Idle fuzz control diverges on `enemy_roster` at 0x01 frame 99, so fuzz skips that level (`start_state`). 0x05 is idle-clean after the Diamond turn fix. | Idle 600-frame control matches on 0x01. |
-| 520 | [~] | P1 | enemy | Live init holds fixed. Remaining Diamond raw X velocity, Tank strict floor crossing and Dragon wall turn. Root cause identified for falling state. Ledger c54bfc65 remains. | Replay the three `issue-520-live-*` scenarios and c54bfc65; re-run the affected ledger. |
+| 520 | [~] | P1 | enemy | Diamond/Tank live init and falling state match saved routes. Root cause identified: walking Dragon misses the ASM synthetic world-edge wall flag and width9 boundary gate. | Replay `issue-520-live-shooting-tank-dragon-turn.json` and c54bfc65 through the following turn wake; re-run the ledger. |
 | 521 | [ ] | P2 | level | Settled-warp start state differs at frame 0 with no input: 2f5fb5c0 (0x07 RNG offset/ring) and 5a69ed83 (0x0a/0x0b enemy roster). | Frame 0 of the settled warp matches the ROM on 0x07, 0x0a and 0x0b. |
-| 522 | [ ] | P1 | kid-physics | Crawl-latch and landing fixes expose physics clusters 0ed35d38, f92931b6, da81e8c7, 417af3e3, ba78e9a9, 0b645d5b, d38053c6, 70d46852, ba3911e6 and ledger blockers 9819d44c/594f9474/6709165a/e1e5e429/b17bcd1f. | Shrink the repros; compare crawl entry, release and jump transitions with the ROM. |
+| 522 | [ ] | P1 | kid-physics | Crawl-latch and landing fixes expose physics clusters 0ed35d38, f92931b6, da81e8c7, 417af3e3, ba78e9a9, 0b645d5b, d38053c6, 70d46852, ba3911e6 and ledger blockers 9819d44c/594f9474/6709165a/e1e5e429/b17bcd1f/7a06941b. | Shrink the repros; compare crawl entry, release and jump transitions with the ROM. |

@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-10-02 - #520 raw falling speed and strict floor crossing
+
+Shared walkers retain positive raw speed and add/subtract it by direction. Exact tile-boundary equality keeps falling until strict whole-pixel crossing. The three red checks pass after the fix. Diamond matches 202 checkpoints, Tank 111 and older 1d4fc806 134. e042da59 now matches enemies but retains Kid X/Y at frame173, handed to #522 as 7a06941b. Fast passes 7,469 selected core tests with 286 reviewed exclusions; full TAS and pixel/GEMS baselines pass unchanged. The sweep retains 102 passes and identical three failures. Census retains 26 clusters and committed shrinks; ledger keeps the same exits and blockers, with 0/103 confirmed and ten native exits. Tank frame380 has zero changed pixels against before and ROM. Dragon's frame149 world-edge turn remains, with width9 and synthetic scanner flag identified; unsupported floor must retain priority. No paid Jev request or human sign-off occurred.
+
 ## 2026-10-02 - #520 live walker initial hibernation
 
 Diamond, Tank and shooting Tank hold the first live scheduled pass. The three-family regression fails on the parent and passes after the fix. Final fast/full gates pass; the sweep retains 102 passes and three prior failures. Pixel/GEMS baselines are unchanged; Tank frame380 matches the ROM exactly. Extended routes expose positive raw falling X velocity, strict floor-boundary crossing and a separate Dragon turn. Ledger remains 0/103 confirmed with ten native exits; b17bcd1f and c54bfc65 become the next blockers. Census retains 26 clusters. Existing shrunk fixtures are restored after the census writer regenerates full representatives. The bounded #186 Jev review fails frame-0 state/pixel preflight before any API request; charged upper bound stays $0.257086284. #520 remains open.

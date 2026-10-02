@@ -23525,9 +23525,10 @@ fn gameplay_regression_live_walkers_hibernate_before_falling_loc_3c044() {
                 .expect("live walker body");
             assert_eq!(body.x_pos, x, "type {object_type} frame {index}");
             assert_eq!(body.y_pos, y, "type {object_type} frame {index}");
-            if index == frame {
-                assert_eq!(body.x_velocity, Some(0));
-            }
+            assert_eq!(
+                body.x_velocity,
+                Some(if index == frame { 0 } else { step_x.abs() })
+            );
             assert_eq!(body.y_velocity, Some(y_velocity));
         }
     }
