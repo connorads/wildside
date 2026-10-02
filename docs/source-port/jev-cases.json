@@ -1021,7 +1021,7 @@
     "issue": 517,
     "readiness": "ready_replay",
     "active_path": "Object allocation and enemy roster on 0x00/0x02/0x03",
-    "route": "tests/data/fuzz-repros/022889be.json, d1446380.json, 72129c1a.json, e9b6a11e.json, tests/data/fuzz-repros/feaf8d08.json, 76279bcc.json, b458851c.json",
+    "route": "tests/data/fuzz-repros/022889be.json, d1446380.json, 72129c1a.json, e9b6a11e.json, 76279bcc.json, b458851c.json",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
       "docs/source-port/backlog-archive.md#issue-515"
@@ -1032,7 +1032,7 @@
   {
     "issue": 518,
     "readiness": "ready_replay",
-    "active_path": "Airborne Kid x velocity and RNG draws on 0x04",
+    "active_path": "Airborne Kid x velocity and RNG draws on 0x04; velocity on the new0x09 ledger exit route",
     "route": "tests/data/fuzz-repros/6c5f8e27.json, 1f2cfa0d.json, 70019eed.json",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
@@ -1069,7 +1069,7 @@
     "issue": 522,
     "readiness": "ready_replay",
     "active_path": "NativeRuntime::refresh_opening_slice and movement.rs crawl/jump transitions",
-    "route": "tests/data/fuzz-repros/0ed35d38.json, f92931b6.json, da81e8c7.json, 417af3e3.json, ba78e9a9.json, 9819d44c.json, 0b645d5b.json, d38053c6.json, 70d46852.json, 594f9474.json, ba3911e6.json, 6709165a.json, e1e5e429.json, 7a06941b.json, a44fc576.json, 6e9df2a7.json, 3828c696.json, 5dbcc529.json",
+    "route": "tests/data/fuzz-repros/0ed35d38.json, f92931b6.json, da81e8c7.json, 417af3e3.json, ba78e9a9.json, 9819d44c.json, 0b645d5b.json, d38053c6.json, 70d46852.json, 594f9474.json, ba3911e6.json, 6709165a.json, e1e5e429.json, 7a06941b.json, a44fc576.json, 6e9df2a7.json, 3828c696.json, 5dbcc529.json, 6a155c95.json",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
       "docs/source-port/level-ledger.yaml",
@@ -1087,7 +1087,7 @@
       "docs/source-port/level-ledger.yaml",
       "docs/source-port/backlog-archive.md#issue-524"
     ],
-    "next_action": "Replay 0x09 frame274 and identify the first contact or transformation difference before changing damage logic",
-    "scope": "Ledger damage, helmet transformation and motion differ at one contact frontier."
+    "next_action": "Extend reduced5aef09ec with160 idle frames; compare loc_7E90 cleanup, walking continuation and retained held input at316",
+    "scope": "Pickup matches275 state checkpoints; extended transformation tail first differs at316."
   }
 ]

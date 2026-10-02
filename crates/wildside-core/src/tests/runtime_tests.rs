@@ -23757,3 +23757,35 @@ fn gameplay_regression_crawl_transition_hibernation_loc_8218_75d4() {
         }
     }
 }
+
+/// ASM Mode_Level sub_21F8 -> GfxObjects_CollisionKid latches the post-motion
+/// helmet touch; loc_8BF0 consumes it before sub_7ACC on the next walking wake.
+#[test]
+fn gameplay_regression_maniaxe_pickup_uses_post_motion_hitbox() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let mut repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/fuzz-repros/5aef09ec.json"
+    ))
+    .expect("checked-in Maniaxe pickup route");
+    repro.script.extend([0; 41]);
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count + 41);
+    assert_eq!(trace[270].current_helmet_id, PlayerForm::TheKid.helmet_id());
+    for frame in &trace[271..=315] {
+        assert_eq!(frame.current_helmet_id, PlayerForm::Maniaxe.helmet_id());
+        assert_eq!(frame.number_hitpoints, 3);
+        assert_eq!(frame.kid_x_pos, Some(0x0073_5600));
+        assert_eq!(frame.kid_x_velocity, Some(-120_832));
+        assert!(frame.form_change_flash_frames > 0);
+    }
+}

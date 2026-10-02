@@ -30780,3 +30780,56 @@ Seed0 ledger run1790924791 exposes5aef09ec on0x09 frame274. Kid motion,
 helmet, transformation, hitpoints and object/Gfx counts differ together.
 Promote the saved route to tests/data/fuzz-repros/5aef09ec.json and shrink
 before selection. No contact or transformation cause is assumed yet.
+
+### #524 - Pickup discriminator on current source (2026-10-02)
+
+Current source01a6b664c replays the reduced5aef09ec route with one
+checkpoint per frame. First divergence is271, not the original ledger274.
+Native stays The Kid with HP1 and no transformation; ROM enters Maniaxe
+(helmet8), HP3 and transformation. Both report no recent damage and zero
+invulnerability. This rejects treating damage as the established cause.
+The oracle raw collision source160 has collision type0; it does not alone
+identify the mask that supplied the pending helmet.
+
+Existing native diagnostics show floating prize09 (Maniaxe) at104,418,
+collision_latched=1, collected=0 and solid current/below cells. The latch
+means contact is detected; solid-cell suppression is not yet established.
+Native X advances from00735600 to00716200 while ROM holds00735600,
+consistent with one extra movement pass before transformation. Inspect
+award_collision_latched_prize_loc_104ae and its pre-movement wake gate;
+loc_1066A removes the touched prize on its next object wake, while
+CharacterCollision_TouchSpecialPrize sets Check_Helmet_Change for sub_7ACC.
+No pickup or damage patch is proposed without the prior-wake discriminator.
+
+Evidence: /tmp/wildside-524-current-repro.log and
+.cache/tas-verify/ledger-09-5aef09ec/report.json (19 authoritative diffs,
+first271). The saved reduced fixture is unchanged. Next pin frames270-272
+and distinguish collision-latch timing from the movement-path award gate.
+
+### #524 - Latch wake discriminator (2026-10-02)
+
+A temporary private-state probe replayed the checked-in reduced5aef09ec route on current production source with cache-backed assets enabled. Frames268-270 report movement2, AfterPlayer order, TheKid, an unlatched Maniaxe and an unarmed award wake. Frame271 sets both the collision latch and armed wake while keeping TheKid. Frame272 removes the prize and changes to Maniaxe. Probe log: `/tmp/wildside-524-wake-probe.log`; one probe passed. The temporary test was removed after observation. No runtime debug fields were added.
+
+This rejects a stale armed flag from frame270. Native first latches on frame271, then its combined prize-worker/player consumer delays the form until272. Next discriminate Character_CheckCollision's pre-motion touch scan and CharacterCollision_TouchSpecialPrize from the native post-motion hitbox and award delay. Prize deletion and player helmet collection are separate ROM consumers; do not remove the shared award delay without checking existing dropped-helmet regressions. No gameplay patch is verified yet.
+
+### #524 - Post-motion hitbox identified (2026-10-02)
+
+The dense268-271 oracle window shows Maniaxe metadata$88 on Kid's GfxObject at270, with Kid X00735600. Native's collision handoff anchor is the earlier00752E00, so its helmet latch stays clear until271. The initial question about a pre-motion scan is corrected: Character_CheckCollision consumes a stored payload; it does not perform a fresh overlap scan. Mode_Level executes movement, builds Kid_hitbox through sub_21F8, then GfxObjects_CollisionKid writes that payload for the next walking wake. loc_8BF0 consumes it before sub_7ACC; loc_1066A deletes the helmet independently.
+
+The candidate uses post-motion Kid coordinates for helmet overlap and preserves the existing hibernated award delay. The saved5aef09ec regression fails on the parent (helmet0 versus8 at271) and passes after the correction. All275 checkpoints, player/camera CRC, enemy state and RNG match the ROM. Captures270-272 are inspected; sprite/presentation differences remain, and whole-route pixels are74 exact/201 divergent. This state-timing proof is not pixel parity. Logs: /tmp/wildside-524-contact-window.log, /tmp/wildside-524-postmotion-{red,green,oracle}.log; captures .cache/debug/524-{before,after}/.
+
+The cache-backed helmet filter has383 passes and35 failures on both parent01a6b664c and candidate. The transform filter has72 passes and the same pre-existing published_tas_late_demo_2_island_worker_matches_loc_12098_before_transform failure on both. No exclusion is added. State sweep1790950614 is identical to1790948522 across every normalised level report, retaining102/105 and0 unverified. Fuzz1790950655 retains37/40 divergent routes and26 clusters.39 route results are identical; level05 seed0 advances from object-count frontierfeaf8d08 at82 to velocity frontier6a155c95 at83.25 generated tracked repro overwrites are explicitly restored, preserving the committed reductions.
+
+### #522 - Post-pickup velocity intake (2026-10-02)
+
+#524 post-motion helmet collision retires #517 frontierfeaf8d08 from the fixed census. The same level05 seed0 route then exposes6a155c95 at83, differing on Kid X/Y velocity while movement3 and airborne agree. Reduced fixture `tests/data/fuzz-repros/6a155c95.json` has83 input masks, five nonzero masks and84 traced frames. Shrink completes69 replays, reducing113 masks to83. This is physics intake under #522; no velocity fix is asserted. See /tmp/wildside-524-new-frontier-shrink.log. The other39 census route results are unchanged.
+
+### #524 - Contact correction verified; cleanup remains (2026-10-02)
+
+Fast passes7481 selected core tests with286 reviewed exclusions and the workspace/Clippy/frontier checks. Full TAS checks37759 frames with zero authoritative/enemy/RNG differences,24 unchanged oracle limitations,37518 exact/241 divergent pixels and2391 changed pixels; GEMS command mismatches remain0. Logs: /tmp/wildside-524-{fast,full}.log. Cache-backed saved-route regression is exercised separately; default gate skips generated-asset bodies without its enabling environment variable.
+
+Level09 two-seed ledger1790950655 finds a native0x4B exit at3769 on a changed exploration route, blocked by known #518 signature6c5f8e27 at219. Seed0 finds no exit within1500089 searched frames. The aggregate remains0/103 ROM-confirmed and10 native exits. This does not prove the new route regressed earlier than the old route's274 frontier; the inputs differ.
+
+An extension of5aef09ec with160 idle masks matches state through315, then differs at316. ROM clears velocity and resumes the walking callback, reaching X00732600 with velocityFFFFD000; native stays at00735600 with the entry velocityFFFE2800. Both expose currently_transforming=false. There are124 authoritative differences across the extended435-frame replay, no RNG differences or oracle limitations. Diagnostic scenario /tmp/wildside-524-transform-tail.json and log /tmp/wildside-524-transform-tail.log preserve the experiment. Native boot.rs cleans regular transforms when the countdown reaches0, whereas the object-pass guard resumes at1; the held-input latch also needs comparison because sub_8E0 does not call ReadJoypad. #524 stays open for this continuation. Do not label the game or transformation lifecycle complete.
+
+The permanent pickup regression extends the saved fixture with41 idle masks and pins the retained Maniaxe position, velocity, HP and active flash through315. It passes with cache-backed assets enabled after the original parent failure at271. The next cleanup frame316 remains outside this verified contact/freeze scope and explicitly open under #524. Log: /tmp/wildside-524-final-route-test.log.

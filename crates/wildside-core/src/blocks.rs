@@ -4837,25 +4837,20 @@ impl NativeRuntime {
                 let asm_right = item_x_px + 7;
                 let asm_top = item_y_px - PLAYER_HEIGHT;
                 let asm_bottom = item_y_px;
-                let (form_left, form_right, form_top) = form_player_hitbox.map_or(
-                    (
-                        player_x_px - form_player_half_width,
-                        player_x_px + form_player_half_width,
-                        player_y_px - PLAYER_HEIGHT,
-                    ),
-                    |hitbox| {
-                        (
-                            i32::from(hitbox.left_px),
-                            i32::from(hitbox.right_px),
-                            i32::from(hitbox.top_px),
-                        )
-                    },
-                );
+                // ASM Mode_Level calls sub_21F8 after Execute_Objects, then
+                // GfxObjects_CollisionKid latches the helmet against Kid's
+                // post-motion rectangle. loc_8BF0 consumes that contact on
+                // the next wake before sub_7ACC can start Kid_Transform.
+                let helmet_player_x_px = (slice.player.x_pos >> 16) as i32;
+                let helmet_player_y_px = (slice.player.y_pos >> 16) as i32;
+                let form_left = helmet_player_x_px - form_player_half_width;
+                let form_right = helmet_player_x_px + form_player_half_width;
+                let form_top = helmet_player_y_px - PLAYER_HEIGHT;
                 if form_left <= asm_right
                     && form_right >= asm_left
                     && form_top <= asm_bottom
-                    && player_y_px >= asm_top
-                    && item_y_px - player_y_px >= HELMET_OBJECT_COLLISION_MIN_DY_PX
+                    && helmet_player_y_px >= asm_top
+                    && item_y_px - helmet_player_y_px >= HELMET_OBJECT_COLLISION_MIN_DY_PX
                 {
                     // ASM PrizeHelmet* loc_10464..loc_106B4: object-side
                     // GfxObjects_CollisionKid collision deletes on the next
