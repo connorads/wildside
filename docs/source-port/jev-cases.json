@@ -1009,7 +1009,7 @@
     "issue": 515,
     "readiness": "ready_replay",
     "active_path": "crates/wildside-core/src/trace.rs current_character_movement vs kid.asm Character_Movement MoveID writes (e.g. loc_A6F8)",
-    "route": "tests/data/fuzz-repros/54fce7a1.json, 7b0a8e1e.json, 3a36f8ac.json, 87a37ef6.json, acad697b.json, 5a673417.json, a5798943.json, b5918261.json, 891e57ae.json, c9b3814a.json, tests/data/fuzz-repros/6315af7d.json",
+    "route": "tests/data/fuzz-repros/54fce7a1.json, 7b0a8e1e.json, 3a36f8ac.json, 87a37ef6.json, acad697b.json, 5a673417.json, a5798943.json, b5918261.json, 891e57ae.json, c9b3814a.json, tests/data/fuzz-repros/6315af7d.json, tests/data/fuzz-repros/c96a3c9d.json",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
       "docs/source-port/backlog-archive.md#issue-515"
@@ -1052,18 +1052,6 @@
     ],
     "next_action": "Run the idle control for 0x01 and compare the frame-99 enemy roster with the oracle.",
     "scope": "Remaining idle control on 0x01; 0x05 is idle-clean after the Diamond turn fix."
-  },
-  {
-    "issue": 520,
-    "readiness": "ready_replay",
-    "active_path": "Walking Dragon grounded patrol callback and timer phase",
-    "route": "tests/data/fuzz-repros/8d048d89.json",
-    "evidence": [
-      "docs/source-port/level-ledger.yaml",
-      "docs/source-port/backlog-archive.md#issue-520"
-    ],
-    "next_action": "Compare existing patrol timer/pair/state at initial wake, supported wall turn and frames263-265; distinguish initial phase from an extra callback decrement.",
-    "scope": "Saved init/fall/edge routes match; Dragon patrol turns one wake early beyond the resolved frame149 edge."
   },
   {
     "issue": 521,

@@ -27682,6 +27682,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 520 | [x] | P1 | enemy | Shared walker init/fall and supported world-edge turns match saved routes; exact Dragon floor-row classification preserves initial falling and patrol phase. | Saved patrol route matches265 checkpoints; timer/fall regressions and fast/full gates pass, with unchanged sweep failures. |
 | 523 | [x] | P0 | enemy | Friendly projectile batches remove each killed enemy once in descending index order. | Three discriminating regressions and the saved 3270-frame crash route pass; full TAS retains zero authoritative differences. |
 | 416 | [-] | P2 | audio | Closed under ADR 0004: the GEMS frame-signature frontier (frames 0..922) is a disclosed non-goal; command parity (#435) stays the audio authority. | `tas-gems-baseline` deleted; `verify-tas-full` green. See archive #416 and ADR 0004. |
 | 409 | [-] | P1 | rendering | Closed under ADR 0004: the raster recurrence and its HUD residue (241 frames / 2,391 px) are disclosed non-goals; `tas-pixel-baseline` stays as the guard. | Scheduled-frame ratchet deleted; pixel baseline green. See archive #409 and ADR 0004. |
@@ -30000,6 +30001,11 @@ extension is a diagnostic, not a passing regression or closure claim.
 
 ### #515 - Later ledger movement frontier (2026-10-02)
 
+Closure of #520 transfers existingc96a3c9d to #515. Its first field is
+character_movement0/2 on grounded input24,24, not Dragon motion or patrol.
+The existing reduced tests/data/fuzz-repros/c96a3c9d.json stays intact.
+
+
 New6315af7d is the0x05 MoveID0/2 blocker at88 in ledger1790924791.
 Its promoted repro is shrunk before the crawl unit is committed.
 
@@ -30022,6 +30028,87 @@ f80, 110 -> 80 frames) and d0eff6e6 (0x0e f133, 163 -> 133 frames).
 #521 owns frame-0 blockers, which shrink to an empty script: 2f5fb5c0 (0x07,
 RNG offset/ring) and 5a69ed83 (0x0a and 0x0b, enemy roster). The settled warp
 itself differs from the ROM, so no input reaches them.
+
+### #520 - Patrol timer discriminator (2026-10-02)
+
+The preserved 8d048d89 frontier at264 is three ticks of debt, not a
+one-wake expiry difference. ROM timer $54 is197 at0,48 at149,4 at193,
+and remains4 through263; it decrements to3/2 at264/265. Packed pair
+$6E remains0032012C. loc_3CFAE/loc_3CFE4 bypass walking timer updates
+through breath recovery; frame263 PC3CFEE is the final recovery yield.
+Compare existing typed native timer at0/193/263 to attribute the debt to
+initialisation, walking cadence or recovery before proposing another fix.
+
+The exact-parent typed snapshot discriminator locates all debt before
+frame0: native patrol timer194 versus ROM197. The gap stays three at
+149 (45/48),193 (1/4) and263 (1/4); native reloads50 at264 while ROM
+counts3. Breath recovery freezes both timers through194..263. Reject
+later walking cadence and recovery as the origin. Trace initialisation
+and the hidden settle window instead of changing the expiry boundary.
+
+A paired title-shell witness identifies the mechanism. Both sides load
+Dragon at step75, X136/Y607, timer300. Native step76 snaps grounded to
+Y608 and decrements299; steps77..79 remain grounded and decrement to296.
+ROM step76 enters loc_3E7C4 with raw X/Y velocity$8000/$4000; steps77/78
+have Y608.25/608.75 and step79 lands at608. The fall coroutine skips
+patrol callbacks on77..79. Initial seed and hold match; proximity floor
+support bypasses loc_3E566's negative-D6 branch to loc_3E79E. Correct the
+grounded scan and falling continuation at engine level, not timer offsets.
+
+
+### #520 - Exact floor-row patrol phase (2026-10-02)
+
+The parent db7b7c0f5 fails the saved8d048d89 timer regression at frame0
+(194 versus ROM197). A five-step unit fails on the first wake because
+proximity support reports grounded at the next row. Lion.asm
+sub_36A58/loc_3E566 tests the current-row D6 before wall flags; negative
+D6 enters loc_3E79E and nudges Y once. loc_3E812 requires whole-pixel
+crossing before loc_3E88A lands. The three airborne/landing passes skip
+the patrol callback. Initial seed, walking cadence and recovery expiry
+are excluded as causes by the paired title and timer witnesses above.
+
+Use the existing width9 grounded scanner for falling classification;
+reuse its flags for the supported world-edge turn. Both regressions pass.
+The saved regression pins timers197/48/4/4/3/2 at frames0/149/193/263/264/265
+and right-facing positions31.5/32 at264/265. Parent enemy bisection first
+fails264; candidate8d048d89 matches265 state checkpoints. Pixel comparison
+has1 exact and264 divergent frames; no complete visual parity is claimed.
+Native captures193/263 are inspected before and after.
+
+The cache-backed Dragon filter passes212 tests and retains four failures.
+Exact parent passes210 and fails the same four: death-respawn landing
+contact, fourth demo Dragon airborne start, settled level06 Flying Dragon
+and demo breath object count. These remain independent existing debt.
+A shared Cargo target reused the parent test binary; the test list omitted
+both added regressions. Force a rebuild and rerun the gate; parent controls
+use separate target directories. Rebuilt fast passes7480 core tests with
+286 reviewed exclusions, Clippy, workspace ratchet and TAS frontiers.
+
+Final fuzz1790948506 has identical summary (excluding revision), idle and
+route evidence to1790944207:26 clusters and37/40 divergent routes. Restore
+26 generated tracked repro overwrites so earlier reductions survive.
+Sweep1790948522 is identical to1790924707 after removing image paths:
+102/105 passes, unchanged0x1B/0x4C/0x5C failures, no unverified level.
+Two-seed ledger1790948140 finds0x0E native exit to0x34 at2335; ROM replay
+is blocked by #522 position frontier5dbcc529 at177. No level is confirmed.
+
+SDL plays265 saved-route frames and saves issue-520-floor-play. Its
+recording replay fails at frame0, matching the prior recording limitation;
+this is runtime smoke evidence, not deterministic or human sign-off.
+The scheduled #186 review1790948141823226000 fails preflight at frame0
+(RNG FFD7/FFD8); no paid request or recoil witness is obtained. Spend stays
+$0.257086284. The campaign continues offline.
+
+The five-step floor test catches all four selected comparison/nudge
+mutations. The tool also emits six breath-projectile constructor mutants
+outside the regex filter; all six are caught by the existing payload test
+in a separate run. Neither run uses in-place mutation.
+
+Full TAS passes37759 frames with zero authoritative gameplay or enemy-frontier
+differences,24 existing oracle limitations,37518 exact pixel frames and241
+baseline-divergent pixel frames (2391 changed pixels). GEMS commands have
+zero mismatches. #520 closes the recorded walker/patrol defect; this does
+not claim cold-boot progression, complete pixel parity or recording fidelity.
 
 <a id="issue-522"></a>
 ### #522 - Physics behind the crawl-latch frontier (2026-10-01)

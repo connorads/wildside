@@ -23578,6 +23578,50 @@ fn gameplay_regression_dragon_world_edge_turn_resumes_loc_3e392() {
     }
 }
 
+/// ASM Lion.asm loc_3E566 -> loc_3E79E/loc_3E88A skips patrol callbacks
+/// during the initial fall; Dragon.asm loc_3CFE4 preserves that timer in recovery.
+#[test]
+fn gameplay_regression_dragon_initial_fall_preserves_patrol_loc_3e79e() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let mut repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/fuzz-repros/8d048d89.json"
+    ))
+    .expect("checked-in Dragon patrol route");
+    repro.script.extend([0, 0]);
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count + 2);
+    for (frame, timer) in [(0, 197), (149, 48), (193, 4), (263, 4), (264, 3), (265, 2)] {
+        let dragon = trace[frame]
+            .active_enemy_details
+            .iter()
+            .find(|enemy| {
+                enemy.kind == NativeObjectKind::Enemy { object_type: 0x0D }
+                    && enemy.layout_index == Some(10)
+            })
+            .expect("live Dragon layout 10");
+        assert_eq!(
+            dragon.shared_walker_patrol_timer,
+            Some(timer),
+            "frame {frame}"
+        );
+        if frame == 264 || frame == 265 {
+            assert_eq!(dragon.x_pos, 0x001F_8000 + ((frame - 264) as u32 * 0x8000));
+            assert_eq!(dragon.y_pos, 608 << 16);
+            assert_eq!(dragon.facing, Some(Direction::Right));
+        }
+    }
+}
+
 #[test]
 fn gameplay_regression_crawl_transition_hibernation_loc_8218_75d4() {
     let Some(manifest) = cached_generated_manifest() else {

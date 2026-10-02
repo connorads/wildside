@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-10-02 - #520 exact Dragon floor row and patrol phase
+
+Use the width9 grounded scanner's current-row D6 before wall handling. The initial fall now skips three patrol callbacks instead of proximity-snapping onto the following row. Parent timer194 fails the ROM197 assertion; the saved route matches265 state checkpoints after the fix, with timers and rightward positions pinned through265. Fast passes7480 core tests with286 reviewed exclusions after detecting and rebuilding a stale shared-parent test binary. Full TAS passes37759 frames with zero authoritative/enemy differences and unchanged pixel/GEMS baselines. Sweep retains identical102/105 results and fuzz retains identical26 clusters;26 generated fixture overwrites are restored. The affected two-seed ledger finds a native0x0E exit at2335, still blocked by #522 at177;0/103 exits are confirmed. Four floor-branch mutations are caught; incidental breath-payload mutations are checked separately. SDL plays265 frames but its recording fails replay at0. The bounded Lion review is blocked by frame0 RNG before paid requests; spend remains$0.257086284. #520 is closed; next select #524 contact/transformation.
+
 ## 2026-10-02 - #522 crawl transition continuation
 
 Walking crawl entry aligns once and yields before friction or displacement. Retained-velocity stand-up selects standing art and resumes the standing loop on the next wake. The saved-route regression passes31 ROM checkpoints across seven variants; three captured Kid rectangles match exactly. Final fast passes7478 core tests with286 reviewed exclusions; targeted cache-backed projectile and crawl routes pass. The broad cache-backed crawl filter retains one parent-reproduced Drips failure. Fuzz remains26 clusters and sweep retains102/105 passes with the same three failures. Eight reduced intake fixtures survive generated-fixture cleanup. The #523 prerequisite is30a1d3740. Zero-velocity stand-up stays open; next select #520 grounded floor-scan classification.

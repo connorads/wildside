@@ -681,6 +681,37 @@ fn step_dragon_walking_walk(
         let next_x = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
         let current_cx = (enemy.x_pos >> 16) as i32;
         let cx = (next_x >> 16) as i32;
+        // ASM Lion.asm loc_3E3B2/loc_3E566 tests current-row D6 before
+        // wall flags. A nearby floor cannot replace that exact row scan.
+        let scan = if moving_right {
+            terrain::grounded_walker_scan_right_sub_36972(
+                grid,
+                current_cx,
+                current_y_px,
+                pacer_probe_half_width(EnemyFamily::DragonWalking),
+                ENEMY_PROBE_HEIGHT,
+            )
+        } else {
+            terrain::grounded_walker_scan_left_sub_36A58(
+                grid,
+                current_cx,
+                current_y_px,
+                pacer_probe_half_width(EnemyFamily::DragonWalking),
+                ENEMY_PROBE_HEIGHT,
+            )
+        };
+        if scan.floor_class_d6 < 0 {
+            // ORIGINAL_QUIRK: loc_3E682/loc_3E79E walks off unsupported
+            // world edges without an arena clamp or ledge turnaround.
+            // ASM loc_3E682/loc_3E79E keeps the saved walk speed and
+            // nudges Y once before the first airborne terrain pass.
+            enemy.on_ground = false;
+            enemy.x_velocity = walk_delta;
+            enemy.y_velocity = 0;
+            enemy.y_pos = enemy.y_pos.wrapping_add(1 << 16);
+            enemy.shared_walker_debug_branch = Some("patrol_airborne_start");
+            return DragonWalkingWalkStep::StartedAirborne;
+        }
         let mut wall = dragon_walking_probe_wall(
             grid,
             current_cx,
@@ -710,31 +741,10 @@ fn step_dragon_walking_walk(
         } else {
             ((current_cx - leading_side_boundary_offset) >> 4) == 0
         };
-        let world_edge_turn = if at_world_edge && step_px > leading_boundary_distance_px {
-            // ASM sub_36972/sub_36A58 preload d7=3 at the world edge.
-            // Dragon.asm loc_3CDFC sets width9; Lion.asm loc_3E3B2/loc_3E566
-            // process body overlap and negative floor class before wall flags.
-            let scan = if moving_right {
-                terrain::grounded_walker_scan_right_sub_36972(
-                    grid,
-                    current_cx,
-                    current_y_px,
-                    leading_side_boundary_offset,
-                    ENEMY_PROBE_HEIGHT,
-                )
-            } else {
-                terrain::grounded_walker_scan_left_sub_36A58(
-                    grid,
-                    current_cx,
-                    current_y_px,
-                    leading_side_boundary_offset,
-                    ENEMY_PROBE_HEIGHT,
-                )
-            };
-            scan.flags_d7 == 3 && scan.floor_class_d6 >= 0
-        } else {
-            false
-        };
+        // ASM sub_36972/sub_36A58 preload d7=3 at the world edge.
+        // loc_3E3B2/loc_3E566 reaches these flags after negative D6.
+        let world_edge_turn =
+            at_world_edge && step_px > leading_boundary_distance_px && scan.flags_d7 == 3;
         // ASM Lion.asm loc_3E3B2 calls sub_36972 against the current x_pos,
         // then computes the proposed `$50(a5)` step in d2. The support scan
         // therefore sees the trailing ninth Dragon pixel for one final frame
@@ -759,25 +769,6 @@ fn step_dragon_walking_walk(
         }
 
         let floor = floor_support.selected;
-        if !floor.on_ground {
-            // ORIGINAL_QUIRK (#239): ASM Lion.asm loc_3E682 (shared with the
-            // walking dragon) has NO horizontal arena clamp and NO ledge
-            // turnaround. With no floor ahead the ROM sets the airborne flag
-            // `$5C(a5)`, keeps the walk velocity, nudges y down a pixel and
-            // hands off to the gravity-fall loop (loc_3E6AE/loc_3E77E). The
-            // walker therefore walks off the level edge and falls — the
-            // "dragon falls off the end of the level and respawns" the
-            // 2026-06-03 playtest saw. Oracle-matched; not a missing clamp.
-            enemy.on_ground = false;
-            enemy.x_velocity = walk_delta;
-            enemy.y_velocity = 0;
-            // ASM Lion.asm loc_3E694: `addq.w #1,y_pos(a3)` wraps the
-            // 16-bit integer word while leaving the fractional word intact.
-            enemy.y_pos = enemy.y_pos.wrapping_add(1 << 16);
-            enemy.shared_walker_debug_branch = Some("patrol_airborne_start");
-            return DragonWalkingWalkStep::StartedAirborne;
-        }
-
         enemy.y_pos = (floor.floor_y_px as u32) << 16;
         enemy.on_ground = true;
     }
@@ -1622,6 +1613,41 @@ mod tests {
             (SHARED_WALKER_STATE_FACE_RIGHT, Direction::Right, Some(1)),
             "ASM Lion.asm loc_3E476 uses the same wrapped word delta, so +1 stays inside the alert release band",
         );
+    }
+
+    #[test]
+    fn dragon_one_pixel_above_floor_yields_patrol_loc_3e566_3e79e() {
+        let grid = dragon_walking_grid(32, 32, &[(7, 17), (8, 17), (9, 17)]);
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.enemy_level = 0;
+        dragon.hit_points = 1;
+        dragon.facing = Direction::Left;
+        dragon.x_pos = 136 << 16;
+        dragon.y_pos = 271 << 16;
+        dragon.shared_walker_patrol_timer = 300;
+        let mut projectiles = Vec::new();
+        // ASM sub_36A58 scans the row containing Y271, not the floor at
+        // Y272. loc_3E79E nudges Y once; loc_3E812 requires pixel crossing
+        // before loc_3E88A lands and yields without a patrol callback.
+        for (x, y, y_velocity, grounded, timer) in [
+            (0x0087_8000, 0x0110_0000, 0x4000, false, 299),
+            (0x0087_0000, 0x0110_4000, 0x8000, false, 299),
+            (0x0086_8000, 0x0110_C000, 0xC000, false, 299),
+            (0x0086_0000, 0x0110_0000, 0, true, 299),
+            (0x0085_8000, 0x0110_0000, 0, true, 298),
+        ] {
+            step_dragon_walking(&mut dragon, Some(&grid), &mut projectiles, None);
+            assert_eq!(
+                (
+                    dragon.x_pos,
+                    dragon.y_pos,
+                    dragon.y_velocity,
+                    dragon.on_ground,
+                    dragon.shared_walker_patrol_timer
+                ),
+                (x, y, y_velocity, grounded, timer),
+            );
+        }
     }
 
     #[test]
