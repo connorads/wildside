@@ -59,15 +59,17 @@
     "issue": 186,
     "readiness": "needs_route",
     "active_path": "crates/wildside-core/src/enemies.rs Lion state dispatch",
-    "route": "Level0x07 settled roar/contact0..119 and live loader0..66 match gameplay/enemy/RNG; ledger c36fb8b6 exposes grounded tracking at82; surviving hurt remains missing",
+    "route": "Level0x07 settled roar120, live loader67 and c36fb8b6 turn83 match gameplay/enemy/RNG; ledger464160b3 falsely stomps the lower Lion at103; surviving hurt remains missing",
     "evidence": [
       "docs/source-port/backlog.md",
       "docs/source-port/backlog-archive.md#issue-186",
       "tests/data/dynamic-scenarios/issue-186-lion-roar-contact.json",
       "tests/data/dynamic-scenarios/issue-186-lion-live-loader.json",
+      "tests/data/fuzz-repros/c36fb8b6.json",
+      "tests/data/dynamic-scenarios/issue-186-lion-hp8-return.json",
       "crates/wildside-core/src/enemies/lion.rs"
     ],
-    "next_action": "Restore tracking after the post-fire completion using c36fb8b6, then resolve pose-specific contact and find an oracle-confirmed surviving stomp",
+    "next_action": "Replace union contacts with ordered pose-specific rectangles; shrink464160b3, then find an oracle-confirmed surviving stomp and later roar",
     "scope": "Lion: hurt recoil, gravity ledge-leap charge, roar windup + engagement bands missing"
   },
   {

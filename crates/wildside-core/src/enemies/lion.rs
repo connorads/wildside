@@ -1310,13 +1310,9 @@ const LION_FAST_WALK_LEAD_FRAMES_STRU_3DEF4: u8 = 27;
 const LION_REGULAR_WALK_CYCLE_FRAMES_STRU_3DEDA: u8 = 38;
 
 fn reset_lion_live_walk_animation_loc_3dff0(enemy: &mut ActiveEnemy) {
-    // ASM Init_Animation (kid.asm sub_1040) installs the first sprite and
-    // starts the script timer from the beginning. Native object snapshots are
-    // post-update while Mode_Level loc_901 presents the previous sprite table.
-    // HP 8 restarts its saved `stru_3DEF4`. The Level 0x07 HP-6 calibration in
-    // issue #289 exposes phase 29 after loc_3E0F4's same-pass loc_3E11E step,
-    // so seed the preceding phase here.
-    enemy.dragon_script_cmd = if enemy.hit_points == 8 { 0 } else { 28 };
+    // ASM loc_3E0F4 -> Init_Animation (kid.asm sub_1040) restores the
+    // saved script at its first mapping, for both stru_3DEDA and stru_3DEF4.
+    enemy.dragon_script_cmd = 0;
 }
 
 fn advance_lion_live_walk_animation_loc_3dfd8(enemy: &mut ActiveEnemy) {
@@ -1442,11 +1438,20 @@ pub(crate) fn step_lion(
                     debug_assert_eq!(animation_script, "saved_lion_charge_animation");
                     reset_lion_live_walk_animation_loc_3dff0(enemy);
                     enemy.lion_state = LionState::ResumingCharge;
+                    // ASM loc_3E078 reloads $54 to 180 before the roar;
+                    // loc_3E09E/loc_3E0F4 hold it throughout animation waits.
+                    enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
                     // ASM Lion.asm loc_3E0F4 falls through to loc_3E11E in
                     // this object pass after Init_Animation; do not insert a
                     // native-only hibernated frame between restore and scan.
                     step_lion_charge_movement_loc_3e11e(enemy, block_grid, player_x_pos);
-                    advance_lion_live_walk_animation_loc_3dfd8(enemy);
+                    // ASM Init_Animation sets animation_timer=1; the next
+                    // GfxObject_Animate pass loads the first script duration.
+                    if enemy.hit_points == 8 {
+                        // ASM stru_3DEF4 uses the native HP-8 post-step
+                        // counter; its renderer subtracts this first tick.
+                        advance_lion_live_walk_animation_loc_3dfd8(enemy);
+                    }
                 }
                 LionPostFireWaitDispatch::Damage
                 | LionPostFireWaitDispatch::ContinueWaiting { .. } => {
@@ -1477,10 +1482,20 @@ pub(crate) fn step_lion(
             advance_lion_live_walk_animation_loc_3dfd8(enemy);
         }
         LionState::ResumingCharge => {
-            // ASM Lion.asm loc_3E0F4 falls directly into loc_3E11E after the
-            // fire animation finishes. It must not pass through loc_3E078's
-            // `$54/$5B` roar/cooldown gate, or the Level 0x07 charge body
-            // contact happens several frames late.
+            // ASM loc_3E356 -> loc_3E560/loc_3E3AC returns grounded
+            // callbacks to saved loc_3E03C, then loc_3E078's cooldown gate.
+            step_lion_walking_tracking_loc_3e03c(enemy, player_x_pos);
+            enemy.wait_timer = enemy.wait_timer.saturating_sub(1);
+            if enemy.wait_timer == 0 {
+                enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
+                if lion_active_projectile_count(enemy) == 0 {
+                    enemy.lion_state = LionState::Roaring;
+                    enemy.wait_timer = LION_ROAR_FIRE_DELAY;
+                    enemy.x_velocity = 0;
+                    enemy.y_velocity = 0;
+                    return;
+                }
+            }
             step_lion_charge_movement_loc_3e11e(enemy, block_grid, player_x_pos);
             advance_lion_live_walk_animation_loc_3dfd8(enemy);
         }
@@ -2354,14 +2369,22 @@ mod tests {
 
         assert_eq!(enemy.lion_state, LionState::ResumingCharge);
         assert_eq!(
-            enemy.dragon_script_cmd, 29,
-            "ASM Lion.asm loc_3E0F4 restores `$62(a5)` before loc_3E11E; issue #289 oracle frames show the resumed HP-6 `stru_3DEDA` body at phase 29"
+            enemy.dragon_script_cmd, 0,
+            "ASM Lion.asm loc_3E0F4 restores stru_3DEDA's first mapping before the same-pass loc_3E11E step"
         );
         assert_eq!(
             enemy.snapshot().walk_phase,
-            Some(29),
+            Some(0),
             "Lion snapshots should expose the live walk phase only after the `loc_3E0F4` restore resumes the charge script"
         );
+        assert_eq!(enemy.wait_timer, 180, "ASM loc_3E0F4 holds $54");
+        enemy.on_ground = true;
+        enemy.x_pos = 100 << 16;
+        enemy.facing = Direction::Left;
+        step_lion(&mut enemy, None, Some(164 << 16), &mut projectiles);
+        assert_eq!(enemy.facing, Direction::Right, "ASM loc_3E074 at -64");
+        assert_eq!(enemy.wait_timer, 179, "ASM loc_3E078 ticks after return");
+        assert_eq!(enemy.dragon_script_cmd, 1);
     }
 
     #[test]

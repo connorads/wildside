@@ -23963,3 +23963,86 @@ fn gameplay_regression_lion_init_rng_matches_settled_and_live_callbacks() {
         );
     }
 }
+
+/// ASM Lion.asm loc_3E0F4 -> loc_3E11E completes the fire animation;
+/// subsequent grounded loc_3E356 callbacks return to loc_3E03C tracking.
+#[test]
+fn gameplay_regression_lion_post_fire_grounded_return_tracks_kid() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/fuzz-repros/c36fb8b6.json"
+    ))
+    .expect("checked-in Lion grounded return route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    for (frame, x, facing) in [
+        (81, 0x01CF_8000, Direction::Left),
+        (82, 0x01D1_0000, Direction::Right),
+    ] {
+        let lion = trace[frame]
+            .active_enemy_details
+            .iter()
+            .find(|enemy| {
+                enemy.kind == NativeObjectKind::Enemy { object_type: 0x12 }
+                    && enemy.layout_index == Some(1)
+            })
+            .expect("lower Lion remains active");
+        assert_eq!(lion.x_pos, x, "frame {frame}");
+        assert_eq!(lion.facing, Some(facing), "frame {frame}");
+    }
+}
+
+/// ASM Lion.asm loc_3E0F4 restores stru_3DEF4. Its exported walk phase
+/// counts the GfxObject_Animate post-step tick used by the HP-8 selector.
+#[test]
+fn gameplay_regression_lion_hp8_post_fire_preserves_mapping_counter() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/issue-186-lion-hp8-return.json"
+    ))
+    .expect("checked-in HP-8 Lion restore route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    let first_walk = trace
+        .iter()
+        .position(|frame| {
+            frame.active_enemy_details.iter().any(|enemy| {
+                enemy.kind == NativeObjectKind::Enemy { object_type: 0x12 }
+                    && enemy.layout_index == Some(0)
+                    && enemy.walk_phase.is_some()
+            })
+        })
+        .expect("HP-8 Lion restores its walk script");
+    for (frame, phase) in [(first_walk, 1), (first_walk + 4, 5), (first_walk + 5, 6)] {
+        let lion = trace[frame]
+            .active_enemy_details
+            .iter()
+            .find(|enemy| {
+                enemy.kind == NativeObjectKind::Enemy { object_type: 0x12 }
+                    && enemy.layout_index == Some(0)
+            })
+            .expect("HP-8 Lion remains active");
+        assert_eq!(lion.hit_points, Some(8));
+        assert_eq!(lion.walk_phase, Some(phase), "frame {frame}");
+    }
+}
