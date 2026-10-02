@@ -24036,6 +24036,47 @@ fn gameplay_regression_lion_walk_rectangles_reject_union_only_stomp() {
     assert_eq!(lion.hit_points, Some(6), "ROM rejects the union-only stomp");
 }
 
+/// ASM loc_3E09E observes C7E78 on the Object pass after Gfx117 loads it.
+#[test]
+fn gameplay_regression_lion_roar_fires_on_first_mapping_poll() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/fuzz-repros/79692a83.json"
+    ))
+    .expect("checked-in shrunk Lion fire route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    for (frame, facing) in [(117, Direction::Left), (118, Direction::Right)] {
+        let lion = trace[frame]
+            .active_enemy_details
+            .iter()
+            .find(|enemy| {
+                enemy.kind == NativeObjectKind::Enemy { object_type: 0x12 }
+                    && enemy.layout_index == Some(0)
+            })
+            .expect("upper Lion remains active at fire");
+        assert_eq!(lion.x_pos, 0x025B_0000, "ROM X at frame {frame}");
+        assert_eq!(lion.y_pos, 0x0190_0000, "ROM Y at frame {frame}");
+        assert_eq!(lion.hit_points, Some(6));
+        assert_eq!(lion.facing, Some(facing), "ROM fire facing at {frame}");
+        assert_eq!(
+            lion.sprite_animation_phase,
+            Some(15),
+            "ROM C7E78 at {frame}"
+        );
+    }
+}
+
 /// ASM Lion.asm loc_3E32C consumes the preceding Gfx collision and waits
 /// for stru_3DF42 before loc_3E356 resumes the saved grounded callback.
 #[test]

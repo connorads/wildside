@@ -59,7 +59,7 @@
     "issue": 186,
     "readiness": "needs_comparison",
     "active_path": "crates/wildside-core/src/enemies.rs Lion state dispatch",
-    "route": "Saved surviving-hurt121 matches gameplay/enemy through120; original ledger1790967292 prefix matches through144. Shrunk79692a83 has118 inputs/119 checkpoints and retains upper-Lion fire facing at118 after count differences clear.",
+    "route": "Saved surviving-hurt121, shrunk79692a83 fire119 and original ledger1790967292 first200 match gameplay/enemy. Shared Init defer and42-callback roar preserve settled and live clocks. Natural entry and airborne hurt remain unproven.",
     "evidence": [
       "docs/source-port/backlog.md",
       "docs/source-port/backlog-archive.md#issue-186",
@@ -69,9 +69,10 @@
       "tests/data/dynamic-scenarios/issue-186-lion-hp8-return.json",
       "crates/wildside-core/src/enemies/lion.rs",
       "tests/data/dynamic-scenarios/issue-186-lion-walk-contact.json",
-      "tests/data/dynamic-scenarios/issue-186-lion-surviving-hurt.json"
+      "tests/data/dynamic-scenarios/issue-186-lion-surviving-hurt.json",
+      "tests/data/fuzz-repros/79692a83.json"
     ],
-    "next_action": "Fix upper-Lion roar zero-count return using ROM fire118/resume145 on shrunk79692a83, preserving the original surviving-hurt route",
+    "next_action": "Investigate shrunk ledger c026d985 first damage/motion divergence at43; preserve surviving-hurt121 and upper-fire119 controls before natural entry or airborne hurt claims",
     "scope": "Lion: hurt recoil, gravity ledge-leap charge, roar windup + engagement bands missing"
   },
   {

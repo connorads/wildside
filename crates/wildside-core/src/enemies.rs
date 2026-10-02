@@ -8599,8 +8599,9 @@ pub(crate) fn shared_walker_turns_at_cliffs_loc_3c0a6(family: EnemyFamily) -> bo
 
 fn fresh_enemy_no_step_passes_loc_3691e(family: EnemyFamily, enemy_level: u8) -> u8 {
     // ASM Manage_EnemyLoading loc_3691E: allocation happens after the object
-    // pass. Goat, Ninja (Enemy11_Ninja_Init loc_3D554), and Armadillo then
-    // hibernate once in their family init. Multi-head bosses need two passes:
+    // pass. Goat, Lion (Enemy12_Lion_Init loc_3E030), Ninja
+    // (Enemy11_Ninja_Init loc_3D554), and Armadillo hibernate once in Init.
+    // Multi-head bosses need two passes:
     // their controller first allocates the head callback, whose own init then
     // reaches the opening hibernate. Driller has three init/walker defers.
     // Scorpion's linked-tail scheduler adds six more passes at level 1+.
@@ -8609,7 +8610,11 @@ fn fresh_enemy_no_step_passes_loc_3691e(family: EnemyFamily, enemy_level: u8) ->
         // action is `Hibernate_Object_1Frame`; no walk step occurs on the
         // allocation pass. Orca.asm Enemy08_Orca_Init reaches the same entry
         // directly after installing loc_3D21E as its callback.
-        EnemyFamily::Goat | EnemyFamily::Ninja | EnemyFamily::Armadillo | EnemyFamily::Orca => 1,
+        EnemyFamily::Goat
+        | EnemyFamily::Ninja
+        | EnemyFamily::Armadillo
+        | EnemyFamily::Orca
+        | EnemyFamily::Lion => 1,
         // ASM Tank.asm loc_3B40A enters loc_3C026/loc_3C0D2 and
         // hibernates before the first loc_3B41C movement callback.
         // Robot.asm Enemy03_Robot_Init loc_3A884 reaches the same shared
@@ -12302,6 +12307,61 @@ mod tests {
         assert_eq!((enemy.y_pos, enemy.y_velocity), (283 << 16, 0x37000));
         step_bouncer(&mut enemy, Some(&grid));
         assert_eq!((enemy.y_pos, enemy.y_velocity), (280 << 16, -0x30000));
+    }
+
+    /// ASM Enemy12_Lion_Init -> loc_3E546 yields before movement or $54 ticks.
+    #[test]
+    fn lion_shared_loader_init_yields_before_first_grounded_callback() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 20 * 20 * 2], 20, 20);
+        for col in 0..20 {
+            grid.set_cell_at(col, 8, terrain::Cell::from_be_bytes(0x60, 0));
+        }
+        let enemy = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            x_pos: 0x0100_0000,
+            y_pos: 0x0080_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            on_ground: true,
+            facing: Direction::Left,
+            lion_state: LionState::Charging,
+            wait_timer: 60,
+            hit_points: 6,
+            ufo_beam_interval: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut active = [enemy];
+        let mut fresh = std::collections::BTreeMap::new();
+        let passes = fresh_enemy_no_step_passes_loc_3691e(enemy.family, enemy.enemy_level);
+        if passes > 0 {
+            fresh.insert(ActiveEnemyKey::from_enemy(&enemy), passes);
+        }
+        let mut rng = RomRandomState::default();
+        let mut drilled = Vec::new();
+        for (x, wait) in [(0x0100_0000, 60), (0x00FE_8000, 59)] {
+            step_active_enemies_with_rng(
+                &mut active,
+                Some(&grid),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                0,
+                false,
+                None,
+                &mut rng,
+                &mut drilled,
+                None,
+                &mut fresh,
+            );
+            assert_eq!(active[0].x_pos, x);
+            assert_eq!(active[0].y_pos, 0x0080_0000);
+            assert_eq!(active[0].wait_timer, wait);
+        }
     }
 
     /// ASM Enemy19_Fireball_Init yields at loc_32C1A before gravity;

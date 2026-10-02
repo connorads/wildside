@@ -1203,9 +1203,9 @@ pub(crate) const LION_CHARGE_PROBE_HEIGHT: i32 = 0x2F;
 /// Lion post-projectile cooldown: $B4 (180 frames) before next charge after
 /// firing a projectile (Lion.asm loc_3E096).
 pub(crate) const LION_COOLDOWN_AFTER_FIRE: u16 = 180;
-/// ASM stru_3DF0E/loc_3E09E: seven six-tick entries precede the fire
-/// mapping; the next Object callback observes it and allocates the child.
-pub(crate) const LION_ROAR_FIRE_DELAY: u16 = 7 * 6 + 1;
+/// ASM stru_3DF0E/loc_3E09E: wait42 callbacks for seven six-tick entries;
+/// the following Object callback observes the fire mapping and allocates.
+pub(crate) const LION_ROAR_FIRE_DELAY: u16 = 7 * 6;
 /// Lion.asm `loc_3E0F4` waits until `$18(a3)` is set after the projectile
 /// frame, then restores `$62(a5)` and resumes `loc_3E11E`. The raw
 /// `stru_3DF0E` fire and tail entries last 3 + $19 ticks. After the child
@@ -2462,16 +2462,38 @@ mod tests {
         );
     }
 
+    /// ASM stru_3DF0E loads C7E78 after42 Gfx ticks; loc_3E09E polls next.
     #[test]
     fn lion_roar_fire_delay_matches_stru_3df0e_fire_sprite_loc_3e09e() {
-        assert_eq!(
-            LION_ROAR_FIRE_DELAY, 43,
-            "ASM ingame/anim/enemy/Lion.asm stru_3DF0E reaches LnkTo_unk_C7E78 after the seven 6-tick lead entries and the next Object callback"
-        );
-        assert_eq!(
-            LION_POST_FIRE_RESUME_DELAY, 26,
-            "ASM Lion.asm loc_3E0F4 observes stru_3DF0E's 3 + $19 tick tail before restoring the live script"
-        );
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            x_pos: 0x0100_0000,
+            y_pos: 0x0080_0000,
+            on_ground: true,
+            lion_state: LionState::Walking,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+        let mut sink = Some(&mut projectiles);
+        step_lion(&mut lion, None, Some(0x0120_0000), &mut sink);
+        assert_eq!(lion.lion_state, LionState::Roaring);
+        for _ in 0..42 {
+            step_lion(&mut lion, None, Some(0x0120_0000), &mut sink);
+        }
+        assert_eq!(lion.snapshot().sprite_animation_phase, Some(15));
+        assert_eq!(lion.lion_state, LionState::Roaring);
+        assert_eq!(lion_active_projectile_count(&lion), 0);
+        step_lion(&mut lion, None, Some(0x0120_0000), &mut sink);
+        assert_eq!(lion.lion_state, LionState::PostFire);
+        assert_eq!(lion_active_projectile_count(&lion), 1);
+        // ASM loc_3E0F4 polls completion27 callbacks after fire.
+        for _ in 0..26 {
+            step_lion(&mut lion, None, Some(0x0120_0000), &mut sink);
+            assert_eq!(lion.lion_state, LionState::PostFire);
+        }
+        step_lion(&mut lion, None, Some(0x0120_0000), &mut sink);
+        assert_eq!(lion.lion_state, LionState::ResumingCharge);
     }
 
     #[test]
