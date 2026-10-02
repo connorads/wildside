@@ -31035,6 +31035,39 @@ at96 and482 at120. TarMonster body/splatter differences remain visible.
 Level0x0a fractional walker/tank drift and level0x0b TarMonster roster topology
 remain separate #521 blockers.
 
+### #186 - Ordered Kid contact witness (2026-10-02)
+
+The original ledger464160b3 prefix now matches all104 gameplay/enemy
+checkpoints in `issue-186-lion-walk-contact.json`. The native false stomp at103
+is rejected by ordered pose rectangles from `GfxObjects_CollisionKid_SubBoxLoop`.
+The active enemy selects its saved Init script from initial layout level,
+with hurt overriding latent roar. Public snapshot values and schema stay
+unchanged. Kid stomp, overlap-latch, ordinary contact and candidate diagnostics
+use the active rectangles. Weapon overlap remains a separate path.
+
+The cache-enabled Lion suite passes146 tests. Targeted checks cover both
+facings after the fast Lion loses HP, hurt-pose priority and first overlapping
+sub-box classification with a positive stomp control. The old synthetic stomp
+fixture touched the union atY75; its actual C7E88/unk_3194E top isY77.
+Before/after and ROM contact captures at103 were inspected.
+
+The longer original ledger prefix exposes two next gaps. At104, ROM latches
+colid_kidabove while retaining HP6, then consumes it at105 and reaches HP5.
+Native changes HP immediately at104;105..119 match again. At120, ROM resumes
+grounded X517.5/Y704 while native starts an airborne return atX516/Y704.25.
+This supplies a genuine ROM surviving-stomp witness for the hurt-recovery
+investigation. The104 gap is callback consumption timing, not another false
+pose overlap. No broader Lion closure is claimed.
+
+Canonical fast gate passes7498 core tests with286 reviewed exclusions; all
+TAS frontier baselines pass. The optional cache-enabled full core run fails55
+tests, with exactly the same failure names on parent ea132f25e (7443/7429
+passes respectively). The targeted cache-enabled Lion and Fireball regressions
+run separately and pass. Full TAS passes; sweep retains the same three failing levels and fixed fuzz is unchanged. Affected ledger evidence follows below.
+Fireball dead-path cleanup also removes an obsolete loc_36148 citation: the
+Sphere settled-age test exercises Enemy06_Sphere_Init, not that uncalled
+wall-table branch. Its corrected citation and cache-enabled test pass.
+
 ### #521 - Obstacle-trail placement discriminator (2026-10-02)
 
 The fixed16 RGB differences at0/37/38 are identical coordinates x220..223,
@@ -31046,3 +31079,17 @@ are6000. Native currently pushes this trail without that validation.
 The existing fire_demon_trail_has_floor_support_loc_3a63c uses the same probe
 and predicate. Next inspect the actual support words and trace the ROM
 loc_33128 deletion route before attributing the pixels definitively.
+
+### #186 - Surviving-hurt flag discriminator (2026-10-02)
+
+ASM loc_3E0F4 completes fire without writing `$5C(a5)`. Grounded movement clears that byte at loc_3E392; airborne entry loc_3E682 sets it and landing clears it. Native `lion_post_charge_flag_loc_3e356` also treats grounded ResumingCharge as a set byte. The original ledger's surviving stomp is therefore a discriminator for that conflation, but trace `$5C` and resume PCs before changing the representation. Independently, loc_3E32C subtracts HP, starts stru_3DF42 and hibernates until animation finishes before restoring `$62` and dispatching loc_3E356. Preserve the separate collision-latch and hurt-wait observations at104/105/120.
+
+Full TAS session74081 exited101 after comparison because storage filled. It matched37759 player/camera frames, zero authoritative enemy differences and the standing pixel/command baselines, but its task exit was red. Preserved report in `/tmp/wildside-186-521-full-report-before-rerun.json`. Native `cargo clean` on the isolated parent reclaimed3.7GiB without touching source or saved evidence. Full retry is a separate run; its outcome remains pending.
+
+### #186 / #521 - Combined verification continuation (2026-10-02)
+
+Full TAS retry passed37759 player/camera frames, zero authoritative enemy differences, standing24 oracle limitations and unchanged pixel/GEMS command baselines. Report preserved at `/tmp/wildside-186-521-full-tas-green-report.json`; log `/tmp/wildside-186-521-full-tas-retry.log`. Sweep1790975293 retains102/105 and the same1B/4C/5C failures,9 authoritative/3 advisory differences and0 errors. Oracle limitations fall82 to72 from changed non-comparable0B/19 tails; no fidelity claim follows from those counts. Level4C pixel mismatch falls417 to75. Fixed fuzz1790975313 has identical route, idle and cluster metadata to1790967323; all26 generated tracked repro overwrites restored explicitly. Affected ledger07/0A/0B is complete:07 blocks on79692a83 at118,0A/0B retain5a69ed83 at0. Fireball unit is committed asb711a0cc8; Lion unit follows separately.
+
+### #186 - Affected ledger route intake (2026-10-02)
+
+Ledger1790975353 reaches level07 Flag2491/transition2964 but blocks on79692a83 at118, enemy_roster and object counts. This is a different route from the original464160b3 stomp witness; retain both. Route `.cache/ledger-runs/1790975353/routes/07.json` is the next shrink/intake source. Levels0A/0B still block on5a69ed83 at0; aggregate remains0/103 confirmed and10 native exits. No regression conclusion follows merely from the different explorer-selected route.

@@ -834,6 +834,80 @@ fn scorpion_sting_tail_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn lion_kid_contact_stops_at_first_overlapping_sub_box_loc_1bce() {
+    // ASM GfxObjects_CollisionKid_SubBoxLoop enters loc_1C42 from the first
+    // overlap. C7E90/unk_31958's body classifies Right while its leg would
+    // classify Above; the leg must not turn that body contact into a stomp.
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    let mut lion = test_enemy(EnemyFamily::Lion, 100 << 16, 100 << 16, 8);
+    lion.enemy_level = 2;
+    lion.dragon_script_cmd = 6;
+    lion.facing = Direction::Right;
+    lion.x_velocity = 0x0002_8000;
+    runtime.active_enemies = vec![lion];
+    let mut slice = runtime.opening_slice.unwrap();
+    slice.player.x_pos = 100 << 16;
+    slice.player.y_pos = 90 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0x0002_0000;
+    slice.player.on_ground = false;
+    assert!(!runtime.process_stomps(&mut slice, 0x0002_0000, 90 << 16, 100 << 16, 90 << 16,));
+    assert_eq!(runtime.active_enemies[0].hit_points, 8);
+    runtime.active_enemies[0].x_velocity = 0;
+    assert!(runtime.process_stomps(&mut slice, 0x0002_0000, 90 << 16, 100 << 16, 90 << 16,));
+    assert_eq!(runtime.active_enemies[0].hit_points, 7);
+}
+
+#[test]
+fn lion_contact_keeps_init_fast_script_after_losing_hp() {
+    // ASM Enemy12_Lion_Init saves stru_3DEF4 in $62 only for layout level2.
+    // At tick6 its C7E90 row unk_31958 differs from regular C7E88/unk_3194E.
+    for (facing, kid_x) in [(Direction::Right, 126), (Direction::Left, 74)] {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut lion = test_enemy(EnemyFamily::Lion, 100 << 16, 100 << 16, 7);
+        lion.enemy_level = 2;
+        lion.dragon_script_cmd = 6;
+        lion.facing = facing;
+        runtime.active_enemies = vec![lion];
+        let mut slice = combat_slice();
+        slice.player.x_pos = kid_x << 16;
+        slice.player.y_pos = 80 << 16;
+        slice.player.x_velocity = 0;
+        slice.player.y_velocity = 0;
+        assert_eq!(
+            runtime.find_contact_damage_source(&slice),
+            Some((100 << 16, EnemyFamily::Lion)),
+            "saved fast frame contacts Kid facing {facing:?}",
+        );
+        runtime.active_enemies[0].enemy_level = 0;
+        assert_eq!(runtime.find_contact_damage_source(&slice), None);
+    }
+}
+
+#[test]
+fn lion_hurt_contact_overrides_latent_roar_pose() {
+    // ASM Lion.asm loc_3E32C starts stru_3DF42/C7E58 (unk_3194E),
+    // replacing stru_3DF0E/C7E60's taller unk_319C2 roar row.
+    let mut runtime = NativeRuntime::new(manifest());
+    let mut lion = test_enemy(EnemyFamily::Lion, 100 << 16, 100 << 16, 6);
+    lion.lion_state = LionState::Roaring;
+    lion.wait_timer = 42;
+    runtime.active_enemies = vec![lion];
+    let mut slice = combat_slice();
+    slice.player.x_pos = 100 << 16;
+    slice.player.y_pos = 55 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    assert_eq!(
+        runtime.find_contact_damage_source(&slice),
+        Some((100 << 16, EnemyFamily::Lion)),
+    );
+    runtime.active_enemies[0].damage_flash_frames = LION_HURT_ANIMATION_FRAMES_STRU_3DF42;
+    assert_eq!(runtime.find_contact_damage_source(&slice), None);
+}
+
+#[test]
 fn lion_parent_contact_uses_rom_collision_size_rows_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 87 << 16;
@@ -18633,7 +18707,8 @@ mod chunk_03 {
 
         let mut slice = runtime.opening_slice.unwrap();
         slice.player.x_pos = 100 << 16;
-        slice.player.y_pos = 75 << 16;
+        // ASM stru_3DEDA starts C7E88, whose unk_3194E top is120-43=77.
+        slice.player.y_pos = 77 << 16;
         slice.player.y_velocity = 0x0002_0000;
         slice.player.on_ground = false;
         let pre_y_velocity = slice.player.y_velocity;

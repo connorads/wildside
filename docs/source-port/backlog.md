@@ -31,13 +31,13 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-10-02):** #186 pose-specific Lion contacts falsely stomp at103 in ledger464160b3. Post-fire return fixes c36fb8b6 at82; capture surviving hurt after exact contacts. #515/#522 remain open.
-- **Intake:** Fixed fuzz 0x00-0x05 x 8 seeds retains26 tracked clusters. Ledger has10 native exits and0/103 confirmed; level07 Flag4053 is blocked by #186 false stomp464160b3 at103.
+- **Current work (2026-10-02):** #186 ordered Kid contacts match the original ledger prefix through103. ROM surviving stomp latches104 and consumes105; hurt motion differs120. Correct Lion latch/hurt timing after committing verified ordered contacts; shrink the new79692a83 roster witness separately. #515/#522 remain open.
+- **Intake:** Fixed fuzz 0x00-0x05 x 8 seeds retains26 tracked clusters. Ledger has10 native exits and0/103 confirmed; fresh ledger07 reaches Flag2491 but blocks on79692a83 at118. Original464160b3 route advances past103 to its genuine stomp latch104.
 - **Scope:** ADR0004 sets the fidelity floor: gameplay, enemy and RNG state, level exits, visible or audible bugs. Pixel baseline and injection ratchet stay.
 - **After each fix:** Re-run fixed fuzz and affected ledger levels with `--write`; extend the ledger beyond0x10 once early levels confirm.
 - **Jev allowance:** $5 additional across the campaign. #185 used48 requests in one attempt; lifetime charged upper bound $0.257086284.
-- **Jev exploration review:** Last review1790965033462302000 fails pixels47; the post-fire fix makes47-69 exact. No paid collection; one fix since review. Surviving hurt remains missing.
-- **Evidence boundary:** Lion loader67, roar120 and saved turn83 match gameplay/enemy/RNG. Fast/full pass; sweep102/105 retains1B/4C/5C. Roar42 pixel frames differ; HP8 return31 faces differ. Natural entry, surviving hurt and human play stability remain unproven.
+- **Jev exploration review:** Last review1790965033462302000 fails pixels47; the post-fire fix makes47-69 exact. No paid collection; one fix since review. A genuine surviving-stomp witness is available at104/105, with recovery drift120.
+- **Evidence boundary:** Lion loader67, roar120 and saved turn83 match gameplay/enemy/RNG. Pending units pass fast and full TAS with unchanged pixel/GEMS command baselines. Prior sweep102/105 retains1B/4C/5C. Roar42 pixel frames differ; HP8 return31 faces differ. Natural entry, surviving-hurt fidelity and human play stability remain unproven.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -59,7 +59,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 186 | [~] | P1 | enemy | Fight a Lion; hurt recovery and engagement must match the ROM. Ledger464160b3 falsely damages the lower Lion at103. | Root cause identified: union contacts; replay shrunk464160b3, then capture ROM surviving-stomp recovery. |
+| 186 | [~] | P1 | enemy | Fight a Lion; hurt recovery and engagement must match the ROM. Original ledger07 exposes early HP change104 and recovery drift120; new79692a83 differs in roster/counts118. | Ordered Kid contacts match104 checkpoints; correct collision latch104/105 and hurt recovery120. |
 | 515 | [~] | P1 | kid-physics | Native derives MoveID; the ROM stores it at coroutine write sites. 10/26 fuzz clusters (20 routes) differ first: 7b0a8e1e, 3a36f8ac, 5a673417, a5798943, b5918261, 891e57ae, c9b3814a, c96a3c9d. | Fuzz 0x00-0x05 x 8 seeds has no `character_movement`-first cluster; `gameplay_regression_*` tests load the shrunk repros. |
 | 517 | [ ] | P2 | enemy | Fuzz clusters 022889be (0x00 f309), d1446380 and 72129c1a (0x03), e9b6a11e (0x02): native keeps a different live object set or roster. | Each shrunk repro matches object counts and roster. |
 | 518 | [ ] | P2 | kid-physics | Fuzz clusters 6c5f8e27 (0x04 f260, airborne `kid_x_vel`), 1f2cfa0d (0x04 f203, RNG offset/ring) and 70019eed (0x04 f127, RNG offset/ring); ledger08342e19 (0x09 f304, airborne velocity). | Each repro matches the ROM through its divergence frame. |

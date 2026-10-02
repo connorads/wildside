@@ -24002,6 +24002,40 @@ fn gameplay_regression_lion_post_fire_grounded_return_tracks_kid() {
     }
 }
 
+/// ASM GfxObjects_CollisionKid_SubBoxLoop checks Lion walk rows
+/// unk_3194E..unk_319B0, all below Kid's Y659 bottom at this contact.
+#[test]
+fn gameplay_regression_lion_walk_rectangles_reject_union_only_stomp() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/issue-186-lion-walk-contact.json"
+    ))
+    .expect("checked-in original Lion ledger contact route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    let lion = trace[103]
+        .active_enemy_details
+        .iter()
+        .find(|enemy| {
+            enemy.kind == NativeObjectKind::Enemy { object_type: 0x12 }
+                && enemy.layout_index == Some(1)
+        })
+        .expect("lower Lion remains active");
+    assert_eq!(lion.x_pos, 0x0202_8000);
+    assert_eq!(lion.y_pos, 0x02C0_0000);
+    assert_eq!(lion.hit_points, Some(6), "ROM rejects the union-only stomp");
+}
+
 /// ASM Lion.asm loc_3E0F4 restores stru_3DEF4. Its exported walk phase
 /// counts the GfxObject_Animate post-step tick used by the HP-8 selector.
 #[test]

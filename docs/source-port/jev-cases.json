@@ -57,9 +57,9 @@
   },
   {
     "issue": 186,
-    "readiness": "needs_route",
+    "readiness": "needs_comparison",
     "active_path": "crates/wildside-core/src/enemies.rs Lion state dispatch",
-    "route": "Level0x07 settled roar120, live loader67 and c36fb8b6 turn83 match gameplay/enemy/RNG; ledger464160b3 falsely stomps the lower Lion at103; surviving hurt remains missing",
+    "route": "Original ledger07 first104 inputs match gameplay/enemy; original first200 exposes surviving stomp latched104/consumed105 and recovery drift120. Shrunk464160b3 changes the encounter. Fresh ledger1790975353 route07 blocks on79692a83 roster/counts118; preserved original route /tmp/wildside-186-ledger-79692a83-original.json.",
     "evidence": [
       "docs/source-port/backlog.md",
       "docs/source-port/backlog-archive.md#issue-186",
@@ -67,9 +67,10 @@
       "tests/data/dynamic-scenarios/issue-186-lion-live-loader.json",
       "tests/data/fuzz-repros/c36fb8b6.json",
       "tests/data/dynamic-scenarios/issue-186-lion-hp8-return.json",
-      "crates/wildside-core/src/enemies/lion.rs"
+      "crates/wildside-core/src/enemies/lion.rs",
+      "tests/data/dynamic-scenarios/issue-186-lion-walk-contact.json"
     ],
-    "next_action": "Replace union contacts with ordered pose-specific rectangles; shrink464160b3, then find an oracle-confirmed surviving stomp and later roar",
+    "next_action": "Shrink79692a83 without overwriting the original witness, then compare original ledger07 latch104/105 and loc_3E32C hurt wait through120; investigate later roar separately",
     "scope": "Lion: hurt recoil, gravity ledge-leap charge, roar windup + engagement bands missing"
   },
   {

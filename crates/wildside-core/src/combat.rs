@@ -11542,6 +11542,45 @@ impl NativeRuntime {
         candidates
     }
 
+    /// ASM GfxObjects_CollisionKid_SubBoxLoop stops at the first overlapping row.
+    fn classify_stomp_contact_candidate(
+        &self,
+        player: PlayerState,
+        candidate: &StompContactCandidate,
+        pre_physics_y_velocity: i32,
+        half_width: i64,
+        defer_edge_side_damage: bool,
+    ) -> EnemyContactResult {
+        if let StompContactTarget::ActiveEnemy(index) = candidate.target
+            && self.active_enemies[index].family == EnemyFamily::Lion
+        {
+            let relation =
+                lion_kid_contact_bounds(&self.active_enemies[index]).find_map(|bounds| {
+                    classify_enemy_contact_relation_for_bounds(
+                        player,
+                        &candidate.snapshot,
+                        pre_physics_y_velocity,
+                        half_width,
+                        defer_edge_side_damage,
+                        bounds,
+                    )
+                });
+            return match relation {
+                None => EnemyContactResult::None,
+                Some(crate::trace::KidObjectRelation::Above) => EnemyContactResult::Stomp,
+                Some(_) => EnemyContactResult::Damage,
+            };
+        }
+        classify_enemy_contact_with_half_width_inner(
+            player,
+            &candidate.snapshot,
+            pre_physics_y_velocity,
+            player.y_pos,
+            half_width,
+            defer_edge_side_damage,
+        )
+    }
+
     pub(crate) fn stomp_contact_candidates_debug(
         &self,
         slice: &OpeningSliceState,
@@ -11566,6 +11605,10 @@ impl NativeRuntime {
                     &candidate.snapshot,
                     pre_physics_y_velocity,
                     self.progression.current_form.half_width() as i64,
+                    match candidate.target {
+                        StompContactTarget::ActiveEnemy(index) => Some(&self.active_enemies[index]),
+                        _ => None,
+                    },
                 )
             })
             .filter(|candidate| candidate.distance_score <= 160)
@@ -11611,6 +11654,10 @@ impl NativeRuntime {
                 &candidate.snapshot,
                 pre_physics_y_velocity,
                 self.progression.current_form.half_width() as i64,
+                match candidate.target {
+                    StompContactTarget::ActiveEnemy(index) => Some(&self.active_enemies[index]),
+                    _ => None,
+                },
             );
             if summary.distance_score > 160 {
                 continue;
@@ -11654,6 +11701,7 @@ impl NativeRuntime {
                 &child,
                 pre_physics_y_velocity,
                 half_width,
+                None,
             );
             if child_summary.distance_score > 192 {
                 continue;
@@ -11666,6 +11714,7 @@ impl NativeRuntime {
                 &parent,
                 pre_physics_y_velocity,
                 half_width,
+                None,
             );
             let child_latches_contact =
                 player_latches_enemy_collision_with_half_width_loc_1cf2(player, &child, half_width);
@@ -11737,11 +11786,10 @@ impl NativeRuntime {
         self.stomp_contact_candidates()
             .into_iter()
             .any(|candidate| {
-                classify_enemy_contact_with_half_width_inner(
+                self.classify_stomp_contact_candidate(
                     slice.player,
-                    &candidate.snapshot,
+                    &candidate,
                     pre_physics_y_velocity,
-                    slice.player.y_pos,
                     half_width,
                     false,
                 ) != EnemyContactResult::None
@@ -11902,7 +11950,7 @@ impl NativeRuntime {
         &mut self,
         slice: &mut OpeningSliceState,
         pre_physics_y_velocity: i32,
-        pre_physics_y_pos: u32,
+        _pre_physics_y_pos: u32,
         frame_start_x_pos: u32,
         frame_start_y_pos: u32,
     ) -> bool {
@@ -11917,12 +11965,12 @@ impl NativeRuntime {
         let mut stomped_drips_surface_crawler_indices = Vec::new();
         let mut stomped_drips_surface_crawler_burst_indices = Vec::new();
         for candidate in self.stomp_contact_candidates() {
-            if classify_enemy_contact_with_half_width(
+            if self.classify_stomp_contact_candidate(
                 slice.player,
-                &candidate.snapshot,
+                &candidate,
                 pre_physics_y_velocity,
-                pre_physics_y_pos,
                 self.progression.current_form.half_width() as i64,
+                true,
             ) == EnemyContactResult::Stomp
             {
                 match candidate.target {
@@ -12165,7 +12213,7 @@ impl NativeRuntime {
         &self,
         slice: &OpeningSliceState,
         pre_physics_y_velocity: i32,
-        pre_physics_y_pos: u32,
+        _pre_physics_y_pos: u32,
     ) -> Option<NativeObjectSnapshot> {
         if !matches!(self.player_lifecycle, PlayerLifecycle::Alive) {
             return None;
@@ -12177,12 +12225,12 @@ impl NativeRuntime {
         }
 
         for candidate in self.stomp_contact_candidates() {
-            if classify_enemy_contact_with_half_width(
+            if self.classify_stomp_contact_candidate(
                 slice.player,
-                &candidate.snapshot,
+                &candidate,
                 pre_physics_y_velocity,
-                pre_physics_y_pos,
                 self.progression.current_form.half_width() as i64,
+                true,
             ) == EnemyContactResult::Stomp
             {
                 return Some(candidate.snapshot);
@@ -12655,7 +12703,22 @@ impl NativeRuntime {
             } else {
                 self.progression.current_form.half_width() as i64
             };
-            if player_touches_enemy_with_half_width(slice.player, &snapshot, half_width) {
+            let touches = if enemy.family == EnemyFamily::Lion {
+                lion_kid_contact_bounds(enemy).any(|bounds| {
+                    classify_enemy_contact_relation_for_bounds(
+                        slice.player,
+                        &snapshot,
+                        slice.player.y_velocity,
+                        half_width,
+                        true,
+                        bounds,
+                    )
+                    .is_some()
+                })
+            } else {
+                player_touches_enemy_with_half_width(slice.player, &snapshot, half_width)
+            };
+            if touches {
                 Some((enemy.x_pos, enemy.family))
             } else {
                 None
@@ -14745,6 +14808,69 @@ fn lion_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     }
 }
 
+/// ASM Lion.asm stru_3DEDA/stru_3DEF4/stru_3DF0E/stru_3DF42 select
+/// CollisionSize rows unk_3194E..unk_31A12 (kid.asm), in ROM sub-box order.
+fn lion_kid_contact_bounds(enemy: &ActiveEnemy) -> impl Iterator<Item = EnemyContactBounds> {
+    let snapshot = enemy.snapshot();
+    let frame = if enemy.damage_flash_frames != 0 || enemy.death_animation_active {
+        0
+    } else if let Some(roar_frame) = snapshot.sprite_animation_phase {
+        roar_frame
+    } else {
+        // ASM Enemy12_Lion_Init saves $62 once; stru_3DEF4's $33 rewind
+        // enters stru_3DEDA after its first 27 ticks. Hurt never reselects it.
+        let tick = usize::from(enemy.dragon_script_cmd);
+        let (durations, mut tick): (&[usize], usize) = if enemy.enemy_level == 2 {
+            if tick <= 27 {
+                (&[5, 4, 4, 5, 4, 5], tick.saturating_sub(1))
+            } else {
+                (&[7, 6, 6, 7, 6, 6], (tick - 28) % 38)
+            }
+        } else {
+            (&[7, 6, 6, 7, 6, 6], tick % 38)
+        };
+        durations
+            .iter()
+            .position(|duration| {
+                if tick < *duration {
+                    true
+                } else {
+                    tick -= duration;
+                    false
+                }
+            })
+            .expect("Lion animation tick lies within its script") as u8
+    };
+    let rows: &[(i64, i64, i64, i64)] = match frame {
+        0 => &[(-19, 33, -43, 41)],
+        1 => &[(-21, 30, -44, 33), (-7, 20, -10, 10)],
+        2 => &[(-16, 22, -44, 6), (-19, 33, -36, 26), (-4, 14, -10, 8)],
+        3 => &[(-20, 29, -42, 32), (-10, 19, -9, 7), (6, 8, -33, 23)],
+        4 => &[(-20, 32, -44, 35), (-7, 16, -7, 6)],
+        5 => &[(-19, 31, -43, 31), (-7, 15, -11, 10)],
+        12 => &[(-12, 21, -45, 45), (9, 12, -43, 24)],
+        13 => &[(-12, 35, -45, 27), (-18, 9, -19, 7), (-11, 21, -16, 16)],
+        14 => &[(-11, 34, -45, 26), (-16, 28, -18, 17)],
+        15 => &[(-14, 26, -44, 44), (10, 8, -31, 13)],
+        16 => &[(-16, 26, -41, 39), (10, 7, -33, 31)],
+        _ => unreachable!("Lion scripts select only walking, hurt or roar mappings"),
+    };
+    let facing = enemy.facing;
+    rows.iter().map(move |&(left, width, top, height)| {
+        let (left_px, right_px) = if facing == Direction::Right {
+            (-left - width, -left)
+        } else {
+            (left, left + width)
+        };
+        EnemyContactBounds {
+            left_px,
+            right_px,
+            top_px: top,
+            bottom_px: top + height,
+        }
+    })
+}
+
 fn big_hopping_skull_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     if enemy.wait_timer.is_some() {
         // ASM Big_Hopping_Skull.asm loc_36580 clears motion and starts
@@ -15198,6 +15324,25 @@ fn classify_enemy_contact_relation_with_half_width_inner(
     player_contact_half_width: i64,
     defer_edge_side_damage: bool,
 ) -> Option<crate::trace::KidObjectRelation> {
+    classify_enemy_contact_relation_for_bounds(
+        player,
+        enemy,
+        pre_physics_y_velocity,
+        player_contact_half_width,
+        defer_edge_side_damage,
+        enemy_contact_bounds(enemy),
+    )
+}
+
+/// ASM loc_1C42..loc_1CE4 (kid.asm): classify the first overlapping sub-box.
+fn classify_enemy_contact_relation_for_bounds(
+    player: PlayerState,
+    enemy: &NativeObjectSnapshot,
+    pre_physics_y_velocity: i32,
+    player_contact_half_width: i64,
+    defer_edge_side_damage: bool,
+    bounds: EnemyContactBounds,
+) -> Option<crate::trace::KidObjectRelation> {
     let px = player.x_pos as i64;
     let py = player.y_pos as i64;
     let p_left = px - (player_contact_half_width << 16);
@@ -15207,7 +15352,6 @@ fn classify_enemy_contact_relation_with_half_width_inner(
 
     let ex = enemy.x_pos as i64;
     let ey = enemy.y_pos as i64;
-    let bounds = enemy_contact_bounds(enemy);
     let e_left = ex + (bounds.left_px << 16);
     let e_right = ex + (bounds.right_px << 16);
     let e_top = ey + (bounds.top_px << 16);
@@ -15325,6 +15469,7 @@ fn stomp_contact_candidate_debug_summary(
     enemy: &NativeObjectSnapshot,
     pre_physics_y_velocity: i32,
     player_contact_half_width: i64,
+    active_enemy: Option<&ActiveEnemy>,
 ) -> StompContactCandidateDebug {
     let px = player.x_pos as i64;
     let py = player.y_pos as i64;
@@ -15335,7 +15480,25 @@ fn stomp_contact_candidate_debug_summary(
 
     let ex = enemy.x_pos as i64;
     let ey = enemy.y_pos as i64;
-    let bounds = enemy_contact_bounds(enemy);
+    let bounds =
+        if let Some(lion) = active_enemy.filter(|active| active.family == EnemyFamily::Lion) {
+            lion_kid_contact_bounds(lion)
+                .find(|bounds| {
+                    classify_enemy_contact_relation_for_bounds(
+                        player,
+                        enemy,
+                        pre_physics_y_velocity,
+                        player_contact_half_width,
+                        true,
+                        *bounds,
+                    )
+                    .is_some()
+                })
+                .or_else(|| lion_kid_contact_bounds(lion).next())
+                .expect("Lion collision mapping contains at least one rectangle")
+        } else {
+            enemy_contact_bounds(enemy)
+        };
     let e_left = ex + (bounds.left_px << 16);
     let e_right = ex + (bounds.right_px << 16);
     let e_top = ey + (bounds.top_px << 16);
@@ -15367,17 +15530,18 @@ fn stomp_contact_candidate_debug_summary(
     let min_overlap_px = (enemy_contact_min_overlap_fp(enemy) >> 16) as i32;
     let object_x_delta = enemy.x_velocity.unwrap_or(0) - player.x_velocity;
     let object_y_delta = enemy.y_velocity.unwrap_or(0) - pre_physics_y_velocity;
-    let result = classify_enemy_contact_with_half_width(
+    let relation = classify_enemy_contact_relation_for_bounds(
         player,
         enemy,
         pre_physics_y_velocity,
-        player.y_pos,
         player_contact_half_width,
+        true,
+        bounds,
     );
-    let result_label = match result {
-        EnemyContactResult::None => "none",
-        EnemyContactResult::Stomp => "stomp",
-        EnemyContactResult::Damage => "damage",
+    let result_label = match relation {
+        None => "none",
+        Some(crate::trace::KidObjectRelation::Above) => "stomp",
+        Some(_) => "damage",
     };
     let gate = if separated {
         "separated"
