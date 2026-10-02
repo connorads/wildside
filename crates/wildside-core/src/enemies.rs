@@ -5476,6 +5476,8 @@ fn step_active_enemies_with_rng_context(
             matches!(enemy.family, EnemyFamily::Crab) && enemy.damage_flash_frames == 1;
         let restores_orca_animation =
             matches!(enemy.family, EnemyFamily::Orca) && enemy.damage_flash_frames == 1;
+        let restores_lion_animation =
+            matches!(enemy.family, EnemyFamily::Lion) && enemy.damage_flash_frames == 1;
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
         if restores_dragon_walking_animation {
             // ASM Dragon.asm loc_3CEBE restores `$62(a5)` through
@@ -5516,6 +5518,13 @@ fn step_active_enemies_with_rng_context(
             // ASM Orca.asm loc_3D23E restores saved patrol `stru_3D0A2`
             // through Init_Animation after the 15-tick hurt pose finishes.
             enemy.dragon_descent_frames = 0;
+        }
+        if restores_lion_animation {
+            // ASM Lion.asm loc_3E32C restores $62 through Init_Animation
+            // before loc_3E356 returns to saved grounded tracking or airborne
+            // movement. The post-fire phase alone does not set $5C(a5).
+            enemy.dragon_script_cmd = 0;
+            enemy.lion_state = LionState::ResumingCharge;
         }
         if matches!(enemy.family, EnemyFamily::FireDemon) {
             // ASM Fire_Demon.asm loc_3A48E allocates a separate palette helper

@@ -856,6 +856,8 @@ fn lion_kid_contact_stops_at_first_overlapping_sub_box_loc_1bce() {
     assert_eq!(runtime.active_enemies[0].hit_points, 8);
     runtime.active_enemies[0].x_velocity = 0;
     assert!(runtime.process_stomps(&mut slice, 0x0002_0000, 90 << 16, 100 << 16, 90 << 16,));
+    assert_eq!(runtime.active_enemies[0].hit_points, 8);
+    runtime.apply_pending_enemy_collisions();
     assert_eq!(runtime.active_enemies[0].hit_points, 7);
 }
 
@@ -18696,7 +18698,7 @@ mod chunk_03 {
     }
 
     #[test]
-    fn lion_stomp_decrements_one_hp_and_resumes_loc_3e318() {
+    fn lion_stomp_latches_before_hurt_coroutine_loc_3e318() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
         let mut lion = test_enemy(EnemyFamily::Lion, 100 << 16, 120 << 16, 6);
@@ -18730,19 +18732,23 @@ mod chunk_03 {
             stomped,
             "ASM loc_1CF2 writes colid_kidabove so Lion.asm loc_3E318 can consume the stomp: {debug}"
         );
+        assert_eq!(runtime.active_enemies[0].hit_points, 6);
+        assert_eq!(runtime.active_enemies[0].damage_flash_frames, 0);
+        runtime.apply_pending_enemy_collisions();
         let lion = runtime.active_enemies[0];
         assert_eq!(
             lion.hit_points, 5,
             "ASM Lion.asm loc_3E32C subtracts exactly one HP for nonterminal Kid-above contact"
         );
         assert_eq!(
-            lion.damage_flash_frames, LION_HURT_ANIMATION_FRAMES_STRU_3DF42,
+            lion.damage_flash_frames,
+            LION_HURT_ANIMATION_FRAMES_STRU_3DF42 + 1,
             "ASM Lion.asm loc_3E32C hibernates for the full stru_3DF42 animation"
         );
         assert_eq!(
             lion.lion_state,
-            LionState::Charging,
-            "ASM Lion.asm loc_3E356 -> loc_3E3AC resumes the right-facing grounded charge path"
+            LionState::Walking,
+            "ASM loc_3E32C waits for stru_3DF42 before selecting the resume callback"
         );
         assert_eq!(lion.facing, Direction::Right);
         assert!(lion.on_ground);
@@ -19593,7 +19599,7 @@ mod chunk_03 {
     }
 
     #[test]
-    fn lion_pending_hurt_collision_hibernates_and_resumes_ground_charge_loc_3e318() {
+    fn lion_pending_hurt_collision_hibernates_before_ground_resume_loc_3e318() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut lion = test_enemy(EnemyFamily::Lion, 0x0080_0000, 0x0040_0000, 4);
         lion.layout_index = 21;
@@ -19619,33 +19625,87 @@ mod chunk_03 {
             "ASM Lion.asm loc_3E32C subtracts one HP for nonterminal colid_hurt"
         );
         assert_eq!(
-            lion.damage_flash_frames, LION_HURT_ANIMATION_FRAMES_STRU_3DF42,
+            lion.damage_flash_frames,
+            LION_HURT_ANIMATION_FRAMES_STRU_3DF42 + 1,
             "ASM Lion.asm loc_3E32C hibernates for the full stru_3DF42 animation"
         );
         assert_eq!(
             lion.lion_state,
-            LionState::Charging,
-            "ASM Lion.asm loc_3E356 -> loc_3E3AC resumes the right-facing grounded charge path"
+            LionState::Roaring,
+            "ASM loc_3E32C preserves the interrupted phase until the hurt animation ends"
         );
         assert_eq!(lion.facing, Direction::Right);
         assert!(lion.on_ground);
         assert!(!lion.death_animation_active);
     }
 
-    /// ASM Lion.asm loc_3E356: `$5C(a5)` selects the post-charge resume
-    /// library before x_direction chooses its left/right arm.
+    /// ASM loc_3E32C hibernates before loc_3E356 reads $5C(a5).
+    /// Original ledger ROM trace keeps $5C clear across105..119 after fire.
     #[test]
-    fn lion_post_charge_flag_loc_3e356_covers_both_native_representations() {
-        assert!(!lion_post_charge_flag_loc_3e356(true, LionState::Roaring));
-        assert!(lion_post_charge_flag_loc_3e356(false, LionState::Roaring));
-        assert!(lion_post_charge_flag_loc_3e356(
-            true,
-            LionState::ResumingCharge
-        ));
-        assert!(lion_post_charge_flag_loc_3e356(
-            false,
-            LionState::ResumingCharge
-        ));
+    fn lion_hurt_preserves_grounded_post_fire_phase_until_resume() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut lion = test_enemy(EnemyFamily::Lion, 0x0204_0000, 0x02C0_0000, 6);
+        lion.lion_state = LionState::ResumingCharge;
+        lion.facing = Direction::Right;
+        lion.on_ground = true;
+        lion.x_velocity = 0;
+        lion.y_velocity = 0;
+        lion.wait_timer = 100;
+        lion.dragon_script_cmd = 21;
+        runtime.active_enemies = vec![lion];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: lion.segment_index,
+                layout_index: lion.layout_index,
+                collision_type: LION_COLID_KIDABOVE,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+        runtime.apply_pending_enemy_collisions();
+        let hurt = runtime.active_enemies[0];
+        assert_eq!(hurt.hit_points, 5);
+        assert_eq!(hurt.lion_state, LionState::ResumingCharge);
+        assert!(hurt.on_ground);
+        assert_eq!((hurt.x_velocity, hurt.y_velocity), (0, 0));
+        assert_eq!(
+            hurt.damage_flash_frames,
+            LION_HURT_ANIMATION_FRAMES_STRU_3DF42 + 1
+        );
+        // ASM stru_3DF42 holds its mapping for $F Gfx ticks; loc_3E32C
+        // resumes on the following Object poll and restores C7E88.
+        let mut drilled_blocks = Vec::new();
+        for _ in 0..15 {
+            step_active_enemies(
+                &mut runtime.active_enemies,
+                None,
+                None,
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+                &mut drilled_blocks,
+            );
+            let waiting = runtime.active_enemies[0].snapshot();
+            assert_eq!((waiting.x_pos, waiting.y_pos), (0x0204_0000, 0x02C0_0000));
+            assert!(waiting.damage_flash);
+        }
+        step_active_enemies(
+            &mut runtime.active_enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut drilled_blocks,
+        );
+        let resumed = runtime.active_enemies[0].snapshot();
+        assert!(resumed.x_pos > 0x0204_0000);
+        assert_eq!(resumed.y_pos, 0x02C0_0000);
+        assert!(!resumed.damage_flash);
+        assert_eq!(resumed.walk_phase, Some(1));
     }
 
     #[test]
@@ -19685,7 +19745,8 @@ mod chunk_03 {
         );
         assert_eq!(lion.y_velocity, 0x0000_4000);
         assert_eq!(
-            lion.damage_flash_frames, LION_HURT_ANIMATION_FRAMES_STRU_3DF42,
+            lion.damage_flash_frames,
+            LION_HURT_ANIMATION_FRAMES_STRU_3DF42 + 1,
             "ASM Lion.asm loc_3E32C hibernates for the full stru_3DF42 animation"
         );
     }

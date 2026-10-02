@@ -7747,22 +7747,20 @@ impl LevelCompletionBonusTallyLocD468 {
     }
 }
 
-fn apply_lion_collision_resume_loc_3e318(
-    enemy: &mut ActiveEnemy,
-    resume: LionCollisionResumeLoc3E318,
-) {
+/// ASM loc_3E356 (Lion.asm): resume the saved callback by ground flag and facing.
+fn apply_lion_collision_resume(enemy: &mut ActiveEnemy, resume: LionCollisionResumeLoc3E318) {
     match resume {
         LionCollisionResumeLoc3E318::Loc3E560 => {
             // ASM Lion.asm loc_3E36C -> loc_3E560: clear `$5C(a5)` and
             // clear x_direction resume the ordinary left-facing charge.
-            enemy.lion_state = LionState::Charging;
+            enemy.lion_state = LionState::ResumingCharge;
             enemy.facing = Direction::Left;
             enemy.on_ground = true;
         }
         LionCollisionResumeLoc3E318::Loc3E3AC => {
             // ASM Lion.asm loc_3E36C -> loc_3E3AC: clear `$5C(a5)` and set
             // x_direction resume the ordinary right-facing charge callback.
-            enemy.lion_state = LionState::Charging;
+            enemy.lion_state = LionState::ResumingCharge;
             enemy.facing = Direction::Right;
             enemy.on_ground = true;
         }
@@ -7781,13 +7779,6 @@ fn apply_lion_collision_resume_loc_3e318(
             enemy.on_ground = false;
         }
     }
-}
-
-pub(crate) fn lion_post_charge_flag_loc_3e356(on_ground: bool, lion_state: LionState) -> bool {
-    // ASM Lion.asm loc_3E356 tests `$5C(a5)` before dispatching by
-    // x_direction. Native represents that set flag both while the Lion is
-    // airborne and explicitly during the ResumingCharge phase.
-    !on_ground || matches!(lion_state, LionState::ResumingCharge)
 }
 
 pub(crate) fn ninja_blocking_flag_loc_3d65a(
@@ -8489,7 +8480,7 @@ impl NativeRuntime {
                 match lion_collision_response_loc_3e318(
                     collision.collision_type as i16,
                     u16::from(enemy.hit_points),
-                    lion_post_charge_flag_loc_3e356(enemy.on_ground, enemy.lion_state),
+                    !enemy.on_ground,
                     matches!(enemy.facing, Direction::Right),
                 ) {
                     LionCollisionLoc3E318::Kill => {
@@ -8504,22 +8495,14 @@ impl NativeRuntime {
                         // the saved Lion animation, then resume by `$5C(a5)`
                         // and x_direction at loc_3E356.
                         enemy.hit_points = remaining_hp as u8;
-                        enemy.damage_flash_frames = LION_HURT_ANIMATION_FRAMES_STRU_3DF42;
-                        match lion_collision_response_loc_3e318(
-                            0,
-                            remaining_hp,
-                            lion_post_charge_flag_loc_3e356(enemy.on_ground, enemy.lion_state),
-                            matches!(enemy.facing, Direction::Right),
-                        ) {
-                            LionCollisionLoc3E318::Continue { next } => {
-                                apply_lion_collision_resume_loc_3e318(enemy, next);
-                            }
-                            LionCollisionLoc3E318::Kill | LionCollisionLoc3E318::Hurt { .. } => {}
-                        }
+                        // ASM loc_3E32C waits for 15 Gfx animation ticks,
+                        // then polls completion on the next Object pass.
+                        // Native decrements this counter in the entry pass.
+                        enemy.damage_flash_frames = LION_HURT_ANIMATION_FRAMES_STRU_3DF42 + 1;
                         changed_enemy_state = true;
                     }
                     LionCollisionLoc3E318::Continue { next } => {
-                        apply_lion_collision_resume_loc_3e318(enemy, next);
+                        apply_lion_collision_resume(enemy, next);
                         changed_enemy_state = true;
                     }
                 }
@@ -12046,9 +12029,9 @@ impl NativeRuntime {
                 let enemy = &mut self.active_enemies[active_idx];
                 if matches!(
                     enemy.family,
-                    EnemyFamily::DragonWalking | EnemyFamily::Driller
+                    EnemyFamily::DragonWalking | EnemyFamily::Driller | EnemyFamily::Lion
                 ) {
-                    // ASM Dragon.asm loc_3CE90 and Driller.asm loc_3BF02:
+                    // ASM Dragon loc_3CE90, Driller loc_3BF02 and Lion loc_3E32C:
                     // GfxObjects_CollisionKid writes colid_kidabove after
                     // Execute_Objects; the parent consumes it on its next
                     // object pass. Keep HP unchanged on Kid's contact frame.
@@ -12078,43 +12061,6 @@ impl NativeRuntime {
                     .kid_y_velocity;
                     if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
                         kill_indices.push(active_idx);
-                    }
-                } else if matches!(enemy.family, EnemyFamily::Lion) {
-                    match lion_collision_response_loc_3e318(
-                        LION_COLID_KIDABOVE as i16,
-                        u16::from(enemy.hit_points),
-                        lion_post_charge_flag_loc_3e356(enemy.on_ground, enemy.lion_state),
-                        matches!(enemy.facing, Direction::Right),
-                    ) {
-                        LionCollisionLoc3E318::Kill => {
-                            // ASM Lion.asm loc_3E318 -> loc_3E378: terminal
-                            // Kid-above hits initialise `stru_3DF48` before
-                            // the shared loc_3E956 delete tail.
-                            kill_indices.push(active_idx);
-                        }
-                        LionCollisionLoc3E318::Hurt { remaining_hp, .. } => {
-                            // ASM Lion.asm loc_3E32C: Kid-above shares the
-                            // ordinary hurt path, subtracting one HP before
-                            // resuming by `$5C(a5)` and x_direction.
-                            enemy.hit_points = remaining_hp as u8;
-                            enemy.damage_flash_frames = LION_HURT_ANIMATION_FRAMES_STRU_3DF42;
-                            if let LionCollisionLoc3E318::Continue { next } =
-                                lion_collision_response_loc_3e318(
-                                    0,
-                                    remaining_hp,
-                                    lion_post_charge_flag_loc_3e356(
-                                        enemy.on_ground,
-                                        enemy.lion_state,
-                                    ),
-                                    matches!(enemy.facing, Direction::Right),
-                                )
-                            {
-                                apply_lion_collision_resume_loc_3e318(enemy, next);
-                            }
-                        }
-                        LionCollisionLoc3E318::Continue { next } => {
-                            apply_lion_collision_resume_loc_3e318(enemy, next);
-                        }
                     }
                 } else if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
                     kill_indices.push(active_idx);

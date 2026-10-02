@@ -59,7 +59,7 @@
     "issue": 186,
     "readiness": "needs_comparison",
     "active_path": "crates/wildside-core/src/enemies.rs Lion state dispatch",
-    "route": "Original ledger07 first104 inputs match gameplay/enemy; original first200 exposes surviving stomp latched104/consumed105 and recovery drift120. Shrunk464160b3 changes the encounter. Fresh ledger1790975353 route07 blocks on79692a83 roster/counts118; preserved original route /tmp/wildside-186-ledger-79692a83-original.json.",
+    "route": "Saved surviving-hurt121 matches gameplay/enemy through120; original ledger1790967292 prefix matches through144. Shrunk79692a83 has118 inputs/119 checkpoints and retains upper-Lion fire facing at118 after count differences clear.",
     "evidence": [
       "docs/source-port/backlog.md",
       "docs/source-port/backlog-archive.md#issue-186",
@@ -68,9 +68,10 @@
       "tests/data/fuzz-repros/c36fb8b6.json",
       "tests/data/dynamic-scenarios/issue-186-lion-hp8-return.json",
       "crates/wildside-core/src/enemies/lion.rs",
-      "tests/data/dynamic-scenarios/issue-186-lion-walk-contact.json"
+      "tests/data/dynamic-scenarios/issue-186-lion-walk-contact.json",
+      "tests/data/dynamic-scenarios/issue-186-lion-surviving-hurt.json"
     ],
-    "next_action": "Shrink79692a83 without overwriting the original witness, then compare original ledger07 latch104/105 and loc_3E32C hurt wait through120; investigate later roar separately",
+    "next_action": "Fix upper-Lion roar zero-count return using ROM fire118/resume145 on shrunk79692a83, preserving the original surviving-hurt route",
     "scope": "Lion: hurt recoil, gravity ledge-leap charge, roar windup + engagement bands missing"
   },
   {

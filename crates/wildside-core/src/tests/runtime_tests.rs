@@ -24036,6 +24036,59 @@ fn gameplay_regression_lion_walk_rectangles_reject_union_only_stomp() {
     assert_eq!(lion.hit_points, Some(6), "ROM rejects the union-only stomp");
 }
 
+/// ASM Lion.asm loc_3E32C consumes the preceding Gfx collision and waits
+/// for stru_3DF42 before loc_3E356 resumes the saved grounded callback.
+#[test]
+fn gameplay_regression_lion_surviving_stomp_waits_for_hurt_resume() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/issue-186-lion-surviving-hurt.json"
+    ))
+    .expect("checked-in original Lion surviving-stomp route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    // ASM loc_3E32C/loc_3E356: $5C stays clear, HP changes105, resume is120.
+    for (frame, x, hp) in [
+        (104, 0x0204_0000, 6),
+        (105, 0x0204_0000, 5),
+        (119, 0x0204_0000, 5),
+        (120, 0x0205_8000, 5),
+    ] {
+        let lion = trace[frame]
+            .active_enemy_details
+            .iter()
+            .find(|enemy| {
+                enemy.kind == NativeObjectKind::Enemy { object_type: 0x12 }
+                    && enemy.layout_index == Some(1)
+            })
+            .expect("surviving lower Lion remains active");
+        assert_eq!(lion.hit_points, Some(hp), "ROM HP at frame {frame}");
+        assert_eq!(
+            lion.damage_flash,
+            frame == 105 || frame == 119,
+            "frame {frame}"
+        );
+        assert_eq!(lion.x_pos, x, "ROM grounded X at frame {frame}");
+        assert_eq!(lion.y_pos, 0x02C0_0000, "ROM grounded Y at frame {frame}");
+        assert_eq!(lion.facing, Some(Direction::Right), "frame {frame}");
+        if frame == 120 {
+            // ASM loc_3E32C restores C7E88 (ROM mapping $0AA0) before the
+            // first Gfx tick, represented by the exported walk counter1.
+            assert_eq!(lion.walk_phase, Some(1));
+        }
+    }
+}
+
 /// ASM Lion.asm loc_3E0F4 restores stru_3DEF4. Its exported walk phase
 /// counts the GfxObject_Animate post-step tick used by the HP-8 selector.
 #[test]
