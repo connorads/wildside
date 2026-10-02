@@ -5211,16 +5211,18 @@ mod chunk_04 {
 
         step_pacer(&mut enemy, Some(&grid), None);
 
-        assert_eq!(
-            enemy.facing,
-            Direction::Left,
-            "ASM Crab.asm loc_3B00A `$48(a5)=$C` should reach the wall at x=96; the old 8px generic probe would still miss it",
-        );
-        assert_eq!(
-            enemy.x_pos,
-            84 << 16,
-            "wall pushback should use the same 12px edge that detected the collision",
-        );
+        // ASM Crab.asm loc_3B00A seeds $48=$C and a $18000 step.
+        // loc_3C04E at x83 has remainder1 and integer displacement1;
+        // cmp.w d1,d3; bcc commits x84.5 without wall dispatch.
+        assert_eq!(enemy.facing, Direction::Right);
+        assert_eq!(enemy.x_pos, (84 << 16) + 0x8000);
+
+        step_pacer(&mut enemy, Some(&grid), None);
+
+        // ASM loc_3C04E -> loc_3C0A6 -> loc_3C0D2: remainder0 is now
+        // below displacement2, so the 12px leading edge turns at the wall.
+        assert_eq!(enemy.facing, Direction::Left);
+        assert_eq!(enemy.x_pos, (84 << 16) + 0x8000);
     }
 
     #[test]

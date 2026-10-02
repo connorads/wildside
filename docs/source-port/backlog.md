@@ -31,13 +31,13 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-10-02):** Commit verified #516 floor-landing continuation and its eight shrunk intake repros, then select the next item with `mise run project-status`. Main fast/full gates pass; the 99/100-checkpoint ROM routes match. Live handles and evidence are in `.cache/debug/515-progress.json`.
-- **Intake:** `fuzz-summary.yaml` (0x00-0x05 x 8 seeds) has 22 clusters, tracked by #515/#517-#519/#522. `level-ledger.yaml` (0x00-0x10) has 10/17 native exits and 0/103 confirmed; every blocker is tracked by #515, #520, #521 or #522.
+- **Current work (2026-10-02):** Finish the due Jev exploration review, then fix #520 live init timing for Diamond, Tank and shooting Tank. The partial Diamond width/init/wall-turn fix passes fast/full gates; all eight new intake repros are shrunk. ASM and the saved ROM hibernate PCs identify the remaining live-loader cause. Evidence is in `.cache/debug/520-evidence.md` and `.cache/debug/520-fall-research.md`.
+- **Intake:** `fuzz-summary.yaml` (0x00-0x05 x 8 seeds) has 26 clusters, tracked by #515/#517-#519/#522. `level-ledger.yaml` (0x00-0x10) has 10/17 native exits and 0/103 confirmed; every blocker is tracked by #515, #520, #521 or #522.
 - **Scope:** ADR 0004 sets the fidelity floor: gameplay, enemy and RNG state, level exits, visible or audible bugs. #406/#409/#416 closed under it; the pixel baseline and injection ratchet stay.
 - **After each fix:** re-run `wildside fuzz run --levels 0x00-0x05 --seeds 8 --frames 600 --write` and `wildside ledger run --write`; extend the ledger past 0x10 once early levels confirm.
 - **Jev allowance:** $5 additional across the campaign. #185 used 48 requests in one attempt. The ledger lifetime charged upper bound is $0.257086284.
-- **Jev exploration review:** Revision `cf5d84937`. No request or spend occurred. Restart the three-fix cadence from this review.
-- **Evidence boundary:** The published-route state/RNG gates cover one route; `verify-tas-full` passes on the #516 fix at parent `f68614b85`; the 105-level sweep retains the prior three failed levels. The ledger and fuzz census measure the rest.
+- **Jev exploration review:** Last revision `cf5d84937`. Three gameplay fixes follow that review; a bounded #186 Lion recoil exploration is due before the next implementation. No request or spend occurs in the Diamond unit.
+- **Evidence boundary:** The published-route state/RNG gates cover one route; `verify-tas-full` passes on the partial #520 fix at parent `8c22981b4`; the 105-level sweep retains the prior three failed levels. The ledger and fuzz census measure the rest.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -60,10 +60,10 @@ For newly opened items, capture these facts in the investigation notes:
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 186 | [~] | P1 | enemy | Fight a Lion; hurt recoil, ledge leap, roar windup, and engagement range should behave like the ROM. | Resolve live-loader pose pixels; capture surviving-stomp recoil and recovery. |
-| 515 | [~] | P1 | kid-physics | Native derives `character_movement` each frame (`current_character_movement`); the ROM stores MoveID at its coroutine write sites. 7 of 22 fuzz clusters (16 routes) diverge here first, including 7b0a8e1e, 3a36f8ac, 5a673417 and a5798943. | Fuzz 0x00-0x05 x 8 seeds has no `character_movement`-first cluster; `gameplay_regression_*` tests load the shrunk repros. |
+| 515 | [~] | P1 | kid-physics | Native derives MoveID; the ROM stores it at coroutine write sites. 10/26 fuzz clusters (20 routes) differ first: 7b0a8e1e, 3a36f8ac, 5a673417, a5798943, b5918261, 891e57ae, c9b3814a. | Fuzz 0x00-0x05 x 8 seeds has no `character_movement`-first cluster; `gameplay_regression_*` tests load the shrunk repros. |
 | 517 | [ ] | P2 | enemy | Fuzz clusters 022889be (0x00 f309), d1446380 and 72129c1a (0x03), e9b6a11e (0x02): native keeps a different live object set or roster. | Each shrunk repro matches object counts and roster. |
 | 518 | [ ] | P2 | kid-physics | Fuzz clusters 6c5f8e27 (0x04 f260, airborne `kid_x_vel`), 1f2cfa0d (0x04 f203, RNG offset/ring) and 70019eed (0x04 f127, RNG offset/ring). | Each repro matches the ROM through its divergence frame. |
-| 519 | [ ] | P2 | enemy | Idle fuzz controls diverge on `enemy_roster` at 0x01 frame 99 and 0x05 frame 71, so fuzz skips both levels (`start_state`). | Idle 600-frame control matches on 0x01 and 0x05. |
-| 520 | [ ] | P1 | enemy | Ledger routes diverge on `enemy_roster` before their exits: 5c73a00e (0x03 f171), a8918bf2 (0x09 f80), d0eff6e6 (0x0e f133), c90f74d2 and 076909d9 (0x05 f71). | Each repro in `tests/data/fuzz-repros/` matches the roster; the levels re-run in the ledger. |
+| 519 | [ ] | P2 | enemy | Idle fuzz control diverges on `enemy_roster` at 0x01 frame 99, so fuzz skips that level (`start_state`). 0x05 is idle-clean after the Diamond turn fix. | Idle 600-frame control matches on 0x01. |
+| 520 | [~] | P1 | enemy | Ledger enemy-roster blockers: 5c73a00e, a8918bf2, d0eff6e6, e042da59, 1d4fc806. The 0x05 turn repros match. Root cause identified: live-loaded Diamond/Tanks omit the ASM init hibernate. | Each repro in `tests/data/fuzz-repros/` matches the roster; the levels re-run in the ledger. |
 | 521 | [ ] | P2 | level | Settled-warp start state differs at frame 0 with no input: 2f5fb5c0 (0x07 RNG offset/ring) and 5a69ed83 (0x0a/0x0b enemy roster). | Frame 0 of the settled warp matches the ROM on 0x07, 0x0a and 0x0b. |
-| 522 | [ ] | P1 | kid-physics | Crawl-latch and landing fixes expose physics clusters 0ed35d38, f92931b6, da81e8c7, 417af3e3, ba78e9a9, 0b645d5b, d38053c6, 70d46852 and ledger blockers 9819d44c/594f9474. | Shrink the repros; compare crawl entry, release and jump transitions with the ROM. |
+| 522 | [ ] | P1 | kid-physics | Crawl-latch and landing fixes expose physics clusters 0ed35d38, f92931b6, da81e8c7, 417af3e3, ba78e9a9, 0b645d5b, d38053c6, 70d46852, ba3911e6 and ledger blockers 9819d44c/594f9474/6709165a/e1e5e429. | Shrink the repros; compare crawl entry, release and jump transitions with the ROM. |

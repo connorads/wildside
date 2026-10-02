@@ -1,0 +1,204 @@
+{
+  "slug": "fuzz-b5918261",
+  "script": [
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    0
+  ],
+  "frame_count": 39,
+  "checkpoints": [
+    {
+      "label": "frame_0",
+      "frame_index": 0
+    },
+    {
+      "label": "frame_1",
+      "frame_index": 1
+    },
+    {
+      "label": "frame_2",
+      "frame_index": 2
+    },
+    {
+      "label": "frame_3",
+      "frame_index": 3
+    },
+    {
+      "label": "frame_4",
+      "frame_index": 4
+    },
+    {
+      "label": "frame_5",
+      "frame_index": 5
+    },
+    {
+      "label": "frame_6",
+      "frame_index": 6
+    },
+    {
+      "label": "frame_7",
+      "frame_index": 7
+    },
+    {
+      "label": "frame_8",
+      "frame_index": 8
+    },
+    {
+      "label": "frame_9",
+      "frame_index": 9
+    },
+    {
+      "label": "frame_10",
+      "frame_index": 10
+    },
+    {
+      "label": "frame_11",
+      "frame_index": 11
+    },
+    {
+      "label": "frame_12",
+      "frame_index": 12
+    },
+    {
+      "label": "frame_13",
+      "frame_index": 13
+    },
+    {
+      "label": "frame_14",
+      "frame_index": 14
+    },
+    {
+      "label": "frame_15",
+      "frame_index": 15
+    },
+    {
+      "label": "frame_16",
+      "frame_index": 16
+    },
+    {
+      "label": "frame_17",
+      "frame_index": 17
+    },
+    {
+      "label": "frame_18",
+      "frame_index": 18
+    },
+    {
+      "label": "frame_19",
+      "frame_index": 19
+    },
+    {
+      "label": "frame_20",
+      "frame_index": 20
+    },
+    {
+      "label": "frame_21",
+      "frame_index": 21
+    },
+    {
+      "label": "frame_22",
+      "frame_index": 22
+    },
+    {
+      "label": "frame_23",
+      "frame_index": 23
+    },
+    {
+      "label": "frame_24",
+      "frame_index": 24
+    },
+    {
+      "label": "frame_25",
+      "frame_index": 25
+    },
+    {
+      "label": "frame_26",
+      "frame_index": 26
+    },
+    {
+      "label": "frame_27",
+      "frame_index": 27
+    },
+    {
+      "label": "frame_28",
+      "frame_index": 28
+    },
+    {
+      "label": "frame_29",
+      "frame_index": 29
+    },
+    {
+      "label": "frame_30",
+      "frame_index": 30
+    },
+    {
+      "label": "frame_31",
+      "frame_index": 31
+    },
+    {
+      "label": "frame_32",
+      "frame_index": 32
+    },
+    {
+      "label": "frame_33",
+      "frame_index": 33
+    },
+    {
+      "label": "frame_34",
+      "frame_index": 34
+    },
+    {
+      "label": "frame_35",
+      "frame_index": 35
+    },
+    {
+      "label": "frame_36",
+      "frame_index": 36
+    },
+    {
+      "label": "frame_37",
+      "frame_index": 37
+    },
+    {
+      "label": "frame_38",
+      "frame_index": 38
+    }
+  ],
+  "warp_to_level": 5,
+  "settle_oracle_warp": true
+}

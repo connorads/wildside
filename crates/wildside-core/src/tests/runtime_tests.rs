@@ -23418,3 +23418,38 @@ fn gameplay_regression_flat_landing_resumes_walk_before_slope_dispatch_loc_8bf0(
     assert_eq!(walking.kid_y_velocity, Some(0));
     assert_eq!(walking.character_movement, Some(2));
 }
+
+#[test]
+fn gameplay_regression_diamond_ledge_turn_uses_init_width_loc_3ad4c() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/fuzz-repros/076909d9.json"
+    ))
+    .expect("checked-in ledger repro");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    // ASM Diamond.asm loc_3AD4C sets $48=$A. At x1514,
+    // loc_3C0FA's leading edge crosses the boundary and loc_3C026 turns
+    // before committing a leftward step. ROM ledger-076909d9 frame 71.
+    let diamond = trace[71]
+        .active_enemy_details
+        .iter()
+        .find(|enemy| {
+            enemy.kind == NativeObjectKind::Enemy { object_type: 1 }
+                && enemy.layout_index == Some(13)
+        })
+        .expect("live Diamond layout 13");
+    assert_eq!(diamond.x_pos, 1514 << 16);
+    assert_eq!(diamond.y_pos, 336 << 16);
+    assert_eq!(diamond.facing, Some(Direction::Right));
+}

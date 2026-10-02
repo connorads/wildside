@@ -379,6 +379,8 @@ pub(crate) const ENEMY_PROBE_HALF_WIDTH: i32 = 8;
 pub(crate) const ENEMY_PROBE_HEIGHT: i32 = 16;
 pub(crate) fn pacer_probe_half_width(family: EnemyFamily) -> i32 {
     match family {
+        // ASM Diamond.asm loc_3AD4C seeds `$48(a5)=$A` before loc_3C0FA.
+        EnemyFamily::Diamond => 0x0A,
         // ASM Crab.asm loc_3B00A and Driller.asm loc_3BD74 seed `$48(a5)=$C`
         // before entering the shared walker loops.
         EnemyFamily::Crab | EnemyFamily::Driller => 12,
@@ -8911,6 +8913,9 @@ fn fresh_enemy_no_step_passes_loc_3691e(family: EnemyFamily, enemy_level: u8) ->
         // Robot.asm Enemy03_Robot_Init loc_3A884 reaches the same shared
         // walker entry, so its init pass cannot move the body either.
         EnemyFamily::Tank | EnemyFamily::Robot => 1,
+        // ASM Diamond.asm loc_3AD4C -> loc_3C026/loc_3C0D2 and the
+        // high-HP loc_3ADA4 path both hibernate before their first step.
+        EnemyFamily::Diamond => 1,
         // ASM Crab.asm Enemy09_Crab_Init opens with one hibernate, then its
         // loc_3C0D2/loc_3C026 shared-walker entry hibernates once more.
         EnemyFamily::Crab => 2,
@@ -9594,7 +9599,9 @@ pub(crate) fn step_pacer(
     // d1,d3` remainder math keeps the leading edge at most touching the
     // boundary), and a body already inside solid is the d7-bit-2 terrain kill.
     let wall = terrain::probe_wall(grid, cx, cy, probe_half_width, probe_height, moving_right);
-    if wall.hit && turns_at_cliffs {
+    // ASM loc_3C04E/loc_3C0FA: bcc commits non-crossing steps before
+    // wall dispatch; sub_8F26-style one-pixel look-ahead cannot turn here.
+    if wall.hit && turns_at_cliffs && scan_trace.crossed_boundary {
         // ASM loc_3C026 (rightward walkers) / loc_3C0D2 (leftward walkers):
         // clr.l x_vel(a3); clr.l y_vel(a3); st/sf x_direction(a3) — stop
         // and face the opposite direction after wall collision. The ASM also

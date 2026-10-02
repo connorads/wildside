@@ -30176,3 +30176,112 @@ and 70d46852 (0x04 camera Y at 213), shrunk 243 -> 213, 66 nonzero
 inputs, 488 replays. The two ledger repros 594f9474 (#522) and 076909d9
 (#520) are shrunk as recorded above. Compare these same inputs on the parent
 before attributing a later frontier to the landing change.
+
+### #520 - Diamond wall and ledge turns (2026-10-02)
+
+The shrunk 0x05 repros `076909d9` and `c90f74d2` first differ at frame
+71. Native puts Diamond layout 13 at x1513 facing left; the ROM holds
+x1514 facing right. Player state and object counts match. This is a settled
+warp diagnostic, not proof of natural level entry.
+
+ASM `Diamond.asm loc_3AD4C` seeds `$48(a5)=$A`, then
+`loc_3C026/loc_3C0D2` hibernates before walking. Native uses width 8 and
+has no Diamond init defer. The shared walker's post-commit player-style
+wall probe also turns before `loc_3C04E/loc_3C0FA` permits wall dispatch.
+The fix uses width 10, one initial defer and the tile-boundary crossing gate.
+
+The first dimensions-only draft moves the mismatch to frame 0, four pixels
+early. Width alone gives the same shift. The existing oracle helper's
+`--capture-settle-trace` shows the missing cause: title-wait row 72 parks
+the initialised Diamond at x1680; rows 73..78 advance through x1686; row
+79 turns in place. Native turns at x1685. The boundary gate corrects this
+wall path, leaving one frame of initial timing debt. The init defer removes
+that debt. Temporary native prints are removed. No debug keys are added.
+
+The frame-71 regression fails on parent `8c22981b4`, then passes. Both
+72-checkpoint 0x05 routes match the corrected draft. The other #520 repros
+retain their original first frontiers: `5c73a00e` at 171 (Diamond falling),
+`a8918bf2` at 80 (RockTank falling), `d0eff6e6` at 133 (shooting Tank falling).
+#520 remains open until those routes and the ledger match.
+
+The first fast gate finds one invalid Crab fixture expectation. ASM
+`loc_3C04E` at x83 with width12 and speed1.5 computes remainder1 and integer
+displacement1. `bcc` commits x84.5 before wall dispatch. The next wake
+turns at x84.5. The fixture pins both wakes instead of expecting an early
+turn and losing the fraction. Its focused test passes. No exclusions,
+ignores or oracle baselines are added.
+
+The ASM also seeds Diamond height32. That change has no effect on the
+verified ledge-turn case, so it is outside this unit and is removed.
+The standing native default height16 remains a separate fidelity lead.
+
+Final width-only patch: focused regression passes; fast gate passes
+(7,466 selected core tests, 286 reviewed exclusions). Full TAS passes
+37,759 frames with the unchanged 37,518 exact / 241 divergent / 2,391
+changed-pixel baseline and zero GEMS command mismatches. Final replays
+match all 72 checkpoints in each 0x05 repro and all 241 checkpoints in
+the saved inputs extended with idle frames. The other three old #520
+repros retain their first divergence frames.
+
+Fuzz run `1790905077` retains every result on the previous 32 routes.
+0x05's 600-frame idle control is clean, so eight random routes become
+eligible. Two match; six diverge. The new total is 37/40 divergent routes
+in 26 clusters. New movement clusters `b5918261`, `891e57ae` and
+`c9b3814a` belong to #515. New crawl-physics cluster `ba3911e6` belongs
+to #522. #519 retains only the 0x01 idle frontier at frame 99.
+
+Sweep `1790905304` passes 102/105 levels. The three failure state
+dictionaries at 0x1B/0x4C/0x5C are identical to parent run `1790891639`.
+Ledger `1790905188` reruns 0x03/0x05/0x09/0x0e: four native exits, zero
+ROM-confirmed exits; overall 0/103 confirmed and ten native exits. Its
+new route signatures are `e042da59` (0x03 frame173, enemy plus Kid
+position) and `1d4fc806` (0x0e frame133, shooting Tank roster), assigned
+to #520; `6709165a` (0x05 frame97, facing/X/velocity) and `e1e5e429`
+(0x09 frame180, airborne X velocity), assigned to #522. These are new
+search routes, not proof of introduced regressions. Compare their inputs
+on the parent before attributing a future patch.
+
+Before/after PNGs and the ROM PNG are inspected at frame175 of the
+idle extension. Diamond is below the camera, so unchanged visible output
+provides no Diamond rendering witness. The exact state replay supplies
+the evidence for this off-screen motion fix. Capture assets stay isolated
+in the temporary checkout; no visual baseline is relaxed.
+
+Diff-scoped mutation testing in isolated copies catches all ten mutants.
+The unmutated baseline runs the Diamond, Crab wall and multi-head init
+regressions with cached assets enabled. No in-place mutation is used.
+
+Read-only follow-up finds a live-loader asymmetry: the trailing camera loader
+defers only Robot, while the debug-entry loader uses the shared init helper.
+The saved ROM slot witnesses park Diamond/Tank at `code=0x03c0f4,hib=1`
+and shooting Tank at `code=0x03c048,hib=1`, all with zero velocities at
+their first frontier. Native executes the first fall callback on that pass.
+This supports a separate live-init scheduling fix after this unit; the
+shooting Tank also needs its ASM initial hibernate registered in the helper.
+
+The native SDL player completes the same 241-frame scripted route in the
+isolated checkout, with the GEMS audio engine active and a saved recording.
+This is a scripted player-loop check, not subjective human sign-off.
+
+The SDL smoke recording fails deterministic `verify-recording` at frame0
+with a native trace mismatch. The player launch passes, but this recording
+is not accepted as a replay witness. The authoritative DynamicScenario
+comparisons above remain the verification for this gameplay unit.
+
+All eight new intake repros are shrunk:
+
+| Repro | Script frames | Nonzero inputs | ROM replays |
+|---|---|---|---|
+| b5918261 | 68 -> 38 | 37 | 112 |
+| 891e57ae | 88 -> 58 | 25 | 144 |
+| ba3911e6 | 102 -> 72 | 43 | 297 |
+| c9b3814a | 120 -> 90 | 27 | 142 |
+| e042da59 | 203 -> 173 | 116 | 525 |
+| 6709165a | 127 -> 97 | 8 | 79 |
+| e1e5e429 | 210 -> 180 | 101 | 658 |
+| 1d4fc806 | 163 -> 133 | 45 | 180 |
+
+Every saved file retains each checkpoint through the frontier and has
+frame_count equal to script length plus one. The shrink command writes the
+tracked repro in place; copying the old cache repro afterwards overwrites
+the reduction. The corrected runs omit that copy.

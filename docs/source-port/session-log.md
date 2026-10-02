@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-10-02 - #520 Diamond wall and ledge turns
+
+Diamond uses width 10, one initial walker hibernate and the shared tile-boundary gate before wall dispatch. Both 72-checkpoint level 0x05 repros and the 241-checkpoint idle extension match the ROM. The Crab fixture pins its non-crossing fractional step before turning. Fast/full gates pass with unchanged pixel and GEMS command baselines; the sweep retains the same three failures. Diff-scoped mutation testing catches all ten mutants. The census enables level 0x05 random routes and records 37/40 divergent routes in 26 clusters, with all previous 32 results unchanged. Ledger remains 0/103 confirmed and ten native exits. All eight new intake repros are shrunk and assigned. The native SDL loop passes, but its saved recording fails deterministic replay at frame 0 and supplies no replay proof. Existing ROM slot traces identify missing live init hibernation for the remaining Diamond/Tank frontiers. #520 remains open. The third-fix Jev exploration review is due; no paid request or human sign-off occurred.
+
 ## 2026-10-02 - #516 floor landing and walking continuation
 
 The #515 crawl latch is committed as `f68614b85`. #516 selects solid/spike support across the full floor span, yields ordinary landings before another X step and retains the active walking/slope distinction on the following wake. Saved 99/100-checkpoint ROM routes match; rebound regressions cover Red Stealth and Iron Knight. Main fast/full gates pass with unchanged pixel/GEMS command baselines. The 105-level sweep retains the three prior failures. Main census has 22 clusters and 31/32 divergent routes; four former clusters retire, six later signatures appear. All eight new census/ledger repros are shrunk and assigned to #515/#518/#520/#522. Ledger remains 0/103 confirmed, with 10 native exits. Parent/fixed frames are inspected. No Jev request or human playtest occurred.

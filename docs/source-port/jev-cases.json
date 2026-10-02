@@ -1009,7 +1009,7 @@
     "issue": 515,
     "readiness": "ready_replay",
     "active_path": "crates/wildside-core/src/trace.rs current_character_movement vs kid.asm Character_Movement MoveID writes (e.g. loc_A6F8)",
-    "route": "tests/data/fuzz-repros/54fce7a1.json, 7b0a8e1e.json, 3a36f8ac.json, 87a37ef6.json, acad697b.json, 5a673417.json, a5798943.json",
+    "route": "tests/data/fuzz-repros/54fce7a1.json, 7b0a8e1e.json, 3a36f8ac.json, 87a37ef6.json, acad697b.json, 5a673417.json, a5798943.json, b5918261.json, 891e57ae.json, c9b3814a.json",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
       "docs/source-port/backlog-archive.md#issue-515"
@@ -1044,26 +1044,26 @@
   {
     "issue": 519,
     "readiness": "ready_replay",
-    "active_path": "Settled-warp enemy roster on 0x01 and 0x05",
+    "active_path": "Settled-warp enemy roster on 0x01",
     "route": "All-zero 600-frame settled-warp script (fuzz idle control)",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
       "docs/source-port/backlog-archive.md#issue-515"
     ],
-    "next_action": "Run the idle control for 0x05 and compare the frame-71 enemy roster with the oracle.",
-    "scope": "Idle controls on 0x01 and 0x05."
+    "next_action": "Run the idle control for 0x01 and compare the frame-99 enemy roster with the oracle.",
+    "scope": "Remaining idle control on 0x01; 0x05 is idle-clean after the Diamond turn fix."
   },
   {
     "issue": 520,
     "readiness": "ready_replay",
-    "active_path": "Enemy roster on 0x03, 0x05, 0x09 and 0x0e ledger routes",
-    "route": "tests/data/fuzz-repros/5c73a00e.json, a8918bf2.json, d0eff6e6.json, c90f74d2.json, 076909d9.json",
+    "active_path": "Enemy falling entry on 0x03, 0x09 and 0x0e ledger routes",
+    "route": "tests/data/fuzz-repros/5c73a00e.json, a8918bf2.json, d0eff6e6.json, e042da59.json, 1d4fc806.json",
     "evidence": [
       "docs/source-port/level-ledger.yaml",
       "docs/source-port/backlog-archive.md#issue-520"
     ],
-    "next_action": "Replay a8918bf2 to frame 80 and compare the enemy roster with the oracle.",
-    "scope": "Ledger enemy_roster blockers from the first run."
+    "next_action": "Pin the three saved initial-hibernate frontiers, extend live init deferral to Diamond/Tank/shooting Tank and replay the complete routes.",
+    "scope": "Remaining ledger enemy_roster blockers; 0x05 Diamond turn repros match."
   },
   {
     "issue": 521,
@@ -1081,7 +1081,7 @@
     "issue": 522,
     "readiness": "ready_replay",
     "active_path": "NativeRuntime::refresh_opening_slice and movement.rs crawl/jump transitions",
-    "route": "tests/data/fuzz-repros/0ed35d38.json, f92931b6.json, da81e8c7.json, 417af3e3.json, ba78e9a9.json, 9819d44c.json, 0b645d5b.json, d38053c6.json, 70d46852.json, 594f9474.json",
+    "route": "tests/data/fuzz-repros/0ed35d38.json, f92931b6.json, da81e8c7.json, 417af3e3.json, ba78e9a9.json, 9819d44c.json, 0b645d5b.json, d38053c6.json, 70d46852.json, 594f9474.json, ba3911e6.json, 6709165a.json, e1e5e429.json",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
       "docs/source-port/level-ledger.yaml",
