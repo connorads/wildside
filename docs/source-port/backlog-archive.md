@@ -29998,6 +29998,11 @@ The normal movement kernel still merges those coroutine transitions. The
 extension is a diagnostic, not a passing regression or closure claim.
 
 
+### #515 - Later ledger movement frontier (2026-10-02)
+
+New6315af7d is the0x05 MoveID0/2 blocker at88 in ledger1790924791.
+Its promoted repro is shrunk before the crawl unit is committed.
+
 <a id="issue-520"></a>
 ### #520-#521 - First level-ledger intake (2026-10-01)
 
@@ -30047,6 +30052,88 @@ The affected-level ledger rerun exposes c90f74d2 on 0x05 at frame 71,
 The repro `tests/data/fuzz-repros/c90f74d2.json` shrinks from 101 to 71
 script frames with three nonzero inputs. Keep it with
 #520's other ledger roster blockers; no root cause is assigned yet.
+
+### #522 - Crawl transition and visual continuation (2026-10-02)
+
+The new main-checkout regression fails at 9819d44c frame38 and passes
+21 ROM checkpoints across release, release+B, held Down, mirrored
+negative velocity and entry+B. All 22 selected crawl tests pass.
+The typed entry/stand-up hibernate branches preserve raw motion state.
+Walking entry aligns once; successful stand-up clears B before yielding.
+
+Captures reject motion-only completion: before/after frames38/39/40
+change 0/0/360 pixels; candidate/ROM differs by 7/616/368. Kid keeps
+crouching after stand-up. Trace sub_78E8 and the standing mapping
+continuation before keeping the patch; state parity is insufficient.
+
+The motion-only census exposes 6e9df2a7 (0x02 f110, camera Y/movement)
+under #522, and #517 object/roster frontiers feaf8d08 (0x05 f82),
+76279bcc (0x03 f277) and b458851c (0x03 f312). These new fixtures need
+reduction after the final source census. Restore 22 regenerated existing
+fixtures from HEAD; retain every earlier shrink.
+
+The visual gap is mapping selection, not a missing standing phase reset.
+ROM sub_8446 changes F8F0 from6 toA at38 and writes mapping$8C;
+sub_78E8 writes mapping$50 at39, retaining phaseA and velocity$2000.
+Both new rendering regressions fail before correction. Crawl selection
+uses MoveID1; standing overrides retained velocity when selecting idle.
+The saved-route phase assertion and 22 crawl tests pass, as do five
+player-pose tests and both signs/facings in the stand-up rendering test.
+
+The standing continuation also differs from walking entry. ROM standing
+Down moves retained velocity through loc_83BC/sub_8F26 without sub_8506
+friction; standing Right clears F8F0 at loc_7820 before accelerating.
+The extended saved-route regression fails before this correction and
+pins 31 ROM checkpoints plus the visual phase across seven variants.
+A blocked standing-wake unit test fails with retained $2000 X velocity;
+loc_7828 -> loc_78C6 clears both velocities without platform support.
+This wall discriminator is ASM-derived; no new ROM wall witness is claimed.
+The private kernel receives the standing wake only without an active
+platform, preserving the separate platform continuation.
+
+Corrected captures differ from the ROM by 7/8/8 full-frame pixels at
+frames38/39/40. The Kid rectangle x0..63/y104..159 matches exactly in all
+three frames. The corrected standing capture is inspected visually.
+Zero-velocity release remains outside this fix: loc_82CA/sub_8E3E selects
+Walking on frame39 in the ROM, while native selects Standingstill.
+
+The broad cache-backed crawl filter passes140 tests but fails the existing
+settled Drips object-count test. Exact parent02311f277 reproduces the
+identical five tuples, excluding this crawl patch as its cause. The normal
+fast gate does not enable these cache-backed tests; the new route regression
+is also run separately with KID_ENABLE_CACHE_BACKED_TESTS=1.
+
+### #522 - Final crawl verification (2026-10-02)
+
+Final census1790924428 preserves all intermediate route signatures.
+Five routes move their first divergence later than parent1790916695;
+none moves earlier. The total remains26 clusters and37/40 divergent
+routes, with the same0x01 idle roster failure at99. Final fast gate
+passes7,474 core tests with286 reviewed exclusions, workspace ratchets,
+Clippy and TAS frontiers. The saved9819d44c route matches39 checkpoints;
+Dragon controls retain164 and150 matching checkpoints. Sweep1790924707
+retains102/105 passes and identical0x1B/0x4C/0x5C failure data, apart
+from diff-image output paths.
+
+The default two-seed affected ledger run aborts before writing results:
+remove_dead_enemy indexes6 into six enemies at combat.rs10539 during
+0x09 exploration. Seed0 subsequently finds its exit. Retry the same
+five levels with seed0 while preserving the crash as separate intake;
+no ledger confirmation is inferred from a native search exit.
+
+Full TAS gate passes37,759 frames with unchanged37518 exact/241 divergent
+pixel frames and2391 changed pixels; GEMS commands retain zero mismatches.
+All required player/camera, gameplay, enemy and RNG checks pass.
+
+Affected ledger seed0 run1790924791 completes with0/103 confirmed and
+10 native exits. New #522 position frontiers3828c696 (0x00 f428) and
+5dbcc529 (0x0E f177) are promoted from the saved routes. #515 owns new
+6315af7d (0x05 f88, MoveID0/2). Preserve existing7a06941b reduction.
+The one-seed retry preserves the lowest successful seed used by the
+ledger selector; the failed two-seed measurement remains reported.
+
+
+Resumed #522 verification: cache-backed31-checkpoint transition regression passes. Final fast passes7478 core tests with286 reviewed exclusions; full TAS checks37759 frames with zero authoritative or enemy-frontier differences,24 oracle limitations,37518 exact pixel frames,241 baseline-divergent pixel frames and zero GEMS command mismatches. Logs: /tmp/wildside-resume-fast.log and /tmp/wildside-resume-full-crawl.log.
 
 <a id="issue-516"></a>
 ### #516 - Floor scan and landing wake (2026-10-01)
@@ -30566,6 +30653,13 @@ x206..258/y105..156 outside frozen HUD regions. Zero API requests;
 charged upper bound stays $0.257086284. No recoil or human coverage is
 established. Continue offline campaign work.
 
+<a id="issue-517"></a>
+### #517 - Later object and roster frontiers (2026-10-02)
+
+Census1790924428 exposes feaf8d08 (0x05 f82, object/Gfx counts),
+76279bcc (0x03 f277, roster) and b458851c (0x03 f312, roster).
+Each ordinary-input fixture is promoted and reduced before commitment.
+
 <a id="issue-523"></a>
 ### #523 - Friendly projectile removal crash (2026-10-02)
 
@@ -30591,3 +30685,11 @@ This is a separate prerequisite commit before the crawl unit.
 #523 final verification: the post-fix fuzz report1790944207 is identical to1790924428 in summary, idle results and routes (26 clusters). The two-seed level09 ledger completes without panic and retains5aef09ec at frame274. Existing generated repro overwrites are restored; the eight reduced fixtures are preserved. Full TAS compares37759 frames with zero authoritative or enemy-frontier differences and24 existing oracle limitations.
 
 Resumed verification passes17 selected friendly tests with cache-backed checks enabled, including the3270-frame route and all three removal regressions.
+
+<a id="issue-524"></a>
+### #524 - Ledger damage/transform frontier (2026-10-02)
+
+Seed0 ledger run1790924791 exposes5aef09ec on0x09 frame274. Kid motion,
+helmet, transformation, hitpoints and object/Gfx counts differ together.
+Promote the saved route to tests/data/fuzz-repros/5aef09ec.json and shrink
+before selection. No contact or transformation cause is assumed yet.

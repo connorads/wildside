@@ -17786,6 +17786,54 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_77E6 -> loc_7828 -> loc_78C6: a blocked standing wake
+    /// without platform support clears retained stand-up velocity.
+    #[test]
+    fn standing_wake_blocked_left_clears_retained_velocity_loc_78c6() {
+        let mut data = vec![0u8; 8 * 8 * 2];
+        for row in 2..=3 {
+            data[(row * 8 + 1) * 2] = 0x60;
+        }
+        for col in 0..8 {
+            data[(4 * 8 + col) * 2] = 0x60;
+        }
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, 8, 8);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 128,
+            height_pixels: 128,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 32 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.x_velocity = 0x2000;
+        slice.player.y_velocity = 0x1000;
+        slice.step_with_order_and_maniaxe_axe(
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            true,
+            movement::KidFloorContactPath::OnFoot,
+            0,
+            false,
+            PhysicsOrder::AsmFaithful,
+            true,
+            false,
+            false,
+            &[],
+            true,
+        );
+        assert_eq!(slice.player.facing, Direction::Left);
+        assert_eq!(slice.player.x_velocity, 0);
+        assert_eq!(slice.player.y_velocity, 0);
+        assert_eq!(slice.player.x_pos, 32 << 16);
+        assert_eq!(slice.player.y_pos, 63 << 16);
+    }
+
     /// ASM loc_7464 -> loc_77E6 (kid.asm:7610, 7871): if Left+Right are held,
     /// loc_7464 clears only Right. The standing wall gate must therefore probe
     /// the left wall column, not treat the pair as neutral input.

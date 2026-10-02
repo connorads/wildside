@@ -743,7 +743,7 @@ pub fn select_player_frame<'a>(
     }
 
     if on_ground {
-        if trace.character_movement == Some(4)
+        if trace.character_movement == Some(1)
             && let Some(crawl) = &player_visuals.crawl
         {
             // ASM MoveID_Crawling loc_83BC/loc_83D8 -> sub_8446 indexes the
@@ -817,6 +817,7 @@ pub fn select_player_frame<'a>(
             let frame_index = usize::from(trace.walk_visual_accumulator >> 8) % slope_frames.len();
             &slope_frames[frame_index]
         } else if x_velocity != 0
+            && trace.character_movement != Some(0)
             && trace.current_helmet_id == PlayerForm::TheKid.helmet_id()
             && trace.kid_facing.is_some_and(|facing| {
                 matches!(
@@ -832,7 +833,9 @@ pub fn select_player_frame<'a>(
             // renderer supplies the previous trace's motion state because
             // Mode_Level transfers Sprite_Table before this mapping is built.
             skid
-        } else if x_velocity == 0 {
+        } else if x_velocity == 0 || trace.character_movement == Some(0) {
+            // ASM loc_82BA -> sub_78E8 installs standing art before
+            // loc_78C6 clears the retained stand-up velocity next wake.
             // ASM sub_78E8 loc_7962/loc_7974 (kid.asm:8019-8031): Micromax
             // advances `$FFFFF8F0` modulo eight and uses `unk_ABEA6` for
             // phases one through four. On the wrap field, `clr.w` stores zero
@@ -6627,7 +6630,7 @@ mod tests {
         assert_eq!(
             selected_tile_base(
                 &NativeTraceFrame {
-                    character_movement: Some(4),
+                    character_movement: Some(1),
                     kid_on_ground: Some(true),
                     walk_visual_accumulator: 0x0200,
                     ..NativeTraceFrame::default()
@@ -6986,6 +6989,30 @@ mod tests {
             ),
             0x0100
         );
+    }
+
+    #[test]
+    fn standup_selects_idle_with_preserved_velocity_loc_82ba_78e8() {
+        let visuals = labelled_player_visuals();
+        // ASM loc_82BA -> sub_78E8 -> loc_75D4 installs standing art
+        // before the next loc_78C6 wake clears either velocity sign.
+        for velocity in [-0x4000, 0x2000] {
+            for facing in [Direction::Left, Direction::Right] {
+                assert_eq!(
+                    selected_tile_base(
+                        &NativeTraceFrame {
+                            character_movement: Some(0),
+                            kid_on_ground: Some(true),
+                            kid_x_velocity: Some(velocity),
+                            kid_facing: Some(facing),
+                            ..NativeTraceFrame::default()
+                        },
+                        &visuals,
+                    ),
+                    0x0100,
+                );
+            }
+        }
     }
 
     #[test]

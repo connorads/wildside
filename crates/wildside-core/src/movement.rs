@@ -2882,6 +2882,7 @@ impl OpeningSliceState {
             false,
             false,
             deferred_prize_ceiling_cells,
+            false,
         );
         if outcome == KidPhysicsStepOutcome::FloorLanding {
             self.finish_airborne_floor_landing(
@@ -2910,6 +2911,7 @@ impl OpeningSliceState {
         suppress_post_horizontal_floor_release: bool,
         suppress_probe_slope_velocity: bool,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
+        standing_wake: bool,
     ) -> KidPhysicsStepOutcome {
         self.step_with_order_inner(
             input,
@@ -2926,6 +2928,7 @@ impl OpeningSliceState {
             suppress_post_horizontal_floor_release,
             suppress_probe_slope_velocity,
             deferred_prize_ceiling_cells,
+            standing_wake,
         )
     }
 
@@ -2946,6 +2949,7 @@ impl OpeningSliceState {
         suppress_post_horizontal_floor_release: bool,
         suppress_probe_slope_velocity: bool,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
+        standing_wake: bool,
     ) -> KidPhysicsStepOutcome {
         // ASM loc_1062 / Hibernate_UntilAnimFinished (kid.asm:1985) loops for
         // 21 frames after ledge snap, suppressing all physics.
@@ -3516,22 +3520,15 @@ impl OpeningSliceState {
                 let walk_visual_accumulator_before = self.walk_visual_accumulator;
                 let horizontal_step_applied = if self.player.wall_cling_direction.is_some() {
                     false
-                } else if suppress_probe_slope_velocity {
+                } else {
                     self.update_horizontal_velocity_only_with_probe_slope_suppression(
                         input,
                         jump_pressed,
                         form,
                         block_grid.as_deref(),
                         maniaxe_throwing_axe_active,
-                        true,
-                    )
-                } else {
-                    self.update_horizontal_velocity_only(
-                        input,
-                        jump_pressed,
-                        form,
-                        block_grid.as_deref(),
-                        maniaxe_throwing_axe_active,
+                        suppress_probe_slope_velocity,
+                        standing_wake,
                     )
                 };
 
@@ -4788,8 +4785,9 @@ impl OpeningSliceState {
         block_grid: Option<&terrain::BlockGrid>,
         form: PlayerForm,
         maniaxe_throwing_axe_active: bool,
+        standing_wake: bool,
     ) -> bool {
-        if !self.player.on_ground || self.player.x_velocity != 0 {
+        if !self.player.on_ground || (self.player.x_velocity != 0 && !standing_wake) {
             return false;
         }
         if form == PlayerForm::Maniaxe && maniaxe_throwing_axe_active {
@@ -5434,6 +5432,7 @@ impl OpeningSliceState {
     /// Horizontal velocity update only (sub_B084 equivalent).
     /// Updates x_vel and facing but does NOT apply x_pos += x_vel.
     /// Returns (horizontal_step_applied, jump_suppressed_by_buffer).
+    #[cfg(test)]
     pub(crate) fn update_horizontal_velocity_only(
         &mut self,
         input: FrameInput,
@@ -5449,9 +5448,11 @@ impl OpeningSliceState {
             block_grid,
             maniaxe_throwing_axe_active,
             false,
+            false,
         )
     }
 
+    #[expect(clippy::too_many_arguments)]
     fn update_horizontal_velocity_only_with_probe_slope_suppression(
         &mut self,
         input: FrameInput,
@@ -5460,6 +5461,7 @@ impl OpeningSliceState {
         block_grid: Option<&terrain::BlockGrid>,
         maniaxe_throwing_axe_active: bool,
         suppress_probe_slope_velocity: bool,
+        standing_wake: bool,
     ) -> bool {
         let input = input.with_left_right_conflict_resolved();
         if self.player.on_ground && !input.b {
@@ -5499,9 +5501,24 @@ impl OpeningSliceState {
             self.terrain.slope_sliding = false;
             return false;
         }
-        if self.should_hold_standing_still(input, block_grid, form, maniaxe_throwing_axe_active) {
-            // ASM loc_7828: held standing returns the Kid to MoveID 0; any
-            // active MoveID 6 slope-walk has ended.
+        // ASM loc_7772 -> loc_83BC skips sub_8506 on standing crawl entry;
+        // sub_8F26 still applies the retained velocity in the terrain pass.
+        if standing_wake && input.down && self.player.on_ground {
+            return true;
+        }
+        if self.should_hold_standing_still(
+            input,
+            block_grid,
+            form,
+            maniaxe_throwing_axe_active,
+            standing_wake,
+        ) {
+            // ASM loc_7828 -> loc_78C6: the platform-free standing wake
+            // clears both retained velocities before the terrain pass.
+            if standing_wake {
+                self.player.x_velocity = 0;
+                self.player.y_velocity = 0;
+            }
             self.terrain.slope_sliding = false;
             return false;
         }
@@ -5926,7 +5943,13 @@ impl OpeningSliceState {
             }
             return false;
         }
-        if self.should_hold_standing_still(input, block_grid, form, maniaxe_throwing_axe_active) {
+        if self.should_hold_standing_still(
+            input,
+            block_grid,
+            form,
+            maniaxe_throwing_axe_active,
+            false,
+        ) {
             return false;
         }
 

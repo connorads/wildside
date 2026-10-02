@@ -23577,3 +23577,139 @@ fn gameplay_regression_dragon_world_edge_turn_resumes_loc_3e392() {
         assert_eq!((dragon.x_velocity, dragon.y_velocity), (Some(0), Some(0)));
     }
 }
+
+#[test]
+fn gameplay_regression_crawl_transition_hibernation_loc_8218_75d4() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/fuzz-repros/9819d44c.json"
+    ))
+    .expect("checked-in crawl entry route");
+    for case in [
+        "release",
+        "release_b",
+        "held",
+        "left",
+        "jump",
+        "standing_down",
+        "standing_right",
+    ] {
+        let mut script = repro.script.clone();
+        script.resize(44, 0);
+        match case {
+            "release_b" => script[37] = 0x10,
+            "standing_down" => script[38] = 2,
+            "standing_right" => script[38] = 8,
+            "held" => script[37..].fill(2),
+            "left" => script[34..36].fill(4),
+            "jump" => script[36] = 2 | 0x10,
+            _ => {}
+        }
+        let trace = ScriptRunner::new(manifest.clone())
+            .warp_to_level(repro.warp_to_level)
+            .settle_recording_warp()
+            .run(&script, 44);
+        // ASM sub_7A10 -> loc_8218 holds entry; loc_82BA -> loc_75D4
+        // holds nonzero stand-up velocity until the loc_78C6 standing wake.
+        // Held Down resumes loc_83B4; loc_8C70 gives jump priority.
+        // loc_829C consumes B during successful stand-up.
+        let expected: &[(u32, i32, u16)] = match case {
+            "release" | "release_b" => &[
+                (0x0020_0000, 0x2000, 1),
+                (0x0020_0000, 0x2000, 0),
+                (0x0020_0000, 0, 0),
+            ],
+            "standing_down" => &[
+                (0x0020_0000, 0x2000, 1),
+                (0x0020_0000, 0x2000, 0),
+                (0x0020_2000, 0x2000, 1),
+                (0x0020_2000, 0x2000, 0),
+                (0x0020_2000, 0, 0),
+            ],
+            "standing_right" => &[
+                (0x0020_0000, 0x2000, 1),
+                (0x0020_0000, 0x2000, 0),
+                (0x0020_3000, 0x3000, 2),
+                (0x0020_3800, 0x800, 2),
+                (0x0020_3800, 0, 0),
+            ],
+            "held" => &[
+                (0x0020_0000, 0x2000, 1),
+                (0x0020_0800, 0x800, 1),
+                (0x0020_0800, 0, 1),
+                (0x0020_0800, 0, 1),
+                (0x0020_0800, 0, 1),
+            ],
+            "left" => &[
+                (0x001F_0000, -0x4000, 1),
+                (0x001F_0000, -0x4000, 0),
+                (0x001F_0000, 0, 0),
+                (0x001F_0000, 0, 0),
+                (0x001F_0000, 0, 0),
+            ],
+            "jump" => &[
+                (0x0020_4800, 0x1800, 3),
+                (0x0020_5C00, 0x1400, 3),
+                (0x0020_6C00, 0x1000, 3),
+                (0x0020_7800, 0xC00, 3),
+                (0x0020_8000, 0x800, 3),
+            ],
+            _ => unreachable!(),
+        };
+        if case == "release" {
+            // ASM sub_8446 adds four to phase6; sub_78E8 preserves phaseA.
+            for (offset, state) in trace[38..=40].iter().enumerate() {
+                let frame = 38 + offset;
+                assert_eq!(state.walk_visual_accumulator, 0x000A, "frame {frame}");
+            }
+        }
+        for (offset, &(x, x_velocity, movement)) in expected.iter().enumerate() {
+            let frame = 38 + offset;
+            let (y, y_velocity) = if case == "jump" {
+                [
+                    (0x010A_D7C0, -0x42840),
+                    (0x0106_EF80, -0x3E840),
+                    (0x0103_4740, -0x3A840),
+                    (0x00FF_DF00, -0x36840),
+                    (0x00FC_B6C0, -0x32840),
+                ][offset]
+            } else {
+                (0x010F_0000, 0)
+            };
+            if let Some(phases) = match case {
+                "standing_down" => Some([0xA, 0xA, 0xE, 0xE, 0xE]),
+                "standing_right" => Some([0xA, 0xA, 6, 7, 7]),
+                _ => None,
+            } {
+                assert_eq!(
+                    trace[frame].walk_visual_accumulator, phases[offset],
+                    "{case} frame {frame}"
+                );
+            }
+            assert_eq!(trace[frame].kid_x_pos, Some(x), "{case} frame {frame}");
+            assert_eq!(trace[frame].kid_y_pos, Some(y), "{case} frame {frame}");
+            assert_eq!(
+                trace[frame].kid_x_velocity,
+                Some(x_velocity),
+                "{case} frame {frame}"
+            );
+            assert_eq!(
+                trace[frame].kid_y_velocity,
+                Some(y_velocity),
+                "{case} frame {frame}"
+            );
+            assert_eq!(
+                trace[frame].character_movement,
+                Some(movement),
+                "{case} frame {frame}"
+            );
+        }
+    }
+}

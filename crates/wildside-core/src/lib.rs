@@ -331,6 +331,8 @@ pub struct NativeRuntime {
     trace_input: FrameInput,
     /// ASM loc_8218/loc_8C70 (kid.asm): crawl path retained across Kid hibernation.
     kid_crawling: bool,
+    /// ASM loc_82BA -> loc_75D4: stand-up resumes the standing loop next wake.
+    kid_crawl_standing_wake: bool,
     /// ASM loc_A99E -> loc_8BF0 (kid.asm): landing yields before slope scans.
     kid_floor_landing_hibernated: bool,
     prior_input: FrameInput,
@@ -1631,6 +1633,7 @@ impl NativeRuntime {
             boot_state: BootState::SegaScreen { elapsed: 0 },
             trace_input: FrameInput::default(),
             kid_crawling: false,
+            kid_crawl_standing_wake: false,
             kid_floor_landing_hibernated: false,
             prior_input: FrameInput::default(),
             previous_input: FrameInput::default(),
@@ -2020,6 +2023,7 @@ impl NativeRuntime {
 
     pub(crate) fn reset_and_preload_mode_level_tail_loc_720_2ffe8(&mut self) {
         self.kid_crawling = false;
+        self.kid_crawl_standing_wake = false;
         self.kid_floor_landing_hibernated = false;
         self.mode_level_tail_state_loc_892.clear_loc_720();
         self.rebase_mode_level_tail_after_external_override_loc_2ffe8();
@@ -6353,12 +6357,19 @@ impl NativeRuntime {
                 );
             }
 
-            // ASM loc_8C70 (kid.asm:10079): walking-state crawl transition —
-            // Micromax/Juggernaut and sub_7A10-blocked frames branch to
-            // loc_8CB6 instead of entering MoveID_Crawling. Native has no
-            // explicit crawl movement ID, so suppress Down only for gameplay
-            // movement while keeping the original input for look offset.
-            if input.down && slice.player.on_ground {
+            // ASM loc_8C70/loc_7772 call sub_7A10 only on crawl entry.
+            // Jump and Hand bypass alignment; excluded forms and blocked
+            // clearance retain walking input while look offset consumes Down.
+            let standing_wake = std::mem::take(&mut self.kid_crawl_standing_wake);
+            let walking_crawl_entry =
+                !standing_wake && self.current_character_movement(slice.player) == 2;
+            let mut crawl_entry_hold = false;
+            if input.down
+                && !self.kid_crawling
+                && !jump_pressed
+                && !slice.kid_grabbed_by_hand
+                && slice.player.on_ground
+            {
                 if matches!(
                     self.progression.current_form,
                     PlayerForm::Micromax | PlayerForm::Juggernaut
@@ -6374,6 +6385,10 @@ impl NativeRuntime {
                     slice.player.x_pos = down_hold_alignment.x_pos;
                     if down_hold_alignment.blocked {
                         movement_input.down = false;
+                    } else {
+                        // ASM loc_8C70 -> sub_8446 -> loc_8218 hibernates
+                        // walking entry before crawling friction or movement.
+                        crawl_entry_hold = walking_crawl_entry;
                     }
                 }
             }
@@ -6410,6 +6425,27 @@ impl NativeRuntime {
                     })
             });
 
+            // ASM loc_829C clears B before loc_82BA hibernates nonzero
+            // stand-up velocity at loc_75D4, including negative velocity.
+            let crawl_release_hold = self.kid_crawling
+                && !movement_input.down
+                && slice.player.on_ground
+                && slice.player.x_velocity != 0
+                && self.progression.current_form != PlayerForm::Skycutter;
+            // ASM loc_7828 -> loc_78C6: the standing wake with no direction,
+            // jump or platform clears stale stand-up velocity before hibernating.
+            if standing_wake
+                && slice.player.on_ground
+                && !movement_input.down
+                && !movement_input.left
+                && !movement_input.right
+                && !movement_input.c
+                && !jump_pressed
+                && self.active_platform_standing_on.is_none()
+            {
+                slice.player.x_velocity = 0;
+                slice.player.y_velocity = 0;
+            }
             let mut physics_outcome = movement::KidPhysicsStepOutcome::Complete;
             if iron_knight_climb_step == IronKnightClimbStep::AttachHibernate {
                 // ORIGINAL_QUIRK: `loc_A276` seeds wall-climb state, then
@@ -6444,6 +6480,39 @@ impl NativeRuntime {
                 // follow advances once on the hibernated release frame.
                 self.last_kid_frame_motion_branch =
                     KidFrameMotionBranch::IronKnightClimbExitHibernate;
+                if self.trace_physics {
+                    slice.physics_trace = Some(PhysicsTrace {
+                        pre_horizontal: (slice.player.x_pos, slice.player.x_velocity),
+                        post_horizontal: (slice.player.x_pos, slice.player.x_velocity),
+                        horizontal_step_applied: false,
+                        pre_vertical: (slice.player.y_pos, slice.player.y_velocity),
+                        post_vertical: (slice.player.y_pos, slice.player.y_velocity),
+                        pre_gravity_y_vel: slice.player.y_velocity,
+                        post_gravity_y_vel: slice.player.y_velocity,
+                        gravity_applied: false,
+                        on_ground_before: slice.player.on_ground,
+                        on_ground_after: slice.player.on_ground,
+                        final_pos: (slice.player.x_pos, slice.player.y_pos),
+                        final_vel: (slice.player.x_velocity, slice.player.y_velocity),
+                        ..PhysicsTrace::default()
+                    });
+                }
+                slice.update_camera_follow(self.y_look_offset);
+            } else if crawl_entry_hold || crawl_release_hold {
+                self.last_kid_frame_motion_branch = if crawl_entry_hold {
+                    if self.progression.current_form != PlayerForm::Skycutter {
+                        // ASM loc_8C70 calls sub_8446 with preserved x_vel
+                        // before loc_8218 installs the crawling mapping.
+                        slice.walk_visual_accumulator = movement::crawl_visual_accumulator_sub_8446(
+                            slice.walk_visual_accumulator,
+                            slice.player.x_velocity,
+                        );
+                    }
+                    KidFrameMotionBranch::CrawlEntryHibernate
+                } else {
+                    self.kid_crawl_standing_wake = true;
+                    KidFrameMotionBranch::CrawlStandupHibernate
+                };
                 if self.trace_physics {
                     slice.physics_trace = Some(PhysicsTrace {
                         pre_horizontal: (slice.player.x_pos, slice.player.x_velocity),
@@ -6575,6 +6644,7 @@ impl NativeRuntime {
                     self.demo_post_transform_trace_velocity_hold_frames > 0,
                     suppress_probe_slope_velocity,
                     &deferred_prize_ceiling_cells,
+                    standing_wake && self.active_platform_standing_on.is_none(),
                 );
                 if ledge_snap_cooldown_before == 1 && slice.player.ledge_snap_cooldown == 0 {
                     // ASM loc_1062 -> sub_78E8 -> loc_75D4: the final pull-up

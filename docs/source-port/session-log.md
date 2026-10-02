@@ -7,10 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-10-02 - #522 crawl transition continuation
+
+Walking crawl entry aligns once and yields before friction or displacement. Retained-velocity stand-up selects standing art and resumes the standing loop on the next wake. The saved-route regression passes31 ROM checkpoints across seven variants; three captured Kid rectangles match exactly. Final fast passes7478 core tests with286 reviewed exclusions; targeted cache-backed projectile and crawl routes pass. The broad cache-backed crawl filter retains one parent-reproduced Drips failure. Fuzz remains26 clusters and sweep retains102/105 passes with the same three failures. Eight reduced intake fixtures survive generated-fixture cleanup. The #523 prerequisite is30a1d3740. Zero-velocity stand-up stays open; next select #520 grounded floor-scan classification.
+
 ## 2026-10-02 - #523 friendly-projectile removal prerequisite
 
 Sort and deduplicate killed enemy indices before descending removal. Three synthetic regressions discriminate duplicate and reversed targets; the 3270-frame saved route completes. The final fuzz report is identical across summary, idle results and routes (26 clusters). Two-seed level09 ledger no longer panics and retains the damage/transform frontier5aef09ec. Restore 22 generated fixture overwrites and eight original reduced fixtures. Crawl transition work remains a separate pending commit; zero-velocity stand-up remains open.
-
 
 ## 2026-10-02 - #520 supported Dragon world-edge turn
 

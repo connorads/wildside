@@ -10005,6 +10005,10 @@ impl NativeRuntime {
                 MOVE_STANDINGSTILL
             };
         }
+        // ASM loc_82BA -> loc_75D4 selects standing with preserved velocity.
+        if self.last_kid_frame_motion_branch == KidFrameMotionBranch::CrawlStandupHibernate {
+            return MOVE_STANDINGSTILL;
+        }
         if self.kid_crawling {
             return MOVE_CRAWLING;
         }

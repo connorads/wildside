@@ -343,6 +343,10 @@ pub(crate) enum KidFrameMotionBranch {
     PrizeHelmetCollisionHibernate,
     TransformHibernating,
     PullUpAnimationFinished,
+    /// ASM loc_8C70 -> loc_8218 (kid.asm): walking entry yields before physics.
+    CrawlEntryHibernate,
+    /// ASM loc_82BA -> loc_75D4 (kid.asm): stand-up preserves nonzero velocity.
+    CrawlStandupHibernate,
     NormalPhysics,
 }
 
@@ -363,6 +367,8 @@ impl KidFrameMotionBranch {
             Self::PrizeHelmetCollisionHibernate => "prize_helmet_collision_hibernate",
             Self::TransformHibernating => "transform_hibernating",
             Self::PullUpAnimationFinished => "pull_up_animation_finished",
+            Self::CrawlEntryHibernate => "crawl_entry_hibernate",
+            Self::CrawlStandupHibernate => "crawl_standup_hibernate",
             Self::NormalPhysics => "normal_physics",
         }
     }
