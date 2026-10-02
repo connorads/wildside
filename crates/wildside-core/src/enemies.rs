@@ -1328,6 +1328,8 @@ pub(crate) struct ActiveEnemy {
     pub(crate) layout_index: usize,
     /// Raw layout `enemy_level(a3)` copied from `hit_points_plus_one`.
     pub(crate) enemy_level: u8,
+    /// ASM loc_32C60 (Fireball.asm): collision word from the preceding Gfx pass.
+    pub(crate) fireball_pending_collision: u16,
     pub(crate) family: EnemyFamily,
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
@@ -2782,6 +2784,11 @@ impl ActiveEnemy {
 
     /// Whether this enemy can be damaged (stomped, hit by projectile, etc.)
     pub(crate) fn is_vulnerable(&self) -> bool {
+        if self.family == EnemyFamily::Fireball {
+            // ASM Enemy19_Fireball_Init leaves current_hp at zero;
+            // Enemy19_Fireball_Kill sets $3D to disable Kid collision.
+            return !self.death_animation_active;
+        }
         if self.hit_points == 0 {
             return false;
         }
@@ -4755,6 +4762,7 @@ fn activate_enemies_with_rng_inner(
                 ));
             }
             let mut enemy = ActiveEnemy {
+                fireball_pending_collision: 0,
                 segment_index: view.segment_index,
                 layout_index: index,
                 enemy_level,
@@ -5436,6 +5444,12 @@ fn step_active_enemies_with_rng_context(
             *remaining -= 1;
             if *remaining == 0 {
                 freshly_loaded_enemies.remove(&ActiveEnemyKey::from_enemy(enemy));
+            }
+            if matches!(enemy.family, EnemyFamily::Fireball) {
+                // ASM Enemy19_Fireball_Init yields at loc_32C1A before
+                // gravity. Mode_Level loc_80C still executes Gfx motion.
+                enemy.x_pos = enemy.x_pos.wrapping_add_signed(enemy.x_velocity);
+                enemy.y_pos = enemy.y_pos.wrapping_add_signed(enemy.y_velocity);
             }
             if matches!(enemy.family, EnemyFamily::Tank) {
                 // ASM loc_3B372/stru_3B27E: the linked mouth's GfxObject
@@ -6582,17 +6596,13 @@ pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
 /// ceiling→negate y_vel and halve.
 pub(crate) const SPHERE_GRAVITY: i32 = 0x800;
 const SPHERE_ACTIVE_COLLISION_HALF_WIDTH: i32 = 7;
-const SPHERE_ACTIVE_COLLISION_FLOOR_Y_OFFSET: i32 = 7;
-const SPHERE_ACTIVE_COLLISION_FLOOR_SNAP_OFFSET: i32 = 8;
 
 fn sphere_collision_center_px(pos: u32) -> i32 {
     i32::from((pos >> 16) as u16 as i16)
 }
 
-/// Fireball max upward velocity indexed by live HP
-/// (Fireball.asm `Enemy19_Fireball_Init`: `move.w 2(a0),d7; asl.w #3,d7` into `unk_32BA6`).
-/// HP 1/2/3 use the second/third/final table entries because spawn HP already includes the +1 base.
-pub(crate) const FIREBALL_UPWARD_CAP_BY_HP: [i32; 3] = [-0x4_0000, -0x5_0000, -0x5_0000];
+/// ASM Enemy19_Fireball_Init (Fireball.asm): unk_32BA6 upward caps by raw layout level.
+pub(crate) const FIREBALL_UPWARD_CAP_BY_LEVEL: [i32; 3] = [-0x3_0000, -0x4_0000, -0x5_0000];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct FireballTrailInitLoc330D0 {
@@ -6655,8 +6665,8 @@ pub(crate) fn fireball_bounce_y_velocity_with_rng(
         .wrapping_add(fireball_bounce_perturbation_with_rng(rng, camera_x_px));
     let mut rebound = perturbed.wrapping_neg();
     if rebound < 0 {
-        let hp_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
-        let cap = FIREBALL_UPWARD_CAP_BY_HP[hp_index];
+        let profile_index = usize::from(enemy.enemy_level.min(2));
+        let cap = FIREBALL_UPWARD_CAP_BY_LEVEL[profile_index];
         if rebound < cap {
             rebound = cap;
         }
@@ -6830,223 +6840,14 @@ fn terrain_collision_tile_word(cell: terrain::Cell) -> u16 {
 
 pub(crate) fn bouncer_gravity(enemy: &ActiveEnemy) -> i32 {
     match enemy.family {
-        // Fireball.asm `Enemy19_Fireball_Init` indexes `unk_32BA6` with the raw
-        // layout `hit_points_plus_one`, so live HP 1/2/3 maps to $2000/$3000/$3000.
+        // ASM Enemy19_Fireball_Init retains d0 from unk_32BA6, indexed
+        // by the raw layout level. Damage does not reselect the profile.
         EnemyFamily::Fireball => {
-            const FIREBALL_GRAVITY_BY_HP: [i32; 3] = [0x2000, 0x3000, 0x3000];
-            let hp_index = enemy.hit_points.saturating_sub(1) as usize;
-            FIREBALL_GRAVITY_BY_HP[hp_index.min(2)]
+            const GRAVITY_BY_LEVEL: [i32; 3] = [0x1000, 0x2000, 0x3000];
+            GRAVITY_BY_LEVEL[usize::from(enemy.enemy_level.min(2))]
         }
         _ => SPHERE_GRAVITY,
     }
-}
-
-fn bouncer_floor_probe_loc_1a44(
-    enemy: &ActiveEnemy,
-    grid: &terrain::BlockGrid,
-    center_x_px: i32,
-    center_y_px: i32,
-) -> terrain::FloorProbe {
-    if matches!(enemy.family, EnemyFamily::Sphere) {
-        // ASM GfxObjects_Collision loc_1A44 with Sphere.asm `stru_36174`
-        // active rows (`unk_31AB0`/`unk_31ABA`/`unk_31AC4`): the floor scan
-        // uses collision row x=-7,w=14,y=-7,h=14, so its foot is y+7 and
-        // every overlapped column is eligible for solid/slope contact.
-        return sphere_floor_probe_loc_1a44(grid, center_x_px, center_y_px);
-    }
-
-    terrain::probe_floor(grid, center_x_px, center_y_px)
-}
-
-fn sphere_floor_probe_loc_1a44(
-    grid: &terrain::BlockGrid,
-    center_x_px: i32,
-    center_y_px: i32,
-) -> terrain::FloorProbe {
-    let left_x_px = center_x_px - SPHERE_ACTIVE_COLLISION_HALF_WIDTH;
-    let right_x_px = center_x_px + SPHERE_ACTIVE_COLLISION_HALF_WIDTH;
-    let top_y_px = center_y_px - SPHERE_ACTIVE_COLLISION_FLOOR_Y_OFFSET;
-    let bottom_y_px = center_y_px + SPHERE_ACTIVE_COLLISION_FLOOR_Y_OFFSET;
-
-    let left_col = (left_x_px.div_euclid(16)).max(0) as u16;
-    let right_col = (right_x_px.div_euclid(16)).max(0) as u16;
-    let top_row = (top_y_px.div_euclid(16)).max(0) as u16;
-    let bottom_row = (bottom_y_px.div_euclid(16)).max(0) as u16;
-    let max_col = grid.width_cells.saturating_sub(1);
-    let max_row = grid.height_cells.saturating_sub(1);
-    let mut best: Option<terrain::FloorProbe> = None;
-
-    for row in top_row.min(max_row)..=bottom_row.min(max_row) {
-        let cell_top = i32::from(row) * 16;
-        for col in left_col.min(max_col)..=right_col.min(max_col) {
-            let cell = grid.cell_at(col, row);
-            if !cell.is_solid_floor() {
-                continue;
-            }
-            let probe_x = center_x_px.clamp(i32::from(col) * 16, i32::from(col) * 16 + 15);
-            let floor_y_px = terrain::slope_floor_y_pub(cell.collision, cell_top, probe_x);
-            if bottom_y_px < floor_y_px {
-                continue;
-            }
-            let probe = terrain::FloorProbe {
-                on_ground: true,
-                floor_y_px,
-                cell,
-                cell_x: col,
-                cell_y: row,
-            };
-            best = Some(match best {
-                Some(current) if current.floor_y_px <= probe.floor_y_px => current,
-                _ => probe,
-            });
-        }
-    }
-
-    best.unwrap_or_else(|| {
-        terrain::probe_floor_hitbox(
-            grid,
-            center_x_px,
-            bottom_y_px,
-            SPHERE_ACTIVE_COLLISION_HALF_WIDTH,
-        )
-    })
-}
-
-fn bouncer_floor_snap_y_pos_loc_1a44(enemy: &ActiveEnemy, floor_y_px: i32) -> u32 {
-    if matches!(enemy.family, EnemyFamily::Sphere) {
-        // ASM GfxObjects_Collision loc_1A44: y = tile_top - y_off - height - 1.
-        // For Sphere's active row this is `tile_top - (-7) - 14 - 1`.
-        (floor_y_px - SPHERE_ACTIVE_COLLISION_FLOOR_SNAP_OFFSET).max(0) as u32
-    } else {
-        floor_y_px.max(0) as u32
-    }
-}
-
-fn bouncer_wall_probe_loc_19a8(
-    enemy: &ActiveEnemy,
-    grid: &terrain::BlockGrid,
-    center_x_px: i32,
-    center_y_px: i32,
-    moving_right: bool,
-) -> terrain::WallProbe {
-    if !matches!(enemy.family, EnemyFamily::Sphere) {
-        return terrain::probe_wall(
-            grid,
-            center_x_px,
-            center_y_px,
-            ENEMY_PROBE_HALF_WIDTH,
-            ENEMY_PROBE_HEIGHT,
-            moving_right,
-        );
-    }
-
-    // ASM GfxObjects_Collision loc_173E/1796 scans the active hitbox
-    // rectangle. For Sphere's active row, the horizontal edges are x-7..x+7.
-    let edge_x_px = if moving_right {
-        center_x_px + SPHERE_ACTIVE_COLLISION_HALF_WIDTH
-    } else {
-        center_x_px - SPHERE_ACTIVE_COLLISION_HALF_WIDTH
-    };
-    if !moving_right && edge_x_px < 0 {
-        // ASM GfxObjects_Collision_LeftBoundary loc_1AEA runs before tile
-        // scans and reports the same left-wall collision event.
-        return terrain::WallProbe {
-            hit: true,
-            wall_x_px: 0,
-            cell: terrain::Cell::from_be_bytes(0, 0),
-            cell_x: 0,
-            cell_y: 0,
-        };
-    }
-    if moving_right && edge_x_px >= grid.width_pixels() {
-        // ASM GfxObjects_Collision_RightBoundary loc_1B0A mirrors the normal
-        // right-wall snap against the level width.
-        return terrain::WallProbe {
-            hit: true,
-            wall_x_px: grid.width_pixels(),
-            cell: terrain::Cell::from_be_bytes(0, 0),
-            cell_x: grid.width_cells.saturating_sub(1),
-            cell_y: 0,
-        };
-    }
-    if edge_x_px < 0 || edge_x_px >= grid.width_pixels() {
-        return terrain::WallProbe {
-            hit: false,
-            wall_x_px: 0,
-            cell: terrain::Cell::from_be_bytes(0, 0),
-            cell_x: 0,
-            cell_y: 0,
-        };
-    }
-
-    let col = edge_x_px.div_euclid(16).max(0) as u16;
-    let top_row = (center_y_px - SPHERE_ACTIVE_COLLISION_FLOOR_Y_OFFSET)
-        .div_euclid(16)
-        .max(0) as u16;
-    let bottom_row = (center_y_px + SPHERE_ACTIVE_COLLISION_FLOOR_Y_OFFSET)
-        .div_euclid(16)
-        .max(0) as u16;
-    let max_row = grid.height_cells.saturating_sub(1);
-    for row in top_row.min(max_row)..=bottom_row.min(max_row) {
-        let cell = grid.cell_at(col, row);
-        if cell.collision == terrain::CollisionKind::Solid {
-            let behind_col = if moving_right {
-                col.saturating_sub(1)
-            } else {
-                col.saturating_add(1)
-                    .min(grid.width_cells.saturating_sub(1))
-            };
-            if behind_col != col
-                && grid.cell_at(behind_col, row).collision == terrain::CollisionKind::Solid
-            {
-                // ASM GfxObjects_Collision_Solid routes a solid neighbour
-                // behind the lead edge to loc_1A12/1A6C (floor/ceiling), not
-                // loc_197E/19D2 wall handling.
-                continue;
-            }
-            let wall_x_px = if moving_right {
-                i32::from(col) * 16
-            } else {
-                (i32::from(col) + 1) * 16
-            };
-            return terrain::WallProbe {
-                hit: true,
-                wall_x_px,
-                cell,
-                cell_x: col,
-                cell_y: row,
-            };
-        }
-    }
-
-    terrain::WallProbe {
-        hit: false,
-        wall_x_px: 0,
-        cell: terrain::Cell::from_be_bytes(0, 0),
-        cell_x: 0,
-        cell_y: 0,
-    }
-}
-
-fn bouncer_wall_snap_x_pos_loc_19a8(
-    enemy: &ActiveEnemy,
-    wall: terrain::WallProbe,
-    moving_right: bool,
-) -> Option<u32> {
-    if !matches!(enemy.family, EnemyFamily::Sphere) {
-        return None;
-    }
-
-    let snapped_x_px = if moving_right {
-        // ASM GfxObjects_Collision loc_19A8: x = wall_left - x_off - width - 1.
-        // For Sphere's active row this is `wall_left - (-7) - 14 - 1`.
-        wall.wall_x_px - SPHERE_ACTIVE_COLLISION_FLOOR_SNAP_OFFSET
-    } else {
-        // ASM GfxObjects_Collision loc_1A00: x = wall_left - x_off + $10,
-        // i.e. one tile to the right plus the 7 px left-edge offset.
-        wall.wall_x_px + SPHERE_ACTIVE_COLLISION_HALF_WIDTH
-    };
-    Some(snapped_x_px.max(0) as u32)
 }
 
 pub(crate) fn fireball_main_loop_y_velocity_loc_32c1a(enemy: &ActiveEnemy) -> i32 {
@@ -7189,14 +6990,23 @@ fn sphere_solid_neighbor_loc_17c6(grid: &terrain::BlockGrid, col: u16, row: u16)
     grid.cell_at(col, row).collision == terrain::CollisionKind::Solid
 }
 
+/// ASM unk_31AB0 (Sphere) and unk_3176A (Fireball): active square half-size.
+fn bouncer_collision_half_size(enemy: &ActiveEnemy) -> i32 {
+    if matches!(enemy.family, EnemyFamily::Fireball) {
+        4
+    } else {
+        SPHERE_ACTIVE_COLLISION_HALF_WIDTH
+    }
+}
+
 fn sphere_snap_wall_loc_19a8(enemy: &mut ActiveEnemy, tile_col: u16, moving_right: bool) {
     let snapped_x_px = if moving_right {
         // ASM GfxObjects_Collision loc_19A8:
         // x = tile_left - x_off - width - 1 for row (-7,14,-7,14).
-        i32::from(tile_col) * 16 - SPHERE_ACTIVE_COLLISION_FLOOR_SNAP_OFFSET
+        i32::from(tile_col) * 16 - (bouncer_collision_half_size(enemy) + 1)
     } else {
         // ASM GfxObjects_Collision loc_1A00: x = tile_right - x_off.
-        (i32::from(tile_col) + 1) * 16 + SPHERE_ACTIVE_COLLISION_HALF_WIDTH
+        (i32::from(tile_col) + 1) * 16 + bouncer_collision_half_size(enemy)
     };
     enemy.x_pos = (snapped_x_px.max(0) as u32) << 16;
 }
@@ -7204,14 +7014,14 @@ fn sphere_snap_wall_loc_19a8(enemy: &mut ActiveEnemy, tile_col: u16, moving_righ
 fn sphere_snap_floor_loc_1a44(enemy: &mut ActiveEnemy, tile_row: u16) {
     // ASM GfxObjects_Collision loc_1A44:
     // y = tile_top - y_off - height - 1 for row (-7,14,-7,14).
-    let snapped_y_px = i32::from(tile_row) * 16 - SPHERE_ACTIVE_COLLISION_FLOOR_SNAP_OFFSET;
+    let snapped_y_px = i32::from(tile_row) * 16 - (bouncer_collision_half_size(enemy) + 1);
     enemy.y_pos = (snapped_y_px.max(0) as u32) << 16;
 }
 
 fn sphere_snap_ceiling_loc_1a6c(enemy: &mut ActiveEnemy, tile_row: u16) {
     // ASM GfxObjects_Collision loc_1A6C:
     // y = tile_top - y_off + 16 for row (-7,14,-7,14).
-    let snapped_y_px = (i32::from(tile_row) + 1) * 16 + SPHERE_ACTIVE_COLLISION_HALF_WIDTH;
+    let snapped_y_px = (i32::from(tile_row) + 1) * 16 + bouncer_collision_half_size(enemy);
     enemy.y_pos = (snapped_y_px.max(0) as u32) << 16;
 }
 
@@ -7364,8 +7174,8 @@ fn sphere_scan_active_collision_row_loc_171c(
 ) -> SphereGfxCollisionLoc171c {
     let cx = sphere_collision_center_px(enemy.x_pos);
     let cy = sphere_collision_center_px(enemy.y_pos);
-    let left_edge_px = cx - SPHERE_ACTIVE_COLLISION_HALF_WIDTH;
-    let right_edge_px = cx + SPHERE_ACTIVE_COLLISION_HALF_WIDTH;
+    let left_edge_px = cx - bouncer_collision_half_size(enemy);
+    let right_edge_px = cx + bouncer_collision_half_size(enemy);
     let scan_right_edge_px = if enemy.x_velocity >= 0 {
         // ASM GfxObjects_Collision loc_173E uses the row's computed right edge
         // for both tile selection and loc_19A8's snap. For Sphere's
@@ -7376,8 +7186,8 @@ fn sphere_scan_active_collision_row_loc_171c(
     } else {
         right_edge_px
     };
-    let top_edge_px = cy - SPHERE_ACTIVE_COLLISION_FLOOR_Y_OFFSET;
-    let bottom_edge_px = cy + SPHERE_ACTIVE_COLLISION_FLOOR_Y_OFFSET;
+    let top_edge_px = cy - bouncer_collision_half_size(enemy);
+    let bottom_edge_px = cy + bouncer_collision_half_size(enemy);
 
     if left_edge_px < 0 {
         // ASM GfxObjects_Collision_LeftBoundary loc_1AEA snaps by subtracting
@@ -7516,13 +7326,96 @@ fn update_fireball_sprite_state_loc_32f3e_3304a(enemy: &mut ActiveEnemy) {
         animation_countdown,
     ) {
         enemy.facing = if commit.x_direction == 0 {
-            Direction::Right
-        } else {
             Direction::Left
+        } else {
+            Direction::Right
         };
         enemy.dragon_script_cmd = commit.next_animation_phase as u8;
         enemy.dragon_phase_frames = commit.next_animation_countdown;
         enemy.dragon_descent_index = commit.sprite_table_index;
+    }
+}
+
+/// ASM loc_32C1A/loc_32C60 (Fireball.asm): consume yesterday's Gfx collision.
+fn step_fireball_callback(
+    enemy: &mut ActiveEnemy,
+    grid: Option<&terrain::BlockGrid>,
+    camera_x: u32,
+    rng: &mut RomRandomState,
+    mut projectiles: Option<&mut Vec<EnemyProjectile>>,
+    mut sounds: Option<&mut Vec<QueuedSoundEffect>>,
+) {
+    enemy.y_velocity = fireball_main_loop_y_velocity_loc_32c1a(enemy);
+    let collision = std::mem::replace(&mut enemy.fireball_pending_collision, colid::EMPTY);
+    if collision != colid::EMPTY && collision & 0x8000 == 0 {
+        queue_fireball_bounce_sound_loc_32c60(enemy.family, &mut sounds, &mut false);
+    }
+    if collision & 0x8000 != 0 || matches!(collision, colid::HURT | colid::KIDABOVE) {
+        // ASM Enemy19_Fireball_Kill disables motion while stru_345E4 plays.
+        enemy.death_animation_active = true;
+        enemy.wait_timer = FIREBALL_DEATH_ANIMATION_FRAMES;
+        return;
+    }
+    match collision {
+        colid::LEFTWALL | colid::RIGHTWALL => {
+            enemy.x_velocity = enemy.x_velocity.wrapping_neg();
+        }
+        colid::FLOOR | colid::CEILING => {
+            let count = projectiles
+                .as_ref()
+                .map_or(0, |items| count_live_fireball_trails(items));
+            let bounce = fireball_floor_ceiling_bounce_loc_32ce4(enemy, rng, camera_x, count);
+            enemy.y_velocity = bounce.y_velocity;
+            if bounce.spawns_fire_trail {
+                spawn_fireball_obstacle_trail_projectile_loc_33128(
+                    projectiles.as_deref_mut(),
+                    enemy,
+                );
+            }
+        }
+        colid::SLOPEUP | colid::SLOPEDOWN => {
+            // ASM Enemy19_Fireball_SlopeUp/Down roll back with post-gravity velocities.
+            let old_x = enemy.x_velocity;
+            let old_y = enemy.y_velocity;
+            enemy.x_pos = enemy.x_pos.wrapping_sub(old_x as u32);
+            enemy.y_pos = enemy.y_pos.wrapping_sub(old_y as u32);
+            let up = collision == colid::SLOPEUP;
+            enemy.x_velocity = if up { old_y.wrapping_neg() } else { old_y };
+            enemy.y_velocity = if up { old_x.wrapping_neg() } else { old_x };
+            if let Some(grid) = grid {
+                // ASM loc_32D7E/loc_32E3C reread the grid at the marker point.
+                let flipped = enemy.facing == Direction::Right;
+                let edge = if flipped { if up { 4 } else { -4 } } else { 0 };
+                let x = ((enemy.x_pos >> 16) as u16)
+                    .wrapping_sub((enemy.x_velocity >> 16) as u16)
+                    .wrapping_add(edge as u16) as i16;
+                let y = ((enemy.y_pos >> 16) as u16)
+                    .wrapping_sub((enemy.y_velocity >> 16) as u16)
+                    .wrapping_add(4) as i16;
+                let cell = grid.cell_at((i32::from(x) >> 4) as u16, (i32::from(y) >> 4) as u16);
+                let tile = terrain_collision_tile_word(cell);
+                let marker = if up {
+                    fireball_slope_up_trail_marker_loc_32d7e(x, y, tile).map(|m| (m.x_px, m.y_px))
+                } else {
+                    fireball_slope_down_trail_marker_loc_32e3c(x, y, tile).map(|m| (m.x_px, m.y_px))
+                };
+                if let Some((x, y)) = marker {
+                    spawn_fireball_trail_projectile_loc_330d0(
+                        projectiles,
+                        if flipped { 0xFF } else { 0 },
+                        x,
+                        y,
+                    );
+                }
+            }
+        }
+        _ => {}
+    }
+    update_fireball_sprite_state_loc_32f3e_3304a(enemy);
+    enemy.x_pos = enemy.x_pos.wrapping_add_signed(enemy.x_velocity);
+    enemy.y_pos = enemy.y_pos.wrapping_add_signed(enemy.y_velocity);
+    if let Some(grid) = grid {
+        enemy.fireball_pending_collision = sphere_gfx_collision_probe_loc_171c(enemy, grid);
     }
 }
 
@@ -7531,233 +7424,24 @@ pub(crate) fn step_bouncer_with_rng(
     block_grid: Option<&terrain::BlockGrid>,
     camera_x_px: Option<u32>,
     rng: &mut RomRandomState,
-    mut projectiles: Option<&mut Vec<EnemyProjectile>>,
-    mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
+    projectiles: Option<&mut Vec<EnemyProjectile>>,
+    played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
-    if matches!(enemy.family, EnemyFamily::Sphere) && !enemy.death_animation_active {
-        step_sphere_bouncer_loc_35f70(enemy, block_grid, played_sound_effects);
+    if enemy.death_animation_active {
         return;
     }
-
-    // Apply gravity
-    enemy.y_velocity = if matches!(enemy.family, EnemyFamily::Fireball) {
-        fireball_main_loop_y_velocity_loc_32c1a(enemy)
+    if matches!(enemy.family, EnemyFamily::Sphere) {
+        step_sphere_bouncer_loc_35f70(enemy, block_grid, played_sound_effects);
     } else {
-        enemy.y_velocity.saturating_add(bouncer_gravity(enemy))
-    };
-
-    // Advance position
-    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
-    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
-
-    if let Some(grid) = block_grid {
-        let (cx, cy) = if matches!(enemy.family, EnemyFamily::Sphere) {
-            (
-                sphere_collision_center_px(enemy.x_pos),
-                sphere_collision_center_px(enemy.y_pos),
-            )
-        } else {
-            ((enemy.x_pos >> 16) as i32, (enemy.y_pos >> 16) as i32)
-        };
-        let mut fireball_bounce_sound_queued = false;
-
-        // Wall bounce
-        let moving_right = enemy.x_velocity >= 0;
-        let wall = bouncer_wall_probe_loc_19a8(enemy, grid, cx, cy, moving_right);
-        if wall.hit {
-            if let Some(snapped_x_px) = bouncer_wall_snap_x_pos_loc_19a8(enemy, wall, moving_right)
-            {
-                enemy.x_pos = snapped_x_px << 16;
-            }
-            queue_fireball_bounce_sound_loc_32c60(
-                enemy.family,
-                &mut played_sound_effects,
-                &mut fireball_bounce_sound_queued,
-            );
-            // ASM Fireball.asm Enemy19_Fireball_BounceWall and Sphere.asm
-            // loc_35FB8 use `neg.l`, retaining the low 32 bits on overflow.
-            enemy.x_velocity = enemy.x_velocity.wrapping_neg();
-            if !matches!(enemy.family, EnemyFamily::Fireball | EnemyFamily::Sphere) {
-                // ASM Sphere.asm loc_36148 negates `x_vel(a3)` and immediately
-                // resumes the loop. The sphere family never flips x_direction on
-                // wall contact, so keep facing unchanged here.
-                enemy.facing = opposite_direction(enemy.facing);
-            }
-        }
-        let sphere_wall_consumed_collision =
-            matches!(enemy.family, EnemyFamily::Sphere) && wall.hit;
-
-        // Floor bounce
-        let floor = if sphere_wall_consumed_collision {
-            terrain::FloorProbe {
-                on_ground: false,
-                floor_y_px: grid.height_pixels(),
-                cell: terrain::Cell::from_be_bytes(0, 0),
-                cell_x: 0,
-                cell_y: 0,
-            }
-        } else {
-            bouncer_floor_probe_loc_1a44(enemy, grid, cx, cy)
-        };
-        if !sphere_wall_consumed_collision && floor.on_ground && enemy.y_velocity > 0 {
-            // Check for slope deflection first (ASM Sphere.asm loc_36012/loc_36032,
-            // Fireball.asm loc_32D06/loc_32D46, Big_Hopping_Skull.asm loc_36706/loc_36720).
-            // Slopes take precedence over floor bounce.
-            if floor.cell.collision == terrain::CollisionKind::SlopeUp {
-                queue_fireball_bounce_sound_loc_32c60(
-                    enemy.family,
-                    &mut played_sound_effects,
-                    &mut fireball_bounce_sound_queued,
-                );
-                let old_x = enemy.x_velocity;
-                let old_y = enemy.y_velocity;
-                if matches!(enemy.family, EnemyFamily::Sphere) {
-                    // ASM Sphere.asm loc_3614E mirrors Enemy06_Sphere_SlopeUp:
-                    // negate both source velocities, back the object out by one
-                    // frame along that vector, then swap into x/y velocity.
-                    enemy.x_pos = (enemy.x_pos as i64 - i64::from(old_x)).max(0) as u32;
-                    enemy.y_pos = (enemy.y_pos as i64 - i64::from(old_y)).max(0) as u32;
-                    enemy.y_velocity = old_x.wrapping_neg();
-                    enemy.x_velocity = old_y.wrapping_neg();
-                } else {
-                    // ASM Fireball.asm Enemy19_Fireball_SlopeUp: negate both
-                    // long words before swapping them into x/y velocity.
-                    enemy.y_velocity = old_x.wrapping_neg();
-                    enemy.x_velocity = old_y.wrapping_neg();
-                    enemy.facing = opposite_direction(enemy.facing);
-                    if matches!(enemy.family, EnemyFamily::Fireball) {
-                        let tile_word = terrain_collision_tile_word(floor.cell);
-                        if let Some(marker) = fireball_slope_up_trail_marker_loc_32d7e(
-                            (enemy.x_pos >> 16) as u16 as i16,
-                            (enemy.y_pos >> 16) as u16 as i16,
-                            tile_word,
-                        ) {
-                            spawn_fireball_trail_projectile_loc_330d0(
-                                projectiles.as_deref_mut(),
-                                if enemy.facing == Direction::Right {
-                                    0xFF
-                                } else {
-                                    0x00
-                                },
-                                marker.x_px,
-                                marker.y_px,
-                            );
-                        }
-                    }
-                }
-            } else if floor.cell.collision == terrain::CollisionKind::SlopeDown {
-                queue_fireball_bounce_sound_loc_32c60(
-                    enemy.family,
-                    &mut played_sound_effects,
-                    &mut fireball_bounce_sound_queued,
-                );
-                let old_x = enemy.x_velocity;
-                let old_y = enemy.y_velocity;
-                if matches!(enemy.family, EnemyFamily::Sphere) {
-                    // ASM Sphere.asm loc_36164 mirrors Enemy06_Sphere_SlopeDown:
-                    // back out by the pre-collision motion, then swap the live
-                    // x/y velocities without changing facing.
-                    enemy.x_pos = (enemy.x_pos as i64 - i64::from(old_x)).max(0) as u32;
-                    enemy.y_pos = (enemy.y_pos as i64 - i64::from(old_y)).max(0) as u32;
-                    enemy.y_velocity = old_x;
-                    enemy.x_velocity = old_y;
-                } else {
-                    // ASM: swap velocities without negation
-                    enemy.y_velocity = old_x;
-                    enemy.x_velocity = old_y;
-                    enemy.facing = opposite_direction(enemy.facing);
-                    if matches!(enemy.family, EnemyFamily::Fireball) {
-                        let tile_word = terrain_collision_tile_word(floor.cell);
-                        if let Some(marker) = fireball_slope_down_trail_marker_loc_32e3c(
-                            (enemy.x_pos >> 16) as u16 as i16,
-                            (enemy.y_pos >> 16) as u16 as i16,
-                            tile_word,
-                        ) {
-                            spawn_fireball_trail_projectile_loc_330d0(
-                                projectiles.as_deref_mut(),
-                                if enemy.facing == Direction::Right {
-                                    0xFF
-                                } else {
-                                    0x00
-                                },
-                                marker.x_px,
-                                marker.y_px,
-                            );
-                        }
-                    }
-                }
-            } else {
-                queue_fireball_bounce_sound_loc_32c60(
-                    enemy.family,
-                    &mut played_sound_effects,
-                    &mut fireball_bounce_sound_queued,
-                );
-                // Regular floor bounce
-                if matches!(enemy.family, EnemyFamily::Fireball) {
-                    let fire_trail_count = projectiles
-                        .as_ref()
-                        .map_or(0, |projectiles| count_live_fireball_trails(projectiles));
-                    let bounce = fireball_floor_ceiling_bounce_loc_32ce4(
-                        enemy,
-                        rng,
-                        camera_x_px.unwrap_or(0),
-                        fire_trail_count,
-                    );
-                    enemy.y_velocity = bounce.y_velocity;
-                    if bounce.spawns_fire_trail {
-                        spawn_fireball_obstacle_trail_projectile_loc_33128(
-                            projectiles.as_deref_mut(),
-                            enemy,
-                        );
-                    }
-                } else {
-                    let bounce = sphere_vertical_bounce_loc_35FF4_36142(enemy.y_velocity);
-                    // ASM Sphere.asm loc_35FF4 and child loc_36142 both use
-                    // long-word negation before resuming the sphere loop.
-                    debug_assert!(bounce.resumes_sphere_loop);
-                    enemy.y_velocity = bounce.y_velocity;
-                }
-                // Snap out of floor
-                let floor_y_fp = bouncer_floor_snap_y_pos_loc_1a44(enemy, floor.floor_y_px) << 16;
-                if enemy.y_pos > floor_y_fp {
-                    enemy.y_pos = floor_y_fp;
-                }
-            }
-        }
-
-        // Ceiling bounce
-        let ceil = terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
-        if !sphere_wall_consumed_collision && ceil.hit && enemy.y_velocity < 0 {
-            queue_fireball_bounce_sound_loc_32c60(
-                enemy.family,
-                &mut played_sound_effects,
-                &mut fireball_bounce_sound_queued,
-            );
-            if matches!(enemy.family, EnemyFamily::Fireball) {
-                // ASM Enemy19_Fireball_BounceFloorCeiling reuses the same
-                // perturb-and-negate path for both floor and ceiling contact.
-                let fire_trail_count = projectiles
-                    .as_ref()
-                    .map_or(0, |projectiles| count_live_fireball_trails(projectiles));
-                let bounce = fireball_floor_ceiling_bounce_loc_32ce4(
-                    enemy,
-                    rng,
-                    camera_x_px.unwrap_or(0),
-                    fire_trail_count,
-                );
-                enemy.y_velocity = bounce.y_velocity;
-                if bounce.spawns_fire_trail {
-                    spawn_fireball_obstacle_trail_projectile_loc_33128(projectiles, enemy);
-                }
-            } else {
-                // Sphere.asm: negate and halve
-                enemy.y_velocity = -(enemy.y_velocity >> 1);
-            }
-        }
-    }
-
-    if matches!(enemy.family, EnemyFamily::Fireball) {
-        update_fireball_sprite_state_loc_32f3e_3304a(enemy);
+        debug_assert!(matches!(enemy.family, EnemyFamily::Fireball));
+        step_fireball_callback(
+            enemy,
+            block_grid,
+            camera_x_px.unwrap_or(0),
+            rng,
+            projectiles,
+            played_sound_effects,
+        );
     }
 }
 
@@ -8926,6 +8610,8 @@ fn fresh_enemy_no_step_passes_loc_3691e(family: EnemyFamily, enemy_level: u8) ->
         // ASM Diamond.asm loc_3AD4C -> loc_3C026/loc_3C0D2 and the
         // high-HP loc_3ADA4 path both hibernate before their first step.
         EnemyFamily::Diamond => 1,
+        // ASM Enemy19_Fireball_Init reaches loc_32C1A's first hibernate.
+        EnemyFamily::Fireball => 1,
         // ASM Crab.asm Enemy09_Crab_Init opens with one hibernate, then its
         // loc_3C0D2/loc_3C026 shared-walker entry hibernates once more.
         EnemyFamily::Crab => 2,
@@ -12271,6 +11957,7 @@ pub(crate) mod test_fixtures {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::MiniHoppingSkull,
             x_pos: 32 << 16,
             y_pos: 32 << 16,
@@ -12365,7 +12052,7 @@ pub(crate) mod test_fixtures {
     pub(crate) fn fireball_test_enemy() -> ActiveEnemy {
         ActiveEnemy {
             family: EnemyFamily::Fireball,
-            hit_points: 1,
+            hit_points: 0,
             death_animation_active: false,
             facing: Direction::Right,
             ..mini_hopping_skull_test_enemy()
@@ -12558,9 +12245,113 @@ mod tests {
             "ASM Enemy19_Fireball_BounceFloorCeiling wraps ADD.L before negating the perturbed velocity"
         );
         assert_eq!(
-            negate_wrap.y_velocity, FIREBALL_UPWARD_CAP_BY_HP[0],
+            negate_wrap.y_velocity, FIREBALL_UPWARD_CAP_BY_LEVEL[0],
             "ASM Enemy19_Fireball_BounceFloorCeiling leaves NEG.L of i32::MIN negative before applying the HP-1 upward cap"
         );
+    }
+
+    /// ASM unk_3176A and GfxObjects_Collision loc_1A44 use the Fireball's
+    /// bottom at centre +4, then snap centre to tile top -4 -1.
+    #[test]
+    fn fireball_floor_contact_uses_active_collision_row() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 20 * 30 * 2], 20, 30);
+        for col in 0..20 {
+            grid.set_cell_at(col, 18, terrain::Cell::from_be_bytes(0x60, 0));
+        }
+        let mut enemy = fireball_test_enemy();
+        enemy.x_pos = 232 << 16;
+        enemy.y_pos = 283 << 16;
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0x1000;
+        assert_eq!(
+            sphere_gfx_collision_probe_loc_171c(&mut enemy, &grid),
+            colid::EMPTY
+        );
+        enemy.y_pos = 284 << 16;
+        assert_eq!(
+            sphere_gfx_collision_probe_loc_171c(&mut enemy, &grid),
+            colid::FLOOR
+        );
+        assert_eq!(enemy.y_pos, 283 << 16);
+    }
+
+    /// ASM loc_32C1A/loc_32C60 consume the preceding Gfx collision latch.
+    /// Oracle target_live5 snaps to Y283; target_live6 performs the rebound.
+    #[test]
+    fn fireball_floor_snap_precedes_next_callback_rebound() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 20 * 30 * 2], 20, 30);
+        for col in 0..20 {
+            grid.set_cell_at(col, 18, terrain::Cell::from_be_bytes(0x60, 0));
+        }
+        let mut enemy = fireball_test_enemy();
+        enemy.enemy_level = 0;
+        enemy.x_pos = 232 << 16;
+        enemy.y_pos = (283 << 16) + 0xD000;
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0x36000;
+        step_bouncer(&mut enemy, Some(&grid));
+        assert_eq!((enemy.y_pos, enemy.y_velocity), (283 << 16, 0x37000));
+        step_bouncer(&mut enemy, Some(&grid));
+        assert_eq!((enemy.y_pos, enemy.y_velocity), (280 << 16, -0x30000));
+    }
+
+    /// ASM Enemy19_Fireball_Init yields at loc_32C1A before gravity;
+    /// Mode_Level loc_80C still moves the GfxObject on that Init pass.
+    #[test]
+    fn fireball_init_yields_coroutine_but_preserves_gfx_motion() {
+        let mut enemy = fireball_test_enemy();
+        enemy.enemy_level = 0;
+        enemy.x_pos = 312 << 16;
+        enemy.y_pos = 191 << 16;
+        enemy.x_velocity = -0x18000;
+        enemy.y_velocity = 0;
+        let key = ActiveEnemyKey::from_enemy(&enemy);
+        let mut active = [enemy];
+        let mut fresh = std::collections::BTreeMap::new();
+        let passes = fresh_enemy_no_step_passes_loc_3691e(enemy.family, enemy.enemy_level);
+        if passes > 0 {
+            fresh.insert(key, passes);
+        }
+        let mut rng = RomRandomState::default();
+        let mut drilled = Vec::new();
+        for (x, y, vy) in [
+            (0x01368000, 0x00BF0000, 0),
+            (0x01350000, 0x00BF1000, 0x1000),
+        ] {
+            step_active_enemies_with_rng(
+                &mut active,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                0,
+                false,
+                None,
+                &mut rng,
+                &mut drilled,
+                None,
+                &mut fresh,
+            );
+            assert_eq!(
+                (active[0].x_pos, active[0].y_pos, active[0].y_velocity),
+                (x, y, vy)
+            );
+        }
+    }
+
+    /// ASM loc_3304A stores byte_33080 in x_direction; $FF is flipped.
+    #[test]
+    fn fireball_angle_commit_preserves_rom_direction_bit() {
+        let mut enemy = fireball_test_enemy();
+        enemy.x_velocity = -0x18000;
+        enemy.y_velocity = 0x6000;
+        update_fireball_sprite_state_loc_32f3e_3304a(&mut enemy);
+        assert_eq!(enemy.facing, Direction::Right);
     }
 
     #[test]
@@ -15084,6 +14875,11 @@ pub(crate) fn big_hopping_skull_hit_points_loc_3651a(enemy_level: u8) -> u8 {
 /// in the layout. Each family's ASM init adds a base offset to `enemy_level`
 /// to produce the actual HP value.
 pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
+    // ASM Enemy19_Fireball_Init selects unk_32BA6 from the layout level
+    // without writing current_hp, which remains at allocation zero.
+    if family == EnemyFamily::Fireball {
+        return 0;
+    }
     if family == EnemyFamily::BigHoppingSkull {
         return big_hopping_skull_hit_points_loc_3651a(enemy_level);
     }
@@ -15101,7 +14897,6 @@ pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Sphere => 1,
         EnemyFamily::EmoRock => 1,
         EnemyFamily::Archer => 1,
-        EnemyFamily::Fireball => 1,
         // Fire_Demon.asm loc_3A3D2: copy enemy_level(a3), add 3, store
         // current_hp in `$44(a3)`.
         EnemyFamily::FireDemon => 3,
@@ -17037,7 +16832,8 @@ impl NativeRuntime {
         // ASM Diamond.asm loc_3AD4C/loc_3ADA4, Tank.asm loc_3B40A,
         // Tank_Shooting.asm loc_3B6AE, Robot.asm loc_3A884 and Lion.asm
         // loc_3DF56 -> loc_3E546 hibernate before their first step. Mode_Level loc_80C loads after
-        // Execute_Objects, so the next scheduled pass runs Init without moving.
+        // Execute_Objects, so the next scheduled pass runs Init. Fireball Init
+        // yields its coroutine while its GfxObject still moves.
         for enemy in &self.active_enemies[active_before_trailing_load..] {
             if matches!(
                 enemy.family,
@@ -17046,6 +16842,7 @@ impl NativeRuntime {
                     | EnemyFamily::TankShooting
                     | EnemyFamily::Robot
                     | EnemyFamily::Lion
+                    | EnemyFamily::Fireball
             ) {
                 self.freshly_loaded_enemies_loc_3691e
                     .insert(ActiveEnemyKey::from_enemy(enemy), 1);

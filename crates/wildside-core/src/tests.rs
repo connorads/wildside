@@ -306,6 +306,7 @@ mod asset_source_tests;
 mod block_tests;
 mod boot_tests;
 mod combat_tests;
+mod fireball_tests;
 mod helmet_tests;
 mod level_tests;
 mod movement_tests;

@@ -430,6 +430,25 @@ mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
 
+    /// ASM Enemy19_Fireball_Init leaves current_hp at allocation zero.
+    #[test]
+    fn fireball_init_preserves_zero_hp_for_all_layout_profiles() {
+        for level in 0..=2 {
+            assert_eq!(spawn_hit_points(EnemyFamily::Fireball, level), 0);
+        }
+    }
+
+    /// ASM GfxObjects_CollisionKid skips $3D, set by Enemy19_Fireball_Kill.
+    #[test]
+    fn fireball_zero_hp_remains_contactable_until_explosion() {
+        let mut enemy = fireball_test_enemy();
+        enemy.hit_points = 0;
+        assert!(enemy.is_vulnerable());
+        assert!(enemy.take_damage_or_queue_death());
+        enemy.death_animation_active = true;
+        assert!(!enemy.is_vulnerable());
+    }
+
     #[test]
     fn fireball_live_step_queues_bounce_sound_on_collision_loc_32c60() {
         let mut grid = terrain::BlockGrid::from_level_layout(&vec![0u8; 20 * 15 * 2], 20, 15);
@@ -439,6 +458,7 @@ mod tests {
 
         let fireball = ActiveEnemy {
             family: EnemyFamily::Fireball,
+            fireball_pending_collision: crate::enemies::colid::FLOOR,
             hit_points: 1,
             x_pos: 0x0123_0000,
             y_pos: (159u32 << 16) + 0xC000,
@@ -504,11 +524,12 @@ mod tests {
         enemy.x_velocity = 0x0001_8000;
         enemy.y_velocity = 0;
 
+        enemy.fireball_pending_collision = crate::enemies::colid::RIGHTWALL;
         step_bouncer(&mut enemy, Some(&grid));
 
         assert_eq!(
             enemy.facing,
-            Direction::Left,
+            Direction::Right,
             "ASM Fireball.asm loc_32C60/loc_32C86 only negates x_vel, then the same loc_32C1A loop runs loc_32F3E/loc_3304A and commits x_direction from the new velocity"
         );
         assert_eq!(enemy.x_velocity, -0x0001_8000);
@@ -526,6 +547,7 @@ mod tests {
         enemy.x_velocity = i32::MIN;
         enemy.y_velocity = 0;
 
+        enemy.fireball_pending_collision = crate::enemies::colid::RIGHTWALL;
         step_bouncer(&mut enemy, Some(&grid));
 
         assert_eq!(
@@ -547,33 +569,34 @@ mod tests {
         enemy.x_velocity = i32::MIN;
         enemy.y_velocity = 0x0002_0000;
 
+        enemy.fireball_pending_collision = crate::enemies::colid::SLOPEUP;
         step_bouncer(&mut enemy, Some(&grid));
 
         assert_eq!(
             (enemy.x_velocity, enemy.y_velocity),
-            (-0x0002_2000, i32::MIN),
+            (-0x0002_1000, i32::MIN),
             "ASM Enemy19_Fireball_SlopeUp wraps both NEG.L results before swapping the velocities"
         );
     }
 
+    /// ASM Enemy19_Fireball_Init indexes unk_32BA6 with raw layout 2(a0).
     #[test]
-    fn fireball_main_loop_loc_32c1a_adds_hp_gravity_before_collision_dispatch() {
-        let mut hp1 = fireball_test_enemy();
-        hp1.y_velocity = 0x0001_8000;
-        assert_eq!(
-            fireball_main_loop_y_velocity_loc_32c1a(&hp1),
-            0x0001_A000,
-            "ASM Fireball.asm loc_32C1A should add the HP1 `$2000` gravity d0 into `y_vel(a3)` before `loc_32C60` dispatch"
-        );
-
-        let mut hp2 = fireball_test_enemy();
-        hp2.hit_points = 2;
-        hp2.y_velocity = 0x0001_8000;
-        assert_eq!(
-            fireball_main_loop_y_velocity_loc_32c1a(&hp2),
-            0x0001_B000,
-            "ASM Fireball.asm loc_32C1A should use the HP2 `$3000` gravity selected from `unk_32BA6`"
-        );
+    fn fireball_profile_uses_raw_layout_level_not_remaining_hp() {
+        for (level, gravity, cap) in [
+            (0, 0x1000, -0x30000),
+            (1, 0x2000, -0x40000),
+            (2, 0x3000, -0x50000),
+        ] {
+            let mut enemy = fireball_test_enemy();
+            enemy.enemy_level = level;
+            for hp in [0, 1, 2, 3] {
+                enemy.hit_points = hp;
+                enemy.y_velocity = 0;
+                assert_eq!(fireball_main_loop_y_velocity_loc_32c1a(&enemy), gravity);
+                enemy.y_velocity = 0x100000;
+                assert_eq!(fireball_bounce_y_velocity(&enemy), cap);
+            }
+        }
     }
 
     #[test]

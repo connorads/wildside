@@ -963,6 +963,7 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
     );
     let family = EnemyFamily::DragonWalking;
     ActiveEnemy {
+        fireball_pending_collision: 0,
         segment_index: parent.segment_index,
         layout_index: parent.layout_index,
         enemy_level: 0,

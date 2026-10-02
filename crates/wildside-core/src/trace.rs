@@ -4263,6 +4263,7 @@ mod tests {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Drips,
             x_pos: 0x0248_0000,
             y_pos: 0x0212_0000,

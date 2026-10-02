@@ -459,6 +459,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::MiniHoppingSkull,
             x_pos: 96u32 << 16,
             y_pos: 224u32 << 16,
@@ -559,6 +560,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::MiniHoppingSkull,
             x_pos: 96u32 << 16,
             y_pos: 224u32 << 16,
@@ -720,6 +722,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::MiniHoppingSkull,
             x_pos: 96u32 << 16,
             y_pos: floor_y_fp,
@@ -830,6 +833,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::MiniHoppingSkull,
             x_pos: 96u32 << 16,
             y_pos: floor_y_fp,
@@ -1016,6 +1020,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::MiniHoppingSkull,
             x_pos: 48u32 << 16,
             y_pos: floor_y_fp,
@@ -5728,6 +5733,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Cloud,
             x_pos: 128 << 16,
             y_pos: 100 << 16,
@@ -5815,6 +5821,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Cloud,
             x_pos: 64 << 16,
             y_pos: 96 << 16,
@@ -5907,6 +5914,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Cloud,
             x_pos: 64 << 16,
             y_pos: 96 << 16,
@@ -6001,6 +6009,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Cloud,
             x_pos: 100 << 16,
             y_pos: 50 << 16,
@@ -6211,11 +6220,12 @@ mod chunk_04 {
     }
 
     #[test]
-    fn fireball_gravity_scales_with_hp() {
-        let make = |hp| ActiveEnemy {
+    fn fireball_gravity_uses_init_layout_profile_unk_32ba6() {
+        let make = |level| ActiveEnemy {
             segment_index: 0,
             layout_index: 0,
-            enemy_level: 0,
+            enemy_level: level,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Fireball,
             x_pos: 0,
             y_pos: 0,
@@ -6227,7 +6237,7 @@ mod chunk_04 {
             y_acceleration: 0,
             facing: Direction::Left,
             on_ground: false,
-            hit_points: hp,
+            hit_points: 1,
             death_animation_active: false,
             grounded_frames: 0,
             tank_mouth_animation_phase: 0,
@@ -6284,19 +6294,20 @@ mod chunk_04 {
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
             shared_walker_grounded_scan_trace: None,
         };
-        // Fireball.asm `Enemy19_Fireball_Init`: raw `hit_points_plus_one` indexes
-        // `unk_32BA6`, so live HP 1/2/3 uses gravity $2000/$3000/$3000.
+        // ASM Enemy19_Fireball_Init: raw layout levels 0/1/2 index
+        // unk_32BA6 gravity $1000/$2000/$3000.
+        assert_eq!(bouncer_gravity(&make(0)), 0x1000);
         assert_eq!(bouncer_gravity(&make(1)), 0x2000);
         assert_eq!(bouncer_gravity(&make(2)), 0x3000);
-        assert_eq!(bouncer_gravity(&make(3)), 0x3000);
     }
 
     #[test]
-    fn fireball_bounce_cap_scales_with_live_hp() {
-        let make = |hp| ActiveEnemy {
+    fn fireball_bounce_cap_uses_init_layout_profile_unk_32ba6() {
+        let make = |level| ActiveEnemy {
             segment_index: 0,
             layout_index: 0,
-            enemy_level: 0,
+            enemy_level: level,
+            fireball_pending_collision: crate::enemies::colid::FLOOR,
             family: EnemyFamily::Fireball,
             x_pos: 0,
             y_pos: (159u32 << 16) + 0xC000,
@@ -6308,7 +6319,7 @@ mod chunk_04 {
             y_acceleration: 0,
             facing: Direction::Left,
             on_ground: false,
-            hit_points: hp,
+            hit_points: 1,
             death_animation_active: false,
             grounded_frames: 0,
             tank_mouth_animation_phase: 0,
@@ -6368,15 +6379,15 @@ mod chunk_04 {
         let solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 10)).collect();
         let grid = grid_with_solid_cells(20, 15, &solid);
 
-        let mut hp_1 = make(1);
+        let mut hp_1 = make(0);
         step_bouncer(&mut hp_1, Some(&grid));
-        assert_eq!(hp_1.y_velocity, -0x4_0000);
+        assert_eq!(hp_1.y_velocity, -0x3_0000);
 
-        let mut hp_2 = make(2);
+        let mut hp_2 = make(1);
         step_bouncer(&mut hp_2, Some(&grid));
-        assert_eq!(hp_2.y_velocity, -0x5_0000);
+        assert_eq!(hp_2.y_velocity, -0x4_0000);
 
-        let mut hp_3 = make(3);
+        let mut hp_3 = make(2);
         step_bouncer(&mut hp_3, Some(&grid));
         assert_eq!(hp_3.y_velocity, -0x5_0000);
     }
@@ -6389,6 +6400,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: crate::enemies::colid::FLOOR,
             family: EnemyFamily::Fireball,
             x_pos: 0x0123_0000,
             y_pos: (159u32 << 16) + 0xC000,
@@ -6490,6 +6502,8 @@ mod chunk_04 {
         let mut projectiles = Vec::new();
         let mut drilled_blocks = Vec::new();
 
+        // ASM loc_32C60 consumes the preceding Gfx collision word.
+        active[0].fireball_pending_collision = crate::enemies::colid::FLOOR;
         step_active_enemies(
             &mut active,
             Some(&grid),
@@ -6512,7 +6526,8 @@ mod chunk_04 {
             EnemyProjectileKind::FireballObstacleTrail
         );
         assert_eq!(projectiles[0].lifetime, 0x96);
-        assert_eq!(projectiles[0].y_pos, 0x00B0_0000);
+        // ASM loc_33128 reads the parent before Gfx motion: (159 + 15) & !15.
+        assert_eq!(projectiles[0].y_pos, 0x00A0_0000);
     }
 
     #[test]
@@ -6536,6 +6551,8 @@ mod chunk_04 {
         ];
         let mut drilled_blocks = Vec::new();
 
+        // ASM loc_32C60 consumes the preceding Gfx collision word.
+        active[0].fireball_pending_collision = crate::enemies::colid::FLOOR;
         step_active_enemies(
             &mut active,
             Some(&grid),
@@ -6576,6 +6593,8 @@ mod chunk_04 {
         let mut projectiles = Vec::new();
         let mut drilled_blocks = Vec::new();
 
+        // ASM loc_32C60 consumes the preceding Gfx collision word.
+        active[0].fireball_pending_collision = crate::enemies::colid::SLOPEUP;
         step_active_enemies(
             &mut active,
             Some(&grid),
@@ -6603,6 +6622,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Fireball,
             x_pos: 0x0038_0000,
             y_pos: 0x0031_0000,
@@ -7488,6 +7508,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Sphere,
             x_pos: 128 << 16,
             y_pos: 64 << 16,
@@ -7574,6 +7595,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Sphere,
             x_pos: 80 << 16,
             y_pos: 155 << 16,
@@ -7666,6 +7688,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Sphere,
             x_pos: 180 << 16,
             y_pos: 112 << 16,
@@ -7763,6 +7786,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Sphere,
             x_pos: (5 * 16 + 8) << 16, // center of slope cell: 88 px
             y_pos: 85 << 16,           // start above slope so gravity+vel lands on floor_y=87
@@ -7880,6 +7904,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Sphere,
             x_pos: (5 * 16 + 8) << 16, // center of slope cell: 88 px
             y_pos: 89 << 16,           // on slope surface (floor_y=88 at x=88, so y=89 >= floor_y)
@@ -7991,6 +8016,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: crate::enemies::colid::SLOPEUP,
             family: EnemyFamily::Fireball,
             x_pos: (5 * 16 + 8) << 16,
             y_pos: 85 << 16,
@@ -8059,8 +8085,8 @@ mod chunk_04 {
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
             shared_walker_grounded_scan_trace: None,
         };
-        // Fireball HP=1 gravity is $2000
-        let expected_y_vel_after_gravity = 0x20000 + 0x2000;
+        // ASM Enemy19_Fireball_Init / unk_32BA6: raw level 0 gravity is $1000.
+        let expected_y_vel_after_gravity = 0x20000 + 0x1000;
         let old_x_vel = enemy.x_velocity;
         let old_y_vel = expected_y_vel_after_gravity;
         step_bouncer(&mut enemy, Some(&grid));
@@ -8074,7 +8100,7 @@ mod chunk_04 {
         );
         assert_eq!(
             enemy.facing,
-            Direction::Left,
+            Direction::Right,
             "Fireball SlopeUp flips facing"
         );
     }
@@ -8094,6 +8120,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: crate::enemies::colid::SLOPEDOWN,
             family: EnemyFamily::Fireball,
             x_pos: (5 * 16 + 8) << 16, // 88 px
             y_pos: 89 << 16,           // on slope surface
@@ -8162,8 +8189,8 @@ mod chunk_04 {
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
             shared_walker_grounded_scan_trace: None,
         };
-        // Fireball HP=1 gravity is $2000
-        let expected_y_vel_after_gravity = 0x10000 + 0x2000;
+        // ASM Enemy19_Fireball_Init / unk_32BA6: raw level 0 gravity is $1000.
+        let expected_y_vel_after_gravity = 0x10000 + 0x1000;
         let old_x_vel = enemy.x_velocity;
         let old_y_vel = expected_y_vel_after_gravity;
         step_bouncer(&mut enemy, Some(&grid));
@@ -8177,7 +8204,7 @@ mod chunk_04 {
         );
         assert_eq!(
             enemy.facing,
-            Direction::Right,
+            Direction::Left,
             "ASM Fireball.asm loc_32D46 swaps velocities, then loc_32F3E/loc_3304A commits x_direction from the post-slope velocity"
         );
     }
@@ -8199,6 +8226,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::EmoRock,
             x_pos: 80 << 16,
             y_pos: 50 << 16,
@@ -8307,6 +8335,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::EmoRock,
             x_pos: 100 << 16,
             y_pos: 60 << 16, // above the floor
@@ -8600,6 +8629,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Archer,
             x_pos: 100 << 16,
             y_pos: 100 << 16,
@@ -8681,6 +8711,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Archer,
             x_pos: 100 << 16,
             y_pos: 100 << 16,
@@ -9288,6 +9319,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Archer,
             x_pos: 100 << 16,
             y_pos: 100 << 16,
@@ -9437,6 +9469,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Archer,
             x_pos: 100 << 16,
             y_pos: 100 << 16,
@@ -9533,6 +9566,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Tank,
             x_pos: 100 << 16,
             y_pos: 100 << 16,
@@ -9623,6 +9657,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::TankShooting,
             x_pos: 100 << 16,
             y_pos: 100 << 16,
@@ -9722,6 +9757,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::HeadyMetal,
             x_pos: 100 << 16,
             y_pos: 100 << 16,
@@ -9806,6 +9842,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::HeadyMetal,
             x_pos: 200 << 16,
             y_pos: 100 << 16,
@@ -9893,6 +9930,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::HeadyMetal,
             x_pos: 100 << 16,
             y_pos: 120 << 16,
@@ -10019,6 +10057,7 @@ mod chunk_04 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::HeadyMetal,
             x_pos: 100 << 16,
             y_pos: 120 << 16,
@@ -10329,6 +10368,8 @@ mod chunk_04 {
         use enemies::{ActiveEnemy, EnemyFamily, step_ufo_beam};
 
         let mut enemy = ActiveEnemy {
+            fireball_pending_collision: 0,
+
             family: EnemyFamily::UFO,
             x_pos: 100 << 16,
             y_pos: 50 << 16,

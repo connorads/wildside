@@ -1163,6 +1163,7 @@ mod drips_surface_crawler_tests {
             segment_index: 0,
             layout_index,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Drips,
             x_pos,
             y_pos,

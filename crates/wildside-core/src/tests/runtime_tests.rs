@@ -11614,7 +11614,7 @@ mod chunk_09 {
     }
 
     #[test]
-    fn settled_recording_warp_level_1b_keeps_opening_sphere_short_age_loc_36148() {
+    fn settled_recording_warp_level_1b_keeps_opening_sphere_short_age() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
@@ -11652,7 +11652,7 @@ mod chunk_09 {
                 Some(0x0000_4800),
                 Some(0),
             ),
-            "ASM Sphere.asm Enemy06_Sphere_Init/loc_36148 plus GfxObjects_Collision loc_171C: oracle issue #359 frame 0 has only the short settled-recording live age, not a pre-damaged Kid from over-aged hidden enemy scheduling",
+            "ASM Sphere.asm Enemy06_Sphere_Init plus GfxObjects_Collision loc_171C: oracle issue #359 frame 0 has only the short settled-recording live age, not a pre-damaged Kid from over-aged hidden enemy scheduling",
         );
     }
 

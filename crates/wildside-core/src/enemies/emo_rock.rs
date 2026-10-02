@@ -650,6 +650,7 @@ mod tests {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::EmoRock,
             x_pos,
             y_pos,

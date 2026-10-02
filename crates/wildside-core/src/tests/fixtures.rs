@@ -326,6 +326,7 @@ pub(super) fn grid_with_solid_cells(
 
 pub(super) fn make_pacer(family: EnemyFamily, hp: u8, x_px: u32, y_px: u32) -> ActiveEnemy {
     ActiveEnemy {
+        fireball_pending_collision: 0,
         segment_index: 0,
         layout_index: 0,
         enemy_level: 0,
@@ -616,6 +617,7 @@ pub(super) fn iron_knight_runtime_with_wall() -> NativeRuntime {
 
 pub(super) fn test_enemy(family: EnemyFamily, x: u32, y: u32, hp: u8) -> ActiveEnemy {
     ActiveEnemy {
+        fireball_pending_collision: 0,
         segment_index: 0,
         layout_index: 0,
         enemy_level: 0,

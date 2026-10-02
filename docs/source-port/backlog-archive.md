@@ -31012,3 +31012,37 @@ Minimisation464160b3 completed187 replays:104 masks shrink to103,28 nonzero,104 
 After preserving the HP8 counter, the explicit cache-backed Lion suite passes142/142. The corrected fast gate passes7486 core tests with286 reviewed exclusions and all required guards. Corrected sweep1790968891 retains102/105, the same1B/4C/5C failures and an identical divergence summary. Corrected native and ROM frame38 images were inspected; the added Lion pose mismatch is gone while the parent's independent residue remains.
 
 Corrected full TAS also passes37759 player/camera checkpoints, zero authoritative enemy differences,24 standing oracle limitations and37743 matching RNG frames. The pixel/GEMS command baselines remain unchanged. /tmp/wildside-186-return-full-corrected-report.json preserves the report before the amend hook. Fixed fuzz and affected0x07 ledger measurements are unchanged by the HP8-only counter restoration; saved HP6 counter/turn/loader regressions remain green.
+
+### #521 - Fireball settled floor/wall witness (2026-10-02)
+
+The pending Fireball implementation matches ROM position, facing and HP at all
+121 checkpoints of `issue-521-fireball-idle-window.json` on settled level 0x0b.
+ASM `Enemy19_Fireball_Init` leaves current_hp at allocation zero.
+`GfxObjects_CollisionKid` skips the collision-disable byte $3D, set by
+`Enemy19_Fireball_Kill`; zero HP alone does not disable live contact. The native
+spawn and contact/death-animation entry guards follow that distinction.
+The cache-enabled saved gameplay regression passes on the worktree and fails
+on parent ea132f25e at frame0 Y21528576 versus ROM13815808.
+Focused Fireball tests pass72/72; Sphere tests pass40/40; core all-target strict
+Clippy passes. Canonical fast7498 and full TAS37759 pass. Sweep retains the same1B/4C/5C failures; fixed fuzz routes and26 clusters are unchanged. Affected0A/0B ledger routes retain frame0 blocker5a69ed83. No whole-issue closure is claimed.
+
+Rejected hypothesis: Fireball disappearance at frame102. The CLI detailed
+object roster truncates after ten entries; its complete enemy_roster row
+contains Fireball through120. Do not infer lifecycle from the truncated list.
+Before/after captures confirm the corrected Fireball location; exact RGB pixel
+comparison against the ROM still differs by16 pixels at0/37/38,223 at95,206
+at96 and482 at120. TarMonster body/splatter differences remain visible.
+Level0x0a fractional walker/tank drift and level0x0b TarMonster roster topology
+remain separate #521 blockers.
+
+### #521 - Obstacle-trail placement discriminator (2026-10-02)
+
+The fixed16 RGB differences at0/37/38 are identical coordinates x220..223,
+y69..75. Native shows flame there while ROM shows background. Native's first
+floor bounce places a Fireball obstacle trail atX224/Y288, consistent with
+that screen region atcameraY211. ASM loc_33128 calls loc_33286 and rejects
+placement unless centre bit15 is clear and all three support collision nibbles
+are6000. Native currently pushes this trail without that validation.
+The existing fire_demon_trail_has_floor_support_loc_3a63c uses the same probe
+and predicate. Next inspect the actual support words and trace the ROM
+loc_33128 deletion route before attributing the pixels definitively.

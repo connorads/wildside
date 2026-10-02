@@ -1011,6 +1011,34 @@ fn fire_demon_hurt_contact_uses_zero_collision_size_row_loc_1bce() {
 }
 
 #[test]
+fn fireball_zero_hp_live_contact_damages_kid_until_kill_disables_collision() {
+    // ASM Enemy19_Fireball_Init leaves current_hp zero; GfxObjects_CollisionKid
+    // checks $3D, which Enemy19_Fireball_Kill sets for the explosion.
+    let mut runtime = NativeRuntime::new(manifest());
+    let mut slice = combat_slice();
+    slice.player.x_pos = 101 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+    runtime.active_enemies = vec![test_enemy(
+        EnemyFamily::Fireball,
+        slice.player.x_pos,
+        slice.player.y_pos,
+        0,
+    )];
+
+    assert_eq!(
+        runtime.find_contact_damage_source(&slice),
+        Some((slice.player.x_pos, EnemyFamily::Fireball)),
+    );
+    runtime.remove_dead_enemy(0);
+    assert_eq!(runtime.active_enemies.len(), 1);
+    assert!(runtime.active_enemies[0].death_animation_active);
+    assert_eq!(runtime.find_contact_damage_source(&slice), None);
+}
+
+#[test]
 fn fireball_main_contact_uses_rom_collision_size_row_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 101 << 16;
@@ -13209,6 +13237,7 @@ mod chunk_03 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::DragonWalking,
             x_pos: 0x020B_0000,
             y_pos: 0x01C0_0000,
@@ -14185,6 +14214,7 @@ mod chunk_03 {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Dragon,
             x_pos: ((-300i32) << 16) as u32, // beyond ASM-correct retention margin
             y_pos: 272u32 << 16,

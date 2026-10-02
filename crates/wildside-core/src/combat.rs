@@ -10565,7 +10565,10 @@ impl NativeRuntime {
             return;
         }
         if let Some(death_animation_frames) = enemy_death_animation_frames(family)
-            && enemy.hit_points != 0
+            // ASM Enemy19_Fireball_Kill starts stru_345E4 with current_hp
+            // already zero; loc_32ED8 deletes only after the animation ends.
+            && (enemy.hit_points != 0
+                || (family == EnemyFamily::Fireball && !enemy.death_animation_active))
         {
             let tornado_hit_sequence = if matches!(family, EnemyFamily::Tornado) {
                 Some(tornado_hit_sequence_loc_359b2(layout_index as u8))

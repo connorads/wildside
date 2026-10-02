@@ -840,6 +840,7 @@ mod tests {
             segment_index: 0,
             layout_index: 0,
             enemy_level: 0,
+            fireball_pending_collision: 0,
             family: EnemyFamily::Cloud,
             x_pos: 100 << 16,
             y_pos: 50 << 16,
