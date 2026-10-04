@@ -17786,6 +17786,47 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_77E6/sub_922C/loc_9380 (kid.asm): only negative columns reject entry.
+    #[test]
+    fn standing_entry_rejects_negative_leading_column_loc_77e6_9380() {
+        let mut data = vec![0u8; 8 * 8 * 2];
+        for col in 0..8 {
+            data[(4 * 8 + col) * 2] = 0x60;
+        }
+        for (x, expected_velocity) in [(5, 0), (6, -0x3000)] {
+            let mut grid = terrain::BlockGrid::from_level_layout(&data, 8, 8);
+            let mut slice = OpeningSliceState::new(LevelBounds {
+                width_pixels: 128,
+                height_pixels: 128,
+            });
+            slice.player.on_ground = true;
+            slice.player.x_pos = x << 16;
+            slice.player.y_pos = 63 << 16;
+            slice.player.x_velocity = 0;
+            slice.physics_trace = Some(PhysicsTrace::default());
+            slice.step_with_order(
+                FrameInput {
+                    left: true,
+                    ..FrameInput::default()
+                },
+                false,
+                PlayerForm::TheKid,
+                Some(&mut grid),
+                None,
+                true,
+                0,
+                PhysicsOrder::AsmFaithful,
+                true,
+                &[],
+            );
+            // ASM loc_9380 rejects X5's leading -1 before acceleration.
+            // Leading zero at X6 reaches loc_7820 and the normal speed table.
+            let trace = slice.physics_trace.expect("standing-entry physics trace");
+            assert_eq!(trace.post_horizontal.1, expected_velocity, "X{x}");
+            assert_eq!(slice.player.x_velocity, expected_velocity, "X{x}");
+        }
+    }
+
     /// ASM loc_77E6 -> loc_7828 -> loc_78C6: a blocked standing wake
     /// without platform support clears retained stand-up velocity.
     #[test]
@@ -17827,6 +17868,7 @@ mod chunk_12 {
             &[],
             true,
             false,
+            movement::KidLeftBoundaryEntry::Standing,
         );
         assert_eq!(slice.player.facing, Direction::Left);
         assert_eq!(slice.player.x_velocity, 0);

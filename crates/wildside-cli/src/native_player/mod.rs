@@ -17993,6 +17993,84 @@ mod tests {
         }
     }
 
+    /// ASM loc_77E6/sub_922C/loc_9380 (kid.asm): reject blocked standing entry.
+    #[test]
+    fn gameplay_regression_standing_entry_rejects_left_wall_before_acceleration() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario: DynamicScenario = serde_json::from_str(include_str!(
+            "../../../../tests/data/fuzz-repros/99485662.json"
+        ))
+        .expect("ordinary standing-entry wall route");
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("standing-entry trace");
+        // ASM loc_77E6 probes X - half-width - 1 = -1 before walking.
+        // sub_922C returns positive through loc_9380; loc_78C6 stays Standing.
+        let trace = &run.trace[332];
+        assert_eq!(trace.kid_x_pos, Some(0x0005_0000));
+        assert_eq!(trace.kid_y_pos, Some(0x007f_0000));
+        assert_eq!(trace.kid_x_velocity, Some(0));
+        assert_eq!(trace.kid_y_velocity, Some(0));
+        assert_eq!(trace.character_movement, Some(0));
+    }
+
+    /// ASM loc_8FF8 -> loc_8E4E -> loc_8BF0 (kid.asm): held input resumes walking.
+    #[test]
+    fn gameplay_regression_held_left_boundary_resumes_walking_at_zero_speed() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario: DynamicScenario = serde_json::from_str(include_str!(
+            "../../../../tests/data/dynamic-scenarios/issue-515-held-left-boundary-continuation.json"
+        ))
+        .expect("held-left boundary control");
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("held-left boundary trace");
+        for frame in 30..=60 {
+            // ASM loc_8E16 accelerates before loc_8FF8 clamps and retains Walking.
+            let trace = &run.trace[frame];
+            assert_eq!(trace.kid_x_pos, Some(0x0005_0000), "frame{frame}");
+            assert_eq!(trace.kid_x_velocity, Some(0), "frame{frame}");
+            assert_eq!(trace.character_movement, Some(2), "frame{frame}");
+        }
+    }
+
+    /// ASM sub_6874/loc_8BF0 (kid.asm): pausing preserves the saved Walking wake.
+    #[test]
+    fn gameplay_regression_paused_left_boundary_resumes_walking() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario: DynamicScenario = serde_json::from_str(include_str!(
+            "../../../../tests/data/dynamic-scenarios/issue-515-paused-left-boundary-continuation.json"
+        ))
+        .expect("paused held-left boundary control");
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("paused boundary trace");
+        assert!(run.trace[44].paused);
+        for frame in 49..=61 {
+            // ASM loc_6B68 returns to Mode_Level without changing Kid's saved loc_8BFE.
+            let trace = &run.trace[frame];
+            assert!(!trace.paused, "frame{frame}");
+            assert_eq!(trace.kid_x_pos, Some(0x0005_0000), "frame{frame}");
+            assert_eq!(trace.kid_x_velocity, Some(0), "frame{frame}");
+            assert_eq!(trace.character_movement, Some(2), "frame{frame}");
+        }
+    }
+
     /// ASM loc_8FF8 (kid.asm): the left-boundary clamp retains walking.
     #[test]
     fn gameplay_regression_released_left_boundary_keeps_walking() {

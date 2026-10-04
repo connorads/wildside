@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+### 2026-10-04 - Standing-entry provenance promoted and intake complete
+
+Stand-up unit commits as72047db38 after wired hooks pass. Promoted standing-entry source equals the verified candidate; fixed main fuzz1791132593 equals scratch31/40/24 with no earlier frontier. Five signatures retire; later damage d31 shrinks300/15/103 and queues under #308. All93 old fixtures remain byte-identical. Ledger1791132843 preserves existing03/04 blockers,0/103 confirmed. Main fast89588 and sequential full22005 pass; the whole full report equals the stand-up parent. Wired hooks precede the separate provenance commit. Isolated right-edge full/sweep pass; b492 PC proof identifies wrong crawl alignment during slope continuation for the next P1 fix.
+
 ### 2026-10-04 - Stand-up unit reductions complete
 
 Both serial ledger reducers exit0: d471415 inputs/279 nonzero/2703 replays and b492316/117/405. All86 old fixtures remain byte-identical. Stand-up physics/pose source retains its verified fast/full/sweep results; final documentation checks and wired hooks precede the coherent commit. Separate provenance is verified and right-edge full/sweep match parent;05 ledger preview still blocks157 on later gameplay2101fa23, with no confirmed exit. d471 layout7 Diamond grounded Y snap is ROM/ASM-proved for a later engine fix.

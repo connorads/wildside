@@ -335,6 +335,8 @@ pub struct NativeRuntime {
     kid_crawl_standing_wake: bool,
     /// ASM loc_82CA (kid.asm): zero-speed stand-up enters the walking tail.
     kid_crawl_standup_from_rest: bool,
+    /// ASM loc_8FF8/loc_82CA: retain the boundary continuation before frame probes clear.
+    kid_left_boundary_entry: movement::KidLeftBoundaryEntry,
     /// ASM loc_A99E -> loc_8BF0 (kid.asm): landing yields before slope scans.
     kid_floor_landing_hibernated: bool,
     prior_input: FrameInput,
@@ -1630,6 +1632,7 @@ impl NativeRuntime {
             kid_crawling: false,
             kid_crawl_standing_wake: false,
             kid_crawl_standup_from_rest: false,
+            kid_left_boundary_entry: movement::KidLeftBoundaryEntry::Standing,
             kid_floor_landing_hibernated: false,
             prior_input: FrameInput::default(),
             previous_input: FrameInput::default(),
@@ -2020,6 +2023,7 @@ impl NativeRuntime {
         self.kid_crawl_standing_wake = false;
         self.kid_floor_landing_hibernated = false;
         self.kid_crawl_standup_from_rest = false;
+        self.kid_left_boundary_entry = movement::KidLeftBoundaryEntry::Standing;
         self.mode_level_tail_state_loc_892.clear_loc_720();
         self.rebase_mode_level_tail_after_external_override_loc_2ffe8();
         // ASM sub_73D0/loc_7414: every Load_InGame path seeds both full
@@ -4155,6 +4159,32 @@ impl NativeRuntime {
                 self.title_card_live_handoff_frames.saturating_sub(1);
         }
 
+        // ASM loc_8FF8 -> loc_8BF0 and loc_82CA -> loc_8E3E resume Walking
+        // at zero velocity. Capture their actual tails before resetting probes.
+        // ASM sub_6874 blocks Mode_Level before Execute_Objects while paused;
+        // no Kid callback replaces the saved boundary continuation on those frames.
+        if self.last_kid_frame_motion_branch != KidFrameMotionBranch::None
+            || self.last_kid_frame_post_motion_mutator != KidFramePostMotionMutator::None
+        {
+            self.kid_left_boundary_entry = if self.opening_slice.is_some_and(|slice| {
+                let at_left_boundary =
+                    (slice.player.x_pos >> 16) as i32 <= self.progression.current_form.half_width();
+                self.kept_walking_after_left_boundary_clamp(slice.player)
+                    || (at_left_boundary
+                        && self.kid_crawl_standup_from_rest
+                        && self.last_kid_frame_post_motion_mutator
+                            == KidFramePostMotionMutator::None
+                        && self
+                            .last_kid_frame_kid_flip_follow_on_probe
+                            .is_some_and(|probe| {
+                                !probe.wall_hit_after_floor && probe.stages.after_wall.on_ground
+                            }))
+            }) {
+                movement::KidLeftBoundaryEntry::Walking
+            } else {
+                movement::KidLeftBoundaryEntry::Standing
+            };
+        }
         let raw_input = input;
         self.trace_input = input;
         self.previous_kid_frame_post_motion_mutator = self.last_kid_frame_post_motion_mutator;
@@ -6660,6 +6690,12 @@ impl NativeRuntime {
                     &deferred_prize_ceiling_cells,
                     standing_wake && self.active_platform_standing_on.is_none(),
                     self.kid_crawl_standup_from_rest,
+                    if self.active_platform_standing_on.is_some() {
+                        // ASM loc_8DEA keeps Walking with composite platform velocity.
+                        movement::KidLeftBoundaryEntry::Walking
+                    } else {
+                        self.kid_left_boundary_entry
+                    },
                 );
                 if ledge_snap_cooldown_before == 1 && slice.player.ledge_snap_cooldown == 0 {
                     // ASM loc_1062 -> sub_78E8 -> loc_75D4: the final pull-up

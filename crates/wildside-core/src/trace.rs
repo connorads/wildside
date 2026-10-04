@@ -10089,17 +10089,7 @@ impl NativeRuntime {
         });
         // ASM loc_8FF8 clears x_vel and returns Z via moveq #0,d6. The
         // loc_8E4E -> loc_8BF0 walking continuation survives released controls.
-        let left_boundary_clamp_kept_walking = x_px <= half_width
-            && self
-                .last_kid_frame_kid_flip_follow_on_probe
-                .is_some_and(|probe| {
-                    probe.motion_branch == KidFrameMotionBranch::NormalPhysics
-                        && probe.post_motion_mutator == KidFramePostMotionMutator::None
-                        && probe.stages.after_floor.on_ground
-                        && probe.stages.after_floor.x_velocity < 0
-                        && probe.stages.after_wall.on_ground
-                        && probe.stages.after_wall.x_velocity == 0
-                });
+        let left_boundary_clamp_kept_walking = self.kept_walking_after_left_boundary_clamp(player);
         // ASM loc_82CA -> loc_8E3E -> loc_8BF0 skips the zero-speed standing write.
         let crawl_standup_kept_walking = self.kid_crawl_standup_from_rest
             && self.last_kid_frame_post_motion_mutator == KidFramePostMotionMutator::None
@@ -10121,6 +10111,21 @@ impl NativeRuntime {
             return MOVE_UPHILL_DOWNHILL;
         }
         MOVE_WALKING
+    }
+
+    /// ASM loc_8FF8 -> loc_8E4E -> loc_8BF0 (kid.asm): boundary return Z keeps Walking.
+    pub(super) fn kept_walking_after_left_boundary_clamp(&self, player: PlayerState) -> bool {
+        (player.x_pos >> 16) as i32 <= self.progression.current_form.half_width()
+            && self
+                .last_kid_frame_kid_flip_follow_on_probe
+                .is_some_and(|probe| {
+                    probe.motion_branch == KidFrameMotionBranch::NormalPhysics
+                        && probe.post_motion_mutator == KidFramePostMotionMutator::None
+                        && probe.stages.after_floor.on_ground
+                        && probe.stages.after_floor.x_velocity < 0
+                        && probe.stages.after_wall.on_ground
+                        && probe.stages.after_wall.x_velocity == 0
+                })
     }
 
     fn current_frame_kept_walking_after_wall_snap_loc_8e74(&self) -> bool {

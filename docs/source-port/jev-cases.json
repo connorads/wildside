@@ -500,15 +500,15 @@
   {
     "issue": 308,
     "readiness": "needs_comparison",
-    "active_path": "Combat audit umbrella, live family contact bounds versus sprite-link-dependent cases",
-    "route": "missing selected enemy/form contact route",
+    "active_path": "Live combat HP/damage mismatch on saved level00 fuzz route; remaining combat audit branches",
+    "route": "tests/data/fuzz-repros/d31c1fb4.json",
     "evidence": [
-      "docs/source-port/backlog-awaiting-human.md#issue-308",
+      "docs/source-port/backlog.md#issue-308",
       "docs/source-port/backlog-archive.md#issue-308",
       "docs/source-port/audits/combat-fidelity-audit.md"
     ],
-    "next_action": "Choose one remaining per-sprite collision-size gap, confirm it in active combat code, and record a discriminating contact with matching oracle enemy state.",
-    "scope": "Choose one combat audit gap with a named enemy or contact route; do not work from the umbrella list alone."
+    "next_action": "Compare the shrunk d31c1fb4 damage event and enemy state with the ROM before selecting the owning contact or hazard routine.",
+    "scope": "Match saved level00 HP/damage and resolve the remaining combat audit branches with their own encounter evidence."
   },
   {
     "issue": 309,
@@ -1025,7 +1025,7 @@
       "docs/source-port/fuzz-summary.yaml",
       "docs/source-port/backlog-archive.md#issue-515"
     ],
-    "next_action": "Implement ASM loc_77E6/sub_922C standing-entry wall rejection for99485662; retain releasedc96a3c9d Walking and801d73ea stand-up controls.",
+    "next_action": "Promote the separately verified right-boundary loc_8F86 continuation, then compare remaining movement frontiers.",
     "scope": "Clusters whose first blocking field is character_movement alone."
   },
   {
@@ -1089,7 +1089,7 @@
       "docs/source-port/backlog-archive.md#issue-522",
       "tests/data/fuzz-repros/cb337ac6.json"
     ],
-    "next_action": "Replay remaining crawl, jump, slope and camera frontiers after verified9819d44c entry and zero-speed55fdeed4/6d09c11f stand-up.",
+    "next_action": "Add the b4924e7d slope-Down regression and preserve loc_9D58/loc_9DF2 continuation before ordinary crawl entry; retain other camera/physics frontiers.",
     "scope": "Physics frontiers behind crawl-latch and landing fixes."
   }
 ]

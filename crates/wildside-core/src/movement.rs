@@ -9,6 +9,13 @@ pub(crate) enum KidPhysicsStepOutcome {
     FloorLanding,
 }
 
+/// ASM loc_77E6/loc_8FF8 (kid.asm): Standing probes before Walking motion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum KidLeftBoundaryEntry {
+    Standing,
+    Walking,
+}
+
 /// ASM loc_A912 (kid.asm): mounted boards bypass the on-foot landing tail.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum KidFloorContactPath {
@@ -2884,6 +2891,7 @@ impl OpeningSliceState {
             deferred_prize_ceiling_cells,
             false,
             false,
+            KidLeftBoundaryEntry::Standing,
         );
         if outcome == KidPhysicsStepOutcome::FloorLanding {
             self.finish_airborne_floor_landing(
@@ -2914,6 +2922,7 @@ impl OpeningSliceState {
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
         standing_wake: bool,
         crawl_standup_from_rest: bool,
+        left_boundary_entry: KidLeftBoundaryEntry,
     ) -> KidPhysicsStepOutcome {
         self.step_with_order_inner(
             input,
@@ -2932,6 +2941,7 @@ impl OpeningSliceState {
             deferred_prize_ceiling_cells,
             standing_wake,
             crawl_standup_from_rest,
+            left_boundary_entry,
         )
     }
 
@@ -2954,6 +2964,7 @@ impl OpeningSliceState {
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
         standing_wake: bool,
         crawl_standup_from_rest: bool,
+        left_boundary_entry: KidLeftBoundaryEntry,
     ) -> KidPhysicsStepOutcome {
         // ASM loc_829C/loc_82CA clears the B press before the collision tail.
         let jump_pressed = jump_pressed && !crawl_standup_from_rest;
@@ -3537,6 +3548,7 @@ impl OpeningSliceState {
                             maniaxe_throwing_axe_active,
                             suppress_probe_slope_velocity,
                             standing_wake,
+                            left_boundary_entry,
                         )
                     };
 
@@ -4798,6 +4810,7 @@ impl OpeningSliceState {
         form: PlayerForm,
         maniaxe_throwing_axe_active: bool,
         standing_wake: bool,
+        left_boundary_entry: KidLeftBoundaryEntry,
     ) -> bool {
         if !self.player.on_ground || (self.player.x_velocity != 0 && !standing_wake) {
             return false;
@@ -4833,6 +4846,15 @@ impl OpeningSliceState {
         }
         // ASM loc_779C/loc_77E6: sub_922C single-column wall scan at the
         // player's leading edge.
+        // ASM loc_77E6 -> sub_922C -> loc_9380 rejects a negative column
+        // before motion; the walking shell's loc_8FF8 boundary skip does not apply.
+        if direction == Direction::Left
+            && x_px - form.half_width() - 1 < 0
+            && form != PlayerForm::Skycutter
+            && (standing_wake || left_boundary_entry == KidLeftBoundaryEntry::Standing)
+        {
+            return true;
+        }
         let wall_probe = terrain::probe_wall_column(
             grid,
             x_px,
@@ -5461,6 +5483,7 @@ impl OpeningSliceState {
             maniaxe_throwing_axe_active,
             false,
             false,
+            KidLeftBoundaryEntry::Standing,
         )
     }
 
@@ -5474,6 +5497,7 @@ impl OpeningSliceState {
         maniaxe_throwing_axe_active: bool,
         suppress_probe_slope_velocity: bool,
         standing_wake: bool,
+        left_boundary_entry: KidLeftBoundaryEntry,
     ) -> bool {
         let input = input.with_left_right_conflict_resolved();
         if self.player.on_ground && !input.b {
@@ -5524,6 +5548,7 @@ impl OpeningSliceState {
             form,
             maniaxe_throwing_axe_active,
             standing_wake,
+            left_boundary_entry,
         ) {
             // ASM loc_7828 -> loc_78C6: the platform-free standing wake
             // clears both retained velocities before the terrain pass.
@@ -5961,6 +5986,7 @@ impl OpeningSliceState {
             form,
             maniaxe_throwing_axe_active,
             false,
+            KidLeftBoundaryEntry::Standing,
         ) {
             return false;
         }
