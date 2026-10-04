@@ -5155,21 +5155,23 @@ impl NativeRuntime {
             self.demo_post_transform_trace_velocity_hold_frames -= 1;
         }
         self.demo_auto_timeout_freeze_gameplay_frame = false;
-        self.prior_input = self.previous_input;
-        // ASM loc_C4E (kid.asm:1410): `move.b (Ctrl_1).w,(Ctrl_1_Held).w` —
-        // latch current held state for next-frame edge detection. Also
-        // loc_C9C: route Ctrl_1_Held/Pressed → Ctrl_Held/Pressed (1P default).
-        self.previous_input = if level_entry_hibernated_gameplay_input {
-            // ASM loc_1AE2E consumes only Ctrl_Pressed Start while the
-            // title-card shell owns mode $0008. Gameplay bits held on that
-            // handoff frame must not become the first live Mode_Level latch.
-            FrameInput {
-                start: input.start,
-                ..FrameInput::default()
-            }
-        } else {
-            input
-        };
+        // ASM loc_7CBE/sub_8E0 suspends Mode_Level before ReadJoypad loc_C4E.
+        // loc_7E90 resumes that pass, sampling held buttons for the next callback.
+        if !self.object_pass_hibernating_for_transform_loc_7e90() {
+            self.prior_input = self.previous_input;
+            // ASM loc_C4E/loc_C9C latches Ctrl_1_Held/Pressed for the next frame.
+            self.previous_input = if level_entry_hibernated_gameplay_input {
+                // ASM loc_1AE2E consumes only Ctrl_Pressed Start while the
+                // title-card shell owns mode $0008. Gameplay bits held on that
+                // handoff frame must not become the first live Mode_Level latch.
+                FrameInput {
+                    start: input.start,
+                    ..FrameInput::default()
+                }
+            } else {
+                input
+            };
+        }
         if matches!(self.boot_state, BootState::LevelSkipHold)
             && let Some(transition) = self.level_skip_transition.as_mut()
         {

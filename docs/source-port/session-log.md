@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+### 2026-10-04 - Transformation held-history correction verified on main
+
+Slope commitsd0772ad1b. Separate transformation guard preserves ROM ReadJoypad suspension and passes held/released/cleanup-edge controls plus158/158 saved-route parity. Main fast41164/full60834 pass; census1791147277 and affected05 ledger1791147446 match isolation. Restore23 overwritten fixtures and verify all99 original bytes before resuming the same live RNG reducer. New40be prefix matches118 frames then reproduces the pre-existing X/velocity frontier118. Ledger remains0/103 confirmed. Renderer promotion follows as a separate unit.
+
 ### 2026-10-04 - Slope unit closed out with shorter verified intake
 
 Main slope fast/full, fixed census, affected04 ledger, sweep, visual comparison and scoped mutation pass their stated baselines. Count90c880cb reduces502/87 nonzero/453 replays. Independent RNG prefix293->263 reproduces the same4317835b signature; full rings match0..262 then offsets diverge263. Exhaustive zeroing14305 continues independently. All97 prior fixtures and four source hashes remain unchanged. SDL321/replay321 pass; Jev review is blocked before paid navigation by existing EmoRock strict pixels. Commit this slope unit separately; transformation input history is the next P1 candidate. No confirmed level exit is added.

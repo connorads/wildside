@@ -18095,6 +18095,46 @@ mod tests {
         assert_eq!(run.trace[52].character_movement, Some(0));
     }
 
+    /// ASM loc_7E90 -> loc_C4E -> loc_7664/loc_A426: B survives transformation cleanup.
+    #[test]
+    fn gameplay_regression_transform_cleanup_preserves_readjoypad_jump_edge() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let saved: DynamicScenario = serde_json::from_str(include_str!(
+            "../../../../tests/data/fuzz-repros/2101fa23.json"
+        ))
+        .expect("transformation cleanup route");
+        for (name, release_b_at, movement) in [
+            ("released before cleanup", Some(155), 2),
+            ("pressed on cleanup", Some(154), 3),
+            ("held through cleanup", None, 3),
+        ] {
+            let mut scenario = saved.clone();
+            if let Some(frame) = release_b_at {
+                let mut input = FrameInput::from_mask(scenario.script[frame]);
+                input.b = false;
+                scenario.script[frame] = input.to_mask();
+            }
+            let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+                manifest.clone(),
+                &scenario,
+                crate::scenarios::NativeDynamicRunOptions::default(),
+            )
+            .expect("transformation cleanup trace");
+            let trace = &run.trace[157];
+            // ASM loc_7664 consumes only the B edge sampled by loc_C4E after cleanup.
+            assert_eq!(trace.character_movement, Some(movement), "{name}");
+            assert_eq!(trace.kid_on_ground, Some(movement == 2), "{name}");
+            if movement == 3 {
+                // ASM loc_A432 -> loc_A6F8 starts Juggernaut's jump at the saved X.
+                assert_eq!(trace.kid_x_pos, Some(0x0750_0000), "{name}");
+                assert_eq!(trace.kid_y_pos, Some(0x00da_e000), "{name}");
+                assert_eq!(trace.kid_y_velocity, Some(-0x42000), "{name}");
+            }
+        }
+    }
+
     /// ASM loc_9D58 -> loc_9DAA -> loc_9DF2 (kid.asm): Down resumes slope motion.
     #[test]
     fn gameplay_regression_slope_down_continuation_skips_crawl_alignment() {

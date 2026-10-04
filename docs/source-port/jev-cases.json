@@ -1082,14 +1082,14 @@
     "issue": 522,
     "readiness": "ready_replay",
     "active_path": "NativeRuntime::refresh_opening_slice and movement.rs crawl/jump transitions",
-    "route": "tests/data/fuzz-repros/0ed35d38.json, f92931b6.json, da81e8c7.json, 417af3e3.json, ba78e9a9.json, 9819d44c.json, 0b645d5b.json, d38053c6.json, 70d46852.json, 594f9474.json, ba3911e6.json, 6709165a.json, e1e5e429.json, 7a06941b.json, a44fc576.json, 6e9df2a7.json, 3828c696.json, 5dbcc529.json, 6a155c95.json, cb337ac6.json, 9cc019fb.json,14c281f6.json,34acf586.json,b4924e7d.json,2101fa23.json;b4924e7d and55fdeed4/6d09c11f are independently matched",
+    "route": "tests/data/fuzz-repros/0ed35d38.json, f92931b6.json, da81e8c7.json, 417af3e3.json, ba78e9a9.json, 9819d44c.json, 0b645d5b.json, d38053c6.json, 70d46852.json, 594f9474.json, ba3911e6.json, 6709165a.json, e1e5e429.json, 7a06941b.json, a44fc576.json, 6e9df2a7.json, 3828c696.json, 5dbcc529.json, 6a155c95.json, cb337ac6.json, 9cc019fb.json,14c281f6.json,34acf586.json,b4924e7d.json,2101fa23.json,40be89bd.json;b4924e7d,2101fa23 and55fdeed4/6d09c11f are independently matched",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
       "docs/source-port/level-ledger.yaml",
       "docs/source-port/backlog-archive.md#issue-522",
       "tests/data/fuzz-repros/cb337ac6.json"
     ],
-    "next_action": "Add saved2101fa23 jump regression and preserve ReadJoypad held history during Kid_Transform suspension; retain cleanup-edge and released-before-cleanup controls.",
+    "next_action": "Promote the verified Juggernaut composite tile-order correction; compare remaining camera and40be89bd airborne frontiers with their saved ROM routes.",
     "scope": "Physics frontiers behind crawl-latch and landing fixes."
   }
 ]
