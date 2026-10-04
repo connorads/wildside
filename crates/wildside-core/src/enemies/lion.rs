@@ -1362,11 +1362,10 @@ pub(crate) fn step_lion(
             // installs stru_3DF0E without taking another walk step.
             step_lion_walking_tracking_loc_3e03c(enemy, player_x_pos);
 
-            // Count down charge timer. ASM Lion.asm loc_3E03C only resolves
-            // facing/tracking before falling into loc_3E078, where the timer
-            // always ticks and the charge fires unconditionally on expiry.
+            // ASM loc_3E078 decrements $54 before branching to loc_3E11E.
+            // Expiry dispatches the roar/child gate without a walk step.
+            enemy.wait_timer = enemy.wait_timer.saturating_sub(1);
             if enemy.wait_timer > 0 {
-                enemy.wait_timer -= 1;
                 step_pacer(enemy, block_grid, None);
                 advance_lion_live_walk_animation_loc_3dfd8(enemy);
                 return;
@@ -2742,19 +2741,49 @@ mod tests {
         );
     }
 
+    /// ASM loc_3E078 subtracts $54 before testing expiry and starts stru_3DF0E.
     #[test]
-    fn lion_walking_live_projectile_suppresses_roar_loc_3e078() {
+    fn lion_walking_expiry_enters_roar_on_the_decrement_callback() {
         let mut lion = ActiveEnemy {
             family: EnemyFamily::Lion,
             lion_state: LionState::Walking,
             on_ground: true,
-            wait_timer: 0,
+            wait_timer: 1,
+            x_pos: 0x0100_0000,
+            x_velocity: -0x18000,
+            facing: Direction::Left,
+            ..mini_hopping_skull_test_enemy()
+        };
+        step_lion(&mut lion, None, Some(0x0200_0000), &mut None);
+        assert_eq!(lion.lion_state, LionState::Roaring);
+        assert_eq!(lion.wait_timer, LION_ROAR_FIRE_DELAY);
+        assert_eq!(lion.x_pos, 0x0100_0000);
+        assert_eq!(lion.x_velocity, 0);
+        assert_eq!(lion.facing, Direction::Right, "ASM loc_3E074 tracks first");
+        assert_eq!(lion.snapshot().sprite_animation_phase, Some(12));
+        assert_eq!(lion_active_projectile_count(&lion), 0);
+    }
+
+    #[test]
+    fn lion_walking_live_projectile_suppresses_roar_loc_3e078() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 10 * 6 * 2], 10, 6);
+        for x in 0..10 {
+            grid.set_cell_at(x, 3, terrain::Cell::from_be_bytes(0x40, 0));
+        }
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            lion_state: LionState::Walking,
+            on_ground: true,
+            x_pos: 80 << 16,
+            y_pos: 48 << 16,
+            hit_points: 6,
+            wait_timer: 1,
             ufo_beam_segments: 1,
             dragon_script_cmd: 5,
             ..mini_hopping_skull_test_enemy()
         };
 
-        step_lion(&mut lion, None, Some(0x0140 << 16), &mut None);
+        step_lion(&mut lion, Some(&grid), Some(0x0140 << 16), &mut None);
 
         assert_eq!(
             lion.lion_state,
@@ -2762,6 +2791,7 @@ mod tests {
             "ASM Lion.asm loc_3E078 should skip the roar/fire animation while `$5B(a5)` is positive"
         );
         assert_eq!(lion.wait_timer, LION_COOLDOWN_AFTER_FIRE);
+        assert_eq!(lion.x_pos, (80 << 16) + 0x18000, "ASM loc_3E11E walks");
         assert_eq!(
             lion.dragon_script_cmd, 6,
             "ASM Lion.asm loc_3E078 falls back into loc_3E11E pacing animation after suppressing the roar"

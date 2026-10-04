@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-10-04 - #186 walk timer expiry
+
+Walking decrements its timer before dispatch, so1->0 starts roar without an extra movement step. Saved576-prefix and no-child/live-child controls observe RED then GREEN; cached Lion159, fast7507 and full37759 pass. Full report is identical to the grounded-velocity parent and all4 selected mutants are caught. Original2617 matches0..575; projectile terrain drift573 precedes the next Kid HP divergence576. Before/after and ROM575 images are inspected, but the upper Lion is offscreen. Sweep1791106974 retains102/105 and fixed fuzz1791106749 retains26 clusters; all26 generated fixture overwrites are restored. Affected07 ledger finds native flag2441/transition2913, blocked by2c788cfe at45. Its45-input/46-frame repro is registered under #518 after132 shrink replays. Aggregate remains0/103 confirmed and10 native exits. Two fixes since exploration review1791104390904676000. Evidence is under .cache/debug/lion-walk-expiry/. Recording export-tail remains separate.
+
 ## 2026-10-04 - #186 grounded Lion velocity
 
 Grounded Lion combat and trace snapshots expose ROM Gfx X velocity0 while native keeps patrol speed internally. The saved524-prefix regression fails before the fix and passes afterwards; airborne/hurt controls retain their velocity. Cached Lion157, combat1083, fast7505 and full37759 pass. Original2617 matches0..574, moving the first frontier52 frames to575. Fresh ROM PCs/WRAM prove walk timer1->0 enters roar without movement; native takes an extra expiry step. Sweep1791105477 retains102/105 and fixed fuzz1791105311 retains all idle/routes/26 clusters;26 generated fixture overwrites restored. Ledger1791105460 finds no07 exit in either bounded seed, leaving0/103 confirmed and9 native exits. Native/ROM523 images are inspected, with6 changed pixels. Wider visual, audio, natural entry and human play remain unproven. Generated evidence is under .cache/debug/lion-grounded-velocity/. One fix since exploration review1791104390904676000. The recording export-tail defect remains separate.

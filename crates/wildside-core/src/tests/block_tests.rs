@@ -13321,21 +13321,24 @@ mod chunk_04 {
     // --- Lion ---
 
     #[test]
-    fn lion_paces_then_charges_when_timer_expires_and_player_in_range() {
+    fn lion_walk_expiry_stops_movement_before_roar_loc_3e078() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
         let mut enemy = test_enemy(EnemyFamily::Lion, 60 << 16, floor_y, 6);
         enemy.lion_state = LionState::Walking;
         enemy.on_ground = true;
-        enemy.wait_timer = 1; // about to expire
-        let player_x = Some((60 + 0x50) << 16); // within detection range
+        enemy.wait_timer = 2;
+        let player_x = Some((60 + 0x50) << 16);
         let mut projs = vec![];
         step_lion(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
-        // Timer ticked to 0 but hasn't charged yet (timer was 1, decremented to 0)
+        // ASM loc_3E078 -> loc_3E11E walks while the decremented timer is nonzero.
         assert_eq!(enemy.lion_state, LionState::Walking);
-        // One more step with timer at 0 should start the roar wind-up.
+        assert_eq!(enemy.wait_timer, 1);
+        assert_eq!(enemy.x_pos, (60 << 16) + 0x18000);
+        // ASM loc_3E078 starts stru_3DF0E on1->0 without another walk step.
         step_lion(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
         assert_eq!(enemy.lion_state, LionState::Roaring);
+        assert_eq!(enemy.x_pos, (60 << 16) + 0x18000);
         assert!(projs.is_empty());
 
         for _ in 0..=LION_ROAR_FIRE_DELAY {

@@ -59,7 +59,7 @@
     "issue": 186,
     "readiness": "needs_comparison",
     "active_path": "crates/wildside-core/src/enemies.rs Lion state dispatch",
-    "route": "Saved hurt121/fire119/contact44 match gameplay/enemy. Weighted projectile contact preservesHP2 and deletes the child36. Grounded Lion Gfx velocity matches; original ledger1790982371 matches0..574, then native takes a walk step on the ROM roar-expiry callback. Natural entry and wider airborne/invulnerable hurt remain unproven.",
+    "route": "Saved hurt121/fire119/contact44/grounded524/expiry576 match gameplay/enemy. Walking timer expiry starts roaring without movement. Original ledger1790982371 matches0..575, then Kid HP differs576 after child terrain drift573. Natural entry and wider airborne/invulnerable hurt remain unproven.",
     "evidence": [
       "docs/source-port/backlog.md",
       "docs/source-port/backlog-archive.md#issue-186",
@@ -72,9 +72,10 @@
       "tests/data/dynamic-scenarios/issue-186-lion-surviving-hurt.json",
       "tests/data/fuzz-repros/79692a83.json",
       "tests/data/fuzz-repros/c026d985.json",
-      "tests/data/dynamic-scenarios/issue-186-lion-grounded-velocity.json"
+      "tests/data/dynamic-scenarios/issue-186-lion-grounded-velocity.json",
+      "tests/data/dynamic-scenarios/issue-186-lion-walk-expiry.json"
     ],
-    "next_action": "Correct loc_3E078 walk-timer expiry575 after ROM PC/WRAM proves roar entry; preserve hurt121/fire119/contact44 and airborne controls",
+    "next_action": "Add a saved child-state regression573/574, then implement ASM neighbour/penetration face selection. ROM loc_1A12/loc_1A44 proves the solid left neighbour dispatches floor.",
     "scope": "Lion: hurt recoil, gravity ledge-leap charge, roar windup + engagement bands missing"
   },
   {
@@ -1039,14 +1040,16 @@
   {
     "issue": 518,
     "readiness": "ready_replay",
-    "active_path": "Airborne Kid x velocity and RNG draws on 0x04; airborne velocity on 0x09 ledger routes",
-    "route": "tests/data/fuzz-repros/6c5f8e27.json, 1f2cfa0d.json, 70019eed.json, 08342e19.json",
+    "active_path": "Airborne Kid x velocity and RNG draws on 0x04; airborne velocity on 0x09 and0x07 ledger routes",
+    "route": "tests/data/fuzz-repros/6c5f8e27.json, 1f2cfa0d.json, 70019eed.json, 08342e19.json, 2c788cfe.json",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
-      "docs/source-port/backlog-archive.md#issue-515"
+      "docs/source-port/backlog-archive.md#issue-515",
+      "tests/data/fuzz-repros/2c788cfe.json",
+      "docs/source-port/backlog-archive.md#issue-518"
     ],
     "next_action": "Compare the 0x04 airborne velocity repro and both RNG frontiers with the ROM; read the owning routine before changing physics or scheduling.",
-    "scope": "The 0x04 airborne-velocity and RNG clusters, plus 0x09 airborne velocity before any transform."
+    "scope": "The 0x04 airborne-velocity and RNG clusters, plus0x09/0x07 airborne velocity before any transform."
   },
   {
     "issue": 519,

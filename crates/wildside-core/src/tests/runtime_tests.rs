@@ -24107,6 +24107,45 @@ fn gameplay_regression_lion_grounded_turn_keeps_gfx_velocity_clear() {
     assert_eq!(lion.y_velocity, Some(0));
 }
 
+/// ASM Lion.asm loc_3E078 expires $54 on575 and enters loc_3E09E without moving.
+#[test]
+fn gameplay_regression_lion_walk_expiry_starts_roar_without_movement() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/issue-186-lion-walk-expiry.json"
+    ))
+    .expect("checked-in Lion walk expiry route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    for frame in [574, 575] {
+        let lion = trace[frame]
+            .active_enemy_details
+            .iter()
+            .find(|enemy| {
+                enemy.kind == NativeObjectKind::Enemy { object_type: 0x12 }
+                    && enemy.layout_index == Some(0)
+            })
+            .expect("upper Lion reaches walk timer expiry");
+        assert_eq!(lion.x_pos, 0x02CB_8000, "frame {frame}");
+        assert_eq!(lion.y_pos, 0x0190_0000, "frame {frame}");
+        assert_eq!(lion.hit_points, Some(6), "frame {frame}");
+        if frame == 575 {
+            // ASM stru_3DF0E starts with LnkTo_unk_C7E60.
+            assert_eq!(lion.sprite_animation_phase, Some(12));
+        }
+    }
+}
+
 /// ASM loc_3E09E observes C7E78 on the Object pass after Gfx117 loads it.
 #[test]
 fn gameplay_regression_lion_roar_fires_on_first_mapping_poll() {
