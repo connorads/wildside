@@ -1,7 +1,10 @@
 use super::*;
 #[cfg(test)]
 use crate::combat::CollisionSizeEntrySub21F8;
-use crate::combat::{CollisionRectSub1F52, ShooterPointSub219C, first_shooter_hit_sub_219C};
+use crate::combat::{
+    CollisionRectSub1F52, ShooterPointSub219C, classify_relative_kid_object_contact,
+    first_shooter_hit_sub_219C,
+};
 use crate::enemies::{
     CloudAttackProjectileRouteLoc35E8A, DragonFlyingDescentFireFirstLoopLoc34C26,
     DragonFlyingDescentFireTravelLoopLoc34C3A, DripsLeftBoundsNextLoc335AA,
@@ -1913,6 +1916,58 @@ mod drips_surface_crawler_tests {
             "ASM sub_370D2 never sets has_kid_collision, so its overlapping eye burst must bypass GfxObjects_CollisionKid"
         );
         assert_eq!(runtime.projectiles.len(), 1);
+    }
+
+    /// ASM loc_1CB8/loc_1CF2 classify contact35; loc_3E1B4 deletes on36.
+    #[test]
+    fn lion_projectile_stomp_latches_relative_motion_before_child_wake() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        let mut lion = crate::enemies::test_fixtures::mini_hopping_skull_test_enemy();
+        lion.family = EnemyFamily::Lion;
+        lion.ufo_beam_interval = 0x72;
+        lion.ufo_beam_segments = 1;
+        let owner = EnemyProjectileOwner {
+            segment_index: lion.segment_index,
+            layout_index: lion.layout_index,
+            token: lion.ufo_beam_interval,
+        };
+        runtime.active_enemies.push(lion);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 1024,
+            height_pixels: 1024,
+        });
+        slice.player.x_pos = 0x019C_4E00;
+        slice.player.y_pos = 0x0296_2000;
+        slice.player.x_velocity = -0x0001_2F00;
+        slice.player.y_velocity = 0x0002_4000;
+        slice.player.on_ground = false;
+        slice.camera.x_pos = 0x0107_0000;
+        slice.camera.y_pos = 0x01F2_0000;
+        runtime.opening_slice = Some(slice);
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::LionProjectile,
+            x_pos: 0x0195_2000,
+            y_pos: 0x0298_8000,
+            x_velocity: -0x0005_C000,
+            y_velocity: -0x0001_2000,
+            lifetime: 120,
+            owner: Some(owner),
+            ..Default::default()
+        });
+        assert_eq!(
+            runtime.projectile_player_contact_after_step_loc_b640(&slice),
+            ProjectilePlayerContactLocB640::StompBounce,
+        );
+        assert_eq!(runtime.projectiles.len(), 1, "Gfx35 only latches contact");
+        assert_eq!(runtime.projectiles[0].collision_type, 0x2C);
+        assert_eq!(runtime.active_enemies[0].ufo_beam_segments, 1);
+        runtime.step_projectiles();
+        assert!(
+            runtime.projectiles.is_empty(),
+            "Object36 deletes before movement"
+        );
+        assert_eq!(runtime.active_enemies[0].ufo_beam_segments, 0);
     }
 
     #[test]
@@ -4103,6 +4158,14 @@ impl NativeRuntime {
             })
             .count() as u16;
         self.projectiles.retain_mut(|p| {
+            // ASM Lion.asm loc_3E192/loc_3E1B4 consumes the preceding
+            // Gfx $2C before homing or movement and releases its owner.
+            if p.kind == EnemyProjectileKind::LionProjectile && p.collision_type == 0x2C {
+                if let Some(owner) = p.owner {
+                    released_owners.push(owner);
+                }
+                return false;
+            }
             if p.boss_head_arrow_coroutine_state
                 == crate::types::BossHeadArrowCoroutineState::AwaitingRecordingHandoffWakeLocE12
             {
@@ -4391,8 +4454,7 @@ impl NativeRuntime {
                 && !is_boss_eye_attack
                 && !is_boss_eye_satellite
                 && !is_boss_eye_pop_effect
-                // ASM Lion.asm loc_3E192 has no DBF lifetime; zero is only
-                // native's deferred-delete marker after a Kid collision.
+                // ASM Lion.asm loc_3E192 has no DBF lifetime.
                 && !is_lion_projectile
                 // ASM sub_87B0/loc_8810 has no DBF lifetime; zero remains
                 // native's generic delete marker for this projectile slot.
@@ -5575,6 +5637,33 @@ impl NativeRuntime {
             } else {
                 projectile_overlaps_player_loc_1c18(p, px, py, half, player_bounds)
             };
+            // ASM loc_1CB8/loc_1CF2 writes the relation using this Gfx
+            // pass's relative velocities, before the next Object wake.
+            let lion_stomp_latched = p.kind == EnemyProjectileKind::LionProjectile
+                && !p.kid_contact_pending
+                && overlaps_now
+                && !stomp_registration_blocked
+                && classify_relative_kid_object_contact(
+                    crate::trace::ObjectBoundsPx {
+                        left: player_bounds.left,
+                        right: player_bounds.right,
+                        top: player_bounds.top,
+                        bottom: player_bounds.bottom,
+                    },
+                    crate::trace::ObjectBoundsPx {
+                        left: prx - 5,
+                        right: prx + 4,
+                        top: pry - 5,
+                        bottom: pry + 4,
+                    },
+                    (
+                        p.x_velocity - slice.player.x_velocity,
+                        p.y_velocity - slice.player.y_velocity,
+                    ),
+                ) == crate::trace::KidObjectRelation::Above;
+            if lion_stomp_latched {
+                p.collision_type = 0x2C;
+            }
             // ASM GfxObjects_CollisionKid writes `$28` for the arrow after
             // the movement pass. Enemy07_ArcherArrow_Init loc_342D6 consumes
             // that result on its next wake, as at Scorpion Isle frames 194-195.
@@ -5582,6 +5671,7 @@ impl NativeRuntime {
                 p.kind,
                 EnemyProjectileKind::ArcherArrow | EnemyProjectileKind::LionProjectile
             ) && !p.kid_contact_pending
+                && !lion_stomp_latched
             {
                 p.kid_contact_pending = overlaps_now;
                 return true;
@@ -5589,7 +5679,13 @@ impl NativeRuntime {
             let contact_pending = std::mem::take(&mut p.kid_contact_pending);
             let overlaps = overlaps_now || contact_pending;
             if overlaps {
-                let projectile_contact = if p.kind == EnemyProjectileKind::ShooterBlock {
+                let projectile_contact = if p.kind == EnemyProjectileKind::LionProjectile {
+                    if lion_stomp_latched {
+                        ProjectilePlayerContactLocB640::StompBounce
+                    } else {
+                        ProjectilePlayerContactLocB640::Damage
+                    }
+                } else if p.kind == EnemyProjectileKind::ShooterBlock {
                     // ASM Process_ShooterObjects loc_EDFA..loc_EF62 is a
                     // shooter-object worker, not a normal enemy object
                     // entering Character_CheckCollision/off_B640. Oracle
@@ -5649,16 +5745,8 @@ impl NativeRuntime {
                     // not delete the shooter slot.
                     true
                 } else if p.kind == EnemyProjectileKind::LionProjectile {
-                    if projectile_contact == ProjectilePlayerContactLocB640::StompBounce {
-                        // ASM Lion.asm loc_3E192 deletes only `colid_kidabove`
-                        // and `colid_hurt`. Side/below contacts route Kid
-                        // through off_B640 damage but leave the child object
-                        // alive to continue homing.
-                        self.lion_projectile_object_only_tail_count = self
-                            .lion_projectile_object_only_tail_count
-                            .saturating_add(1);
-                        p.lifetime = 0;
-                    }
+                    // ASM loc_1CF2 only latches the child contact here;
+                    // loc_3E192 consumes it on the following Object pass.
                     true
                 } else if p.kind == EnemyProjectileKind::TarMonsterStraightGlob {
                     // ASM GfxObjects_CollisionKid treats zero `$3D` as

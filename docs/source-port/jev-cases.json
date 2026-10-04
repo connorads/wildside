@@ -59,7 +59,7 @@
     "issue": 186,
     "readiness": "needs_comparison",
     "active_path": "crates/wildside-core/src/enemies.rs Lion state dispatch",
-    "route": "Saved surviving-hurt121, shrunk79692a83 fire119 and original ledger1790967292 first200 match gameplay/enemy. Shared Init defer and42-callback roar preserve settled and live clocks. Natural entry and airborne hurt remain unproven.",
+    "route": "Saved hurt121/fire119/contact44 match gameplay/enemy. Weighted projectile contact preservesHP2 and deletes the child36. Original ledger1790982371 matches0..522, then upper-Lion grounded X velocity differs. Natural entry and wider airborne/invulnerable hurt remain unproven.",
     "evidence": [
       "docs/source-port/backlog.md",
       "docs/source-port/backlog-archive.md#issue-186",
@@ -70,9 +70,10 @@
       "crates/wildside-core/src/enemies/lion.rs",
       "tests/data/dynamic-scenarios/issue-186-lion-walk-contact.json",
       "tests/data/dynamic-scenarios/issue-186-lion-surviving-hurt.json",
-      "tests/data/fuzz-repros/79692a83.json"
+      "tests/data/fuzz-repros/79692a83.json",
+      "tests/data/fuzz-repros/c026d985.json"
     ],
-    "next_action": "Investigate shrunk ledger c026d985 first damage/motion divergence at43; preserve surviving-hurt121 and upper-fire119 controls before natural entry or airborne hurt claims",
+    "next_action": "Trace original ledger1790982371 upper-Lion velocity after loc_3E546 on522/523; preserve hurt121/fire119/contact44 controls before wider Lion claims",
     "scope": "Lion: hurt recoil, gravity ledge-leap charge, roar windup + engagement bands missing"
   },
   {

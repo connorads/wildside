@@ -31,13 +31,13 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-10-03):** #186 shared loader supplies the Lion Init defer and live roar waits42 callbacks. Shrunk119 and original200 match the ROM, including fire118/resume145. Fast/full, sweep and fixed fuzz retain their baselines; ledger07 reaches Flag2034/transition2586 and now blocks on c026d985 at43 on a new route. Investigate its shrunk44-checkpoint damage/motion frontier before the next fix. #515/#522 remain open.
-- **Intake:** Fixed fuzz 0x00-0x05 x 8 seeds retains26 tracked clusters. Ledger has10 native exits and0/103 confirmed; fresh ledger07 reaches Flag2034/transition2586 but blocks on c026d985 at43. Saved79692a83 fire119 and original200 match. Original464160b3 route advances past103 to its genuine stomp latch104.
+- **Current work (2026-10-04):** #186 Lion projectile contact uses ASM relative motion and retains `$2C` through the next child wake. Shrunk44 matches the ROM; the original2617 route first differs on523 in the upper Lion's grounded X velocity. Trace loc_3E546's clear and native linked-motion projection. #515/#522 remain open.
+- **Intake:** Fixed fuzz 0x00-0x05 x 8 seeds retains26 tracked clusters. Ledger has9 native exits and0/103 confirmed; fresh07 search finds no exit in either bounded seed. Prior07 inputs remain in run1790982371 and match0..522 after the contact fix. Saved fire119/original200 and surviving-hurt121 remain regression controls.
 - **Scope:** ADR0004 sets the fidelity floor: gameplay, enemy and RNG state, level exits, visible or audible bugs. Pixel baseline and injection ratchet stay.
 - **After each fix:** Re-run fixed fuzz and affected ledger levels with `--write`; extend the ledger beyond0x10 once early levels confirm.
 - **Jev allowance:** $5 additional across the campaign. #185 used48 requests in one attempt; lifetime charged upper bound $0.257086284.
-- **Jev exploration review:** Last review1790965033462302000 fails pixels47; the post-fire fix makes47-69 exact. No paid collection; two fixes since review. Saved surviving-stomp104/105 and recovery120 match. Review the next eligible route gap after the next fix.
-- **Evidence boundary:** Lion loader67, roar120 and saved turn83 match gameplay/enemy/RNG. Surviving-hurt121, fire119 and original200 match gameplay/enemy; fast/full retain pixel/GEMS command baselines. Five targeted mutants are caught; live SDL200 replays deterministically with explicit final input. Sweep102/105 retains1B/4C/5C. Roar42 pixel frames differ; HP8 return31 faces differ. Natural entry, airborne hurt and human play stability remain unproven.
+- **Jev exploration review:** Review1791104390904676000 on158e7276e selects P1 #169 Drips. Settled01 preflight matches state0..5 but EmoRock pixels differ on2/4 outside frozen HUD regions, so collection stops before any paid request. No navigation coverage; trace that renderer under #333. Zero fixes since review.
+- **Evidence boundary:** Cached Lion155, fast7503 and full37759 pass. Sweep102/105 retains1B/4C/5C; fixed fuzz metadata is unchanged. Live SDL44 replays44/44 with explicit final input. Raw audio-state parity, full projectile motion/pixels, natural entry, airborne/invulnerable hurt and human play stability remain unproven. The short-script recording export defect remains separate.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -59,7 +59,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 186 | [~] | P1 | enemy | Fight a Lion; hurt recovery and engagement must match the ROM. Saved surviving-stomp121 and upper-fire119 match; original200 completes fire on145. | Fire119/original200 match; ledger c026d985 needs damage/motion investigation at43. |
+| 186 | [~] | P1 | enemy | Fight a Lion; hurt recovery and engagement must match the ROM. Saved hurt121/fire119/contact44 match; original2617 reaches grounded-velocity drift523. | Trace523 grounded velocity after loc_3E546; preserve saved regressions. |
 | 515 | [~] | P1 | kid-physics | Native derives MoveID; the ROM stores it at coroutine write sites. 10/26 fuzz clusters (20 routes) differ first: 7b0a8e1e, 3a36f8ac, 5a673417, a5798943, b5918261, 891e57ae, c9b3814a, c96a3c9d. | Fuzz 0x00-0x05 x 8 seeds has no `character_movement`-first cluster; `gameplay_regression_*` tests load the shrunk repros. |
 | 517 | [ ] | P2 | enemy | Fuzz clusters 022889be (0x00 f309), d1446380 and 72129c1a (0x03), e9b6a11e (0x02): native keeps a different live object set or roster. | Each shrunk repro matches object counts and roster. |
 | 518 | [ ] | P2 | kid-physics | Fuzz clusters 6c5f8e27 (0x04 f260, airborne `kid_x_vel`), 1f2cfa0d (0x04 f203, RNG offset/ring) and 70019eed (0x04 f127, RNG offset/ring); ledger08342e19 (0x09 f304, airborne velocity). | Each repro matches the ROM through its divergence frame. |

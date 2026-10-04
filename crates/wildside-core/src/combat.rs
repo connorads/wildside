@@ -15340,16 +15340,59 @@ fn classify_enemy_contact_relation_for_bounds(
         return None;
     }
 
-    let object_x_delta = enemy.x_velocity.unwrap_or(0) - player.x_velocity;
-    let object_y_delta = enemy.y_velocity.unwrap_or(0) - pre_physics_y_velocity;
+    let relation = classify_relative_kid_object_contact(
+        crate::trace::ObjectBoundsPx {
+            left: kid_left,
+            right: kid_right,
+            top: kid_top,
+            bottom: kid_bottom,
+        },
+        crate::trace::ObjectBoundsPx {
+            left: object_left,
+            right: object_right,
+            top: object_top,
+            bottom: object_bottom,
+        },
+        (
+            enemy.x_velocity.unwrap_or(0) - player.x_velocity,
+            enemy.y_velocity.unwrap_or(0) - pre_physics_y_velocity,
+        ),
+    );
+
+    if defer_edge_side_damage
+        && enemy_edge_side_damage_defers_until_positive_overlap(enemy, x_overlap_px)
+    {
+        return None;
+    }
+
+    Some(relation)
+}
+
+/// ASM loc_1C42..loc_1CE4 (kid.asm): relative motion selects contact side.
+pub(crate) fn classify_relative_kid_object_contact(
+    player_bounds: crate::trace::ObjectBoundsPx,
+    object_bounds: crate::trace::ObjectBoundsPx,
+    (object_x_delta, object_y_delta): (i32, i32),
+) -> crate::trace::KidObjectRelation {
+    let crate::trace::ObjectBoundsPx {
+        left: kid_left,
+        right: kid_right,
+        top: kid_top,
+        bottom: kid_bottom,
+    } = player_bounds;
+    let crate::trace::ObjectBoundsPx {
+        left: object_left,
+        right: object_right,
+        top: object_top,
+        bottom: object_bottom,
+    } = object_bounds;
     let rel_x = object_x_delta >> 8;
     let rel_y = object_y_delta >> 8;
-
     // ASM loc_1C42 (kid.asm:3390): GfxObjects_CollisionKid subtracts Kid's
     // velocity from the object's velocity, scales the deltas with
     // `lsl.l #8; swap`, then dispatches through the four sign-specific
     // overlap comparisons below to choose the collision side.
-    let relation = if object_x_delta >= 0 {
+    if object_x_delta >= 0 {
         if object_y_delta >= 0 {
             let x_term = i64::from(object_right - kid_left) * i64::from(rel_y);
             let y_term = i64::from(object_bottom - kid_top) * i64::from(rel_x);
@@ -15393,15 +15436,7 @@ fn classify_enemy_contact_relation_for_bounds(
         } else {
             crate::trace::KidObjectRelation::Above
         }
-    };
-
-    if defer_edge_side_damage
-        && enemy_edge_side_damage_defers_until_positive_overlap(enemy, x_overlap_px)
-    {
-        return None;
     }
-
-    Some(relation)
 }
 
 struct StompContactCandidateDebug {

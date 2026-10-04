@@ -24036,6 +24036,41 @@ fn gameplay_regression_lion_walk_rectangles_reject_union_only_stomp() {
     assert_eq!(lion.hit_points, Some(6), "ROM rejects the union-only stomp");
 }
 
+/// ASM loc_1CF2 latches $2C on35; Jump_On_Enemy/loc_3E1B4 consume36.
+#[test]
+fn gameplay_regression_lion_projectile_stomp_preserves_hp_and_releases_child() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/fuzz-repros/c026d985.json"
+    ))
+    .expect("checked-in Lion projectile stomp route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    assert_eq!(trace[35].number_hitpoints, 2);
+    assert_eq!(trace[35].active_projectile_details.len(), 1);
+    let bounce = &trace[36];
+    assert_eq!(
+        bounce.number_hitpoints, 2,
+        "ROM projectile contact is a stomp"
+    );
+    assert_eq!(bounce.kid_x_pos, Some(0x019C_BA80));
+    assert_eq!(bounce.kid_y_pos, Some(0x028F_6000));
+    assert_eq!(bounce.kid_x_velocity, Some(-0x0001_C280));
+    assert_eq!(bounce.kid_y_velocity, Some(-0x0003_C000));
+    assert!(bounce.active_projectile_details.is_empty());
+    assert_eq!((bounce.number_objects, bounce.number_gfx_objects), (6, 6));
+}
+
 /// ASM loc_3E09E observes C7E78 on the Object pass after Gfx117 loads it.
 #[test]
 fn gameplay_regression_lion_roar_fires_on_first_mapping_poll() {

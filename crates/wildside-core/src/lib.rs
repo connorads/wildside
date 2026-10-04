@@ -817,9 +817,6 @@ pub struct NativeRuntime {
     last_projectile_damage_probe: Option<String>,
     /// Debug-only Drips splash reseed trace for ASM loc_33488 -> loc_3340E.
     last_drips_splash_reseed_probe: Option<String>,
-    /// ASM Lion.asm loc_3E192/sub_3E2CE child worker remains count-visible in
-    /// the hit frame even when native has consumed the projectile collision.
-    lion_projectile_object_only_tail_count: u16,
     /// ASM Drips.asm loc_33488/loc_3392C mirror of `$FFFFFB42`: incremented
     /// when loc_335D8 allocates a surface crawler and decremented only after
     /// the crawler's finish animation reaches loc_3392C. Native cannot derive
@@ -1845,7 +1842,6 @@ impl NativeRuntime {
             recent_damage_gate_held_this_frame_loc_bc6e: false,
             last_projectile_damage_probe: None,
             last_drips_splash_reseed_probe: None,
-            lion_projectile_object_only_tail_count: 0,
             drips_surface_crawler_count_loc_fffffb42: 0,
             level_prize_collected: false,
             level_speed_bonus_awarded: false,

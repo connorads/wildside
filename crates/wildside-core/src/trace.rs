@@ -16837,14 +16837,12 @@ impl NativeRuntime {
         // loc_3E12A calls j_Load_GfxObjectSlot before initialising its art.
         // Native stores the shot on the parent, outside the active roster, so
         // it contributes one worker to both linked-list counts.
-        let lion_parent_projectile_workers = self
+        let lion_projectile_workers = self
             .active_enemies
             .iter()
             .filter(|enemy| enemy.family == EnemyFamily::Lion)
             .map(|enemy| usize::from(enemy.ufo_beam_segments))
             .sum::<usize>();
-        let lion_projectile_workers = lion_parent_projectile_workers
-            .max(usize::from(self.lion_projectile_object_only_tail_count));
         // ASM Fire_Demon.asm loc_3A564 allocates each fire-trail child through
         // j_Allocate_ObjectSlot while Number_of_Fire_Trails < 7, and the child
         // init loc_3A63C loads a GfxObject slot, so every burning trail owns
