@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+### 2026-10-04 - Shared-walker Y verified on main
+
+Remove ordinary grounded Y snapping and the masking Orca scan offset together. Saved Diamond416/416 state/RNG matches; sensitive supported/unsupported controls pass both directions. Main fast/full and fixed census pass their baselines; sweep5C returns197 pixels and retains102/105. Restore23 overwritten fixtures, verify100 bytes. Affected03 new Flag route blocks132 at existing b17bcd1f; original d471 route advances415->589. No confirmed exit added. RNG reducer finishes263 masks/129 nonzero/4853 replays; final representative needs frame256 Init revalidation. Native audio/flagpost/tank-helmet reports remain open, system audio muted.
+
 ### 2026-10-04 - Juggernaut composite tile order verified on main
 
 Transformation commits7d8843264 with wired hooks green. Separate renderer patch is byte-identical to isolation and passes main fast73680/full92896. Full report byte-matches parent; census1791148991 and affected05 ledger1791149054 match parent apart from revision/run ID. Restore23 overwritten fixtures, verify all100 bytes and resume the same live RNG reducer. Scene cleanup pixels improve935->123,1138->84,1129->84, with residual player pixels unclassified. Ledger remains0/103 confirmed. Commit renderer separately; Diamond and EmoRock candidates remain queued.

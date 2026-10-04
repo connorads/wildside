@@ -14034,6 +14034,57 @@ mod chunk_04 {
 
     // --- Orca ---
 
+    /// ASM loc_3E79E/loc_3E682 -> loc_3E7C4/loc_3E6A4 -> loc_3E84E/loc_3E732.
+    #[test]
+    fn orca_actual_y_scan_preserves_support_and_enters_falling_in_both_directions() {
+        let grid = grid_with_platform(7, 0, 120);
+        for facing in [Direction::Left, Direction::Right] {
+            for supported in [false, true] {
+                let start_y = if supported { 0x0070_8000 } else { 0x006f_0000 };
+                let mut active = [test_enemy(EnemyFamily::Orca, 0x00a0_0000, start_y, 4)];
+                active[0].facing = facing;
+                active[0].on_ground = true;
+                for (frame, expected_y, expected_gravity) in [
+                    (1, 0x0070_0000, 0x4000),
+                    (2, 0x0070_4000, 0x8000),
+                    (3, 0x0070_c000, 0xc000),
+                    (4, 0x0070_0000, 0),
+                ] {
+                    step_active_enemies(
+                        &mut active,
+                        Some(&grid),
+                        None,
+                        None,
+                        None,
+                        None,
+                        PlayerForm::TheKid,
+                        None,
+                        &mut Vec::new(),
+                    );
+                    let expected_x = match facing {
+                        Direction::Left => 0x00a0_0000 - frame * 0x8000,
+                        Direction::Right => 0x00a0_0000 + frame * 0x8000,
+                    };
+                    assert_eq!(
+                        active[0].x_pos, expected_x,
+                        "{facing:?}/{supported}/{frame}"
+                    );
+                    assert_eq!(
+                        active[0].y_pos,
+                        if supported { start_y } else { expected_y },
+                        "{facing:?}/{supported}/{frame}"
+                    );
+                    assert_eq!(
+                        active[0].y_velocity,
+                        if supported { 0 } else { expected_gravity },
+                        "{facing:?}/{supported}/{frame}"
+                    );
+                    assert_eq!(active[0].on_ground, supported || frame == 4);
+                }
+            }
+        }
+    }
+
     #[test]
     fn orca_activation_wires_init_state_loc_3d194() {
         let init = orca_init_state_loc_3d194();

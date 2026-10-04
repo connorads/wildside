@@ -18135,6 +18135,40 @@ mod tests {
         }
     }
 
+    /// ASM loc_3C0FA -> loc_3C172 -> loc_3C0E6 (kid.asm): grounded steps preserve Y.
+    #[test]
+    fn gameplay_regression_grounded_diamond_preserves_y_after_horizontal_step() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario: DynamicScenario = serde_json::from_str(include_str!(
+            "../../../../tests/data/fuzz-repros/d4710e6c.json"
+        ))
+        .expect("grounded Diamond route");
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("grounded Diamond trace");
+        for frame in [414, 415] {
+            let diamond = run.trace[frame]
+                .active_objects
+                .iter()
+                .find(|object| object.layout_index == Some(7))
+                .expect("layout 7 Diamond");
+            assert_eq!(diamond.hit_points, Some(2), "frame{frame}");
+            assert_eq!(diamond.facing, Some(Direction::Left), "frame{frame}");
+            assert_eq!(diamond.y_pos, 0x00df_0000, "frame{frame}");
+        }
+        let diamond = run.trace[415]
+            .active_objects
+            .iter()
+            .find(|object| object.layout_index == Some(7))
+            .expect("layout 7 Diamond");
+        assert_eq!(diamond.x_pos, 0x0407_0000);
+    }
+
     /// ASM loc_9D58 -> loc_9DAA -> loc_9DF2 (kid.asm): Down resumes slope motion.
     #[test]
     fn gameplay_regression_slope_down_continuation_skips_crawl_alignment() {
@@ -23156,6 +23190,36 @@ mod tests {
             [0x00D0_8000, 0x00D0_8000, 0x00CD_0000],
             "oracle frames 321..323: Lion.asm loc_3E604 detects Kid at the inclusive -$60 boundary, loc_3E50A hibernates once, then installs Orca's $30000 charge step"
         );
+    }
+
+    /// ASM Orca_Init -> loc_3E79E/loc_3E7C4 -> loc_3E84E: unsupported Y111 lands at112.
+    #[test]
+    fn gameplay_regression_orca_unsupported_init_lands_before_grounded_walk() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::idle_level_full_frame_scenario(0x5c);
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("Orca unsupported Init trace");
+        for frame in [0, 60] {
+            for layout_index in [1, 2] {
+                let orca = run.trace[frame]
+                    .active_enemy_details
+                    .iter()
+                    .find(|enemy| {
+                        matches!(
+                            enemy.kind,
+                            wildside_core::NativeObjectKind::Enemy { object_type: 0x08 }
+                        ) && enemy.layout_index == Some(layout_index)
+                    })
+                    .expect("grounded Orca after Init");
+                assert_eq!(orca.y_pos, 0x0070_0000, "frame{frame}/layout{layout_index}");
+            }
+        }
     }
 
     #[test]

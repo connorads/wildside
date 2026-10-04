@@ -25161,6 +25161,48 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         }
     }
 
+    /// ASM loc_3C0C6/loc_3C172 (kid.asm): grounded X commits leave the Y longword intact.
+    #[test]
+    fn diamond_grounded_steps_preserve_subpixel_y_in_both_directions() {
+        for (facing, x_pos) in [
+            (Direction::Left, 0x0120_8000),
+            (Direction::Right, 0x0120_8000),
+            (Direction::Left, 0x013a_8000),
+            (Direction::Right, 0x0136_8000),
+        ] {
+            let mut runtime = NativeRuntime::new(manifest());
+            runtime.set_block_grid(grid_with_floor_at_row(14));
+            start_level(&mut runtime);
+            let slice = runtime.opening_slice.as_mut().expect("active level");
+            slice.player.x_pos = 0x0080_0000;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+            runtime.step_frame(FrameInput::default());
+            let diamond = runtime
+                .active_enemies
+                .iter_mut()
+                .find(|enemy| enemy.family == EnemyFamily::Diamond)
+                .expect("activated Diamond");
+            diamond.facing = facing;
+            diamond.x_pos = x_pos;
+            diamond.y_pos = 0x00e0_8000;
+            diamond.on_ground = true;
+            runtime.step_frame(FrameInput::default());
+            let diamond = runtime
+                .active_enemies
+                .iter()
+                .find(|enemy| enemy.family == EnemyFamily::Diamond)
+                .expect("grounded Diamond");
+            let expected_x = match facing {
+                Direction::Left => x_pos - 0x18000,
+                Direction::Right => x_pos + 0x18000,
+            };
+            assert_eq!(diamond.x_pos, expected_x, "{facing:?} from{x_pos:08x}");
+            assert_eq!(diamond.y_pos, 0x00e0_8000, "{facing:?} from{x_pos:08x}");
+            assert!(diamond.on_ground, "{facing:?} from{x_pos:08x}");
+        }
+    }
+
     #[test]
     fn diamond_enemy_is_not_collected_on_touch_loc_3ad16() {
         let mut runtime = NativeRuntime::new(manifest());

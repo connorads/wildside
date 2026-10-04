@@ -8957,17 +8957,12 @@ pub(crate) fn step_pacer(
 
     let current_x_px = (enemy.x_pos >> 16) as i32;
     let current_y_px = (enemy.y_pos >> 16) as i32;
-    // ASM Orca.asm loc_3D194 gives the shared Lion walker a 27px body while
-    // Level $64 spawns both Orcas one pixel above the grid row. Native terrain
-    // stores the support row directly, so compensate at this adapter boundary
-    // instead of changing sub_36972/sub_36A58 semantics for every family.
-    let scan_y_px = current_y_px + i32::from(matches!(enemy.family, EnemyFamily::Orca));
     let moving_right = enemy.x_velocity >= 0;
     let scan = if moving_right {
         terrain::grounded_walker_scan_right_sub_36972(
             grid,
             current_x_px,
-            scan_y_px,
+            current_y_px,
             probe_half_width,
             probe_height,
         )
@@ -8975,7 +8970,7 @@ pub(crate) fn step_pacer(
         terrain::grounded_walker_scan_left_sub_36A58(
             grid,
             current_x_px,
-            scan_y_px,
+            current_y_px,
             probe_half_width,
             probe_height,
         )
@@ -9456,10 +9451,7 @@ pub(crate) fn step_pacer(
         // look-ahead cliff turn — it walks to the edge and the next pass's
         // `tst.w d6; bmi loc_3E682` fall branch takes over. The kid.asm
         // lineage keeps its loc_3C0A6 look-ahead turn below.
-        let floor = terrain::probe_floor(grid, cx, cy);
-        if floor.on_ground {
-            enemy.y_pos = (floor.floor_y_px as u32) << 16;
-        }
+        // ASM loc_3C172/loc_3C0C6 and Lion.asm loc_3E3B2/loc_3E566 preserve Y.
         // ASM loc_3C0C6 clears `$5A(a5)` after a successful shared-walker
         // horizontal advance. Native collapses the mirrored left/right loops,
         // so any non-turning frame clears the stuck-turn counter.

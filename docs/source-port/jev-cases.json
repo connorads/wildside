@@ -1032,10 +1032,10 @@
     "issue": 517,
     "readiness": "ready_replay",
     "active_path": "Object allocation and enemy roster on 0x00/0x02/0x03",
-    "route": "tests/data/fuzz-repros/022889be.json, d1446380.json, 72129c1a.json, e9b6a11e.json, 76279bcc.json, b458851c.json, 2301e88b.json, f9f6713c.json, c36fb8b6-level03.json, 9d6f19d9.json,00c6aa8c.json,8ab6fa8c.json,d4710e6c.json,22f086c8.json,90c880cb.json",
+    "route": "tests/data/fuzz-repros/022889be.json, d1446380.json, 72129c1a.json, e9b6a11e.json, 76279bcc.json, b458851c.json, 2301e88b.json, f9f6713c.json, c36fb8b6-level03.json, 9d6f19d9.json,00c6aa8c.json,8ab6fa8c.json,22f086c8.json,90c880cb.json",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
-      "docs/source-port/backlog-archive.md#issue-515"
+      "docs/source-port/backlog-archive.md#issue-517"
     ],
     "next_action": "Replay 022889be to frame 309 and identify the extra native Object and GfxObject.",
     "scope": "Object-count and roster divergences in the census and level ledger."
