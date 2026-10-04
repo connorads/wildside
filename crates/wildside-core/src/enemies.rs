@@ -3303,12 +3303,15 @@ impl ActiveEnemy {
         let x_velocity = if matches!(
             self.family,
             EnemyFamily::Goat
+                | EnemyFamily::Lion
                 | EnemyFamily::Tank
                 | EnemyFamily::TankShooting
                 | EnemyFamily::Driller
         ) && self.on_ground
         {
-            // ASM Goat.asm loc_3CC52 -> Lion.asm loc_3E566/loc_3E3B2 and
+            // ASM Lion.asm loc_3E392/loc_3E546 clear Gfx velocity before
+            // loc_3E3B2/loc_3E566 move with Object `$50(a5)`.
+            // Goat.asm loc_3CC52 -> Lion.asm loc_3E566/loc_3E3B2 and
             // Tank.asm loc_3B40A / Tank_Shooting.asm loc_3B6AE and
             // Driller.asm loc_3BE60 ->
             // kid.asm loc_3C026/loc_3C0D2 move grounded shared walkers with

@@ -2356,6 +2356,33 @@ mod tests {
     }
 
     #[test]
+    fn lion_contact_and_gfx_velocities_follow_grounded_and_airborne_callbacks() {
+        let mut lion = mini_hopping_skull_test_enemy();
+        lion.family = EnemyFamily::Lion;
+        for facing in [Direction::Left, Direction::Right] {
+            lion.facing = facing;
+            lion.x_velocity = horizontal_velocity(facing, 0x18000);
+            lion.on_ground = true;
+            // ASM loc_3E392/loc_3E546 clear Gfx velocity; loc_3E3B2/loc_3E566
+            // use Object $50 for patrol movement and weighted Kid contact sees zero.
+            assert_eq!(lion.snapshot().x_velocity, Some(0));
+            assert_eq!(lion.trace_gfx_snapshot_loc_3df56().x_velocity, Some(0));
+
+            lion.on_ground = false;
+            lion.y_velocity = 0x4000;
+            lion.damage_flash_frames = 5;
+            // ASM loc_3E682/loc_3E79E seed airborne velocity, and loc_3E32C
+            // hibernates hurt without clearing it. Left movement subtracts magnitude.
+            assert_eq!(lion.snapshot().x_velocity, Some(lion.x_velocity));
+            assert_eq!(
+                lion.trace_gfx_snapshot_loc_3df56().x_velocity,
+                Some(0x18000)
+            );
+            assert_eq!(lion.snapshot().y_velocity, Some(0x4000));
+        }
+    }
+
+    #[test]
     fn lion_post_fire_resume_exposes_walk_phase_loc_3e0f4() {
         let mut enemy = mini_hopping_skull_test_enemy();
         enemy.family = EnemyFamily::Lion;

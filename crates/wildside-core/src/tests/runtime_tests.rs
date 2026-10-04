@@ -24071,6 +24071,42 @@ fn gameplay_regression_lion_projectile_stomp_preserves_hp_and_releases_child() {
     assert_eq!((bounce.number_objects, bounce.number_gfx_objects), (6, 6));
 }
 
+/// ASM Lion.asm loc_3E546 clears Gfx velocity; loc_3E566 moves with Object $50.
+#[test]
+fn gameplay_regression_lion_grounded_turn_keeps_gfx_velocity_clear() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/issue-186-lion-grounded-velocity.json"
+    ))
+    .expect("checked-in Lion grounded turn route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    let lion = trace[523]
+        .active_enemy_details
+        .iter()
+        .find(|enemy| {
+            enemy.kind == NativeObjectKind::Enemy { object_type: 0x12 }
+                && enemy.layout_index == Some(0)
+        })
+        .expect("upper Lion survives its grounded turn");
+    assert_eq!(lion.x_pos, 0x02EB_0000);
+    assert_eq!(lion.y_pos, 0x0190_0000);
+    assert_eq!(lion.facing, Some(Direction::Left));
+    assert_eq!(lion.hit_points, Some(6));
+    assert_eq!(lion.x_velocity, Some(0));
+    assert_eq!(lion.y_velocity, Some(0));
+}
+
 /// ASM loc_3E09E observes C7E78 on the Object pass after Gfx117 loads it.
 #[test]
 fn gameplay_regression_lion_roar_fires_on_first_mapping_poll() {

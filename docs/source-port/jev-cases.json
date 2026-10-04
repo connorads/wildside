@@ -59,7 +59,7 @@
     "issue": 186,
     "readiness": "needs_comparison",
     "active_path": "crates/wildside-core/src/enemies.rs Lion state dispatch",
-    "route": "Saved hurt121/fire119/contact44 match gameplay/enemy. Weighted projectile contact preservesHP2 and deletes the child36. Original ledger1790982371 matches0..522, then upper-Lion grounded X velocity differs. Natural entry and wider airborne/invulnerable hurt remain unproven.",
+    "route": "Saved hurt121/fire119/contact44 match gameplay/enemy. Weighted projectile contact preservesHP2 and deletes the child36. Grounded Lion Gfx velocity matches; original ledger1790982371 matches0..574, then native takes a walk step on the ROM roar-expiry callback. Natural entry and wider airborne/invulnerable hurt remain unproven.",
     "evidence": [
       "docs/source-port/backlog.md",
       "docs/source-port/backlog-archive.md#issue-186",
@@ -71,9 +71,10 @@
       "tests/data/dynamic-scenarios/issue-186-lion-walk-contact.json",
       "tests/data/dynamic-scenarios/issue-186-lion-surviving-hurt.json",
       "tests/data/fuzz-repros/79692a83.json",
-      "tests/data/fuzz-repros/c026d985.json"
+      "tests/data/fuzz-repros/c026d985.json",
+      "tests/data/dynamic-scenarios/issue-186-lion-grounded-velocity.json"
     ],
-    "next_action": "Trace original ledger1790982371 upper-Lion velocity after loc_3E546 on522/523; preserve hurt121/fire119/contact44 controls before wider Lion claims",
+    "next_action": "Correct loc_3E078 walk-timer expiry575 after ROM PC/WRAM proves roar entry; preserve hurt121/fire119/contact44 and airborne controls",
     "scope": "Lion: hurt recoil, gravity ledge-leap charge, roar windup + engagement bands missing"
   },
   {
