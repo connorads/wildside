@@ -160,6 +160,7 @@ impl SegmentRecorder {
                 .script
                 .iter()
                 .copied()
+                .chain(std::iter::repeat(0))
                 .take(recorded_trace.len())
                 .collect();
         }

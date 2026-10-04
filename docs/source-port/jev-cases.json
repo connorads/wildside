@@ -955,7 +955,7 @@
   {
     "issue": 360,
     "readiness": "needs_route",
-    "active_path": "play-native recording target metadata, verify-recording and TAS frontier runner",
+    "active_path": "play-native recording target metadata, implicit-zero source-mask padding, verify-recording and TAS frontier runner",
     "route": "missing; requested issue-360-target-route not a demonstrated capture",
     "evidence": [
       "docs/source-port/backlog-awaiting-human.md#issue-360",

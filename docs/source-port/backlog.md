@@ -31,13 +31,13 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-10-04):** #186 hurt rendering follows loc_3E32C: C7E58 pose and unchanged palette2. Saved121-route regression and fresh oracle state match; visible hurt region matches104..120. Wider airborne/invulnerable hurt and natural entry remain unproven. Neutral extension first drifts at148 Kid X velocity, a separate physics lead.
+- **Current work (2026-10-04):** #186 hurt rendering follows loc_3E32C: C7E58 pose and unchanged palette2. Saved121-route regression and fresh oracle state match; visible hurt region matches104..120. Wider airborne/invulnerable hurt and natural entry remain unproven. The clean original0..992 prefix contains no HP change or airborne hurt; this witness search is parked. Neutral extension first drifts at148 Kid X velocity, a separate physics lead.
 - **Intake:** Fixed fuzz 0x00-0x05 x8 seeds retains26 tracked clusters. Ledger has10 native exits and0/103 confirmed. Fresh07 Flag3201 is blocked by cb337ac6 at104 kid_x_pos; its104-input witness is registered under #522. Prior07 routes and #518's2c788cfe remain preserved.
 - **Scope:** ADR0004 sets the fidelity floor: gameplay, enemy and RNG state, level exits, visible or audible bugs. Pixel baseline and injection ratchet stay.
 - **After each fix:** Re-run fixed fuzz and affected ledger levels with `--write`; extend the ledger beyond0x10 once early levels confirm.
 - **Jev allowance:** $5 additional across the campaign. #185 used48 requests in one attempt; lifetime charged upper bound $0.257086284.
 - **Jev exploration review:** Review1791110086680455000 on16cb22342 plus this terrain candidate selects P1 #169 Drips. Settled01 state0..5 matches; EmoRock pixels differ349/350 on2/4, so strict preflight stops before collection. No navigation or paid request. #333 owns the renderer surface. One fix since review; review after two more.
-- **Evidence boundary:** Cached Lion161, sprite78 and CLI Lion9 pass. Fast7511 plus35 CLI gameplay regressions and full37759 pass; full report is identical to parent. Sweep102/105 and fixed fuzz26 clusters retain baseline;26 generated fixture overwrites restored. Live SDL121 replays without drift. Unrelated projectile pixels, raw audio-state parity, natural entry, wider hurt and human play stability remain unproven. Recording export padding remains separate.
+- **Evidence boundary:** Cached Lion161, sprite78 and CLI Lion9 pass. Fast7511 plus35 CLI gameplay regressions and full37759 pass; full report is identical to parent. Sweep102/105 and fixed fuzz26 clusters retain baseline;26 generated fixture overwrites restored. Live SDL121 replays without drift. Unrelated projectile pixels, raw audio-state parity, natural entry, wider hurt and human play stability remain unproven. Recording export pads implicit zero masks through trace length; live200 exports/replays200 rows. #360 target encounter remains unproven.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

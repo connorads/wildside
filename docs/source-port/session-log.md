@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-10-04 - #360 recording implicit-zero tail
+
+Source-mask padding fixes live199-input/200-frame bundles that exported only199 replay frames. Public bundle regression observes RED then GREEN for immediate, settled and explicit-zero controls; existing bundle tests pass2/2. Fixed live SDL exports200 masks/200 trace rows and native replay passes200/200. Fast gate passes7511 core tests, CLI regressions and Clippy. No generated fixtures change; gameplay gates and census are not rerun for this recording-only unit. #360 remains awaiting its named target route. #186 original clean0..992 typed trace contains no Lion HP change or airborne hurt; park this witness search without a gameplay patch. Evidence `.cache/debug/recording-implicit-tail/`.
+
 ## 2026-10-04 - #186 hurt pose and palette
 
 Saved surviving-stomp rendering now holds ROM C7E58 and palette2 instead of retained walk art and white colours. Regression observes pose RED, then palette RED, then GREEN. Every visible Lion region104..120 matches ROM; whole-frame110 differences fall1769 to224 with unrelated pixels retained. Fresh121-state replay matches all checkpoints. Cached Lion161, sprite78 and CLI Lion9 pass; fast7511/35 CLI regressions and full37759 pass with unchanged full report. Sweep1791111996 retains102/105, fuzz1791112073 retains26 clusters and all26 overwritten fixtures are restored. Ledger1791111872 retains07 Flag3201 blocked104 bycb337ac6; aggregate0/103 confirmed/10 native exits. Live SDL121 replays121/121 without drift. Neutral extension has no repeated hurt and first drifts148 in Kid X velocity, parked as separate physics evidence. One fix since exploration1791110086680455000. #186 remains open for wider hurt/natural entry; recording padding untouched. Evidence .cache/debug/lion-wider-hurt/.

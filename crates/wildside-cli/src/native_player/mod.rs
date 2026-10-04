@@ -16873,6 +16873,84 @@ mod tests {
     }
 
     #[test]
+    fn gameplay_regression_scripted_recording_preserves_implicit_zero_tail() {
+        for (script, delayed) in [(vec![16], false), (vec![16], true), (vec![16, 0], true)] {
+            let fixture = ManifestFixture::new().expect("manifest fixture");
+            let record_dir = fixture
+                ._root
+                .path()
+                .join("recordings")
+                .join("implicit-tail");
+            let trace = sample_trace(GameMode::InGame);
+            let options = NativePlayOptions {
+                fullscreen: false,
+                scale: None,
+                debug_overlay: false,
+                warp_level: None,
+                settled: delayed,
+                record_to: Some(record_dir.clone()),
+                record_frames: Some(2),
+                record_stop_on_target_enemy_contact: false,
+                record_contact_tail_frames: 0,
+                record_notes: None,
+                record_route_target: None,
+                record_frontier_kind: None,
+                scripted_route: Some(NativeScriptedRoute {
+                    script,
+                    delay_recording_input: delayed,
+                    start_position: None,
+                    start_velocity: None,
+                    camera_position: None,
+                    playtest_form: None,
+                    initial_diamond_count: None,
+                    initial_lives: None,
+                }),
+                playtest: None,
+            };
+            let mut recorder =
+                SegmentRecorder::new(record_dir.clone(), recording_start_from_options(&options))
+                    .expect("segment recorder");
+            recorder.mark_save_worthy();
+            let captured = if delayed { [0, 16] } else { [16, 0] };
+            recorder.record_frame(captured[0], &trace, &options);
+            recorder.record_frame(captured[1], &trace, &options);
+            recorder
+                .finalise(
+                    &fixture.manifest,
+                    &options,
+                    Vec::new(),
+                    trace,
+                    1,
+                    AUDIO_SAMPLE_RATE,
+                )
+                .expect("save recording");
+            let scenario: DynamicScenario = serde_json::from_str(
+                &fs::read_to_string(record_dir.join("scenario.json")).expect("scenario"),
+            )
+            .expect("parse scenario");
+            assert_eq!(
+                scenario.script,
+                [16, 0],
+                "source masks must survive settled input delay"
+            );
+            assert_eq!(scenario.frame_count, 2);
+            assert_eq!(
+                scenario
+                    .checkpoints
+                    .last()
+                    .expect("final checkpoint")
+                    .frame_index,
+                1
+            );
+            let saved_trace: Vec<NativeTraceFrame> = serde_json::from_str(
+                &fs::read_to_string(record_dir.join("trace.json")).expect("trace"),
+            )
+            .expect("parse trace");
+            assert_eq!(saved_trace.len(), 2);
+        }
+    }
+
+    #[test]
     fn save_native_recording_bundle_persists_scripted_route_metadata_and_sfx_events() {
         let fixture = ManifestFixture::new().expect("manifest fixture");
         let record_dir = fixture._root.path().join("recordings").join("freeze-repro");
