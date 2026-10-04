@@ -17853,6 +17853,58 @@ mod tests {
         );
     }
 
+    /// ASM loc_3E32C/stru_3DF42 (Lion.asm) holds C7E58 without changing palette2.
+    #[test]
+    fn gameplay_regression_lion_surviving_hurt_uses_rom_pose_and_palette() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario: DynamicScenario = serde_json::from_str(include_str!(
+            "../../../../tests/data/dynamic-scenarios/issue-186-lion-surviving-hurt.json"
+        ))
+        .expect("ordinary surviving Lion stomp route");
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest.clone(),
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("surviving hurt trace");
+        let (visuals, _) = load_session_assets(&manifest, 0x07).expect("Lion level visuals");
+        let family = visuals.enemies.families.get(&0x12).expect("Lion art");
+        for frame in 106..=120 {
+            // ASM Mode_Level loc_901 presents the preceding completed Sprite_Table.
+            let presented = trace_frame_with_vdp_latch_at_checkpoint(
+                &run.trace,
+                frame,
+                Some(&run.initial_render_latch),
+                "hurt",
+            )
+            .expect("latched hurt frame");
+            let lion = presented
+                .active_objects
+                .iter()
+                .find(|object| {
+                    object.kind == NativeObjectKind::Enemy { object_type: 0x12 }
+                        && object.layout_index == Some(1)
+                })
+                .expect("surviving lower Lion");
+            assert!(lion.damage_flash, "hurt wait at {frame}");
+            let selected = sprites::select_enemy_frame(&presented, family, lion);
+            assert_eq!(selected.tile_base_index, 0x088, "C7E58 at {frame}");
+            assert_eq!(
+                (selected.origin_x, selected.width_px, selected.height_px),
+                (0x16, 0x2C, 0x2D)
+            );
+            let mut commands = Vec::new();
+            sprites::push_enemy_sprite(&mut commands, lion, &presented, &visuals, 0x12);
+            assert_eq!(
+                sprite_palette(&commands[0]),
+                sprites::select_enemy_palette(family, lion.palette_variant),
+                "ROM palette2 at {frame}"
+            );
+        }
+    }
+
     #[test]
     fn enemy_sprite_damage_flash_uses_white_palette() {
         let trace = sample_trace(GameMode::InGame);

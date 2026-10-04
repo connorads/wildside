@@ -58,8 +58,8 @@
   {
     "issue": 186,
     "readiness": "needs_comparison",
-    "active_path": "crates/wildside-core/src/enemies/lion.rs state dispatch and projectiles.rs terrain callbacks",
-    "route": "Saved hurt121/fire119/contact44/grounded524/expiry576 match gameplay/enemy. Child floor contact573 and next-wake reflection574 match. Original ledger1790982371 matches0..992, then Kid X/Y differs during respawn bootstrap993. Natural entry and wider airborne/invulnerable hurt remain unproven.",
+    "active_path": "crates/wildside-core/src/enemies/lion.rs state dispatch, projectiles.rs terrain callbacks and wildside-frame/src/sprites.rs presentation",
+    "route": "Saved hurt121/fire119/contact44/grounded524/expiry576 match gameplay/enemy. Hurt presentation106..120 uses ROM C7E58 and palette2 with no visible Lion-region pixel differences. Original ledger1790982371 matches0..992 before respawn bootstrap993. Natural entry and wider airborne/invulnerable hurt remain unproven.",
     "evidence": [
       "docs/source-port/backlog.md",
       "docs/source-port/backlog-archive.md#issue-186",
@@ -74,7 +74,9 @@
       "tests/data/fuzz-repros/c026d985.json",
       "tests/data/dynamic-scenarios/issue-186-lion-grounded-velocity.json",
       "tests/data/dynamic-scenarios/issue-186-lion-walk-expiry.json",
-      "crates/wildside-core/src/projectiles.rs"
+      "crates/wildside-core/src/projectiles.rs",
+      "crates/wildside-frame/src/sprites.rs",
+      "crates/wildside-render/src/bundle.rs"
     ],
     "next_action": "Extend ordinary airborne/invulnerable hurt and natural-entry witnesses; investigate the inactive Kid Gfx slot at993 as a separate route prerequisite before claiming full-route parity.",
     "scope": "Lion: hurt recoil, gravity ledge-leap charge, roar windup + engagement bands missing"

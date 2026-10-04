@@ -31,13 +31,13 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-10-04):** #186 projectile face selection and next-wake reflection match573..575. Original2617 matches0..992;993 Kid X/Y drifts during respawn bootstrap. Probe records GameMode8 and null Kid Gfx pointer through991..994. Wider airborne/invulnerable hurt and natural entry remain unproven. #515/#522 remain open.
+- **Current work (2026-10-04):** #186 hurt rendering follows loc_3E32C: C7E58 pose and unchanged palette2. Saved121-route regression and fresh oracle state match; visible hurt region matches104..120. Wider airborne/invulnerable hurt and natural entry remain unproven. Neutral extension first drifts at148 Kid X velocity, a separate physics lead.
 - **Intake:** Fixed fuzz 0x00-0x05 x8 seeds retains26 tracked clusters. Ledger has10 native exits and0/103 confirmed. Fresh07 Flag3201 is blocked by cb337ac6 at104 kid_x_pos; its104-input witness is registered under #522. Prior07 routes and #518's2c788cfe remain preserved.
 - **Scope:** ADR0004 sets the fidelity floor: gameplay, enemy and RNG state, level exits, visible or audible bugs. Pixel baseline and injection ratchet stay.
 - **After each fix:** Re-run fixed fuzz and affected ledger levels with `--write`; extend the ledger beyond0x10 once early levels confirm.
 - **Jev allowance:** $5 additional across the campaign. #185 used48 requests in one attempt; lifetime charged upper bound $0.257086284.
-- **Jev exploration review:** Review1791110086680455000 on16cb22342 plus this terrain candidate selects P1 #169 Drips. Settled01 state0..5 matches; EmoRock pixels differ349/350 on2/4, so strict preflight stops before collection. No navigation or paid request. #333 owns the renderer surface. Zero fixes since review after this unit; review after three more.
-- **Evidence boundary:** Cached Lion161/combat1080, fast7511 and full37759 pass. Broad cached projectiles449 pass/14 fail identically to parent. Full report and sweep102/105 are unchanged. Fixed fuzz metadata is unchanged;26 generated fixture overwrites restored. Live SDL576 replays without drift. Raw audio-state parity, residual pixels, natural entry, wider hurt and human play stability remain unproven. Short-script recording export remains separate.
+- **Jev exploration review:** Review1791110086680455000 on16cb22342 plus this terrain candidate selects P1 #169 Drips. Settled01 state0..5 matches; EmoRock pixels differ349/350 on2/4, so strict preflight stops before collection. No navigation or paid request. #333 owns the renderer surface. One fix since review; review after two more.
+- **Evidence boundary:** Cached Lion161, sprite78 and CLI Lion9 pass. Fast7511 plus35 CLI gameplay regressions and full37759 pass; full report is identical to parent. Sweep102/105 and fixed fuzz26 clusters retain baseline;26 generated fixture overwrites restored. Live SDL121 replays without drift. Unrelated projectile pixels, raw audio-state parity, natural entry, wider hurt and human play stability remain unproven. Recording export padding remains separate.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -59,7 +59,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 186 | [~] | P1 | enemy | Fight a Lion; hurt recovery and engagement must match the ROM. Saved hurt121/fire119/contact44/expiry576 match; original2617 matches0..992 before respawn bootstrap drift. | Face/reflection573..575 match. Extend ordinary hurt and natural-entry witnesses. |
+| 186 | [~] | P1 | enemy | Fight a Lion; hurt recovery and engagement must match the ROM. Saved hurt121/fire119/contact44/expiry576 match; original2617 matches0..992 before respawn bootstrap drift. | Hurt pose/palette and121-state replay match. Extend wider hurt and natural-entry witnesses. |
 | 515 | [~] | P1 | kid-physics | Native derives MoveID; the ROM stores it at coroutine write sites. 10/26 fuzz clusters (20 routes) differ first: 7b0a8e1e, 3a36f8ac, 5a673417, a5798943, b5918261, 891e57ae, c9b3814a, c96a3c9d. | Fuzz 0x00-0x05 x 8 seeds has no `character_movement`-first cluster; `gameplay_regression_*` tests load the shrunk repros. |
 | 517 | [ ] | P2 | enemy | Fuzz clusters 022889be (0x00 f309), d1446380 and 72129c1a (0x03), e9b6a11e (0x02): native keeps a different live object set or roster. | Each shrunk repro matches object counts and roster. |
 | 518 | [ ] | P2 | kid-physics | Fuzz clusters 6c5f8e27 (0x04 f260, airborne `kid_x_vel`), 1f2cfa0d (0x04 f203, RNG offset/ring) and 70019eed (0x04 f127, RNG offset/ring); ledger08342e19 (0x09 f304) and2c788cfe (0x07 f45), airborne velocity. | Each repro matches the ROM through its divergence frame. |

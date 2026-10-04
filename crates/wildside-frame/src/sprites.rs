@@ -1871,6 +1871,11 @@ fn select_live_lion_frame<'a>(
         return None;
     }
 
+    if object.damage_flash {
+        // ASM loc_3E32C / stru_3DF42 (Lion.asm) replaces the saved animation.
+        return enemy_visuals.frames.get(17);
+    }
+
     if let Some(roar_frame @ 12..=16) = object.sprite_animation_phase {
         // ASM Lion.asm stru_3DF0E mappings are appended after the stable
         // walk/death/projectile atlas ranges.
@@ -3002,7 +3007,9 @@ fn enemy_damage_palette_white_phase(object_type: u8, damage_flash: bool) -> bool
     // must not imply a white palette for walking Dragons.
     // ASM Driller.asm loc_3BF4E likewise changes only the animation script
     // before hibernating. It leaves palette line 1 unchanged.
-    damage_flash && !matches!(object_type, 0x0D | 0x1A)
+    // ASM loc_3E32C (Lion.asm) sets metadata bit7 and holds stru_3DF42;
+    // Make_SpriteFromGfxObject reads the unchanged palette_line separately.
+    damage_flash && !matches!(object_type, 0x0D | 0x12 | 0x1A)
 }
 
 fn is_rock_tank_type(object_type: u8) -> bool {
@@ -7723,6 +7730,32 @@ mod tests {
         assert!(enemy_damage_palette_white_phase(0x0C, true));
         assert!(!enemy_damage_palette_white_phase(0x0D, true));
         assert!(!enemy_damage_palette_white_phase(0x0D, false));
+    }
+
+    /// ASM loc_3E32C/stru_3DF42 (Lion.asm) overrides the interrupted roar/walk.
+    #[test]
+    fn lion_hurt_pose_overrides_roar_and_keeps_normal_palette() {
+        let visuals = labelled_enemy_visuals(18, 7);
+        let trace = NativeTraceFrame::default();
+        let mut lion = live_enemy_object(0x12);
+        lion.hit_points = Some(5);
+        lion.damage_flash = true;
+        lion.walk_phase = Some(20);
+        lion.sprite_animation_phase = Some(15);
+        for facing in [Direction::Left, Direction::Right] {
+            lion.facing = Some(facing);
+            assert_eq!(
+                selected_live_tile_base(select_live_lion_frame(&trace, &visuals, &lion)),
+                0x0111
+            );
+            assert!(!enemy_damage_palette_white_phase(0x12, lion.damage_flash));
+        }
+        lion.damage_flash = false;
+        assert_eq!(
+            selected_live_tile_base(select_live_lion_frame(&trace, &visuals, &lion)),
+            0x010F
+        );
+        assert!(enemy_damage_palette_white_phase(0x0C, true));
     }
 
     #[test]
