@@ -388,6 +388,63 @@ mod tests {
         );
     }
 
+    /// ASM sub_13C0/loc_141A: each hardware sprite consumes column-first tile art.
+    #[test]
+    fn load_juggernaut_composite_preserves_hardware_sprite_tile_order() {
+        let mut fixture = TestBundle::new().expect("test bundle");
+        // ASM unk_BEDF0 describes a 26x21 head in a four-column, three-row sprite.
+        let head = (1_u8..=12)
+            .flat_map(|colour| [colour * 0x11; 32])
+            .collect::<Vec<_>>();
+        write_file(
+            fixture.root.path(),
+            "ingame/artunc_kid/juggernaut_head.bin",
+            &head,
+        )
+        .expect("marked head art");
+        for (path, tiles) in [
+            ("juggernaut_bottom.bin", 12),
+            ("juggernaut_bottom_jumping_1.bin", 18),
+        ] {
+            write_file(
+                fixture.root.path(),
+                &format!("ingame/artunc_kid/{path}"),
+                &vec![0; tiles * 32],
+            )
+            .expect("transparent body art");
+        }
+        for path in [
+            "artunc_kid/juggernaut_head.bin",
+            "artunc_kid/juggernaut_bottom.bin",
+            "artunc_kid/juggernaut_bottom_jumping_1.bin",
+        ] {
+            let asset = fixture
+                .manifest
+                .ingame_assets
+                .iter_mut()
+                .find(|asset| asset.relative_path == path)
+                .expect("marked asset in manifest");
+            *asset = asset_file(fixture.root.path(), &format!("ingame/{path}"));
+        }
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals");
+        let form = &visuals.player.forms[&5];
+        for frame in [&form.idle, &form.airborne[0]] {
+            // ASM sub_13C0 emits the composite's first 32x32 chunk column-first.
+            // The head starts four pixels into that chunk. Its next source column
+            // begins at tile three; the composite's next column begins at tile four.
+            for (tile, expected) in [(1, 2), (4, 4), (8, 7), (12, 10)] {
+                assert_eq!(frame.tile_sheet.tiles[tile].pixels[4], expected);
+            }
+        }
+        // ASM loc_13A2 emits the airborne mapping's second height band separately.
+        assert_eq!(form.airborne[0].height_px, 37);
+        assert!(
+            form.airborne[0].tile_sheet.tiles[24..]
+                .iter()
+                .all(|tile| tile.pixels.iter().all(|&pixel| pixel == 0))
+        );
+    }
+
     #[test]
     fn load_juggernaut_skull_visuals_uses_loc_129ce_dma_bases() {
         let fixture = TestBundle::new().expect("test bundle");

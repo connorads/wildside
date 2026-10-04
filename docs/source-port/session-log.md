@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+### 2026-10-04 - Juggernaut composite tile order verified on main
+
+Transformation commits7d8843264 with wired hooks green. Separate renderer patch is byte-identical to isolation and passes main fast73680/full92896. Full report byte-matches parent; census1791148991 and affected05 ledger1791149054 match parent apart from revision/run ID. Restore23 overwritten fixtures, verify all100 bytes and resume the same live RNG reducer. Scene cleanup pixels improve935->123,1138->84,1129->84, with residual player pixels unclassified. Ledger remains0/103 confirmed. Commit renderer separately; Diamond and EmoRock candidates remain queued.
+
 ### 2026-10-04 - Transformation held-history correction verified on main
 
 Slope commitsd0772ad1b. Separate transformation guard preserves ROM ReadJoypad suspension and passes held/released/cleanup-edge controls plus158/158 saved-route parity. Main fast41164/full60834 pass; census1791147277 and affected05 ledger1791147446 match isolation. Restore23 overwritten fixtures and verify all99 original bytes before resuming the same live RNG reducer. New40be prefix matches118 frames then reproduces the pre-existing X/velocity frontier118. Ledger remains0/103 confirmed. Renderer promotion follows as a separate unit.

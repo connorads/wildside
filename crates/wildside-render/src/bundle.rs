@@ -5006,11 +5006,10 @@ fn blit_player_frame_pixels(
 fn frame_to_pixels(frame: &SpriteFrame) -> Vec<u8> {
     let aligned_width = usize::from(align_sprite_dimension(frame.width_px));
     let aligned_height = usize::from(align_sprite_dimension(frame.height_px));
-    let tiles_per_row = aligned_width / 8;
+    let positions = player_sprite_tile_positions(aligned_width, aligned_height);
     let mut pixels = vec![0_u8; aligned_width * aligned_height];
     for (tile_index, tile) in frame.tile_sheet.tiles.iter().enumerate() {
-        let tile_x = (tile_index % tiles_per_row) * 8;
-        let tile_y = (tile_index / tiles_per_row) * 8;
+        let (tile_x, tile_y) = positions[tile_index];
         for row in 0..8 {
             let dst_row = (tile_y + row) * aligned_width + tile_x;
             let src_row = row * 8;
@@ -5021,19 +5020,33 @@ fn frame_to_pixels(frame: &SpriteFrame) -> Vec<u8> {
 }
 
 fn canvas_to_tiles(canvas: &[u8], width: usize, height: usize) -> Vec<crate::Tile> {
-    let mut tiles = Vec::with_capacity((width / 8) * (height / 8));
-    for tile_y in (0..height).step_by(8) {
-        for tile_x in (0..width).step_by(8) {
+    player_sprite_tile_positions(width, height)
+        .into_iter()
+        .map(|(tile_x, tile_y)| {
             let mut pixels = [0_u8; 64];
             for row in 0..8 {
                 let src_index = (tile_y + row) * width + tile_x;
                 let dst_index = row * 8;
                 pixels[dst_index..dst_index + 8].copy_from_slice(&canvas[src_index..src_index + 8]);
             }
-            tiles.push(crate::Tile { pixels });
+            crate::Tile { pixels }
+        })
+        .collect()
+}
+
+/// ASM loc_12B8/loc_12C0/loc_141A: sequential art for each 32px sprite chunk.
+fn player_sprite_tile_positions(width: usize, height: usize) -> Vec<(usize, usize)> {
+    let mut positions = Vec::with_capacity(width / 8 * (height / 8));
+    for band_y in (0..height).step_by(32) {
+        for chunk_x in (0..width).step_by(32) {
+            for tile_x in (chunk_x..(chunk_x + 32).min(width)).step_by(8) {
+                for tile_y in (band_y..(band_y + 32).min(height)).step_by(8) {
+                    positions.push((tile_x, tile_y));
+                }
+            }
         }
     }
-    tiles
+    positions
 }
 
 const fn align_sprite_dimension(value: u16) -> u16 {
@@ -6261,8 +6274,8 @@ mod tests {
             tile_sheet: TileSheet {
                 tiles: vec![
                     top_left.clone(),
-                    top_right.clone(),
                     bottom_left.clone(),
+                    top_right.clone(),
                     bottom_right.clone(),
                 ],
             },
@@ -6272,11 +6285,11 @@ mod tests {
 
         assert_eq!(
             pixels[0], 0,
-            "ASM sprite_frame_unc stores sprite art as row-major 8x8 tiles"
+            "ASM sub_13C0/loc_141A streams column-first tiles within each hardware sprite"
         );
         assert_eq!(
             pixels[7], 7,
-            "ASM sprite_frame_unc stores sprite art as row-major 8x8 tiles"
+            "ASM sub_13C0/loc_141A streams column-first tiles within each hardware sprite"
         );
         assert_eq!(
             pixels[16], 8,
@@ -6284,12 +6297,12 @@ mod tests {
         );
         assert_eq!(
             pixels[8], 64,
-            "ASM sprite_frame_unc places the second tile at x + 8"
+            "ASM sub_13C0 places the next column at x + 8"
         );
         assert_eq!(
             pixels[16 * 8],
             128,
-            "ASM sprite_frame_unc places the third tile at y + 8"
+            "ASM sub_13C0 places the next row at y + 8"
         );
         assert_eq!(
             pixels[16 * 8 + 8],
@@ -6299,7 +6312,7 @@ mod tests {
 
         assert_eq!(
             canvas_to_tiles(&pixels, 16, 16),
-            vec![top_left, top_right, bottom_left, bottom_right],
+            vec![top_left, bottom_left, top_right, bottom_right],
             "ASM sprite_frame_unc tile order round-trips through the native canvas"
         );
     }
