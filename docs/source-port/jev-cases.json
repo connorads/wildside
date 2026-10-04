@@ -798,16 +798,14 @@
   {
     "issue": 341,
     "readiness": "human_device",
-    "active_path": "crates/wildside-cli/src/main.rs and wildside-md GEMS engine; ROM-backed path shares native synthesis",
-    "route": "audio-audit sound ids 0x41 and 0x3C; no real-device judgement",
+    "active_path": "Native SDL startup cue and GEMS clock stepping",
+    "route": "tests/data/dynamic-scenarios/settled-native-music-start.json",
     "evidence": [
-      "docs/source-port/backlog-awaiting-human.md",
       "docs/source-port/backlog-archive.md#issue-341",
-      "crates/wildside-cli/src/main.rs",
-      "crates/wildside-md/src/lib.rs"
+      "tests/data/dynamic-scenarios/settled-native-music-start.json"
     ],
-    "next_action": "Listen on real speakers and compare independent emulator WAV when synthesis fidelity is questioned; shared-engine asset agreement is not independent pitch proof",
-    "scope": "FIXED candidate 2026-06-19: `wildside audio-audit` enumerates `sfx_*` constants, renders each id through the generated-asset GEMS Z80 path, compares against a full-ROM-backed GEMS path, and reports type (FM/PSG/DAC), channel, native/oracle duration, RMS/peak/frequency, looping, write counts, and duration delta"
+    "next_action": "On an approved output device, check settled music, effect tails and audited SFX; keep the Mac mini speaker muted.",
+    "scope": "Settled native music and effect tails; existing sound-bank audit device checks remain."
   },
   {
     "issue": 342,

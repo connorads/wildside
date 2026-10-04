@@ -419,7 +419,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     let mut debug_overlay_visible = options.debug_overlay;
     let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
     let mut current_level_id: u8 = trace.current_level.0;
-    let mut active_bgm_cue: Option<NativeBgmCue> = None;
+    let mut active_bgm_cue = prime_initial_native_audio(manifest, &trace, gems_engine.as_mut());
     let mut pending_bgm_start: Option<u8> = None;
     let mut fade_alpha: u8 = 0; // 0=no fade, 255=fully black
     let mut fading_in = false; // true: fade from black to clear
@@ -1959,6 +1959,21 @@ struct SfxTone {
     remaining_samples: u32,
     phase: f32,
     volume: f32,
+}
+
+/// ASM loc_12004: a settled session already queued its level music before playback starts.
+fn prime_initial_native_audio(
+    manifest: &AssetManifest,
+    trace: &NativeTraceFrame,
+    gems: Option<&mut GemsAudioEngine>,
+) -> Option<NativeBgmCue> {
+    let cue = native_bgm_cue_for_trace(trace);
+    if let Some(gems) = gems
+        && let Some(bgm) = settled_audio_initial_bgm_id(manifest, cue)
+    {
+        gems.start_sequence(bgm);
+    }
+    cue
 }
 
 /// Try to load a GEMS audio engine from extracted sound data in the disassembly.
@@ -23944,6 +23959,53 @@ mod tests {
             "using source_root/sound drops native play into the no-music fallback on real extracted bundles"
         );
         Ok(())
+    }
+
+    /// ASM loc_12004 -> PlaySound/sub_E151C: settled live audio retains queued music.
+    #[test]
+    fn gameplay_regression_settled_native_music_primes_existing_bgm() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario: DynamicScenario = serde_json::from_str(include_str!(
+            "../../../../tests/data/dynamic-scenarios/settled-native-music-start.json"
+        ))
+        .expect("settled native music route");
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest.clone(),
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("settled native music trace");
+        let mut trace = run.trace[0].clone();
+        assert_eq!(trace.played_bgm_ids.last(), Some(&gems_bgm::FOREST));
+        let mut gems = try_load_gems_engine(&manifest).expect("generated GEMS banks");
+        let cue = prime_initial_native_audio(&manifest, &trace, Some(&mut gems));
+        let mut peak = 0.0_f32;
+        for _ in 0..180 {
+            gems.step_frame();
+            for sample in gems.generate_samples(AUDIO_SAMPLES_PER_FRAME) {
+                peak = peak.max(sample.abs());
+            }
+        }
+        assert!(
+            peak > 0.05,
+            "settled Forest music must produce audio, peak={peak}"
+        );
+        assert_eq!(cue, Some(NativeBgmCue::CoreQueued(gems_bgm::FOREST)));
+        assert_eq!(
+            native_bgm_state_after_trace_delta(&manifest, Some(&trace), &trace, cue),
+            (cue, None),
+            "unchanged gameplay must not restart the primed music"
+        );
+        for mode in [GameMode::SegaScreen, GameMode::LevelTransition] {
+            trace.game_mode = mode;
+            assert_eq!(
+                prime_initial_native_audio(&manifest, &trace, None),
+                None,
+                "cold boot and loading wait for their music events"
+            );
+        }
     }
 
     #[test]

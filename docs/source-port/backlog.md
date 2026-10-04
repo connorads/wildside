@@ -31,8 +31,8 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-10-04):** Shared-walker Y passes main fast/full, saved Diamond parity, census, affected03 ledger and sweep; commit separately. Next ready #518 revalidate the final RNG431 refinement at256 before applying the source-proved Init timing correction. Native missing music/effects, flagpost and tank-helmet reports need their exact launch/route. System audio stays muted.
-- **Intake:** Fixed fuzz1791151797 retains23 clusters/31 divergent routes. Ledger031791152346 reaches Flag2824, blocked132 by existing b17bcd1f; old d471 route advances415->589. Ledger remains10 native exits/0 of103 confirmed. Restore23 census overwrites; all100 fixture bytes match. RNG431 finishes263 masks/129 nonzero/4853 replays; final refinement first diverges256 and stays uncommitted pending Init revalidation.
+- **Current work (2026-10-05):** Native settled audio priming passes saved-route RED/GREEN, final fast gate, silent SDL180/600, cold600, fixed census and full sweep. Commit the audio unit after hooks; #341 retains approved-device listening. Next #518 needs final RNG Init trace at256. Flagpost and tank-helmet routes remain unproved. System audio stays muted.
+- **Intake:** Fixed fuzz1791155150 retains23 clusters/31 divergent routes. Ledger031791152346 reaches Flag2824, blocked132 by existing b17bcd1f; old d471 route advances415->589. Ledger remains10 native exits/0 of103 confirmed. Restore23 census overwrites; all100 fixture bytes match. RNG431 finishes263 masks/129 nonzero/4853 replays; final refinement first diverges256 and stays uncommitted pending Init revalidation.
 - **Scope:** ADR0004 sets the fidelity floor: gameplay, enemy and RNG state, level exits, visible or audible bugs. Pixel baseline and injection ratchet stay.
 - **After each fix:** Re-run fixed fuzz and affected ledger levels with `--write`; extend the ledger beyond0x10 once early levels confirm.
 - **Jev allowance:** $5 additional across the campaign. #185 used48 requests in one attempt; lifetime charged upper bound $0.257086284.

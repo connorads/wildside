@@ -1,5 +1,10 @@
 # Source-port session log
 
+## 2026-10-05 - Settled native music startup
+
+Prime the fresh live GEMS engine from the initial trace so settled gameplay retains queued music. Saved-route regression fails without priming and passes with it. Final fast gate passes; dummy-SDL180/600 samples match offline native exports, cold600 unchanged, full trace controls unchanged. Census1791155150 and sweep1791155215 equal shared-walker parents; all100 fixture bytes restored. #341 retains approved-device listening. System audio remains muted. Next final RNG431 Init trace and user visual reports.
+
+
 Append-only history of per-session handoffs, extracted from the `backlog.md`
 NOW block (which is the *current-state* handoff and is rewritten each session).
 Newest entries first. This is narrative history; per-issue evidence keyed by
