@@ -24146,6 +24146,42 @@ fn gameplay_regression_lion_walk_expiry_starts_roar_without_movement() {
     }
 }
 
+/// ASM GfxObjects_Collision_Solid -> loc_1A44 snaps573; loc_3E2C8 reflects574.
+#[test]
+fn gameplay_regression_lion_projectile_floor_contact_and_next_wake_reflection() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/issue-186-lion-walk-expiry.json"
+    ))
+    .expect("checked-in Lion floor contact route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    for (frame, x, y, y_velocity) in [
+        (573, 0x035F_0000, 0x035B_0000, 0x0002_4000),
+        (574, 0x0365_0000, 0x0358_C000, -0x0002_4000),
+        (575, 0x036B_0000, 0x0356_8000, -0x0002_4000),
+    ] {
+        let child = trace[frame]
+            .active_projectile_details
+            .iter()
+            .find(|projectile| projectile.kind == ActiveProjectileKind::LionProjectile)
+            .expect("lower Lion child reaches the floor");
+        assert_eq!((child.x_pos, child.y_pos), (x, y), "frame {frame}");
+        assert_eq!(child.x_velocity, 0x0006_0000, "frame {frame}");
+        assert_eq!(child.y_velocity, y_velocity, "frame {frame}");
+    }
+}
+
 /// ASM loc_3E09E observes C7E78 on the Object pass after Gfx117 loads it.
 #[test]
 fn gameplay_regression_lion_roar_fires_on_first_mapping_poll() {

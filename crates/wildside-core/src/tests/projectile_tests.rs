@@ -8339,11 +8339,13 @@ mod chunk_06 {
 
         rt.step_projectiles();
         assert_eq!(rt.projectiles[0].y_pos >> 16, 699);
-        assert_eq!(rt.projectiles[0].y_velocity, -0x24000);
+        assert_eq!(rt.projectiles[0].y_velocity, 0x24000);
+        assert_eq!(rt.projectiles[0].collision_type, 0x0C);
         assert_eq!(
-            rt.projectiles[0].lion_projectile_bounce_empty_checks_loc_3e2c0, 16,
-            "ASM Lion.asm loc_3E260 seeds d0=#$F; the collision frame jumps to loc_3E2A8 and must not consume the DBF budget"
+            rt.projectiles[0].lion_projectile_bounce_empty_checks_loc_3e2c0,
+            0
         );
+        // ASM loc_1A44 latches floor contact; loc_3E260/loc_3E2C8 consume next wake.
 
         rt.step_projectiles();
         assert_eq!(
@@ -8356,8 +8358,14 @@ mod chunk_06 {
             "with homing suspended, the hibernated frame continues the ballistic floor-bounce arc"
         );
         assert_eq!(
-            rt.projectiles[0].lion_projectile_bounce_empty_checks_loc_3e2c0, 15,
-            "ASM Lion.asm loc_3E2C0 DBF decrements only after an empty loc_3E2A8 collision check"
+            rt.projectiles[0].lion_projectile_bounce_empty_checks_loc_3e2c0, 16,
+            "ASM loc_3E260 seeds16 empty wakes after consuming the latched contact"
+        );
+        rt.step_projectiles();
+        assert_eq!(rt.projectiles[0].y_velocity, -0x24000);
+        assert_eq!(
+            rt.projectiles[0].lion_projectile_bounce_empty_checks_loc_3e2c0,
+            15
         );
     }
 
@@ -8400,13 +8408,60 @@ mod chunk_06 {
             "ASM GfxObjects_Collision loc_19D2/loc_1A00 snaps the issue #289 left-wall contact before Lion.asm loc_3E266 reflects x velocity"
         );
         assert_eq!(
-            rt.projectiles[0].x_velocity, 0x4E000,
-            "ASM Lion.asm loc_3E2A4 reflects x velocity for colid_leftwall"
+            rt.projectiles[0].x_velocity, -0x4E000,
+            "ASM loc_19D2 snaps the wall without changing velocity"
         );
         assert_eq!(
-            rt.projectiles[0].lion_projectile_bounce_empty_checks_loc_3e2c0, 8,
-            "ASM Lion.asm loc_3E2A8 branches through loc_3E266 on terrain contact; loc_3E2C0 DBF does not decrement on collision frames"
+            rt.projectiles[0].lion_projectile_bounce_empty_checks_loc_3e2c0, 7,
+            "ASM loc_3E2C0 consumes the preceding empty wake before the Gfx wall contact"
         );
+        assert_eq!(rt.projectiles[0].collision_type, 0x08);
+        rt.step_projectiles();
+        assert_eq!(rt.projectiles[0].x_velocity, 0x4E000);
+        assert_eq!(
+            rt.projectiles[0].lion_projectile_bounce_empty_checks_loc_3e2c0, 7,
+            "ASM loc_3E266 reflects the latched wall without consuming another empty wake"
+        );
+    }
+
+    /// ASM loc_3E266 rewinds both axes before loc_3E29E swaps slope velocity.
+    #[test]
+    fn lion_projectile_latched_slope_preserves_fractional_rewind() {
+        for (collision_type, expected_x, expected_vx) in
+            [(0x14, 0x004D_4000, -0x20000), (0x18, 0x0051_4000, 0x20000)]
+        {
+            let mut rt = NativeRuntime::new(manifest());
+            let mut projectile = make_projectile(80, 80);
+            projectile.kind = EnemyProjectileKind::LionProjectile;
+            projectile.x_pos |= 0x4000;
+            projectile.y_pos |= 0xC000;
+            projectile.x_velocity = 0x10000;
+            projectile.y_velocity = 0x20000;
+            projectile.collision_type = collision_type;
+            rt.projectiles.push(projectile);
+            rt.step_projectiles();
+            let child = &rt.projectiles[0];
+            assert_eq!((child.x_pos, child.y_pos), (expected_x, 0x004F_C000));
+            assert_eq!((child.x_velocity, child.y_velocity), (expected_vx, 0x10000));
+            assert_eq!(child.collision_type, 0);
+            assert_eq!(child.lion_projectile_bounce_empty_checks_loc_3e2c0, 16);
+        }
+        let mut rt = NativeRuntime::new(manifest());
+        let mut grid = lion_bounce_grid(40, 60, &[(22, 42)]);
+        grid.set_cell_at(21, 42, terrain::Cell::from_be_bytes(0x40, 0));
+        rt.set_block_grid(grid);
+        let mut projectile = make_projectile(355, 682);
+        projectile.kind = EnemyProjectileKind::LionProjectile;
+        projectile.x_pos |= 0x4000;
+        projectile.y_pos |= 0xC000;
+        projectile.x_velocity = 0x40000;
+        projectile.wall_bounce = true;
+        rt.projectiles.push(projectile);
+        rt.step_projectiles();
+        // ASM loc_1966 redirects to the slope without either straight-axis snap.
+        assert_eq!(rt.projectiles[0].collision_type, 0x14);
+        assert_eq!(rt.projectiles[0].x_pos, 0x0167_4000);
+        assert_eq!(rt.projectiles[0].y_pos, 0x02AA_C000);
     }
 
     #[test]

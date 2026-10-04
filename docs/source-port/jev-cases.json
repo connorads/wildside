@@ -58,8 +58,8 @@
   {
     "issue": 186,
     "readiness": "needs_comparison",
-    "active_path": "crates/wildside-core/src/enemies.rs Lion state dispatch",
-    "route": "Saved hurt121/fire119/contact44/grounded524/expiry576 match gameplay/enemy. Walking timer expiry starts roaring without movement. Original ledger1790982371 matches0..575, then Kid HP differs576 after child terrain drift573. Natural entry and wider airborne/invulnerable hurt remain unproven.",
+    "active_path": "crates/wildside-core/src/enemies/lion.rs state dispatch and projectiles.rs terrain callbacks",
+    "route": "Saved hurt121/fire119/contact44/grounded524/expiry576 match gameplay/enemy. Child floor contact573 and next-wake reflection574 match. Original ledger1790982371 matches0..992, then Kid X/Y differs during respawn bootstrap993. Natural entry and wider airborne/invulnerable hurt remain unproven.",
     "evidence": [
       "docs/source-port/backlog.md",
       "docs/source-port/backlog-archive.md#issue-186",
@@ -73,9 +73,10 @@
       "tests/data/fuzz-repros/79692a83.json",
       "tests/data/fuzz-repros/c026d985.json",
       "tests/data/dynamic-scenarios/issue-186-lion-grounded-velocity.json",
-      "tests/data/dynamic-scenarios/issue-186-lion-walk-expiry.json"
+      "tests/data/dynamic-scenarios/issue-186-lion-walk-expiry.json",
+      "crates/wildside-core/src/projectiles.rs"
     ],
-    "next_action": "Add a saved child-state regression573/574, then implement ASM neighbour/penetration face selection. ROM loc_1A12/loc_1A44 proves the solid left neighbour dispatches floor.",
+    "next_action": "Extend ordinary airborne/invulnerable hurt and natural-entry witnesses; investigate the inactive Kid Gfx slot at993 as a separate route prerequisite before claiming full-route parity.",
     "scope": "Lion: hurt recoil, gravity ledge-leap charge, roar windup + engagement bands missing"
   },
   {
@@ -1079,11 +1080,12 @@
     "issue": 522,
     "readiness": "ready_replay",
     "active_path": "NativeRuntime::refresh_opening_slice and movement.rs crawl/jump transitions",
-    "route": "tests/data/fuzz-repros/0ed35d38.json, f92931b6.json, da81e8c7.json, 417af3e3.json, ba78e9a9.json, 9819d44c.json, 0b645d5b.json, d38053c6.json, 70d46852.json, 594f9474.json, ba3911e6.json, 6709165a.json, e1e5e429.json, 7a06941b.json, a44fc576.json, 6e9df2a7.json, 3828c696.json, 5dbcc529.json, 6a155c95.json",
+    "route": "tests/data/fuzz-repros/0ed35d38.json, f92931b6.json, da81e8c7.json, 417af3e3.json, ba78e9a9.json, 9819d44c.json, 0b645d5b.json, d38053c6.json, 70d46852.json, 594f9474.json, ba3911e6.json, 6709165a.json, e1e5e429.json, 7a06941b.json, a44fc576.json, 6e9df2a7.json, 3828c696.json, 5dbcc529.json, 6a155c95.json, cb337ac6.json",
     "evidence": [
       "docs/source-port/fuzz-summary.yaml",
       "docs/source-port/level-ledger.yaml",
-      "docs/source-port/backlog-archive.md#issue-522"
+      "docs/source-port/backlog-archive.md#issue-522",
+      "tests/data/fuzz-repros/cb337ac6.json"
     ],
     "next_action": "Replay remaining crawl, jump, slope and zero-velocity stand-up frontiers after verified9819d44c entry and nonzero stand-up",
     "scope": "Physics frontiers behind crawl-latch and landing fixes."

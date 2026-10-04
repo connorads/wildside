@@ -4264,8 +4264,36 @@ impl NativeRuntime {
             let is_hail = p.kind == EnemyProjectileKind::Hail;
             let is_maniaxe_axe = p.kind == EnemyProjectileKind::ManiaxeAxe;
             let is_lion_projectile = p.kind == EnemyProjectileKind::LionProjectile;
-            let lion_in_bounce_loop_loc_3e2a8 =
-                is_lion_projectile && p.lion_projectile_bounce_empty_checks_loc_3e2c0 > 0;
+            let lion_latched_terrain_contact = is_lion_projectile
+                && matches!(p.collision_type, 0x04 | 0x08 | 0x0C | 0x10 | 0x14 | 0x18);
+            let lion_in_bounce_loop_loc_3e2a8 = is_lion_projectile
+                && (p.lion_projectile_bounce_empty_checks_loc_3e2c0 > 0
+                    || lion_latched_terrain_contact);
+            if lion_latched_terrain_contact {
+                // ASM loc_3E260/loc_3E266 consumes the preceding Gfx contact.
+                // Floor/wall snapping occurs before this next-wake reflection.
+                if p.lion_projectile_bounce_empty_checks_loc_3e2c0 == 0 {
+                    p.lion_projectile_bounce_empty_checks_loc_3e2c0 = 16;
+                }
+                let collision_type = p.collision_type as u16;
+                p.collision_type = 0;
+                if matches!(collision_type, 0x14 | 0x18) {
+                    // ASM loc_3E266 rewinds both axes before the slope swap.
+                    p.x_pos = p.x_pos.wrapping_sub(p.x_velocity as u32);
+                    p.y_pos = p.y_pos.wrapping_sub(p.y_velocity as u32);
+                }
+                (p.x_velocity, p.y_velocity) =
+                    lion_projectile_bounce_velocity_dispatch_loc_3e266(
+                        false,
+                        false,
+                        p.x_velocity,
+                        p.y_velocity,
+                        collision_type,
+                    );
+            } else if lion_in_bounce_loop_loc_3e2a8 {
+                // ASM loc_3E2C0 counts empty Object wakes, before the Gfx pass.
+                p.lion_projectile_bounce_empty_checks_loc_3e2c0 -= 1;
+            }
             let is_boss_head_arrow = p.kind == EnemyProjectileKind::BossHeadArrow;
             let is_boss_head_boomerang = p.kind == EnemyProjectileKind::BossHeadBoomerang;
             let is_boss_eye_attack = p.kind == EnemyProjectileKind::BossEyeAttack;
@@ -5314,30 +5342,16 @@ impl NativeRuntime {
                     if let Some(contact) =
                         lion_projectile_terrain_contact_loc_3e260(g, &collision_projectile)
                     {
-                        let h_blocked =
-                            matches!(contact.collision_type, 0x0004 | 0x0008 | 0x0014 | 0x0018);
-                        let v_blocked =
-                            matches!(contact.collision_type, 0x000C | 0x0010 | 0x0014 | 0x0018);
+                        let h_blocked = matches!(contact.collision_type, 0x0004 | 0x0008);
+                        let v_blocked = matches!(contact.collision_type, 0x000C | 0x0010);
                         (p.x_pos, p.y_pos) = lion_projectile_apply_axis_snap_loc_3e260(
                             p.x_pos, p.y_pos, contact, h_blocked, v_blocked,
                         );
-                        let (x_velocity, y_velocity) =
-                            lion_projectile_bounce_velocity_dispatch_loc_3e266(
-                                h_blocked,
-                                v_blocked,
-                                collision_x_velocity,
-                                collision_y_velocity,
-                                contact.collision_type,
-                            );
-                        p.x_velocity = x_velocity;
-                        p.y_velocity = y_velocity;
-                        if !lion_in_bounce_loop_loc_3e2a8 {
-                            // ASM Lion.asm loc_3E260 seeds d0 with #$F before
-                            // entering loc_3E2A8. The collision frame itself
-                            // jumps to loc_3E2A8 and hibernates; only later
-                            // empty loc_3E2C0 checks decrement the DBF budget.
-                            p.lion_projectile_bounce_empty_checks_loc_3e2c0 = 16;
-                        }
+                        // ASM loc_1A44/loc_197E latches the Gfx contact;
+                        // loc_3E266 reflects it on the following Object wake.
+                        p.collision_type = contact.collision_type as i16;
+                        p.x_velocity = collision_x_velocity;
+                        p.y_velocity = collision_y_velocity;
 
                         if let (Some(owner), Some(camera)) = (p.owner, camera) {
                             let screen_x = ((p.x_pos >> 16) as i32) - ((camera.x_pos >> 16) as i32);
@@ -5349,11 +5363,6 @@ impl NativeRuntime {
                                 return false;
                             }
                         }
-                    } else if lion_in_bounce_loop_loc_3e2a8 {
-                        // ASM Lion.asm loc_3E2C0 decrements `d0` only on
-                        // empty hibernated checks. Terrain hits branch back
-                        // through loc_3E266 and preserve the DBF budget.
-                        p.lion_projectile_bounce_empty_checks_loc_3e2c0 -= 1;
                     }
                 } else {
                     let mut remaining_bounces = 0x0Fi16;
@@ -6225,21 +6234,6 @@ fn lion_projectile_solid_cell_blocks_loc_3e260(cell: terrain::Cell) -> bool {
     cell.collision == terrain::CollisionKind::Solid
 }
 
-fn lion_projectile_first_solid_cell_in_column_loc_1792(
-    grid: &terrain::BlockGrid,
-    col: u16,
-    row_start: u16,
-    row_end: u16,
-) -> Option<(u16, terrain::Cell)> {
-    for row in row_start..=row_end {
-        let cell = grid.cell_at(col, row);
-        if lion_projectile_solid_cell_blocks_loc_3e260(cell) {
-            return Some((row, cell));
-        }
-    }
-    None
-}
-
 fn lion_projectile_cached_layout_addr_loc_1792(
     grid: &terrain::BlockGrid,
     col: u16,
@@ -6289,6 +6283,64 @@ fn lion_projectile_first_blocking_cell_in_span_loc_1792(
     None
 }
 
+/// ASM GfxObjects_Collision_Solid (kid.asm): neighbour and corner face dispatch.
+fn projectile_solid_contact_face(
+    grid: &terrain::BlockGrid,
+    projectile: &EnemyProjectile,
+    bounds: [i32; 4],
+    col: u16,
+    row: u16,
+) -> u16 {
+    let [left, right, top, bottom] = bounds;
+    let moving_right = projectile.x_velocity >= 0;
+    let moving_down = projectile.y_velocity >= 0;
+    let horizontal_neighbour = if moving_right {
+        col.wrapping_sub(1)
+    } else {
+        col.wrapping_add(1)
+    };
+    let vertical_face = if moving_down { 0x0C } else { 0x10 };
+    let horizontal_face = if moving_right { 0x04 } else { 0x08 };
+    if grid.raw_word_at(horizontal_neighbour, row) & 0x7000 == 0x6000 {
+        return vertical_face;
+    }
+    let vertical_neighbour = if moving_down {
+        row.wrapping_sub(1)
+    } else {
+        row.wrapping_add(1)
+    };
+    if grid.raw_word_at(col, vertical_neighbour) & 0x7000 == 0x6000 {
+        return horizontal_face;
+    }
+
+    // ASM loc_18AA/loc_18E4/loc_1928 compare signed word products after lsr.l #8.
+    let x_speed = i32::from((projectile.x_velocity >> 8) as i16);
+    let y_speed = i32::from((projectile.y_velocity >> 8) as i16);
+    let x = (projectile.x_pos >> 16) as i32;
+    let y = (projectile.y_pos >> 16) as i32;
+    let x_offset = if moving_right {
+        x + right - i32::from(col) * 16
+    } else {
+        x + left - (i32::from(col) * 16 + 16)
+    };
+    let y_offset = if moving_down {
+        y + bottom - i32::from(row) * 16
+    } else {
+        y + top - (i32::from(row) * 16 + 16)
+    };
+    let vertical_product = i32::from(y_offset as i16) * x_speed;
+    let horizontal_product = i32::from(x_offset as i16) * y_speed;
+    let selects_wall = match (moving_right, moving_down) {
+        (true, true) | (false, false) => vertical_product > horizontal_product,
+        (true, false) | (false, true) => vertical_product < horizontal_product,
+    };
+    if selects_wall {
+        horizontal_face
+    } else {
+        vertical_face
+    }
+}
+
 fn lion_projectile_terrain_contact_loc_3e260(
     grid: &terrain::BlockGrid,
     projectile: &EnemyProjectile,
@@ -6319,14 +6371,30 @@ fn lion_projectile_terrain_contact_loc_3e260(
         bottom_px as u16,
     )?;
 
-    if projectile.x_velocity < 0
-        && let Some((row, _)) =
-            lion_projectile_first_solid_cell_in_column_loc_1792(grid, left_col, top_row, bottom_row)
-    {
-        let cached_layout_addr = lion_projectile_cached_layout_addr_loc_1792(grid, left_col, row);
+    let face = if lion_projectile_solid_cell_blocks_loc_3e260(cell) {
+        projectile_solid_contact_face(
+            grid,
+            projectile,
+            [
+                LION_PROJECTILE_COLLISION_LEFT_LOC_3E12A,
+                LION_PROJECTILE_COLLISION_LEFT_LOC_3E12A
+                    + LION_PROJECTILE_COLLISION_WIDTH_LOC_3E12A,
+                LION_PROJECTILE_COLLISION_TOP_LOC_3E12A,
+                LION_PROJECTILE_COLLISION_TOP_LOC_3E12A
+                    + LION_PROJECTILE_COLLISION_HEIGHT_LOC_3E12A,
+            ],
+            col,
+            row,
+        )
+    } else {
+        0
+    };
+
+    if face == 0x08 {
+        let cached_layout_addr = lion_projectile_cached_layout_addr_loc_1792(grid, col, row);
         if matches!(
             crate::movement::gfx_objects_collision_solid_leftwall_loc_19BA(
-                grid.raw_word_at(left_col.wrapping_add(1), row),
+                grid.raw_word_at(col.wrapping_add(1), row),
                 cached_layout_addr,
             ),
             crate::movement::GfxObjectsCollisionSolidLeftWallLoc19BA::RedirectToDownSlope { .. }
@@ -6340,7 +6408,7 @@ fn lion_projectile_terrain_contact_loc_3e260(
 
         let snap = crate::movement::gfx_objects_collision_leftwall_snap_loc_1A00(
             false,
-            left_col << 4,
+            col << 4,
             LION_PROJECTILE_COLLISION_LEFT_LOC_3E12A as i16 as u16,
         )?;
         return Some(LionProjectileTerrainContactLoc3E260 {
@@ -6350,16 +6418,12 @@ fn lion_projectile_terrain_contact_loc_3e260(
         });
     }
 
-    if projectile.x_velocity > 0
-        && let Some((row, _)) = lion_projectile_first_solid_cell_in_column_loc_1792(
-            grid, right_col, top_row, bottom_row,
-        )
-    {
-        let cached_layout_addr = lion_projectile_cached_layout_addr_loc_1792(grid, right_col, row);
-        if right_col > 0
+    if face == 0x04 {
+        let cached_layout_addr = lion_projectile_cached_layout_addr_loc_1792(grid, col, row);
+        if col > 0
             && matches!(
                 crate::movement::gfx_objects_collision_solid_rightwall_loc_1966(
-                    grid.raw_word_at(right_col - 1, row),
+                    grid.raw_word_at(col - 1, row),
                     cached_layout_addr,
                 ),
                 crate::movement::GfxObjectsCollisionSolidRightWallLoc1966::RedirectToUpSlope { .. }
@@ -6375,7 +6439,7 @@ fn lion_projectile_terrain_contact_loc_3e260(
         let snap = crate::movement::gfx_objects_collision_rightwall_snap_loc_197E(
             false,
             0,
-            right_col << 4,
+            col << 4,
             LION_PROJECTILE_COLLISION_LEFT_LOC_3E12A as i16 as u16,
             LION_PROJECTILE_COLLISION_WIDTH_LOC_3E12A as u16,
         )?;
@@ -6386,7 +6450,7 @@ fn lion_projectile_terrain_contact_loc_3e260(
         });
     }
 
-    if projectile.y_velocity >= 0 && lion_projectile_solid_cell_blocks_loc_3e260(cell) {
+    if face == 0x0C {
         if row > 0 {
             let cached_layout_addr = lion_projectile_cached_layout_addr_loc_1792(grid, col, row);
             let level_width_bytes = grid.width_cells.wrapping_mul(2);
@@ -6430,7 +6494,7 @@ fn lion_projectile_terrain_contact_loc_3e260(
         });
     }
 
-    if projectile.y_velocity < 0 && lion_projectile_solid_cell_blocks_loc_3e260(cell) {
+    if face == 0x10 {
         let snap = crate::movement::gfx_objects_collision_ceiling_snap_loc_1A6C(
             false,
             row << 4,
@@ -7341,6 +7405,84 @@ mod loc_3e266_tests {
             0x0014,
             "ASM Lion.asm loc_3E2A8: unblocked probes must fall through to the cell-based slope id"
         );
+    }
+
+    /// ASM GfxObjects_Collision_Solid/loc_18AA/loc_18E4/loc_1928: neighbour priority.
+    #[test]
+    fn solid_face_dispatch_prioritises_continuous_floor_and_ceiling() {
+        for (vx, vy, horizontal_col, vertical_row, expected) in [
+            (0x60000, 0x24000, 1, 1, 0x0C),
+            (-0x60000, 0x24000, 3, 1, 0x0C),
+            (0x60000, -0x24000, 1, 3, 0x10),
+            (-0x60000, -0x24000, 3, 3, 0x10),
+        ] {
+            let grid = grid_with_cells(
+                5,
+                5,
+                &[
+                    (2, 2, terrain::CollisionKind::Solid),
+                    (horizontal_col, 2, terrain::CollisionKind::Solid),
+                    (2, vertical_row, terrain::CollisionKind::Solid),
+                ],
+            );
+            let projectile = EnemyProjectile {
+                x_pos: 40 << 16,
+                y_pos: 40 << 16,
+                x_velocity: vx,
+                y_velocity: vy,
+                ..Default::default()
+            };
+            assert_eq!(
+                super::projectile_solid_contact_face(&grid, &projectile, [-5, 4, -5, 4], 2, 2,),
+                expected
+            );
+            let wall_grid = grid_with_cells(
+                5,
+                5,
+                &[
+                    (2, 2, terrain::CollisionKind::Solid),
+                    (2, vertical_row, terrain::CollisionKind::Solid),
+                ],
+            );
+            assert_eq!(
+                super::projectile_solid_contact_face(&wall_grid, &projectile, [-5, 4, -5, 4], 2, 2),
+                if vx >= 0 { 0x04 } else { 0x08 }
+            );
+        }
+    }
+
+    /// ASM GfxObjects_Collision_Solid/loc_18AA/loc_18E4/loc_1928: signed products.
+    #[test]
+    fn solid_face_dispatch_uses_corner_travel_products_in_all_directions() {
+        let grid = grid_with_cells(5, 5, &[(2, 2, terrain::CollisionKind::Solid)]);
+        for (vx, vy, expected) in [
+            (0x60000, 0x20000, 0x04),
+            (0x20000, 0x60000, 0x0C),
+            (-0x60000, 0x20000, 0x08),
+            (-0x20000, 0x60000, 0x0C),
+            (0x60000, -0x20000, 0x04),
+            (0x20000, -0x60000, 0x10),
+            (-0x60000, -0x20000, 0x08),
+            (-0x20000, -0x60000, 0x10),
+            (0, 0, 0x0C),
+            (0x20000, 0x20000, 0x0C),
+            (-0x20000, 0x20000, 0x0C),
+            (0x20000, -0x20000, 0x10),
+            (-0x20000, -0x20000, 0x10),
+        ] {
+            let projectile = EnemyProjectile {
+                x_pos: 40 << 16,
+                y_pos: 40 << 16,
+                x_velocity: vx,
+                y_velocity: vy,
+                ..Default::default()
+            };
+            assert_eq!(
+                super::projectile_solid_contact_face(&grid, &projectile, [-4, 4, -4, 4], 2, 2,),
+                expected,
+                "velocity {vx}/{vy}"
+            );
+        }
     }
 
     #[test]
