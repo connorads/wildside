@@ -17931,6 +17931,68 @@ mod tests {
         );
     }
 
+    /// ASM loc_829C/loc_82CA (kid.asm): zero-speed stand-up skips input physics.
+    #[test]
+    fn gameplay_regression_zero_speed_crawl_release_skips_acceleration_and_jump() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        for (source, frame, x, y) in [
+            (
+                include_str!("../../../../tests/data/fuzz-repros/801d73ea.json"),
+                242,
+                0x0020_0000,
+                0x007f_0000,
+            ),
+            (
+                include_str!("../../../../tests/data/fuzz-repros/55fdeed4.json"),
+                239,
+                0x002f_0000,
+                0x067f_0000,
+            ),
+            (
+                include_str!("../../../../tests/data/fuzz-repros/6d09c11f.json"),
+                291,
+                0x0020_0000,
+                0x006f_0000,
+            ),
+        ] {
+            let scenario: DynamicScenario = serde_json::from_str(source).expect("stand-up route");
+            let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+                manifest.clone(),
+                &scenario,
+                crate::scenarios::NativeDynamicRunOptions::default(),
+            )
+            .expect("stand-up trace");
+            let trace = &run.trace[frame];
+            // ASM loc_82CA bypasses loc_8E16 and enters loc_8BF0 with zero velocity.
+            assert_eq!(
+                trace.character_movement,
+                Some(2),
+                "{} frame{frame}",
+                scenario.slug
+            );
+            assert_eq!(
+                trace.kid_x_velocity,
+                Some(0),
+                "{} frame{frame}",
+                scenario.slug
+            );
+            assert_eq!(
+                trace.kid_y_velocity,
+                Some(0),
+                "{} frame{frame}",
+                scenario.slug
+            );
+            assert_eq!(trace.kid_x_pos, Some(x), "{} frame{frame}", scenario.slug);
+            assert_eq!(trace.kid_y_pos, Some(y), "{} frame{frame}", scenario.slug);
+            if scenario.slug == "fuzz-801d73ea" {
+                // ASM loc_8E16 writes Standing on the following idle wake.
+                assert_eq!(run.trace[frame + 1].character_movement, Some(0));
+            }
+        }
+    }
+
     /// ASM loc_8FF8 (kid.asm): the left-boundary clamp retains walking.
     #[test]
     fn gameplay_regression_released_left_boundary_keeps_walking() {

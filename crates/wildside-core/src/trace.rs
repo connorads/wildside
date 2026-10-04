@@ -10100,10 +10100,19 @@ impl NativeRuntime {
                         && probe.stages.after_wall.on_ground
                         && probe.stages.after_wall.x_velocity == 0
                 });
+        // ASM loc_82CA -> loc_8E3E -> loc_8BF0 skips the zero-speed standing write.
+        let crawl_standup_kept_walking = self.kid_crawl_standup_from_rest
+            && self.last_kid_frame_post_motion_mutator == KidFramePostMotionMutator::None
+            && self
+                .last_kid_frame_kid_flip_follow_on_probe
+                .is_some_and(|probe| {
+                    !probe.wall_hit_after_floor && probe.stages.after_wall.on_ground
+                });
         if player.x_velocity == 0
             && self.progression.current_form != PlayerForm::Skycutter
             && !self.current_frame_kept_walking_after_wall_snap_loc_8e74()
             && !left_boundary_clamp_kept_walking
+            && !crawl_standup_kept_walking
             && !on_slope
         {
             return MOVE_STANDINGSTILL;

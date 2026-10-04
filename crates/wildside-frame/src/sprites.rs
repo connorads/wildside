@@ -816,12 +816,12 @@ pub fn select_player_frame<'a>(
             };
             let frame_index = usize::from(trace.walk_visual_accumulator >> 8) % slope_frames.len();
             &slope_frames[frame_index]
-        } else if x_velocity != 0
+        } else if (x_velocity != 0 || trace.character_movement == Some(2))
             && trace.character_movement != Some(0)
             && trace.current_helmet_id == PlayerForm::TheKid.helmet_id()
             && trace.kid_facing.is_some_and(|facing| {
                 matches!(
-                    (x_velocity.is_positive(), facing),
+                    (x_velocity >= 0, facing),
                     (true, Direction::Left) | (false, Direction::Right)
                 )
             })
@@ -833,7 +833,13 @@ pub fn select_player_frame<'a>(
             // renderer supplies the previous trace's motion state because
             // Mode_Level transfers Sprite_Table before this mapping is built.
             skid
-        } else if x_velocity == 0 || trace.character_movement == Some(0) {
+        } else if trace.character_movement == Some(0)
+            || (x_velocity == 0
+                && (trace.character_movement != Some(2)
+                    || trace.current_helmet_id == PlayerForm::Cyclone.helmet_id()))
+        {
+            // ASM loc_82CA -> loc_9600 keeps the walk mapping at zero speed.
+            // Cyclone sub_98F2 / off_99FE uses a separate mapping sequence.
             // ASM loc_82BA -> sub_78E8 installs standing art before
             // loc_78C6 clears the retained stand-up velocity next wake.
             // ASM sub_78E8 loc_7962/loc_7974 (kid.asm:8019-8031): Micromax
@@ -7019,6 +7025,26 @@ mod tests {
                     0x0100,
                 );
             }
+        }
+    }
+
+    #[test]
+    fn zero_speed_standup_keeps_walk_mapping_loc_82ca_9600() {
+        let visuals = labelled_player_visuals();
+        // ASM loc_82CA -> sub_942A -> loc_9600 selects walk phase zero.
+        // loc_9596 selects The Kid's skid mapping for left-facing zero speed.
+        // The following sub_78E8 wake selects idle through loc_75D4.
+        for (facing, expected) in [(Direction::Right, 0x0200), (Direction::Left, 0x0250)] {
+            let mut trace = NativeTraceFrame {
+                character_movement: Some(2),
+                kid_on_ground: Some(true),
+                kid_x_velocity: Some(0),
+                kid_facing: Some(facing),
+                ..NativeTraceFrame::default()
+            };
+            assert_eq!(selected_tile_base(&trace, &visuals), expected);
+            trace.character_movement = Some(0);
+            assert_eq!(selected_tile_base(&trace, &visuals), 0x0100);
         }
     }
 

@@ -2883,6 +2883,7 @@ impl OpeningSliceState {
             false,
             deferred_prize_ceiling_cells,
             false,
+            false,
         );
         if outcome == KidPhysicsStepOutcome::FloorLanding {
             self.finish_airborne_floor_landing(
@@ -2912,6 +2913,7 @@ impl OpeningSliceState {
         suppress_probe_slope_velocity: bool,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
         standing_wake: bool,
+        crawl_standup_from_rest: bool,
     ) -> KidPhysicsStepOutcome {
         self.step_with_order_inner(
             input,
@@ -2929,6 +2931,7 @@ impl OpeningSliceState {
             suppress_probe_slope_velocity,
             deferred_prize_ceiling_cells,
             standing_wake,
+            crawl_standup_from_rest,
         )
     }
 
@@ -2950,7 +2953,10 @@ impl OpeningSliceState {
         suppress_probe_slope_velocity: bool,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
         standing_wake: bool,
+        crawl_standup_from_rest: bool,
     ) -> KidPhysicsStepOutcome {
+        // ASM loc_829C/loc_82CA clears the B press before the collision tail.
+        let jump_pressed = jump_pressed && !crawl_standup_from_rest;
         // ASM loc_1062 / Hibernate_UntilAnimFinished (kid.asm:1985) loops for
         // 21 frames after ledge snap, suppressing all physics.
         // Camera follow resumes on the final frame (ASM exits animation,
@@ -3254,6 +3260,7 @@ impl OpeningSliceState {
                     None
                 };
                 if on_ground_before
+                    && !crawl_standup_from_rest
                     && !slope_sliding_before
                     && grounded_slope_before.is_none()
                     && grounded_edge_slope_before.is_none()
@@ -3518,19 +3525,20 @@ impl OpeningSliceState {
                 // Suppressed during wall-cling (ASM loc_AA22 never calls sub_B084).
                 let x_velocity_before_sub_b084 = self.player.x_velocity;
                 let walk_visual_accumulator_before = self.walk_visual_accumulator;
-                let horizontal_step_applied = if self.player.wall_cling_direction.is_some() {
-                    false
-                } else {
-                    self.update_horizontal_velocity_only_with_probe_slope_suppression(
-                        input,
-                        jump_pressed,
-                        form,
-                        block_grid.as_deref(),
-                        maniaxe_throwing_axe_active,
-                        suppress_probe_slope_velocity,
-                        standing_wake,
-                    )
-                };
+                let horizontal_step_applied =
+                    if crawl_standup_from_rest || self.player.wall_cling_direction.is_some() {
+                        false
+                    } else {
+                        self.update_horizontal_velocity_only_with_probe_slope_suppression(
+                            input,
+                            jump_pressed,
+                            form,
+                            block_grid.as_deref(),
+                            maniaxe_throwing_axe_active,
+                            suppress_probe_slope_velocity,
+                            standing_wake,
+                        )
+                    };
 
                 // ASM loc_9D22 canonicalises the slope velocity in d0, then
                 // loc_9D2E (kid.asm:11948) stores it to y_vel so the player
@@ -3567,7 +3575,11 @@ impl OpeningSliceState {
 
                 // Step 2: sub_B168 — jump initiation + gravity (velocity only)
                 let pre_gravity_y_vel = self.player.y_velocity;
-                self.apply_jump_and_gravity_vel_only(input, jump_pressed, form, custom_gravity);
+                // ASM loc_829C/loc_82CA clears B and skips the input/gravity
+                // dispatch, retaining the loc_8E3E wall/slope tail below.
+                if !crawl_standup_from_rest {
+                    self.apply_jump_and_gravity_vel_only(input, jump_pressed, form, custom_gravity);
+                }
                 if self.player.on_ground
                     && !jump_pressed
                     && let Some(slope) = grounded_slope_for_loc_9d22

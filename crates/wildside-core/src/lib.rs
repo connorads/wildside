@@ -333,6 +333,8 @@ pub struct NativeRuntime {
     kid_crawling: bool,
     /// ASM loc_82BA -> loc_75D4: stand-up resumes the standing loop next wake.
     kid_crawl_standing_wake: bool,
+    /// ASM loc_82CA (kid.asm): zero-speed stand-up enters the walking tail.
+    kid_crawl_standup_from_rest: bool,
     /// ASM loc_A99E -> loc_8BF0 (kid.asm): landing yields before slope scans.
     kid_floor_landing_hibernated: bool,
     prior_input: FrameInput,
@@ -1627,6 +1629,7 @@ impl NativeRuntime {
             trace_input: FrameInput::default(),
             kid_crawling: false,
             kid_crawl_standing_wake: false,
+            kid_crawl_standup_from_rest: false,
             kid_floor_landing_hibernated: false,
             prior_input: FrameInput::default(),
             previous_input: FrameInput::default(),
@@ -2016,6 +2019,7 @@ impl NativeRuntime {
         self.kid_crawling = false;
         self.kid_crawl_standing_wake = false;
         self.kid_floor_landing_hibernated = false;
+        self.kid_crawl_standup_from_rest = false;
         self.mode_level_tail_state_loc_892.clear_loc_720();
         self.rebase_mode_level_tail_after_external_override_loc_2ffe8();
         // ASM sub_73D0/loc_7414: every Load_InGame path seeds both full
@@ -6022,6 +6026,7 @@ impl NativeRuntime {
 
     fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {
         self.kid_floor_landing_hibernated = false;
+        self.kid_crawl_standup_from_rest = false;
         let resuming_transform_callback = self.progression.form_change_flash_frames == 2;
         if !self.step_lifecycle(input) {
             self.demo_transform_active = false;
@@ -6424,6 +6429,16 @@ impl NativeRuntime {
                     })
             });
 
+            // ASM loc_82CA bypasses loc_8E16 on zero-speed stand-up.
+            self.kid_crawl_standup_from_rest = self.kid_crawling
+                && !movement_input.down
+                && slice.player.on_ground
+                && slice.player.x_velocity == 0
+                && self.progression.current_form != PlayerForm::Skycutter;
+            if self.kid_crawl_standup_from_rest {
+                // ASM loc_82CA clears the walking animation accumulator.
+                slice.walk_visual_accumulator = 0;
+            }
             // ASM loc_829C clears B before loc_82BA hibernates nonzero
             // stand-up velocity at loc_75D4, including negative velocity.
             let crawl_release_hold = self.kid_crawling
@@ -6644,6 +6659,7 @@ impl NativeRuntime {
                     suppress_probe_slope_velocity,
                     &deferred_prize_ceiling_cells,
                     standing_wake && self.active_platform_standing_on.is_none(),
+                    self.kid_crawl_standup_from_rest,
                 );
                 if ledge_snap_cooldown_before == 1 && slice.player.ledge_snap_cooldown == 0 {
                     // ASM loc_1062 -> sub_78E8 -> loc_75D4: the final pull-up

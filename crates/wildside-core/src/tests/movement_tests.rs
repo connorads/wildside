@@ -17826,6 +17826,7 @@ mod chunk_12 {
             false,
             &[],
             true,
+            false,
         );
         assert_eq!(slice.player.facing, Direction::Left);
         assert_eq!(slice.player.x_velocity, 0);

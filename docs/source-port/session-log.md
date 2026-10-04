@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+### 2026-10-04 - Stand-up unit reductions complete
+
+Both serial ledger reducers exit0: d471415 inputs/279 nonzero/2703 replays and b492316/117/405. All86 old fixtures remain byte-identical. Stand-up physics/pose source retains its verified fast/full/sweep results; final documentation checks and wired hooks precede the coherent commit. Separate provenance is verified and right-edge full/sweep match parent;05 ledger preview still blocks157 on later gameplay2101fa23, with no confirmed exit. d471 layout7 Diamond grounded Y snap is ROM/ASM-proved for a later engine fix.
+
+### 2026-10-04 - Standing-entry provenance verified; right-edge correction under verification
+
+2026-10-04: Isolated #515 standing-entry provenance passes fast/full, fresh333 raw oracle frames, reviewed332/333 images, fixed fuzz31/40 with24 clusters and no earlier frontiers, baseline105-level sweep and affected ledger preview. ROM selected-PC b59138 proves right-boundary loc_8F86 returns to Walking; separate saved regression is RED then GREEN, fresh extended40/40 oracle matches, broader verification pending. Main first-unit reducer d471 exits0 at415 inputs/2703 replays; b492 continues under the same supervisor. All86 old fixtures remain byte-identical. No commit/push/merge.
+
+### 2026-10-04 - Zero-speed crawl stand-up candidate verified; ledger intake pending
+
+On a5554be41, #515/#522 zero-speed release skips acceleration/B jump and retains wall/slope checks. Three saved-route RED/GREEN and fresh274/240/292/296 oracle checkpoints pass. Zero-speed Walking mapping regression passes all306 frame tests; displayed291..295 retains only84 HUD pixels per frame. Post-selector fast7511/38 and full37759 pass with the entire parent report unchanged; sweep102/105 remains unchanged. Fixed fuzz advances six frontiers, none earlier,35/40 divergent routes/28 clusters. All five new fuzz repros are shrunk;86 old fixtures remain byte-identical. Serial ledger reductions remain live, so the coherent commit is pending. Actual SDL296 and native replay pass; earlier headless export was mislabelled live and corrected. Focused mutation catches10 with one unviable. Required exploration review1791123871374521000 blocks before collection on EmoRock349/350 pixels, with no navigation/paid request. #515 next cause is source-proved standing-entry wall rejection99485662 via77E6/922C/9380; final shrunk replay matches332/333 with only Movement2/0 at332. Broad issues remain open;0/103 exits confirmed.
+
 ## 2026-10-04 - #515 observed left-boundary clamp continuation
 
 ASM loc_8FF8 returns Z and resumes walking; the prior held-input heuristic misreports released boundary51 as Standing. Motion-stage evidence and saved-route RED/GREEN pin Walking51 and Standing52. Fresh53-state comparison matches, pixel51 is exact with residue50/52; live SDL53 replays53/53. Fast7511/37 CLI regressions and full37759 pass; full report equals parent, sweep1791114586 retains102/105. Fuzz1791114403 advances15 frontiers, none earlier, and splits later blockers into31 signatures. Ledger1791114402 finds a different01 native Flag4000 route blocked99 by9d6f19d9; aggregate0/103 confirmed,10 native exits. All21 overwritten fixtures are restored and74 old fixtures match. Twelve new intake witnesses are retained; qualified c36-level03 preserves the old Lion07 regression. #515/#522/#517 remain open. Two gameplay fixes since exploration1791110086680455000; #186 wider-hurt witness search stays parked. Evidence `.cache/debug/movement-515/`.
