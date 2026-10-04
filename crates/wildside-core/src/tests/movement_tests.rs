@@ -14885,6 +14885,43 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_8BF0/sub_9A0A versus loc_9D58: the active callback selects acceleration.
+    #[test]
+    fn walking_callback_ignores_slope_probe_without_slope_continuation() {
+        let velocity_after_walking = |collision_hi| {
+            let mut data = vec![0u8; 8 * 8 * 2];
+            data[(3 * 8 + 4) * 2] = collision_hi;
+            let grid = terrain::BlockGrid::from_level_layout(&data, 8, 8);
+            let mut slice = OpeningSliceState::new(LevelBounds {
+                width_pixels: 128,
+                height_pixels: 128,
+            });
+            slice.player.on_ground = true;
+            slice.player.facing = Direction::Right;
+            slice.player.x_pos = 64 << 16;
+            slice.player.y_pos = 63 << 16;
+            slice.terrain.floor_y_pos = slice.player.y_pos;
+            slice.terrain.floor_terrain_type = TerrainType::Normal;
+            slice.terrain.slope_walk_kind = Some(terrain::CollisionKind::SlopeDown);
+            slice.player.x_velocity = -0x4000;
+            assert!(slice.update_horizontal_velocity_only(
+                FrameInput {
+                    right: true,
+                    ..FrameInput::default()
+                },
+                false,
+                PlayerForm::Berzerker,
+                Some(&grid),
+                false,
+            ));
+            assert!(!slice.terrain.slope_sliding);
+            slice.player.x_velocity
+        };
+        // ASM loc_9B5C/unk_9C0A adds $2000 braking without loc_8E16's zero re-dispatch.
+        assert_eq!(velocity_after_walking(0x50), -0x2000);
+        assert_eq!(velocity_after_walking(0x60), -0x2000);
+    }
+
     /// ASM loc_A13A -> loc_9D22 (kid.asm:12422,11942): the slope-walk
     /// coroutine loops back through loc_9D22 using cached `$FFFFFA26`, even on
     /// the first frame where the immediate floor probe no longer sees a slope.

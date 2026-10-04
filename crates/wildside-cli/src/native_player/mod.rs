@@ -18095,6 +18095,34 @@ mod tests {
         assert_eq!(run.trace[52].character_movement, Some(0));
     }
 
+    /// ASM loc_9D58 -> loc_9DAA -> loc_9DF2 (kid.asm): Down resumes slope motion.
+    #[test]
+    fn gameplay_regression_slope_down_continuation_skips_crawl_alignment() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut scenario: DynamicScenario = serde_json::from_str(include_str!(
+            "../../../../tests/data/fuzz-repros/b4924e7d.json"
+        ))
+        .expect("slope Down continuation route");
+        scenario.script.extend([2; 4]);
+        scenario.frame_count += 4;
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("slope Down trace");
+        // ASM loc_9DF2 adjusts slope speed without the sub_7A10 crawl-entry snap.
+        let trace = &run.trace[316];
+        assert_eq!(trace.kid_x_pos, Some(0x00d0_1000));
+        assert_eq!(trace.kid_x_velocity, Some(0x4000));
+        assert_eq!(trace.character_movement, Some(2));
+        // ASM loc_8C70 -> sub_7A10 -> loc_8218 permits fresh flat Walking crawl entry.
+        assert_eq!(run.trace[318].kid_x_pos, Some(0x00d0_0000));
+        assert_eq!(run.trace[318].character_movement, Some(1));
+    }
+
     /// ASM loc_8F86 -> loc_8E4E -> loc_8BF0 (kid.asm): right clamp returns Walking.
     #[test]
     fn gameplay_regression_released_right_boundary_keeps_walking() {

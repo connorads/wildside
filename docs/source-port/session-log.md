@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+### 2026-10-04 - Slope unit closed out with shorter verified intake
+
+Main slope fast/full, fixed census, affected04 ledger, sweep, visual comparison and scoped mutation pass their stated baselines. Count90c880cb reduces502/87 nonzero/453 replays. Independent RNG prefix293->263 reproduces the same4317835b signature; full rings match0..262 then offsets diverge263. Exhaustive zeroing14305 continues independently. All97 prior fixtures and four source hashes remain unchanged. SDL321/replay321 pass; Jev review is blocked before paid navigation by existing EmoRock strict pixels. Commit this slope unit separately; transformation input history is the next P1 candidate. No confirmed level exit is added.
+
+### 2026-10-04 - Slope mutation controls complete; next jump cause proved
+
+Final exact walking-callback control passes and catches both last survivors. Combined scoped mutation catches16 viable changed-line substitutions; two cannot compile. Final fast20529 passes7513 core/43 gameplay with reviewed exclusions and existing ignores; unchanged gameplay source byte-matches the full/sweep-verified candidate. RNG14305 and count49824 retries remain live before slope commit. Fresh2101 selected PCs prove ReadJoypad is skipped during transformation while native advances held history, losing B before Standing resumes. Correct B=$10 released-before-cleanup and cleanup-edge controls each match8/8; initial C-mask variants are rejected. Project status now selects this P1 source-proved #522 unit ahead of #517 after slope closeout and exploration/native cadence.97 existing fixture bytes remain unchanged; backlog lint/diff/Jev checks pass.
+
+### 2026-10-04 - Slope verification capacity recovered
+
+Main fast/full remain green and source stays frozen. Focused mutation90050 baseline passes ten native-player regressions, then three workers exhaust disk space; stop it and discard contaminated outcomes. Original reducers40983/6899 also exit1 without a shrunk result. Native cargo clean removes16.2GiB from the verified isolated target. RNG retry14305 and single-worker mutation16666 are live; count90c880cb retry follows RNG completion. Add existing anchored ownership for ledger9d6f19d9/#517 andcb337ac6/#518; fresh project status has no untracked measured blocker.97 prior fixtures are unchanged; backlog lint and diff checks pass. Commit and exploration cadence remain pending.
+
+### 2026-10-04 - Slope full verification complete; focused mutation running
+
+Main full31339 passes and the entire report byte-matches the right-boundary parent. Original mutation54547 is deliberately interrupted because its core-only baseline calibrated an inadequate20s timeout. Corrected32357 runs the slope regression successfully but fails five recording tests without a copied ROM; no mutants run. Focused replacement90050 selects native-player gameplay regressions with the CLI baseline included. Reducers40983/6899 remain live. Source remains frozen until reductions and mutation closeout; no slope commit yet.
+
+### 2026-10-04 - Slope-Down promoted with main intake and fast green
+
+Right-boundary commit9d3f160d4 and hooks complete, clean tree. Promote the byte-identical three-path slope candidate; main saved regression passes. Main census1791137147 equals preview31/40 divergent/23 clusters with no earlier frontier, advancing04seed3 from243 physics to263 RNG4317835b under #518. Restore22 writer overwrites and verify97 existing fixtures byte-identical. Main affected04 ledger1791137299 matches different flag2716 route blocked502 counts90c880cb under #517,0/103 confirmed. Main fast34545 passes7512 core/43 gameplay with reviewed exclusions and existing ignores. Sequential full31339, both intake reducers and focused18-mutant check remain live; this slope unit is uncommitted. Isolated source had already passed raw317/321, fast/full, sweep and visual comparisons. Complete current unit and cadence review before selecting the grounded Diamond Y fix.
+
 ### 2026-10-04 - Right-boundary unit verified and reductions complete
 
 Main saved right-boundary regression, fast7512 core/42 gameplay and full pass; whole full report byte-matches provenance parent. Census1791134654 retains31/40 divergent routes, reduces24->23 clusters and has no earlier frontier. Three intake reducers finish: a4cec55f244/31 nonzero/591 replays (#518),22f086c8547/17/200 (#517),2101fa23157/5/125 (#522). All94 old fixtures remain byte-identical. Affected05 flag3344 blocks157 on later physics,0/103 confirmed. Commit the right-boundary unit separately with wired hooks. Isolated #522 slope-Down correction is RED/GREEN and raw317/321 matched, fast/full/sweep verified; its read-only04 route advances243->263 RNG and different ledger flag2716 blocks502 counts. Promote that separate unit next.

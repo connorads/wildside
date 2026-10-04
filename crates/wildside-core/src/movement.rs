@@ -2981,6 +2981,11 @@ impl OpeningSliceState {
             self.update_camera_follow(y_look_offset);
             return KidPhysicsStepOutcome::Complete;
         }
+        // ASM loc_9D58/loc_9DAA handles Down in the slope callback, not crawling.
+        let crawl_path = input.down
+            && self
+                .grounded_slope_continuation(input, block_grid.as_deref())
+                .is_none();
         let mut block_grid = block_grid;
         // ASM loc_8E06 (kid.asm:10203): the walking loop re-runs the sub_B43A
         // support scan at the START of each frame, before sub_9A0A/sub_8F26
@@ -4284,7 +4289,7 @@ impl OpeningSliceState {
                         t.wall_hit = true;
                         t.wall_snap_x = Some(self.player.x_pos);
                     }
-                    if input.down && self.player.on_ground && !wall_hit {
+                    if crawl_path && self.player.on_ground && !wall_hit {
                         // ASM loc_83BC -> sub_83E6 -> loc_83D8: the crawl
                         // path probes the motion-side slope after sub_8F26.
                         // A matching `$4000`/`$5000` slope snap adjusts x_pos
@@ -4301,7 +4306,7 @@ impl OpeningSliceState {
                             self.player.x_velocity = 0;
                         }
                     }
-                    if input.down
+                    if crawl_path
                         && self.player.on_ground
                         && !matches!(
                             form,
@@ -5508,13 +5513,9 @@ impl OpeningSliceState {
         let grounded_slope = self
             .grounded_slope_collision(block_grid)
             .filter(|_| self.player.on_ground && self.terrain.slope_sliding);
-        let cached_slope_continuation =
-            (self.player.on_ground && self.terrain.slope_sliding && grounded_slope.is_none())
-                .then_some(self.terrain.slope_walk_kind)
-                .flatten()
-                .filter(|&slope| {
-                    cached_slope_walk_exit_gate_loc_a13a(self.player.x_velocity, input, slope)
-                });
+        let cached_slope_continuation = self
+            .grounded_slope_continuation(input, block_grid)
+            .filter(|_| grounded_slope.is_none());
         if self.player.on_ground && self.player.jump_buffer_frames > 0 {
             return false;
         }
@@ -6115,6 +6116,26 @@ impl OpeningSliceState {
             terrain::CollisionKind::SlopeUp => Some(terrain::CollisionKind::SlopeUp),
             _ => None,
         }
+    }
+
+    /// ASM loc_9D58/loc_A13A (kid.asm): resume current or gated cached slope motion.
+    pub(crate) fn grounded_slope_continuation(
+        &self,
+        input: FrameInput,
+        block_grid: Option<&terrain::BlockGrid>,
+    ) -> Option<terrain::CollisionKind> {
+        if !self.player.on_ground || !self.terrain.slope_sliding {
+            return None;
+        }
+        self.grounded_slope_collision(block_grid).or_else(|| {
+            self.terrain.slope_walk_kind.filter(|&slope| {
+                cached_slope_walk_exit_gate_loc_a13a(
+                    self.player.x_velocity,
+                    input.with_left_right_conflict_resolved(),
+                    slope,
+                )
+            })
+        })
     }
 
     pub(crate) fn grounded_slope_probe_result_loc_9386(

@@ -6394,11 +6394,16 @@ impl NativeRuntime {
             // ASM loc_8C70/loc_7772 call sub_7A10 only on crawl entry.
             // Jump and Hand bypass alignment; excluded forms and blocked
             // clearance retain walking input while look offset consumes Down.
+            // ASM loc_9D58 -> loc_9DAA consumes Down inside the saved slope callback.
+            let slope_continuation = slice
+                .grounded_slope_continuation(movement_input, self.block_grid.as_ref())
+                .is_some();
             let standing_wake = std::mem::take(&mut self.kid_crawl_standing_wake);
             let walking_crawl_entry =
                 !standing_wake && self.current_character_movement(slice.player) == 2;
             let mut crawl_entry_hold = false;
             if input.down
+                && !slope_continuation
                 && !self.kid_crawling
                 && !jump_pressed
                 && !slice.kid_grabbed_by_hand
@@ -7065,6 +7070,7 @@ impl NativeRuntime {
             // Preserve the post-stand-up-check crawl-path decision for the
             // later platform pass and movement-state consumers.
             platform_support_crawling = !self.kid_floor_landing_hibernated
+                && !slope_continuation
                 && movement_input.down
                 && slice.player.on_ground
                 && !slice.kid_grabbed_by_hand;
