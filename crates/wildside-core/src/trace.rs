@@ -6467,8 +6467,9 @@ mod tests {
         );
     }
 
+    /// ASM loc_8FF8 (kid.asm): motion stages distinguish the boundary clamp.
     #[test]
-    fn current_character_movement_keeps_held_left_boundary_clamp_walking_loc_8ff8() {
+    fn current_character_movement_retains_actual_left_boundary_clamp() {
         let mut player = PlayerState::title_pose();
         player.x_pos = (PlayerForm::TheKid.half_width() as u32) << 16;
         player.y_pos = 0x010f_0000;
@@ -6478,12 +6479,43 @@ mod tests {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
         runtime.trace_input.left = true;
+        // ASM loc_8E16: a stationary pose alone does not prove loc_8FF8 ran.
+        assert_eq!(runtime.current_character_movement(player), 0);
 
-        assert_eq!(
-            runtime.current_character_movement(player),
-            2,
-            "ASM loc_8E16 -> sub_8F26 loc_8FF8: held-left motion enters sub_8F26 with non-zero x_vel, then the left level-edge clamp preserves the negative return into loc_8E74 even though the exported x_vel is now zero"
-        );
+        let moving = KidFlipFollowOnStageState {
+            x_velocity: -0x0001_4800,
+            y_velocity: 0,
+            on_ground: true,
+            wall_cling_direction: None,
+        };
+        runtime.trace_input = FrameInput::default();
+        runtime.last_kid_frame_kid_flip_follow_on_probe = Some(KidFlipFollowOnProbe {
+            branch: KidFlipBranchSelection::NoButtonBranch,
+            motion_branch: KidFrameMotionBranch::NormalPhysics,
+            post_motion_mutator: KidFramePostMotionMutator::None,
+            wall_hit_after_floor: false,
+            stages: KidFlipFollowOnStages {
+                entry: moving,
+                after_press_away: moving,
+                cyclone_acceleration_before_sub_b168: None,
+                after_jump_gravity: moving,
+                after_floor: moving,
+                after_wall: KidFlipFollowOnStageState {
+                    x_velocity: 0,
+                    ..moving
+                },
+                gfx_object_collision_clear: true,
+                ceiling_scan_cells_sub_914a: [None; 4],
+            },
+        });
+        // ASM loc_8FF8 -> loc_8E4E -> loc_8BF0 retains Walking after release.
+        assert_eq!(runtime.current_character_movement(player), 2);
+        player.x_pos = 16 << 16;
+        assert_eq!(runtime.current_character_movement(player), 0);
+        player.x_pos = (PlayerForm::TheKid.half_width() as u32) << 16;
+        runtime.last_kid_frame_kid_flip_follow_on_probe = None;
+        // ASM loc_8E16 sees zero on the next idle wake and writes Standing.
+        assert_eq!(runtime.current_character_movement(player), 0);
     }
 
     #[test]
@@ -10020,10 +10052,6 @@ impl NativeRuntime {
         // `sub_8F26 -> loc_8F98` returns negative, so `loc_8E5A` branches to
         // `loc_8E74` and keeps the walking coroutine even after x_vel was
         // cleared by the wall snap.
-        // ASM loc_8E16 -> sub_8F26 loc_8FF8 is the level-left-edge counterpart:
-        // held-left motion enters sub_8F26 with non-zero x_vel, the boundary
-        // clamp clears x_vel, and the negative/NE return keeps the walking
-        // continuation at loc_8E74.
         let half_width = self.progression.current_form.half_width();
         let x_px = (player.x_pos >> 16) as i32;
         let y_px = (player.y_pos >> 16) as i32;
@@ -10059,14 +10087,23 @@ impl NativeRuntime {
             // before flat support was reacquired.
             core_slope_walk || (was_grounded_before_step && edge_slope && slope_release)
         });
-        let held_left_boundary_clamp_kept_walking_loc_8ff8 = self.trace_input.left
-            && !self.trace_input.right
-            && player.on_ground
-            && x_px <= half_width;
+        // ASM loc_8FF8 clears x_vel and returns Z via moveq #0,d6. The
+        // loc_8E4E -> loc_8BF0 walking continuation survives released controls.
+        let left_boundary_clamp_kept_walking = x_px <= half_width
+            && self
+                .last_kid_frame_kid_flip_follow_on_probe
+                .is_some_and(|probe| {
+                    probe.motion_branch == KidFrameMotionBranch::NormalPhysics
+                        && probe.post_motion_mutator == KidFramePostMotionMutator::None
+                        && probe.stages.after_floor.on_ground
+                        && probe.stages.after_floor.x_velocity < 0
+                        && probe.stages.after_wall.on_ground
+                        && probe.stages.after_wall.x_velocity == 0
+                });
         if player.x_velocity == 0
             && self.progression.current_form != PlayerForm::Skycutter
             && !self.current_frame_kept_walking_after_wall_snap_loc_8e74()
-            && !held_left_boundary_clamp_kept_walking_loc_8ff8
+            && !left_boundary_clamp_kept_walking
             && !on_slope
         {
             return MOVE_STANDINGSTILL;

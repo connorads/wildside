@@ -7,6 +7,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-10-04 - #515 observed left-boundary clamp continuation
+
+ASM loc_8FF8 returns Z and resumes walking; the prior held-input heuristic misreports released boundary51 as Standing. Motion-stage evidence and saved-route RED/GREEN pin Walking51 and Standing52. Fresh53-state comparison matches, pixel51 is exact with residue50/52; live SDL53 replays53/53. Fast7511/37 CLI regressions and full37759 pass; full report equals parent, sweep1791114586 retains102/105. Fuzz1791114403 advances15 frontiers, none earlier, and splits later blockers into31 signatures. Ledger1791114402 finds a different01 native Flag4000 route blocked99 by9d6f19d9; aggregate0/103 confirmed,10 native exits. All21 overwritten fixtures are restored and74 old fixtures match. Twelve new intake witnesses are retained; qualified c36-level03 preserves the old Lion07 regression. #515/#522/#517 remain open. Two gameplay fixes since exploration1791110086680455000; #186 wider-hurt witness search stays parked. Evidence `.cache/debug/movement-515/`.
+
 ## 2026-10-04 - #360 recording implicit-zero tail
 
 Source-mask padding fixes live199-input/200-frame bundles that exported only199 replay frames. Public bundle regression observes RED then GREEN for immediate, settled and explicit-zero controls; existing bundle tests pass2/2. Fixed live SDL exports200 masks/200 trace rows and native replay passes200/200. Fast gate passes7511 core tests, CLI regressions and Clippy. No generated fixtures change; gameplay gates and census are not rerun for this recording-only unit. #360 remains awaiting its named target route. #186 original clean0..992 typed trace contains no Lion HP change or airborne hurt; park this witness search without a gameplay patch. Evidence `.cache/debug/recording-implicit-tail/`.

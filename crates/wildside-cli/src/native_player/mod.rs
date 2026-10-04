@@ -17931,6 +17931,30 @@ mod tests {
         );
     }
 
+    /// ASM loc_8FF8 (kid.asm): the left-boundary clamp retains walking.
+    #[test]
+    fn gameplay_regression_released_left_boundary_keeps_walking() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut scenario: DynamicScenario = serde_json::from_str(include_str!(
+            "../../../../tests/data/fuzz-repros/c96a3c9d.json"
+        ))
+        .expect("ordinary released-left boundary route");
+        scenario.frame_count += 1;
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("boundary trace");
+        // ASM loc_8FF8 returns Z after clearing velocity; loc_8E4E resumes loc_8BF0.
+        assert_eq!(run.trace[51].character_movement, Some(2));
+        assert_eq!(run.trace[51].kid_x_velocity, Some(0));
+        // ASM loc_8E16 writes Standing on the next zero-velocity idle wake.
+        assert_eq!(run.trace[52].character_movement, Some(0));
+    }
+
     /// ASM loc_3E32C/stru_3DF42 (Lion.asm) holds C7E58 without changing palette2.
     #[test]
     fn gameplay_regression_lion_surviving_hurt_uses_rom_pose_and_palette() {

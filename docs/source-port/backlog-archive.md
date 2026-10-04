@@ -29953,6 +29953,9 @@ frame-signature witness are deleted. A visible symptom traced to these
 mechanisms reopens as a new, narrow issue.
 
 <a id="issue-515"></a>
+
+Current retained movement intake includes b5918261,891e57ae,5a673417,c9b3814a. Their saved shrunk fixtures remain under `tests/data/fuzz-repros/`; later dated sections preserve their investigation evidence.
+
 ### #515-#519 - First fuzz census intake (2026-10-01)
 
 Source: `wildside fuzz run --levels 0x00-0x05 --seeds 8 --frames 600 --write`
@@ -30113,6 +30116,9 @@ zero mismatches. #520 closes the recorded walker/patrol defect; this does
 not claim cold-boot progression, complete pixel parity or recording fidelity.
 
 <a id="issue-522"></a>
+
+Current retained physics/camera intake includes 6a155c95,0b645d5b,d38053c6,70d46852. Their saved shrunk fixtures remain under `tests/data/fuzz-repros/`; later dated sections preserve their investigation evidence.
+
 ### #522 - Physics behind the crawl-latch frontier (2026-10-01)
 
 Source: the unchanged 0x00-0x05 x 8-seed x 600-frame census and the affected
@@ -31247,3 +31253,52 @@ At61c19431f, a fresh typed native trace of the original ledger07 route through i
 `SegmentRecorder::flush` exports source masks through the recorded trace length, extending an exhausted source with the same implicit zero masks used by playback. This preserves source timing when settled playback delays captured inputs. The public bundle regression `gameplay_regression_scripted_recording_preserves_implicit_zero_tail` observes RED `[16]` instead of `[16,0]`, then GREEN for immediate, settled and explicit-zero controls. It pins both saved trace rows, duration2 and final checkpoint1. Existing recording-bundle tests pass2/2.
 
 Fresh live SDL witness with199 source masks and200 requested frames exports199 masks/frame_count199 before the fix, despite200 trace rows. After the fix it exports200 masks/frame_count200, final checkpoint199 and final mask0; native-only replay passes all200 rows. Evidence: `.cache/debug/recording-implicit-tail/` and `.cache/recordings/implicit-tail-after/`. This repairs capture fidelity, not the still-missing named USM3 target encounter, so #360 stays awaiting route evidence. `verify-slice-fast` passes7511 core tests with286 reviewed exclusions, the CLI regression slice and workspace Clippy; backlog-lint, Jev audit, format and diff checks pass. No generated fixture changed. Gameplay engine and public schemas are unchanged; full TAS, sweep, fuzz and ledger are not rerun for this recording-only change.
+
+### #515 - Released left-boundary clamp continuation (2026-10-04)
+
+Fresh `c96a3c9d` matches0..50 and differs only at51, MoveID native0/ROM2. Selected-PC oracle trace49..51 proves `loc_8E16 -> loc_8E3E -> loc_8FF8 -> loc_8BF0`. `loc_8FF8` executes `moveq #0,d6`, setting Z; it does not return negative through `loc_8E5A/loc_8E74`. The previous boundary test/comment misread this CCR effect. Native retains the walking continuation from existing normal-motion stages: negative grounded velocity after floor, zero after wall at the left boundary, no later mutator. Raw held Left is not evidence that the clamp ran. No new debug field, public shape, per-level override or matcher allowance.
+
+`gameplay_regression_released_left_boundary_keeps_walking` loads the existing ordinary fixture and adds one idle wake. It observes RED at51 then GREEN for Walking51/Standing52. The non-cache classifier control distinguishes stationary held Left without a clamp, an actual released clamp, a non-boundary stop and the following idle wake. Eleven classifier tests pass. Fresh extended replay matches all53 oracle checkpoints. Boundary51 is pixel-exact;50/52 retain347/758 changed pixels. Live SDL53 records and native replay verifies53/53. No before-native image is retained for this state-reporting change; behavioural RED and CPU trace establish the defect.
+
+Fast passes7511 core tests with286 reviewed exclusions and workspace Clippy. Full TAS passes37759 checkpoints; the entire report equals the hurt-rendering parent. Sweep1791114586 retains102/105 with identical divergence/field summaries. Fuzz1791114403 advances15 route frontiers and introduces no earlier frontier. Six signatures retire:0ae5df13,3a36f8ac,6fc9900d,7b0a8e1e,a5798943,c96a3c9d. The census still has37/40 divergent routes, now31 distinct signatures because later failures split the old groups. Affected ledger1791114402 finds a new native01 route with Flag4000/transition4594 and blocker99 enemy-roster9d6f19d9. The prior ledger route reports Flag3505/transition3982 and blocker51; these are different searched inputs, not a full replay of the old route. Aggregate0/103 confirmed,10 native exits; the level is not finished.
+
+### #515 / #522 / #517 - Intake after boundary continuation (2026-10-04)
+
+The fixed census exposes new movement signatures7b525611,26158ece,f679961a,801d73ea,a53d63a9 under #515; physics signatures55fdeed4,9cc019fb,6d09c11f under #522; object/count signatures2301e88b,f9f6713c and level03 roster c36fb8b6 under #517. Ledger01 adds9d6f19d9 under #517. These are later authoritative blockers, not regressions or established root causes. Repros use `tests/data/fuzz-repros/<id>.json`, except the new level03 witness uses `c36fb8b6-level03.json` to preserve the existing Lion07 regression fixture. `Signature` groups fields/MoveIDs/ground/input masks without level or enemy family, so a shared ID does not identify a unique defect.
+
+All21 generated tracked overwrites are restored from explicit backups; all74 original fixtures match byte-for-byte. The current c36 level03 witness is reduced through an exclusive temporary swap with guaranteed restoration of the old Lion07 fixture. The catalogue and checked-in census name the qualified new path. The old cache-backed Lion regression also passes after restoration.
+
+Completed intake reductions:
+
+| Repro | Input masks | Nonzero | Oracle replays |
+|---|---|---|---|
+| 2301e88b | 339 -> 309 | 48 | 245 |
+| 26158ece | 121 -> 91 | 32 | 165 |
+| 55fdeed4 | 269 -> 239 | 3 | 54 |
+| 6d09c11f | 321 -> 291 | 2 | 42 |
+| 7b525611 | 114 -> 84 | 16 | 94 |
+| 801d73ea | 303 -> 273 | 1 | 32 |
+| 9cc019fb | 273 -> 243 | 161 | 1532 |
+| 9d6f19d9 | 129 -> 99 | 18 | 145 |
+| a53d63a9 | 401 -> 371 | 8 | 75 |
+| c36fb8b6-level03 | 299 -> 269 | 112 | 665 |
+| f679961a | 211 -> 181 | 30 | 256 |
+| f9f6713c | 430 -> 400 | 49 | 484 |
+
+All twelve intake reductions complete successfully. Final9cc019fb has243 masks/161 nonzero after1532 replays. Scheduler52149 exits0 with all nine parallel jobs successful; first2301e88b, qualifiedc36-level03 and ledger9d6f19d9 are separately successful.
+
+Closeout project-status initially labels eight retained signatures untracked because it reads only each open issue’s anchored archive section. Restore their owner references under the #515/#522 anchors; existing shrunk fixtures are unchanged. Refreshed status accounts for every current census cluster.
+
+Final fast session93451 exits0 after243.96s, including Clippy, gameplay regressions and oracle frontier gates. Backlog-lint, Jev audit, formatting and diff checks pass after the closeout notes. The atomic commit reruns the wired pre-commit checks.
+
+### #515 - Zero-speed crawl release next witness (2026-10-04)
+
+The reduced801d73ea has only one Down mask at239. Fresh replay on the boundary-fixed build matches273/274 checkpoints and differs only242 MoveID native0/ROM2;243 matches again. Shrink preserves the signature rather than its frame, so the current earliest mismatch is242, not the census frontier273. Selected-PC oracle trace proves242 `loc_825C -> loc_8298 -> loc_829C -> loc_82BA -> loc_82CA -> loc_8E3E -> loc_8E4E -> loc_8BF0`, with zero x velocity at loc_82BA. The crawl stand-up branch bypasses loc_8E16’s standing write for one wake. Root cause identified; the next focused fix must retain Walking on this observed zero-speed stand-up wake and Standing on243. No second production edit is made in the boundary unit. Evidence `.cache/debug/movement-515/next-801-diff.log` and `next-801-probe.log`, both terminal0. Bare CLI startup fails on unresolved SDL2; Cargo-run supplies its runtime library environment.
+
+### #515 / #522 - Shared zero-speed stand-up cause (2026-10-04)
+
+Independent current-build replays prove55fdeed4 first239 has native X002ED000/vxFFFFD000 versus ROM002F0000/vx0, while6d09c11f first291 has native Y006AE000/vyFFFBE000/MoveID3 versus ROM006F0000/vy0/MoveID2. Both selected-PC traces execute `loc_825C -> loc_8270 -> loc_829C -> loc_82BA -> loc_82CA -> loc_8E3E -> loc_8BF0`, without loc_8E16. Together with801d73ea, these prove one missing engine path. Native lib.rs handles nonzero crawl release but runs generic input physics for zero release. ASM loc_829C clears B and loc_82CA bypasses acceleration/jump while preserving loc_8E3E wall/slope handling. The next fix must model this branch and retain its collision tail; whole-frame hibernation is incorrect. No second production change is made here. All four physics replay/probe sessions exit0. Evidence `.cache/debug/movement-515/next-physics-research/{55fdeed4,6d09c11f}{,-pc}.log`.
+
+### #515 - Boundary mutation sensitivity (2026-10-04)
+
+Isolated cargo-mutants baseline passes the current_character_movement core filter. All four intended mutations are caught: boundary `<=` becomes `>`, negative floor velocity `<` becomes `==` or `>`, and cleared wall velocity `==` becomes `!=`. The command also selects two unrelated current_player_state struct-field deletions despite the expression-name regex. Both are missed by this narrow filter, so the overall command exits2: four caught/two missed. This establishes the new predicate’s sensitivity, not a green whole-file mutation result or player-position coverage. No production files are mutated. Full evidence remains `/tmp/wildside-boundary-mutants.O5GSED/mutants.out/`; summary log is `.cache/debug/movement-515/mutants.log`.
