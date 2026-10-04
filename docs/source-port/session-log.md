@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+### 2026-10-04 - Right-boundary unit verified and reductions complete
+
+Main saved right-boundary regression, fast7512 core/42 gameplay and full pass; whole full report byte-matches provenance parent. Census1791134654 retains31/40 divergent routes, reduces24->23 clusters and has no earlier frontier. Three intake reducers finish: a4cec55f244/31 nonzero/591 replays (#518),22f086c8547/17/200 (#517),2101fa23157/5/125 (#522). All94 old fixtures remain byte-identical. Affected05 flag3344 blocks157 on later physics,0/103 confirmed. Commit the right-boundary unit separately with wired hooks. Isolated #522 slope-Down correction is RED/GREEN and raw317/321 matched, fast/full/sweep verified; its read-only04 route advances243->263 RNG and different ledger flag2716 blocks502 counts. Promote that separate unit next.
+
+### 2026-10-04 - Right-boundary main verification and later intake
+
+Provenance commit9eaccc13f and its wired hooks complete; main was clean before the separate right-boundary patch. Main saved regression and fast gate pass7512 core/42 gameplay with reviewed exclusions and existing ignores. Census1791134654 equals the verified preview,31/40 divergent routes/23 clusters/no earlier frontier; four05 routes advance. Restore21 writer overwrites and verify94 existing fixtures byte-identical. New a4cec55f and22f086c8 belong to #518/#517. Affected05 ledger1791134718 reaches flag3344 but blocks157 on2101fa23 under #522,0/103 confirmed. Three reducers and sequential full verification remain live; this unit is uncommitted. Read-only slope audit identifies crawl-only tails as well as alignment/state selection, preserving raw Down for slope speed handling.
+
 ### 2026-10-04 - Standing-entry provenance promoted and intake complete
 
 Stand-up unit commits as72047db38 after wired hooks pass. Promoted standing-entry source equals the verified candidate; fixed main fuzz1791132593 equals scratch31/40/24 with no earlier frontier. Five signatures retire; later damage d31 shrinks300/15/103 and queues under #308. All93 old fixtures remain byte-identical. Ledger1791132843 preserves existing03/04 blockers,0/103 confirmed. Main fast89588 and sequential full22005 pass; the whole full report equals the stand-up parent. Wired hooks precede the separate provenance commit. Isolated right-edge full/sweep pass; b492 PC proof identifies wrong crawl alignment during slope continuation for the next P1 fix.

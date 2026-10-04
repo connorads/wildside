@@ -18095,6 +18095,32 @@ mod tests {
         assert_eq!(run.trace[52].character_movement, Some(0));
     }
 
+    /// ASM loc_8F86 -> loc_8E4E -> loc_8BF0 (kid.asm): right clamp returns Walking.
+    #[test]
+    fn gameplay_regression_released_right_boundary_keeps_walking() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut scenario: DynamicScenario = serde_json::from_str(include_str!(
+            "../../../../tests/data/fuzz-repros/b5918261.json"
+        ))
+        .expect("ordinary released-right boundary route");
+        scenario.frame_count += 1;
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("right boundary trace");
+        // ASM loc_8F86 clears velocity at width - half-width - 1 and returns Z.
+        let trace = &run.trace[38];
+        assert_eq!(trace.kid_x_pos, Some(0x077a_0000));
+        assert_eq!(trace.kid_x_velocity, Some(0));
+        assert_eq!(trace.character_movement, Some(2));
+        // ASM loc_8E16 writes Standing on the following zero-speed idle wake.
+        assert_eq!(run.trace[39].character_movement, Some(0));
+    }
+
     /// ASM loc_3E32C/stru_3DF42 (Lion.asm) holds C7E58 without changing palette2.
     #[test]
     fn gameplay_regression_lion_surviving_hurt_uses_rom_pose_and_palette() {
