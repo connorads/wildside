@@ -31,8 +31,8 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-10-05):** P1 #522 walking-stop camera decay matches reduced512 state/RNG checkpoints. Cache-free parent RED and candidate GREEN; fast/full pass. Firing artwork, flag presentation and40be89bd remain open. System output stays muted; runtime tests use dummy SDL.
-- **Intake:** Fuzz1791199972 improves25->24 divergent routes and22->21 clusters with no earlier frontier. All107 prior fixtures restored. Sweep1791199959 retains102/105 and9 blocking differences. Ledger02 finds no exit; ledger remains10 native exits/0 of103 confirmed. Other intake fixtures remain separate.
+- **Current work (2026-10-05):** P1 #522 wall-cling detach matches119 short and371 full-route state/RNG checkpoints. Level05 exits to4A at340 on both engines; public ledger verify passes. Fast7531 core/286 exclusions and full37759 pass. Firing artwork and flag presentation remain open. System output stays muted; runtime tests use dummy SDL.
+- **Intake:** Ledger retains the verified05 witness as1/103 confirmed and10 native exits. New shorter05 search is blocked by fb9ad5d3 damage215. Fuzz1791203572 retains24 divergent routes/21 clusters, with all40 records identical to the previous census. Sweep1791203560 retains102/105 and9 blocking differences. All107 prior fixtures restored; other intake fixtures remain separate.
 - **Scope:** ADR0004 sets the fidelity floor: gameplay, enemy and RNG state, level exits, visible or audible bugs. Pixel baseline and injection ratchet stay.
 - **After each fix:** Re-run fixed fuzz and affected ledger levels with `--write`; extend the ledger beyond0x10 once early levels confirm.
 - **Jev allowance:** $5 additional across the campaign. #185 used48 requests in one attempt; lifetime charged upper bound $0.257086284.
@@ -66,4 +66,4 @@ For newly opened items, capture these facts in the investigation notes:
 | 518 | [ ] | P2 | kid-physics | EmoRock Init431 matches264/264 state/RNG after callback timing, initial wait and cleared defaults are corrected. Airborne a4cec55f/6c5f8e27,08342e19/2c788cfe and separate shrunk RNG controls remain; census exposes later04 frontiers. | Each repro matches the ROM through its divergence frame. |
 | 519 | [ ] | P2 | enemy | Idle fuzz control diverges on `enemy_roster` at 0x01 frame 99, so fuzz skips that level (`start_state`). 0x05 is idle-clean after the Diamond turn fix. | Idle 600-frame control matches on 0x01. |
 | 521 | [~] | P2 | level | Settled-warp start state differs at frame0 on 5a69ed83 (0x0a/0x0b enemy roster); Lion Init RNG on0x07 is verified. | Frame0 enemy roster matches the ROM on0x0a and0x0b. |
-| 522 | [~] | P1 | kid-physics | Slope/crawl, Juggernaut tile order/firing callbacks and camera look match saved witnesses. Firing artwork, flag presentation and40be89bd airborne X/velocity remain. | Camera look and reduced512 walking-stop checkpoints match. Fast/full pass; firing, flag and wider movement remain open. |
+| 522 | [~] | P1 | kid-physics | Slope/crawl, Juggernaut tile order/firing callbacks and camera look match saved witnesses. Wall-cling detach and05 exit witness match. Firing artwork and flag presentation remain. | Wall detach119/full371 match;05 exit4A340 confirmed. Fast/full pass; firing, flag and wider movement remain open. |

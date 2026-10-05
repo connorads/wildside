@@ -25068,8 +25068,8 @@ mod chunk_12 {
         );
 
         assert_eq!(
-            left_wall.player.x_pos, 0x002D_0000,
-            "loc_AD34: simultaneous L+R should apply the left-wall -1px shimmy before the remaining frame tail",
+            left_wall.player.x_pos, 0x002F_0000,
+            "loc_AD34 -> loc_A76A: simultaneous L+R applies only the left-wall -1px shimmy",
         );
         assert_eq!(
             left_wall.player.wall_cling_direction, None,
@@ -28504,5 +28504,86 @@ mod chunk_12 {
             (0, 0, 0),
             "ASM loc_D980 should resume traversal and clear later non-current objects"
         );
+    }
+}
+
+/// ASM loc_AA22 omits sub_B084; loc_AD34 detaches into loc_A76A.
+#[test]
+fn wall_cling_detach_preserves_zero_horizontal_velocity_for_callback() {
+    for wall in [Direction::Left, Direction::Right] {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        });
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 32 << 16;
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0x0001_0000;
+        slice.player.wall_cling_direction = Some(wall);
+        slice.player.left_wall_sticky = wall == Direction::Left;
+        slice.player.right_wall_sticky = wall == Direction::Right;
+        let input = FrameInput {
+            right: wall == Direction::Left,
+            left: wall == Direction::Right,
+            ..FrameInput::default()
+        };
+        let mut grid = grid_with_floor_at_row(4);
+        slice.step_with_order(
+            input,
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            &mut CameraLookState::default(),
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+        assert_eq!(
+            slice.player.wall_cling_direction, None,
+            "ASM loc_AD34 detach"
+        );
+        assert_eq!(slice.player.x_velocity, 0, "ASM loc_AA22 skips sub_B084");
+        assert_eq!(
+            slice.player.x_pos,
+            48 << 16,
+            "ASM loc_AD34 has no towards-wall shimmy"
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0x0001_4000,
+            "ASM loc_AA22 calls sub_B168"
+        );
+    }
+}
+
+/// ASM loc_AA22 -> loc_AAB8 -> loc_AD34 skips sub_B084 on detach.
+#[test]
+fn gameplay_regression_wall_cling_detach_horizontal_callback() {
+    let Some(mut runtime) = cached_generated_runtime() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/fuzz-repros/40be89bd.json"
+    ))
+    .expect("saved wall-cling detach route");
+    runtime.boot_to_level_for_recording_oracle(LevelId(5));
+    runtime.settle_recording_oracle_warp_live_window(LevelId(5));
+    for frame in 0..repro.frame_count {
+        let mask = frame
+            .checked_sub(1)
+            .and_then(|index| repro.script.get(index))
+            .copied()
+            .unwrap_or(0);
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame == 118 {
+            assert_eq!(trace.kid_x_velocity, Some(0), "ROM loc_AD34 frame118");
+            assert_eq!(trace.kid_x_pos, Some(0x06c5_0000), "ROM loc_AD34 frame118");
+        }
     }
 }

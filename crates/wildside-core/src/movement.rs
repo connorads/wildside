@@ -3497,6 +3497,8 @@ impl OpeningSliceState {
                 // encodes $FA72 (Right = wall on right / $FA72=0, Left = wall
                 // on left / $FA72=$FF). "Pressing away" maps to the loc_AD34
                 // detach path; no held direction falls through to kid_flip.
+                // ASM loc_AA22 omits sub_B084 even when loc_AD34 detaches.
+                let wall_cling_callback = self.player.wall_cling_direction.is_some();
                 if let Some(dir) = self.player.wall_cling_direction {
                     let pressing_away = match dir {
                         Direction::Right => input.left,
@@ -3541,22 +3543,21 @@ impl OpeningSliceState {
                 // Suppressed during wall-cling (ASM loc_AA22 never calls sub_B084).
                 let x_velocity_before_sub_b084 = self.player.x_velocity;
                 let walk_visual_accumulator_before = self.walk_visual_accumulator;
-                let horizontal_step_applied =
-                    if crawl_standup_from_rest || self.player.wall_cling_direction.is_some() {
-                        false
-                    } else {
-                        self.update_horizontal_velocity_only_with_probe_slope_suppression(
-                            input,
-                            jump_pressed,
-                            form,
-                            block_grid.as_deref(),
-                            maniaxe_throwing_axe_active,
-                            suppress_probe_slope_velocity,
-                            standing_wake,
-                            left_boundary_entry,
-                            camera_look,
-                        )
-                    };
+                let horizontal_step_applied = if crawl_standup_from_rest || wall_cling_callback {
+                    false
+                } else {
+                    self.update_horizontal_velocity_only_with_probe_slope_suppression(
+                        input,
+                        jump_pressed,
+                        form,
+                        block_grid.as_deref(),
+                        maniaxe_throwing_axe_active,
+                        suppress_probe_slope_velocity,
+                        standing_wake,
+                        left_boundary_entry,
+                        camera_look,
+                    )
+                };
 
                 // ASM loc_9D22 canonicalises the slope velocity in d0, then
                 // loc_9D2E (kid.asm:11948) stores it to y_vel so the player
