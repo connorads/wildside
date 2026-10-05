@@ -23425,6 +23425,40 @@ fn gameplay_regression_flat_landing_resumes_walk_before_slope_dispatch_loc_8bf0(
     assert_eq!(walking.character_movement, Some(2));
 }
 
+/// ASM Emo_Rock.asm loc_36212 retains the live wait worker outside the load window.
+#[test]
+fn gameplay_regression_emo_rock_retains_wait_worker_outside_spawn_window() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/fuzz-repros/6f706388.json"
+    ))
+    .expect("saved EmoRock retention route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    for frame in [264, 265, 266] {
+        let rock = trace[frame]
+            .active_enemy_details
+            .iter()
+            .find(|enemy| {
+                enemy.kind == NativeObjectKind::Enemy { object_type: 0x1b }
+                    && enemy.layout_index == Some(1)
+            })
+            .expect("ASM loc_36212 retains EmoRock layout1");
+        assert_eq!(rock.x_pos, 136 << 16, "ASM loc_36212 retained X");
+        assert_eq!(rock.y_pos, 431 << 16, "ASM loc_36212 retained Y");
+    }
+}
+
 #[test]
 fn gameplay_regression_diamond_ledge_turn_uses_init_width_loc_3ad4c() {
     let Some(manifest) = cached_generated_manifest() else {

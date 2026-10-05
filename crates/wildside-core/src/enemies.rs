@@ -7539,6 +7539,11 @@ pub(crate) fn enemy_should_remain_active(
     if enemy.family == EnemyFamily::Drips {
         return true;
     }
+    // ASM Emo_Rock.asm loc_36212/loc_3621A omit range checks;
+    // loc_3639A deletes the worker after its death animation.
+    if enemy.family == EnemyFamily::EmoRock {
+        return true;
+    }
 
     if enemy.segment_index != view.segment_index {
         return false;

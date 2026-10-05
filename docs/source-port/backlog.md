@@ -31,8 +31,8 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-10-05):** Grounded crawl ignores B presses per loc_8218. Reduced204/original234 and standing Down+B204 match the ROM. Fast7532 core/286 exclusions and full pass. Firing artwork and flag presentation remain open. System output stays muted; runtime tests use dummy SDL.
-- **Intake:** Fuzz1791208174 advances only04 seed7 crawl203 to enemy roster/count266 (6f706388);39 other routes are unchanged. Sweep1791208162 retains102/105. Level04 native Flag3010 remains blocked by41181b7b slope411. Ledger1/103 confirmed/10 native exits remains. Other intake stays separate.
+- **Current work (2026-10-05):** Retain live EmoRock workers per loc_36212/loc_3621A. Reduced267/original297 match the ROM. Fast7533 core/286 exclusions and full pass; full report retains the prior baseline. Firing artwork and flag presentation remain open. System output stays muted; runtime tests use dummy SDL.
+- **Intake:** Fuzz1791211062 advances04 seed3 from354 to383 and seed7 from266 to345;38 other routes are unchanged. Sweep1791211050 retains102/105. Level04 native Flag2096 remains blocked byc36fb8b6 enemy roster399. Ledger1/103 confirmed/10 native exits remains. Other intake stays separate.
 - **Scope:** ADR0004 sets the fidelity floor: gameplay, enemy and RNG state, level exits, visible or audible bugs. Pixel baseline and injection ratchet stay.
 - **After each fix:** Re-run fixed fuzz and affected ledger levels with `--write`; extend the ledger beyond0x10 once early levels confirm.
 - **Jev allowance:** $5 additional across the campaign. #185 used48 requests in one attempt; lifetime charged upper bound $0.257086284.
@@ -62,7 +62,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 186 | [~] | P1 | enemy | Fight a Lion; hurt recovery and engagement must match the ROM. Saved hurt121/fire119/contact44/expiry576 match; original2617 matches0..992 before respawn bootstrap drift. | Hurt pose/palette and121-state replay match. Extend wider hurt and natural-entry witnesses. |
 | 515 | [~] | P1 | kid-physics | Standing-entry99485662, zero-speed stand-up and held/paused left-boundary controls match. Right-boundary b5918261/891e57ae/c9b3814a saved routes match; Fast/full pass. Crawl B203 and original234 match; later frontiers remain. | Fuzz 0x00-0x05 x 8 seeds has no `character_movement`-first cluster; `gameplay_regression_*` tests load the shrunk repros. |
 | 308 | [ ] | P2 | combat | Combat audit contact/routing gaps remain; new d31c1fb4 (0x00) differs on HP/damage after the standing-entry frontier clears. | Shrunk d31c1fb4 matches HP/damage; remaining audit branches need their own comparable routes. |
-| 517 | [ ] | P2 | enemy | Grounded Diamond d4710e6c matches after shared-walker Y correction. Counts22f086c8/90c880cb and00c6aa8c/8ab6fa8c plus prior roster/diamond frontiers remain. | Each shrunk repro matches object counts and roster. |
+| 517 | [ ] | P2 | enemy | Live EmoRock retention matches6f706388. Remaining enemy count/roster frontiers include level04 at345/383 and ledger399. | Each shrunk repro matches object counts and roster. |
 | 518 | [ ] | P2 | kid-physics | EmoRock Init431 matches264/264 state/RNG after callback timing, initial wait and cleared defaults are corrected. Airborne a4cec55f/6c5f8e27,08342e19/2c788cfe and separate shrunk RNG controls remain; census exposes later04 frontiers. | Each repro matches the ROM through its divergence frame. |
 | 519 | [ ] | P2 | enemy | Idle fuzz control diverges on `enemy_roster` at 0x01 frame 99, so fuzz skips that level (`start_state`). 0x05 is idle-clean after the Diamond turn fix. | Idle 600-frame control matches on 0x01. |
 | 521 | [~] | P2 | level | Settled-warp start state differs at frame0 on 5a69ed83 (0x0a/0x0b enemy roster); Lion Init RNG on0x07 is verified. | Frame0 enemy roster matches the ROM on0x0a and0x0b. |

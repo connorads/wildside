@@ -1,3 +1,7 @@
+## 2026-10-05 - Live EmoRock retention
+
+Retain the live worker outside its allocation window per loc_36212/loc_3621A. The cache-enabled regression fails before the fix and passes after it. Reduced267/original297 match the ROM. Fast7533 core/286 exclusions and full pass; three selected tests remain ignored. Full report equals the prior baseline. Sweep retains102/105. Fuzz advances04 seed3 from354 to383 and seed7 from266 to345, with38 other routes identical and none earlier. Level04 native Flag2096 remains blocked by roster399, so completion stays1/103. Fixtures108 and layouts180 are restored. Remaining enemy roster frontiers, firing artwork and flag presentation stay open. System output stays muted; runtime checks use dummy SDL.
+
 ## 2026-10-05 - Crawl B-press callback
 
 Grounded crawl omits the B jump dispatch from loc_8218. The saved regression fails on the parent and passes with the callback guard. Reduced204/original234 and standing Down+B204 match the ROM. Fast7532 core/286 exclusions and full pass; the full report matches the prior baseline byte-for-byte. Sweep retains102/105; fuzz advances only04 seed7 from203 to266. Level04 native Flag3010 remains blocked by slope411, so completion stays1/103. Fixtures107 and layouts180 are restored. Physical audio stays muted; runtime checks use dummy SDL.
