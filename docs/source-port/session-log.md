@@ -1,5 +1,9 @@
 # Source-port session log
 
+## 2026-10-05 - Camera look callbacks and ceiling pull-back
+
+Apply look increment/decay before grounded movement and camera pull-backs at the actual callback pose. Private state preserves signed ceiling pull-back through jumping and excludes slope/landing callbacks. Three routes match622 state/RNG checkpoints; saved14/34 controls also match. Fast7527 core/286 exclusions and full37759 pass. Parent/current277 pixel differences improve33087->91, confined to HUD. Fixed census improves31->25 divergent routes without earlier frontiers; sweep retains102/105. All104 prior fixtures restored. Level04 native Flag2240 remains unconfirmed; game completion stays0/103. Firing artwork, flag presentation and other gaps remain open. System audio stays muted.
+
 ## 2026-10-05 - Juggernaut firing lifecycle and selective transform cleanup
 
 Separate firing allocation, Gfx Init, skull allocation and first motion according to Execute_Objects priority. Saved-anchor skull position and independent effect deletion match116 shooting state/RNG checkpoints. Selective sub7C1C cleanup deletes initialised workers and preserves Object-only children. FullTAS equals9858 parent; sweep retains102/105; fixed census retains23 clusters and restores103 fixtures. Level05 nativewarp270 remains unconfirmed. Current-source fast passes7522 core tests after stale parent-test binary detection and rebuild. Firing artwork, flag presentation and game completion remain open. System audio stays muted.

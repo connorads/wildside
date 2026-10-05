@@ -2844,7 +2844,7 @@ impl OpeningSliceState {
         block_grid: Option<&mut terrain::BlockGrid>,
         block_list: Option<&terrain::BlockList>,
         custom_gravity: bool,
-        y_look_offset: i16,
+        camera_look: &mut CameraLookState,
     ) {
         self.step_with_order(
             input,
@@ -2853,7 +2853,7 @@ impl OpeningSliceState {
             block_grid,
             block_list,
             custom_gravity,
-            y_look_offset,
+            camera_look,
             PhysicsOrder::GravityFirst,
             true,
             &[],
@@ -2869,7 +2869,7 @@ impl OpeningSliceState {
         mut block_grid: Option<&mut terrain::BlockGrid>,
         block_list: Option<&terrain::BlockList>,
         custom_gravity: bool,
-        y_look_offset: i16,
+        camera_look: &mut CameraLookState,
         physics_order: PhysicsOrder,
         allow_asm_faithful_solid_touch_snap: bool,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
@@ -2882,7 +2882,7 @@ impl OpeningSliceState {
             block_list,
             custom_gravity,
             KidFloorContactPath::OnFoot,
-            y_look_offset,
+            camera_look,
             false,
             physics_order,
             allow_asm_faithful_solid_touch_snap,
@@ -2898,7 +2898,7 @@ impl OpeningSliceState {
                 FloorLandingContinuation::Walk,
                 form,
                 block_grid.as_deref(),
-                y_look_offset,
+                camera_look,
             );
         }
     }
@@ -2913,7 +2913,7 @@ impl OpeningSliceState {
         block_list: Option<&terrain::BlockList>,
         custom_gravity: bool,
         floor_contact_path: KidFloorContactPath,
-        y_look_offset: i16,
+        camera_look: &mut CameraLookState,
         maniaxe_throwing_axe_active: bool,
         physics_order: PhysicsOrder,
         allow_asm_faithful_solid_touch_snap: bool,
@@ -2932,7 +2932,7 @@ impl OpeningSliceState {
             block_list,
             custom_gravity,
             floor_contact_path,
-            y_look_offset,
+            camera_look,
             maniaxe_throwing_axe_active,
             physics_order,
             allow_asm_faithful_solid_touch_snap,
@@ -2955,7 +2955,7 @@ impl OpeningSliceState {
         block_list: Option<&terrain::BlockList>,
         custom_gravity: bool,
         floor_contact_path: KidFloorContactPath,
-        y_look_offset: i16,
+        camera_look: &mut CameraLookState,
         maniaxe_throwing_axe_active: bool,
         physics_order: PhysicsOrder,
         allow_asm_faithful_solid_touch_snap: bool,
@@ -2978,7 +2978,7 @@ impl OpeningSliceState {
                 return KidPhysicsStepOutcome::Complete;
             }
             // Last cooldown frame: physics still suppressed but camera catches up.
-            self.update_camera_follow(y_look_offset);
+            self.update_camera_follow(camera_look);
             return KidPhysicsStepOutcome::Complete;
         }
         // ASM loc_9D58/loc_9DAA handles Down in the slope callback, not crawling.
@@ -3008,7 +3008,7 @@ impl OpeningSliceState {
             self.player.on_ground = false;
             self.player.on_spikes = false;
             self.terrain.floor_terrain_type = TerrainType::Normal;
-            self.update_camera_follow(y_look_offset);
+            self.update_camera_follow(camera_look);
             return KidPhysicsStepOutcome::Complete;
         }
         let on_ground_before = self.player.on_ground;
@@ -3289,7 +3289,7 @@ impl OpeningSliceState {
                     self.player.on_spikes = false;
                     self.terrain.floor_terrain_type = TerrainType::Normal;
                     self.finalise_trace();
-                    self.update_camera_follow(y_look_offset);
+                    self.update_camera_follow(camera_look);
                     return KidPhysicsStepOutcome::Complete;
                 }
                 if on_ground_before
@@ -3349,7 +3349,7 @@ impl OpeningSliceState {
                     kid_flip_follow_on_stages.after_wall = self.kid_flip_follow_on_stage_state();
                     self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                     self.finalise_trace();
-                    self.update_camera_follow(y_look_offset);
+                    self.update_camera_follow(camera_look);
                     return KidPhysicsStepOutcome::Complete;
                 }
 
@@ -3387,7 +3387,7 @@ impl OpeningSliceState {
                     kid_flip_follow_on_stages.after_wall = self.kid_flip_follow_on_stage_state();
                     self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                     self.finalise_trace();
-                    self.update_camera_follow(y_look_offset);
+                    self.update_camera_follow(camera_look);
                     return KidPhysicsStepOutcome::Complete;
                 }
 
@@ -3425,7 +3425,7 @@ impl OpeningSliceState {
                             self.kid_flip_follow_on_stage_state();
                         self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                         self.finalise_trace();
-                        self.update_camera_follow(y_look_offset);
+                        self.update_camera_follow(camera_look);
                         return KidPhysicsStepOutcome::Complete;
                     }
                 }
@@ -3467,7 +3467,7 @@ impl OpeningSliceState {
                     self.player.y_velocity = 0;
                     self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                     self.finalise_trace();
-                    self.update_camera_follow(y_look_offset);
+                    self.update_camera_follow(camera_look);
                     return KidPhysicsStepOutcome::Complete;
                 }
 
@@ -3665,7 +3665,7 @@ impl OpeningSliceState {
                             self.kid_flip_follow_on_stage_state();
                         self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                         self.finalise_trace();
-                        self.update_camera_follow(y_look_offset);
+                        self.update_camera_follow(camera_look);
                         return KidPhysicsStepOutcome::Complete;
                     }
                 }
@@ -4112,7 +4112,7 @@ impl OpeningSliceState {
                     kid_flip_follow_on_stages.after_floor = self.kid_flip_follow_on_stage_state();
                     self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                     self.finalise_trace();
-                    self.update_camera_follow(y_look_offset);
+                    self.update_camera_follow(camera_look);
                     return KidPhysicsStepOutcome::Complete;
                 }
                 if let Some(grid) = block_grid.as_deref() {
@@ -4124,7 +4124,7 @@ impl OpeningSliceState {
                     kid_flip_follow_on_stages.after_wall = self.kid_flip_follow_on_stage_state();
                     self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                     self.finalise_trace();
-                    self.update_camera_follow(y_look_offset);
+                    self.update_camera_follow(camera_look);
                     return KidPhysicsStepOutcome::Complete;
                 }
                 if let Some(grid) = block_grid.as_deref()
@@ -4133,7 +4133,7 @@ impl OpeningSliceState {
                     kid_flip_follow_on_stages.after_wall = self.kid_flip_follow_on_stage_state();
                     self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                     self.finalise_trace();
-                    self.update_camera_follow(y_look_offset);
+                    self.update_camera_follow(camera_look);
                     return KidPhysicsStepOutcome::Complete;
                 }
 
@@ -4361,7 +4361,7 @@ impl OpeningSliceState {
                                     self.kid_flip_follow_on_stages =
                                         Some(kid_flip_follow_on_stages);
                                     self.finalise_trace();
-                                    self.update_camera_follow(y_look_offset);
+                                    self.update_camera_follow(camera_look);
                                     return KidPhysicsStepOutcome::Complete;
                                 }
                             }
@@ -4381,7 +4381,7 @@ impl OpeningSliceState {
                             self.kid_flip_follow_on_stage_state();
                         self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                         self.finalise_trace();
-                        self.update_camera_follow(y_look_offset);
+                        self.update_camera_follow(camera_look);
                         return KidPhysicsStepOutcome::Complete;
                     }
                     // ASM sub_9386 + sub_A254: after horizontal movement, snap Y
@@ -4570,7 +4570,7 @@ impl OpeningSliceState {
             }
         }
         self.finalise_trace();
-        self.update_camera_follow(y_look_offset);
+        self.update_camera_follow(camera_look);
         KidPhysicsStepOutcome::Complete
     }
 
@@ -4580,7 +4580,7 @@ impl OpeningSliceState {
         continuation: FloorLandingContinuation,
         form: PlayerForm,
         block_grid: Option<&terrain::BlockGrid>,
-        y_look_offset: i16,
+        camera_look: &mut CameraLookState,
     ) {
         match continuation {
             FloorLandingContinuation::Walk => {
@@ -4618,7 +4618,7 @@ impl OpeningSliceState {
             stages.after_wall = stage;
         }
         self.finalise_trace();
-        self.update_camera_follow(y_look_offset);
+        self.update_camera_follow(camera_look);
     }
 
     /// ASM loc_7464 (kid.asm:7610–7614): when both Left and Right are held,
@@ -5257,7 +5257,7 @@ impl OpeningSliceState {
         form: PlayerForm,
         block_grid: Option<&mut terrain::BlockGrid>,
         block_list: Option<&terrain::BlockList>,
-        y_look_offset: i16,
+        camera_look: &mut CameraLookState,
         allow_asm_faithful_solid_touch_snap: bool,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
     ) {
@@ -5332,7 +5332,7 @@ impl OpeningSliceState {
         }
 
         self.finalise_trace();
-        self.update_camera_follow(y_look_offset);
+        self.update_camera_follow(camera_look);
     }
 
     pub(crate) fn try_snap_wall_sticky_ledge(
@@ -7957,37 +7957,46 @@ impl OpeningSliceState {
         self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
     }
 
-    /// Camera follows player using the real sub_71E4 follow algorithm.
-    /// `y_look_offset` is the down-look accumulator ($FFFFFB58): when >= 30,
-    /// shifts the camera target downward by that many pixels.
-    ///
-    /// The Y-axis path in sub_71E4 has two look-offset pull-back branches
-    /// (loc_726C, loc_727E) that modify `$FFFFFB58` before the loc_728C offset
-    /// application. Those adjustments are applied once per frame in the game
-    /// tick (lib.rs) before this function is called, so `y_look_offset` arrives
-    /// already adjusted.
-    pub(crate) fn update_camera_follow(&mut self, y_look_offset: i16) {
-        let player_x_px = (self.player.x_pos >> 16) as i32;
-        let mut player_y_px = (self.player.y_pos >> 16) as i32;
-        // ASM sub_71E4 loc_728C: when offset >= $1E, add it to camera Y target
-        // and subtract the reference $1E. This effectively shifts the view down
-        // only by the accumulator amount beyond the look threshold.
-        if y_look_offset >= 0x1E {
-            player_y_px += i32::from(y_look_offset) - 0x1E;
+    /// ASM sub_71E4/loc_726C: pull-backs read the current callback's Kid Y.
+    pub(crate) fn update_camera_follow(&mut self, camera_look: &mut CameraLookState) {
+        let player_x = (self.player.x_pos >> 16) as i32;
+        let kid_y = (self.player.y_pos >> 16) as i16;
+        let camera_x = (self.camera.x_pos >> 16) as i32;
+        let camera_y = (self.camera.y_pos >> 16) as i32;
+        let max_y = i32::from(self.level_bounds.height_pixels) - physics::VIEWPORT_HEIGHT;
+        let mut target_y = (i32::from(kid_y) - physics::CAMERA_PLAYER_OFFSET)
+            .max(0)
+            .min(max_y);
+        camera_look.offset =
+            camera_look
+                .offset
+                .wrapping_add(physics::camera_y_ceiling_look_adjust_loc_726c(
+                    target_y,
+                    kid_y,
+                    camera_look.last_kid_y,
+                ));
+        camera_look.offset =
+            camera_look
+                .offset
+                .wrapping_add(physics::camera_y_viewport_top_look_adjust_loc_727e(
+                    kid_y,
+                    camera_y as i16,
+                ));
+        // ASM loc_728C: shift the clamped base target before the bottom pull-back.
+        let bottom_adjust =
+            physics::camera_y_bottom_look_adjust_loc_728c(target_y, max_y, camera_look.offset);
+        if camera_look.offset >= 0x1E {
+            target_y = (target_y + i32::from(camera_look.offset) - 0x1E).min(max_y);
         }
-        let camera_x_px = (self.camera.x_pos >> 16) as i32;
-        let camera_y_px = (self.camera.y_pos >> 16) as i32;
-
-        let (new_cx, new_cy) = physics::update_camera(
-            camera_x_px,
-            camera_y_px,
-            player_x_px,
-            player_y_px,
-            &self.level_bounds,
+        camera_look.offset = camera_look.offset.wrapping_add(bottom_adjust);
+        let new_x = physics::update_camera_axis(
+            camera_x,
+            player_x,
+            i32::from(self.level_bounds.width_pixels) - physics::VIEWPORT_WIDTH,
         );
-
-        self.camera.x_pos = (new_cx.max(0) as u32) << 16;
-        self.camera.y_pos = (new_cy.max(0) as u32) << 16;
+        let new_y = physics::update_camera_axis_target(camera_y, target_y, max_y);
+        self.camera.x_pos = (new_x.max(0) as u32) << 16;
+        self.camera.y_pos = (new_y.max(0) as u32) << 16;
     }
 }
 

@@ -18235,7 +18235,7 @@ impl NativeRuntime {
         self.level_complete_initial_score = 0;
         self.level_complete_gfx_snapshot = None;
         self.clocks_collected = 0;
-        self.y_look_offset = 0;
+        self.camera_look.offset = 0;
         self.progression.current_form = PlayerForm::TheKid;
         self.progression.pending_form = None;
         self.progression.form_change_flash_frames = 0;
@@ -18682,7 +18682,7 @@ impl NativeRuntime {
         // retain raw header X so 0x48 moves $280->$278 immediately before
         // Manage_EnemyLoading loc_368A8 instead of skipping that window.
         let raw_camera_x = opening_slice.camera.x_pos;
-        opening_slice.update_camera_follow(0);
+        opening_slice.update_camera_follow(&mut self.camera_look);
         opening_slice.camera.x_pos = raw_camera_x;
         self.opening_slice = Some(opening_slice);
     }
@@ -19054,7 +19054,7 @@ impl NativeRuntime {
         self.level_complete_initial_score = 0;
         self.level_complete_gfx_snapshot = None;
         self.clocks_collected = 0;
-        self.y_look_offset = 0;
+        self.camera_look.offset = 0;
         self.paused = false;
         self.pause_toggle_pending = false;
         self.allow_pausing = false;
@@ -19787,7 +19787,8 @@ impl NativeRuntime {
         // enter the `loc_72C8` dead zone one beat earlier and rest at the
         // oracle's `target - 3`; from-below levels share the same fixed point
         // with or without it.
-        slice.update_camera_follow(0);
+        let mut camera_look = CameraLookState::default();
+        slice.update_camera_follow(&mut camera_look);
 
         if let Some((trace, _)) = settle_trace.as_mut() {
             trace.push(RespawnSettleFrame {
@@ -19821,11 +19822,11 @@ impl NativeRuntime {
                 Some(&mut grid),
                 self.block_list.as_ref(),
                 false,
-                0,
+                &mut CameraLookState::default(),
             );
             let wide_support_applied = self.try_settle_on_spawn_support(&mut slice, &grid);
             if wide_support_applied {
-                slice.update_camera_follow(0);
+                slice.update_camera_follow(&mut camera_look);
             }
             if let Some((trace, _)) = settle_trace.as_mut() {
                 trace.push(RespawnSettleFrame {

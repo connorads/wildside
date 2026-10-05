@@ -376,7 +376,7 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
             cooldown_timer: 0,
         }],
     };
-    runtime.y_look_offset = 30;
+    runtime.camera_look.offset = 30;
     runtime.helmet.skycutter_on_board = true;
     runtime.progression.current_form = PlayerForm::Cyclone;
     runtime.progression.pending_form = Some(PlayerForm::Juggernaut);
@@ -451,7 +451,7 @@ fn assert_level_restart_state_cleared(runtime: &NativeRuntime) {
     assert_eq!(runtime.weather.hail_spawn_timer, 0);
     assert_eq!(runtime.weather.hail_period_timer, 0);
     assert_eq!(runtime.weather.storm_saved_palette_label_loc_14d82, None);
-    assert_eq!(runtime.y_look_offset, 0);
+    assert_eq!(runtime.camera_look.offset, 0);
     assert_eq!(runtime.progression.current_form, PlayerForm::TheKid);
     assert_eq!(runtime.progression.pending_form, None);
     assert_eq!(runtime.progression.form_change_flash_frames, 0);
@@ -14374,7 +14374,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
         );
 
         assert_eq!(
@@ -14417,7 +14417,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
         );
 
         assert!(!slice.player.on_ground);
@@ -14521,7 +14521,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::GravityFirst,
             true,
             &[],
@@ -14563,7 +14563,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::GravityFirst,
             true,
             &[],
@@ -14609,7 +14609,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
         );
 
         assert!(
@@ -14643,7 +14643,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
         );
 
         assert_eq!(slice.player.y_pos, slice.terrain.floor_y_pos);
@@ -14662,7 +14662,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
         );
 
         assert!(slice.player.on_ground);
@@ -14696,7 +14696,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
         );
 
         assert_eq!(slice.player.x_pos, 0x00B1_2300);
@@ -14869,7 +14869,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
         );
 
         // With corrected slope decode (ASM `sub_9386` / `sub_A254`), the SlopeUp surface
@@ -14914,7 +14914,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -14980,7 +14980,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -15055,7 +15055,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
                 Some(&mut grid),
                 None,
                 false,
-                0,
+                &mut CameraLookState::default(),
                 PhysicsOrder::AsmFaithful,
                 true,
                 &[],
@@ -15169,7 +15169,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
                 Some(&mut grid),
                 None,
                 false,
-                0,
+                &mut CameraLookState::default(),
                 PhysicsOrder::AsmFaithful,
                 true,
                 &[],
@@ -15267,7 +15267,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
                 Some(&mut grid),
                 None,
                 false,
-                0,
+                &mut CameraLookState::default(),
                 PhysicsOrder::AsmFaithful,
                 true,
                 &[],
@@ -15375,7 +15375,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
         );
 
         assert!(slice.player.on_ground);
@@ -15392,7 +15392,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
         );
 
         assert!(slice.player.on_ground);
@@ -15424,7 +15424,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
         );
 
         assert!(slice.player.on_ground);

@@ -804,12 +804,8 @@ pub struct NativeRuntime {
     /// ASM sub_44DC loc_4586's currently resident life-icon art page at VRAM
     /// `$4620`. This differs from `$FFFFFA5E` after the animation table wraps.
     hud_life_icon_vram_page_loc_4586: u8,
-    /// Camera Y look-ahead accumulator ($FFFFFB58): +1 per frame while down held
-    /// and grounded, -8 per frame on release, clamped to [0, 30].
-    y_look_offset: i16,
-    /// ASM $FFFFFA2E: Kid's y_pos from the previous camera-follow invocation.
-    /// Used by loc_726C to detect upward motion near the level ceiling.
-    camera_last_kid_y: i16,
+    /// ASM sub_71E4: $FB58 look accumulator and $FA2E saved Kid Y.
+    camera_look: CameraLookState,
     /// Set to true when player takes damage during current level (for no-hit bonus).
     level_damage_taken: bool,
     /// Exact per-frame damage latch, mirroring ROM `Just_received_damage`.
@@ -1844,8 +1840,7 @@ impl NativeRuntime {
             // Oracle Demo 1 bootstrap frames expose ArtUnc_4692 page 2 before
             // the first loc_4586 life-icon upload occurs.
             hud_life_icon_vram_page_loc_4586: 8,
-            y_look_offset: 0,
-            camera_last_kid_y: 0,
+            camera_look: CameraLookState::default(),
             level_damage_taken: false,
             just_received_damage: false,
             recent_damage_gate_held_this_frame_loc_bc6e: false,
@@ -5228,7 +5223,7 @@ impl NativeRuntime {
             if let Some(slice) = self.opening_slice.as_mut() {
                 // ASM loc_75D4 -> sub_71E4 follows the first destination Kid
                 // pose before the first visible Load_InGame checkpoint.
-                slice.update_camera_follow(0);
+                slice.update_camera_follow(&mut self.camera_look);
             }
             self.preload_teleport_enemy_objects_loc_36840();
         }
@@ -6395,33 +6390,6 @@ impl NativeRuntime {
                 }
             }
 
-            // ASM loc_726C/loc_727E (kid.asm:7377/7385): Y-axis look-offset
-            // pull-back adjustments run once per frame inside sub_71E4.
-            // loc_728C's bottom-bound adjustment happens after the shifted
-            // target is clamped, so it affects the accumulator for future
-            // frames while the current camera step still uses the pre-decrement
-            // target.
-            {
-                let kid_y = (slice.player.y_pos >> 16) as i16;
-                let cam_y = (slice.camera.y_pos >> 16) as i16;
-                let max_y = i32::from(slice.level_bounds.height_pixels) - physics::VIEWPORT_HEIGHT;
-                let target_y = (i32::from(kid_y) - physics::CAMERA_PLAYER_OFFSET)
-                    .max(0)
-                    .min(max_y);
-                self.y_look_offset += physics::camera_y_ceiling_look_adjust_loc_726c(
-                    target_y,
-                    kid_y,
-                    self.camera_last_kid_y,
-                );
-                self.y_look_offset +=
-                    physics::camera_y_viewport_top_look_adjust_loc_727e(kid_y, cam_y);
-                self.y_look_offset += physics::camera_y_bottom_look_adjust_loc_728c(
-                    target_y,
-                    max_y,
-                    self.y_look_offset,
-                );
-            }
-
             // ASM loc_8C70/loc_7772 call sub_7A10 only on crawl entry.
             // Jump and Hand bypass alignment; excluded forms and blocked
             // clearance retain walking input while look offset consumes Down.
@@ -6429,6 +6397,22 @@ impl NativeRuntime {
             let slope_continuation = slice
                 .grounded_slope_continuation(movement_input, self.block_grid.as_ref())
                 .is_some();
+            // ASM loc_7650/loc_825C/loc_8C12: grounded release decay precedes movement.
+            // ASM loc_7772/loc_82D8/loc_8C70: Down increments before sub_71E4.
+            // ASM loc_9D2E/loc_A6F8: slope and jump continuations bypass both paths.
+            if frame_start_on_ground && !slope_continuation {
+                if !input.down {
+                    self.camera_look.offset = self.camera_look.offset.saturating_sub(8).max(0);
+                }
+                // ASM loc_7664 jumps before loc_7772; loc_82D8 increments on
+                // the existing crawl path, including a blocked Down release.
+                let crawl_look_increment = self.kid_crawling && movement_input.down;
+                if ((input.down && !jump_pressed) || crawl_look_increment)
+                    && !slice.kid_grabbed_by_hand
+                {
+                    self.camera_look.offset = self.camera_look.offset.wrapping_add(1);
+                }
+            }
             let standing_wake = std::mem::take(&mut self.kid_crawl_standing_wake);
             let walking_crawl_entry =
                 !standing_wake && self.current_character_movement(slice.player) == 2;
@@ -6551,7 +6535,7 @@ impl NativeRuntime {
                         ..PhysicsTrace::default()
                     });
                 }
-                slice.update_camera_follow(self.y_look_offset);
+                slice.update_camera_follow(&mut self.camera_look);
             } else if iron_knight_climb_step == IronKnightClimbStep::ExitHibernate {
                 // ORIGINAL_QUIRK: `loc_A2E2`/`loc_A2F6` flip facing and jump
                 // into `loc_A6F8`, which hibernates the release frame before
@@ -6577,7 +6561,7 @@ impl NativeRuntime {
                         ..PhysicsTrace::default()
                     });
                 }
-                slice.update_camera_follow(self.y_look_offset);
+                slice.update_camera_follow(&mut self.camera_look);
             } else if crawl_entry_hold || crawl_release_hold {
                 self.last_kid_frame_motion_branch = if crawl_entry_hold {
                     if self.progression.current_form != PlayerForm::Skycutter {
@@ -6610,7 +6594,7 @@ impl NativeRuntime {
                         ..PhysicsTrace::default()
                     });
                 }
-                slice.update_camera_follow(self.y_look_offset);
+                slice.update_camera_follow(&mut self.camera_look);
             } else if let Some(support_floor_y) = shooter_damage_landing_handoff {
                 self.last_kid_frame_motion_branch = KidFrameMotionBranch::NormalPhysics;
                 self.begin_kid_grounded_release_probe(
@@ -6663,7 +6647,7 @@ impl NativeRuntime {
                     t.final_pos = (slice.player.x_pos, slice.player.y_pos);
                     t.final_vel = (slice.player.x_velocity, slice.player.y_velocity);
                 }
-                slice.update_camera_follow(self.y_look_offset);
+                slice.update_camera_follow(&mut self.camera_look);
             } else if iron_knight_climb_step == IronKnightClimbStep::ResumeClimb {
                 self.last_kid_frame_motion_branch = KidFrameMotionBranch::IronKnightClimbResume;
                 let allow_asm_faithful_solid_touch_snap = !self.demo_gameplay_active();
@@ -6679,7 +6663,7 @@ impl NativeRuntime {
                     self.progression.current_form,
                     self.block_grid.as_mut(),
                     self.block_list.as_ref(),
-                    self.y_look_offset,
+                    &mut self.camera_look,
                     allow_asm_faithful_solid_touch_snap,
                     &deferred_prize_ceiling_cells,
                 );
@@ -6717,7 +6701,7 @@ impl NativeRuntime {
                     } else {
                         movement::KidFloorContactPath::OnFoot
                     },
-                    self.y_look_offset,
+                    &mut self.camera_look,
                     self.helmet.maniaxe_axe_active,
                     self.physics_order,
                     allow_asm_faithful_solid_touch_snap,
@@ -6785,7 +6769,7 @@ impl NativeRuntime {
                 // Character_CheckCollision, store y_pos(a3) into $FFFFFA2E.
                 // Native only models the Y component; $FFFFFA2C is not consumed
                 // by camera logic.
-                self.camera_last_kid_y = (slice.player.y_pos >> 16) as i16;
+                self.camera_look.last_kid_y = (slice.player.y_pos >> 16) as i16;
             }
             self.trigger_skycutter_top_boundary_bounce_loc_9114(&slice, pre_physics_y_velocity);
             // ASM sub_AF7A: IronKnight breaks floor blocks on landing.
@@ -7072,7 +7056,7 @@ impl NativeRuntime {
                     continuation,
                     self.progression.current_form,
                     self.block_grid.as_ref(),
-                    self.y_look_offset,
+                    &mut self.camera_look,
                 );
             }
 
@@ -7127,37 +7111,7 @@ impl NativeRuntime {
                 .is_some_and(|grid| self.try_settle_on_spawn_support(&mut slice, grid));
         let demo_bootstrap_floor_snapped = self.try_snap_demo_bootstrap_floor(&mut slice);
         if spawn_support_snapped || demo_bootstrap_floor_snapped {
-            slice.update_camera_follow(self.y_look_offset);
-        }
-
-        // ASM loc_8218 (kid.asm:8997): crawling state entry — sets
-        // `Character_Movement = MoveID_Crawling`, calls sub_71E4 (camera
-        // follow), hibernates 1 frame, sets half_width = $E (14px), runs
-        // Character_CheckCollision, saves x/y to $FFFFFA2C/$FFFFFA2E, then
-        // sub_7ACC (helmet change check). Native retains the selected crawl
-        // path after the inline movement and stand-up checks.
-        //
-        // ASM loc_825C (kid.asm:9018): crawl continuation — if down still
-        // held (`tst.b (Ctrl_Down_Held)`), branch to loc_82D8 (crawl loop).
-        // If released, `subi.w #8,($FFFFFB58)` decrements the look offset,
-        // clamped to 0, then falls through to loc_8270 (stand-up check).
-        //
-        // ASM loc_8C12 (kid.asm:10051): walking-state version —
-        // `tst.b (Ctrl_Down_Held); bne.s loc_8C26` skips decrement when down
-        // held; `subi.w #8,($FFFFFB58); bge.s loc_8C26` decrements, clamp to 0.
-        //
-        // ASM loc_7772/loc_82D8/loc_8C70: grounded Down-held paths run
-        // `addq.w #1,($FFFFFB58)` with no cap only while `KidGrabbedByHand`
-        // is clear; sub_71E4 loc_728C treats `$1E` as the camera-shift
-        // threshold, not a maximum accumulator.
-        // ASM loc_7650 (kid.asm:7741-7746): same offset decay in other
-        // movement states. Native merges the increment/decay paths here.
-        if input.down {
-            if slice.player.on_ground && !slice.kid_grabbed_by_hand {
-                self.y_look_offset += 1;
-            }
-        } else if self.y_look_offset > 0 {
-            self.y_look_offset = (self.y_look_offset - 8).max(0);
+            slice.update_camera_follow(&mut self.camera_look);
         }
 
         // ASM loc_8270 (kid.asm:9025): stand-up from crawl — `bsr.w

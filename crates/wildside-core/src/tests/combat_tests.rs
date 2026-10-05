@@ -26798,7 +26798,7 @@ mod chunk_05 {
         // frame tick runs, the native field starts at 0.
         let rt = NativeRuntime::new(manifest());
         assert_eq!(
-            rt.camera_last_kid_y, 0,
+            rt.camera_look.last_kid_y, 0,
             "ASM loc_75D4: $FFFFFA2E should initialise to 0 before gameplay",
         );
     }
@@ -26811,7 +26811,7 @@ mod chunk_05 {
         rt.boot_to_level(LevelId(0));
         // camera_last_kid_y should have been set during boot's frame ticks.
         assert_ne!(
-            rt.camera_last_kid_y, 0,
+            rt.camera_look.last_kid_y, 0,
             "ASM loc_75D4: camera_last_kid_y ($FFFFFA2E) should be non-zero after boot",
         );
     }
@@ -34891,7 +34891,7 @@ mod chunk_05 {
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],

@@ -1,7 +1,187 @@
 use super::*;
 
+/// ASM loc_9D2E -> sub_71E4/loc_72C8 follows the slope coroutine without
+/// the walking/crawl look-down increments. ROM WRAM/PC probe frames270..276.
+#[test]
+fn gameplay_regression_slope_camera_after_down_release() {
+    let Some(mut runtime) = cached_generated_runtime() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/fuzz-repros/0667968c.json"
+    ))
+    .expect("saved slope camera route");
+    runtime.boot_to_level_for_recording_oracle(LevelId(4));
+    runtime.settle_recording_oracle_warp_live_window(LevelId(4));
+    for frame in 0..repro.frame_count {
+        let mask = frame
+            .checked_sub(1)
+            .and_then(|index| repro.script.get(index))
+            .copied()
+            .unwrap_or(0);
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        let expected = match frame {
+            270 => Some(144),
+            271 => Some(146),
+            272 => Some(147),
+            273 => Some(149),
+            274 => Some(150),
+            275 => Some(152),
+            276 => Some(153),
+            _ => None,
+        };
+        if let Some(expected) = expected {
+            assert_eq!(
+                runtime.camera_look.offset, 0,
+                "ASM loc_9D2E preserves $FB58"
+            );
+            assert_eq!(
+                trace.camera_y_pos,
+                expected << 16,
+                "ASM loc_72C8/loc_72E2 camera at route frame {frame}"
+            );
+        }
+    }
+}
+
+/// ASM sub_71E4/loc_726C reads the advanced jump Y before storing $FA2E.
+/// ROM seed4 watch rows71..76 and200..214 pin the signed $FB58 accumulator.
+#[test]
+fn gameplay_regression_camera_ceiling_jump_look() {
+    let Some(mut runtime) = cached_generated_runtime() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/camera-ceiling-jump-look.json"
+    ))
+    .expect("saved camera ceiling jump route");
+    runtime.boot_to_level_for_recording_oracle(LevelId(4));
+    runtime.settle_recording_oracle_warp_live_window(LevelId(4));
+    for frame in 0..repro.frame_count {
+        let mask = frame
+            .checked_sub(1)
+            .and_then(|i| repro.script.get(i))
+            .copied()
+            .unwrap_or(0);
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        let expected = match frame {
+            71..=76 => Some(-2 * (frame as i16 - 70)),
+            128..=133 | 200..=214 => Some(frame as i16 - 188),
+            _ => None,
+        };
+        if let Some(expected) = expected {
+            assert_eq!(
+                runtime.camera_look.offset, expected,
+                "ASM loc_726C counter at {frame}"
+            );
+            assert_eq!(trace.camera_y_pos, 0, "ASM loc_72C8 camera at {frame}");
+        }
+    }
+}
+
+/// ASM loc_A6F8/loc_A74E jump continuation calls sub_71E4 without loc_7650 decay.
+#[test]
+fn camera_look_jump_continuation_preserves_accumulator_on_release() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.physics_order = PhysicsOrder::AsmFaithful;
+    runtime.camera_look.offset = 16;
+    runtime.camera_look.last_kid_y = 200;
+    let mut slice = OpeningSliceState::new(LevelBounds {
+        width_pixels: 640,
+        height_pixels: 1000,
+    });
+    slice.player.on_ground = false;
+    slice.player.x_pos = 160 << 16;
+    slice.player.y_pos = 200 << 16;
+    slice.camera.y_pos = 40 << 16;
+    runtime.opening_slice = Some(slice);
+    runtime.refresh_opening_slice(FrameInput::default(), false);
+    assert_eq!(
+        runtime.camera_look.offset, 16,
+        "ASM loc_A6F8 skips grounded release decay"
+    );
+}
+
+/// ASM loc_82D8 increments $FB58 before sub_71E4/loc_728C uses its threshold.
+/// ROM watch/PC probe97..110 pins the same crawl callback on every frame.
+#[test]
+fn gameplay_regression_camera_crawl_look_threshold() {
+    let Some(mut runtime) = cached_generated_runtime() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/fuzz-repros/14c281f6.json"
+    ))
+    .expect("saved camera crawl route");
+    runtime.boot_to_level_for_recording_oracle(LevelId(2));
+    runtime.settle_recording_oracle_warp_live_window(LevelId(2));
+    for frame in 0..repro.frame_count {
+        let mask = frame
+            .checked_sub(1)
+            .and_then(|i| repro.script.get(i))
+            .copied()
+            .unwrap_or(0);
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if (97..=110).contains(&frame) {
+            assert_eq!(
+                runtime.camera_look.offset,
+                frame as i16 - 72,
+                "ASM loc_82D8 counter at {frame}"
+            );
+            let expected = 1500 + frame.saturating_sub(102) as u32;
+            assert_eq!(
+                trace.camera_y_pos,
+                expected << 16,
+                "ASM loc_728C camera at {frame}"
+            );
+        }
+    }
+}
+
 mod chunk_11 {
     use super::*;
+
+    /// ASM loc_7650/loc_8C12 subtracts eight then clamps a negative $FB58
+    /// to zero when Down is released, including a prior camera pull-back.
+    #[test]
+    fn loc_8c12_refresh_opening_slice_clamps_negative_look_offset() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.physics_order = PhysicsOrder::AsmFaithful;
+        runtime.block_grid = Some(grid_with_floor_at_row(6));
+        runtime.camera_look.offset = -2;
+        runtime.camera_look.last_kid_y = 95;
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 6 * 20 * 16,
+            height_pixels: 4 * 14 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 95 << 16;
+        slice.camera.y_pos = 63 << 16;
+        runtime.opening_slice = Some(slice);
+        runtime.refresh_opening_slice(FrameInput::default(), false);
+        assert_eq!(
+            runtime.camera_look.offset, 0,
+            "ASM loc_8C12 clamps below zero"
+        );
+    }
 
     #[test]
     fn loc_1387a_copies_the_later_four_byte_tail_and_finishes_at_or_beyond_d7() {
@@ -2004,7 +2184,7 @@ mod chunk_11 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
         );
 
         // loc_A74E step 1 (sub_B084): holding right should accelerate x_vel.
@@ -4035,11 +4215,11 @@ mod chunk_11 {
     fn loc_825c_look_offset_decay_above_8() {
         let mut rt = NativeRuntime::new(manifest());
         start_level(&mut rt);
-        rt.y_look_offset = 20;
+        rt.camera_look.offset = 20;
 
         // Simulate one frame with down released, grounded.
         // Native: y_look_offset = (20 - 8).max(0) = 12.
-        let decayed = (rt.y_look_offset - 8).max(0);
+        let decayed = (rt.camera_look.offset - 8).max(0);
 
         assert_eq!(
             decayed, 12,
@@ -5079,7 +5259,7 @@ mod chunk_11 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -5121,7 +5301,7 @@ mod chunk_11 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -5337,7 +5517,7 @@ mod chunk_11 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -6291,8 +6471,8 @@ mod chunk_11 {
         runtime.boot_state = BootState::InGame;
         runtime.physics_order = PhysicsOrder::AsmFaithful;
         runtime.block_grid = Some(grid_with_floor_at_row(6));
-        runtime.y_look_offset = 30;
-        runtime.camera_last_kid_y = 96;
+        runtime.camera_look.offset = 30;
+        runtime.camera_look.last_kid_y = 95;
 
         let mut slice = OpeningSliceState::new(LevelBounds {
             width_pixels: 6 * 20 * 16,
@@ -6300,8 +6480,8 @@ mod chunk_11 {
         });
         slice.player.on_ground = true;
         slice.player.x_pos = 40 << 16;
-        slice.player.y_pos = 96 << 16;
-        slice.camera.y_pos = 64 << 16;
+        slice.player.y_pos = 95 << 16;
+        slice.camera.y_pos = 63 << 16;
         runtime.opening_slice = Some(slice);
 
         runtime.refresh_opening_slice(
@@ -6313,7 +6493,7 @@ mod chunk_11 {
         );
 
         assert_eq!(
-            runtime.y_look_offset, 31,
+            runtime.camera_look.offset, 31,
             "ASM loc_8C70/loc_8C12 adds 1 to $FFFFFB58 when Down is held; loc_728C's $1E threshold is not a cap"
         );
     }
@@ -6324,8 +6504,8 @@ mod chunk_11 {
         runtime.boot_state = BootState::InGame;
         runtime.physics_order = PhysicsOrder::AsmFaithful;
         runtime.block_grid = Some(grid_with_floor_at_row(6));
-        runtime.y_look_offset = 30;
-        runtime.camera_last_kid_y = 96;
+        runtime.camera_look.offset = 30;
+        runtime.camera_look.last_kid_y = 95;
 
         let mut slice = OpeningSliceState::new(LevelBounds {
             width_pixels: 6 * 20 * 16,
@@ -6333,8 +6513,8 @@ mod chunk_11 {
         });
         slice.player.on_ground = true;
         slice.player.x_pos = 40 << 16;
-        slice.player.y_pos = 96 << 16;
-        slice.camera.y_pos = 64 << 16;
+        slice.player.y_pos = 95 << 16;
+        slice.camera.y_pos = 63 << 16;
         slice.set_kid_grabbed_by_hand(true);
         runtime.opening_slice = Some(slice);
 
@@ -6347,7 +6527,7 @@ mod chunk_11 {
         );
 
         assert_eq!(
-            runtime.y_look_offset, 30,
+            runtime.camera_look.offset, 30,
             "ASM loc_8C70/loc_7772 (kid.asm:10082,7832): nonzero KidGrabbedByHand skips the Down-held addq.w #1 to $FFFFFB58",
         );
     }
@@ -6358,7 +6538,7 @@ mod chunk_11 {
         runtime.boot_state = BootState::InGame;
         runtime.physics_order = PhysicsOrder::AsmFaithful;
         runtime.block_grid = Some(grid_with_floor_at_row(4));
-        runtime.camera_last_kid_y = 0;
+        runtime.camera_look.last_kid_y = 0;
 
         let bounds = LevelBounds {
             width_pixels: 120 * 16,
@@ -6383,7 +6563,7 @@ mod chunk_11 {
             "fixture must exercise Character_CheckCollision changing y_pos"
         );
         assert_eq!(
-            runtime.camera_last_kid_y,
+            runtime.camera_look.last_kid_y,
             (slice.player.y_pos >> 16) as i16,
             "ASM loc_75D4/loc_8BF0 (kid.asm:7712-7714,10046-10048): $FFFFFA2E stores y_pos after Character_CheckCollision"
         );
@@ -6448,7 +6628,7 @@ mod chunk_11 {
     /// must not shift the target down; only values beyond `$1E` do.
     #[test]
     fn loc_728c_exact_look_threshold_is_neutral_for_camera_target() {
-        let run = |y_look_offset| {
+        let run = |y_look_offset: &mut CameraLookState| {
             let mut slice = OpeningSliceState::new(LevelBounds {
                 width_pixels: 640,
                 height_pixels: 1000,
@@ -6461,12 +6641,18 @@ mod chunk_11 {
         };
 
         assert_eq!(
-            run(0x1E),
+            run(&mut CameraLookState {
+                offset: 0x1E,
+                ..CameraLookState::default()
+            }),
             58 << 16,
             "ASM loc_728C: d0 += $FFFFFB58; d0 -= $1E, so offset $1E leaves the Y target at KidY-$A0",
         );
         assert_eq!(
-            run(0x28),
+            run(&mut CameraLookState {
+                offset: 0x28,
+                ..CameraLookState::default()
+            }),
             59 << 16,
             "ASM loc_728C: offset $28 shifts the target by only $28-$1E pixels before the camera step",
         );
@@ -6478,8 +6664,8 @@ mod chunk_11 {
         runtime.boot_state = BootState::InGame;
         runtime.physics_order = PhysicsOrder::AsmFaithful;
         runtime.block_grid = Some(grid_with_cells(8, 20, &[(2, 16, 0x60, 0x00)]));
-        runtime.y_look_offset = 40;
-        runtime.camera_last_kid_y = 256;
+        runtime.camera_look.offset = 40;
+        runtime.camera_look.last_kid_y = 256;
 
         let mut slice = OpeningSliceState::new(LevelBounds {
             width_pixels: 8 * 16,
@@ -6500,7 +6686,7 @@ mod chunk_11 {
         );
 
         assert_eq!(
-            runtime.y_look_offset, 40,
+            runtime.camera_look.offset, 40,
             "ASM loc_728C decrements `$FFFFFB58` when the shifted target hits max_y; the Down-held state then adds one back later in the frame"
         );
     }
@@ -7703,7 +7889,7 @@ mod chunk_11 {
             Some(&mut grid),
             None,
             true,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -7757,7 +7943,7 @@ mod chunk_11 {
             Some(&mut grid),
             None,
             true,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -8270,7 +8456,7 @@ mod chunk_11 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -8294,7 +8480,7 @@ mod chunk_11 {
                 Some(&mut grid),
                 None,
                 false,
-                0,
+                &mut CameraLookState::default(),
                 PhysicsOrder::AsmFaithful,
                 true,
                 &[],
@@ -8357,7 +8543,7 @@ mod chunk_11 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -8379,7 +8565,7 @@ mod chunk_11 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -10479,7 +10665,7 @@ mod chunk_11 {
                     Some(&mut grid),
                     None,
                     false,
-                    0,
+                    &mut CameraLookState::default(),
                     PhysicsOrder::AsmFaithful,
                     true,
                     &[],
@@ -16608,7 +16794,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -16663,7 +16849,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -16731,7 +16917,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -16981,7 +17167,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
         );
 
         // loc_A94E path: Kid should have landed.
@@ -17028,7 +17214,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
         );
 
         assert!(slice.player.on_ground, "loc_A984: Kid should land on floor");
@@ -17076,7 +17262,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
         );
 
         // Native: Red Stealth lands like any other helmet.
@@ -17127,7 +17313,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -17164,7 +17350,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -17234,7 +17420,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -17291,7 +17477,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -17328,7 +17514,7 @@ mod chunk_12 {
             Some(&mut floor_grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::GravityFirst,
             true,
             &[],
@@ -17353,7 +17539,7 @@ mod chunk_12 {
             None,
             None,
             true,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::GravityFirst,
             true,
             &[],
@@ -17395,7 +17581,7 @@ mod chunk_12 {
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::GravityFirst,
             true,
             &[],
@@ -17420,7 +17606,7 @@ mod chunk_12 {
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::GravityFirst,
             true,
             &[],
@@ -17459,7 +17645,7 @@ mod chunk_12 {
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::GravityFirst,
             true,
             &[],
@@ -17483,7 +17669,7 @@ mod chunk_12 {
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::GravityFirst,
             true,
             &[],
@@ -17528,7 +17714,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             true,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::GravityFirst,
             true,
             &[],
@@ -17564,7 +17750,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             true,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -17606,7 +17792,7 @@ mod chunk_12 {
             Some(&mut floor_grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -17654,7 +17840,7 @@ mod chunk_12 {
             Some(&mut grounded_grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -17700,7 +17886,7 @@ mod chunk_12 {
             PlayerForm::IronKnight,
             Some(&mut grid),
             None,
-            0,
+            &mut CameraLookState::default(),
             true,
             &[],
         );
@@ -17755,7 +17941,7 @@ mod chunk_12 {
             PlayerForm::IronKnight,
             Some(&mut grid),
             None,
-            0,
+            &mut CameraLookState::default(),
             true,
             &[],
         );
@@ -17811,7 +17997,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             true,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -17856,7 +18042,7 @@ mod chunk_12 {
                 Some(&mut grid),
                 None,
                 true,
-                0,
+                &mut CameraLookState::default(),
                 PhysicsOrder::AsmFaithful,
                 true,
                 &[],
@@ -17901,7 +18087,7 @@ mod chunk_12 {
             None,
             true,
             movement::KidFloorContactPath::OnFoot,
-            0,
+            &mut CameraLookState::default(),
             false,
             PhysicsOrder::AsmFaithful,
             true,
@@ -17960,7 +18146,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             true,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -18614,7 +18800,7 @@ mod chunk_12 {
                 Some(grid),
                 None,
                 false,
-                0,
+                &mut CameraLookState::default(),
                 PhysicsOrder::AsmFaithful,
                 false,
                 &[],
@@ -18720,7 +18906,7 @@ mod chunk_12 {
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -19347,7 +19533,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::GravityFirst,
             true,
             &[],
@@ -19382,7 +19568,7 @@ mod chunk_12 {
             None,
             None,
             true,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::PositionFirst,
             true,
             &[],
@@ -19423,7 +19609,7 @@ mod chunk_12 {
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::PositionFirst,
             true,
             &[],
@@ -19448,7 +19634,7 @@ mod chunk_12 {
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::PositionFirst,
             true,
             &[],
@@ -19490,7 +19676,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::PositionFirst,
             true,
             &[],
@@ -19532,7 +19718,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -20270,7 +20456,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -20327,7 +20513,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -20383,7 +20569,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -20449,7 +20635,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -20515,7 +20701,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -20581,7 +20767,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -20646,7 +20832,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -20708,7 +20894,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -20767,7 +20953,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -20852,7 +21038,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -20904,7 +21090,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -20986,7 +21172,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -21057,7 +21243,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -21127,7 +21313,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -21199,7 +21385,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -21253,7 +21439,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -21312,7 +21498,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -21369,7 +21555,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -21427,7 +21613,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -21486,7 +21672,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -21561,7 +21747,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -21664,7 +21850,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -21743,7 +21929,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -21826,7 +22012,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -21911,7 +22097,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -21966,7 +22152,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -21987,7 +22173,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22027,7 +22213,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22081,7 +22267,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22111,7 +22297,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22153,7 +22339,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22205,7 +22391,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22255,7 +22441,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22308,7 +22494,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22361,7 +22547,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22426,7 +22612,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22486,7 +22672,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             true,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22553,7 +22739,7 @@ mod chunk_12 {
                 Some(grid),
                 None,
                 true,
-                0,
+                &mut CameraLookState::default(),
                 PhysicsOrder::AsmFaithful,
                 true,
                 &[],
@@ -22642,7 +22828,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             true,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22688,7 +22874,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             true,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22734,7 +22920,7 @@ mod chunk_12 {
                 Some(&mut grid),
                 None,
                 true,
-                0,
+                &mut CameraLookState::default(),
                 PhysicsOrder::AsmFaithful,
                 true,
                 &[],
@@ -22788,7 +22974,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             true,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22899,7 +23085,7 @@ mod chunk_12 {
             Some(&mut floor_grid),
             None,
             true,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22925,7 +23111,7 @@ mod chunk_12 {
             None,
             None,
             true,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22966,7 +23152,7 @@ mod chunk_12 {
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -22991,7 +23177,7 @@ mod chunk_12 {
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -23016,7 +23202,7 @@ mod chunk_12 {
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -23055,7 +23241,7 @@ mod chunk_12 {
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -23080,7 +23266,7 @@ mod chunk_12 {
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -23103,7 +23289,7 @@ mod chunk_12 {
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -23827,7 +24013,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -24703,7 +24889,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -24759,7 +24945,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -24777,7 +24963,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -24805,7 +24991,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -24848,7 +25034,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -24911,7 +25097,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -24944,7 +25130,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -25002,7 +25188,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -25064,7 +25250,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -25117,7 +25303,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -25145,7 +25331,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -25182,7 +25368,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -25241,7 +25427,7 @@ mod chunk_12 {
                 Some(&mut grid.clone()),
                 None,
                 false,
-                0,
+                &mut CameraLookState::default(),
                 PhysicsOrder::AsmFaithful,
                 true,
                 &[],
@@ -25336,7 +25522,7 @@ mod chunk_12 {
                 Some(&mut grid.clone()),
                 None,
                 false,
-                0,
+                &mut CameraLookState::default(),
                 PhysicsOrder::AsmFaithful,
                 true,
                 &[],
@@ -25414,7 +25600,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -25480,7 +25666,7 @@ mod chunk_12 {
                 Some(&mut grid.clone()),
                 None,
                 false,
-                0,
+                &mut CameraLookState::default(),
                 PhysicsOrder::AsmFaithful,
                 true,
                 &[],
@@ -25571,7 +25757,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -25622,7 +25808,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -25681,7 +25867,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -25729,7 +25915,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -25778,7 +25964,7 @@ mod chunk_12 {
             Some(&mut grid.clone()),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -25849,7 +26035,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -25928,7 +26114,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -25992,7 +26178,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -26062,7 +26248,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],
@@ -26138,7 +26324,7 @@ mod chunk_12 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],

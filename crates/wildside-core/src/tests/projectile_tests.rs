@@ -1185,7 +1185,7 @@ mod chunk_06 {
             None,
             None,
             true,
-            0,
+            &mut CameraLookState::default(),
         );
 
         // y_pos changes (from existing velocity) but y_velocity should NOT
@@ -1314,7 +1314,7 @@ mod chunk_06 {
             None,
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
         );
 
         // Normal gravity (loc_B1D4 path) adds GRAVITY_NORMAL ($4000)
@@ -9839,7 +9839,7 @@ mod chunk_06 {
             Some(&mut grid),
             None,
             false,
-            0,
+            &mut CameraLookState::default(),
             PhysicsOrder::AsmFaithful,
             true,
             &[],

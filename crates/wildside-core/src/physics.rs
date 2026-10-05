@@ -898,6 +898,11 @@ pub(crate) fn update_camera_axis(camera: i32, player: i32, max_pos: i32) -> i32 
     // then `cmp.w d1,d0; bcs.s skip; move.w d1,d0`.
     let target = (player - CAMERA_PLAYER_OFFSET).max(0).min(max_pos);
 
+    update_camera_axis_target(camera, target, max_pos)
+}
+
+/// ASM loc_7214/loc_72A8: ease toward the target after its axis-specific clamp.
+pub(crate) fn update_camera_axis_target(camera: i32, target: i32, max_pos: i32) -> i32 {
     // ASM loc_7214 / loc_72A8 (kid.asm:7327 / 7401): velocity with edge-snap
     // special cases.  X-axis uses d2/d4, Y-axis uses d3/d4; logic is identical.
     let velocity = if camera <= 4 && target < camera {

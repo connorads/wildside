@@ -4712,6 +4712,13 @@ pub(crate) struct LevelEntryTitleWorkerMotion {
     pub(crate) y_step_fp: i32,
 }
 
+/// ASM sub_71E4/loc_726C: signed $FB58 and the saved Kid Y at $FA2E.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct CameraLookState {
+    pub(crate) offset: i16,
+    pub(crate) last_kid_y: i16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct CameraState {
     pub(crate) x_pos: u32,

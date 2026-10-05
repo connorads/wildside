@@ -6342,7 +6342,7 @@ impl NativeRuntime {
         self.level_complete_gfx_snapshot = None;
         self.clocks_collected = 0;
         self.hundred_k_trip_timer = 0;
-        self.y_look_offset = 0;
+        self.camera_look.offset = 0;
     }
 
     pub(crate) fn begin_demo_gameplay(&mut self, level_id: LevelId) {
@@ -6410,7 +6410,7 @@ impl NativeRuntime {
         self.level_complete_gfx_snapshot = None;
         self.clocks_collected = 0;
         self.hundred_k_trip_timer = 0;
-        self.y_look_offset = 0;
+        self.camera_look.offset = 0;
         self.paused = false;
         self.pause_menu_option = 0;
         self.pause_toggle_pending = false;
@@ -6427,7 +6427,7 @@ impl NativeRuntime {
         slice.player.y_pos = slice.player.y_pos.saturating_add(0x0001_0000);
         slice.player.on_ground = false;
         slice.player.y_velocity = 0;
-        slice.update_camera_follow(0);
+        slice.update_camera_follow(&mut self.camera_look);
     }
 
     /// During frames between initial_settle and grounded_hold, the ASM's demo
@@ -6446,7 +6446,7 @@ impl NativeRuntime {
         // bootstrap freefall exports this shadow velocity even though the
         // normal sub_B168/sub_A4EE object physics path has not resumed.
         slice.player.y_velocity = shadow_vel as i32;
-        slice.update_camera_follow(0);
+        slice.update_camera_follow(&mut self.camera_look);
     }
 
     pub(crate) fn apply_demo_bootstrap_grounded_hold(&mut self) {
@@ -6464,7 +6464,7 @@ impl NativeRuntime {
         slice.player.on_ground = true;
         slice.player.on_spikes = false;
         slice.terrain.floor_y_pos = slice.player.y_pos;
-        slice.update_camera_follow(0);
+        slice.update_camera_follow(&mut self.camera_look);
     }
 
     pub(crate) fn try_apply_demo_bootstrap_grounded_run(
@@ -6560,7 +6560,7 @@ impl NativeRuntime {
         slice.player.y_velocity = 0;
         slice.player.on_ground = true;
         slice.player.on_spikes = false;
-        slice.update_camera_follow(self.y_look_offset);
+        slice.update_camera_follow(&mut self.camera_look);
         true
     }
 
@@ -6681,7 +6681,7 @@ impl NativeRuntime {
         // The first visible demo gameplay frame keeps the held bootstrap
         // player pose but lets camera follow advance once from the respawn
         // preload position before the trace is sampled.
-        slice.update_camera_follow(0);
+        slice.update_camera_follow(&mut self.camera_look);
     }
 
     pub(crate) fn apply_demo_1_bootstrap_pose_hold(&mut self) {
@@ -6691,7 +6691,7 @@ impl NativeRuntime {
         // Knights Isle demo startup exposes the respawn pose unchanged while
         // only the camera converges during the hidden warm-up window.
         slice.player.y_velocity = 0;
-        slice.update_camera_follow(0);
+        slice.update_camera_follow(&mut self.camera_look);
     }
 
     pub(crate) fn try_snap_demo_bootstrap_floor(&self, slice: &mut OpeningSliceState) -> bool {
