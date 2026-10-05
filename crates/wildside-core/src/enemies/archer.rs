@@ -721,6 +721,7 @@ pub(crate) fn step_archer(
     debug_assert_eq!(held_arrow_position.y_pos_word, fp16_integer_word(spawn_y));
 
     projectiles.push(EnemyProjectile {
+        drips_drop_waiting_first_wake: false,
         x_pos: spawn_x,
         y_pos: spawn_y,
         x_velocity: arrow_setup.x_velocity,

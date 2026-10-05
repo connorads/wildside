@@ -69,12 +69,17 @@ pub(crate) fn drips_parent_sprite_phase_stru_33f90(wait_timer: u16) -> u8 {
     let Some(remaining) = drips_pre_drop_animation_remaining_loc_33424(wait_timer) else {
         return 0;
     };
-    let elapsed = DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424.saturating_sub(remaining);
+    // ASM Init_Animation seeds timer1; Mode_Level then runs loc_1158
+    // on that same pass, so the presentation includes the initiating tick.
+    let elapsed = DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424
+        .saturating_sub(remaining)
+        .saturating_add(1);
     match elapsed {
         0..=9 => 0,
         10..=19 => 1,
         20..=27 => 3,
         28..=33 => 2,
+        // ASM loc_1166 ends the final duration-1 entry on its load pass.
         _ => 0,
     }
 }
@@ -1435,11 +1440,9 @@ pub(super) fn drips_parent_exits_range(
     camera_x_px: Option<u32>,
     camera_y_px: Option<u32>,
 ) -> bool {
-    // ASM loc_3345C applies its first gravity after the zero-velocity child
-    // frame. Native materialises that child on the first gravity pass, when
-    // the final forming marker is 1 (oracle #501 frames544/545).
+    // ASM loc_3345C checks range on the first wake after loc_33424
+    // displays the zero-velocity child. The in-flight state owns that wake.
     let checks_range = !enemy.drips_attached
-        || drips_pre_drop_animation_remaining_loc_33424(enemy.wait_timer) == Some(1)
         || matches!(
             enemy.wait_timer,
             DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E | DRIPS_DROP_IN_FLIGHT_TIMER
@@ -1565,7 +1568,9 @@ pub(crate) fn step_drips(
         return;
     }
     if let Some(frames_remaining) = drips_pre_drop_animation_remaining_loc_33424(enemy.wait_timer) {
-        if frames_remaining > 1 {
+        // ASM loc_1166 ends the final duration-1 entry on its load pass;
+        // loc_33424 resumes before the following gravity wake.
+        if frames_remaining > 2 {
             enemy.wait_timer = drips_pre_drop_animation_timer_loc_33424(frames_remaining - 1);
             return;
         }
@@ -1586,6 +1591,7 @@ pub(crate) fn step_drips(
         drips_child_state_bytes_loc_3333e(enemy.enemy_level);
     let mut drop = EnemyProjectile {
         kind: EnemyProjectileKind::DripsDrop,
+        drips_drop_waiting_first_wake: true,
         x_pos: enemy.x_pos,
         y_pos: enemy.y_pos,
         lifetime: DRIPS_DROP_LIFETIME,
@@ -1720,9 +1726,29 @@ mod tests {
         };
 
         assert_eq!(
-            [phase(35), phase(25), phase(15), phase(7), phase(1)],
-            [0, 1, 3, 2, 0],
+            [
+                phase(35),
+                phase(25),
+                phase(15),
+                phase(7),
+                phase(3),
+                phase(2),
+                phase(1)
+            ],
+            [0, 1, 3, 2, 2, 0, 0],
             "ASM Drips.asm loc_33424 / stru_33F90 selects C7B0E, C7B16, C7B2E, C7B1E, then C7B0E for 10/10/8/6/1 ticks"
+        );
+        assert_eq!(
+            [
+                phase(27),
+                phase(26),
+                phase(17),
+                phase(16),
+                phase(9),
+                phase(8)
+            ],
+            [0, 1, 1, 3, 3, 2],
+            "ASM Init_Animation/loc_1158 includes the initiating pass at each stru_33F90 boundary"
         );
         assert_eq!(drips_parent_sprite_phase_stru_33f90(0x0042), 0);
     }
@@ -1803,6 +1829,7 @@ mod tests {
             projectiles[0],
             EnemyProjectile {
                 kind: EnemyProjectileKind::DripsDrop,
+                drips_drop_waiting_first_wake: true,
                 x_pos: 0x0123_4000,
                 y_pos: 0x00F6_8000,
                 x_velocity: 0,
@@ -1830,11 +1857,11 @@ mod tests {
     }
 
     #[test]
-    fn drips_pre_drop_remaining_one_spawns_and_two_hibernates_loc_33424() {
+    fn drips_pre_drop_remaining_two_spawns_and_three_hibernates_loc_33424() {
         let mut waiting = ActiveEnemy {
             family: EnemyFamily::Drips,
             drips_attached: true,
-            wait_timer: drips_pre_drop_animation_timer_loc_33424(2),
+            wait_timer: drips_pre_drop_animation_timer_loc_33424(3),
             ..mini_hopping_skull_test_enemy()
         };
         let mut projectiles = Vec::new();
@@ -1843,12 +1870,12 @@ mod tests {
 
         assert!(
             projectiles.is_empty(),
-            "ASM Drips.asm loc_33424 keeps hibernating while the pre-drop animation has more than one native frame remaining",
+            "ASM Drips.asm loc_33424 keeps hibernating while the pre-drop animation has more than two native frames remaining",
         );
         assert_eq!(
             drips_pre_drop_animation_remaining_loc_33424(waiting.wait_timer),
-            Some(1),
-            "the loc_33424 countdown must preserve the final frame for the following spawn step",
+            Some(2),
+            "the loc_33424 countdown must preserve the final display frame for the following spawn step",
         );
 
         step_drips(&mut waiting, &mut projectiles, None);

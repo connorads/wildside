@@ -1257,30 +1257,41 @@ pub(crate) fn active_enemy_states_from_native_frame(
         frame
             .active_projectile_details
             .iter()
-            .filter_map(archer_arrow_enemy_state_from_native_projectile),
+            .filter_map(enemy_state_from_native_projectile),
     );
     sort_enemy_states(&mut enemies);
     enemies
 }
 
-fn archer_arrow_enemy_state_from_native_projectile(
+fn enemy_state_from_native_projectile(
     projectile: &ActiveProjectileSnapshot,
 ) -> Option<OracleEnemyState> {
-    (projectile.kind == ActiveProjectileKind::ArcherArrow).then(|| OracleEnemyState {
+    let (object_type, facing, current_hp) = match projectile.kind {
+        ActiveProjectileKind::ArcherArrow => (
+            0x07,
+            if projectile.x_velocity < 0 {
+                EnemyFacing::Left
+            } else {
+                EnemyFacing::Right
+            },
+            None,
+        ),
+        // ASM Enemy16_Drip_Init installs metadata16 on a1; loc_33424
+        // displays that preallocated Gfx child with cleared direction/HP.
+        ActiveProjectileKind::DripsDrop => (0x16, EnemyFacing::Left, Some(0)),
+        _ => return None,
+    };
+    Some(OracleEnemyState {
         // ASM Archer.asm Enemy07_ArcherArrow_Init loc_34266 keeps the fired
         // arrow in a normal Object_RAM slot with objid_Archer metadata. Native
         // simulates motion as a projectile, but oracle enemy snapshots include
         // that worker beside the parent Archers.
-        object_type: 0x07,
+        object_type,
         x_pos: projectile.x_pos,
         y_pos: projectile.y_pos,
         x_velocity: projectile.x_velocity,
         y_velocity: projectile.y_velocity,
-        facing: if projectile.x_velocity < 0 {
-            EnemyFacing::Left
-        } else {
-            EnemyFacing::Right
-        },
+        facing,
         collision_type: None,
         collision_source: None,
         layout_index: None,
@@ -1288,7 +1299,7 @@ fn archer_arrow_enemy_state_from_native_projectile(
         parent_object_ptr: None,
         gfx_slot_index: None,
         on_ground: Some(false),
-        current_hp: None,
+        current_hp,
         debug_fields: std::collections::BTreeMap::default(),
     })
 }
@@ -2489,6 +2500,41 @@ mod tests {
             .expect_err("gameplay object-count drift should still fail");
 
         assert!(format!("{error:#}").contains("object counts"));
+    }
+
+    #[test]
+    fn native_enemy_states_include_displayed_drips_drop_loc_33424() {
+        let frame = NativeTraceFrame {
+            active_projectile_details: vec![ActiveProjectileSnapshot {
+                kind: ActiveProjectileKind::DripsDrop,
+                x_pos: 0x0088_0000,
+                y_pos: 0x0272_0000,
+                ..ActiveProjectileSnapshot::default()
+            }],
+            ..NativeTraceFrame::default()
+        };
+        let enemies = active_enemy_states_from_native_frame(&frame);
+        assert_eq!(
+            enemies.len(),
+            1,
+            "ASM Enemy16_Drip_Init sets object_meta16 on a1; loc_33424 displays it"
+        );
+        assert_eq!(enemies[0].object_type, 0x16);
+        assert_eq!(
+            (enemies[0].x_pos, enemies[0].y_pos),
+            (0x0088_0000, 0x0272_0000)
+        );
+        assert_eq!(
+            enemies[0].facing,
+            EnemyFacing::Left,
+            "ASM Enemy16_Drip_Init leaves child x_direction cleared"
+        );
+        assert_eq!(
+            enemies[0].current_hp,
+            Some(0),
+            "ASM Enemy16_Drip_Init leaves Gfx HP cleared"
+        );
+        assert_eq!(enemies[0].layout_index, None);
     }
 
     #[test]

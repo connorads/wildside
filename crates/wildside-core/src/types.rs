@@ -5569,6 +5569,8 @@ pub(crate) struct EnemyProjectile {
     /// Drips.asm loc_33488/off_33520: true only for the splash that reaches
     /// the negative table sentinel and may allocate a loc_335D8 crawler.
     pub(crate) drips_spawn_crawler_on_splash: bool,
+    /// ASM loc_33424 displays a1 and hibernates before loc_3345C gravity.
+    pub(crate) drips_drop_waiting_first_wake: bool,
     /// Owning enemy identity for projectiles whose lifecycle feeds back into
     /// the spawner state. ASM Lion.asm sub_3E2CE / loc_3E1B4.
     pub(crate) owner: Option<EnemyProjectileOwner>,

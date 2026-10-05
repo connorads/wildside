@@ -4158,6 +4158,12 @@ impl NativeRuntime {
             })
             .count() as u16;
         self.projectiles.retain_mut(|p| {
+            if p.kind == EnemyProjectileKind::DripsDrop && p.drips_drop_waiting_first_wake {
+                // ASM loc_33424 clears velocity and displays a1 before
+                // hibernating; loc_3345C applies gravity on its next wake.
+                p.drips_drop_waiting_first_wake = false;
+                return true;
+            }
             // ASM Lion.asm loc_3E192/loc_3E1B4 consumes the preceding
             // Gfx $2C before homing or movement and releases its owner.
             if p.kind == EnemyProjectileKind::LionProjectile && p.collision_type == 0x2C {

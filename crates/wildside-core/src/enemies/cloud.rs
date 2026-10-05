@@ -643,6 +643,7 @@ fn cloud_projectile_spawn_loc_35df0(
     }
 
     EnemyProjectile {
+        drips_drop_waiting_first_wake: false,
         x_pos: u32::from(x_pos_word) << 16,
         y_pos: u32::from(y_pos_word) << 16,
         x_velocity: i32::from(x_word) << 16,

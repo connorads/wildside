@@ -1,5 +1,10 @@
 ## 2026-10-05 - EmoRock coordinate word stores
 
+## 2026-10-05 - Drips forming and falling child
+
+Saved550 and retention267 match;46/46 forming mappings match. Required fast7537 core/286 reviewed exclusions and full37759 pass; full report equals the committed parent baseline. All40 fuzz routes and102/105 sweep remain. Ledger04 advances545 to585;1/103 confirmed/10 native exits remains. All110 fixture bytes and180 layouts are restored. #517 stays open for splash and old cached Level01 controls, whose expectations remain unverified. Firing art and flag presentation remain open. System output stays muted; runtime checks use dummy SDL.
+
+
 ## 2026-10-05 - Drips parent roster
 
 Drips parent display, facing, Gfx HP and repurposed layout reference match saved501 and retention267. Fast7536 core/286 reviewed exclusions and full37759 pass; full report equals the prior baseline. Census advances04 seed1 from162 to287 with39 unchanged routes and no earlier frontier. Sweep retains102/105. Ledger04 advances roster399 to545;1/103 confirmed/10 native exits remains. All109 fixture bytes and180 layouts are restored. #517 stays open for the displayed child at545. Firing art and flag presentation remain open; system output stays muted and runtime checks use dummy SDL.

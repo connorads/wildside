@@ -23553,6 +23553,73 @@ fn gameplay_regression_drips_parent_enters_roster_after_initialisation() {
 }
 
 #[test]
+fn gameplay_regression_drips_child_display_before_first_gravity_loc_33424() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/issue-517-drips-child-display.json"
+    ))
+    .expect("saved Drips child display route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    let drop_at = |frame: usize| {
+        trace[frame]
+            .active_projectile_details
+            .iter()
+            .find(|p| p.kind == ActiveProjectileKind::DripsDrop)
+    };
+    assert!(drop_at(544).is_none(), "ASM loc_33424 waits for stru_33F90");
+    for (frame, y, velocity) in [
+        (545, 0x0272_0000, 0),
+        (546, 0x0272_2000, 0x2000),
+        (547, 0x0272_6000, 0x4000),
+        (549, 0x0273_4000, 0x8000),
+    ] {
+        let drop = drop_at(frame).expect("ASM loc_33424 sets child display before hibernating");
+        assert_eq!(drop.x_pos, 0x0088_0000, "ASM loc_33424 copies parent X");
+        assert_eq!(drop.y_pos, y, "ASM loc_3345C then GfxObject_Move");
+        assert_eq!(
+            drop.y_velocity, velocity,
+            "ASM loc_33424 clears velocity before loc_3345C gravity"
+        );
+    }
+    for (frame, phase) in [
+        (519, 0),
+        (520, 1),
+        (529, 1),
+        (530, 3),
+        (537, 3),
+        (538, 2),
+        (543, 2),
+        (544, 0),
+        (545, 0),
+    ] {
+        let parent = trace[frame]
+            .active_enemy_details
+            .iter()
+            .find(|object| {
+                object.kind == NativeObjectKind::Enemy { object_type: 0x16 }
+                    && object.layout_index == Some(3)
+            })
+            .expect("ASM Enemy16_Drip_Init retains parent a3");
+        assert_eq!(
+            parent.sprite_animation_phase,
+            Some(phase),
+            "ASM Init_Animation and loc_1158/loc_1166 advance stru_33F90 on the initiating pass"
+        );
+    }
+}
+
+#[test]
 fn gameplay_regression_diamond_ledge_turn_uses_init_width_loc_3ad4c() {
     let Some(manifest) = cached_generated_manifest() else {
         return;
