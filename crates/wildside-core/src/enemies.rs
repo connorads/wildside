@@ -3392,10 +3392,11 @@ impl ActiveEnemy {
         } else {
             None
         };
-        let visible_hit_points = if matches!(self.family, EnemyFamily::Sphere) {
-            // ASM Sphere.asm Enemy06_Sphere_Init never writes current_hp `$44`;
-            // the visible GfxObject word remains zero even though native keeps
-            // an internal durability value for generic enemy bookkeeping.
+        let visible_hit_points = if matches!(self.family, EnemyFamily::Sphere | EnemyFamily::Drips)
+        {
+            // ASM Sphere.asm Enemy06_Sphere_Init and Drips.asm Enemy16_Drip_Init
+            // leave Gfx current_hp `$44` cleared. Native keeps internal durability
+            // for generic damage bookkeeping independently of that Gfx word.
             0
         } else {
             self.hit_points
@@ -11955,8 +11956,8 @@ pub(crate) fn spawn_facing(family: EnemyFamily, enemy_x: u32, player_x: u32) -> 
                 Direction::Left
             }
         }
-        // Drips always start facing right (Drip.asm init)
-        EnemyFamily::Drips => Direction::Right,
+        // ASM Drips.asm Enemy16_Drip_Init clears x_direction(a3).
+        EnemyFamily::Drips => Direction::Left,
         // ASM Sphere.asm Enemy06_Sphere_Init writes x/y/velocities but never
         // writes `x_direction(a3)`, so the GfxObject keeps enemy-art default left.
         EnemyFamily::Sphere => Direction::Left,

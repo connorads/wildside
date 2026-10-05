@@ -23496,6 +23496,62 @@ fn gameplay_regression_emo_rock_tracking_copies_integer_words() {
     }
 }
 
+/// ASM Drips.asm Enemy16_Drip_Init sets display $13 on the live parent worker.
+#[test]
+fn gameplay_regression_drips_parent_enters_roster_after_initialisation() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/issue-517-drips-parent-roster.json"
+    ))
+    .expect("saved Drips parent route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    let is_parent = |object: &NativeObjectSnapshot| {
+        object.kind == NativeObjectKind::Enemy { object_type: 0x16 }
+    };
+    assert!(
+        !trace[398].active_objects.iter().any(is_parent),
+        "ASM loc_3691E allocates the Object before Enemy16_Drip_Init loads Gfx"
+    );
+    for (frame, y) in [(399, 638), (500, 626)] {
+        let parent = trace[frame]
+            .active_objects
+            .iter()
+            .find(|object| is_parent(object))
+            .expect("ASM Enemy16_Drip_Init sets parent display $13");
+        assert_eq!(
+            parent.layout_index, None,
+            "ASM Enemy16_Drip_Init overwrites $44(a5)"
+        );
+        assert_eq!(parent.x_pos, 136 << 16, "ASM Enemy16_Drip_Init parent X");
+        assert_eq!(
+            parent.facing,
+            Some(Direction::Left),
+            "ASM Enemy16_Drip_Init clears x_direction"
+        );
+        assert_eq!(
+            parent.hit_points,
+            Some(0),
+            "ASM Enemy16_Drip_Init leaves Gfx current_hp cleared"
+        );
+        assert_eq!(
+            parent.y_pos,
+            y << 16,
+            "ASM loc_333F6 parent ascent and ceiling wait"
+        );
+    }
+}
+
 #[test]
 fn gameplay_regression_diamond_ledge_turn_uses_init_width_loc_3ad4c() {
     let Some(manifest) = cached_generated_manifest() else {

@@ -11158,11 +11158,15 @@ impl NativeRuntime {
                     // animated `a3`; the first SAT entry wins overlap pixels.
                     snapshots.extend(enemy.tar_monster_primary_snapshot());
                     snapshots.push(enemy.snapshot());
-                } else if !matches!(enemy.family, EnemyFamily::Drips) {
-                    // ASM Drips.asm Enemy16_Drip_Init/loc_33488 keeps the
-                    // parent/controller gfx object hidden; visible Drips
-                    // children are exported through projectile snapshots.
+                } else {
+                    // ASM Drips.asm Enemy16_Drip_Init sets $13(a3) on the
+                    // parent; loc_33488 changes only the child display flags.
                     let mut snapshot = enemy.snapshot();
+                    if matches!(enemy.family, EnemyFamily::Drips) {
+                        // ASM Enemy16_Drip_Init overwrites the Object layout
+                        // pointer $44(a5) with the two control bytes.
+                        snapshot.layout_index = None;
+                    }
                     if matches!(enemy.family, EnemyFamily::HeadyMetal) {
                         snapshot.sprite_animation_phase = Some(
                             crate::enemies::heady_metal_anchor_sprite_phase_stru_37b8a_37b98(

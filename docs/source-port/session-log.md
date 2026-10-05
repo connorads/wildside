@@ -1,5 +1,10 @@
 ## 2026-10-05 - EmoRock coordinate word stores
 
+## 2026-10-05 - Drips parent roster
+
+Drips parent display, facing, Gfx HP and repurposed layout reference match saved501 and retention267. Fast7536 core/286 reviewed exclusions and full37759 pass; full report equals the prior baseline. Census advances04 seed1 from162 to287 with39 unchanged routes and no earlier frontier. Sweep retains102/105. Ledger04 advances roster399 to545;1/103 confirmed/10 native exits remains. All109 fixture bytes and180 layouts are restored. #517 stays open for the displayed child at545. Firing art and flag presentation remain open; system output stays muted and runtime checks use dummy SDL.
+
+
 Copy Kid integer words while preserving EmoRock fractions per loc_3621A. The distinct-fraction step regression fails before the fix and passes after it; all21 family tests and the cache-enabled saved replay pass. Saved376 and retention267 match the ROM. Fast7535 core/286 exclusions and full pass; three selected tests remain ignored. Full report equals the prior baseline. Sweep retains102/105. Fuzz advances04 seed3 from383 to451 and seed7 from345 to414;38 other routes are identical and none fails earlier. Level04 native Flag2096 remains blocked by roster399, so completion stays1/103. Fixtures108 and layouts180 are restored. Scoped mutations catch11; two equivalent OR-to-XOR changes survive and one Default return cannot compile. The initial parallel mutation run runs out of disk space; the serial retry completes. Firing artwork, flag presentation and other roster frontiers remain open. System audio stays muted; runtime checks use dummy SDL.
 
 ## 2026-10-05 - Live EmoRock retention

@@ -7614,9 +7614,8 @@ fn build_game_scene_filtered(
             }
         }
         // ASM Drips.asm Enemy16_Drip_Init sets display `$13(a3)` and installs
-        // C7B0E on the parent GfxObject. Core keeps those controllers out of
-        // the parity-normalised `active_objects` roster, so render them from
-        // the authoritative enemy details without changing object counts.
+        // C7B0E on the parent GfxObject. Draw the detailed parent once;
+        // the generic roster painter skips the matching Drips entry.
         for object in trace.active_enemy_details.iter().filter(|object| {
             matches!(
                 object.kind,
@@ -13278,7 +13277,7 @@ mod tests {
     }
 
     #[test]
-    fn drips_parent_gfx_snapshot_renders_while_parity_roster_stays_suppressed_enemy16_drip_init() {
+    fn drips_parent_gfx_snapshot_renders_once_with_roster_entry_enemy16_drip_init() {
         let mut visuals = sample_level_visuals(1);
         let mut drips = sample_animated_visual(sample_sprite_frame(0x16));
         drips.palette = sample_palette_with_first_word(0x0100);
@@ -13287,7 +13286,7 @@ mod tests {
             sample_palette_with_first_word(0x0300),
         ];
         visuals.enemies.families.insert(DRIPS_OBJECT_TYPE, drips);
-        let trace = NativeTraceFrame {
+        let mut trace = NativeTraceFrame {
             active_enemy_details: vec![NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy {
                     object_type: DRIPS_OBJECT_TYPE,
@@ -13304,6 +13303,7 @@ mod tests {
             ..NativeTraceFrame::default()
         };
 
+        trace.active_objects = trace.active_enemy_details.clone();
         let scene = build_game_scene_filtered(
             &trace,
             false,
@@ -13322,7 +13322,7 @@ mod tests {
         assert_eq!(
             sprites.len(),
             1,
-            "ASM Drips.asm Enemy16_Drip_Init sets display `$13(a3)` and LnkTo_unk_C7B0E on the attached parent even though native keeps that controller out of the parity roster"
+            "ASM Drips.asm Enemy16_Drip_Init sets display `$13(a3)` and LnkTo_unk_C7B0E on the parent, which renders once with its matching roster entry"
         );
         assert_eq!(
             sprite_tile_snapshot(sprites[0]),

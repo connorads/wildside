@@ -4377,7 +4377,18 @@ mod tests {
         assert_eq!(
             with_controller,
             (baseline.0 + 1, baseline.1 + 3),
-            "ASM Drips.asm Enemy16_Drip_Init loads the controller's a3 GfxObject and allocates its a1/a2 children; suppressing those hidden snapshots must retain one Object and three Gfx workers",
+            "ASM Drips.asm Enemy16_Drip_Init loads a3 and allocates a1/a2, retaining one Object and three Gfx workers",
+        );
+        runtime.rebuild_active_enemy_roster();
+        assert_eq!(
+            runtime.active_enemy_roster.len(),
+            1,
+            "ASM Enemy16_Drip_Init sets parent display $13"
+        );
+        assert_eq!(
+            runtime.object_counts_from_roster(&runtime.active_enemy_roster, 0, 0),
+            with_controller,
+            "ASM Enemy16_Drip_Init exporting a3 leaves its one Object and three Gfx allocations unchanged",
         );
     }
 
@@ -16658,8 +16669,9 @@ impl NativeRuntime {
         camera_x_pos: u32,
         camera_y_pos: u32,
     ) -> u16 {
-        let drips_parent_workers =
-            self.hidden_drips_parent_worker_count_enemy16_drip_init(&self.active_enemies);
+        let drips_parent_workers = self
+            .drips_parent_worker_count_enemy16_drip_init(&self.active_enemies)
+            .saturating_sub(self.exported_drips_parent_worker_count_enemy16_drip_init());
         // ASM Mode_Level loc_80C -> loc_3691E links new enemy Object slots
         // after the render roster has been built. Their Gfx slots wait for
         // the next Execute_Objects pass, but Number_Objects rises now.
@@ -16683,12 +16695,9 @@ impl NativeRuntime {
                 })
                 .count() as u16
         };
-        // ASM Drips.asm Enemy16_Drip_Init is an Object_RAM coroutine whose
-        // parent gfx object stays hidden through loc_333F6..loc_3350E. Native
-        // deliberately suppresses that parent from `active_enemy_roster`.
-        // The exact loc_74E0 recording route counts allocated controllers
-        // through their Object_CheckInRange deletion; direct boot probes use
-        // their established roster-derived counts.
+        // ASM Drips.asm Enemy16_Drip_Init owns one Object slot. An exported
+        // parent already contributes that worker through the roster; pending
+        // initialisers contribute it here before their Gfx slot exists.
         // ASM loc_10DA4/sub_10DE4 (kid.asm:22692,22717) allocates a standard
         // Object_RAM coroutine for each rubber-block skin swap, but unlike
         // smash/ice block debris it never calls j_sub_E02 and owns no gfx slot.
@@ -16818,13 +16827,24 @@ impl NativeRuntime {
             .count() as u16
     }
 
-    fn hidden_drips_parent_worker_count_enemy16_drip_init(&self, enemies: &[ActiveEnemy]) -> u16 {
+    fn drips_parent_worker_count_enemy16_drip_init(&self, enemies: &[ActiveEnemy]) -> u16 {
         enemies
             .iter()
             .filter(|enemy| {
                 self.recording_oracle_debug_lifecycle_completed
                     && enemy.family == EnemyFamily::Drips
             })
+            .count() as u16
+    }
+
+    /// ASM Drips.asm Enemy16_Drip_Init exposes the parent through display $13.
+    fn exported_drips_parent_worker_count_enemy16_drip_init(&self) -> u16 {
+        if !self.recording_oracle_debug_lifecycle_completed {
+            return 0;
+        }
+        self.active_enemy_roster
+            .iter()
+            .filter(|object| object.kind == NativeObjectKind::Enemy { object_type: 0x16 })
             .count() as u16
     }
 
@@ -17103,10 +17123,11 @@ impl NativeRuntime {
             self.pending_enemy_gfx_initialisations_loc_3691e,
         ));
         let hidden_drips_gfx_workers = self
-            .hidden_drips_parent_worker_count_enemy16_drip_init(
+            .drips_parent_worker_count_enemy16_drip_init(
                 &self.active_enemies[..initialised_enemy_count],
             )
-            .saturating_mul(3);
+            .saturating_mul(3)
+            .saturating_sub(self.exported_drips_parent_worker_count_enemy16_drip_init());
         // ASM loc_108EE/loc_10B3A allocate each visible prize child through
         // j_Allocate_GfxObjectSlot_a1 without allocating another Object slot.
         let prize_effect_gfx_workers = self
@@ -17122,8 +17143,8 @@ impl NativeRuntime {
         // two cleanup hibernations.
         // ASM Drips.asm Enemy16_Drip_Init loads the controller's a3 GfxObject
         // and preallocates a1/a2 through j_Allocate_GfxObjectSlot_a1. Native
-        // suppresses all three hidden snapshots and adds their one Object side
-        // separately, so retain all three slots in the Gfx-only projection.
+        // exports the parent and retains the two child allocations in the
+        // Gfx-only projection, independently of their display flags.
         family_linked_gfx_workers
             .saturating_add(dragon_flying_descent_fire_gfx_workers)
             .saturating_add(hidden_drips_gfx_workers)
