@@ -31741,3 +31741,15 @@ Sweep1791224440 retains the same105 level outcomes and102 passes. Fuzz1791224452
 
 
 The normal CLI ratchet rejects the old Level48 assertion that the pool is transferred at115. Fresh paired slots show floor113, splash114 and pool115 in post-update state; Mode_Level `loc_901` presents the splash at115 and the pool at116. The corrected existing test pins both mappings and passes its frame359 pool checks. Native and ROM child-region pixels match113..115; seven pixels differ where Kid overlaps the pool at116, so whole-frame visual fidelity remains open.
+
+### #517 - EmoRock falling coroutine retention
+
+ASM `loc_36274` branches to `loc_3625E` while collision is zero. It never returns to `loc_3621A` tracking during a drop. Restrict tracking to zero vertical velocity, retaining the existing wind-up and landing paths. The owning-step regression reproduces the parent teleport when Kid moves. The saved600 public replay pins both layout1/2 positions, velocities and falling phase at593/594/595/599.
+
+Saved600 and retention267 match all state, enemy and RNG checkpoints. All46 family tests, core clippy and required fast7540 core/286 reviewed exclusions pass. Full37759 report is byte-identical to the Drips parent report, retaining37518 exact frames,241 divergent frames,2391 changed pixels and zero GEMS command mismatches. Isolated serial mutation tests catch the whole-step deletion and equality reversal; replacing the let-chain AND with OR cannot compile. No viable mutation survives.
+
+After captures593/594/595/599 retain579/568/565/569 upper-right changed pixels. Before595 has814 additional changed pixels outside that region, and before599 has651. The fix removes the misplaced rock; these captures do not establish whole-frame pixel parity.
+
+Sweep1791226809 preserves all105 level outcomes and102 passes. Fixed fuzz1791226821 advances04 seed1 287 to299, seed3 451 to534, seed7 414 to471;37 other routes and idle remain identical. Original2610 advances its first state difference to615 object counts and first enemy difference to626 landing Y03200000 versus031F0000. RNG first differs638. Ledger1791226863 generates a different native Flag2291 route blocked by `db0bb066`322 Kid velocities; it is not a replay of the old route. Completion remains1/103 confirmed/10 native exits.
+
+Census restores110 original fixtures after17 overwrites and leaves180 layouts unchanged. Generated CLI debug builds are cleaned through Cargo to free space for isolated serial mutations. #517 remains open for count, landing and other roster frontiers. Physical output stays muted; runtime verification uses dummy SDL.

@@ -23696,6 +23696,50 @@ fn gameplay_regression_drips_floor_contact_and_splash_handoff_loc_33488() {
 }
 
 #[test]
+fn gameplay_regression_emo_rock_falling_loop_loc_36274() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/issue-517-emo-rock-falling-loop.json"
+    ))
+    .expect("saved EmoRock falling route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    // ASM loc_36274 loops to loc_3625E until collision, retaining X while
+    // gravity advances Y. ROM ledger04 frames 593..599 pin both live rocks.
+    for (frame, y, velocity) in [
+        (593, 0x02A4_4000, 0x4000),
+        (594, 0x02A4_C000, 0x8000),
+        (595, 0x02A5_8000, 0xC000),
+        (599, 0x02AB_0000, 0x1C000),
+    ] {
+        for index in [1, 2] {
+            let rock = trace[frame]
+                .active_enemy_details
+                .iter()
+                .find(|object| {
+                    object.kind == NativeObjectKind::Enemy { object_type: 0x1B }
+                        && object.layout_index == Some(index)
+                })
+                .expect("ASM loc_36274 retains the falling rock");
+            assert_eq!(rock.x_pos, 0x0250_0000);
+            assert_eq!(rock.y_pos, y);
+            assert_eq!(rock.y_velocity, Some(velocity));
+            assert_eq!(rock.sprite_animation_phase, Some(10));
+        }
+    }
+}
+
+#[test]
 fn gameplay_regression_diamond_ledge_turn_uses_init_width_loc_3ad4c() {
     let Some(manifest) = cached_generated_manifest() else {
         return;

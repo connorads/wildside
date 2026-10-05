@@ -1,3 +1,9 @@
+## 2026-10-05 - EmoRock falling loop
+
+Retain the falling coroutine after the wind-up per loc_36274/loc_3625E. The owning-step test fails on the parent and passes with the velocity guard. Saved600 and retention267 match state, enemies and RNG; all46 family tests pass. Required fast7540 core/286 reviewed exclusions and full37759 pass. The full report equals the parent baseline. Scoped mutation catches both viable substitutions; the OR let-chain cannot compile.
+
+Sweep1791226809 retains all105 outcomes and102 passes. Fuzz1791226821 advances04 seed1 287 to299, seed3 451 to534 and seed7 414 to471;37 other routes and idle are identical. Original2610 next differs on object counts615, then EmoRock landing626; RNG still differs638. Ledger1791226863 finds a different native Flag2291 route blocked by Kid velocities322, leaving1/103 confirmed/10 native exits. All110 original fixtures and180 layouts are restored. Captures remove the misplaced rock while upper-right pixel residuals remain. #517, firing artwork and flag presentation stay open. System output stays muted; runtime checks use dummy SDL.
+
 ## 2026-10-05 - Drips contact, splash and pool
 
 Saved590 and retention267 match state/enemies/RNG. Visible Drips positions and sprite region match five frames908..912 on a saved-prefix route; other enemies still diverge. Required fast7538/286 reviewed exclusions and full37759 pass; full report equals the parent baseline. Sweep102/105 and all40 fuzz routes remain unchanged. Ledger04 advances585 to EmoRock594, with1/103 confirmed/10 native exits. All110 fixture bytes and180 layouts are restored. Two old cached Level01 controls remain red with unchanged results. #517, firing artwork and flag presentation stay open. System output stays muted; tests use dummy SDL.

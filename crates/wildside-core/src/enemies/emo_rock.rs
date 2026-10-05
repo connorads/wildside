@@ -541,7 +541,11 @@ pub(crate) fn step_emo_rock_with_rng(
         if enemy.dragon_descent_frames > 0 {
             return;
         }
-    } else if let (Some(grid), Some(px), Some(py)) = (block_grid, player_x_pos, player_y_pos) {
+    } else if enemy.y_velocity == 0
+        && let (Some(grid), Some(px), Some(py)) = (block_grid, player_x_pos, player_y_pos)
+    {
+        // ASM loc_36274 loops to loc_3625E while falling. Only loc_3621A
+        // before the wind-up tracks Kid; landing clears velocity at loc_362A4.
         let target = emo_rock_hover_target_loc_3621a(px, py, EMO_ROCK_HOVER_HEIGHT[level_index]);
         // ASM loc_3621A move.w changes only the integer word of each position.
         enemy.x_pos = target.x_pos | (enemy.x_pos & 0xFFFF);
@@ -725,6 +729,33 @@ mod tests {
     fn empty_grid(width: u16, height: u16) -> terrain::BlockGrid {
         let data = vec![0u8; usize::from(width) * usize::from(height) * 2];
         terrain::BlockGrid::from_level_layout(&data, width, height)
+    }
+
+    #[test]
+    fn emo_rock_falling_loop_loc_36274_retains_position_when_kid_moves() {
+        // ASM loc_36274 branches to loc_3625E until collision, never loc_3621A.
+        // ROM ledger04 frames 593..595 retain x=$02500000 after the wind-up.
+        let mut enemy = emo_rock_test_enemy(0x0250_0000, 0x02A4_4000, 1);
+        enemy.y_velocity = 0x4000;
+        let grid = empty_grid(64, 64);
+        let mut rng = RomRandomState::default();
+        let mut sounds = Vec::new();
+
+        for (y_pos, y_velocity) in [(0x02A4_C000, 0x8000), (0x02A5_8000, 0xC000)] {
+            step_emo_rock_with_rng(
+                &mut enemy,
+                Some(&grid),
+                Some(0x01CF_0000),
+                Some(0x031F_0000),
+                &mut rng,
+                Some(&mut sounds),
+            );
+            assert_eq!(enemy.x_pos, 0x0250_0000);
+            assert_eq!(enemy.y_pos, y_pos);
+            assert_eq!(enemy.y_velocity, y_velocity);
+            assert_eq!(enemy.dragon_descent_frames, 0);
+        }
+        assert!(sounds.is_empty());
     }
 
     #[test]
