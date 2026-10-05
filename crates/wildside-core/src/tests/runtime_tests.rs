@@ -23459,6 +23459,43 @@ fn gameplay_regression_emo_rock_retains_wait_worker_outside_spawn_window() {
     }
 }
 
+/// ASM Emo_Rock.asm loc_3621A copies integer words without importing Kid fractions.
+#[test]
+fn gameplay_regression_emo_rock_tracking_copies_integer_words() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/issue-517-emo-rock-word-tracking.json"
+    ))
+    .expect("saved EmoRock tracking route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    for (frame, x, y) in [
+        (345, 0x008D_0000, 0x0022_0000),
+        (346, 0x008F_0000, 0x0023_0000),
+    ] {
+        let rock = trace[frame]
+            .active_enemy_details
+            .iter()
+            .find(|enemy| {
+                enemy.kind == NativeObjectKind::Enemy { object_type: 0x1b }
+                    && enemy.layout_index == Some(1)
+            })
+            .expect("ASM loc_3621A live EmoRock layout1");
+        assert_eq!(rock.x_pos, x, "ASM loc_3621A integer X store");
+        assert_eq!(rock.y_pos, y, "ASM loc_3621A integer Y store");
+    }
+}
+
 #[test]
 fn gameplay_regression_diamond_ledge_turn_uses_init_width_loc_3ad4c() {
     let Some(manifest) = cached_generated_manifest() else {

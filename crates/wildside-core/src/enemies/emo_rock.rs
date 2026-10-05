@@ -128,14 +128,12 @@ pub(crate) fn emo_rock_hover_target_loc_3621a(
     player_y_pos: u32,
     hover_height_px: i32,
 ) -> EmoRockHoverTargetLoc3621A {
-    // ASM Emo_Rock.asm loc_3621A: after hibernating, copy Kid X into x_pos,
-    // then `sub.w d1,d7` and store that integer word into y_pos. Subtracting
-    // the shifted FP16.16 height therefore wraps the word and preserves the
-    // fractional half before the `$1C` by `$E` clearance probe.
+    // ASM Emo_Rock.asm loc_3621A reads Kid's integer words and subtracts d1
+    // with sub.w. The caller stores these words without changing EmoRock's fractions.
     let hover_height_fp = (hover_height_px as u32) << 16;
     EmoRockHoverTargetLoc3621A {
-        x_pos: player_x_pos,
-        y_pos: player_y_pos.wrapping_sub(hover_height_fp),
+        x_pos: player_x_pos & 0xFFFF_0000,
+        y_pos: player_y_pos.wrapping_sub(hover_height_fp) & 0xFFFF_0000,
         clearance_height_px: 0x001C,
         clearance_half_width_px: 0x000E,
     }
@@ -545,8 +543,9 @@ pub(crate) fn step_emo_rock_with_rng(
         }
     } else if let (Some(grid), Some(px), Some(py)) = (block_grid, player_x_pos, player_y_pos) {
         let target = emo_rock_hover_target_loc_3621a(px, py, EMO_ROCK_HOVER_HEIGHT[level_index]);
-        enemy.x_pos = target.x_pos;
-        enemy.y_pos = target.y_pos;
+        // ASM loc_3621A move.w changes only the integer word of each position.
+        enemy.x_pos = target.x_pos | (enemy.x_pos & 0xFFFF);
+        enemy.y_pos = target.y_pos | (enemy.y_pos & 0xFFFF);
 
         let x_px = i32::try_from(enemy.x_pos >> 16).map_or(i32::MAX, |value| value);
         let y_px = i32::try_from(enemy.y_pos >> 16).map_or(i32::MAX, |value| value);
@@ -771,8 +770,8 @@ mod tests {
 
         assert_eq!(
             emo_rock_hover_target_loc_3621a(0x0123_0000, 0x0020_8000, 0x50).y_pos,
-            0xffd0_8000,
-            "ASM Emo_Rock.asm loc_3621A `sub.w d1,d7` should wrap the integer word while preserving Kid Y's fractional word"
+            0xffd0_0000,
+            "ASM Emo_Rock.asm loc_3621A sub.w wraps the integer target without copying Kid's fractional word"
         );
     }
 
@@ -1090,6 +1089,32 @@ mod tests {
             "ASM Emo_Rock.asm loc_3621A stores Kid Y minus the level-1 `$3C` hover height as FP16.16"
         );
         assert_eq!(enemy.wait_timer, 0);
+    }
+
+    #[test]
+    fn step_emo_rock_tracking_preserves_own_fractional_words_loc_3621a() {
+        for (player_y, expected_y) in [(0x00C8_8000, 0x008C_2468), (0x0020_8000, 0xFFE4_2468)] {
+            let mut enemy = emo_rock_test_enemy(0x0040_1357, 0x0010_2468, 2);
+            enemy.enemy_level = 1;
+            enemy.wait_timer = 0;
+            let grid = terrain::BlockGrid::from_level_layout(&[0; 20 * 20 * 2], 20, 20);
+            step_emo_rock_with_rng(
+                &mut enemy,
+                Some(&grid),
+                Some(0x0042_ABCD),
+                Some(player_y),
+                &mut RomRandomState::default(),
+                None,
+            );
+            assert_eq!(
+                enemy.x_pos, 0x0042_1357,
+                "ASM loc_3621A move.w preserves EmoRock X fraction"
+            );
+            assert_eq!(
+                enemy.y_pos, expected_y,
+                "ASM loc_3621A sub.w/move.w preserves EmoRock Y fraction"
+            );
+        }
     }
 
     #[test]
