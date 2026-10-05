@@ -3554,6 +3554,7 @@ impl OpeningSliceState {
                             suppress_probe_slope_velocity,
                             standing_wake,
                             left_boundary_entry,
+                            camera_look,
                         )
                     };
 
@@ -5489,6 +5490,7 @@ impl OpeningSliceState {
             false,
             false,
             KidLeftBoundaryEntry::Standing,
+            &mut CameraLookState::default(),
         )
     }
 
@@ -5503,6 +5505,7 @@ impl OpeningSliceState {
         suppress_probe_slope_velocity: bool,
         standing_wake: bool,
         left_boundary_entry: KidLeftBoundaryEntry,
+        camera_look: &mut CameraLookState,
     ) -> bool {
         let input = input.with_left_right_conflict_resolved();
         if self.player.on_ground && !input.b {
@@ -5684,12 +5687,17 @@ impl OpeningSliceState {
             && grounded_slope.is_none()
             && cached_slope_continuation.is_none()
             && form != PlayerForm::Skycutter
-            && self.player.x_velocity != 0
+            && (self.player.x_velocity != 0 || left_boundary_entry == KidLeftBoundaryEntry::Walking)
             && new_vel == 0
         {
             // ASM loc_8E16 -> loc_7606 -> loc_78C6 (kid.asm:10210,7953):
             // walking-to-standing re-dispatch scans the floor again. This also
             // advances a contacted telepad for the second time in this frame.
+            // ASM loc_8E16 -> loc_7606/loc_7650 repeats release decay before
+            // the standing callback reaches sub_71E4.
+            if !input.down {
+                camera_look.offset = camera_look.offset.saturating_sub(8).max(0);
+            }
             if let Some(grid) = block_grid {
                 self.walking_floor_support_exists_at_current_position(grid, form.half_width());
             }

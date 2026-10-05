@@ -1,5 +1,75 @@
 use super::*;
 
+/// ASM loc_82CA -> loc_8E3E retains Walking at zero velocity; the next
+/// loc_8E16 -> loc_7606 runs loc_8C12 and loc_7650 decay before camera follow.
+#[test]
+fn camera_look_crawl_release_walking_stop_decays_twice() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_floor_at_row(6));
+    start_level(&mut runtime);
+    runtime.kid_crawling = true;
+    runtime.camera_look.offset = 83;
+    runtime.camera_look.last_kid_y = 95;
+    let mut slice = OpeningSliceState::new(LevelBounds {
+        width_pixels: 6 * 20 * 16,
+        height_pixels: 4 * 14 * 16,
+    });
+    slice.player.on_ground = true;
+    slice.player.x_pos = 40 << 16;
+    slice.player.y_pos = 95 << 16;
+    slice.camera.y_pos = 63 << 16;
+    runtime.opening_slice = Some(slice);
+
+    let released = runtime.step_frame(FrameInput::default());
+    assert_eq!(released.character_movement, Some(2), "ASM loc_82CA Walking");
+    assert_eq!(runtime.camera_look.offset, 75, "ASM loc_825C first decay");
+    assert_eq!(released.camera_y_pos, 61 << 16, "ASM loc_72C8 first follow");
+
+    let stopped = runtime.step_frame(FrameInput::default());
+    assert_eq!(stopped.character_movement, Some(0), "ASM loc_8E16 Standing");
+    assert_eq!(
+        runtime.camera_look.offset, 59,
+        "ASM loc_8C12 and loc_7650 decay"
+    );
+    assert_eq!(stopped.camera_y_pos, 57 << 16, "ASM loc_72C8 second follow");
+}
+
+/// ASM loc_8E16 -> loc_7606/loc_7650 decays look again on walking stop.
+/// ROM WRAM/PC probe511 reaches both loc_8C12 and loc_7650 before camera follow.
+#[test]
+fn gameplay_regression_camera_walking_stop_look_decay() {
+    let Some(mut runtime) = cached_generated_runtime() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/fuzz-repros/fe290c76.json"
+    ))
+    .expect("saved walking-stop camera route");
+    runtime.boot_to_level_for_recording_oracle(LevelId(2));
+    runtime.settle_recording_oracle_warp_live_window(LevelId(2));
+    for frame in 0..repro.frame_count {
+        let mask = frame
+            .checked_sub(1)
+            .and_then(|index| repro.script.get(index))
+            .copied()
+            .unwrap_or(0);
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame == 511 {
+            assert_eq!(runtime.camera_look.offset, 30, "ASM loc_7650 second decay");
+            assert_eq!(
+                trace.camera_y_pos,
+                1521 << 16,
+                "ASM loc_72C8 camera after second decay"
+            );
+        }
+    }
+}
+
 /// ASM loc_9D2E -> sub_71E4/loc_72C8 follows the slope coroutine without
 /// the walking/crawl look-down increments. ROM WRAM/PC probe frames270..276.
 #[test]

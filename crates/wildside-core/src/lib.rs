@@ -6075,6 +6075,8 @@ impl NativeRuntime {
 
     fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {
         self.kid_floor_landing_hibernated = false;
+        // ASM loc_82CA -> loc_8E3E retains Walking for the next callback.
+        let walking_after_crawl_standup = self.kid_crawl_standup_from_rest;
         self.kid_crawl_standup_from_rest = false;
         let resuming_transform_callback = self.progression.form_change_flash_frames == 2;
         if !self.step_lifecycle(input) {
@@ -6710,8 +6712,8 @@ impl NativeRuntime {
                     &deferred_prize_ceiling_cells,
                     standing_wake && self.active_platform_standing_on.is_none(),
                     self.kid_crawl_standup_from_rest,
-                    if self.active_platform_standing_on.is_some() {
-                        // ASM loc_8DEA keeps Walking with composite platform velocity.
+                    if self.active_platform_standing_on.is_some() || walking_after_crawl_standup {
+                        // ASM loc_8DEA/loc_82CA retains the Walking continuation.
                         movement::KidLeftBoundaryEntry::Walking
                     } else {
                         self.kid_left_boundary_entry

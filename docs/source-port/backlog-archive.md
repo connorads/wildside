@@ -31647,3 +31647,13 @@ Parent/current/ROM scene captures270/275/276/277 are inspected. Scene rendering 
 Sweep1791186599 retains102/105,9 blocking/3 advisory differences and72 oracle limitations. Fixed census1791186611 improves31->25 divergent routes and23->22 clusters. Six full routes match; five first differences advance; no route fails earlier. New122aa909/1fdcc5a4/e1f888c7/fe290c76 clusters require independent shrinking/intake. All104 prior fixture files are restored byte-for-byte after18 generated overwrites; generated layout bytes remain unchanged. Level04 ledger1791186643 finds native Flag2240 but is blocked by1bb13cb2 KidY390. Completion remains0/103 ROM-confirmed exits.
 
 Firing artwork, flag presentation, other gameplay/visual gaps and approved-device audio listening remain open. System output stays muted; every runtime verification uses dummy SDL audio.
+
+### #522 - Walking-stop camera decay, 2026-10-05
+
+ASM loc_82CA -> loc_8E3E retains Walking after crawl stand-up. At zero speed loc_8E16 -> loc_7606 -> loc_7650 repeats release decay before camera update. Preserve that continuation and apply the second decay inside the actual redispatch. The always-running public-frame regression fails67 versus59 on the parent and passes. Reduced fe290c76 has511 input frames,58 nonzero inputs after397 oracle replays; fresh ROM frame511 gives look30/camera1521. All512 state/enemy/RNG checkpoints match.
+
+Final fast gate passes;286 reviewed exclusions and three ignored selected frame checks remain. Full37759-frame report is byte-identical to the parent. Original542 plus14/34 controls match783 checkpoints. Saved40 retains two parent X/velocity differences. Optional cache-enabled camera group passes141 and fails three; actual parent passes139 and fails the same three with identical values. No exclusions added.
+
+Fixed census1791199972 improves25->24 divergent routes and22->21 clusters, only02 seed3 camera511 clears; no earlier frontier. Sweep1791199959 retains102/105,9 blocking,3 advisory,72 limitations,0 errors. Ledger02 finds no exit after1500070/1500082 native frames. All107 original fixture bytes restored after18 overwrites;180 generated layouts restored unchanged. Parent/current/ROM frame512 was read: changed pixels26468->168; residual includes world prize and HUD. Camera parity does not prove whole-frame parity or game completion.
+
+Evidence: `.cache/debug/crawl-standup/camera-fe2-final-verification-0lhod4iu/`, `camera-walk-stop-verification-8yuey_77/`, `camera-walk-stop-census-psg87zlb/`, `camera-fe2-reduced-probe-lmh1ixvt/`, `camera-fe2-shrink-0h24s75w/`. Firing artwork, flag presentation and wider movement remain open under #522.
