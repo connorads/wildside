@@ -31,8 +31,8 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 ## NOW
 
-- **Current work (2026-10-05):** P1 #522 wall-cling detach matches119 short and371 full-route state/RNG checkpoints. Level05 exits to4A at340 on both engines; public ledger verify passes. Fast7531 core/286 exclusions and full37759 pass. Firing artwork and flag presentation remain open. System output stays muted; runtime tests use dummy SDL.
-- **Intake:** Ledger retains the verified05 witness as1/103 confirmed and10 native exits. New shorter05 search is blocked by fb9ad5d3 damage215. Fuzz1791203572 retains24 divergent routes/21 clusters, with all40 records identical to the previous census. Sweep1791203560 retains102/105 and9 blocking differences. All107 prior fixtures restored; other intake fixtures remain separate.
+- **Current work (2026-10-05):** Ledger writer revalidates saved confirmed exits before retaining them against a blocked new search. Actual05 search and public ledger verify pass;1/103 confirmed/10 native exits remain. All five ledger tests and fast7531 core/286 exclusions pass. Firing artwork and flag presentation remain open. System output stays muted; runtime tests use dummy SDL.
+- **Intake:** Shorter05 route278 remains blocked by fb9ad5d3 damage215; the saved340 exit remains ROM-confirmed. Fuzz1791203572 retains24 divergent routes/21 clusters; sweep1791203560 retains102/105 and9 blocking differences. Other intake fixtures remain separate. Gameplay code is unchanged in the ledger tooling unit.
 - **Scope:** ADR0004 sets the fidelity floor: gameplay, enemy and RNG state, level exits, visible or audible bugs. Pixel baseline and injection ratchet stay.
 - **After each fix:** Re-run fixed fuzz and affected ledger levels with `--write`; extend the ledger beyond0x10 once early levels confirm.
 - **Jev allowance:** $5 additional across the campaign. #185 used48 requests in one attempt; lifetime charged upper bound $0.257086284.

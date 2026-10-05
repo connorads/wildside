@@ -31669,3 +31669,11 @@ Full saved05 inputs reproduce a ToLevel4A exit and transition at340. Production 
 Native/ROM frame119 PNGs were read. Kid's region matches;117..120 retain531/603/675/749 changed pixels on the right edge/HUD. Historical1b4933af2 captures have the same counts and are explicitly labelled historical, not actual030 parent captures. No whole-frame pixel parity is claimed.
 
 Evidence: `.cache/debug/crawl-standup/airborne-40be-probe-pllqpjbs/`, `airborne-40be-verification-37cxv91v/`, `airborne-40be-census-h1mgph41/`, `airborne-40be-confirm-1z0n_jks/`. Initial temporary validator probe failed to compile for a missing PathBuf import; corrected probe passes. Both temporary ledger source probes restore bytes exactly. Firing artwork and flag presentation remain open under #522.
+
+### #522 - Retain ROM-revalidated exit witnesses, 2026-10-05
+
+Ledger run records the current search report independently from the retained completion witness. Before replacing a confirmed entry with NativeExit or NotFound, write_run_results replays the checked-in route through verify_route. A matching native exit and ROM transition retains the entry; validation failure stops writing. New Confirmed results replace the entry and route normally. CLI flags and stored schemas are unchanged.
+
+The isolated writer regression first fails0 versus1 with a blocked incoming route. All five ledger tests then pass, including actual native/ROM replay, stale exit metadata, missing route and replacement by a newly confirmed result. The failed cases leave the ledger bytes unchanged. Real ledger run1791205446,100000 frames per seed, finds05 ToLevel4A278 blocked by fb9ad5d3 damage215, revalidates the prior340 witness and preserves1/103 confirmed/10 native exits. Public ledger verify confirms05. The saved route SHA256 c7aa1bceaf080002c7696ce6a1e0d5a3857428b4ac0e222f12bc9c7ad2b7760f is unchanged.
+
+Required fast gate passes7531 core tests with286 reviewed exclusions and three ignored selected frame checks. Gameplay code is unchanged, so full TAS, sweep and fixed fuzz are not rerun for this tooling unit.180 generated layouts restore unchanged. Evidence: `.cache/debug/crawl-standup/ledger-retain-regression-fwh02rkb/`, `ledger-retain-verification-rq152_zs/`. No new confirmed level is claimed. Firing artwork, flag presentation and other game fidelity work remain open.

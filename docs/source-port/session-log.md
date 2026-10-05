@@ -1,5 +1,9 @@
 # Source-port session log
 
+## 2026-10-05 - Revalidate retained ledger witnesses
+
+Replay a previous confirmed exit before retaining it when a new search finds a blocked route or no exit. Failed replay or missing route stops the write; a newly confirmed route replaces the witness. The regression fails0 versus1 before the fix and all five ledger tests pass after it. Actual level05 search finds the278 exit blocked by damage215, then revalidates the retained340 exit. Public ledger verify passes; route bytes remain unchanged. Ledger stays1/103 confirmed. Fast7531 core/286 exclusions passes; three selected frame checks remain ignored. Full TAS is not rerun for this tooling-only change. Generated layouts are restored unchanged. Gameplay, firing artwork and flag presentation remain separate work. System audio stays muted.
+
 ## 2026-10-05 - Wall-cling detach callback and first confirmed exit
 
 Preserve wall-cling callback entry when pressing away so loc_AA22 skips horizontal acceleration until the next callback. Both wall directions and saved119 fail on the parent and pass on the fix. Full level05 route matches371 gameplay/enemy/RNG checkpoints and transitions to4A at340 on both engines. The ledger validator, route verifier and public ledger verify pass; retain this route as1/103 confirmed. Fast7531 core/286 exclusions and full37759 pass; full report equals the prior production report. Sweep remains102/105; all40 fixed fuzz route records remain identical. All107 fixture bytes and180 layouts restored. New search finds a shorter278 exit blocked by damage215, which does not invalidate the retained340 witness. Kid pixels match in117..120; right-edge/HUD residuals remain. Firing artwork, flag presentation and wider game fidelity remain open. System audio stays muted.

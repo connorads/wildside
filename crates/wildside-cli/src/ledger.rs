@@ -452,24 +452,51 @@ pub(crate) fn run_ledger(
     std::os::unix::fs::symlink(&run_dir, &latest).ok();
 
     if write {
-        for entry in &entries {
-            if entry.status == LevelStatus::Confirmed {
-                fs::create_dir_all(repo_root.join(ROUTE_DIR))?;
-                fs::copy(
-                    run_dir.join("routes").join(route_file(entry.level)),
-                    repo_root.join(ROUTE_DIR).join(route_file(entry.level)),
-                )?;
-            }
-        }
-        let mut ledger = load_ledger(repo_root).unwrap_or_default();
-        ledger.merge(entries, crate::fuzz::git_revision(repo_root));
-        write_ledger(repo_root, &ledger)?;
-        println!(
-            "ledger: {}/{} confirmed, {} native exits",
-            ledger.confirmed, ledger.playable, ledger.native_exits
-        );
+        write_run_results(repo_root, manifest, &oracle, &run_dir, entries)?;
     }
     println!("ledger report: {}", run_dir.join("report.json").display());
+    Ok(())
+}
+
+fn write_run_results(
+    repo_root: &Path,
+    manifest: &AssetManifest,
+    oracle: &OracleRunner,
+    run_dir: &Path,
+    entries: Vec<LevelEntry>,
+) -> Result<()> {
+    let mut ledger = load_ledger(repo_root).unwrap_or_default();
+    let mut updates = Vec::with_capacity(entries.len());
+    for entry in entries {
+        if entry.status != LevelStatus::Confirmed
+            && let Some(previous) = ledger
+                .levels
+                .iter()
+                .find(|previous| previous.level == entry.level)
+                .filter(|previous| previous.status == LevelStatus::Confirmed)
+        {
+            verify_route(repo_root, manifest, oracle, previous)
+                .with_context(|| format!("revalidate saved exit for {:#04x}", entry.level))?;
+            println!("{:#04x}: retained ROM-revalidated exit", entry.level);
+        } else {
+            updates.push(entry);
+        }
+    }
+    for entry in &updates {
+        if entry.status == LevelStatus::Confirmed {
+            fs::create_dir_all(repo_root.join(ROUTE_DIR))?;
+            fs::copy(
+                run_dir.join("routes").join(route_file(entry.level)),
+                repo_root.join(ROUTE_DIR).join(route_file(entry.level)),
+            )?;
+        }
+    }
+    ledger.merge(updates, crate::fuzz::git_revision(repo_root));
+    write_ledger(repo_root, &ledger)?;
+    println!(
+        "ledger: {}/{} confirmed, {} native exits",
+        ledger.confirmed, ledger.playable, ledger.native_exits
+    );
     Ok(())
 }
 
@@ -773,6 +800,107 @@ mod tests {
         let yaml = serde_yaml::to_string(&ledger).unwrap();
         let parsed: Ledger = serde_yaml::from_str(&yaml).unwrap();
         assert_eq!(parsed.levels[1].status, LevelStatus::NativeExit);
+    }
+
+    #[test]
+    fn ledger_writer_revalidates_confirmed_witnesses_before_replacing_results() {
+        let Some(manifest) = crate::tests::cached_generated_manifest() else {
+            return;
+        };
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+        let scratch = tempfile::tempdir().unwrap();
+        let oracle = OracleRunner::new(
+            repo,
+            &repo.join("roms/kid.bin"),
+            &scratch.path().join("oracle"),
+        )
+        .unwrap();
+        // Saved route proves the native/ROM exit and transition at frame340.
+        let existing = LevelEntry {
+            level: 5,
+            status: LevelStatus::Confirmed,
+            exit: Some(ExitKind::ToLevel(74)),
+            exit_frame: Some(340),
+            transition_frame: Some(340),
+            blocked_by: None,
+            run: "previous".into(),
+        };
+        let route = include_bytes!("../../../tests/data/ledger-routes/05.json");
+        let seed = |name: &str, entry: &LevelEntry, with_route: bool| {
+            let root = scratch.path().join(name);
+            fs::create_dir_all(root.join("docs/source-port")).unwrap();
+            let mut ledger = Ledger::default();
+            ledger.merge(vec![entry.clone()], "previous".into());
+            write_ledger(&root, &ledger).unwrap();
+            if with_route {
+                fs::create_dir_all(root.join(ROUTE_DIR)).unwrap();
+                fs::write(root.join(ROUTE_DIR).join("05.json"), route).unwrap();
+            }
+            root
+        };
+        let incoming = LevelEntry {
+            status: LevelStatus::NativeExit,
+            exit_frame: Some(278),
+            transition_frame: Some(278),
+            run: "new".into(),
+            ..existing.clone()
+        };
+        let run = scratch.path().join("run");
+        fs::create_dir_all(run.join("routes")).unwrap();
+
+        let retained = seed("retained", &existing, true);
+        write_run_results(&retained, &manifest, &oracle, &run, vec![incoming.clone()]).unwrap();
+        let ledger = load_ledger(&retained).unwrap();
+        assert_eq!(
+            ledger.confirmed, 1,
+            "blocked new route must not erase a verified exit"
+        );
+        assert_eq!(ledger.levels[0].exit_frame, Some(340));
+        assert_eq!(ledger.levels[0].run, "previous");
+        assert_eq!(
+            fs::read(retained.join(ROUTE_DIR).join("05.json")).unwrap(),
+            route
+        );
+
+        let stale = LevelEntry {
+            exit_frame: Some(339),
+            ..existing.clone()
+        };
+        for (name, entry, with_route) in [("stale", &stale, true), ("missing", &existing, false)] {
+            let root = seed(name, entry, with_route);
+            let before = fs::read(root.join(LEDGER_PATH)).unwrap();
+            assert!(
+                write_run_results(&root, &manifest, &oracle, &run, vec![incoming.clone()]).is_err()
+            );
+            assert_eq!(
+                fs::read(root.join(LEDGER_PATH)).unwrap(),
+                before,
+                "failed validation must block writing"
+            );
+        }
+
+        let replaced = seed("replaced", &stale, true);
+        let confirmed = LevelEntry {
+            run: "new".into(),
+            ..existing
+        };
+        let mut new_route: DynamicScenario = serde_json::from_slice(route).unwrap();
+        new_route.slug = "new-confirmed-route".into();
+        let new_bytes = serde_json::to_vec(&new_route).unwrap();
+        fs::write(run.join("routes/05.json"), &new_bytes).unwrap();
+        write_run_results(&replaced, &manifest, &oracle, &run, vec![confirmed]).unwrap();
+        let ledger = load_ledger(&replaced).unwrap();
+        assert_eq!(ledger.confirmed, 1);
+        assert_eq!(ledger.levels[0].run, "new");
+        assert_eq!(ledger.levels[0].exit_frame, Some(340));
+        assert_eq!(
+            fs::read(replaced.join(ROUTE_DIR).join("05.json")).unwrap(),
+            new_bytes
+        );
     }
 
     #[test]
