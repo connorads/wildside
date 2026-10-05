@@ -1,5 +1,9 @@
 # Source-port session log
 
+## 2026-10-05 - EmoRock Init callback and initial wait
+
+Defer the trailing-loader RNG draw to the accepted Init callback, yield before decrementing and hold layout position during loc36212 wait. Cleared Left/HP0 defaults match the ROM. Final431 passes264/264 state/enemy/RNG; fast/full/sweep pass their baselines. Fixed census advances three04 frontiers, with no earlier failure; all100 old fixtures restored. Parent frame263 improves1100->373 changed pixels. Dummy-SDL264 and native-only replay pass; timing and approved-device listening remain unproved. New reducers/intake remain separate. Ledger stays0/103 confirmed. System audio stays muted.
+
 ## 2026-10-05 - Settled native music startup
 
 Prime the fresh live GEMS engine from the initial trace so settled gameplay retains queued music. Saved-route regression fails without priming and passes with it. Final fast gate passes; dummy-SDL180/600 samples match offline native exports, cold600 unchanged, full trace controls unchanged. Census1791155150 and sweep1791155215 equal shared-walker parents; all100 fixture bytes restored. #341 retains approved-device listening. System audio remains muted. Next final RNG431 Init trace and user visual reports.

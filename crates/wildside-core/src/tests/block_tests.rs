@@ -8296,13 +8296,10 @@ mod chunk_04 {
             shared_walker_grounded_scan_trace: None,
         };
 
-        // During hover: tracks player x, hovers above player y
+        // ASM Emo_Rock.asm loc_36212 holds position during the initial delay.
         step_emo_rock(&mut enemy, Some(&grid), Some(player_x), Some(player_y));
-        assert_eq!(
-            enemy.x_pos, player_x,
-            "should track player x while hovering"
-        );
-        assert!(enemy.y_pos < player_y, "should hover above player");
+        assert_eq!(enemy.x_pos, 80 << 16);
+        assert_eq!(enemy.y_pos, 50 << 16);
         assert_eq!(enemy.wait_timer, 2);
 
         // Count down remaining wait
@@ -8312,6 +8309,8 @@ mod chunk_04 {
 
         // ASM Emo_Rock.asm loc_3621A starts `stru_3647E` before loc_3625E gravity.
         step_emo_rock(&mut enemy, Some(&grid), Some(player_x), Some(player_y));
+        assert_eq!(enemy.x_pos, player_x);
+        assert_eq!(enemy.y_pos, player_y - (80 << 16));
         assert_eq!(
             enemy.dragon_descent_frames, EMO_ROCK_DROP_WINDUP_ANIMATION_FRAMES_LOC_3621A,
             "should wait for the pre-drop animation before falling"

@@ -18150,6 +18150,51 @@ mod tests {
         }
     }
 
+    /// ASM loc_3691E -> Enemy1B_EmoRock_Init/loc_361F4: Init draws on the next pass.
+    #[test]
+    fn gameplay_regression_emo_rock_init_rng_follows_allocation() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario: DynamicScenario = serde_json::from_str(include_str!(
+            "../../../../tests/data/fuzz-repros/4317835b.json"
+        ))
+        .expect("EmoRock deferred Init route");
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("EmoRock deferred Init trace");
+        // ASM loc_9FE/loc_A32 and loc_361F4, ROM WRAM checkpoints255..258.
+        for (frame, offset, ring_byte) in [
+            (255, 0xfff8, 0xbf),
+            (256, 0xfffc, 0xbf),
+            (257, 0xffca, 0x58),
+            (258, 0xffce, 0x58),
+        ] {
+            assert_eq!(run.trace[frame].rng_offset, Some(offset), "frame{frame}");
+            assert_eq!(
+                run.trace[frame].rng_ring.as_ref().unwrap().as_bytes()[52],
+                ring_byte,
+                "frame{frame}"
+            );
+        }
+        // ASM Enemy1B_EmoRock_Init leaves x_direction/current_hp cleared;
+        // loc_36212 preserves layout position while its initial wait runs.
+        for frame in 257..264 {
+            let rock = run.trace[frame]
+                .active_objects
+                .iter()
+                .find(|object| object.layout_index == Some(1))
+                .expect("layout1 EmoRock");
+            assert_eq!(rock.x_pos, 0x0088_0000, "frame{frame}");
+            assert_eq!(rock.y_pos, 0x01af_0000, "frame{frame}");
+            assert_eq!(rock.facing, Some(Direction::Left), "frame{frame}");
+            assert_eq!(rock.hit_points, Some(0), "frame{frame}");
+        }
+    }
+
     /// ASM loc_3C0FA -> loc_3C172 -> loc_3C0E6 (kid.asm): grounded steps preserve Y.
     #[test]
     fn gameplay_regression_grounded_diamond_preserves_y_after_horizontal_step() {

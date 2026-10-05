@@ -530,21 +530,8 @@ pub(crate) fn step_emo_rock_with_rng(
     }
 
     if enemy.wait_timer > 0 {
-        // Hovering phase: track player position, count down.
-        if let (Some(px), Some(py)) = (player_x_pos, player_y_pos) {
-            let target =
-                emo_rock_hover_target_loc_3621a(px, py, EMO_ROCK_HOVER_HEIGHT[level_index]);
-            enemy.x_pos = target.x_pos;
-            enemy.y_pos = target.y_pos;
-        } else {
-            let hover_height_fp = (EMO_ROCK_HOVER_HEIGHT[level_index] as u32) << 16;
-            if let Some(px) = player_x_pos {
-                enemy.x_pos = px;
-            }
-            if let Some(py) = player_y_pos {
-                enemy.y_pos = py.wrapping_sub(hover_height_fp);
-            }
-        }
+        // ASM loc_36212 only hibernates and decrements d0. Position remains
+        // unchanged until loc_3621A starts the overhead-clearance loop.
         enemy.wait_timer = emo_rock_wait_countdown_loc_36212(enemy.wait_timer).remaining_wait_timer;
         return;
     }
@@ -1079,15 +1066,16 @@ mod tests {
     }
 
     #[test]
-    fn step_emo_rock_hover_partial_y_update_uses_fp_height_loc_3621a() {
+    fn step_emo_rock_clearance_loop_uses_fp_height_loc_3621a() {
         let mut enemy = emo_rock_test_enemy(0x0040_0000, 0x0010_0000, 2);
         enemy.enemy_level = 1;
-        enemy.wait_timer = 2;
+        enemy.wait_timer = 0;
+        let grid = terrain::BlockGrid::from_level_layout(&[0; 20 * 20 * 2], 20, 20);
 
         step_emo_rock_with_rng(
             &mut enemy,
-            None,
-            None,
+            Some(&grid),
+            Some(0x0040_0000),
             Some(0x00C8_0000),
             &mut RomRandomState::default(),
             None,
@@ -1095,24 +1083,25 @@ mod tests {
 
         assert_eq!(
             enemy.x_pos, 0x0040_0000,
-            "ASM Emo_Rock.asm loc_3621A only copies Kid X when the caller has a player X sample"
+            "ASM Emo_Rock.asm loc_3621A copies Kid X after the initial wait"
         );
         assert_eq!(
             enemy.y_pos, 0x008C_0000,
             "ASM Emo_Rock.asm loc_3621A stores Kid Y minus the level-1 `$3C` hover height as FP16.16"
         );
-        assert_eq!(enemy.wait_timer, 1);
+        assert_eq!(enemy.wait_timer, 0);
     }
 
     #[test]
     fn step_emo_rock_preserves_level_hover_height_after_damage_loc_361ae() {
         let mut enemy = emo_rock_test_enemy(0x0040_0000, 0x0010_0000, 1);
         enemy.enemy_level = 2;
-        enemy.wait_timer = 2;
+        enemy.wait_timer = 0;
+        let grid = terrain::BlockGrid::from_level_layout(&[0; 20 * 20 * 2], 20, 20);
 
         step_emo_rock_with_rng(
             &mut enemy,
-            None,
+            Some(&grid),
             Some(0x0060_0000),
             Some(0x00C8_0000),
             &mut RomRandomState::default(),

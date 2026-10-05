@@ -2784,9 +2784,9 @@ impl ActiveEnemy {
 
     /// Whether this enemy can be damaged (stomped, hit by projectile, etc.)
     pub(crate) fn is_vulnerable(&self) -> bool {
-        if self.family == EnemyFamily::Fireball {
-            // ASM Enemy19_Fireball_Init leaves current_hp at zero;
-            // Enemy19_Fireball_Kill sets $3D to disable Kid collision.
+        if matches!(self.family, EnemyFamily::Fireball | EnemyFamily::EmoRock) {
+            // ASM Enemy19_Fireball_Init/Enemy1B_EmoRock_Init leave current_hp
+            // zero; Enemy19_Fireball_Kill/loc_36346 disable collision on death.
             return !self.death_animation_active;
         }
         if self.hit_points == 0 {
@@ -4793,7 +4793,17 @@ fn activate_enemies_with_rng_inner(
                 wait_timer: orca_init.map_or_else(
                     || {
                         lion_runtime_fields.map_or_else(
-                            || spawn_wait_timer(family, enemy_level, player_x, rng),
+                            || {
+                                if family == EnemyFamily::EmoRock
+                                    && existing_enemy_action == ExistingEnemyLoaderAction::Preserve
+                                {
+                                    // ASM loc_3691E: Enemy1B_EmoRock_Init draws
+                                    // its loc_361F4 byte on the next object pass.
+                                    0
+                                } else {
+                                    spawn_wait_timer(family, enemy_level, player_x, rng)
+                                }
+                            },
                             |runtime| runtime.charge_timer,
                         )
                     },
@@ -5429,6 +5439,13 @@ fn step_active_enemies_with_rng_context(
         }
         if let Some(remaining) = freshly_loaded_enemies.get_mut(&ActiveEnemyKey::from_enemy(enemy))
         {
+            if enemy.family == EnemyFamily::EmoRock {
+                // ASM Enemy1B_EmoRock_Init -> loc_361F4 -> loc_36212:
+                // seed the delay on this accepted callback, then hibernate
+                // before its first decrement. loc_E1E haze skips do not draw.
+                enemy.wait_timer =
+                    emo_rock_wait_timer_with_rng(rng, player_x_pos.unwrap_or(enemy.x_pos));
+            }
             // ASM Manage_EnemyLoading loc_3691E (#419/#420): a freshly
             // allocated enemy's first passes run its family Init, which ends
             // in the walker hibernate entries, so no behaviour step runs —
@@ -8627,6 +8644,8 @@ fn fresh_enemy_no_step_passes_loc_3691e(family: EnemyFamily, enemy_level: u8) ->
         // ASM Diamond.asm loc_3AD4C -> loc_3C026/loc_3C0D2 and the
         // high-HP loc_3ADA4 path both hibernate before their first step.
         EnemyFamily::Diamond => 1,
+        // ASM Enemy1B_EmoRock_Init loc_361F4 seeds its wait before loc_36212 yields.
+        EnemyFamily::EmoRock => 1,
         // ASM Enemy19_Fireball_Init reaches loc_32C1A's first hibernate.
         EnemyFamily::Fireball => 1,
         // ASM Crab.asm Enemy09_Crab_Init opens with one hibernate, then its
@@ -11936,6 +11955,8 @@ pub(crate) fn spawn_facing(family: EnemyFamily, enemy_x: u32, player_x: u32) -> 
         // ASM Sphere.asm Enemy06_Sphere_Init writes x/y/velocities but never
         // writes `x_direction(a3)`, so the GfxObject keeps enemy-art default left.
         EnemyFamily::Sphere => Direction::Left,
+        // ASM Enemy1B_EmoRock_Init leaves the cleared x_direction unchanged.
+        EnemyFamily::EmoRock => Direction::Left,
         // ASM Armadillo.asm loc_3C718, Goat.asm loc_3CA30, Dragon.asm loc_3CD70,
         // Tank.asm loc_3B2E4, Robot.asm loc_3A7AC, Driller.asm loc_3BD2A,
         // and Scorpion.asm loc_3DBD8:
@@ -12356,6 +12377,66 @@ mod tests {
             assert_eq!(active[0].x_pos, x);
             assert_eq!(active[0].y_pos, 0x0080_0000);
             assert_eq!(active[0].wait_timer, wait);
+        }
+    }
+
+    /// ASM loc_E1E -> Enemy1B_EmoRock_Init -> loc_361F4/loc_36212.
+    #[test]
+    fn emo_rock_init_draw_waits_for_accepted_callback_and_yields_before_decrement() {
+        let enemy = ActiveEnemy {
+            family: EnemyFamily::EmoRock,
+            x_pos: 0x0100_0000,
+            y_pos: 0x0080_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            on_ground: false,
+            wait_timer: 0,
+            hit_points: 1,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut active = [enemy];
+        let mut fresh = std::collections::BTreeMap::from([(
+            ActiveEnemyKey::from_enemy(&enemy),
+            fresh_enemy_no_step_passes_loc_3691e(enemy.family, enemy.enemy_level),
+        )]);
+        let mut rng = RomRandomState::default();
+        let mut expected = rng.clone();
+        let mut drilled = Vec::new();
+        let expected_wait = emo_rock_wait_timer_with_rng(&mut expected, 0x0012_0000);
+        for (time, haze, wait) in [
+            (1, true, 0),
+            (4, true, expected_wait),
+            (5, false, expected_wait - 1),
+        ] {
+            step_active_enemies_with_rng(
+                &mut active,
+                None,
+                Some(0x0012_0000),
+                Some(0x0040_0000),
+                None,
+                None,
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                time,
+                haze,
+                None,
+                &mut rng,
+                &mut drilled,
+                None,
+                &mut fresh,
+            );
+            assert_eq!(active[0].wait_timer, wait);
+            assert_eq!(active[0].x_pos, 0x0100_0000);
+            assert_eq!(active[0].y_pos, 0x0080_0000);
+            if wait == 0 {
+                assert_eq!(rng, RomRandomState::default());
+                assert_eq!(fresh.len(), 1);
+            } else {
+                assert_eq!(rng, expected);
+                assert!(fresh.is_empty());
+            }
         }
     }
 
@@ -14941,7 +15022,8 @@ pub(crate) fn big_hopping_skull_hit_points_loc_3651a(enemy_level: u8) -> u8 {
 pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
     // ASM Enemy19_Fireball_Init selects unk_32BA6 from the layout level
     // without writing current_hp, which remains at allocation zero.
-    if family == EnemyFamily::Fireball {
+    if matches!(family, EnemyFamily::Fireball | EnemyFamily::EmoRock) {
+        // ASM Enemy1B_EmoRock_Init also leaves current_hp at allocation zero.
         return 0;
     }
     if family == EnemyFamily::BigHoppingSkull {
@@ -14959,7 +15041,6 @@ pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Driller => 2,
         EnemyFamily::Cloud => 1,
         EnemyFamily::Sphere => 1,
-        EnemyFamily::EmoRock => 1,
         EnemyFamily::Archer => 1,
         // Fire_Demon.asm loc_3A3D2: copy enemy_level(a3), add 3, store
         // current_hp in `$44(a3)`.
@@ -16907,6 +16988,7 @@ impl NativeRuntime {
                     | EnemyFamily::Robot
                     | EnemyFamily::Lion
                     | EnemyFamily::Fireball
+                    | EnemyFamily::EmoRock
             ) {
                 self.freshly_loaded_enemies_loc_3691e
                     .insert(ActiveEnemyKey::from_enemy(enemy), 1);
