@@ -6241,6 +6241,8 @@ impl NativeRuntime {
             }
         }
         let frame_start_on_ground = slice.player.on_ground;
+        // ASM loc_8218 -> loc_825C/loc_82D8 never dispatches a B-press jump.
+        let jump_pressed = jump_pressed && !(self.kid_crawling && frame_start_on_ground);
         let frame_start_walk_visual_accumulator = slice.walk_visual_accumulator;
 
         // Step helmet abilities BEFORE physics

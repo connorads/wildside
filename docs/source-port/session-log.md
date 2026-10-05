@@ -1,3 +1,7 @@
+## 2026-10-05 - Crawl B-press callback
+
+Grounded crawl omits the B jump dispatch from loc_8218. The saved regression fails on the parent and passes with the callback guard. Reduced204/original234 and standing Down+B204 match the ROM. Fast7532 core/286 exclusions and full pass; the full report matches the prior baseline byte-for-byte. Sweep retains102/105; fuzz advances only04 seed7 from203 to266. Level04 native Flag3010 remains blocked by slope411, so completion stays1/103. Fixtures107 and layouts180 are restored. Physical audio stays muted; runtime checks use dummy SDL.
+
 # Source-port session log
 
 ## 2026-10-05 - Revalidate retained ledger witnesses

@@ -1,5 +1,39 @@
 use super::*;
 
+/// ASM loc_8218 -> loc_825C/loc_82D8 has no B-press jump dispatch.
+/// ROM PC probe202/203 remains in the crawl loop after Down+B.
+#[test]
+fn gameplay_regression_crawling_ignores_jump_press() {
+    let Some(mut runtime) = cached_generated_runtime() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/fuzz-repros/1fdcc5a4.json"
+    ))
+    .expect("saved crawl B-press route");
+    runtime.boot_to_level_for_recording_oracle(LevelId(4));
+    runtime.settle_recording_oracle_warp_live_window(LevelId(4));
+    for frame in 0..repro.frame_count {
+        let mask = frame
+            .checked_sub(1)
+            .and_then(|i| repro.script.get(i))
+            .copied()
+            .unwrap_or(0);
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame == 203 {
+            assert_eq!(trace.character_movement, Some(1), "ASM loc_8218 Crawling");
+            let player = runtime.opening_slice.as_ref().unwrap().player;
+            assert_eq!(player.y_pos, 0x006f_0000, "ASM loc_82D8 retains floor Y");
+            assert_eq!(player.y_velocity, 0, "ASM loc_82D8 has no jump");
+        }
+    }
+}
+
 /// ASM loc_82CA -> loc_8E3E retains Walking at zero velocity; the next
 /// loc_8E16 -> loc_7606 runs loc_8C12 and loc_7650 decay before camera follow.
 #[test]
