@@ -6033,6 +6033,7 @@ impl NativeRuntime {
         self.active_platform_standing_on = None;
         self.active_lift_platform_standing_on = None;
         self.projectiles.clear();
+        self.juggernaut_shot_workers.clear();
         self.multi_head_boss_death_count_fb4e = 0;
         self.boss_eye_breakup_trigger_words_fb72_fb74_fb76 = [0; 3];
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
@@ -6297,6 +6298,7 @@ impl NativeRuntime {
         self.active_platform_standing_on = None;
         self.active_lift_platform_standing_on = None;
         self.projectiles.clear();
+        self.juggernaut_shot_workers.clear();
         self.multi_head_boss_death_count_fb4e = 0;
         self.boss_eye_breakup_trigger_words_fb72_fb74_fb76 = [0; 3];
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
@@ -6374,6 +6376,7 @@ impl NativeRuntime {
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
         self.projectiles.clear();
+        self.juggernaut_shot_workers.clear();
         self.multi_head_boss_death_count_fb4e = 0;
         self.boss_eye_breakup_trigger_words_fb72_fb74_fb76 = [0; 3];
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
@@ -8384,6 +8387,7 @@ impl NativeRuntime {
         self.block_state.reset_shooter_state_sub_F06A();
         self.block_state.ghost_groups.clear();
         self.projectiles.clear();
+        self.juggernaut_shot_workers.clear();
         self.multi_head_boss_death_count_fb4e = 0;
         self.boss_eye_breakup_trigger_words_fb72_fb74_fb76 = [0; 3];
         self.drips_surface_crawler_count_loc_fffffb42 = 0;

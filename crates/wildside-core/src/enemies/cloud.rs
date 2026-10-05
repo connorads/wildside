@@ -672,6 +672,7 @@ fn cloud_projectile_spawn_loc_35df0(
         shooter_layout_row: 0,
         shooter_state_word: 0,
         shooter_skip_projectile_step_frame: None,
+        juggernaut_skull_initialised_frame: None,
         animation_elapsed_frames: 0,
         boss_head_boomerang_direction_byte_d0: 0,
         boss_head_boomerang_animation: crate::types::BossHeadBoomerangAnimationCursor::default(),

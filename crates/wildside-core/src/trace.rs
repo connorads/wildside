@@ -16735,6 +16735,19 @@ impl NativeRuntime {
         // pattern for descent fire; native models it as a projectile but ROM
         // Number_Objects includes the child worker.
         drips_parent_workers
+            // ASM loc_A87A/loc_7738 allocates an Object before sub_86FA Init.
+            .saturating_add(
+                self.juggernaut_shot_workers
+                    .iter()
+                    .filter(|worker| {
+                        matches!(
+                            worker,
+                            JuggernautShotWorker::FiringAllocated { .. }
+                                | JuggernautShotWorker::SkullAllocated { .. }
+                        )
+                    })
+                    .count() as u16,
+            )
             .saturating_add(pending_enemy_object_workers)
             .saturating_add(dormant_mini_hopping_skull_workers)
             // ASM Fire_Demon.asm loc_3A414 allocates loc_3A48E through
@@ -17028,6 +17041,14 @@ impl NativeRuntime {
             })
             .count();
         (self.block_bounces.len()
+            // ASM sub_87B0 allocates the skull's own Object+Gfx pair.
+            + self.projectiles.iter().filter(|projectile| {
+                active_projectile_kind(projectile) == ActiveProjectileKind::JuggernautSkull
+            }).count()
+            // ASM sub_86FA owns an Object+Gfx pair until loc_87A0 deletion.
+            + self.juggernaut_shot_workers.iter().filter(|worker| {
+                matches!(worker, JuggernautShotWorker::FiringAnimated { .. })
+            }).count()
             + self.count_visible_prize_block_worker_tails()
             + self.prize_block_spawn_flashes.len()
             + self.kid_projectile_hit_sparks.len()

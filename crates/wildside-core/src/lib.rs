@@ -478,6 +478,8 @@ pub struct NativeRuntime {
     game_complete: bool,
     block_state: BlockInteractionState,
     projectiles: Vec<EnemyProjectile>,
+    /// ASM sub_86FA/loc_7E48: independent objects survive form-local resets.
+    juggernaut_shot_workers: Vec<JuggernautShotWorker>,
     /// ASM Enemy20_HeadyMetal_Init installs the `$FFFFFB7A..$FFFFFBAA`
     /// breakup workers once; sub_37708 then mutates and clears those slots.
     pub(crate) heady_metal_breakup_slots_sub_37708:
@@ -1710,6 +1712,7 @@ impl NativeRuntime {
             game_complete: false,
             block_state: BlockInteractionState::default(),
             projectiles: Vec::new(),
+            juggernaut_shot_workers: Vec::new(),
             heady_metal_breakup_slots_sub_37708: None,
             heady_metal_cached_workers_sub_37708: None,
             heady_metal_anchor_uses_initial_animation_stru_37b8a: true,
@@ -2450,6 +2453,7 @@ impl NativeRuntime {
         self.active_platform_standing_on = None;
         self.active_lift_platform_standing_on = None;
         self.projectiles.clear();
+        self.juggernaut_shot_workers.clear();
         self.heady_metal_breakup_slots_sub_37708 = None;
         self.heady_metal_anchor_uses_initial_animation_stru_37b8a = true;
         self.floating_items.clear();
@@ -4905,7 +4909,25 @@ impl NativeRuntime {
                             let (held_input, held_jump_pressed) = self
                                 .transform_continuation_controls
                                 .unwrap_or((gameplay_input, jump_pressed));
+                            if !transform_hibernating_at_frame_start
+                                && let Some(player) =
+                                    self.opening_slice.as_ref().map(|slice| slice.player)
+                            {
+                                self.step_juggernaut_shot_workers(
+                                    player,
+                                    JuggernautFiringOrder::BeforeKid,
+                                );
+                            }
                             self.refresh_opening_slice(held_input, held_jump_pressed);
+                            if !self.object_pass_hibernating_for_transform_loc_7e90()
+                                && let Some(player) =
+                                    self.opening_slice.as_ref().map(|slice| slice.player)
+                            {
+                                self.step_juggernaut_shot_workers(
+                                    player,
+                                    JuggernautFiringOrder::AfterKid,
+                                );
+                            }
                             self.transform_continuation_controls = self
                                 .object_pass_hibernating_for_transform_loc_7e90()
                                 .then_some((held_input, held_jump_pressed));
@@ -6271,7 +6293,14 @@ impl NativeRuntime {
         self.step_eyeclops_beam(&slice, input);
         self.step_maniaxe_axe(&slice, input);
         self.step_berzerker_charge(&mut slice);
-        self.step_juggernaut_skull(&slice, input);
+        // ASM loc_A7F8/loc_A87A consumes Ctrl_Pressed before ReadJoypad.
+        self.step_juggernaut_skull(
+            &slice,
+            FrameInput {
+                c: self.previous_input.c,
+                ..input
+            },
+        );
         let player_before_micromax_stick = slice.player;
         self.step_micromax_stick(&mut slice, input);
         self.note_kid_pre_physics_mutator(

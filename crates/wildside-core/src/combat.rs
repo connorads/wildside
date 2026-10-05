@@ -12749,6 +12749,7 @@ impl NativeRuntime {
         self.active_platform_standing_on = None;
         self.active_lift_platform_standing_on = None;
         self.projectiles.clear();
+        self.juggernaut_shot_workers.clear();
         self.multi_head_boss_death_count_fb4e = 0;
         self.boss_eye_breakup_trigger_words_fb72_fb74_fb76 = [0; 3];
         self.floating_items.clear();
@@ -12849,6 +12850,7 @@ impl NativeRuntime {
         let Some(form) = self.progression.pending_form.take() else {
             return;
         };
+        self.clear_juggernaut_projectile_gfx_workers_sub_7c1c();
         let old_form = self.progression.current_form;
         let old_hitpoints = self.progression.number_hitpoints;
         self.progression.current_form = form;

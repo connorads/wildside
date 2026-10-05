@@ -18188,6 +18188,7 @@ impl NativeRuntime {
         self.block_state.reset_shooter_state_sub_F06A();
         self.block_state.lift_platforms.clear();
         self.projectiles.clear();
+        self.juggernaut_shot_workers.clear();
         self.multi_head_boss_death_count_fb4e = 0;
         self.boss_eye_breakup_trigger_words_fb72_fb74_fb76 = [0; 3];
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
@@ -18371,6 +18372,7 @@ impl NativeRuntime {
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
         self.projectiles.clear();
+        self.juggernaut_shot_workers.clear();
         self.multi_head_boss_death_count_fb4e = 0;
         self.boss_eye_breakup_trigger_words_fb72_fb74_fb76 = [0; 3];
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
@@ -18454,6 +18456,7 @@ impl NativeRuntime {
         self.floating_items.clear();
         self.prize_worker_effects.clear();
         self.projectiles.clear();
+        self.juggernaut_shot_workers.clear();
         self.clear_block_object_workers_loc_6e2();
         self.allow_pausing = false;
         self.boot_state = BootState::HundredKTripTransition {
@@ -18598,6 +18601,7 @@ impl NativeRuntime {
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
         self.projectiles.clear();
+        self.juggernaut_shot_workers.clear();
         self.multi_head_boss_death_count_fb4e = 0;
         self.boss_eye_breakup_trigger_words_fb72_fb74_fb76 = [0; 3];
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
@@ -19017,6 +19021,7 @@ impl NativeRuntime {
         // discards outgoing projectile workers before Load_InGame allocates
         // the destination's objects.
         self.projectiles.clear();
+        self.juggernaut_shot_workers.clear();
         // ASM Load_InGame rebuilds EnemyStatus_Table before
         // Manage_EnemyLoading loc_36840. Native's parallel killed-index set
         // must reset at the same boundary, or a dead index from the previous

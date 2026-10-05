@@ -1116,6 +1116,34 @@ pub struct LavaGeyserArtUploadLoc14C6A {
     pub vram_destination: u16,
 }
 
+/// ASM loc_7718/loc_A87A (kid.asm): list priority controls same-pass callbacks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum JuggernautFiringOrder {
+    BeforeKid,
+    AfterKid,
+}
+
+/// ASM sub_86FA/sub_87B0 (kid.asm): allocated workers gain Gfx on Init.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum JuggernautShotWorker {
+    FiringAllocated {
+        order: JuggernautFiringOrder,
+    },
+    FiringAnimated {
+        order: JuggernautFiringOrder,
+        skull_delay_frames: u8,
+        animation_frames_remaining: u8,
+        x_pos: u32,
+        y_pos: u32,
+        facing: Direction,
+    },
+    SkullAllocated {
+        x_pos: u32,
+        y_pos: u32,
+        facing: Direction,
+    },
+}
+
 /// Per-helmet ability state, reset on form change or death.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct HelmetState {
@@ -1153,12 +1181,6 @@ pub(crate) struct HelmetState {
     /// zero, another axe may be thrown even while the previous axe object flies.
     pub(crate) maniaxe_throw_latch_frames: u8,
     pub(crate) maniaxe_turnaround: u8,
-    /// ASM sub_86FA workers pending before spawning sub_87B0 skull projectiles.
-    /// Each C press allocates an independent object slot with its own 3-frame
-    /// counter; `$FFFFFB70` only counts live sub_87B0 skulls after startup.
-    pub(crate) juggernaut_skull_pending_delay_frames: Vec<u8>,
-    /// Compatibility mirror of the oldest pending skull worker's delay.
-    pub(crate) juggernaut_skull_delay_frames: u8,
     pub(crate) iron_knight_climbing: bool,
     pub(crate) iron_knight_climb_accel: i16,
     pub(crate) iron_knight_climb_pose_accum: u16,
@@ -5559,6 +5581,8 @@ pub(crate) struct EnemyProjectile {
     /// the immediate `Process_ShooterObjects` fallthrough. The later native
     /// projectile pass must not run `loc_EDFA` again in that same frame.
     pub(crate) shooter_skip_projectile_step_frame: Option<usize>,
+    /// ASM sub_87B0 (kid.asm): loc_8810 hibernates before its first motion tick.
+    pub(crate) juggernaut_skull_initialised_frame: Option<usize>,
     /// Object animation elapsed frames for projectile workers whose ROM script
     /// is not represented by their lifetime counter.
     pub(crate) animation_elapsed_frames: u16,
@@ -6233,7 +6257,6 @@ mod tests {
             eyeclops_beam_active: true,
             maniaxe_axe_active: true,
             maniaxe_throw_latch_frames: 9,
-            juggernaut_skull_pending_delay_frames: vec![3, 2, 1],
             iron_knight_climbing: true,
             berzerker_charging: true,
             micromax_stuck: true,
@@ -6249,7 +6272,6 @@ mod tests {
         assert!(!state.eyeclops_beam_active);
         assert!(!state.maniaxe_axe_active);
         assert_eq!(state.maniaxe_throw_latch_frames, 0);
-        assert!(state.juggernaut_skull_pending_delay_frames.is_empty());
         assert!(!state.iron_knight_climbing);
         assert!(!state.berzerker_charging);
         assert!(!state.micromax_stuck);

@@ -1,5 +1,9 @@
 # Source-port session log
 
+## 2026-10-05 - Juggernaut firing lifecycle and selective transform cleanup
+
+Separate firing allocation, Gfx Init, skull allocation and first motion according to Execute_Objects priority. Saved-anchor skull position and independent effect deletion match116 shooting state/RNG checkpoints. Selective sub7C1C cleanup deletes initialised workers and preserves Object-only children. FullTAS equals9858 parent; sweep retains102/105; fixed census retains23 clusters and restores103 fixtures. Level05 nativewarp270 remains unconfirmed. Current-source fast passes7522 core tests after stale parent-test binary detection and rebuild. Firing artwork, flag presentation and game completion remain open. System audio stays muted.
+
 ## 2026-10-05 - EmoRock Init callback and initial wait
 
 Defer the trailing-loader RNG draw to the accepted Init callback, yield before decrementing and hold layout position during loc36212 wait. Cleared Left/HP0 defaults match the ROM. Final431 passes264/264 state/enemy/RNG; fast/full/sweep pass their baselines. Fixed census advances three04 frontiers, with no earlier failure; all100 old fixtures restored. Parent frame263 improves1100->373 changed pixels. Dummy-SDL264 and native-only replay pass; timing and approved-device listening remain unproved. New reducers/intake remain separate. Ledger stays0/103 confirmed. System audio stays muted.

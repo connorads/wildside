@@ -1,6 +1,245 @@
 use super::*;
 
+fn juggernaut_pending_delays(runtime: &NativeRuntime) -> Vec<u8> {
+    runtime
+        .juggernaut_shot_workers
+        .iter()
+        .filter_map(|worker| match worker {
+            JuggernautShotWorker::FiringAllocated { .. } => Some(JUGGERNAUT_SKULL_STARTUP_FRAMES),
+            JuggernautShotWorker::FiringAnimated {
+                skull_delay_frames, ..
+            } if *skull_delay_frames > 0 => Some(*skull_delay_frames),
+            JuggernautShotWorker::FiringAnimated { .. }
+            | JuggernautShotWorker::SkullAllocated { .. } => None,
+        })
+        .collect()
+}
+
+fn step_juggernaut_callbacks(
+    runtime: &mut NativeRuntime,
+    slice: &OpeningSliceState,
+    input: FrameInput,
+) {
+    runtime.step_juggernaut_shot_workers(slice.player, JuggernautFiringOrder::BeforeKid);
+    runtime.step_juggernaut_skull(slice, input);
+    runtime.step_juggernaut_shot_workers(slice.player, JuggernautFiringOrder::AfterKid);
+}
+
+/// ASM loc_7718/loc_7738 queues sub_86FA behind Kid. Load_GfxObjectSlot
+/// runs only after Kid returns to Execute_Objects loc_E1E.
+#[test]
+fn juggernaut_standing_allocation_precedes_after_kid_init() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.progression.current_form = PlayerForm::Juggernaut;
+    let mut slice = combat_slice();
+    slice.player.on_ground = true;
+    runtime.step_juggernaut_skull(
+        &slice,
+        FrameInput {
+            c: true,
+            ..FrameInput::default()
+        },
+    );
+    assert_eq!(runtime.gameplay_transient_gfx_worker_count(), 0);
+    assert_eq!(runtime.juggernaut_shot_workers.len(), 1);
+    runtime.step_juggernaut_shot_workers(slice.player, JuggernautFiringOrder::AfterKid);
+    assert_eq!(runtime.gameplay_transient_gfx_worker_count(), 1);
+}
+
+/// ASM Kid_Transform/sub_7C1C deletes the lowword-1 Gfx projectile list,
+/// including sub_86FA and sub_87B0, before same-helmet replenishment.
+#[test]
+fn juggernaut_transform_deletes_initialised_projectile_workers() {
+    for callbacks in [1, 5] {
+        for form in [PlayerForm::TheKid, PlayerForm::Juggernaut] {
+            let mut runtime = NativeRuntime::new(manifest());
+            runtime.progression.current_form = PlayerForm::Juggernaut;
+            let mut slice = combat_slice();
+            slice.player.on_ground = true;
+            step_juggernaut_callbacks(
+                &mut runtime,
+                &slice,
+                FrameInput {
+                    c: true,
+                    ..FrameInput::default()
+                },
+            );
+            for _ in 1..callbacks {
+                step_juggernaut_callbacks(&mut runtime, &slice, FrameInput::default());
+            }
+            assert!(runtime.gameplay_transient_gfx_worker_count() > 0);
+            runtime.queue_form_change(form);
+            runtime.resolve_pending_form_change();
+            assert_eq!(runtime.gameplay_transient_gfx_worker_count(), 0);
+            for _ in 0..5 {
+                step_juggernaut_callbacks(&mut runtime, &slice, FrameInput::default());
+            }
+            assert!(runtime.projectiles.is_empty());
+        }
+    }
+}
+
+/// ASM sub_7C1C follows Gfx links, so Object-only sub_86FA allocations survive.
+#[test]
+fn juggernaut_transform_preserves_uninitialised_firing_worker() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.progression.current_form = PlayerForm::Juggernaut;
+    let mut slice = combat_slice();
+    slice.player.on_ground = true;
+    runtime.step_juggernaut_skull(
+        &slice,
+        FrameInput {
+            c: true,
+            ..FrameInput::default()
+        },
+    );
+    assert_eq!(runtime.gameplay_transient_gfx_worker_count(), 0);
+    runtime.queue_form_change(PlayerForm::TheKid);
+    runtime.resolve_pending_form_change();
+    assert_eq!(runtime.juggernaut_shot_workers.len(), 1);
+    for _ in 0..5 {
+        step_juggernaut_callbacks(&mut runtime, &slice, FrameInput::default());
+    }
+    assert_eq!(runtime.projectiles.len(), 1);
+    assert_eq!(runtime.gameplay_transient_gfx_worker_count(), 2);
+    runtime.clear_flagpole_deleted_objects_loc_C070();
+    assert_eq!(runtime.gameplay_transient_gfx_worker_count(), 0);
+}
+
+/// ASM loc_876A allocates sub_87B0 before its Gfx Init. sub_7C1C cannot see
+/// that pending Object, even while it deletes the parent's paired Gfx.
+#[test]
+fn juggernaut_transform_preserves_uninitialised_skull_worker() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.progression.current_form = PlayerForm::Juggernaut;
+    let mut slice = combat_slice();
+    slice.player.on_ground = true;
+    step_juggernaut_callbacks(
+        &mut runtime,
+        &slice,
+        FrameInput {
+            c: true,
+            ..FrameInput::default()
+        },
+    );
+    for _ in 0..3 {
+        step_juggernaut_callbacks(&mut runtime, &slice, FrameInput::default());
+    }
+    assert!(runtime.projectiles.is_empty());
+    assert_eq!(runtime.juggernaut_shot_workers.len(), 2);
+    runtime.queue_form_change(PlayerForm::TheKid);
+    runtime.resolve_pending_form_change();
+    assert_eq!(runtime.juggernaut_shot_workers.len(), 1);
+    step_juggernaut_callbacks(&mut runtime, &slice, FrameInput::default());
+    assert_eq!(runtime.projectiles.len(), 1);
+    assert_eq!(runtime.gameplay_transient_gfx_worker_count(), 1);
+}
+
+/// ASM loc_A87A allocates sub_86FA; loc_87A0 deletes its Object+Gfx
+/// pair after stru_8BA2 completes, independently of the sub_87B0 skull.
+#[test]
+fn gameplay_regression_juggernaut_firing_worker_lifecycle() {
+    let Some(mut runtime) = cached_generated_runtime() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/juggernaut-firing-worker-lifecycle.json"
+    ))
+    .expect("checked-in Juggernaut firing route");
+    runtime.boot_to_level_for_recording_oracle(LevelId(5));
+    runtime.settle_recording_oracle_warp_live_window(LevelId(5));
+    for frame in 0..repro.frame_count {
+        let mask = frame
+            .checked_sub(1)
+            .and_then(|index| repro.script.get(index))
+            .copied()
+            .unwrap_or(0);
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame == 170 {
+            // ASM loc_876A saves the firing Gfx anchor; sub_87B0 starts
+            // loc_8810 with a hibernate. ROM Gfx slot FFFF2610 at frame 170.
+            assert_eq!(
+                trace.active_projectiles,
+                vec![(0x0776_0000, 0x00BA_6000, true)]
+            );
+        }
+        // ROM WRAM F84A/F85C measured on this exact saved route.
+        let expected = match frame {
+            162 => Some((9, 5)),
+            163 => Some((10, 5)),
+            164..=166 => Some((10, 6)),
+            170 | 174 => Some((11, 7)),
+            175 | 194 => Some((10, 6)),
+            _ => None,
+        };
+        if let Some(expected) = expected {
+            assert_eq!(
+                (trace.number_objects, trace.number_gfx_objects),
+                expected,
+                "ASM sub_86FA/loc_87A0 worker residency at route frame {frame}"
+            );
+        }
+    }
+}
+
 // --- Micromax wall/ceiling stick ---
+
+/// ASM loc_7718 allocates at priority FFFF; sub_86FA runs behind Kid,
+/// but its sub_87B0 child is inserted before that worker and waits one pass.
+#[test]
+fn gameplay_regression_juggernaut_standing_worker_lifecycle() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/juggernaut-standing-worker-lifecycle.json"
+    ))
+    .expect("checked-in standing Juggernaut route");
+    for right_held in [false, true] {
+        let mut script = repro.script.clone();
+        if right_held {
+            for mask in &mut script[250..=255] {
+                *mask |= 0x08;
+            }
+        }
+        let trace = ScriptRunner::new(manifest.clone())
+            .warp_to_level(5)
+            .settle_recording_warp()
+            .run(&script, repro.frame_count);
+        for (frame, state) in trace.iter().enumerate().take(271).skip(248) {
+            let expected = match frame {
+                248..=251 => (9, 5),
+                252..=254 => (10, 6),
+                255 => (11, 6),
+                256..=262 => (11, 7),
+                _ => (10, 6),
+            };
+            assert_eq!(
+                (state.number_objects, state.number_gfx_objects),
+                expected,
+                "ASM loc_7718/sub_86FA/sub_87B0 at route frame {frame}, right held {right_held}"
+            );
+        }
+        assert!(trace[255].active_projectiles.is_empty());
+        // ROM Gfx slot FFFF2610 after sub_87B0 Init. A FFFF-priority
+        // firing worker saves Kid's completed movement from the previous pass.
+        let skull_x = if right_held { 0x076B_0000 } else { 0x076A_0000 };
+        assert_eq!(
+            trace[256].active_projectiles,
+            vec![(skull_x, 0x00D7_0000, true)]
+        );
+    }
+}
 
 fn micromax_runtime_with_ceiling() -> NativeRuntime {
     let mut rt = NativeRuntime::new(manifest());
@@ -6558,29 +6797,38 @@ mod chunk_06 {
     fn juggernaut_c_press_arms_sub_86fa_before_spawning_sub_87b0() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Juggernaut;
-        let slice = combat_slice();
+        let mut slice = combat_slice();
+        slice.player.on_ground = false;
         let input = FrameInput {
             c: true,
             ..FrameInput::default()
         };
 
-        rt.step_juggernaut_skull(&slice, input);
+        step_juggernaut_callbacks(&mut rt, &slice, input);
+        // ASM sub_86FA Init starts the three waits on the next callback.
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
 
         assert!(
             rt.projectiles.is_empty(),
             "ASM sub_86FA should hibernate before the skull worker appears"
         );
-        assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 3);
+        assert_eq!(
+            juggernaut_pending_delays(&rt).first().copied().unwrap_or(0),
+            3
+        );
 
         for expected in [2, 1] {
             rt.prior_input = input;
-            rt.step_juggernaut_skull(&slice, FrameInput::default());
-            assert_eq!(rt.helmet.juggernaut_skull_delay_frames, expected);
+            step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
+            assert_eq!(
+                juggernaut_pending_delays(&rt).first().copied().unwrap_or(0),
+                expected
+            );
             assert!(rt.projectiles.is_empty());
         }
 
         rt.prior_input = FrameInput::default();
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
 
         assert_eq!(rt.projectiles.len(), 1, "third wake should spawn the skull");
         assert!(rt.projectiles[0].friendly);
@@ -6806,78 +7054,51 @@ mod chunk_06 {
 
         // Fire 8 skulls
         for _ in 0..8 {
-            rt.step_juggernaut_skull(&slice, input);
+            step_juggernaut_callbacks(&mut rt, &slice, input);
             rt.prior_input = input;
-            rt.step_juggernaut_skull(&slice, FrameInput::default());
-            rt.step_juggernaut_skull(&slice, FrameInput::default());
-            rt.step_juggernaut_skull(&slice, FrameInput::default());
+            // ASM stru_8BD8/loc_87A0 completes before another C press.
+            for _ in 0..12 {
+                step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
+            }
             rt.prior_input = FrameInput::default();
         }
         assert_eq!(rt.projectiles.len(), 8);
 
         // 9th should be rejected
         rt.prior_input = FrameInput::default();
-        rt.step_juggernaut_skull(&slice, input);
+        step_juggernaut_callbacks(&mut rt, &slice, input);
         assert_eq!(rt.projectiles.len(), 8, "should cap at 8 skulls");
     }
 
-    /// ASM loc_7718/loc_7738 + sub_86FA (kid.asm:7800/7810/9599): every
-    /// accepted C press allocates an independent sub_86FA worker. `$FFFFFB70`
-    /// is incremented only when sub_87B0 starts, so a second C press while the
-    /// first 3-frame worker is pending queues another worker instead of being
-    /// blocked by the pending delay.
+    /// ASM loc_7718/loc_A87A rejects C while stru_8BD8 animates Kid.
     #[test]
-    fn juggernaut_skull_c_press_queues_concurrent_sub_86fa_workers() {
+    fn juggernaut_skull_c_press_waits_for_firing_animation() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Juggernaut;
-        let slice = combat_slice();
+        let mut slice = combat_slice();
+        slice.player.on_ground = false;
         let c_press = FrameInput {
             c: true,
             ..FrameInput::default()
         };
-
-        rt.step_juggernaut_skull(&slice, c_press);
-        assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 3);
-        assert_eq!(rt.helmet.juggernaut_skull_pending_delay_frames, vec![3]);
-
-        rt.prior_input = FrameInput::default();
-        rt.step_juggernaut_skull(&slice, c_press);
-
-        assert_eq!(
-            rt.helmet.juggernaut_skull_delay_frames, 2,
-            "ASM loc_876A: oldest pending worker should tick 3->2 before the new C press queues another worker"
-        );
-        assert_eq!(
-            rt.helmet.juggernaut_skull_pending_delay_frames,
-            vec![2, 3],
-            "ASM loc_7738 assigns a fresh sub_86FA object for the second C press while the first worker is still pending"
-        );
-        assert!(
-            rt.projectiles.is_empty(),
-            "ASM loc_876A: neither worker should spawn before its counter reaches zero"
-        );
-
+        step_juggernaut_callbacks(&mut rt, &slice, c_press);
         rt.prior_input = c_press;
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
-        assert_eq!(rt.helmet.juggernaut_skull_pending_delay_frames, vec![1, 2]);
-
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         rt.prior_input = FrameInput::default();
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        step_juggernaut_callbacks(&mut rt, &slice, c_press);
+        assert_eq!(rt.juggernaut_shot_workers.len(), 1);
+        for _ in 0..10 {
+            step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
+        }
+        assert_eq!(rt.projectiles.len(), 1);
+        assert!(rt.juggernaut_shot_workers.is_empty());
+        step_juggernaut_callbacks(&mut rt, &slice, c_press);
         assert_eq!(
-            rt.projectiles.len(),
-            1,
-            "ASM loc_876A: the first queued worker should spawn when its own d0 reaches zero"
+            rt.juggernaut_shot_workers,
+            vec![JuggernautShotWorker::FiringAllocated {
+                order: JuggernautFiringOrder::BeforeKid
+            }]
         );
-        assert_eq!(rt.helmet.juggernaut_skull_pending_delay_frames, vec![1]);
-
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
-        assert_eq!(
-            rt.projectiles.len(),
-            2,
-            "ASM loc_876A: the second queued worker should spawn one frame later from its independent counter"
-        );
-        assert!(rt.helmet.juggernaut_skull_pending_delay_frames.is_empty());
-        assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 0);
     }
 
     #[test]
@@ -6890,7 +7111,7 @@ mod chunk_06 {
             ..FrameInput::default()
         };
 
-        rt.step_juggernaut_skull(&slice, input);
+        step_juggernaut_callbacks(&mut rt, &slice, input);
 
         assert!(rt.projectiles.is_empty());
     }
@@ -6909,10 +7130,11 @@ mod chunk_06 {
             ..FrameInput::default()
         };
 
-        rt.step_juggernaut_skull(&slice, input);
+        step_juggernaut_callbacks(&mut rt, &slice, input);
 
         assert_eq!(
-            rt.helmet.juggernaut_skull_delay_frames, 0,
+            juggernaut_pending_delays(&rt).first().copied().unwrap_or(0),
+            0,
             "ASM loc_7718: bne.s loc_7742 — non-Juggernaut must not arm skull worker"
         );
         assert!(rt.projectiles.is_empty());
@@ -6932,11 +7154,12 @@ mod chunk_06 {
                 c: true,
                 ..FrameInput::default()
             };
-            rt.step_juggernaut_skull(&slice, input);
+            step_juggernaut_callbacks(&mut rt, &slice, input);
             rt.prior_input = input;
-            rt.step_juggernaut_skull(&slice, FrameInput::default());
-            rt.step_juggernaut_skull(&slice, FrameInput::default());
-            rt.step_juggernaut_skull(&slice, FrameInput::default());
+            // ASM stru_8BD8/loc_87A0 completes before another C press.
+            for _ in 0..12 {
+                step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
+            }
             rt.prior_input = FrameInput::default();
         }
         assert_eq!(rt.projectiles.len(), 8);
@@ -6945,10 +7168,11 @@ mod chunk_06 {
             c: true,
             ..FrameInput::default()
         };
-        rt.step_juggernaut_skull(&slice, input);
+        step_juggernaut_callbacks(&mut rt, &slice, input);
 
         assert_eq!(
-            rt.helmet.juggernaut_skull_delay_frames, 0,
+            juggernaut_pending_delays(&rt).first().copied().unwrap_or(0),
+            0,
             "ASM loc_7718: bge.w loc_7772 — 9th skull C press must be rejected"
         );
     }
@@ -6956,7 +7180,7 @@ mod chunk_06 {
     #[test]
     /// ASM loc_7718 + loc_7738 (kid.asm:7800-7812): Juggernaut with < 8 active
     /// skulls allocates slot (loc_7718) then assigns sub_86FA (loc_7738).
-    /// Native models this as arming `juggernaut_skull_delay_frames`.
+    /// Native retains the allocated Object until its sub_86FA Init callback.
     fn loc_7738_juggernaut_c_press_arms_sub_86fa() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Juggernaut;
@@ -6966,10 +7190,11 @@ mod chunk_06 {
             ..FrameInput::default()
         };
 
-        rt.step_juggernaut_skull(&slice, input);
+        step_juggernaut_callbacks(&mut rt, &slice, input);
 
         assert_eq!(
-            rt.helmet.juggernaut_skull_delay_frames, 3,
+            juggernaut_pending_delays(&rt).first().copied().unwrap_or(0),
+            3,
             "ASM loc_7738: move.l #sub_86FA,4(a0) — native arms 3-frame delay for skull worker"
         );
         assert!(
@@ -6984,13 +7209,14 @@ mod chunk_06 {
     #[expect(non_snake_case)]
     /// ASM loc_874C (kid.asm:9591): `move.l $1A(a2),x_pos(a3); move.l $1E(a2),y_pos(a3);
     /// move.b $16(a2),x_direction(a3)` — copies Kid's position and facing to the skull
-    /// GFX object. Native reads player position at spawn time (delay reaching 0).
-    /// Verify spawn position matches Kid's position at the moment of projectile creation.
+    /// GFX object. loc_876A allocates the skull from the saved Gfx anchor
+    /// before loc_879A refreshes its position from Kid.
     fn loc_874C_skull_spawns_at_kid_position() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Juggernaut;
 
         let mut slice = combat_slice();
+        slice.player.on_ground = false;
         slice.player.x_pos = 0x0064_0000; // 100 px
         slice.player.y_pos = 0x00C8_0000; // 200 px
         slice.player.facing = Direction::Right;
@@ -7000,37 +7226,39 @@ mod chunk_06 {
             c: true,
             ..FrameInput::default()
         };
-        rt.step_juggernaut_skull(&slice, input);
-        assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 3);
+        step_juggernaut_callbacks(&mut rt, &slice, input);
+        // ASM sub_86FA Init starts the three waits on the next callback.
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
+        assert_eq!(
+            juggernaut_pending_delays(&rt).first().copied().unwrap_or(0),
+            3
+        );
 
         // Tick through the 3-frame delay, moving Kid each frame
         rt.prior_input = input;
         slice.player.x_pos = 0x0078_0000; // 120 px (Kid moved)
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         assert!(rt.projectiles.is_empty());
 
         rt.prior_input = FrameInput::default();
         slice.player.x_pos = 0x008C_0000; // 140 px
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         assert!(rt.projectiles.is_empty());
 
-        // Third tick: delay reaches 0, projectile spawned using FINAL position
+        // ASM loc_876A allocates before loc_879A updates the saved 140px anchor.
         slice.player.x_pos = 0x00A0_0000; // 160 px
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         assert_eq!(
             rt.projectiles.len(),
             1,
             "skull should spawn after 3-frame delay"
         );
 
-        // Spawn position should be based on the final player position (160px),
-        // not the initial position (100px) — matching ASM loc_874C/loc_879A
-        // which copies Kid position every frame of the delay.
-        let expected_x = ((160 + JUGGERNAUT_SKULL_OFFSET_X) as u32) << 16;
+        let expected_x = ((140 + JUGGERNAUT_SKULL_OFFSET_X) as u32) << 16;
         let expected_y = ((200 + JUGGERNAUT_SKULL_OFFSET_Y) as u32) << 16;
         assert_eq!(
             rt.projectiles[0].x_pos, expected_x,
-            "ASM loc_874C: skull x should use Kid's position at spawn time, not at C press",
+            "ASM loc_876A: skull uses the previous firing Gfx anchor",
         );
         assert_eq!(
             rt.projectiles[0].y_pos, expected_y,
@@ -7053,14 +7281,16 @@ mod chunk_06 {
             c: true,
             ..FrameInput::default()
         };
-        rt.step_juggernaut_skull(&slice, input);
+        step_juggernaut_callbacks(&mut rt, &slice, input);
+        // ASM sub_86FA Init starts the three waits on the next callback.
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
 
         // Tick through 3-frame delay
         rt.prior_input = input;
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         rt.prior_input = FrameInput::default();
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
 
         assert_eq!(rt.projectiles.len(), 1);
         assert_eq!(
@@ -7079,24 +7309,29 @@ mod chunk_06 {
     #[expect(non_snake_case)]
     /// ASM loc_874C (kid.asm:9591-9597): `moveq #3,d0` — the skull worker uses
     /// a 3-frame counter before spawning sub_87B0. Native models this via
-    /// `juggernaut_skull_delay_frames = JUGGERNAUT_SKULL_STARTUP_FRAMES (3)`.
+    /// an allocated firing worker followed by its three-frame charge.
     /// `tst.b ($FFFFFA6C); bne.w loc_874C` at kid.asm:9583 skips companion GFX
     /// init when companion already exists — visual-only, no native equivalent.
     fn loc_874C_three_frame_delay_before_spawn() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Juggernaut;
-        let slice = combat_slice();
+        let mut slice = combat_slice();
+        slice.player.on_ground = false;
 
         // Arm
-        rt.step_juggernaut_skull(
+        step_juggernaut_callbacks(
+            &mut rt,
             &slice,
             FrameInput {
                 c: true,
                 ..FrameInput::default()
             },
         );
+        // ASM sub_86FA Init starts the three waits on the next callback.
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         assert_eq!(
-            rt.helmet.juggernaut_skull_delay_frames, 3,
+            juggernaut_pending_delays(&rt).first().copied().unwrap_or(0),
+            3,
             "ASM loc_874C: moveq #3,d0 — 3-frame delay counter",
         );
 
@@ -7105,19 +7340,28 @@ mod chunk_06 {
             c: true,
             ..FrameInput::default()
         };
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
-        assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 2);
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
+        assert_eq!(
+            juggernaut_pending_delays(&rt).first().copied().unwrap_or(0),
+            2
+        );
         assert!(rt.projectiles.is_empty(), "no spawn during delay");
 
         // Tick 2
         rt.prior_input = FrameInput::default();
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
-        assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 1);
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
+        assert_eq!(
+            juggernaut_pending_delays(&rt).first().copied().unwrap_or(0),
+            1
+        );
         assert!(rt.projectiles.is_empty(), "no spawn during delay");
 
         // Tick 3 — spawn
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
-        assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 0);
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
+        assert_eq!(
+            juggernaut_pending_delays(&rt).first().copied().unwrap_or(0),
+            0
+        );
         assert_eq!(
             rt.projectiles.len(),
             1,
@@ -7136,40 +7380,51 @@ mod chunk_06 {
     fn loc_876A_skull_worker_per_frame_countdown() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Juggernaut;
-        let slice = combat_slice();
+        let mut slice = combat_slice();
+        slice.player.on_ground = false;
         let input = FrameInput {
             c: true,
             ..FrameInput::default()
         };
 
         // C press arms the 3-frame delay
-        rt.step_juggernaut_skull(&slice, input);
+        step_juggernaut_callbacks(&mut rt, &slice, input);
+        // ASM sub_86FA Init starts the three waits on the next callback.
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         assert_eq!(
-            rt.helmet.juggernaut_skull_delay_frames, 3,
+            juggernaut_pending_delays(&rt).first().copied().unwrap_or(0),
+            3,
             "ASM loc_876A: moveq #3,d0 — counter starts at 3"
         );
 
         // Frame 1: subq.w #1,d0 → d0=2, bne → skip spawn
         rt.prior_input = input;
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
-        assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 2);
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
+        assert_eq!(
+            juggernaut_pending_delays(&rt).first().copied().unwrap_or(0),
+            2
+        );
         assert!(
             rt.projectiles.is_empty(),
             "ASM loc_876A: d0=2 (NE) — no spawn yet"
         );
 
         // Frame 2: subq.w #1,d0 → d0=1, bne → skip spawn
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
-        assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 1);
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
+        assert_eq!(
+            juggernaut_pending_delays(&rt).first().copied().unwrap_or(0),
+            1
+        );
         assert!(
             rt.projectiles.is_empty(),
             "ASM loc_876A: d0=1 (NE) — no spawn yet"
         );
 
         // Frame 3: subq.w #1,d0 → d0=0, EQ → fall through to spawn
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         assert_eq!(
-            rt.helmet.juggernaut_skull_delay_frames, 0,
+            juggernaut_pending_delays(&rt).first().copied().unwrap_or(0),
+            0,
             "ASM loc_876A: d0=0 — counter exhausted"
         );
         assert_eq!(
@@ -7196,11 +7451,13 @@ mod chunk_06 {
             ..FrameInput::default()
         };
 
-        rt.step_juggernaut_skull(&slice, input);
+        step_juggernaut_callbacks(&mut rt, &slice, input);
+        // ASM sub_86FA Init starts the three waits on the next callback.
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         rt.prior_input = input;
         // Tick through 3 delay frames
         for _ in 0..3 {
-            rt.step_juggernaut_skull(&slice, FrameInput::default());
+            step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         }
 
         assert_eq!(rt.projectiles.len(), 1);
@@ -7216,17 +7473,15 @@ mod chunk_06 {
         );
     }
 
-    // --- loc_87A0: Skull worker post-spawn visual tracking (visual-only) ---
+    // --- loc_87A0: Firing worker survives skull spawn ---
 
     #[test]
     #[expect(non_snake_case)]
     /// ASM loc_87A0 (kid.asm:9614): `move.l $1E(a2),y_pos(a3); tst.b $18(a3);
     /// beq.s loc_876A; jmp Delete_CurrentObject` — after spawning sub_87B0, the
     /// skull worker continues copying Kid y_pos each frame until animation completes.
-    /// This is visual-only (GFX tracking); native does not model the companion GFX
-    /// object. Verify that the native spawn is unaffected by this visual-only phase
-    /// — the projectile exists and the delay counter is fully consumed.
-    fn loc_87A0_post_spawn_visual_tracking_not_modelled() {
+    /// The firing worker retains its Object+Gfx pair independently of the skull.
+    fn loc_87A0_firing_worker_survives_skull_spawn() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Juggernaut;
         let slice = combat_slice();
@@ -7236,22 +7491,25 @@ mod chunk_06 {
         };
 
         // Arm and tick through 3-frame delay
-        rt.step_juggernaut_skull(&slice, input);
+        step_juggernaut_callbacks(&mut rt, &slice, input);
+        // ASM sub_86FA Init starts the three waits on the next callback.
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         rt.prior_input = input;
         for _ in 0..3 {
-            rt.step_juggernaut_skull(&slice, FrameInput::default());
+            step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         }
 
         assert_eq!(rt.projectiles.len(), 1, "projectile spawned after delay");
         assert_eq!(
-            rt.helmet.juggernaut_skull_delay_frames, 0,
-            "ASM loc_87A0: post-spawn visual tracking phase is visual-only; \
-             native delay counter should be 0 after spawn"
+            juggernaut_pending_delays(&rt).first().copied().unwrap_or(0),
+            0,
+            "ASM loc_876A: skull startup ends before firing-effect deletion"
         );
+        assert_eq!(rt.juggernaut_shot_workers.len(), 1);
 
         // A subsequent tick with no C press should not re-arm or create duplicates
         rt.prior_input = FrameInput::default();
-        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         assert_eq!(
             rt.projectiles.len(),
             1,
@@ -7279,10 +7537,12 @@ mod chunk_06 {
             ..FrameInput::default()
         };
 
-        rt.step_juggernaut_skull(&slice, input);
+        step_juggernaut_callbacks(&mut rt, &slice, input);
+        // ASM sub_86FA Init starts the three waits on the next callback.
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         rt.prior_input = input;
         for _ in 0..3 {
-            rt.step_juggernaut_skull(&slice, FrameInput::default());
+            step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         }
 
         assert_eq!(rt.projectiles.len(), 1);
@@ -7313,10 +7573,12 @@ mod chunk_06 {
             ..FrameInput::default()
         };
 
-        rt.step_juggernaut_skull(&slice, input);
+        step_juggernaut_callbacks(&mut rt, &slice, input);
+        // ASM sub_86FA Init starts the three waits on the next callback.
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         rt.prior_input = input;
         for _ in 0..3 {
-            rt.step_juggernaut_skull(&slice, FrameInput::default());
+            step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         }
 
         assert_eq!(rt.projectiles.len(), 1);
@@ -7350,10 +7612,12 @@ mod chunk_06 {
             ..FrameInput::default()
         };
 
-        rt.step_juggernaut_skull(&slice, input);
+        step_juggernaut_callbacks(&mut rt, &slice, input);
+        // ASM sub_86FA Init starts the three waits on the next callback.
+        step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         rt.prior_input = input;
         for _ in 0..3 {
-            rt.step_juggernaut_skull(&slice, FrameInput::default());
+            step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
         }
 
         assert!(
@@ -7380,10 +7644,12 @@ mod chunk_06 {
                 ..FrameInput::default()
             };
 
-            rt.step_juggernaut_skull(&slice, input);
+            step_juggernaut_callbacks(&mut rt, &slice, input);
+            // ASM sub_86FA Init starts the three waits on the next callback.
+            step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
             rt.prior_input = input;
             for _ in 0..3 {
-                rt.step_juggernaut_skull(&slice, FrameInput::default());
+                step_juggernaut_callbacks(&mut rt, &slice, FrameInput::default());
             }
 
             assert_eq!(

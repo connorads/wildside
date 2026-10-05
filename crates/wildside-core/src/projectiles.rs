@@ -4322,6 +4322,13 @@ impl NativeRuntime {
                 p.animation_elapsed_frames = 0;
             }
             let is_juggernaut_skull = Self::is_juggernaut_skull_projectile(p);
+            if is_juggernaut_skull
+                && p.juggernaut_skull_initialised_frame == Some(current_frame_index)
+            {
+                // ASM sub_87B0 starts loc_8810 with Hibernate_Object_1Frame.
+                p.juggernaut_skull_initialised_frame = None;
+                return true;
+            }
             // ASM Process_ShooterObjects/loc_EDFA (kid.asm:19298/19311) has no
             // frame timer: a launched spike object simulates off-screen until it
             // reaches a collidable cell or the level edge

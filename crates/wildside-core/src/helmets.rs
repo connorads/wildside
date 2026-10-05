@@ -6,6 +6,24 @@ use crate::combat::{
 };
 use crate::constants::SINE_TABLE_WORD_402B0;
 
+/// ASM sub_86FA/loc_874C (kid.asm): latches Kid's anchor and facing,
+/// starts stru_8BA2 and its three-frame charge.
+fn initialise_juggernaut_firing_worker(
+    player: PlayerState,
+    order: JuggernautFiringOrder,
+) -> JuggernautShotWorker {
+    JuggernautShotWorker::FiringAnimated {
+        order,
+        skull_delay_frames: JUGGERNAUT_SKULL_STARTUP_FRAMES,
+        // ASM stru_8BA2 lasts 3+2+2+4 ticks. loc_1166 marks done on the
+        // final tick; loc_87A0 observes it on the next object pass.
+        animation_frames_remaining: 11,
+        x_pos: player.x_pos,
+        y_pos: player.y_pos,
+        facing: player.facing,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EyeclopsBeamRenderSetupLocE4B2 {
     pub(crate) beam_counter: u16,
@@ -8496,34 +8514,104 @@ impl NativeRuntime {
     ///   jsr (j_Allocate_ObjectSlot) → loc_7738
     /// `$FFFFFB70` is the live skull count (incremented at kid.asm:9626,
     ///   decremented at kid.asm:9813); native counts `active_skulls` inline.
-    /// `is_animated(a3)` gates on Kid not being mid-animation; native runs
-    ///   this every frame so the gate is implicit (animations don't press C).
+    /// ASM stru_8BD8 keeps Kid animated during the firing-worker lifetime.
     ///
     /// ASM loc_7738 (kid.asm:7810): move.l #sub_86FA,4(a0) / bra.s loc_7772 —
     ///   assigns the allocated object slot to the skull worker (`sub_86FA`).
-    ///   Native models the 3-frame hibernate via `juggernaut_skull_delay_frames`.
-    pub(crate) fn step_juggernaut_skull(&mut self, slice: &OpeningSliceState, input: FrameInput) {
-        if self.progression.current_form != PlayerForm::Juggernaut {
-            self.helmet.juggernaut_skull_delay_frames = 0;
-            self.helmet.juggernaut_skull_pending_delay_frames.clear();
-            return;
-        }
-
-        let mut ready_workers = 0usize;
-        for delay_frames in &mut self.helmet.juggernaut_skull_pending_delay_frames {
-            // ASM loc_876A (kid.asm:9599): `jsr Hibernate_Object_1Frame;
-            // subq.w #1,d0; bne.w loc_879A` — each allocated sub_86FA
-            // object owns and ticks its own 3-frame counter.
-            *delay_frames = delay_frames.saturating_sub(1);
-            if *delay_frames == 0 {
-                ready_workers += 1;
+    ///   Native retains allocation, startup and animation completion separately.
+    /// ASM Execute_Objects loc_E1E (kid.asm): source list priority places
+    /// sub_86FA before or after Kid; sub_87B0 always has priority FFFF.
+    pub(crate) fn step_juggernaut_shot_workers(
+        &mut self,
+        player: PlayerState,
+        callback_order: JuggernautFiringOrder,
+    ) {
+        let mut ready_workers = Vec::new();
+        let mut pending_skull_workers = Vec::new();
+        for worker in &mut self.juggernaut_shot_workers {
+            match worker {
+                JuggernautShotWorker::FiringAllocated { order } => {
+                    if *order != callback_order {
+                        continue;
+                    }
+                    // ASM sub_86FA loads Gfx and starts stru_8BA2 on the
+                    // callback after loc_A87A/loc_7738 allocates the Object.
+                    *worker = initialise_juggernaut_firing_worker(player, *order);
+                }
+                JuggernautShotWorker::FiringAnimated {
+                    order,
+                    skull_delay_frames,
+                    animation_frames_remaining,
+                    x_pos,
+                    y_pos,
+                    facing,
+                } => {
+                    if *order != callback_order {
+                        continue;
+                    }
+                    *animation_frames_remaining -= 1;
+                    if *skull_delay_frames > 0 {
+                        // ASM loc_876A decrements d0 after each hibernate.
+                        *skull_delay_frames -= 1;
+                        if *skull_delay_frames == 0 {
+                            // ASM loc_876A copies the prior firing Gfx anchor
+                            // into $44/$46/$48 before loc_879A updates it.
+                            match order {
+                                JuggernautFiringOrder::BeforeKid => {
+                                    ready_workers.push(PlayerState {
+                                        x_pos: *x_pos,
+                                        y_pos: *y_pos,
+                                        facing: *facing,
+                                        ..player
+                                    });
+                                }
+                                // ASM loc_DE0 inserts equal-priority children
+                                // before the executing FFFF-priority worker.
+                                JuggernautFiringOrder::AfterKid => pending_skull_workers.push(
+                                    JuggernautShotWorker::SkullAllocated {
+                                        x_pos: *x_pos,
+                                        y_pos: *y_pos,
+                                        facing: *facing,
+                                    },
+                                ),
+                            }
+                        }
+                    }
+                    // ASM loc_879A/loc_87A0 follows Kid after allocation.
+                    *x_pos = player.x_pos;
+                    *y_pos = player.y_pos;
+                }
+                JuggernautShotWorker::SkullAllocated {
+                    x_pos,
+                    y_pos,
+                    facing,
+                } => {
+                    if callback_order != JuggernautFiringOrder::AfterKid {
+                        continue;
+                    }
+                    ready_workers.push(PlayerState {
+                        x_pos: *x_pos,
+                        y_pos: *y_pos,
+                        facing: *facing,
+                        ..player
+                    });
+                }
             }
         }
-        self.helmet
-            .juggernaut_skull_pending_delay_frames
-            .retain(|delay_frames| *delay_frames > 0);
-        for _ in 0..ready_workers {
-            let (x_pos, y_pos, x_velocity) = juggernaut_skull_spawn_anchor_sub_87B0(&slice.player);
+        self.juggernaut_shot_workers.retain(|worker| match worker {
+            JuggernautShotWorker::FiringAnimated {
+                animation_frames_remaining: 0,
+                ..
+            } => false,
+            JuggernautShotWorker::SkullAllocated { .. } => {
+                callback_order != JuggernautFiringOrder::AfterKid
+            }
+            JuggernautShotWorker::FiringAllocated { .. }
+            | JuggernautShotWorker::FiringAnimated { .. } => true,
+        });
+        self.juggernaut_shot_workers.extend(pending_skull_workers);
+        for anchor in ready_workers {
+            let (x_pos, y_pos, x_velocity) = juggernaut_skull_spawn_anchor_sub_87B0(&anchor);
             if self
                 .block_grid
                 .as_ref()
@@ -8539,18 +8627,28 @@ impl NativeRuntime {
                 friendly: true,
                 gravity: JUGGERNAUT_SKULL_GRAVITY,
                 reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+                juggernaut_skull_initialised_frame: Some(self.frame_index),
                 ..Default::default()
             });
+        }
+    }
+
+    /// ASM sub_7C1C follows the Kid-projectile Gfx list populated by
+    /// sub_86FA/sub_87B0. Object-only allocations have not joined that list.
+    pub(crate) fn clear_juggernaut_projectile_gfx_workers_sub_7c1c(&mut self) {
+        self.juggernaut_shot_workers
+            .retain(|worker| !matches!(worker, JuggernautShotWorker::FiringAnimated { .. }));
+        self.projectiles
+            .retain(|projectile| !is_juggernaut_skull_projectile(projectile));
+    }
+
+    pub(crate) fn step_juggernaut_skull(&mut self, slice: &OpeningSliceState, input: FrameInput) {
+        if self.progression.current_form != PlayerForm::Juggernaut {
+            return;
         }
 
         let c_pressed = input.c && !self.prior_input.c;
         if !c_pressed {
-            self.helmet.juggernaut_skull_delay_frames = self
-                .helmet
-                .juggernaut_skull_pending_delay_frames
-                .first()
-                .copied()
-                .unwrap_or(0);
             return;
         }
 
@@ -8561,42 +8659,26 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| is_juggernaut_skull_projectile(projectile))
             .count();
-        if active_skulls >= JUGGERNAUT_MAX_SKULLS {
-            self.helmet.juggernaut_skull_delay_frames = self
-                .helmet
-                .juggernaut_skull_pending_delay_frames
-                .first()
-                .copied()
-                .unwrap_or(0);
+        // ASM loc_A87A/loc_7718 blocks C while Kid's shooting mapping is
+        // animated. stru_8BD8 has the same duration as the firing effect.
+        let shooting_animation_active = self
+            .juggernaut_shot_workers
+            .iter()
+            .any(|worker| matches!(worker, JuggernautShotWorker::FiringAnimated { .. }));
+        if active_skulls >= JUGGERNAUT_MAX_SKULLS || shooting_animation_active {
             return;
         }
 
-        // ASM loc_7738 (kid.asm:7810): move.l #sub_86FA,4(a0) — assigns the
-        // skull worker. sub_86FA (kid.asm:9568) hibernates for three frames
-        // while tracking Kid, then spawns `sub_87B0`.
-        //
-        // ASM loc_874C (kid.asm:9591): `move.l $1A(a2),x_pos(a3)` — copies
-        // Kid's position and facing to the skull GFX object each frame during
-        // the 3-frame delay (`moveq #3,d0` at kid.asm:9597). The position
-        // tracking is visual-only; native reads player position at spawn time.
-        // `tst.b ($FFFFFA6C); bne.w loc_874C` at kid.asm:9583 skips companion
-        // GFX init when the companion already exists — also visual-only.
-        //
-        // ASM loc_87A0 (kid.asm:9614): `move.l $1E(a2),y_pos(a3); tst.b $18(a3);
-        // beq.s loc_876A; jmp Delete_CurrentObject` — after spawn, the skull
-        // worker continues copying Kid's y_pos to the skull GFX each frame and
-        // loops (loc_876A) until the GFX animation completes ($18 flag), then
-        // deletes itself. This post-spawn tracking is visual-only; native does
-        // not model the companion GFX object lifecycle.
-        self.helmet
-            .juggernaut_skull_pending_delay_frames
-            .push(JUGGERNAUT_SKULL_STARTUP_FRAMES);
-        self.helmet.juggernaut_skull_delay_frames = self
-            .helmet
-            .juggernaut_skull_pending_delay_frames
-            .first()
-            .copied()
-            .unwrap_or(0);
+        // ASM loc_7718 inserts at FFFF behind Kid; loc_8D2C/loc_A87A
+        // insert at zero before Kid. Init belongs to that callback phase.
+        let order = if slice.player.on_ground && self.current_character_movement(slice.player) == 0
+        {
+            JuggernautFiringOrder::AfterKid
+        } else {
+            JuggernautFiringOrder::BeforeKid
+        };
+        let worker = JuggernautShotWorker::FiringAllocated { order };
+        self.juggernaut_shot_workers.push(worker);
     }
 
     /// Diamond Power: Start+A with 20+ diamonds activates a per-form special.

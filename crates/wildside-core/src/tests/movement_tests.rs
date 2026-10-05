@@ -3142,7 +3142,9 @@ mod chunk_11 {
     fn juggernaut_sub_78e8_preserves_juggernaut_specific_state_loc_7998() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Juggernaut;
-        rt.helmet.juggernaut_skull_delay_frames = 5;
+        rt.juggernaut_shot_workers = vec![JuggernautShotWorker::FiringAllocated {
+            order: JuggernautFiringOrder::BeforeKid,
+        }];
 
         // loc_7998 sets the default sprite and clears is_animated, then falls
         // through to loc_79A2 (companion step). Neither path touches the skull
@@ -3150,7 +3152,10 @@ mod chunk_11 {
         rt.refresh_grounded_helmet_state_sub_78E8();
 
         assert_eq!(
-            rt.helmet.juggernaut_skull_delay_frames, 5,
+            rt.juggernaut_shot_workers,
+            vec![JuggernautShotWorker::FiringAllocated {
+                order: JuggernautFiringOrder::BeforeKid
+            }],
             "ASM loc_7998: Juggernaut default sprite path should not touch skull delay counter",
         );
     }
