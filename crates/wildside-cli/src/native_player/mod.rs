@@ -22410,8 +22410,18 @@ mod tests {
         };
         assert_eq!(
             drips_child_sprite(115, 0x0B9),
+            None,
+            "ASM Mode_Level loc_901 transfers the preceding frame's splash before the loc_33488 pool handover"
+        );
+        assert_eq!(
+            drips_child_sprite(115, 0x0B5),
+            Some((158, 155, 0x0B5)),
+            "ASM loc_33488 retains C7B96 in frame115; its nine-pixel height extends above the bottom anchor164"
+        );
+        assert_eq!(
+            drips_child_sprite(116, 0x0B9),
             Some((158, 162, 0x0B9)),
-            "ASM Drips.asm loc_33488/loc_3350E transfers the new `a2` C7B9E pool which oracle frame 115 places at SAT anchor x=164, y=164"
+            "ASM loc_33488/loc_3350E displays a2 on pass115; Mode_Level loc_901 transfers its C7B9E pool on frame116"
         );
         let render_trace = trace_frame_with_vdp_latch_at_checkpoint(
             &run.trace,

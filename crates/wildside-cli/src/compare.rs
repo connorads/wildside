@@ -1259,6 +1259,30 @@ pub(crate) fn active_enemy_states_from_native_frame(
             .iter()
             .filter_map(enemy_state_from_native_projectile),
     );
+    // ASM Enemy16_Drip_Init gives a2 metadata16; loc_33488 retains its
+    // display independently of the falling child and attached parent.
+    enemies.extend(
+        frame
+            .drips_surface_children_loc_3350e
+            .iter()
+            .map(|pool| OracleEnemyState {
+                object_type: 0x16,
+                x_pos: pool.x_pos,
+                y_pos: pool.y_pos,
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: EnemyFacing::Left,
+                collision_type: None,
+                collision_source: None,
+                layout_index: None,
+                layout_ptr: None,
+                parent_object_ptr: None,
+                gfx_slot_index: None,
+                on_ground: Some(false),
+                current_hp: Some(0),
+                debug_fields: std::collections::BTreeMap::default(),
+            }),
+    );
     sort_enemy_states(&mut enemies);
     enemies
 }
@@ -2534,6 +2558,36 @@ mod tests {
             Some(0),
             "ASM Enemy16_Drip_Init leaves Gfx HP cleared"
         );
+        assert_eq!(enemies[0].layout_index, None);
+    }
+
+    #[test]
+    fn native_enemy_states_include_retained_drips_pool_loc_33488() {
+        let frame = NativeTraceFrame {
+            drips_surface_children_loc_3350e: vec![
+                wildside_core::DripsSurfaceChildSnapshotLoc3350E {
+                    x_pos: 0x0088_0000,
+                    y_pos: 0x02E0_0000,
+                    palette_variant: 0,
+                    mapping: wildside_core::DripsSurfaceChildMappingLoc3350E::C7B9E,
+                },
+            ],
+            ..NativeTraceFrame::default()
+        };
+        let enemies = active_enemy_states_from_native_frame(&frame);
+        assert_eq!(
+            enemies.len(),
+            1,
+            "ASM loc_33488 sets a2 display after splash"
+        );
+        assert_eq!(enemies[0].object_type, 0x16);
+        assert_eq!(
+            (enemies[0].x_pos, enemies[0].y_pos),
+            (0x0088_0000, 0x02E0_0000)
+        );
+        assert_eq!((enemies[0].x_velocity, enemies[0].y_velocity), (0, 0));
+        assert_eq!(enemies[0].facing, EnemyFacing::Left);
+        assert_eq!(enemies[0].current_hp, Some(0));
         assert_eq!(enemies[0].layout_index, None);
     }
 

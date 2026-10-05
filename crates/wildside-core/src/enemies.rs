@@ -2825,15 +2825,9 @@ impl ActiveEnemy {
         if !matches!(self.family, EnemyFamily::Drips) || self.death_animation_active {
             return None;
         }
-        let table_index = if self.wait_timer == DRIPS_SPLASH_RESUME_PENDING_TIMER_LOC_33488 {
-            // ASM loc_33488 resumes after `stru_33332` terminates, copies the
-            // impact into `a2`, and reaches loc_3350E before the next transfer.
-            // Native advances the controller cursor on its following object
-            // pass, so expose the mapping that pass is about to select.
-            self.drips_surface_table_index.saturating_add(1)
-        } else {
-            self.drips_surface_table_index
-        };
+        // ASM loc_33488 displays a2 when the coroutine resumes after the
+        // splash animation, not while its Gfx terminator is being presented.
+        let table_index = self.drips_surface_table_index;
         let mapping = match table_index {
             // ASM off_33520: after loc_33488 consumes an entry, the stored
             // cursor points at the following word while `a2` retains the

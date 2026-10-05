@@ -1944,7 +1944,7 @@ mod tests {
     }
 
     #[test]
-    fn drips_pool_exposes_resume_pending_mapping_loc_33488() {
+    fn drips_pool_retains_mapping_until_splash_resume_loc_33488() {
         let mut enemy = ActiveEnemy {
             family: EnemyFamily::Drips,
             wait_timer: DRIPS_SPLASH_RESUME_PENDING_TIMER_LOC_33488,
@@ -1957,8 +1957,8 @@ mod tests {
             enemy
                 .drips_surface_child_snapshot_loc_3350e()
                 .map(|snapshot| snapshot.mapping),
-            Some(DripsSurfaceChildMappingLoc3350E::C7B9E),
-            "ASM loc_33488/loc_3350E exposes the newly written `a2` mapping for the following transfer"
+            None,
+            "ASM loc_33488 keeps a2 hidden until the splash coroutine resumes"
         );
 
         enemy.drips_surface_table_index = 1;
@@ -1966,10 +1966,15 @@ mod tests {
             enemy
                 .drips_surface_child_snapshot_loc_3350e()
                 .map(|snapshot| snapshot.mapping),
-            Some(DripsSurfaceChildMappingLoc3350E::C7BA6)
+            Some(DripsSurfaceChildMappingLoc3350E::C7B9E)
         );
         enemy.drips_surface_table_index = 2;
-        assert_eq!(enemy.drips_surface_child_snapshot_loc_3350e(), None);
+        assert_eq!(
+            enemy
+                .drips_surface_child_snapshot_loc_3350e()
+                .map(|snapshot| snapshot.mapping),
+            Some(DripsSurfaceChildMappingLoc3350E::C7BA6)
+        );
     }
 
     #[test]

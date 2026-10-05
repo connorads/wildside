@@ -4164,6 +4164,24 @@ impl NativeRuntime {
                 p.drips_drop_waiting_first_wake = false;
                 return true;
             }
+            if p.kind == EnemyProjectileKind::DripsDrop {
+                // ASM loc_33488 hides a1 only when the splash wait resumes.
+                if p.animation_elapsed_frames == 1 {
+                    return false;
+                }
+                if p.collision_type == colid::FLOOR as i16 {
+                    // ASM loc_3345C adds gravity before consuming the prior
+                    // Gfx floor collision; loc_33488 then stops movement,
+                    // adds ten to the integer Y word and displays stru_33332.
+                    p.y_velocity = p.y_velocity.wrapping_add(DRIPS_DROP_GRAVITY);
+                    p.y_pos = p.y_pos.wrapping_add(0x000A_0000);
+                    p.collision_type = 0;
+                    p.animation_elapsed_frames = 1;
+                    pending_projectile_sound_effects
+                        .push(crate::combat::QueuedSoundEffect::DripsDripping);
+                    return true;
+                }
+            }
             // ASM Lion.asm loc_3E192/loc_3E1B4 consumes the preceding
             // Gfx $2C before homing or movement and releases its owner.
             if p.kind == EnemyProjectileKind::LionProjectile && p.collision_type == 0x2C {
@@ -5312,15 +5330,17 @@ impl NativeRuntime {
                     // while `$FFFFFB42 < 5`; loc_335D8 seeds x_vel to
                     // +/-$3000 from `Get_RandomNumber_byte` bit 2.
                     if let Some(owner) = p.owner {
-                        // ASM Drips.asm loc_3345C plays `sfx_Drips_dripping`
-                        // before handing the falling child to loc_33488.
-                        pending_projectile_sound_effects
-                            .push(crate::combat::QueuedSoundEffect::DripsDripping);
-                        let mut drop = *p;
+                        // ASM GfxObjects_Collision writes the floor result
+                        // after Execute_Objects; loc_3345C sees it next wake.
                         if let Some(snapped_y) = drips_drop_floor_contact_y_loc_1a44(g, p) {
-                            drop.y_pos = snapped_y;
+                            p.y_pos = snapped_y;
                         }
-                        pending_drips_splashes.push(PendingDripsSplash { owner, drop });
+                        p.collision_type = colid::FLOOR as i16;
+                        // The controller timer includes this collision pass;
+                        // its existing two-pass bridge resumes loc_33488 at
+                        // the same time as the retained child's splash ends.
+                        pending_drips_splashes.push(PendingDripsSplash { owner, drop: *p });
+                        return true;
                     } else if p.drips_spawn_crawler_on_splash
                         && drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
                     {

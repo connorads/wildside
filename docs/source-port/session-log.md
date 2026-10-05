@@ -1,3 +1,9 @@
+## 2026-10-05 - Drips contact, splash and pool
+
+Saved590 and retention267 match state/enemies/RNG. Visible Drips positions and sprite region match five frames908..912 on a saved-prefix route; other enemies still diverge. Required fast7538/286 reviewed exclusions and full37759 pass; full report equals the parent baseline. Sweep102/105 and all40 fuzz routes remain unchanged. Ledger04 advances585 to EmoRock594, with1/103 confirmed/10 native exits. All110 fixture bytes and180 layouts are restored. Two old cached Level01 controls remain red with unchanged results. #517, firing artwork and flag presentation stay open. System output stays muted; tests use dummy SDL.
+
+The Level48 transfer expectation is re-derived from fresh ROM slots and captures. The existing CLI test pins splash115 and pool116 and passes its frame359 checks. Kid/pool overlap pixels remain a separate visual residual.
+
 ## 2026-10-05 - EmoRock coordinate word stores
 
 ## 2026-10-05 - Drips forming and falling child

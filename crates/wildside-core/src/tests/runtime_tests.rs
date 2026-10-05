@@ -22285,14 +22285,30 @@ mod chunk_09 {
 
         contact.step_projectiles();
 
-        assert!(
-            contact.projectiles.is_empty(),
-            "ASM Drips.asm loc_3345C reports floor `$0C` on the frame the `y+$A` bottom edge enters the solid row"
+        assert_eq!(contact.projectiles.len(), 1);
+        assert_eq!(
+            contact.projectiles[0].collision_type,
+            colid::FLOOR as i16,
+            "ASM GfxObjects_Collision reports floor after Execute_Objects; saved ROM contact585 retains a1"
         );
+        assert!(contact.played_sound_effects.is_empty());
+
+        contact.step_projectiles();
+
+        assert_eq!(contact.projectiles.len(), 1);
+        assert_eq!(contact.projectiles[0].y_pos, 0x0030_0000);
+        assert_eq!(contact.projectiles[0].y_velocity, DRIPS_DROP_GRAVITY);
+        assert_eq!(contact.projectiles[0].animation_elapsed_frames, 1);
         assert_eq!(
             contact.played_sound_effects,
             vec![QueuedSoundEffect::DripsDripping],
-            "ASM Drips.asm loc_3345C plays sfx_Drips_dripping before loc_33488"
+            "ASM loc_3345C consumes prior floor contact and plays sound before loc_33488 splash"
+        );
+
+        contact.step_projectiles();
+        assert!(
+            contact.projectiles.is_empty(),
+            "ASM loc_33488 hides a1 after its splash wait"
         );
     }
 
@@ -23616,6 +23632,66 @@ fn gameplay_regression_drips_child_display_before_first_gravity_loc_33424() {
             Some(phase),
             "ASM Init_Animation and loc_1158/loc_1166 advance stru_33F90 on the initiating pass"
         );
+    }
+}
+
+#[test]
+fn gameplay_regression_drips_floor_contact_and_splash_handoff_loc_33488() {
+    let Some(manifest) = cached_generated_manifest() else {
+        return;
+    };
+    #[derive(serde::Deserialize)]
+    struct Repro {
+        script: Vec<u8>,
+        frame_count: usize,
+        warp_to_level: u8,
+    }
+    let repro: Repro = serde_json::from_str(include_str!(
+        "../../../../tests/data/dynamic-scenarios/issue-517-drips-splash-handoff.json"
+    ))
+    .expect("saved Drips splash handoff route");
+    let trace = ScriptRunner::new(manifest)
+        .warp_to_level(repro.warp_to_level)
+        .settle_recording_warp()
+        .run(&repro.script, repro.frame_count);
+    // ASM loc_3345C consumes the preceding Gfx floor collision on its next
+    // wake, adds gravity, then loc_33488 disables movement and adds ten to Y.
+    for (frame, y, velocity) in [
+        (584, 0x02D3_8000, 0x4E000),
+        (585, 0x02D6_0000, 0x50000),
+        (586, 0x02E0_0000, 0x52000),
+    ] {
+        let drop = trace[frame]
+            .active_projectile_details
+            .iter()
+            .find(|p| p.kind == ActiveProjectileKind::DripsDrop)
+            .expect("ASM loc_33488 retains displayed a1 until splash animation finishes");
+        assert_eq!(drop.x_pos, 0x0088_0000);
+        assert_eq!(
+            drop.y_pos, y,
+            "ASM Gfx floor snap then loc_33488 integer Y addition"
+        );
+        assert_eq!(
+            drop.y_velocity, velocity,
+            "ASM loc_3345C final gravity wake"
+        );
+        assert!(
+            trace[frame].drips_surface_children_loc_3350e.is_empty(),
+            "ASM loc_33488 keeps a2 hidden until Hibernate_UntilAnimFinished resumes"
+        );
+    }
+    for frame in trace.iter().take(590).skip(587) {
+        assert!(
+            !frame
+                .active_projectile_details
+                .iter()
+                .any(|p| p.kind == ActiveProjectileKind::DripsDrop),
+            "ASM loc_33488 clears a1 display after copying into a2"
+        );
+        let pools = &frame.drips_surface_children_loc_3350e;
+        assert_eq!(pools.len(), 1, "ASM loc_3350E retains the pool");
+        assert_eq!((pools[0].x_pos, pools[0].y_pos), (0x0088_0000, 0x02E0_0000));
+        assert_eq!(pools[0].mapping, DripsSurfaceChildMappingLoc3350E::C7B9E);
     }
 }
 

@@ -290,16 +290,23 @@ const fn fire_demon_trail_frame(
 
 fn drips_drop_child_frame(
     visuals: &wildside_render::AnimatedSpriteVisual,
+    animation_elapsed_frames: u16,
 ) -> Option<wildside_render::SpriteFrame> {
     let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    // ASM loc_33424 selects C7B26 while falling; loc_33488 installs
+    // stru_33332's C7B96 for the one-tick splash before a1 is hidden.
+    let (tile_base_index, origin_x, origin_y, width_px, height_px) =
+        if animation_elapsed_frames == 1 {
+            (0x0B5, 0x06, 0, 0x09, 0x09)
+        } else {
+            (0x082, 0x02, 0x09, 0x05, 0x0A)
+        };
     Some(wildside_render::SpriteFrame {
-        // ASM Drips.asm loc_33424 writes `LnkTo_unk_C7B26` to the falling
-        // child. `unk_C7B26` is `sprite_frame_vram $082,$02,$09,$05,$0A`.
-        origin_x: 0x02,
-        origin_y: 0x09,
-        width_px: 0x05,
-        height_px: 0x0A,
-        tile_base_index: 0x082,
+        origin_x,
+        origin_y,
+        width_px,
+        height_px,
+        tile_base_index,
         tile_sheet,
     })
 }
@@ -8733,9 +8740,10 @@ fn build_game_scene_filtered(
                         .get(&DRIPS_OBJECT_TYPE)
                         .and_then(|drips_visuals| {
                             let frame = match projectile.kind {
-                                ActiveProjectileKind::DripsDrop => {
-                                    drips_drop_child_frame(drips_visuals)?
-                                }
+                                ActiveProjectileKind::DripsDrop => drips_drop_child_frame(
+                                    drips_visuals,
+                                    projectile.animation_elapsed_frames,
+                                )?,
                                 ActiveProjectileKind::DripsSurfaceCrawler => {
                                     drips_surface_crawler_frame(
                                         drips_visuals,
@@ -12724,9 +12732,14 @@ mod tests {
         let visuals = sample_animated_visual(sample_sprite_frame(0x5A));
 
         assert_child_frame(
-            drips_drop_child_frame(&visuals),
+            drips_drop_child_frame(&visuals, 0),
             (0x082, 0x02, 0x09, 0x05, 0x0A),
             "ASM Drips.asm loc_33424 falling drop `unk_C7B26`",
+        );
+        assert_child_frame(
+            drips_drop_child_frame(&visuals, 1),
+            (0x0B5, 0x06, 0, 0x09, 0x09),
+            "ASM Drips.asm loc_33488 splash stru_33332 / unk_C7B96",
         );
         assert_child_frame(
             tar_monster_glob_child_frame(&visuals),
